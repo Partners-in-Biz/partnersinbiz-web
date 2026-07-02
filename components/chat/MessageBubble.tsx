@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element -- Conversation attachments use arbitrary Firebase Storage URLs. */
 
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import type { ChatEvent, ChatUiAction, RichMessagePart } from '@/lib/hermes/types'
 import {
   dedupeStructured,
@@ -847,10 +847,10 @@ function richRecord(value: unknown): Record<string, unknown> | null {
     : null
 }
 
-function decisionText(value: unknown): { label: string; required: boolean } | null {
+function decisionText(value: unknown): { label: string; value: string; required: boolean } | null {
   if (typeof value === 'string') {
     const label = value.trim()
-    return label ? { label, required: false } : null
+    return label ? { label, value: label, required: false } : null
   }
   const record = richRecord(value)
   if (!record) return null
@@ -858,7 +858,10 @@ function decisionText(value: unknown): { label: string; required: boolean } | nu
     .find((item): item is string => typeof item === 'string' && item.trim().length > 0)
     ?.trim()
   if (!label) return null
-  return { label, required: record.required === true }
+  const responseValue = typeof record.value === 'string' && record.value.trim().length > 0
+    ? record.value.trim()
+    : label
+  return { label, value: responseValue, required: record.required === true }
 }
 
 function partString(part: RichMessagePart, key: string): string {
@@ -875,13 +878,22 @@ function ApprovalCardSection({ title, children }: { title: string; children: Rea
   )
 }
 
-function ApprovalCard({ part }: { part: RichMessagePart }) {
+function ApprovalCard({
+  part,
+  onQuoteSelection,
+}: {
+  part: RichMessagePart
+  onQuoteSelection?: (text: string) => void
+}) {
   const title = part.title ?? 'CEO approval needed'
+  const decisionGroupName = useId()
+  const [selectedDecisionIndex, setSelectedDecisionIndex] = useState<number | null>(null)
   const body = partContent(part)
   const evidence = richStringList(part.evidence)
   const decisions = Array.isArray(part.decisions)
-    ? part.decisions.map(decisionText).filter((item): item is { label: string; required: boolean } => Boolean(item))
+    ? part.decisions.map(decisionText).filter((item): item is { label: string; value: string; required: boolean } => Boolean(item))
     : []
+  const selectedDecision = selectedDecisionIndex === null ? null : decisions[selectedDecisionIndex] ?? null
   const recommendation = partString(part, 'recommendation')
   const safetyNote = partString(part, 'safetyNote') || partString(part, 'safety_note')
   const replyTemplate = partString(part, 'replyTemplate') || partString(part, 'reply_template')
@@ -928,17 +940,37 @@ function ApprovalCard({ part }: { part: RichMessagePart }) {
 
         {decisions.length > 0 && (
           <ApprovalCardSection title="Decision needed">
-            <ul className="space-y-1">
+            <div role="radiogroup" aria-label={`${title} decision`} className="space-y-1.5">
               {decisions.map((decision, index) => (
-                <li key={`${decision.label}-${index}`} className="flex min-w-0 gap-2">
-                  <span aria-hidden="true" className="material-symbols-outlined mt-0.5 text-[14px] text-primary">radio_button_unchecked</span>
+                <label key={`${decision.label}-${index}`} className="flex min-w-0 cursor-pointer items-start gap-2 rounded-md px-1 py-0.5 transition hover:bg-white/[0.05]">
+                  <input
+                    type="radio"
+                    name={decisionGroupName}
+                    checked={selectedDecisionIndex === index}
+                    onChange={() => setSelectedDecisionIndex(index)}
+                    aria-label={`${decision.label}${decision.required ? ' (required)' : ''}`}
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+                  />
                   <span className="min-w-0 break-words [overflow-wrap:anywhere]">
                     {decision.label}
                     {decision.required ? <span className="ml-1 text-primary">(required)</span> : null}
                   </span>
-                </li>
+                </label>
               ))}
-            </ul>
+              {onQuoteSelection && (
+                <button
+                  type="button"
+                  disabled={!selectedDecision}
+                  onClick={() => {
+                    if (selectedDecision) onQuoteSelection(selectedDecision.value)
+                  }}
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.06] px-2 py-1 text-[11px] font-medium text-on-surface transition hover:border-primary/50 hover:bg-white/[0.09] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <span aria-hidden="true" className="material-symbols-outlined text-[14px]">add_comment</span>
+                  Add selected decision to chat
+                </button>
+              )}
+            </div>
           </ApprovalCardSection>
         )}
 
@@ -952,14 +984,26 @@ function ApprovalCard({ part }: { part: RichMessagePart }) {
           <ApprovalCardSection title="Copy into chat">
             <div className="rounded-md border border-white/10 bg-black/20 p-2">
               <p className="whitespace-pre-wrap break-words text-on-surface-variant [overflow-wrap:anywhere]">{replyTemplate}</p>
-              <button
-                type="button"
-                onClick={() => { void copyToClipboard(replyTemplate) }}
-                className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.06] px-2 py-1 text-[11px] font-medium text-on-surface transition hover:border-primary/50 hover:bg-white/[0.09]"
-              >
-                <span aria-hidden="true" className="material-symbols-outlined text-[14px]">content_copy</span>
-                Copy reply
-              </button>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {onQuoteSelection && (
+                  <button
+                    type="button"
+                    onClick={() => onQuoteSelection(replyTemplate)}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary transition hover:bg-primary/15"
+                  >
+                    <span aria-hidden="true" className="material-symbols-outlined text-[14px]">add_comment</span>
+                    Add reply to chat
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { void copyToClipboard(replyTemplate) }}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.06] px-2 py-1 text-[11px] font-medium text-on-surface transition hover:border-primary/50 hover:bg-white/[0.09]"
+                >
+                  <span aria-hidden="true" className="material-symbols-outlined text-[14px]">content_copy</span>
+                  Copy to clipboard
+                </button>
+              </div>
             </div>
           </ApprovalCardSection>
         )}
@@ -974,7 +1018,13 @@ function ApprovalCard({ part }: { part: RichMessagePart }) {
   )
 }
 
-function RichMessagePartView({ part }: { part: RichMessagePart }) {
+function RichMessagePartView({
+  part,
+  onQuoteSelection,
+}: {
+  part: RichMessagePart
+  onQuoteSelection?: (text: string) => void
+}) {
   const type = String(part.type).toLowerCase()
   if (type === 'markdown') {
     return <ChatMessageContent content={partContent(part)} />
@@ -1105,17 +1155,23 @@ function RichMessagePartView({ part }: { part: RichMessagePart }) {
     )
   }
   if (type === 'approval_card') {
-    return <ApprovalCard part={part} />
+    return <ApprovalCard part={part} onQuoteSelection={onQuoteSelection} />
   }
   return partContent(part) ? <ChatMessageContent content={partContent(part)} /> : null
 }
 
-function RichMessageParts({ parts }: { parts?: RichMessagePart[] }) {
+function RichMessageParts({
+  parts,
+  onQuoteSelection,
+}: {
+  parts?: RichMessagePart[]
+  onQuoteSelection?: (text: string) => void
+}) {
   if (!parts?.length) return null
   return (
     <div className="mt-2 space-y-2 whitespace-normal">
       {parts.map((part, index) => (
-        <RichMessagePartView key={part.id ?? `${part.type}-${index}`} part={part} />
+        <RichMessagePartView key={part.id ?? `${part.type}-${index}`} part={part} onQuoteSelection={onQuoteSelection} />
       ))}
     </div>
   )
@@ -1466,7 +1522,7 @@ export default function MessageBubble({
                 className="max-w-full overflow-hidden rounded-2xl rounded-br-md px-4 py-2.5 text-[15px] lg:text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere] bg-[var(--color-card-active,rgba(255,255,255,0.08))] lg:bg-primary lg:text-on-primary text-on-surface"
               >
               <ChatMessageContent content={renderedMessage.content} />
-              <RichMessageParts parts={renderedMessage.richParts} />
+              <RichMessageParts parts={renderedMessage.richParts} onQuoteSelection={onQuoteSelection} />
               {attachmentList}
               <RichActionBar actions={renderedMessage.uiActions} message={renderedMessage} onUiAction={onUiAction} />
               </div>
@@ -1687,7 +1743,7 @@ export default function MessageBubble({
               <span className="opacity-70 italic">Paused — awaiting tool approval…</span>
             )}
             <ChatMessageContent content={renderedMessage.content || (isFailed && renderedMessage.error) || ''} />
-            <RichMessageParts parts={renderedMessage.richParts} />
+            <RichMessageParts parts={renderedMessage.richParts} onQuoteSelection={onQuoteSelection} />
             {attachmentList}
             <RichActionBar actions={renderedMessage.uiActions} message={renderedMessage} onUiAction={onUiAction} />
           </div>
