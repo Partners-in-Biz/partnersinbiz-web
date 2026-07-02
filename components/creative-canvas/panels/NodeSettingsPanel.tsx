@@ -109,8 +109,9 @@ export default function NodeSettingsPanel(props: NodeSettingsPanelProps) {
   const isVideo = kind === 'video'
   const model = getCanvasModel(values.model)
   // Estimated spend for the whole run: per-generation cost × batch size.
+  // Rounded — raw float math renders as 0.30000000000000004.
   const creditCost = typeof model?.creditCost === 'number'
-    ? model.creditCost * Math.max(1, values.batch)
+    ? Math.round(model.creditCost * Math.max(1, values.batch) * 100) / 100
     : undefined
   const review = node?.review
 

@@ -839,7 +839,12 @@ function toFlowNode(node: CreativeCanvasNode, collaborators: Array<CreativeCanva
       title: node.title,
       prompt: promptValue,
       model: node.provider?.model,
-      assetUrl: node.output?.url ?? node.source?.url ?? previewUrl,
+      // data.assetUrl carries node-owned media with no output/source payload
+      // (screen mockups write there) — surface it too.
+      assetUrl: node.output?.url ?? node.source?.url ?? previewUrl
+        ?? (typeof (node.data as Record<string, unknown> | undefined)?.assetUrl === 'string'
+          ? String((node.data as Record<string, unknown>).assetUrl)
+          : undefined),
       assetKind: node.output?.kind === 'video' ? 'video' : 'image',
       status: node.output?.url ? 'done' : 'idle',
       reviewStatus: node.review?.status,
@@ -3839,13 +3844,26 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         return
       }
       // Drop the transient output nodes the sync generations created and
-      // persist the filled texts in one graph write.
-      try {
-        const refreshResponse = await fetch(`/api/v1/creative-canvas/${canvasId}?orgId=${encodeURIComponent(canvasOrgId)}`)
-        const refreshPayload = await refreshResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
-        const server = refreshPayload?.data?.canvas
-        if (refreshResponse.ok && server?.id) {
-          const transientIds = new Set([...written.keys()].map((nodeId) => `${nodeId}-output`))
+      // persist the filled texts. Retried: a concurrent debounced autosave can
+      // land between our read and write, and the conflict merge resurrects
+      // nodes missing from a stale base snapshot — so re-read and re-clean
+      // until the server graph is actually clean.
+      const transientIds = new Set([...written.keys()].map((nodeId) => `${nodeId}-output`))
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          const refreshResponse = await fetch(`/api/v1/creative-canvas/${canvasId}?orgId=${encodeURIComponent(canvasOrgId)}`)
+          const refreshPayload = await refreshResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
+          const server = refreshPayload?.data?.canvas
+          if (!refreshResponse.ok || !server?.id) break
+          const hasTransient = (server.nodes ?? []).some((node) => transientIds.has(node.id))
+          const missingText = [...written.entries()].some(([nodeId, text]) => {
+            const node = (server.nodes ?? []).find((candidate) => candidate.id === nodeId)
+            return node && (node.data as Record<string, unknown> | undefined)?.text !== text
+          })
+          if (!hasTransient && !missingText) {
+            applyCanvasSnapshot(server)
+            break
+          }
           const mergedNodes = (server.nodes ?? [])
             .filter((node) => !transientIds.has(node.id))
             .map((node) => written.has(node.id)
@@ -3866,8 +3884,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           })
           const savePayload = await saveResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
           if (saveResponse.ok && savePayload?.data?.canvas?.id) applyCanvasSnapshot(savePayload.data.canvas)
-        }
-      } catch { ignoreCanvasBestEffortFailure() }
+          // Loop once more to verify nothing was resurrected by a merge.
+        } catch { ignoreCanvasBestEffortFailure() }
+      }
       setActivityMessage(`Auto-fill complete — ${written.size}/${ordered.length} cards written`)
     } finally {
       setAutoFillBusy(false)
