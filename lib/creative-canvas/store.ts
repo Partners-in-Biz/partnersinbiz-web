@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import {
@@ -192,6 +193,8 @@ function serializeCreativeCanvas(id: string, data: CanvasDoc): CreativeCanvas & 
     updatedBy: String(data.updatedBy ?? ''),
     updatedByType: (data.updatedByType as CreativeCanvas['updatedByType']) ?? 'user',
     deleted: data.deleted === true,
+    ...(typeof data.shareToken === 'string' && data.shareToken ? { shareToken: data.shareToken } : {}),
+    ...(typeof data.shareEnabled === 'boolean' ? { shareEnabled: data.shareEnabled } : {}),
     nodes: Array.isArray(data.nodes) ? data.nodes as CreativeCanvas['nodes'] : [],
     edges: Array.isArray(data.edges) ? data.edges as CreativeCanvas['edges'] : [],
   }
@@ -284,6 +287,45 @@ export async function listCreativeCanvasTemplates(orgId: string): Promise<Array<
     .map((doc: { id: string; data: () => CanvasDoc }) => serializeCreativeCanvasTemplate(doc.id, doc.data()))
     .filter((template) => template.deleted !== true)
     .sort((a, b) => a.title.localeCompare(b.title))
+}
+
+/**
+ * Toggle the public read-only share link. Enabling mints a token once and
+ * reuses it on re-enable (stable URLs); disabling only flips the flag.
+ */
+export async function setCreativeCanvasShareEnabled(
+  id: string,
+  orgId: string,
+  enabled: boolean,
+  actor: CreativeCanvasActor,
+): Promise<CreativeCanvas & { id: string }> {
+  const current = await getCreativeCanvas(id, orgId)
+  if (!current) throw new Error('Creative canvas not found')
+  const shareToken = current.shareToken ?? randomBytes(12).toString('hex')
+  const patch = {
+    shareToken,
+    shareEnabled: enabled,
+    updatedBy: actor.uid,
+    updatedByType: actor.type,
+    updatedAt: FieldValue.serverTimestamp(),
+  }
+  await adminDb.collection(CREATIVE_CANVAS_COLLECTION).doc(id).update(patch)
+  return { ...current, ...patch }
+}
+
+/** Public share lookup: org-independent, only enabled + non-deleted canvases. */
+export async function getCreativeCanvasByShareToken(token: string): Promise<(CreativeCanvas & { id: string }) | null> {
+  const cleanToken = typeof token === 'string' ? token.trim() : ''
+  if (cleanToken.length < 8) return null
+  const snap = await adminDb.collection(CREATIVE_CANVAS_COLLECTION)
+    .where('shareToken', '==', cleanToken)
+    .limit(1)
+    .get()
+  if (snap.empty) return null
+  const doc = snap.docs[0]
+  const canvas = serializeCreativeCanvas(doc.id, doc.data() as CanvasDoc)
+  if (canvas.shareEnabled !== true || canvas.deleted) return null
+  return canvas
 }
 
 export async function getCreativeCanvas(id: string, orgId: string): Promise<(CreativeCanvas & { id: string }) | null> {
