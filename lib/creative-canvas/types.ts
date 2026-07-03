@@ -295,6 +295,8 @@ export interface CreativeCanvasTemplate {
   title: string
   description?: string
   category?: string
+  /** Representative image (a node's output/source thumbnail) for gallery cards. */
+  thumbnailUrl?: string
   sourceCanvasId?: string
   sourceVersion?: number
   nodes: CreativeCanvasNode[]

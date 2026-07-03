@@ -18,6 +18,7 @@ import CanvasTopBar from '@/components/creative-canvas/topbar/CanvasTopBar'
 import { canvasNodeTypes } from '@/components/creative-canvas/nodes/nodeTypes'
 import { isValidConnection, portsForNode, type CanvasNodeType } from '@/components/creative-canvas/nodes/ports'
 import { getCanvasModel } from '@/lib/creative-canvas/model-registry'
+import { getStarterCanvasTemplate } from '@/lib/creative-canvas/starter-templates'
 import CreateMenu from '@/components/creative-canvas/canvas/CreateMenu'
 import NodeEditChat from '@/components/creative-canvas/nodes/NodeEditChat'
 import NodePublishMenu, { type NodePublishPlatform, type NodePublishTarget } from '@/components/creative-canvas/nodes/NodePublishMenu'
@@ -25,6 +26,7 @@ import NodeSettingsPanel from '@/components/creative-canvas/panels/NodeSettingsP
 import type { NodeSettingsValues } from '@/components/creative-canvas/panels/NodeSettingsPanel'
 import VideoSplitDialog from '@/components/creative-canvas/panels/VideoSplitDialog'
 import type { VideoSegment } from '@/components/creative-canvas/panels/VideoSplitDialog'
+import CanvasSpendPanel from '@/components/creative-canvas/panels/CanvasSpendPanel'
 import ReferencePicker, { type ReferenceAsset } from '@/components/creative-canvas/panels/ReferencePicker'
 import CanvasLanding from '@/components/creative-canvas/landing/CanvasLanding'
 import { canvasTheme } from '@/components/creative-canvas/theme/tokens'
@@ -1909,7 +1911,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setEdges(snapshot.edges as Edge[])
   }, [graphHistory])
 
-  const [topBarPanel, setTopBarPanel] = useState<'chat' | 'share' | ''>('')
+  const [topBarPanel, setTopBarPanel] = useState<'chat' | 'share' | 'spend' | ''>('')
   const [createMenu, setCreateMenu] = useState<{ flow: { x: number; y: number }; client: { x: number; y: number } } | null>(null)
   const [showLanding, setShowLanding] = useState(false)
   const [immersiveCanvas, setImmersiveCanvas] = useState(true)
@@ -1946,6 +1948,49 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   useEffect(() => {
     void loadCanvasCredits()
   }, [loadCanvasCredits, activeCanvas?.id])
+
+  // Video preflight for the selected node: how much linked video footage this
+  // run will process, and whether any of it is a full-length (untrimmed) clip
+  // the user could cheaply split first.
+  const selectedNodePreflight = useMemo(() => {
+    if (!selectedFlowNodeId) return null
+    const upstream = edges
+      .filter((edge) => edge.target === selectedFlowNodeId)
+      .map((edge) => nodes.find((node) => node.id === edge.source)?.data?.canvasNode as CreativeCanvasNode | undefined)
+      .filter((node): node is CreativeCanvasNode => Boolean(node))
+    let linkedVideos = 0
+    let trimmedSeconds = 0
+    let hasUntrimmed = false
+    for (const node of upstream) {
+      const isVideo = node.output?.kind === 'video' || node.source?.mimeType?.startsWith('video/')
+      if (!isVideo) continue
+      linkedVideos += 1
+      const trim = (node.data as Record<string, unknown> | undefined)?.trim as { startSeconds?: unknown; endSeconds?: unknown } | undefined
+      const start = typeof trim?.startSeconds === 'number' ? trim.startSeconds : undefined
+      const end = typeof trim?.endSeconds === 'number' ? trim.endSeconds : undefined
+      if (start !== undefined && end !== undefined && end > start) trimmedSeconds += end - start
+      else hasUntrimmed = true
+    }
+    return linkedVideos > 0 ? { linkedVideos, trimmedSeconds, hasUntrimmed } : null
+  }, [edges, nodes, selectedFlowNodeId])
+
+  // Budget pressure derived from the org's metered balance. Warn from 80% of a
+  // configured limit; 'over' once the limit is reached (generation then blocks
+  // client-side to match the API's 402). No limit configured → never blocks.
+  const creditBudget = useMemo(() => {
+    const used = canvasCredits?.used ?? 0
+    const limit = canvasCredits?.limit ?? null
+    if (limit === null || !(limit > 0)) {
+      return { tone: 'normal' as const, atLimit: false, title: undefined as string | undefined }
+    }
+    const ratio = used / limit
+    const remaining = Math.max(0, Math.round((limit - used) * 100) / 100)
+    const tone = ratio >= 1 ? 'over' as const : ratio >= 0.8 ? 'warn' as const : 'normal' as const
+    const title = tone === 'over'
+      ? `Credit limit reached (${Math.round(used * 100) / 100}/${limit}). Generation is paused.`
+      : `${remaining} credits remaining of ${limit}`
+    return { tone, atLimit: ratio >= 1, title }
+  }, [canvasCredits])
 
   const renameActiveCanvas = useCallback(async (nextTitle: string) => {
     if (!activeCanvas?.id) return
@@ -3444,6 +3489,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   }, [activeCanvas?.id, activeCanvas?.orgId, currentGraphSignature, edges, graphHasUnsavedChanges, nodes, resolvedOrgId, saveGraph])
 
   const generateInlineForNode = useCallback(async (nodeId: string) => {
+    // Auto-pause: refuse to dispatch once the org's credit limit is reached.
+    // The API also returns 402, but blocking here saves a round trip and gives
+    // a clear message.
+    if (creditBudget.atLimit) {
+      setActivityMessage('Credit limit reached — generation is paused until the limit is raised')
+      return
+    }
     const target = nodes.find((node) => node.id === nodeId)
     const canvasNode = target?.data?.canvasNode as CreativeCanvasNode | undefined
     if (!canvasNode) {
@@ -3599,7 +3651,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       })
       void loadCanvasCredits()
     }
-  }, [applyCanvasSnapshot, edges, ensurePersistedCanvas, loadCanvasCredits, nodes, runAspectRatio, runDurationSeconds, runGenerateAudio, runModel, runQuality, runResolution, runVariantCount])
+  }, [applyCanvasSnapshot, creditBudget.atLimit, edges, ensurePersistedCanvas, loadCanvasCredits, nodes, runAspectRatio, runDurationSeconds, runGenerateAudio, runModel, runQuality, runResolution, runVariantCount])
 
   const [editChatBusy, setEditChatBusy] = useState(false)
   const [editChatError, setEditChatError] = useState('')
@@ -4549,7 +4601,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       <main className="mx-auto max-w-7xl px-4 py-6">
         <CanvasLanding
           boards={canvases.map((canvas) => ({ id: canvas.id ?? '', title: canvas.title }))}
-          templates={templates.map((template) => ({ id: template.id, title: template.title }))}
+          templates={templates.map((template) => ({ id: template.id, title: template.title, description: template.description, thumbnailUrl: template.thumbnailUrl }))}
           onCreate={() => { void createBlankCanvas() }}
           onRenameBoard={(id, nextTitle) => { void renameCanvasById(id, nextTitle) }}
           onDeleteBoard={(id) => { void deleteCanvasById(id) }}
@@ -4561,11 +4613,15 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             }
           }}
           onUseTemplate={(id) => {
-            const template = templates.find((item) => item.id === id)
+            // Starter templates ship in-repo and are namespaced `starter-…`;
+            // saved templates come from the org's `templates` state.
+            const template = id.startsWith('starter-')
+              ? getStarterCanvasTemplate(id)
+              : templates.find((item) => item.id === id)
             setShowLanding(false)
             void (async () => {
               await createBlankCanvas()
-              if (template) applySavedTemplate(template)
+              if (template) applySavedTemplate(template as CreativeCanvasTemplate & { id: string })
             })()
           }}
         />
@@ -4600,6 +4656,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           : canvasCredits
             ? `${roundCredits(canvasCredits.used)}${canvasCredits.limit != null ? `/${roundCredits(canvasCredits.limit)}` : ' used'}`
             : undefined}
+        creditsTone={creditBudget.tone}
+        creditsTitle={creditBudget.title}
+        onOpenSpend={() => setTopBarPanel('spend')}
       />
 
       {splitVideoNodeId ? (() => {
@@ -4624,10 +4683,24 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           onClick={() => setTopBarPanel('')}
         >
           <div
-            className="w-full max-w-md rounded-xl p-5 shadow-xl"
+            className={`w-full ${topBarPanel === 'spend' ? 'max-w-lg' : 'max-w-md'} max-h-[85vh] overflow-y-auto rounded-xl p-5 shadow-xl`}
             style={{ background: canvasTheme.surface, border: `1px solid ${canvasTheme.border}`, color: canvasTheme.text }}
             onClick={(event) => event.stopPropagation()}
           >
+            {topBarPanel === 'spend' ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold" style={{ color: canvasTheme.text }}>Spend breakdown</h2>
+                  <button type="button" aria-label="Close spend breakdown" data-tip="Close" onClick={() => setTopBarPanel('')} style={{ background: 'transparent', border: 'none', color: canvasTheme.textMuted, cursor: 'pointer', fontSize: 18 }}>×</button>
+                </div>
+                <CanvasSpendPanel
+                  runs={runHistory}
+                  nodes={activeCanvas?.nodes ?? nodes.map((node) => toCanvasNode(node, resolvedOrgId || activeCanvas?.orgId || ''))}
+                  used={canvasCredits?.used}
+                  limit={canvasCredits?.limit}
+                />
+              </div>
+            ) : null}
             {topBarPanel === 'share' ? (
               <div className="space-y-3">
                 <h2 className="text-lg font-semibold" style={{ color: canvasTheme.text }}>Share canvas</h2>
@@ -5262,6 +5335,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   if (selectedNodeId) updateNodeGenerationSettings(selectedNodeId, patch)
                 }}
                 generating={Boolean(selectedNodeId && generatingNodeIds.has(selectedNodeId))}
+                preflight={selectedNodePreflight}
                 onGenerate={() => { if (selectedNodeId) void generateInlineForNode(selectedNodeId) }}
                 onClose={() => setSettingsCollapsed(true)}
               />

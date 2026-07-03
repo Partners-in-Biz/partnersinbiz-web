@@ -121,6 +121,43 @@ describe('creative canvas store', () => {
     expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-1')
   })
 
+  it('derives a template thumbnail from the first node with an image url', async () => {
+    mockAdd.mockResolvedValue({ id: 'template-thumb' })
+    await createCreativeCanvasTemplate({
+      title: 'Thumb flow',
+      nodes: [
+        { id: 'prompt-1', type: 'prompt', title: 'Brief', position: { x: 0, y: 0 }, data: {} },
+        { id: 'out-1', type: 'output', title: 'Render', position: { x: 260, y: 0 }, data: {}, output: { kind: 'image', url: 'https://cdn.example.com/hero.png' } },
+      ],
+      edges: [{ id: 'edge-1', sourceNodeId: 'prompt-1', targetNodeId: 'out-1' }],
+    }, 'org-1', ACTOR)
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      thumbnailUrl: 'https://cdn.example.com/hero.png',
+    }))
+  })
+
+  it('prefers an explicit https thumbnail and omits the field when none is usable', async () => {
+    mockAdd.mockClear()
+    mockAdd.mockResolvedValue({ id: 'template-explicit' })
+    await createCreativeCanvasTemplate({
+      title: 'Explicit thumb',
+      thumbnailUrl: 'https://cdn.example.com/chosen.png',
+      nodes: [{ id: 'out-1', type: 'output', title: 'Render', position: { x: 0, y: 0 }, data: {}, output: { kind: 'image', url: 'https://cdn.example.com/other.png' } }],
+      edges: [],
+    }, 'org-1', ACTOR)
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({ thumbnailUrl: 'https://cdn.example.com/chosen.png' }))
+
+    mockAdd.mockClear()
+    mockAdd.mockResolvedValue({ id: 'template-nothumb' })
+    await createCreativeCanvasTemplate({
+      title: 'No thumb',
+      nodes: [{ id: 'prompt-1', type: 'prompt', title: 'Brief', position: { x: 0, y: 0 }, data: {} }],
+      edges: [],
+    }, 'org-1', ACTOR)
+    const payload = mockAdd.mock.calls.at(-1)?.[0] as Record<string, unknown>
+    expect(payload).not.toHaveProperty('thumbnailUrl')
+  })
+
   it('returns null for missing or cross-org canvases', async () => {
     mockDocGet.mockResolvedValueOnce({ exists: false })
     await expect(getCreativeCanvas('canvas-1', 'org-1')).resolves.toBeNull()

@@ -20,6 +20,15 @@ export interface NodeSettingsValues {
   batch: number
 }
 
+export interface VideoPreflight {
+  /** Number of linked video sources this run will process. */
+  linkedVideos: number
+  /** Seconds of footage from trimmed segments (known windows only). */
+  trimmedSeconds: number
+  /** True when at least one linked video has no trim window (full-length). */
+  hasUntrimmed: boolean
+}
+
 export interface NodeSettingsPanelProps {
   open: boolean
   node: CreativeCanvasNode | null
@@ -28,6 +37,7 @@ export interface NodeSettingsPanelProps {
   prompt: string
   generating: boolean
   canGenerate: boolean
+  preflight?: VideoPreflight | null
   onPromptChange: (value: string) => void
   onModelSelect: (modelId: string) => void
   onChange: (patch: Partial<NodeSettingsValues>) => void
@@ -99,7 +109,7 @@ function Segmented<T extends string | number>({ options, value, onChange }: { op
 /** Slide-in node settings. Configure is the default; the
  *  enterprise layer (Review / Provenance / Export) is tucked into tabs. */
 export default function NodeSettingsPanel(props: NodeSettingsPanelProps) {
-  const { open, node, presentationType, values, prompt, generating, canGenerate, onPromptChange, onModelSelect, onChange, onGenerate, onClose, onExport } = props
+  const { open, node, presentationType, values, prompt, generating, canGenerate, preflight, onPromptChange, onModelSelect, onChange, onGenerate, onClose, onExport } = props
   const [tab, setTab] = useState<Tab>('configure')
   const [modelPickerOpen, setModelPickerOpen] = useState(false)
   const nodeOutputKind = (node?.data as Record<string, unknown> | undefined)?.outputKind
@@ -253,6 +263,21 @@ export default function NodeSettingsPanel(props: NodeSettingsPanelProps) {
                 <button type="button" aria-label="Increase batch" data-tip="More variants per run" onClick={() => onChange({ batch: Math.min(4, values.batch + 1) })} style={stepBtn}>+</button>
               </div>
             </div>
+
+            {preflight && preflight.linkedVideos > 0 ? (
+              <div style={{ marginTop: 12, borderRadius: 9, border: `1px solid ${preflight.hasUntrimmed ? '#ffb547' : canvasTheme.border}`, background: preflight.hasUntrimmed ? '#ffb5471a' : canvasTheme.bg, padding: '8px 10px' }}>
+                <p style={{ fontSize: 12, fontWeight: 600, color: preflight.hasUntrimmed ? '#ffb547' : canvasTheme.textMuted }}>
+                  {preflight.hasUntrimmed
+                    ? '⚠ Full-length video linked'
+                    : `Processing ~${Math.round(preflight.trimmedSeconds * 10) / 10}s of footage`}
+                </p>
+                {preflight.hasUntrimmed ? (
+                  <p style={{ fontSize: 11, color: canvasTheme.textMuted, marginTop: 2 }}>
+                    Providers charge for every second they analyze. Use ✂ Split on the video to work from a short segment and cut the cost.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
 
             <button
               type="button"

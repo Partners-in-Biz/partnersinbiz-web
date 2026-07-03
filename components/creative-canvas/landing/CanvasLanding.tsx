@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { canvasTheme } from '@/components/creative-canvas/theme/tokens'
+import { starterCanvasTemplates } from '@/lib/creative-canvas/starter-templates'
 
 export interface CanvasBoardSummary {
   id: string
@@ -269,44 +270,146 @@ export default function CanvasLanding({
           </>
         )}
 
-        {tab === 'templates' &&
-          templates.map((template) => (
-            <button
-              key={template.id}
-              type="button"
-              onClick={() => onUseTemplate(template.id)}
-              style={{
-                appearance: 'none',
-                cursor: 'pointer',
-                textAlign: 'left',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px',
-                padding: '12px',
-                borderRadius: canvasTheme.radius,
-                border: `1px solid ${canvasTheme.border}`,
-                background: canvasTheme.surface,
-                color: canvasTheme.text,
-                boxShadow: canvasTheme.nodeShadow,
-              }}
-            >
-              {template.thumbnailUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={template.thumbnailUrl} alt="" style={thumbStyle} />
-              ) : (
-                <div style={placeholderStyle} aria-hidden="true" />
-              )}
-              <div>
-                <div style={{ fontSize: '15px', fontWeight: 600 }}>{template.title}</div>
-                {template.description && (
-                  <div style={{ fontSize: '13px', color: canvasTheme.textMuted, marginTop: '2px' }}>
-                    {template.description}
-                  </div>
-                )}
+        {tab === 'templates' && (
+          <div style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+            <section>
+              <p
+                style={{
+                  margin: '0 0 12px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  letterSpacing: '0.02em',
+                  textTransform: 'uppercase',
+                  color: canvasTheme.textMuted,
+                }}
+              >
+                Starter templates
+              </p>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+                  gap: '20px',
+                }}
+              >
+                {starterCanvasTemplates.map((template) => (
+                  <TemplateCard
+                    key={template.id}
+                    id={template.id ?? ''}
+                    title={template.title}
+                    description={template.description}
+                    isStarter
+                    onUseTemplate={onUseTemplate}
+                  />
+                ))}
               </div>
-            </button>
-          ))}
+            </section>
+
+            {templates.length > 0 && (
+              <section>
+                <p
+                  style={{
+                    margin: '0 0 12px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    letterSpacing: '0.02em',
+                    textTransform: 'uppercase',
+                    color: canvasTheme.textMuted,
+                  }}
+                >
+                  Your templates
+                </p>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+                    gap: '20px',
+                  }}
+                >
+                  {templates.map((template) => (
+                    <TemplateCard
+                      key={template.id}
+                      id={template.id}
+                      title={template.title}
+                      description={template.description}
+                      thumbnailUrl={template.thumbnailUrl}
+                      onUseTemplate={onUseTemplate}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        )}
       </div>
     </div>
+  )
+}
+
+interface TemplateCardProps {
+  id: string
+  title: string
+  description?: string
+  thumbnailUrl?: string
+  isStarter?: boolean
+  onUseTemplate: (id: string) => void
+}
+
+function TemplateCard({ id, title, description, thumbnailUrl, isStarter, onUseTemplate }: TemplateCardProps) {
+  return (
+    <button
+      type="button"
+      onClick={() => onUseTemplate(id)}
+      style={{
+        appearance: 'none',
+        cursor: 'pointer',
+        textAlign: 'left',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px',
+        padding: '12px',
+        position: 'relative',
+        borderRadius: canvasTheme.radius,
+        border: `1px solid ${canvasTheme.border}`,
+        background: canvasTheme.surface,
+        color: canvasTheme.text,
+        boxShadow: canvasTheme.nodeShadow,
+      }}
+    >
+      {isStarter && (
+        <span
+          style={{
+            position: 'absolute',
+            top: '10px',
+            left: '10px',
+            padding: '3px 8px',
+            borderRadius: '999px',
+            fontSize: '11px',
+            fontWeight: 700,
+            letterSpacing: '0.02em',
+            textTransform: 'uppercase',
+            background: canvasTheme.accent,
+            color: canvasTheme.accentText,
+            zIndex: 1,
+          }}
+        >
+          Starter
+        </span>
+      )}
+      {thumbnailUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={thumbnailUrl} alt="" style={thumbStyle} />
+      ) : (
+        <div style={placeholderStyle} aria-hidden="true" />
+      )}
+      <div>
+        <div style={{ fontSize: '15px', fontWeight: 600 }}>{title}</div>
+        {description && (
+          <div style={{ fontSize: '13px', color: canvasTheme.textMuted, marginTop: '2px' }}>
+            {description}
+          </div>
+        )}
+      </div>
+    </button>
   )
 }

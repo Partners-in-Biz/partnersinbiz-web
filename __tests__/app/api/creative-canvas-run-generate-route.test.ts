@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 const mockGetCreativeCanvas = jest.fn()
 const mockCreateCreativeCanvasRun = jest.fn()
 const mockCompleteCreativeCanvasRun = jest.fn()
+const mockAppendCreativeCanvasRunOutputNode = jest.fn()
 const mockGenerateInline = jest.fn()
 const mockBuildCreativeCanvasAgentTask = jest.fn()
 
@@ -18,6 +19,7 @@ jest.mock('@/lib/creative-canvas/store', () => ({
 jest.mock('@/lib/creative-canvas/runs', () => ({
   createCreativeCanvasRun: mockCreateCreativeCanvasRun,
   completeCreativeCanvasRun: mockCompleteCreativeCanvasRun,
+  appendCreativeCanvasRunOutputNode: mockAppendCreativeCanvasRunOutputNode,
 }))
 
 jest.mock('@/lib/creative-canvas/agent-bridge', () => ({
@@ -253,6 +255,160 @@ describe('creative canvas run generate API', () => {
     expect(mockGenerateInline).not.toHaveBeenCalled()
     expect(res.status).toBe(404)
     expect(body).toMatchObject({ success: false, error: 'Creative canvas not found' })
+  })
+
+  it('generates 3 output nodes for a batch of 3 sync variants, edged from the generator node, charging credits per variant', async () => {
+    const { POST } = await import('@/app/api/v1/creative-canvas/[id]/runs/generate/route')
+    const credits = await import('@/lib/creative-canvas/credits')
+    mockGetCreativeCanvas.mockResolvedValue(CANVAS)
+    mockCreateCreativeCanvasRun.mockResolvedValue({
+      id: 'run-1',
+      orgId: 'org-1',
+      canvasId: 'canvas-1',
+      nodeId: 'source-1',
+      providerKey: 'xai',
+      model: 'grok-image',
+      status: 'queued',
+      input: { promptSummary: 'A neon product shot', sourceNodeIds: ['source-1'], sourceArtifactIds: [], variantCount: 3 },
+      provenance: { generatedBy: 'agent', agentId: 'maya', promptStored: 'summary', syntheticMedia: true },
+    })
+    mockGenerateInline
+      .mockResolvedValueOnce({ url: 'https://cdn.example.com/out-1.png', mimeType: 'image/png' })
+      .mockResolvedValueOnce({ url: 'https://cdn.example.com/out-2.png', mimeType: 'image/png' })
+      .mockResolvedValueOnce({ url: 'https://cdn.example.com/out-3.png', mimeType: 'image/png' })
+    mockCompleteCreativeCanvasRun.mockResolvedValue({
+      run: {
+        id: 'run-1',
+        nodeId: 'source-1',
+        status: 'completed',
+        providerKey: 'xai',
+        output: { outputNodeId: 'source-1-output', url: 'https://cdn.example.com/out-1.png' },
+      },
+      outputNode: { id: 'source-1-output', type: 'output', output: { kind: 'image', url: 'https://cdn.example.com/out-1.png' } },
+    })
+    mockAppendCreativeCanvasRunOutputNode
+      .mockResolvedValueOnce({ id: 'source-1-output-2', type: 'output', output: { kind: 'image', url: 'https://cdn.example.com/out-2.png' } })
+      .mockResolvedValueOnce({ id: 'source-1-output-3', type: 'output', output: { kind: 'image', url: 'https://cdn.example.com/out-3.png' } })
+
+    const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/runs/generate?orgId=org-1', {
+      method: 'POST',
+      body: JSON.stringify({
+        nodeId: 'source-1',
+        model: 'grok-image',
+        prompt: 'A neon product shot',
+        aspectRatio: '1:1',
+        batch: 3,
+      }),
+    }), { params: Promise.resolve({ id: 'canvas-1' }) })
+    const body = await res.json()
+
+    expect(mockGenerateInline).toHaveBeenCalledTimes(3)
+    expect(mockAppendCreativeCanvasRunOutputNode).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ id: 'run-1' }),
+      'org-1',
+      expect.objectContaining({ url: 'https://cdn.example.com/out-2.png' }),
+      { uid: 'agent:maya', type: 'agent' },
+      'source-1-output-2',
+      1,
+    )
+    expect(mockAppendCreativeCanvasRunOutputNode).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ id: 'run-1' }),
+      'org-1',
+      expect.objectContaining({ url: 'https://cdn.example.com/out-3.png' }),
+      { uid: 'agent:maya', type: 'agent' },
+      'source-1-output-3',
+      2,
+    )
+    // Credits: creditCost (2) * 3 actual variants generated.
+    expect(credits.recordCanvasCreditUsage).toHaveBeenCalledWith(
+      'org-1',
+      6,
+      expect.objectContaining({ runId: 'run-1', model: 'grok-image' }),
+    )
+    expect(body).toMatchObject({
+      success: true,
+      data: {
+        run: { id: 'run-1', status: 'completed' },
+        node: { id: 'source-1-output' },
+        nodes: [
+          { id: 'source-1-output' },
+          { id: 'source-1-output-2' },
+          { id: 'source-1-output-3' },
+        ],
+        pending: false,
+      },
+    })
+  })
+
+  it('keeps successful variants and completes the run when a later batch variant fails', async () => {
+    const { POST } = await import('@/app/api/v1/creative-canvas/[id]/runs/generate/route')
+    const credits = await import('@/lib/creative-canvas/credits')
+    mockGetCreativeCanvas.mockResolvedValue(CANVAS)
+    mockCreateCreativeCanvasRun.mockResolvedValue({
+      id: 'run-1',
+      orgId: 'org-1',
+      canvasId: 'canvas-1',
+      nodeId: 'source-1',
+      providerKey: 'xai',
+      model: 'grok-image',
+      status: 'queued',
+      input: { promptSummary: 'A neon product shot', sourceNodeIds: ['source-1'], sourceArtifactIds: [], variantCount: 3 },
+      provenance: { generatedBy: 'agent', agentId: 'maya', promptStored: 'summary', syntheticMedia: true },
+    })
+    mockGenerateInline
+      .mockResolvedValueOnce({ url: 'https://cdn.example.com/out-1.png', mimeType: 'image/png' })
+      .mockResolvedValueOnce({ url: 'https://cdn.example.com/out-2.png', mimeType: 'image/png' })
+      .mockRejectedValueOnce(new Error('provider blew up'))
+    mockCompleteCreativeCanvasRun.mockResolvedValue({
+      run: {
+        id: 'run-1',
+        nodeId: 'source-1',
+        status: 'completed',
+        providerKey: 'xai',
+        output: { outputNodeId: 'source-1-output', url: 'https://cdn.example.com/out-1.png' },
+      },
+      outputNode: { id: 'source-1-output', type: 'output', output: { kind: 'image', url: 'https://cdn.example.com/out-1.png' } },
+    })
+    mockAppendCreativeCanvasRunOutputNode.mockResolvedValueOnce({
+      id: 'source-1-output-2',
+      type: 'output',
+      output: { kind: 'image', url: 'https://cdn.example.com/out-2.png' },
+    })
+
+    const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/runs/generate?orgId=org-1', {
+      method: 'POST',
+      body: JSON.stringify({
+        nodeId: 'source-1',
+        model: 'grok-image',
+        prompt: 'A neon product shot',
+        aspectRatio: '1:1',
+        batch: 3,
+      }),
+    }), { params: Promise.resolve({ id: 'canvas-1' }) })
+    const body = await res.json()
+
+    expect(mockGenerateInline).toHaveBeenCalledTimes(3)
+    expect(mockAppendCreativeCanvasRunOutputNode).toHaveBeenCalledTimes(1)
+    // Only the 2 successful variants are charged, not the 3rd that failed.
+    expect(credits.recordCanvasCreditUsage).toHaveBeenCalledWith(
+      'org-1',
+      4,
+      expect.objectContaining({ runId: 'run-1', model: 'grok-image' }),
+    )
+    expect(res.status).toBe(200)
+    expect(body).toMatchObject({
+      success: true,
+      data: {
+        run: { id: 'run-1', status: 'completed' },
+        nodes: [
+          { id: 'source-1-output' },
+          { id: 'source-1-output-2' },
+        ],
+        pending: false,
+      },
+    })
   })
 
   it('blocks generation with 402 when the org is over its credit limit', async () => {

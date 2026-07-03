@@ -3,6 +3,7 @@
 import { Handle, Position } from '@xyflow/react'
 import { canvasTheme } from '@/components/creative-canvas/theme/tokens'
 import { portsForNode, type CanvasNodeType } from '@/components/creative-canvas/nodes/ports'
+import { getCanvasModel } from '@/lib/creative-canvas/model-registry'
 
 export type CanvasNodeStatus = 'idle' | 'queued' | 'running' | 'done' | 'error'
 
@@ -229,7 +230,7 @@ export function GeneratorNodeCard(props: GeneratorNodeCardProps) {
                 cursor: 'pointer',
               }}
             >
-              {model ?? 'Select model'}
+              {(model ? getCanvasModel(model)?.label : undefined) ?? model ?? 'Select model'}
             </button>
             <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <button

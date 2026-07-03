@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import CanvasLanding from '@/components/creative-canvas/landing/CanvasLanding'
+import { starterCanvasTemplates } from '@/lib/creative-canvas/starter-templates'
 
 const boards = [{ id: 'b1', title: 'My First Board', updatedLabel: 'Edited 2h ago' }]
 const templates = [{ id: 't1', title: 'Product Photoshoot', description: 'Studio-grade shots' }]
@@ -88,4 +89,51 @@ test('board delete action asks for confirmation first', () => {
   fireEvent.click(deleteButton)
   expect(onDeleteBoard).toHaveBeenCalledWith('b1')
   confirmSpy.mockRestore()
+})
+
+test('Templates tab: starter templates render above saved templates and are clickable', () => {
+  const onUseTemplate = jest.fn()
+  render(
+    <CanvasLanding
+      boards={boards}
+      templates={templates}
+      onCreate={jest.fn()}
+      onOpenBoard={jest.fn()}
+      onUseTemplate={onUseTemplate}
+    />
+  )
+
+  fireEvent.click(screen.getByRole('button', { name: 'Templates' }))
+
+  expect(screen.getByText('Starter templates')).toBeInTheDocument()
+  expect(screen.getByText('Your templates')).toBeInTheDocument()
+
+  // Every starter template renders a card with a "Starter" badge.
+  for (const starter of starterCanvasTemplates) {
+    expect(screen.getByText(starter.title)).toBeInTheDocument()
+  }
+  const starterBadges = screen.getAllByText('Starter')
+  expect(starterBadges.length).toBe(starterCanvasTemplates.length)
+
+  const firstStarter = starterCanvasTemplates[0]
+  fireEvent.click(screen.getByText(firstStarter.title))
+  expect(onUseTemplate).toHaveBeenCalledWith(firstStarter.id)
+})
+
+test('Templates tab: starter templates still render when there are no saved templates', () => {
+  render(
+    <CanvasLanding
+      boards={boards}
+      templates={[]}
+      onCreate={jest.fn()}
+      onOpenBoard={jest.fn()}
+      onUseTemplate={jest.fn()}
+    />
+  )
+
+  fireEvent.click(screen.getByRole('button', { name: 'Templates' }))
+
+  expect(screen.getByText('Starter templates')).toBeInTheDocument()
+  expect(screen.queryByText('Your templates')).not.toBeInTheDocument()
+  expect(screen.getByText(starterCanvasTemplates[0].title)).toBeInTheDocument()
 })

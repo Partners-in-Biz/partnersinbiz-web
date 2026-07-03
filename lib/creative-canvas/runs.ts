@@ -494,6 +494,8 @@ function buildOutputNode(input: {
   canvas: CreativeCanvas & { id: string }
   outputNodeId: string
   output: Record<string, unknown>
+  /** Offset index for additional batch-variant output nodes (0 = primary). */
+  variantIndex?: number
 }): CreativeCanvasNode {
   const sourceNode = input.canvas.nodes.find((node) => node.id === input.run.nodeId)
   const artifactId = cleanString(input.output.artifactId)
@@ -502,6 +504,7 @@ function buildOutputNode(input: {
   const storagePath = cleanString(input.output.storagePath)
   const textPreview = cleanString(input.output.textPreview)
   const now = new Date()
+  const variantIndex = input.variantIndex ?? 0
   return {
     id: input.outputNodeId,
     canvasId: input.canvas.id,
@@ -509,8 +512,8 @@ function buildOutputNode(input: {
     type: 'output',
     title: cleanString(input.output.title) ?? `${input.run.providerKey} output`,
     position: {
-      x: (sourceNode?.position.x ?? 0) + 320,
-      y: sourceNode?.position.y ?? 0,
+      x: (sourceNode?.position.x ?? 0) + 320 + variantIndex * 40,
+      y: (sourceNode?.position.y ?? 0) + variantIndex * 60,
     },
     data: {
       sourceRunId: input.run.id,
@@ -712,6 +715,42 @@ export async function completeCreativeCanvasRun(
   if (!runSnap.exists) throw new Error('Creative canvas run not found')
   const run = serializeRun(runSnap.id ?? runId, runSnap.data() as CreativeCanvasRun)
   return completeLoadedCreativeCanvasRun(run, orgId, input, actor)
+}
+
+/**
+ * Attach an ADDITIONAL output node for a batch-variant generation, without
+ * touching the run document's primary `output` field (which must keep
+ * pointing at the first/primary output node created by
+ * completeCreativeCanvasRun). Used by the sync generate route when
+ * variantCount > 1 produces more than one inline result for the same run.
+ */
+export async function appendCreativeCanvasRunOutputNode(
+  run: CreativeCanvasRun & { id: string },
+  orgId: string,
+  output: Record<string, unknown>,
+  actor: CreativeCanvasActor,
+  outputNodeId: string,
+  variantIndex: number,
+): Promise<CreativeCanvasNode> {
+  if (run.orgId !== orgId) throw new Error('Creative canvas run does not belong to organisation')
+
+  const canvas = await getCreativeCanvas(run.canvasId, orgId)
+  if (!canvas) throw new Error('Creative canvas not found')
+
+  const outputNode = buildOutputNode({ run, canvas, outputNodeId, output, variantIndex })
+
+  const nextNodes = upsertOutputNode(canvas, outputNode)
+  const nextEdges = upsertOutputEdge(canvas, run, outputNodeId)
+  await adminDb.collection(CREATIVE_CANVAS_COLLECTION).doc(canvas.id).update({
+    nodes: nextNodes,
+    edges: nextEdges,
+    activeVersion: canvas.activeVersion + 1,
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedBy: actor.uid,
+    updatedByType: actor.type,
+  })
+
+  return outputNode
 }
 
 export async function ensureCreativeCanvasRunOutputNode(
