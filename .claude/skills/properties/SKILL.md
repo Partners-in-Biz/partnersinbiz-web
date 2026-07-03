@@ -404,7 +404,7 @@ with `hasCredentials: boolean`.
 | `play_console` | `service_account` | Daily installs, uninstalls, IAP/subscription revenue, ratings |
 | `google_ads` | `oauth2` | Spend, clicks, impressions, conversions |
 | `ga4` | `oauth2` | Sessions, users, pageviews, engagement |
-| `firebase_analytics` | `oauth2` | Firebase Analytics events (BigQuery-backed) |
+| `firebase_analytics` | `oauth2` | Firebase app analytics via the GA4 Data API (activeUsers, newUsers, screenPageViews, sessions). Thin GA4 alias — uses the Firebase-linked GA4 property (`firebaseAnalyticsPropertyId` in property config, falls back to `ga4PropertyId`). |
 
 ---
 
@@ -575,6 +575,30 @@ Response:
 ```
 
 Returns 404 if the provider is not connected.
+
+---
+
+### `POST /api/v1/properties/:id/connections/:provider/backfill` — auth: admin
+
+Backfill the last **90 days** of metrics for a connected provider in one call
+(yesterday back to day-90, single ranged pull — GA4/AdMob/RevenueCat all accept
+native date ranges). Idempotent: metrics upsert on deterministic doc ids, so
+re-running overwrites instead of duplicating. Also exposed as the
+"Backfill 90 days" button on the admin property connections page.
+
+Response:
+```json
+{
+  "ok": true,
+  "from": "2026-04-03",
+  "to": "2026-07-01",
+  "metricsWritten": 1080,
+  "notes": ["Pulled 90 days"]
+}
+```
+
+Returns 404 if the provider is not connected, 501 if it has no pull adapter,
+502 with `lastError` recorded when the provider call fails.
 
 ---
 
