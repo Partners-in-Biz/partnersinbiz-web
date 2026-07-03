@@ -3528,10 +3528,22 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       .filter((edge) => edge.target === nodeId)
       .map((edge) => nodes.find((candidate) => candidate.id === edge.source)?.data?.canvasNode as CreativeCanvasNode | undefined)
       .filter((candidate): candidate is CreativeCanvasNode => Boolean(candidate))
+    // A generator node's produced media lands on a sibling `${id}-output` node,
+    // not on the generator itself — so resolve a linked generator to its latest
+    // output image. This is what makes "video ← image generator" actually feed
+    // the generated still into the video run (image-to-video).
+    const resolvedOutputImageFor = (upstreamId: string): string | undefined => {
+      const outputNode = nodes.find((candidate) => candidate.id === `${upstreamId}-output`)?.data?.canvasNode as CreativeCanvasNode | undefined
+      return outputNode?.output?.url && outputNode.output.kind !== 'video' ? outputNode.output.url : undefined
+    }
     const upstreamImageUrls = upstreamCanvasNodes.flatMap((upstream) => {
       const urls: string[] = []
       if (upstream.output?.url && upstream.output.kind !== 'video') urls.push(upstream.output.url)
       else if (upstream.source?.url) urls.push(upstream.source.url)
+      else {
+        const resolved = resolvedOutputImageFor(upstream.id)
+        if (resolved) urls.push(resolved)
+      }
       const upstreamRefs = (upstream.data as Record<string, unknown> | undefined)?.references
       if (Array.isArray(upstreamRefs)) urls.push(...upstreamRefs.filter((url): url is string => typeof url === 'string'))
       return urls
