@@ -19,6 +19,7 @@ import { canvasNodeTypes } from '@/components/creative-canvas/nodes/nodeTypes'
 import { isValidConnection, portsForNode, type CanvasNodeType } from '@/components/creative-canvas/nodes/ports'
 import { getCanvasModel } from '@/lib/creative-canvas/model-registry'
 import { getStarterCanvasTemplate } from '@/lib/creative-canvas/starter-templates'
+import { resolveGeneratorKind } from '@/lib/creative-canvas/node-kind'
 import CreateMenu from '@/components/creative-canvas/canvas/CreateMenu'
 import NodeEditChat from '@/components/creative-canvas/nodes/NodeEditChat'
 import NodePublishMenu, { type NodePublishPlatform, type NodePublishTarget } from '@/components/creative-canvas/nodes/NodePublishMenu'
@@ -822,14 +823,10 @@ function presentationTypeFor(node: CreativeCanvasNode): CanvasNodeType {
       return 'image_generator'
     case 'model':
     default:
-      // Authoritative video signal: the resolved model's kind (the catalog is
-      // the source of truth), the run output, an explicit provider video mode,
-      // or a motion edit. Templates set descriptive modes like 'vertical_social'
-      // rather than the literal 'video', so we can't rely on mode alone.
-      return node.output?.kind === 'video'
-        || node.provider?.mode === 'video'
-        || node.edit?.operation === 'video_motion'
-        || getCanvasModel(node.provider?.model ?? '')?.kind === 'video'
+      // Video vs image via the shared authoritative resolver (model kind, output,
+      // provider mode, or motion edit). Audio generators present as image cards
+      // today; their audio handling lives in the settings-panel kindFor path.
+      return node.output?.kind === 'video' || resolveGeneratorKind(node) === 'video'
         ? 'video_generator'
         : 'image_generator'
   }
@@ -3560,14 +3557,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }
 
     // ---- Resolve the model against the node's requested output kind. ----
-    const presentationHint = String(nodeData.presentationType ?? '')
-    const isAudioNode = nodeData.outputKind === 'audio'
-      || canvasNode.provider?.mode === 'audio'
-      || ['voice_generator', 'voiceover', 'change_voice'].includes(presentationHint)
-    const requestedKind = isAudioNode
-      ? 'audio'
-      : nodeData.outputKind === 'video' || canvasNode.provider?.mode === 'video' ? 'video' : 'image'
+    // The user's explicitly-chosen model is authoritative (shared resolver) so a
+    // selected video model produces a video instead of being downgraded to the
+    // default image model.
     const activeModel = getCanvasModel(settingModel)
+    const requestedKind = resolveGeneratorKind(canvasNode, settingModel)
     // Some models cap reference media (Soul V2 accepts exactly one — the
     // provider rejects the run otherwise). Fall back to Nano Banana for
     // multi-reference combines and tell the user.
