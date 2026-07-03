@@ -17,6 +17,8 @@ export interface GeneratorNodeCardProps {
   assetUrl?: string
   assetKind?: 'image' | 'video'
   status?: CanvasNodeStatus
+  /** Failure reason shown on the card when status is 'error'. */
+  errorMessage?: string
   selected?: boolean
   /** Attached reference image URLs (Higgsfield-style image combine). */
   references?: string[]
@@ -88,6 +90,7 @@ export function GeneratorNodeCard(props: GeneratorNodeCardProps) {
     assetUrl,
     assetKind,
     status = 'idle',
+    errorMessage,
     selected = false,
     references = [],
     showGenerateBar = false,
@@ -153,6 +156,15 @@ export function GeneratorNodeCard(props: GeneratorNodeCardProps) {
 
       {showGenerateBar ? (
         <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {status === 'error' && errorMessage ? (
+            <div
+              role="alert"
+              style={{ display: 'flex', gap: 6, alignItems: 'flex-start', borderRadius: 8, border: '1px solid #ff6b6b', background: '#ff6b6b1a', color: '#ff9a9a', fontSize: 11, fontWeight: 600, padding: '6px 8px', lineHeight: 1.35 }}
+            >
+              <span aria-hidden>⚠</span>
+              <span>{errorMessage}</span>
+            </div>
+          ) : null}
           <textarea
             value={prompt}
             onChange={(event) => onPromptChange?.(event.target.value)}

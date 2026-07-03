@@ -79,6 +79,12 @@ function CombineNodeComponent({ data, selected }: NodeProps) {
       ) : null}
 
       <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {status === 'error' && d.errorMessage ? (
+          <div role="alert" style={{ display: 'flex', gap: 6, alignItems: 'flex-start', borderRadius: 8, border: '1px solid #ff6b6b', background: '#ff6b6b1a', color: '#ff9a9a', fontSize: 11, fontWeight: 600, padding: '6px 8px', lineHeight: 1.35 }}>
+            <span aria-hidden>⚠</span>
+            <span>{d.errorMessage}</span>
+          </div>
+        ) : null}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', minHeight: 24 }}>
           {inputPreviews.slice(0, 6).map((url, index) => (
             <span

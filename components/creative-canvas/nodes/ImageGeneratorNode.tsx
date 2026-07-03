@@ -20,6 +20,7 @@ function ImageGeneratorNodeComponent({ data, selected }: NodeProps) {
       assetUrl={d.assetUrl}
       assetKind={d.assetKind ?? 'image'}
       status={d.status}
+      errorMessage={d.errorMessage}
       selected={Boolean(selected)}
       references={d.references}
       showGenerateBar

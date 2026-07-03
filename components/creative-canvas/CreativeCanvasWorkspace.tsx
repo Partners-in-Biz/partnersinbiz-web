@@ -837,6 +837,18 @@ function roundCredits(value: number): number {
   return Math.round(value * 100) / 100
 }
 
+/** Turn a run's error code/message into a short, human message for the card.
+ *  Provider hiccups read as "temporarily unavailable — will retry" rather than
+ *  a raw CLI dump, so a failed run never just silently stops. */
+function friendlyRunError(code?: string, message?: string): string {
+  if (code === 'higgsfield_ip_check_pending') return 'Provider is verifying the source image — retrying automatically'
+  if (code === 'platform_complete_failed') return 'Saved output but the canvas rejected it — tap Generate to retry'
+  if (code === 'higgsfield_missing_output') return 'Provider returned no media — tap Generate to retry'
+  if (/timed out|timeout|ETIMEDOUT|ECONNRESET|fetch failed|network/i.test(message ?? '')) return 'Provider timed out — tap Generate to retry'
+  if (/insufficient|quota|balance/i.test(message ?? '')) return 'Provider is out of credits'
+  return 'Generation failed — the provider may be temporarily down. Tap Generate to retry.'
+}
+
 function toFlowNode(node: CreativeCanvasNode, collaborators: Array<CreativeCanvasPresence & { id: string }> = []): Node {
   const previewUrl = node.source?.thumbnailUrl ?? node.source?.previewUrl ?? node.output?.thumbnailUrl ?? node.output?.url
   const presentationType = presentationTypeFor(node)
@@ -1167,6 +1179,24 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const pendingReferenceNodeIdRef = useRef<{ nodeId: string; mode: 'attach' | 'replace' } | null>(null)
   const referenceFileInputRef = useRef<HTMLInputElement | null>(null)
 
+  // Latest run per generator node, so a card can reflect the true provider state
+  // (still queued/running, or failed) even after the client's local spinner has
+  // cleared — async runs (video) settle minutes later.
+  const latestRunByNodeId = useMemo(() => {
+    const runSeconds = (run: CreativeCanvasRun & { id: string }): number => {
+      const at = run.createdAt as { _seconds?: number; seconds?: number } | number | undefined
+      if (typeof at === 'number') return at
+      return at?._seconds ?? at?.seconds ?? 0
+    }
+    const map = new Map<string, CreativeCanvasRun & { id: string }>()
+    for (const run of runHistory) {
+      if (!run.nodeId) continue
+      const existing = map.get(run.nodeId)
+      if (!existing || runSeconds(run) >= runSeconds(existing)) map.set(run.nodeId, run)
+    }
+    return map
+  }, [runHistory])
+
   const displayNodes = useMemo(() => nodes.map((node) => {
     const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
     if (!canvasNode) return node
@@ -1196,6 +1226,21 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         return upstream?.output?.thumbnailUrl ?? upstream?.output?.url ?? upstream?.source?.thumbnailUrl ?? upstream?.source?.url
       })
       .filter((url): url is string => typeof url === 'string' && url.length > 0)
+    // Reflect the run lifecycle on the card: local spinner → live provider
+    // state (queued/running keeps "Generating…" through async retries) →
+    // failed shows a clear error instead of silently going idle.
+    const latestRun = latestRunByNodeId.get(node.id)
+    let nodeStatus = flowNode.data.status
+    let nodeErrorMessage: string | undefined
+    if (generatingNodeIds.has(node.id)) {
+      nodeStatus = 'running'
+    } else if (latestRun && flowNode.data.status !== 'done') {
+      if (latestRun.status === 'queued' || latestRun.status === 'running') nodeStatus = 'running'
+      else if (latestRun.status === 'failed' || latestRun.status === 'cancelled') {
+        nodeStatus = 'error'
+        nodeErrorMessage = friendlyRunError(latestRun.error?.code, latestRun.error?.message)
+      }
+    }
     return {
       // Keep the live React Flow node (measured size, selection, drag state) —
       // rebuilding from scratch resets measurement and edges never render.
@@ -1203,7 +1248,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       type: flowNode.type,
       data: {
         ...flowNode.data,
-        status: generatingNodeIds.has(node.id) ? 'running' : flowNode.data.status,
+        status: nodeStatus,
+        errorMessage: nodeErrorMessage,
         references: Array.isArray((canvasNode.data as Record<string, unknown> | undefined)?.references)
           ? ((canvasNode.data as Record<string, unknown>).references as string[])
           : [],
@@ -1259,7 +1305,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         },
       },
     }
-  }), [collaboratorsByNodeId, edges, generatingNodeIds, nodes])
+  }), [collaboratorsByNodeId, edges, generatingNodeIds, latestRunByNodeId, nodes])
 
   // Persisted edges carry no handle ids, but presentation nodes expose multiple
   // typed handles — without an explicit handle id React Flow cannot attach the
@@ -1960,12 +2006,19 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   // mid-flight charged value and read as if credits were lost.
   useEffect(() => {
     if (!activeCanvas?.id) return
+    const canvasOrgId = resolvedOrgId || activeCanvas.orgId
     const interval = window.setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
       void loadCanvasCredits()
+      // Refresh run status too, so a node reflects an async provider failure
+      // (which lands minutes after the local spinner clears) instead of going
+      // silently idle. Only poll while a run is actually in flight.
+      const inFlight = runHistory.some((run) => run.status === 'queued' || run.status === 'running')
+        || generatingNodeIds.size > 0
+      if (inFlight && activeCanvas?.id && canvasOrgId) void loadRuns(activeCanvas.id, canvasOrgId)
     }, 20_000)
     return () => window.clearInterval(interval)
-  }, [activeCanvas?.id, loadCanvasCredits])
+  }, [activeCanvas?.id, activeCanvas?.orgId, generatingNodeIds, loadCanvasCredits, loadRuns, resolvedOrgId, runHistory])
 
   // Video preflight for the selected node: how much linked video footage this
   // run will process, and whether any of it is a full-length (untrimmed) clip
@@ -3636,6 +3689,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       if (payload?.data?.pending) {
         // Async provider (e.g. Higgsfield video): bounded poll for the output node.
         setActivityMessage('Generation queued — waiting for output…')
+        // Pull the new run into history so the node keeps reflecting live state
+        // (queued → running → failed) via the periodic refresh, long after this
+        // bounded local poll ends.
+        void loadRuns(canvasId, canvasOrgId)
         let found = false
         for (let attempt = 0; attempt < 12 && !found; attempt += 1) {
           await new Promise((resolve) => { window.setTimeout(resolve, 3000) })
@@ -3657,7 +3714,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             }
           } catch { ignoreCanvasBestEffortFailure() }
         }
-        if (!found) setActivityMessage('Generation still processing — it will appear on refresh')
+        if (!found) {
+          setActivityMessage('Still generating — the node shows live status; it will appear here or flag an error if the provider fails')
+          void loadRuns(canvasId, canvasOrgId)
+        }
       } else {
         // Sync result — pull the fresh canvas (with the new output node) by id.
         try {
@@ -3678,7 +3738,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       })
       void loadCanvasCredits()
     }
-  }, [applyCanvasSnapshot, creditBudget.atLimit, edges, ensurePersistedCanvas, loadCanvasCredits, nodes, runAspectRatio, runDurationSeconds, runGenerateAudio, runModel, runQuality, runResolution, runVariantCount])
+  }, [applyCanvasSnapshot, creditBudget.atLimit, edges, ensurePersistedCanvas, loadCanvasCredits, loadRuns, nodes, runAspectRatio, runDurationSeconds, runGenerateAudio, runModel, runQuality, runResolution, runVariantCount])
 
   const [editChatBusy, setEditChatBusy] = useState(false)
   const [editChatError, setEditChatError] = useState('')

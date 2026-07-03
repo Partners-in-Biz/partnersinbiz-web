@@ -18,6 +18,8 @@ export interface CanvasNodeData {
   assetUrl?: string
   assetKind?: 'image' | 'video'
   status?: CanvasNodeStatus
+  /** Human-readable failure reason shown on the card when status is 'error'. */
+  errorMessage?: string
   reviewStatus?: string
   text?: string
   references?: string[]
