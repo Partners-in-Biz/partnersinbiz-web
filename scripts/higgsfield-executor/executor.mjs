@@ -41,6 +41,12 @@ const PIB_AGENT_API_KEY = process.env.PIB_AGENT_API_KEY || ''
 const PIB_APP_URL = (process.env.PIB_APP_URL || 'https://partnersinbiz.online').replace(/\/$/, '')
 const HIGGSFIELD_BIN = process.env.HIGGSFIELD_BIN || 'higgsfield'
 const WAIT_TIMEOUT = process.env.WAIT_TIMEOUT || '20m'
+// Retry budget for the provider's async input-media IP check (image-to-video /
+// combine). Defaults ≈ 10 × 30s = 5 min of patient polling before giving up.
+const IP_CHECK_MAX_RETRIES = Number(process.env.IP_CHECK_MAX_RETRIES || 10)
+const IP_CHECK_RETRY_MS = Number(process.env.IP_CHECK_RETRY_MS || 30000)
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 if (!RUNTIME_API_KEY) { console.error('RUNTIME_API_KEY is required'); process.exit(1) }
 if (!PIB_AGENT_API_KEY) { console.error('PIB_AGENT_API_KEY is required'); process.exit(1) }
@@ -310,8 +316,25 @@ async function executeRun(job, input) {
       result = await runCli(buildArgs([]), timeoutMs)
     }
 
+    // Higgsfield runs an async IP/rights check on input media (image-to-video,
+    // combines). When a run reuses media that was uploaded/generated moments
+    // earlier, the provider may reject with "IP check not finished for input
+    // media" before the check completes. That is transient — poll-retry the
+    // same generate with backoff so the run self-heals once the check clears,
+    // instead of failing a perfectly valid request. A prolonged provider-side
+    // stall still ends in a retryable failure (credits are refunded on fail).
+    const ipCheckPending = (r) => /IP check not finished/i.test(`${r.stderr}${r.stdout}`)
+    if (result.code !== 0 && mediaArgs.length && ipCheckPending(result)) {
+      for (let attempt = 1; attempt <= IP_CHECK_MAX_RETRIES && ipCheckPending(result); attempt += 1) {
+        log('warn', 'input media IP check not finished — waiting to retry', { runId: run.id, attempt, delayMs: IP_CHECK_RETRY_MS })
+        await sleep(IP_CHECK_RETRY_MS)
+        result = await runCli(buildArgs(extras), timeoutMs)
+      }
+    }
+
     if (result.code !== 0) {
-      await fail(`Higgsfield CLI exited ${result.code}: ${(result.stderr || result.stdout).trim().slice(0, 400)}`)
+      const code = ipCheckPending(result) ? 'higgsfield_ip_check_pending' : 'higgsfield_cli_error'
+      await fail(`Higgsfield CLI exited ${result.code}: ${(result.stderr || result.stdout).trim().slice(0, 400)}`, code)
       return
     }
 
