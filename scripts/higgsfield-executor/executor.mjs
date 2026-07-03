@@ -102,7 +102,7 @@ async function platformPut(base, path, body) {
   })
   const text = await response.text().catch(() => '')
   if (!response.ok) log('warn', 'platform PUT failed', { url, status: response.status, body: text.slice(0, 300) })
-  return response.ok
+  return { ok: response.ok, status: response.status, body: text }
 }
 
 function runCli(args, timeoutMs) {
@@ -122,6 +122,48 @@ function runCli(args, timeoutMs) {
       resolve({ code: -1, stdout, stderr: String(error) })
     })
   })
+}
+
+const FFMPEG_BIN = process.env.FFMPEG_BIN || 'ffmpeg'
+
+/** Run ffmpeg, capturing stderr. Never rejects — resolves with the exit code. */
+function runFfmpeg(args, timeoutMs) {
+  return new Promise((resolve) => {
+    const child = spawn(FFMPEG_BIN, args, { stdio: ['ignore', 'ignore', 'pipe'] })
+    let stderr = ''
+    const timer = setTimeout(() => { child.kill('SIGKILL') }, timeoutMs)
+    child.stderr.on('data', (d) => { stderr += d })
+    child.on('close', (code) => { clearTimeout(timer); resolve({ code, stderr }) })
+    child.on('error', (error) => { clearTimeout(timer); resolve({ code: -1, stderr: String(error) }) })
+  })
+}
+
+/**
+ * Clip a local video to [start, end] seconds so the provider only processes the
+ * segment the user selected — Higgsfield/Shorts Studio charges per second of
+ * source footage it analyzes, so a 2-minute upload costs far more than a 4s
+ * clip. Best-effort: on any failure (bad window, ffmpeg missing/errored) fall
+ * back to the full file so a run never fails because of the optimization.
+ * `-ss` before `-i` seeks fast; `-t <duration>` after `-i` is unambiguous and
+ * we re-encode so the cut is frame-accurate at arbitrary points.
+ */
+async function clipVideoSegment(inputFile, startSeconds, endSeconds, dir, index) {
+  const start = Number(startSeconds)
+  const end = Number(endSeconds)
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return inputFile
+  const duration = Math.round((end - Math.max(0, start)) * 1000) / 1000
+  if (!(duration > 0)) return inputFile
+  const output = join(dir, `clip-${index}.mp4`)
+  const result = await runFfmpeg([
+    '-y', '-ss', String(Math.max(0, start)), '-i', inputFile, '-t', String(duration),
+    '-c:v', 'libx264', '-preset', 'veryfast', '-c:a', 'aac', '-movflags', '+faststart', output,
+  ], 5 * 60 * 1000)
+  if (result.code !== 0) {
+    log('warn', 'video clip failed — dispatching full source', { index, code: result.code, stderr: result.stderr.slice(-200) })
+    return inputFile
+  }
+  log('info', 'clipped video segment before dispatch', { index, start: Math.max(0, start), end, duration })
+  return output
 }
 
 /** The CLI prints one or more JSON documents; take the last parseable object. */
@@ -160,7 +202,8 @@ function extractOutputUrl(result) {
 const CONTENT_TYPE_EXTENSIONS = {
   'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif',
   'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'webm',
-  'audio/mpeg': 'mp3', 'audio/wav': 'wav', 'audio/x-wav': 'wav',
+  'audio/mpeg': 'mp3', 'audio/wav': 'wav', 'audio/x-wav': 'wav', 'audio/mp4': 'm4a',
+  'audio/x-m4a': 'm4a', 'audio/aac': 'aac', 'audio/ogg': 'ogg', 'audio/flac': 'flac',
 }
 
 function sniffExtension(buffer) {
@@ -170,6 +213,12 @@ function sniffExtension(buffer) {
   if (buffer.slice(0, 4).toString() === 'RIFF' && buffer.slice(8, 12).toString() === 'WEBP') return 'webp'
   if (buffer.slice(0, 3).toString() === 'GIF') return 'gif'
   if (buffer.slice(4, 8).toString() === 'ftyp') return 'mp4'
+  // Audio magic bytes: MP3 (ID3 tag or frame sync), WAV (RIFF....WAVE), FLAC, OGG.
+  if (buffer.slice(0, 3).toString() === 'ID3') return 'mp3'
+  if (buffer[0] === 0xff && (buffer[1] & 0xe0) === 0xe0) return 'mp3'
+  if (buffer.slice(0, 4).toString() === 'RIFF' && buffer.slice(8, 12).toString() === 'WAVE') return 'wav'
+  if (buffer.slice(0, 4).toString() === 'fLaC') return 'flac'
+  if (buffer.slice(0, 4).toString() === 'OggS') return 'ogg'
   return undefined
 }
 
@@ -229,9 +278,16 @@ async function executeRun(job, input) {
     for (let index = 0; index < sourceMedia.length; index += 1) {
       const media = sourceMedia[index]
       if (!media?.value || !media?.flag) continue
-      const value = /^https?:\/\//.test(media.value)
+      const isRemote = /^https?:\/\//.test(media.value)
+      let value = isRemote
         ? await downloadMedia(media.value, workDir, index)
         : media.value
+      // Canvas video-split segments carry a trim window on the manifest entry.
+      // Clip the downloaded file locally so the provider only bills the segment.
+      if (isRemote && media.flag === '--video'
+          && (media.trimStartSeconds !== undefined || media.trimEndSeconds !== undefined)) {
+        value = await clipVideoSegment(value, media.trimStartSeconds ?? 0, media.trimEndSeconds, workDir, index)
+      }
       mediaArgs.push(media.flag, value)
     }
 
@@ -268,13 +324,20 @@ async function executeRun(job, input) {
     }
 
     const outputKind = run.input?.outputKind === 'video' || /\.(mp4|mov|webm)(\?|$)/i.test(outputUrl) ? 'video' : (run.input?.outputKind || 'image')
-    const completed = await platformPut(base, completePath, {
+    const completeResult = await platformPut(base, completePath, {
       outputNodeId: `${run.nodeId}-output`,
       output: { kind: outputKind, url: outputUrl, rawProviderJobId: providerJob },
       provenance: { providerJobId: providerJob || job.providerJobId, costLabel: 'higgsfield_executor' },
     })
-    if (!completed) {
-      await fail('Generation succeeded but the platform rejected run completion — see executor logs.', 'platform_complete_failed')
+    if (!completeResult.ok) {
+      // Surface the platform's actual rejection reason (status + body) instead of a
+      // generic message — platformPut already logs it as a warning, but that log line
+      // is easy to miss next to the "run failed" line a human/agent actually searches for.
+      const platformDetail = completeResult.body ? completeResult.body.slice(0, 300) : '(empty response body)'
+      await fail(
+        `Generation succeeded but the platform rejected run completion (HTTP ${completeResult.status}): ${platformDetail}`,
+        'platform_complete_failed',
+      )
       return
     }
 
