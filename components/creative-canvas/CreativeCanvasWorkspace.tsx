@@ -23,6 +23,8 @@ import NodeEditChat from '@/components/creative-canvas/nodes/NodeEditChat'
 import NodePublishMenu, { type NodePublishPlatform, type NodePublishTarget } from '@/components/creative-canvas/nodes/NodePublishMenu'
 import NodeSettingsPanel from '@/components/creative-canvas/panels/NodeSettingsPanel'
 import type { NodeSettingsValues } from '@/components/creative-canvas/panels/NodeSettingsPanel'
+import VideoSplitDialog from '@/components/creative-canvas/panels/VideoSplitDialog'
+import type { VideoSegment } from '@/components/creative-canvas/panels/VideoSplitDialog'
 import ReferencePicker, { type ReferenceAsset } from '@/components/creative-canvas/panels/ReferencePicker'
 import CanvasLanding from '@/components/creative-canvas/landing/CanvasLanding'
 import { canvasTheme } from '@/components/creative-canvas/theme/tokens'
@@ -824,6 +826,11 @@ function presentationTypeFor(node: CreativeCanvasNode): CanvasNodeType {
   }
 }
 
+/** Credits accumulate as floats (0.1 + 0.2 → 0.30000000000000004) — clamp to 2dp for display. */
+function roundCredits(value: number): number {
+  return Math.round(value * 100) / 100
+}
+
 function toFlowNode(node: CreativeCanvasNode, collaborators: Array<CreativeCanvasPresence & { id: string }> = []): Node {
   const previewUrl = node.source?.thumbnailUrl ?? node.source?.previewUrl ?? node.output?.thumbnailUrl ?? node.output?.url
   const presentationType = presentationTypeFor(node)
@@ -1069,6 +1076,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [templates, setTemplates] = useState<Array<CreativeCanvasTemplate & { id: string }>>([])
   const [templateTitle, setTemplateTitle] = useState('')
   const [templateDescription, setTemplateDescription] = useState('')
+  const [templateImportUrl, setTemplateImportUrl] = useState('')
+  const [templateImporting, setTemplateImporting] = useState(false)
   const [collaborationLinkCopied, setCollaborationLinkCopied] = useState(false)
   const [autoFollowLiveDrafts, setAutoFollowLiveDrafts] = useState(false)
   const [ownPresenceId, setOwnPresenceId] = useState('')
@@ -1134,6 +1143,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   ), [collaboratorsByNodeId, ownPresenceId, selectedNodeId])
   const selectedNodeLockedByCollaborator = selectedNodeCollaborators.length > 0
   const [generatingNodeIds, setGeneratingNodeIds] = useState<Set<string>>(() => new Set())
+  const [splitVideoNodeId, setSplitVideoNodeId] = useState('')
   const nodeActionRefs = useRef<{
     generate: (nodeId: string) => void
     updatePrompt: (nodeId: string, value: string) => void
@@ -1231,6 +1241,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           ? { onPublish: () => nodeActionRefs.current.publish(node.id) }
           : {}),
         downloadUrl: canvasNode.output?.url ?? canvasNode.source?.url,
+        // Video media can be split into short segments (cheaper downstream edits).
+        ...((canvasNode.output?.kind === 'video' && canvasNode.output?.url)
+          || (canvasNode.source?.mimeType?.startsWith('video/') && canvasNode.source?.url)
+          ? { onSplitVideo: () => setSplitVideoNodeId(node.id) }
+          : {}),
         // "Select model" on a node opens the settings panel (which hosts the picker).
         onOpenModelPicker: () => {
           setSelectedFlowNodeId(node.id)
@@ -2174,6 +2189,34 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setTemplateDescription('')
     setSaveMessage('')
     setActivityMessage(`Saved ${template.title} template`)
+  }
+
+  /** Pull a template definition from a third-party URL (server-side fetch +
+   *  sanitize) and add it to the org's saved templates. */
+  const importTemplateFromUrl = async () => {
+    const url = templateImportUrl.trim()
+    if (!url || !resolvedOrgId || templateImporting) return
+    setTemplateImporting(true)
+    try {
+      const response = await fetch(`/api/v1/creative-canvas/templates?orgId=${encodeURIComponent(resolvedOrgId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ importUrl: url }),
+      })
+      const payload = await response.json().catch(() => null) as CreativeCanvasTemplateApiResponse | null
+      const template = payload?.data?.template
+      if (!response.ok || !template) {
+        setActivityMessage(payload?.error ?? 'Template import failed')
+        return
+      }
+      setTemplates((current) => [template, ...current.filter((item) => item.id !== template.id)])
+      setTemplateImportUrl('')
+      setActivityMessage(`Imported ${template.title} template`)
+    } catch {
+      setActivityMessage('Template import failed')
+    } finally {
+      setTemplateImporting(false)
+    }
   }
 
   const applySavedTemplate = (template: CreativeCanvasTemplate & { id: string }) => {
@@ -3218,6 +3261,53 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setReferencePicker({ nodeId })
   }, [])
 
+  /** Create trimmed segment source nodes from a video node. The segment nodes
+   *  reference the same media URL plus a `data.trim` window; downstream runs
+   *  carry the window so providers only process the clip, not the full video. */
+  const createVideoSegments = useCallback((segments: VideoSegment[]) => {
+    const target = nodes.find((node) => node.id === splitVideoNodeId)
+    const canvasNode = target?.data?.canvasNode as CreativeCanvasNode | undefined
+    const url = canvasNode?.output?.url ?? canvasNode?.source?.url
+    if (!canvasNode || !url || !segments.length) {
+      setSplitVideoNodeId('')
+      return
+    }
+    const org = resolvedOrgId || canvasNode.orgId
+    const stamp = Date.now()
+    const nextNodes = segments.map((segment, index): CreativeCanvasNode => ({
+      id: `${canvasNode.id}-segment-${stamp}-${index}`,
+      orgId: org,
+      type: 'source',
+      title: `${canvasNode.title} · ${segment.startSeconds.toFixed(1)}s–${segment.endSeconds.toFixed(1)}s`,
+      position: {
+        x: canvasNode.position.x + 60 + index * 36,
+        y: canvasNode.position.y + 240 + index * 48,
+      },
+      data: {
+        segmentOf: canvasNode.id,
+        trim: { startSeconds: segment.startSeconds, endSeconds: segment.endSeconds },
+      },
+      source: {
+        kind: 'url',
+        url,
+        thumbnailUrl: canvasNode.output?.thumbnailUrl ?? canvasNode.source?.thumbnailUrl,
+        mimeType: canvasNode.source?.mimeType ?? 'video/mp4',
+        altText: `Segment of ${canvasNode.title}`,
+      },
+    }))
+    setNodes((current) => [...current, ...nextNodes.map((node) => toFlowNode(node))])
+    setSplitVideoNodeId('')
+    recordCanvasActivity({
+      actorLabel: 'You',
+      action: 'Split video',
+      detail: `${canvasNode.title}: ${nextNodes.length} segment${nextNodes.length === 1 ? '' : 's'}`,
+      nodeId: canvasNode.id,
+      operation: 'node_add',
+      source: 'local',
+    })
+    setActivityMessage(`${nextNodes.length} video segment${nextNodes.length === 1 ? '' : 's'} created — edits on a segment only process that clip`)
+  }, [nodes, splitVideoNodeId, resolvedOrgId, recordCanvasActivity])
+
   const attachReferenceUrl = useCallback((nodeId: string, url: string) => {
     setNodes((current) => current.map((node) => {
       if (node.id !== nodeId) return node
@@ -3445,6 +3535,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           nodeId,
+          // Upstream ids ride along so node-level metadata (e.g. video trim
+          // windows on segment nodes) reaches the provider manifest.
+          sourceNodeIds: [nodeId, ...upstreamCanvasNodes.map((upstream) => upstream.id)],
           model: effectiveModel,
           prompt,
           aspectRatio: settingAspectRatio,
@@ -4503,11 +4596,25 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         immersive={immersiveCanvas}
         onToggleImmersive={() => setImmersiveCanvas((value) => !value)}
         creditsLabel={canvasCredits?.higgsfieldCredits != null
-          ? `${canvasCredits.higgsfieldCredits}${canvasCredits.higgsfieldPlan ? ` · ${canvasCredits.higgsfieldPlan}` : ''}`
+          ? `${roundCredits(canvasCredits.higgsfieldCredits)}${canvasCredits.higgsfieldPlan ? ` · ${canvasCredits.higgsfieldPlan}` : ''}`
           : canvasCredits
-            ? `${canvasCredits.used}${canvasCredits.limit != null ? `/${canvasCredits.limit}` : ' used'}`
+            ? `${roundCredits(canvasCredits.used)}${canvasCredits.limit != null ? `/${roundCredits(canvasCredits.limit)}` : ' used'}`
             : undefined}
       />
+
+      {splitVideoNodeId ? (() => {
+        const splitTarget = nodes.find((node) => node.id === splitVideoNodeId)?.data?.canvasNode as CreativeCanvasNode | undefined
+        const splitUrl = splitTarget?.output?.url ?? splitTarget?.source?.url
+        return splitTarget && splitUrl ? (
+          <VideoSplitDialog
+            open
+            videoUrl={splitUrl}
+            nodeTitle={splitTarget.title}
+            onClose={() => setSplitVideoNodeId('')}
+            onSplit={createVideoSegments}
+          />
+        ) : null
+      })() : null}
 
       {topBarPanel ? (
         <div
@@ -4892,6 +4999,30 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               >
                 Save current graph as template
               </button>
+              <div className="border-t border-dashed border-[var(--color-pib-line)] pt-2">
+                <label className="block text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-template-import-url">
+                  Import from URL
+                  <input
+                    id="creative-canvas-template-import-url"
+                    value={templateImportUrl}
+                    onChange={(event) => setTemplateImportUrl(event.target.value)}
+                    className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                    placeholder="https://example.com/template.json"
+                    inputMode="url"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => { void importTemplateFromUrl() }}
+                  disabled={!templateImportUrl.trim() || templateImporting}
+                  className="mt-2 w-full rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {templateImporting ? 'Importing…' : 'Import third-party template'}
+                </button>
+                <p className="mt-1 text-[10px] text-[var(--color-pib-text-muted)]">
+                  Public https JSON with {'{'} title, nodes, edges {'}'} — free community templates work as-is.
+                </p>
+              </div>
             </div>
             <div className="mt-3 space-y-2">
               {templates.length ? templates.map((template) => (

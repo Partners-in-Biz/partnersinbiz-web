@@ -184,7 +184,8 @@ export function GeneratorNodeCard(props: GeneratorNodeCardProps) {
                 type="button"
                 onClick={onAddReference}
                 className="nodrag"
-                title="Add reference image"
+                data-tip="Add reference image"
+                aria-label="Add reference image"
                 style={{
                   width: 40,
                   height: 40,
@@ -211,6 +212,7 @@ export function GeneratorNodeCard(props: GeneratorNodeCardProps) {
               type="button"
               onClick={onOpenModelPicker}
               className="nodrag"
+              data-tip="Choose generation model"
               style={{
                 flex: 1,
                 minWidth: 0,
@@ -233,6 +235,7 @@ export function GeneratorNodeCard(props: GeneratorNodeCardProps) {
               <button
                 type="button"
                 aria-label="Decrease batch"
+                data-tip="Fewer variants per run"
                 onClick={() => onBatchChange?.(Math.max(1, batch - 1))}
                 className="nodrag"
                 style={stepBtn}
@@ -243,6 +246,7 @@ export function GeneratorNodeCard(props: GeneratorNodeCardProps) {
               <button
                 type="button"
                 aria-label="Increase batch"
+                data-tip="More variants per run"
                 onClick={() => onBatchChange?.(Math.min(4, batch + 1))}
                 className="nodrag"
                 style={stepBtn}

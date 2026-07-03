@@ -65,7 +65,7 @@ export default function BottomToolbar({ activeTool, onTool }: BottomToolbarProps
             key={t.tool}
             type="button"
             aria-label={t.label}
-            title={t.enabled ? t.label : `${t.label} (coming soon)`}
+            data-tip={t.enabled ? t.label : `${t.label} (coming soon)`}
             onClick={() => t.enabled && onTool(t.tool)}
             disabled={!t.enabled}
             style={{

@@ -42,6 +42,9 @@ export interface HiggsfieldExecutionManifest {
     flag: '--image' | '--video' | '--audio'
     value: string
     role?: string
+    /** Trim window (video segment nodes): only this clip may be processed. */
+    trimStartSeconds?: number
+    trimEndSeconds?: number
   }>
   generationSettings: Record<string, string | number | undefined>
   instructions: string[]
@@ -81,11 +84,15 @@ function buildSourceMedia(
     .map((node) => {
       const value = sourceMediaValue(node)
       if (!value) return null
+      const trim = (node.data as Record<string, unknown> | undefined)?.trim as { startSeconds?: unknown; endSeconds?: unknown } | undefined
+      const trimStartSeconds = typeof trim?.startSeconds === 'number' && trim.startSeconds >= 0 ? trim.startSeconds : undefined
+      const trimEndSeconds = typeof trim?.endSeconds === 'number' && trim.endSeconds > (trimStartSeconds ?? 0) ? trim.endSeconds : undefined
       return {
         nodeId: node.id,
         flag: sourceMediaFlag(node),
         value,
         role: node.source?.referenceRole,
+        ...(trimStartSeconds !== undefined || trimEndSeconds !== undefined ? { trimStartSeconds, trimEndSeconds } : {}),
       }
     })
     .filter((item): item is NonNullable<typeof item> => Boolean(item))
@@ -186,6 +193,9 @@ export function buildHiggsfieldExecutionManifest(
       brushStrokeCount: run.input.editMask?.brush?.strokes.length,
     },
     instructions: [
+      ...(sourceMedia.some((media) => media.trimStartSeconds !== undefined || media.trimEndSeconds !== undefined)
+        ? ['Source media entries with trimStartSeconds/trimEndSeconds are video segments: clip the file to that window first (e.g. `ffmpeg -ss <start> -to <end> -i <input> -c copy <clip>`) and dispatch ONLY the clip — providers charge for every second of source footage they analyze.']
+        : []),
       'Run `higgsfield auth login` if the CLI session has expired before dispatch.',
       `Inspect model-specific params with \`higgsfield model get ${model} --json\` before adding optional flags.`,
       run.input.editIntent

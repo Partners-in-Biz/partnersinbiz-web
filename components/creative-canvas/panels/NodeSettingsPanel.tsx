@@ -138,7 +138,7 @@ export default function NodeSettingsPanel(props: NodeSettingsPanelProps) {
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderBottom: `1px solid ${canvasTheme.border}` }}>
         <span style={{ fontSize: 13, fontWeight: 700 }}>{node?.title ?? 'Node settings'}</span>
-        <button type="button" aria-label="Close settings" onClick={onClose} style={{ background: 'transparent', border: 'none', color: canvasTheme.textMuted, cursor: 'pointer', fontSize: 16 }}>×</button>
+        <button type="button" aria-label="Close settings" data-tip="Close settings" onClick={onClose} style={{ background: 'transparent', border: 'none', color: canvasTheme.textMuted, cursor: 'pointer', fontSize: 16 }}>×</button>
       </div>
 
       <div style={{ display: 'flex', gap: 4, padding: '8px 10px', borderBottom: `1px solid ${canvasTheme.border}` }}>
@@ -248,9 +248,9 @@ export default function NodeSettingsPanel(props: NodeSettingsPanelProps) {
             <div style={rowStyle}>
               <span style={labelStyle}>Batch size</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <button type="button" aria-label="Decrease batch" onClick={() => onChange({ batch: Math.max(1, values.batch - 1) })} style={stepBtn}>−</button>
+                <button type="button" aria-label="Decrease batch" data-tip="Fewer variants per run" onClick={() => onChange({ batch: Math.max(1, values.batch - 1) })} style={stepBtn}>−</button>
                 <span style={{ width: 18, textAlign: 'center' }}>{values.batch}</span>
-                <button type="button" aria-label="Increase batch" onClick={() => onChange({ batch: Math.min(4, values.batch + 1) })} style={stepBtn}>+</button>
+                <button type="button" aria-label="Increase batch" data-tip="More variants per run" onClick={() => onChange({ batch: Math.min(4, values.batch + 1) })} style={stepBtn}>+</button>
               </div>
             </div>
 

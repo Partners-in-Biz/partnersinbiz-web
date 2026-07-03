@@ -40,6 +40,8 @@ export interface CanvasNodeData {
   onEditWithAi?: () => void
   onReplaceContent?: () => void
   onPublish?: () => void
+  /** Video nodes: open the split dialog to carve out a cheaper-to-process segment. */
+  onSplitVideo?: () => void
   /** Character node: Soul ID for identity-consistent generation. */
   soulId?: string
   /** Screen node: generate a UI mockup image from the description. */

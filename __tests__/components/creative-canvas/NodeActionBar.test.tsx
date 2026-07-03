@@ -30,6 +30,13 @@ describe('NodeActionBar', () => {
     expect(screen.getByRole('link', { name: /open media/i })).toHaveAttribute('href', 'https://example.com/asset.png')
   })
 
+  it('shows the split-video action when provided', () => {
+    const onSplitVideo = jest.fn()
+    render(<NodeActionBar onSplitVideo={onSplitVideo} />)
+    fireEvent.click(screen.getByRole('button', { name: /split video/i }))
+    expect(onSplitVideo).toHaveBeenCalled()
+  })
+
   it('renders nothing without handlers', () => {
     const { container } = render(<NodeActionBar />)
     expect(container.firstChild).toBeNull()

@@ -49,6 +49,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
 
   const {
     nodeId,
+    sourceNodeIds,
     model,
     prompt,
     aspectRatio,
@@ -60,6 +61,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
     referenceImageUrls,
   } = body as {
     nodeId?: string
+    sourceNodeIds?: string[]
     model?: string
     prompt?: string
     aspectRatio?: string
@@ -99,7 +101,9 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
     model: m.id,
     input: {
       promptSummary,
-      sourceNodeIds: nodeId ? [nodeId] : [],
+      sourceNodeIds: Array.isArray(sourceNodeIds) && sourceNodeIds.length
+        ? [...new Set([...(nodeId ? [nodeId] : []), ...sourceNodeIds.filter((value): value is string => typeof value === 'string')])]
+        : nodeId ? [nodeId] : [],
       sourceArtifactIds: [],
       aspectRatio,
       outputKind: m.kind,
