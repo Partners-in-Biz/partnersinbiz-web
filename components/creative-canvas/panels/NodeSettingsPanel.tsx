@@ -258,9 +258,14 @@ export default function NodeSettingsPanel(props: NodeSettingsPanelProps) {
               type="button"
               onClick={onGenerate}
               disabled={!canGenerate || generating}
-              style={{ marginTop: 14, width: '100%', height: 38, borderRadius: 9, border: 'none', background: canvasTheme.accent, color: canvasTheme.accentText, fontWeight: 700, fontSize: 14, cursor: !canGenerate || generating ? 'default' : 'pointer', opacity: !canGenerate || generating ? 0.5 : 1 }}
+              style={{ marginTop: 14, width: '100%', height: 38, borderRadius: 9, border: 'none', background: canvasTheme.accent, color: canvasTheme.accentText, fontWeight: 700, fontSize: 14, cursor: !canGenerate || generating ? 'default' : 'pointer', opacity: !canGenerate || generating ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
             >
-              {generating ? 'Generating…' : `Generate${typeof creditCost === 'number' ? `  ✦ ${creditCost}` : ''}`}
+              {generating ? (
+                <>
+                  <span aria-hidden className="animate-spin" style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid currentColor', borderTopColor: 'transparent', display: 'inline-block' }} />
+                  Generating…
+                </>
+              ) : `Generate${typeof creditCost === 'number' ? `  ✦ ${creditCost}` : ''}`}
             </button>
           </>
         ) : null}

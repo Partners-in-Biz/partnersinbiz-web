@@ -656,6 +656,8 @@ export async function createCreativeCanvasRun(
       referenceImageUrls: cleanReferenceImageUrls(runInput.referenceImageUrls),
       format: cleanString(runInput.format),
       aspectRatio: cleanString(runInput.aspectRatio),
+      quality: cleanString(runInput.quality),
+      generateAudio: runInput.generateAudio === true ? true : undefined,
       durationSeconds: durationSeconds !== undefined
         ? Math.max(0, durationSeconds)
         : undefined,

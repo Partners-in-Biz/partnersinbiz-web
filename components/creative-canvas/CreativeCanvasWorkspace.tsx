@@ -22,6 +22,7 @@ import CreateMenu from '@/components/creative-canvas/canvas/CreateMenu'
 import NodeEditChat from '@/components/creative-canvas/nodes/NodeEditChat'
 import NodePublishMenu, { type NodePublishPlatform, type NodePublishTarget } from '@/components/creative-canvas/nodes/NodePublishMenu'
 import NodeSettingsPanel from '@/components/creative-canvas/panels/NodeSettingsPanel'
+import type { NodeSettingsValues } from '@/components/creative-canvas/panels/NodeSettingsPanel'
 import ReferencePicker, { type ReferenceAsset } from '@/components/creative-canvas/panels/ReferencePicker'
 import CanvasLanding from '@/components/creative-canvas/landing/CanvasLanding'
 import { canvasTheme } from '@/components/creative-canvas/theme/tokens'
@@ -1145,7 +1146,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     editWithAi: (nodeId: string) => void
     publish: (nodeId: string) => void
     generateMockup: (nodeId: string) => void
-  }>({ generate: () => {}, updatePrompt: () => {}, updateText: () => {}, addReference: () => {}, updateOutputKind: () => {}, remove: () => {}, duplicate: () => {}, replaceContent: () => {}, editWithAi: () => {}, publish: () => {}, generateMockup: () => {} })
+    updateGenerationSettings: (nodeId: string, patch: Partial<NodeSettingsValues>) => void
+  }>({ generate: () => {}, updatePrompt: () => {}, updateText: () => {}, addReference: () => {}, updateOutputKind: () => {}, remove: () => {}, duplicate: () => {}, replaceContent: () => {}, editWithAi: () => {}, publish: () => {}, generateMockup: () => {}, updateGenerationSettings: () => {} })
   const pendingReferenceNodeIdRef = useRef<{ nodeId: string; mode: 'attach' | 'replace' } | null>(null)
   const referenceFileInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -1153,6 +1155,20 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
     if (!canvasNode) return node
     const flowNode = toFlowNode({ ...canvasNode, position: node.position }, collaboratorsByNodeId[node.id] ?? [])
+    // Per-node generation settings drive what the card shows (model, batch,
+    // credit estimate) so it stays in lockstep with the settings panel.
+    const nodeGeneration = (typeof (canvasNode.data as Record<string, unknown> | undefined)?.generation === 'object'
+      && (canvasNode.data as Record<string, unknown>).generation
+      ? (canvasNode.data as Record<string, unknown>).generation
+      : {}) as Partial<NodeSettingsValues>
+    const cardModelId = typeof nodeGeneration.model === 'string' && nodeGeneration.model
+      ? nodeGeneration.model
+      : flowNode.data.model as string | undefined
+    const cardBatch = typeof nodeGeneration.batch === 'number' ? nodeGeneration.batch : 1
+    const cardModel = getCanvasModel(cardModelId ?? '')
+    const cardCreditCost = typeof cardModel?.creditCost === 'number'
+      ? Math.round(cardModel.creditCost * Math.max(1, cardBatch) * 100) / 100
+      : undefined
     // Upstream nodes linked into this node (combine nodes surface these).
     const upstreamNodes = edges
       .filter((edge) => edge.target === node.id)
@@ -1194,6 +1210,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           : {}),
         inputCount: upstreamNodes.length,
         inputPreviews: upstreamPreviews,
+        model: cardModelId,
+        batch: cardBatch,
+        creditCost: cardCreditCost,
+        onBatchChange: (value: number) => nodeActionRefs.current.updateGenerationSettings(node.id, { batch: value }),
         onGenerate: () => nodeActionRefs.current.generate(node.id),
         onPromptChange: (value: string) => nodeActionRefs.current.updatePrompt(node.id, value),
         onTextChange: (value: string) => nodeActionRefs.current.updateText(node.id, value),
@@ -2883,6 +2903,20 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const selectFlowNode = useCallback((_: unknown, node: Node) => {
     setSelectedFlowNodeId(node.id)
     setSettingsCollapsed(false)
+    // Hydrate the settings panel from the node's own saved generation
+    // settings so the panel always mirrors the card it represents.
+    const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
+    if (!canvasNode) return
+    const data = (canvasNode.data ?? {}) as Record<string, unknown>
+    const generation = (typeof data.generation === 'object' && data.generation ? data.generation : {}) as Partial<NodeSettingsValues>
+    const nodeModel = typeof generation.model === 'string' && generation.model ? generation.model : canvasNode.provider?.model
+    if (nodeModel) setRunModel(coerceCanvasModel(nodeModel))
+    if (typeof generation.aspectRatio === 'string') setRunAspectRatio(generation.aspectRatio)
+    if (typeof generation.resolution === 'string') setRunResolution(generation.resolution)
+    if (typeof generation.quality === 'string') setRunQuality(generation.quality)
+    if (typeof generation.duration === 'number') setRunDurationSeconds(generation.duration)
+    if (typeof generation.generateAudio === 'boolean') setRunGenerateAudio(generation.generateAudio)
+    if (typeof generation.batch === 'number') setRunVariantCount(generation.batch)
   }, [])
 
   const saveGraph = useCallback(async (reason: 'manual' | 'auto' = 'manual') => {
@@ -3103,6 +3137,41 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }))
   }, [])
 
+  /** Persist generation settings onto the node itself so the canvas card,
+   *  settings panel, and provenance tab all read the same values. */
+  const updateNodeGenerationSettings = useCallback((nodeId: string, patch: Partial<NodeSettingsValues>) => {
+    setNodes((current) => current.map((node) => {
+      if (node.id !== nodeId) return node
+      const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
+      if (!canvasNode) return node
+      const data = (canvasNode.data ?? {}) as Record<string, unknown>
+      const generation = {
+        ...(typeof data.generation === 'object' && data.generation ? data.generation : {}),
+        ...patch,
+      }
+      const provider = patch.model !== undefined
+        ? {
+            ...(canvasNode.provider ?? { key: 'higgsfield' as const }),
+            model: patch.model,
+            ...(getCanvasModel(patch.model)?.providerKey ? { key: getCanvasModel(patch.model)!.providerKey } : {}),
+          }
+        : canvasNode.provider
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          ...(patch.model !== undefined ? { model: patch.model } : {}),
+          ...(patch.batch !== undefined ? { batch: patch.batch } : {}),
+          canvasNode: {
+            ...canvasNode,
+            provider,
+            data: { ...data, generation },
+          },
+        },
+      }
+    }))
+  }, [])
+
   const updateNodeText = useCallback((nodeId: string, value: string) => {
     setNodes((current) => current.map((node) => {
       if (node.id !== nodeId) return node
@@ -3285,10 +3354,6 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   }, [activeCanvas?.id, activeCanvas?.orgId, currentGraphSignature, edges, graphHasUnsavedChanges, nodes, resolvedOrgId, saveGraph])
 
   const generateInlineForNode = useCallback(async (nodeId: string) => {
-    if (mode !== 'admin') {
-      setActivityMessage('Generation is available in the admin canvas')
-      return
-    }
     const target = nodes.find((node) => node.id === nodeId)
     const canvasNode = target?.data?.canvasNode as CreativeCanvasNode | undefined
     if (!canvasNode) {
@@ -3296,6 +3361,20 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       return
     }
     const nodeData = (canvasNode.data ?? {}) as Record<string, unknown>
+    // Node-scoped settings win over the shared panel state — clicking Generate
+    // on an unselected card must use that card's own configuration.
+    const nodeGeneration = (typeof nodeData.generation === 'object' && nodeData.generation
+      ? nodeData.generation
+      : {}) as Partial<NodeSettingsValues>
+    const settingModel = typeof nodeGeneration.model === 'string' && nodeGeneration.model
+      ? nodeGeneration.model
+      : (canvasNode.provider?.model || runModel)
+    const settingAspectRatio = typeof nodeGeneration.aspectRatio === 'string' ? nodeGeneration.aspectRatio : runAspectRatio
+    const settingResolution = typeof nodeGeneration.resolution === 'string' ? nodeGeneration.resolution : runResolution
+    const settingQuality = typeof nodeGeneration.quality === 'string' ? nodeGeneration.quality : runQuality
+    const settingDuration = typeof nodeGeneration.duration === 'number' ? nodeGeneration.duration : runDurationSeconds
+    const settingGenerateAudio = typeof nodeGeneration.generateAudio === 'boolean' ? nodeGeneration.generateAudio : runGenerateAudio
+    const settingBatch = typeof nodeGeneration.batch === 'number' ? nodeGeneration.batch : runVariantCount
     const instruction = typeof nodeData.prompt === 'string' ? nodeData.prompt : ''
 
     // ---- Gather everything linked into this node (the combine flow). ----
@@ -3339,7 +3418,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const requestedKind = isAudioNode
       ? 'audio'
       : nodeData.outputKind === 'video' || canvasNode.provider?.mode === 'video' ? 'video' : 'image'
-    const activeModel = getCanvasModel(runModel)
+    const activeModel = getCanvasModel(settingModel)
     // Some models cap reference media (Soul V2 accepts exactly one — the
     // provider rejects the run otherwise). Fall back to Nano Banana for
     // multi-reference combines and tell the user.
@@ -3368,12 +3447,12 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           nodeId,
           model: effectiveModel,
           prompt,
-          aspectRatio: runAspectRatio,
-          resolution: runResolution,
-          quality: runQuality,
-          duration: runDurationSeconds,
-          generateAudio: runGenerateAudio,
-          batch: runVariantCount,
+          aspectRatio: settingAspectRatio,
+          resolution: settingResolution,
+          quality: settingQuality,
+          duration: settingDuration,
+          generateAudio: settingGenerateAudio,
+          batch: settingBatch,
           referenceImageUrls,
         }),
       })
@@ -3427,7 +3506,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       })
       void loadCanvasCredits()
     }
-  }, [applyCanvasSnapshot, edges, ensurePersistedCanvas, loadCanvasCredits, mode, nodes, runAspectRatio, runDurationSeconds, runGenerateAudio, runModel, runQuality, runResolution, runVariantCount])
+  }, [applyCanvasSnapshot, edges, ensurePersistedCanvas, loadCanvasCredits, nodes, runAspectRatio, runDurationSeconds, runGenerateAudio, runModel, runQuality, runResolution, runVariantCount])
 
   const [editChatBusy, setEditChatBusy] = useState(false)
   const [editChatError, setEditChatError] = useState('')
@@ -3997,6 +4076,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       replaceContent: (nodeId: string) => setReferencePicker({ nodeId, mode: 'replace' }),
       editWithAi: (nodeId: string) => setEditChatNodeId(nodeId),
       publish: (nodeId: string) => { setPublishNodeId(nodeId); setPublishError(''); setPublishSuccess('') },
+      updateGenerationSettings: updateNodeGenerationSettings,
     }
   })
 
@@ -5035,8 +5115,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   ? String((selectedCanvasNode!.data as Record<string, unknown>).prompt)
                   : ''}
                 onPromptChange={(value) => { if (selectedNodeId) updateNodePrompt(selectedNodeId, value) }}
-                canGenerate={mode === 'admin' && Boolean(selectedNodeId) && !versionPreview}
-                onModelSelect={setRunModel}
+                canGenerate={Boolean(selectedNodeId) && !versionPreview}
+                onModelSelect={(modelId) => {
+                  setRunModel(modelId)
+                  if (selectedNodeId) updateNodeGenerationSettings(selectedNodeId, { model: modelId })
+                }}
                 onChange={(patch) => {
                   if (patch.model !== undefined) setRunModel(patch.model)
                   if (patch.aspectRatio !== undefined) setRunAspectRatio(patch.aspectRatio)
@@ -5045,6 +5128,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   if (patch.duration !== undefined) setRunDurationSeconds(patch.duration)
                   if (patch.generateAudio !== undefined) setRunGenerateAudio(patch.generateAudio)
                   if (patch.batch !== undefined) setRunVariantCount(patch.batch)
+                  if (selectedNodeId) updateNodeGenerationSettings(selectedNodeId, patch)
                 }}
                 generating={Boolean(selectedNodeId && generatingNodeIds.has(selectedNodeId))}
                 onGenerate={() => { if (selectedNodeId) void generateInlineForNode(selectedNodeId) }}

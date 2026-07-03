@@ -53,7 +53,9 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
     prompt,
     aspectRatio,
     resolution,
+    quality,
     duration,
+    generateAudio,
     batch,
     referenceImageUrls,
   } = body as {
@@ -104,6 +106,8 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
       durationSeconds: duration,
       variantCount: batch,
       ...(resolution ? { format: resolution } : {}),
+      ...(typeof quality === 'string' && quality ? { quality } : {}),
+      ...(typeof generateAudio === 'boolean' ? { generateAudio } : {}),
       ...(referenceUrls.length ? { referenceImageUrls: referenceUrls } : {}),
     },
   }

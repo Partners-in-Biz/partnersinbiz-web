@@ -266,9 +266,18 @@ export function GeneratorNodeCard(props: GeneratorNodeCardProps) {
               fontSize: 13,
               cursor: busy ? 'default' : 'pointer',
               opacity: busy ? 0.6 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
             }}
           >
-            {busy ? 'Generating…' : `Generate${typeof creditCost === 'number' ? `  ✦ ${creditCost}` : ''}`}
+            {busy ? (
+              <>
+                <span aria-hidden className="animate-spin" style={{ width: 13, height: 13, borderRadius: '50%', border: '2px solid currentColor', borderTopColor: 'transparent', display: 'inline-block' }} />
+                Generating…
+              </>
+            ) : `Generate${typeof creditCost === 'number' ? `  ✦ ${creditCost}` : ''}`}
           </button>
         </div>
       ) : null}

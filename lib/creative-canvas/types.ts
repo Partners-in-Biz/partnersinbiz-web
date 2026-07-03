@@ -450,6 +450,8 @@ export interface CreativeCanvasRun {
     referenceImageUrls?: string[]
     format?: string
     aspectRatio?: string
+    quality?: string
+    generateAudio?: boolean
     durationSeconds?: number
     outputKind?: CreativeCanvasOutputKind
     operation?: CreativeCanvasEditOperation
