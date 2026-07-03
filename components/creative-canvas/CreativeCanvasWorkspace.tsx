@@ -1953,6 +1953,20 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     void loadCanvasCredits()
   }, [loadCanvasCredits, activeCanvas?.id])
 
+  // Keep the credit balance fresh in the background. Async runs (especially
+  // video, whose provider IP-check retries settle minutes after the client
+  // stops polling for output) charge on dispatch and refund on terminal
+  // failure — without a periodic refresh the top bar would linger on the
+  // mid-flight charged value and read as if credits were lost.
+  useEffect(() => {
+    if (!activeCanvas?.id) return
+    const interval = window.setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+      void loadCanvasCredits()
+    }, 20_000)
+    return () => window.clearInterval(interval)
+  }, [activeCanvas?.id, loadCanvasCredits])
+
   // Video preflight for the selected node: how much linked video footage this
   // run will process, and whether any of it is a full-length (untrimmed) clip
   // the user could cheaply split first.
