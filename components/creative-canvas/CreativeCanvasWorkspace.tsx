@@ -822,7 +822,14 @@ function presentationTypeFor(node: CreativeCanvasNode): CanvasNodeType {
       return 'image_generator'
     case 'model':
     default:
-      return node.output?.kind === 'video' || node.provider?.mode === 'video'
+      // Authoritative video signal: the resolved model's kind (the catalog is
+      // the source of truth), the run output, an explicit provider video mode,
+      // or a motion edit. Templates set descriptive modes like 'vertical_social'
+      // rather than the literal 'video', so we can't rely on mode alone.
+      return node.output?.kind === 'video'
+        || node.provider?.mode === 'video'
+        || node.edit?.operation === 'video_motion'
+        || getCanvasModel(node.provider?.model ?? '')?.kind === 'video'
         ? 'video_generator'
         : 'image_generator'
   }
