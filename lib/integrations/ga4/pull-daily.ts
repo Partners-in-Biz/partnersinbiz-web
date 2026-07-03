@@ -150,6 +150,25 @@ interface PullDailyDeps {
   now?: Date
   /** Toggle the source/medium second call. Defaults to true. */
   includeSourceMedium?: boolean
+  /**
+   * Metric `source` tag written to each row. Defaults to `'ga4'`. The
+   * Firebase Analytics adapter (lib/integrations/firebase_analytics) passes
+   * `'firebase_analytics'` here so rows are attributed correctly even though
+   * they're pulled via the same GA4 Data API — Firebase Analytics data for
+   * an app is served through GA4's Data API using the Firebase-linked GA4
+   * property id, there is no separate Firebase reporting API.
+   */
+  source?: 'ga4' | 'firebase_analytics'
+  /**
+   * Property-id resolution override, in priority order, tried before the
+   * standard `connection.meta.ga4PropertyId` / `Property.config.revenue.ga4PropertyId`
+   * chain. Used by the Firebase Analytics adapter to prefer a
+   * `firebaseAnalyticsPropertyId` field while still falling back to the
+   * shared `ga4PropertyId` field (same GA4 property, just Firebase-linked).
+   */
+  resolvePropertyId?: (input: { connection: Connection; property: Property | null }) => string | undefined
+  /** Error/empty-state copy uses this label instead of "GA4". */
+  providerLabel?: string
 }
 
 /**
@@ -163,6 +182,8 @@ export async function pullDaily(
 ): Promise<PullResult> {
   const { connection } = input
   const now = deps.now ?? new Date()
+  const source = deps.source ?? 'ga4'
+  const providerLabel = deps.providerLabel ?? 'GA4'
 
   // 1. Decrypt credentials (soft-fail if missing).
   const creds = maybeDecryptCredentials<Ga4Credentials>(
@@ -174,14 +195,17 @@ export async function pullDaily(
       from: '',
       to: '',
       metricsWritten: 0,
-      notes: ['No GA4 credentials on connection — skipping pull.'],
+      notes: [`No ${providerLabel} credentials on connection — skipping pull.`],
     }
   }
 
-  // 2. Resolve GA4 property id (connection.meta.ga4PropertyId > Property.config.revenue.ga4PropertyId).
+  // 2. Resolve GA4 property id. Default chain:
+  //    connection.meta.ga4PropertyId > Property.config.revenue.ga4PropertyId.
+  //    `deps.resolvePropertyId` (if provided) is tried first.
   const property = await getPropertyForConnection(connection)
   const revCfg = property?.config?.revenue ?? {}
   const ga4PropertyId =
+    deps.resolvePropertyId?.({ connection, property }) ??
     (connection.meta?.ga4PropertyId as string | undefined) ??
     revCfg.ga4PropertyId
 
@@ -191,7 +215,7 @@ export async function pullDaily(
       to: '',
       metricsWritten: 0,
       notes: [
-        'No GA4 propertyId resolved (set Property.config.revenue.ga4PropertyId).',
+        `No ${providerLabel} propertyId resolved (set Property.config.revenue.ga4PropertyId).`,
       ],
     }
   }
@@ -225,7 +249,7 @@ export async function pullDaily(
         to,
         metricsWritten: 0,
         notes: [
-          `GA4 returned ${err.status} on properties/${ga4PropertyId}:runReport — check OAuth scope and property id.`,
+          `${providerLabel} returned ${err.status} on properties/${ga4PropertyId}:runReport — check OAuth scope and property id.`,
         ],
       }
     }
@@ -252,13 +276,13 @@ export async function pullDaily(
         orgId: connection.orgId,
         propertyId: connection.propertyId,
         date: isoDate,
-        source: 'ga4',
+        source,
         metric: kind,
         value,
         currency: null,
         dimension: null,
         dimensionValue: null,
-        raw: { provider: 'ga4', ga4Name, ga4PropertyId },
+        raw: { provider: source, ga4Name, ga4PropertyId },
       })
     }
   }
@@ -284,20 +308,20 @@ export async function pullDaily(
           orgId: connection.orgId,
           propertyId: connection.propertyId,
           date: to,
-          source: 'ga4',
+          source,
           metric: 'conversions',
           value,
           currency: null,
           dimension: 'source_medium',
           dimensionValue: dimValue,
-          raw: { provider: 'ga4', ga4Name: 'conversions', ga4PropertyId },
+          raw: { provider: source, ga4Name: 'conversions', ga4PropertyId },
         })
       }
     } catch (err) {
       // Soft-fail on the secondary call — main daily totals already captured.
       const msg = err instanceof Ga4ApiError
-        ? `GA4 returned ${err.status} on source/medium breakdown.`
-        : `GA4 source/medium breakdown failed.`
+        ? `${providerLabel} returned ${err.status} on source/medium breakdown.`
+        : `${providerLabel} source/medium breakdown failed.`
       notes.push(msg)
     }
   }
@@ -306,7 +330,7 @@ export async function pullDaily(
   const sampling = dailyReport.metadata?.samplingMetadatas ?? []
   if (sampling.length > 0) {
     notes.push(
-      'GA4 returned a sampled report — values are estimates. Reduce date range or use Analytics 360 to remove sampling.',
+      `${providerLabel} returned a sampled report — values are estimates. Reduce date range or use Analytics 360 to remove sampling.`,
     )
   }
 
@@ -317,7 +341,7 @@ export async function pullDaily(
       metricsWritten: 0,
       notes: notes.length > 0
         ? notes
-        : ['GA4 :runReport returned no rows for this window.'],
+        : [`${providerLabel} :runReport returned no rows for this window.`],
     }
   }
 

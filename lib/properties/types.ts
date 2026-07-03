@@ -29,6 +29,14 @@ export interface PropertyRevenueConfig {
   googleAdsCustomerId?: string
   /** GA4 property id (numeric, no `properties/` prefix) */
   ga4PropertyId?: string
+  /**
+   * Firebase-linked GA4 property id (numeric, no `properties/` prefix).
+   * Firebase Analytics data is served through the same GA4 Data API as
+   * `ga4PropertyId` — this field only exists so an app's Firebase-linked
+   * GA4 property can differ from a separate web `ga4PropertyId` on the
+   * same property. Falls back to `ga4PropertyId` when unset.
+   */
+  firebaseAnalyticsPropertyId?: string
 }
 
 export interface PropertyConfig {

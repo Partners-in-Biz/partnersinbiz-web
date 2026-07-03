@@ -1096,7 +1096,7 @@ Admin: `PreflightPanel` component in BroadcastEditor + sequence step editor. Sch
 - **Image upload:** `POST /api/v1/email-images/upload` — multipart upload to Firebase Storage, returns CDN URL. Used by builder image block.
 - **Brand kit:** `GET/PUT /api/v1/brand-kit` per-org store of logo URL, primary/secondary/accent colors, font family, custom voice, default footer. Auto-applied to new templates via `applyToDocument`.
 - **Conditional content blocks:** every block now supports `condition?: BlockCondition` — show/hide based on contact tag, stage, custom field, or merge-var presence. Renderer evaluates per-recipient.
-- **Reusable snippets:** save a block tree as a named snippet, reuse across templates. CRUD via `/api/v1/email-snippets`. Pre-built snippets in `snippet-presets.ts` (header / footer / hero card / CTA bar / social row).
+- **Reusable snippets:** save a block tree as a named snippet, reuse across templates. CRUD via `/api/v1/email-snippets`. Pre-built snippets in `snippet-presets.ts` (header / footer / hero card / CTA bar / social row). Creative Canvas can also publish a node as an `email_block` (target of `POST /api/v1/creative-canvas/[id]/exports/draft`), which auto-creates an inert `custom`-category snippet (paragraph from the node text + image block from its output URL) — it appears in the snippet library but nothing is sent or scheduled.
 
 ## 24. Popup / exit-intent / multi-step capture widgets
 

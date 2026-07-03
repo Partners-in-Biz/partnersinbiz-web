@@ -21,6 +21,37 @@ export interface SendTimeContext {
   preferredDaysOfWeek: number[] // [0..6] (0 = Sun)
 }
 
+/**
+ * True when `tz` is a real IANA timezone identifier. Prefers
+ * `Intl.supportedValuesOf('timeZone')` (Node 18.13+ / modern browsers) when
+ * available, falling back to instantiating a formatter (which throws
+ * `RangeError` on an invalid zone) for older runtimes.
+ */
+export function isValidIanaTimezone(tz: string): boolean {
+  if (typeof tz !== 'string' || !tz.trim()) return false
+  const value = tz.trim()
+  // 'UTC' is a valid Intl timezone and is used as our internal fallback
+  // (see timezoneFor below), but Intl.supportedValuesOf('timeZone') omits it
+  // on some runtimes (it enumerates IANA zone names; UTC is a special alias
+  // for Etc/UTC). Accept it explicitly rather than rejecting a value we
+  // ourselves treat as canonical.
+  if (value === 'UTC') return true
+  try {
+    const supported = (Intl as unknown as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf
+    if (typeof supported === 'function') {
+      return supported('timeZone').includes(value)
+    }
+  } catch {
+    // supportedValuesOf unsupported/throwing — fall through to the formatter check.
+  }
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value })
+    return true
+  } catch {
+    return false
+  }
+}
+
 const VALID_HOURS = (h: number) => Number.isFinite(h) && h >= 0 && h <= 23
 const VALID_DAYS = (ds: number[]) => Array.isArray(ds) && ds.length > 0 && ds.every((d) => Number.isInteger(d) && d >= 0 && d <= 6)
 

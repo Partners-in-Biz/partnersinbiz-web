@@ -171,6 +171,9 @@ export interface CreativeCanvasLinkMap {
   youtubeVideoProjectId?: string
   bookStudioProjectId?: string
   workspaceArtifactIds?: string[]
+  adCreativeId?: string
+  emailSnippetId?: string
+  seoContentId?: string
 }
 
 export interface CreativeCanvas {
@@ -646,7 +649,7 @@ export interface CreativeCanvasExport {
   orgId: string
   canvasId: string
   nodeId: string
-  target: 'social_draft' | 'campaign_asset' | 'client_document' | 'blog_post' | 'research' | 'youtube_studio' | 'book_studio' | 'workspace_artifact'
+  target: 'social_draft' | 'campaign_asset' | 'client_document' | 'blog_post' | 'research' | 'youtube_studio' | 'book_studio' | 'workspace_artifact' | 'ads_creative' | 'email_block' | 'seo_content'
   targetId?: string
   categoryKey?: CreativeCanvasProofCategoryKey
   downstreamDraftId?: string

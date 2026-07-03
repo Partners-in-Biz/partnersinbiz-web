@@ -234,4 +234,59 @@ describe('PATCH /api/v1/portal/settings/organization', () => {
     expect(res.status).toBe(403)
     expect(mockOrgUpdate).not.toHaveBeenCalled()
   })
+
+  it('writes a valid timezone to settings.timezone (the field cron/send-time reads), not a top-level field', async () => {
+    stage('admin')
+
+    const { PATCH } = await import('@/app/api/v1/portal/settings/organization/route')
+    const req = new NextRequest('http://localhost/api/v1/portal/settings/organization', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ timezone: 'America/New_York' }),
+    })
+    const res = await PATCH(req)
+
+    expect(res.status).toBe(200)
+    const update = mockOrgUpdate.mock.calls[0][0]
+    expect(update['settings.timezone']).toBe('America/New_York')
+    expect(update.timezone).toBeUndefined()
+
+    const body = await res.json()
+    expect(body.organization.timezone).toBe('America/New_York')
+  })
+
+  it('rejects an invalid timezone with a 400 and does not write', async () => {
+    stage('admin')
+
+    const { PATCH } = await import('@/app/api/v1/portal/settings/organization/route')
+    const req = new NextRequest('http://localhost/api/v1/portal/settings/organization', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ timezone: 'Not/AZone' }),
+    })
+    const res = await PATCH(req)
+
+    expect(res.status).toBe(400)
+    expect(mockOrgUpdate).not.toHaveBeenCalled()
+  })
+
+  it('falls back to the legacy top-level timezone field, then the SAST default, when settings.timezone is unset', async () => {
+    stage('owner', { timezone: 'Europe/London', settings: undefined })
+
+    const { GET } = await import('@/app/api/v1/portal/settings/organization/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/portal/settings/organization'))
+    const body = await res.json()
+
+    expect(body.organization.timezone).toBe('Europe/London')
+  })
+
+  it('defaults to Africa/Johannesburg when no timezone has ever been set', async () => {
+    stage('owner', { timezone: undefined, settings: undefined })
+
+    const { GET } = await import('@/app/api/v1/portal/settings/organization/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/portal/settings/organization'))
+    const body = await res.json()
+
+    expect(body.organization.timezone).toBe('Africa/Johannesburg')
+  })
 })

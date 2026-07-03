@@ -461,3 +461,71 @@ describe('creative canvas store', () => {
     expect(mockAdd).not.toHaveBeenCalled()
   })
 })
+
+describe('creative canvas public share', () => {
+  const mockLimit = jest.fn()
+
+  const canvasDoc = (data: Record<string, unknown>) => ({
+    exists: true,
+    id: 'canvas-1',
+    data: () => ({
+      orgId: 'org-1',
+      title: 'Shared Canvas',
+      deleted: false,
+      nodes: [],
+      edges: [],
+      ...data,
+    }),
+  })
+
+  beforeEach(() => {
+    mockLimit.mockReturnValue({ get: mockGet })
+    mockWhere.mockReturnValue({ get: mockGet, where: mockWhere, limit: mockLimit })
+    mockDocUpdate.mockResolvedValue(undefined)
+  })
+
+  it('enables sharing by minting a token once', async () => {
+    const { setCreativeCanvasShareEnabled } = await import('@/lib/creative-canvas/store')
+    mockDocGet.mockResolvedValue(canvasDoc({}))
+
+    const canvas = await setCreativeCanvasShareEnabled('canvas-1', 'org-1', true, ACTOR)
+
+    expect(canvas.shareEnabled).toBe(true)
+    expect(typeof canvas.shareToken).toBe('string')
+    expect((canvas.shareToken as string).length).toBeGreaterThanOrEqual(16)
+    expect(mockDocUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      shareEnabled: true,
+      shareToken: canvas.shareToken,
+    }))
+  })
+
+  it('reuses the existing token when re-enabling', async () => {
+    const { setCreativeCanvasShareEnabled } = await import('@/lib/creative-canvas/store')
+    mockDocGet.mockResolvedValue(canvasDoc({ shareToken: 'existing-token-123', shareEnabled: false }))
+
+    const canvas = await setCreativeCanvasShareEnabled('canvas-1', 'org-1', true, ACTOR)
+
+    expect(canvas.shareToken).toBe('existing-token-123')
+  })
+
+  it('looks up canvases by token only when enabled and not deleted', async () => {
+    const { getCreativeCanvasByShareToken } = await import('@/lib/creative-canvas/store')
+
+    mockGet.mockResolvedValue({ empty: false, docs: [canvasDoc({ shareToken: 'tok-12345678', shareEnabled: true })] })
+    const found = await getCreativeCanvasByShareToken('tok-12345678')
+    expect(found?.id).toBe('canvas-1')
+    expect(mockWhere).toHaveBeenCalledWith('shareToken', '==', 'tok-12345678')
+
+    mockGet.mockResolvedValue({ empty: false, docs: [canvasDoc({ shareToken: 'tok-12345678', shareEnabled: false })] })
+    expect(await getCreativeCanvasByShareToken('tok-12345678')).toBeNull()
+
+    mockGet.mockResolvedValue({ empty: false, docs: [canvasDoc({ shareToken: 'tok-12345678', shareEnabled: true, deleted: true })] })
+    expect(await getCreativeCanvasByShareToken('tok-12345678')).toBeNull()
+  })
+
+  it('rejects short/blank tokens without querying', async () => {
+    const { getCreativeCanvasByShareToken } = await import('@/lib/creative-canvas/store')
+    expect(await getCreativeCanvasByShareToken('short')).toBeNull()
+    expect(mockGet).not.toHaveBeenCalled()
+  })
+})

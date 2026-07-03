@@ -29,7 +29,7 @@ const PROVIDERS: ProviderInfo[] = [
   { provider: 'play_console',       name: 'Google Play Console', description: 'Android installs, ratings, IAP revenue. RTDN webhooks.',           authKind: 'service_account' },
   { provider: 'google_ads',         name: 'Google Ads',          description: 'Campaign spend, conversions, ROAS, CTR.',                          authKind: 'oauth2' },
   { provider: 'ga4',                name: 'Google Analytics 4',  description: 'Sessions, conversions, source/medium attribution.',                 authKind: 'oauth2' },
-  { provider: 'firebase_analytics', name: 'Firebase Analytics',  description: 'Mobile engagement and retention via BigQuery export.',              authKind: 'service_account' },
+  { provider: 'firebase_analytics', name: 'Firebase Analytics',  description: 'App engagement via the Firebase-linked GA4 property — sessions, users, screen views, conversions.', authKind: 'oauth2' },
 ]
 
 interface Connection {
@@ -90,6 +90,7 @@ export function PropertyConnectionsWorkspace({ backHref = '/portal/properties' }
   const [loading, setLoading] = useState(true)
   const [connections, setConnections] = useState<Connection[]>([])
   const [busy, setBusy] = useState<Provider | null>(null)
+  const [backfillBusy, setBackfillBusy] = useState<Provider | null>(null)
   const [flash, setFlash] = useState<{ kind: 'ok' | 'error'; msg: string } | null>(null)
 
   const load = useCallback(async () => {
@@ -148,6 +149,20 @@ export function PropertyConnectionsWorkspace({ backHref = '/portal/properties' }
       await load()
     } finally {
       setBusy(null)
+    }
+  }
+
+  async function backfill90Days(p: Provider) {
+    if (!confirm(`Backfill the last 90 days of ${p} metrics? This re-pulls and upserts historical data — existing rows for overlapping dates are overwritten, not duplicated.`)) return
+    setBackfillBusy(p)
+    try {
+      const r = await fetch(`/api/v1/properties/${propertyId}/connections/${p}/backfill`, { method: 'POST' })
+      const data = await r.json()
+      if (data.ok) setFlash({ kind: 'ok', msg: `${p}: backfilled ${data.from} → ${data.to} (${data.metricsWritten ?? 0} metric rows written)` })
+      else setFlash({ kind: 'error', msg: data.error || 'backfill failed' })
+      await load()
+    } finally {
+      setBackfillBusy(null)
     }
   }
 
@@ -247,6 +262,13 @@ export function PropertyConnectionsWorkspace({ backHref = '/portal/properties' }
                           className="px-3 py-1.5 text-xs rounded-full border border-white/15 text-white hover:bg-white/5 transition-colors disabled:opacity-60"
                         >
                           {isBusy ? '…' : 'Pull now'}
+                        </button>
+                        <button
+                          disabled={backfillBusy === info.provider}
+                          onClick={() => backfill90Days(info.provider)}
+                          className="px-3 py-1.5 text-xs rounded-full border border-white/15 text-white hover:bg-white/5 transition-colors disabled:opacity-60"
+                        >
+                          {backfillBusy === info.provider ? 'Backfilling…' : 'Backfill 90 days'}
                         </button>
                         <button
                           disabled={isBusy}

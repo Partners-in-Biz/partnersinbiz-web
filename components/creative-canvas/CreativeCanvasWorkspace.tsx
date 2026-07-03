@@ -839,7 +839,12 @@ function toFlowNode(node: CreativeCanvasNode, collaborators: Array<CreativeCanva
       title: node.title,
       prompt: promptValue,
       model: node.provider?.model,
-      assetUrl: node.output?.url ?? node.source?.url ?? previewUrl,
+      // data.assetUrl carries node-owned media with no output/source payload
+      // (screen mockups write there) — surface it too.
+      assetUrl: node.output?.url ?? node.source?.url ?? previewUrl
+        ?? (typeof (node.data as Record<string, unknown> | undefined)?.assetUrl === 'string'
+          ? String((node.data as Record<string, unknown>).assetUrl)
+          : undefined),
       assetKind: node.output?.kind === 'video' ? 'video' : 'image',
       status: node.output?.url ? 'done' : 'idle',
       reviewStatus: node.review?.status,
@@ -1814,6 +1819,19 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const lastStructuralSignatureRef = useRef('')
   const [activeCanvasTool, setActiveCanvasTool] = useState<CanvasTool>('select')
 
+  // Fresh nodes for long-lived async loops (generation polls) — the collaboration
+  // SSE stream may deliver an output node between poll ticks; loops check here
+  // before spending a fetch.
+  const liveNodesRef = useRef<Node[]>([])
+  useEffect(() => { liveNodesRef.current = nodes }, [nodes])
+
+  const lastContentSignatureRef = useRef('')
+  const contentSignatureOf = (list: Node[]) => list.map((node) => {
+    const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
+    const data = (canvasNode?.data ?? {}) as Record<string, unknown>
+    return `${node.id}:${typeof data.text === 'string' ? data.text : ''}:${typeof data.prompt === 'string' ? data.prompt : ''}`
+  }).join('|')
+
   useEffect(() => {
     if (isRestoringHistoryRef.current) {
       isRestoringHistoryRef.current = false
@@ -1822,12 +1840,28 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     const signature = `${nodes.map((node) => node.id).sort().join(',')}|${edges.map((edge) => edge.id).sort().join(',')}`
     if (signature === lastStructuralSignatureRef.current) return
     lastStructuralSignatureRef.current = signature
+    lastContentSignatureRef.current = contentSignatureOf(nodes)
     graphHistory.commit({ nodes, edges })
+  }, [nodes, edges, graphHistory])
+
+  // Content history: text/prompt edits don't change the structural signature,
+  // so commit them separately, debounced so keystrokes coalesce into one
+  // undo step per pause.
+  useEffect(() => {
+    if (isRestoringHistoryRef.current) return
+    const contentSignature = contentSignatureOf(nodes)
+    if (contentSignature === lastContentSignatureRef.current) return
+    const timer = window.setTimeout(() => {
+      lastContentSignatureRef.current = contentSignature
+      graphHistory.commit({ nodes, edges })
+    }, 800)
+    return () => window.clearTimeout(timer)
   }, [nodes, edges, graphHistory])
 
   const handleCanvasUndo = useCallback(() => {
     const snapshot = graphHistory.undo()
     isRestoringHistoryRef.current = true
+    lastContentSignatureRef.current = contentSignatureOf(snapshot.nodes as Node[])
     setNodes(snapshot.nodes as Node[])
     setEdges(snapshot.edges as Edge[])
   }, [graphHistory])
@@ -1835,6 +1869,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const handleCanvasRedo = useCallback(() => {
     const snapshot = graphHistory.redo()
     isRestoringHistoryRef.current = true
+    lastContentSignatureRef.current = contentSignatureOf(snapshot.nodes as Node[])
     setNodes(snapshot.nodes as Node[])
     setEdges(snapshot.edges as Edge[])
   }, [graphHistory])
@@ -1850,17 +1885,6 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [publishError, setPublishError] = useState('')
   const [publishSuccess, setPublishSuccess] = useState('')
   const [settingsCollapsed, setSettingsCollapsed] = useState(false)
-
-  const reloadActiveCanvas = useCallback(async () => {
-    if (!activeCanvas?.id) return
-    const canvasOrgId = resolvedOrgId || activeCanvas.orgId || ''
-    try {
-      const response = await fetch(`/api/v1/creative-canvas/${activeCanvas.id}?orgId=${encodeURIComponent(canvasOrgId)}`)
-      const payload = await response.json().catch(() => null) as CreativeCanvasApiListResponse | null
-      const canvas = payload?.data?.canvas
-      if (response.ok && canvas?.id) applyCanvasSnapshot(canvas)
-    } catch { ignoreCanvasBestEffortFailure() }
-  }, [activeCanvas?.id, activeCanvas?.orgId, applyCanvasSnapshot, resolvedOrgId])
 
   const [canvasCredits, setCanvasCredits] = useState<{ used: number; limit: number | null; higgsfieldCredits?: number; higgsfieldPlan?: string } | null>(null)
 
@@ -2066,9 +2090,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   }
 
   const applyWorkflowPreset = (preset: CreativeCanvasWorkflowPreset) => {
+    // Place presets clear of existing content: start to the right of the
+    // right-most node instead of stacking near the origin (fixed-coordinate
+    // presets used to overlap boards that already had nodes).
+    const maxX = nodes.length ? Math.max(...nodes.map((node) => node.position?.x ?? 0)) : 0
     const graph = buildWorkflowPresetGraph(preset, {
-      baseX: 80 + nodes.length * 18,
-      baseY: 90 + nodes.length * 12,
+      baseX: nodes.length ? maxX + 420 : 80,
+      baseY: 90,
       stamp: Date.now(),
       orgId: resolvedOrgId || 'pending-org',
     })
@@ -3360,6 +3388,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         let found = false
         for (let attempt = 0; attempt < 12 && !found; attempt += 1) {
           await new Promise((resolve) => { window.setTimeout(resolve, 3000) })
+          // The collaboration stream may have already delivered the output
+          // node — skip the fetch when it has.
+          if (liveNodesRef.current.some((liveNode) => liveNode.id === `${nodeId}-output`)) {
+            found = true
+            setActivityMessage('Generation complete')
+            break
+          }
           try {
             const pollResponse = await fetch(`/api/v1/creative-canvas/${canvasId}?orgId=${encodeURIComponent(canvasOrgId)}`)
             const pollPayload = await pollResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
@@ -3592,6 +3627,272 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       setPublishBusy(false)
     }
   }, [ensurePersistedCanvas, nodes, recordCanvasActivity])
+
+  // ---- Public read-only share link ----
+  const [shareBusy, setShareBusy] = useState(false)
+  const [shareState, setShareState] = useState<{ enabled: boolean; url: string | null } | null>(null)
+  const shareEnabled = shareState?.enabled ?? activeCanvas?.shareEnabled === true
+  const shareUrl = shareState
+    ? shareState.url
+    : activeCanvas?.shareEnabled && activeCanvas?.shareToken
+      ? `${typeof window !== 'undefined' ? window.location.origin : ''}/c/canvas/${activeCanvas.shareToken}`
+      : null
+
+  const toggleCanvasShare = useCallback(async () => {
+    setShareBusy(true)
+    try {
+      const persisted = await ensurePersistedCanvas()
+      if (!persisted) return
+      const { canvasId, canvasOrgId } = persisted
+      const response = await fetch(`/api/v1/creative-canvas/${canvasId}/share?orgId=${encodeURIComponent(canvasOrgId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: !shareEnabled }),
+      })
+      const payload = await response.json().catch(() => null) as { data?: { shareEnabled?: boolean; shareUrl?: string | null }; error?: string } | null
+      if (!response.ok) {
+        setActivityMessage(payload?.error ?? 'Share update failed')
+        return
+      }
+      const enabled = payload?.data?.shareEnabled === true
+      setShareState({ enabled, url: payload?.data?.shareUrl ?? null })
+      setActivityMessage(enabled ? 'Public share link enabled' : 'Public share link disabled')
+    } catch {
+      setActivityMessage('Share update failed')
+    } finally {
+      setShareBusy(false)
+    }
+  }, [ensurePersistedCanvas, shareEnabled])
+
+  // ---- Compile book board → Book Studio manuscript ----
+  const canvasHasChapters = useMemo(() => nodes.some((node) => {
+    const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
+    const data = (canvasNode?.data ?? {}) as Record<string, unknown>
+    return data.presentationType === 'chapter' && typeof data.text === 'string' && data.text.trim()
+  }), [nodes])
+  const [compileBusy, setCompileBusy] = useState(false)
+
+  const compileManuscript = useCallback(async () => {
+    setCompileBusy(true)
+    try {
+      const persisted = await ensurePersistedCanvas()
+      if (!persisted) return
+      const { canvasId, canvasOrgId } = persisted
+      const response = await fetch(`/api/v1/creative-canvas/${canvasId}/exports/manuscript?orgId=${encodeURIComponent(canvasOrgId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const payload = await response.json().catch(() => null) as { data?: { briefId?: string; chapterCount?: number; wordCount?: number; orderingFallback?: boolean }; error?: string } | null
+      if (!response.ok) {
+        setActivityMessage(payload?.error ?? 'Manuscript compile failed')
+        return
+      }
+      const detail = payload?.data
+      setActivityMessage(`Manuscript compiled to Book Studio — ${detail?.chapterCount ?? 0} chapters, ${detail?.wordCount ?? 0} words${detail?.orderingFallback ? ' (chapter order was ambiguous — check the sequence)' : ''}`)
+      recordCanvasActivity({
+        actorLabel: 'You',
+        action: 'Compiled manuscript',
+        detail: `${detail?.chapterCount ?? 0} chapters → Book Studio draft ${detail?.briefId ?? ''}`,
+        operation: 'draft_apply',
+        source: 'local',
+      })
+    } catch {
+      setActivityMessage('Manuscript compile failed')
+    } finally {
+      setCompileBusy(false)
+    }
+  }, [ensurePersistedCanvas, recordCanvasActivity])
+
+  /**
+   * Tidy layout: layered left-to-right layout. Column = longest edge distance
+   * from a root, rows stacked within each column. Local position change —
+   * persists through the normal graph save.
+   */
+  const tidyLayout = useCallback(() => {
+    if (!nodes.length) return
+    const incomingCount = new Map<string, number>()
+    const outgoing = new Map<string, string[]>()
+    const nodeIds = new Set(nodes.map((node) => node.id))
+    edges.forEach((edge) => {
+      if (!nodeIds.has(edge.source) || !nodeIds.has(edge.target)) return
+      incomingCount.set(edge.target, (incomingCount.get(edge.target) ?? 0) + 1)
+      outgoing.set(edge.source, [...(outgoing.get(edge.source) ?? []), edge.target])
+    })
+    const depth = new Map<string, number>()
+    const queue = nodes.filter((node) => !(incomingCount.get(node.id) ?? 0)).map((node) => node.id)
+    queue.forEach((id) => depth.set(id, 0))
+    // Longest-path layering with a visit cap so cycles cannot loop forever.
+    let guard = nodes.length * edges.length + nodes.length
+    while (queue.length && guard > 0) {
+      guard -= 1
+      const currentId = queue.shift() as string
+      const currentDepth = depth.get(currentId) ?? 0
+      for (const nextId of outgoing.get(currentId) ?? []) {
+        if ((depth.get(nextId) ?? -1) < currentDepth + 1) {
+          depth.set(nextId, currentDepth + 1)
+          queue.push(nextId)
+        }
+      }
+    }
+    const columns = new Map<number, string[]>()
+    nodes.forEach((node) => {
+      const column = depth.get(node.id) ?? 0
+      columns.set(column, [...(columns.get(column) ?? []), node.id])
+    })
+    const positioned = new Map<string, { x: number; y: number }>()
+    columns.forEach((ids, column) => {
+      ids.forEach((id, row) => {
+        positioned.set(id, { x: 80 + column * 380, y: 90 + row * 240 })
+      })
+    })
+    setNodes((current) => current.map((node) => {
+      const position = positioned.get(node.id)
+      return position ? { ...node, position } : node
+    }))
+    setSaveMessage('')
+    setActivityMessage('Layout tidied — save the canvas to keep it')
+  }, [edges, nodes])
+
+  // ---- Auto-fill board: agent-writes every empty text card in link order ----
+  const [autoFillBusy, setAutoFillBusy] = useState(false)
+
+  const autoFillBoard = useCallback(async () => {
+    const textPresentation = new Set(['text', 'sticky_note', 'prompt', 'character', 'chapter', 'screen'])
+    // Fill upstream-first (characters before the chapters they feed) so each
+    // generation can carry the freshly written upstream context.
+    const pending = nodes.filter((node) => {
+      const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
+      const data = (canvasNode?.data ?? {}) as Record<string, unknown>
+      const presentation = String(data.presentationType ?? '')
+      const text = typeof data.text === 'string' ? data.text.trim() : ''
+      return canvasNode && textPresentation.has(presentation) && !text
+    })
+    if (!pending.length) {
+      setActivityMessage('No empty text cards to fill')
+      return
+    }
+    const incoming = new Map<string, string[]>()
+    edges.forEach((edge) => {
+      incoming.set(edge.target, [...(incoming.get(edge.target) ?? []), edge.source])
+    })
+    const ordered = [...pending].sort((a, b) => {
+      const aDependsOnB = (incoming.get(a.id) ?? []).includes(b.id)
+      const bDependsOnA = (incoming.get(b.id) ?? []).includes(a.id)
+      if (aDependsOnB && !bDependsOnA) return 1
+      if (bDependsOnA && !aDependsOnB) return -1
+      return 0
+    })
+
+    setAutoFillBusy(true)
+    setActivityMessage(`Auto-filling ${ordered.length} card${ordered.length === 1 ? '' : 's'}…`)
+    try {
+      const persisted = await ensurePersistedCanvas()
+      if (!persisted) return
+      const { canvasId, canvasOrgId } = persisted
+      // Brand-aware writing: ground the agent in the org's brand kit when one
+      // exists (best-effort — a missing kit just means neutral copy).
+      let brandContext = ''
+      try {
+        const brandResponse = await fetch(`/api/v1/brand-kit?orgId=${encodeURIComponent(canvasOrgId)}`)
+        const brandPayload = await brandResponse.json().catch(() => null) as { data?: { brandName?: string; customVoice?: { tone?: string; audience?: string }; brandVoiceId?: string } } | null
+        const kit = brandPayload?.data
+        if (brandResponse.ok && kit?.brandName) {
+          const voice = kit.customVoice?.tone ?? kit.brandVoiceId
+          brandContext = `Brand: ${kit.brandName}${voice ? `, voice: ${voice}` : ''}${kit.customVoice?.audience ? `, audience: ${kit.customVoice.audience}` : ''}.`
+        }
+      } catch { ignoreCanvasBestEffortFailure() }
+      const written = new Map<string, string>()
+      for (const node of ordered) {
+        const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
+        if (!canvasNode) continue
+        const upstreamContext = (incoming.get(node.id) ?? [])
+          .map((sourceId) => {
+            const fresh = written.get(sourceId)
+            if (fresh) {
+              const title = nodes.find((candidate) => candidate.id === sourceId)?.data?.canvasNode as CreativeCanvasNode | undefined
+              return `${title?.title ?? sourceId}: ${fresh}`
+            }
+            const upstream = nodes.find((candidate) => candidate.id === sourceId)?.data?.canvasNode as CreativeCanvasNode | undefined
+            const data = (upstream?.data ?? {}) as Record<string, unknown>
+            return typeof data.text === 'string' && data.text.trim() ? `${upstream?.title}: ${data.text.trim()}` : null
+          })
+          .filter(Boolean)
+        const presentation = String(((canvasNode.data ?? {}) as Record<string, unknown>).presentationType ?? 'text')
+        const prompt = [
+          `Write the content for a ${presentation.replace(/_/g, ' ')} card titled "${canvasNode.title}" on a creative planning board. Return only the content, no preamble.`,
+          ...(brandContext ? [brandContext] : []),
+          ...(upstreamContext.length ? [`Context from linked cards:\n${upstreamContext.join('\n')}`] : []),
+        ].join('\n\n')
+        try {
+          const response = await fetch(`/api/v1/creative-canvas/${canvasId}/runs/generate?orgId=${encodeURIComponent(canvasOrgId)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nodeId: node.id, model: 'agent-llm', prompt }),
+          })
+          const payload = await response.json().catch(() => null) as { data?: { node?: { output?: { textPreview?: string } } }; error?: string } | null
+          const text = payload?.data?.node?.output?.textPreview
+          if (response.ok && text) {
+            written.set(node.id, text)
+            updateNodeText(node.id, text)
+            setActivityMessage(`Auto-filled "${canvasNode.title}" (${written.size}/${ordered.length})`)
+          }
+        } catch { ignoreCanvasBestEffortFailure() }
+      }
+      if (!written.size) {
+        setActivityMessage('Auto-fill could not generate any content — try again or write manually')
+        return
+      }
+      // Drop the transient output nodes the sync generations created and
+      // persist the filled texts. Retried: a concurrent debounced autosave can
+      // land between our read and write, and the conflict merge resurrects
+      // nodes missing from a stale base snapshot — so re-read and re-clean
+      // until the server graph is actually clean.
+      const transientIds = new Set([...written.keys()].map((nodeId) => `${nodeId}-output`))
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          const refreshResponse = await fetch(`/api/v1/creative-canvas/${canvasId}?orgId=${encodeURIComponent(canvasOrgId)}`)
+          const refreshPayload = await refreshResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
+          const server = refreshPayload?.data?.canvas
+          if (!refreshResponse.ok || !server?.id) break
+          const hasTransient = (server.nodes ?? []).some((node) => transientIds.has(node.id))
+          const missingText = [...written.entries()].some(([nodeId, text]) => {
+            const node = (server.nodes ?? []).find((candidate) => candidate.id === nodeId)
+            return node && (node.data as Record<string, unknown> | undefined)?.text !== text
+          })
+          if (!hasTransient && !missingText) {
+            applyCanvasSnapshot(server)
+            break
+          }
+          const mergedNodes = (server.nodes ?? [])
+            .filter((node) => !transientIds.has(node.id))
+            .map((node) => written.has(node.id)
+              ? { ...node, data: { ...(node.data ?? {}), text: written.get(node.id) } }
+              : node)
+          const mergedEdges = (server.edges ?? []).filter((edge) => !transientIds.has(edge.sourceNodeId) && !transientIds.has(edge.targetNodeId))
+          const saveResponse = await fetch(`/api/v1/creative-canvas/${canvasId}/graph?orgId=${encodeURIComponent(canvasOrgId)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              expectedActiveVersion: server.activeVersion,
+              mergeOnConflict: true,
+              reason: 'auto_fill_board',
+              baseGraph: { nodes: server.nodes ?? [], edges: server.edges ?? [] },
+              nodes: mergedNodes,
+              edges: mergedEdges,
+            }),
+          })
+          const savePayload = await saveResponse.json().catch(() => null) as CreativeCanvasApiListResponse | null
+          if (saveResponse.ok && savePayload?.data?.canvas?.id) applyCanvasSnapshot(savePayload.data.canvas)
+          // Loop once more to verify nothing was resurrected by a merge.
+        } catch { ignoreCanvasBestEffortFailure() }
+      }
+      setActivityMessage(`Auto-fill complete — ${written.size}/${ordered.length} cards written`)
+    } finally {
+      setAutoFillBusy(false)
+      void loadCanvasCredits()
+    }
+  }, [applyCanvasSnapshot, edges, ensurePersistedCanvas, loadCanvasCredits, nodes, updateNodeText])
 
   /**
    * Screen nodes: generate a UI mockup image from the screen's description and
@@ -4424,6 +4725,41 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   <span className="block text-xs text-[var(--color-pib-text-muted)]">{item.description}</span>
                 </button>
               ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-normal text-[var(--color-pib-text-muted)]">Board actions</p>
+            <div className="mt-3 space-y-2">
+              <button
+                type="button"
+                onClick={() => { void autoFillBoard() }}
+                disabled={autoFillBusy}
+                className="w-full rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left transition hover:bg-[var(--color-pib-surface)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <span className="block text-sm font-semibold text-[var(--color-pib-text)]">{autoFillBusy ? 'Auto-filling…' : '✨ Auto-fill board'}</span>
+                <span className="block text-xs text-[var(--color-pib-text-muted)]">Agent writes every empty text card, following the links for context.</span>
+              </button>
+              {canvasHasChapters ? (
+                <button
+                  type="button"
+                  onClick={() => { void compileManuscript() }}
+                  disabled={compileBusy}
+                  className="w-full rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left transition hover:bg-[var(--color-pib-surface)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <span className="block text-sm font-semibold text-[var(--color-pib-text)]">{compileBusy ? 'Compiling…' : '📖 Compile manuscript'}</span>
+                  <span className="block text-xs text-[var(--color-pib-text-muted)]">Walk the chapter chain into a single Book Studio draft.</span>
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={tidyLayout}
+                disabled={!nodes.length}
+                className="w-full rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left transition hover:bg-[var(--color-pib-surface)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <span className="block text-sm font-semibold text-[var(--color-pib-text)]">🧹 Tidy layout</span>
+                <span className="block text-xs text-[var(--color-pib-text-muted)]">Re-arrange nodes into clean left-to-right columns by link depth.</span>
+              </button>
             </div>
           </div>
 
@@ -5438,6 +5774,26 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               >
                 {collaborationLinkCopied ? 'Copied link' : 'Copy canvas link'}
               </button>
+            </div>
+            <div className="mt-2 rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold text-[var(--color-pib-text)]">Public share</p>
+                <button
+                  type="button"
+                  onClick={() => { void toggleCanvasShare() }}
+                  disabled={shareBusy || !activeCanvas?.id}
+                  className="rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {shareBusy ? 'Updating…' : shareEnabled ? 'Disable link' : 'Enable link'}
+                </button>
+              </div>
+              {shareEnabled && shareUrl ? (
+                <p className="mt-1 break-all text-[11px] text-[var(--color-pib-text-muted)]">{shareUrl}</p>
+              ) : (
+                <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">
+                  Read-only preview link anyone can open — no login required.
+                </p>
+              )}
             </div>
             <div
               className="mt-2 rounded-lg border border-[var(--color-pib-line)] bg-white px-3 py-2"

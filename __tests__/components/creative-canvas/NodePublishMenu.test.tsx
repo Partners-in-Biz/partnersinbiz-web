@@ -32,6 +32,35 @@ describe('NodePublishMenu', () => {
     expect(onPublish).toHaveBeenCalledWith('book_studio', '', ['instagram'])
   })
 
+  it('publishes to YouTube Studio when selected (caption field hidden)', () => {
+    const onPublish = jest.fn()
+    render(<NodePublishMenu nodeTitle="Combine output" onPublish={onPublish} onClose={jest.fn()} />)
+
+    fireEvent.click(screen.getByRole('radio', { name: /youtube studio/i }))
+    expect(screen.queryByLabelText(/social caption/i)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /^publish$/i }))
+    expect(onPublish).toHaveBeenCalledWith('youtube_studio', '', ['instagram'])
+  })
+
+  it('publishes to the ad creative, email block, and SEO content targets when selected', () => {
+    const cases = [
+      [/ad creative/i, 'ads_creative'],
+      [/email block/i, 'email_block'],
+      [/seo content/i, 'seo_content'],
+    ] as const
+
+    for (const [pattern, target] of cases) {
+      const onPublish = jest.fn()
+      const { unmount } = render(<NodePublishMenu nodeTitle="Combine output" onPublish={onPublish} onClose={jest.fn()} />)
+
+      fireEvent.click(screen.getByRole('radio', { name: pattern }))
+      expect(screen.queryByLabelText(/social caption/i)).toBeNull()
+      fireEvent.click(screen.getByRole('button', { name: /^publish$/i }))
+      expect(onPublish).toHaveBeenCalledWith(target, '', ['instagram'])
+      unmount()
+    }
+  })
+
   it('publishes to research when selected', () => {
     const onPublish = jest.fn()
     render(<NodePublishMenu nodeTitle="Combine output" onPublish={onPublish} onClose={jest.fn()} />)

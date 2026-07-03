@@ -1,5 +1,5 @@
 import React from 'react'
-import { Document, Page, Text, View, StyleSheet, renderToBuffer } from '@react-pdf/renderer'
+import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from '@react-pdf/renderer'
 import type { Currency } from './types'
 
 type InvoiceRecord = Record<string, any>
@@ -46,6 +46,7 @@ function addressLines(addr: any): string[] {
 const styles = StyleSheet.create({
   page: { backgroundColor: '#ffffff', color: '#111827', padding: 42, fontSize: 10, fontFamily: 'Helvetica' },
   header: { flexDirection: 'row', justifyContent: 'space-between', borderBottom: '2px solid #f3f4f6', paddingBottom: 22, marginBottom: 28 },
+  logo: { width: 120, maxHeight: 48, objectFit: 'contain', marginBottom: 8 },
   companyName: { fontSize: 18, fontWeight: 700, marginBottom: 5 },
   muted: { color: '#6b7280', fontSize: 10, lineHeight: 1.45 },
   invoiceMeta: { alignItems: 'flex-end' },
@@ -84,6 +85,10 @@ function InvoicePdf({ invoice }: { invoice: InvoiceRecord }) {
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
           <View>
+            {typeof from.logoUrl === 'string' && from.logoUrl ? (
+              // eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer's Image has no alt prop
+              <Image style={styles.logo} src={from.logoUrl} />
+            ) : null}
             <Text style={styles.companyName}>{from.companyName || 'Partners in Biz'}</Text>
             {from.website ? <Text style={styles.muted}>{from.website}</Text> : null}
             {from.email ? <Text style={styles.muted}>{from.email}</Text> : null}

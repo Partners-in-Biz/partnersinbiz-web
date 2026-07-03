@@ -15,6 +15,9 @@ const TARGETS: CreativeCanvasExport['target'][] = [
   'youtube_studio',
   'book_studio',
   'workspace_artifact',
+  'ads_creative',
+  'email_block',
+  'seo_content',
 ]
 
 function canvas(): CreativeCanvas & { id: string } {
@@ -115,6 +118,9 @@ describe('creative canvas generic draft exports', () => {
       ['youtube_studio', 'video_social'],
       ['book_studio', 'book'],
       ['workspace_artifact', 'image'],
+      ['ads_creative', 'image'],
+      ['email_block', 'blog_document'],
+      ['seo_content', 'blog_document'],
     ] as const
 
     for (const [target, categoryKey] of targets) {
@@ -136,6 +142,27 @@ describe('creative canvas generic draft exports', () => {
         downstreamDraftId: `${target}-draft-1`,
         lineageSourceNodeIds: ['source-1', 'source-2'],
         status: 'drafted',
+      })
+    }
+  })
+
+  it('keeps ads/email/seo module hints internal — never launch, spend, or send', () => {
+    for (const target of ['ads_creative', 'email_block', 'seo_content'] as const) {
+      const draft = buildCreativeCanvasDraftExport({
+        canvas: canvas(),
+        node: outputNode(),
+        target,
+        actor: { uid: 'user-1', type: 'user' },
+        lineageSourceNodeIds: ['source-1'],
+        downstreamDraftId: `${target}-draft-1`,
+      })
+
+      expect(draft.payload.moduleHint).toMatch(/internal/i)
+      expect(draft.payload.moduleHint).toMatch(/never|do not/i)
+      expect(draft.payload).toMatchObject({
+        status: 'internal_draft',
+        clientVisible: false,
+        publishEnabled: false,
       })
     }
   })

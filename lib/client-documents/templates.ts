@@ -596,6 +596,36 @@ export const CLIENT_DOCUMENT_TEMPLATES: ClientDocumentTemplate[] = [
       },
     ],
   },
+  {
+    id: 'canvas-draft-v1',
+    type: 'canvas_draft',
+    label: 'Canvas Draft',
+    picker: {
+      description: 'Internal holding document for content published from a Creative Canvas board.',
+      bestFor: 'Canvas copy, blog drafts, and document blocks that need a home before editorial review.',
+      decides: 'Decides nothing on its own — it stages canvas output for a proper document or blog pipeline.',
+      helpText: 'Auto-created when a canvas node is published to a document/blog target. Promote or merge the content into a typed document when it matures.',
+    },
+    approvalMode: 'operational',
+    clientPermissions: {
+      canComment: true,
+      canSuggest: true,
+      canDirectEdit: false,
+      canApprove: false,
+    },
+    requiredBlockTypes: ['summary', 'rich_text'],
+    contract: {
+      purpose: 'content_plan',
+      recommendedBlockTypes: ['summary', 'rich_text'],
+      approvalMode: 'operational',
+      taskFanout: 'none',
+      aiPromptKey: 'client_documents.canvas_draft',
+    },
+    defaultBlocks: [
+      requiredBlock('canvas_summary', 'summary', 'Summary'),
+      requiredBlock('canvas_body', 'rich_text', 'Body'),
+    ],
+  },
 ]
 
 const LEGACY_SAFE_FALLBACK_TEMPLATE: ClientDocumentTemplate = {

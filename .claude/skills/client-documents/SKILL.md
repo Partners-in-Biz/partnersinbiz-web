@@ -89,6 +89,7 @@ Use for: client review cycles, collaborative editing with external stakeholders,
 | `monthly_report` | Monthly Report | `operational` | Monthly performance reviews |
 | `launch_signoff` | Launch Sign-off | `operational` | Go-live checklists and sign-off |
 | `change_request` | Change Request | `operational` | Scope/budget/timeline change requests |
+| `canvas_draft` / `canvas-draft-v1` | Canvas Draft | `operational` | Internal-only staging doc auto-created when a Creative Canvas text node is published to `client_document`/`blog_post` (target of `POST /api/v1/creative-canvas/[id]/exports/draft`). Not in the public API's creatable-types allowlist — do not create these directly; they arrive via canvas publishes. |
 
 **Approval modes:**
 - `operational` — client clicks an "Approve" button (most documents)

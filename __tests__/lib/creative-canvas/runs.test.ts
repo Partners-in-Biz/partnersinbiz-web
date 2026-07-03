@@ -782,6 +782,60 @@ describe('creative canvas runs', () => {
     })
   })
 
+  it('accepts root-relative provider status/callback urls on dispatch (executor sends paths)', async () => {
+    mockDocGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'run-1',
+      data: () => ({
+        orgId: 'org-1',
+        canvasId: 'canvas-1',
+        nodeId: 'model-1',
+        providerKey: 'higgsfield',
+        model: 'nano_banana_flash',
+        status: 'queued',
+        input: { sourceNodeIds: ['source-1'], sourceArtifactIds: [] },
+        provenance: {
+          generatedBy: 'agent',
+          agentId: 'maya',
+          model: 'nano_banana_flash',
+          promptStored: 'summary',
+          syntheticMedia: true,
+        },
+      }),
+    })
+
+    const run = await dispatchCreativeCanvasProviderRun('run-1', 'org-1', {
+      providerJobId: 'hfx-run-1-abc',
+      providerStatusUrl: '/higgsfield-executor/creative-canvas/runs/hfx-run-1-abc',
+      providerCallbackUrl: '/higgsfield-executor/callback',
+    }, ACTOR)
+
+    expect(run.provenance.providerStatusUrl).toBe('/higgsfield-executor/creative-canvas/runs/hfx-run-1-abc')
+    expect(run.provenance.providerCallbackUrl).toBe('/higgsfield-executor/callback')
+  })
+
+  it('still rejects scheme-relative and non-http provider urls', async () => {
+    mockDocGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'run-1',
+      data: () => ({
+        orgId: 'org-1',
+        canvasId: 'canvas-1',
+        nodeId: 'model-1',
+        providerKey: 'higgsfield',
+        model: 'nano_banana_flash',
+        status: 'queued',
+        input: { sourceNodeIds: [], sourceArtifactIds: [] },
+        provenance: { generatedBy: 'agent', agentId: 'maya', model: 'nano_banana_flash', promptStored: 'summary', syntheticMedia: true },
+      }),
+    })
+
+    await expect(dispatchCreativeCanvasProviderRun('run-1', 'org-1', {
+      providerJobId: 'hf-job-3',
+      providerStatusUrl: '//evil.example/steal',
+    }, ACTOR)).rejects.toThrow(/safe http\(s\) URL/)
+  })
+
   it('lists canvas runs for an organisation', async () => {
     mockGet.mockResolvedValueOnce({
       docs: [

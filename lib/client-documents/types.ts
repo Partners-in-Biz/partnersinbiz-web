@@ -10,6 +10,7 @@ export type ClientDocumentType =
   | 'monthly_report'
   | 'launch_signoff'
   | 'change_request'
+  | 'canvas_draft'
 
 export type ClientDocumentStatus =
   | 'internal_draft'
