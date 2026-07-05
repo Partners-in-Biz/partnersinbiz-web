@@ -452,6 +452,87 @@ export const CANVAS_MODELS: CanvasModel[] = [
     execution: 'sync',
     description: 'Agent-driven LLM text assistant for prompts, copy and briefs.',
   },
+  // ----- xAI (Grok Imagine) — BYOK direct lane -----
+  {
+    id: 'grok-imagine-image', label: 'Grok Imagine', family: 'xAI', featured: true, kind: 'image',
+    providerKey: 'xai', capabilities: ['generate_image', 'create_variants'],
+    aspectRatios: ['1:1', '9:16', '16:9', '4:3', '3:4'], resolutions: ['1k', '2k'],
+    maxBatch: 4, creditCost: 0.2, execution: 'sync',
+    description: 'Fast, budget xAI image generation ($0.02/image on your key).',
+  },
+  {
+    id: 'grok-imagine-image-quality', label: 'Grok Imagine HQ', family: 'xAI', featured: false, kind: 'image',
+    providerKey: 'xai', capabilities: ['generate_image', 'create_variants'],
+    aspectRatios: ['1:1', '9:16', '16:9', '4:3', '3:4'], resolutions: ['1k', '2k'],
+    maxBatch: 4, creditCost: 0.5, execution: 'sync',
+    description: 'Higher-quality xAI image tier ($0.05/image on your key).',
+  },
+  {
+    id: 'grok-imagine-video', label: 'Grok Imagine Video', family: 'xAI', featured: true, kind: 'video',
+    providerKey: 'xai', capabilities: ['generate_video'],
+    aspectRatios: ['16:9', '9:16', '1:1'], durations: [5, 10, 15],
+    maxBatch: 1, creditCost: 5, execution: 'async',
+    description: 'xAI text/image-to-video, 1–15s ($0.05/sec on your key).',
+  },
+  {
+    id: 'grok-imagine-video-1.5', label: 'Grok Imagine Video 1.5', family: 'xAI', featured: false, kind: 'video',
+    providerKey: 'xai', capabilities: ['generate_video'],
+    aspectRatios: ['16:9', '9:16', '1:1'], resolutions: ['720p', '1080p'], durations: [5, 10, 15],
+    maxBatch: 1, creditCost: 8, execution: 'async',
+    description: 'Premium xAI video up to 1080p ($0.08/sec on your key).',
+  },
+  // ----- Google (Gemini API, AI Studio key) -----
+  {
+    id: 'gemini-3-pro-image-preview', label: 'Nano Banana Pro (direct)', family: 'Google', featured: true, kind: 'image',
+    providerKey: 'google', capabilities: ['generate_image', 'edit_image', 'create_variants'],
+    aspectRatios: ['1:1', '9:16', '16:9', '4:3', '3:4'], resolutions: ['1k', '2k', '4k'],
+    maxBatch: 4, creditCost: 1.5, execution: 'sync',
+    description: "Google's flagship image model on your Gemini API key.",
+  },
+  {
+    id: 'imagen-4', label: 'Imagen 4', family: 'Google', featured: false, kind: 'image',
+    providerKey: 'google', capabilities: ['generate_image', 'create_variants'],
+    aspectRatios: ['1:1', '9:16', '16:9', '4:3', '3:4'], resolutions: ['1k', '2k'],
+    maxBatch: 4, creditCost: 0.4, execution: 'sync',
+    description: 'Flat-priced Google image generation ($0.04/image on your key).',
+  },
+  // ----- Recraft -----
+  {
+    id: 'recraftv4', label: 'Recraft V4', family: 'Recraft', featured: true, kind: 'image',
+    providerKey: 'recraft', capabilities: ['generate_image', 'create_variants'],
+    aspectRatios: ['1:1', '9:16', '16:9', '4:3', '3:4'], resolutions: ['1k', '2k'],
+    maxBatch: 4, creditCost: 0.4, execution: 'sync',
+    description: 'Brand/design-native image generation ($0.04/image on your key).',
+  },
+  {
+    id: 'recraftv4-vector', label: 'Recraft V4 Vector', family: 'Recraft', featured: false, kind: 'image',
+    providerKey: 'recraft', capabilities: ['generate_image'],
+    aspectRatios: ['1:1', '16:9', '4:3'],
+    maxBatch: 2, creditCost: 0.8, execution: 'sync',
+    description: 'True native SVG/vector output — logos, icons, illustrations.',
+  },
+  // ----- fal.ai (aggregator; ids are canvas-stable, endpoint slugs live in the fal adapter) -----
+  {
+    id: 'fal-flux-2-pro', label: 'FLUX 2 Pro (fal)', family: 'fal.ai', featured: true, kind: 'image',
+    providerKey: 'fal', capabilities: ['generate_image', 'create_variants'],
+    aspectRatios: ['1:1', '9:16', '16:9', '4:3', '3:4'], resolutions: ['1k', '2k'],
+    maxBatch: 4, creditCost: 0.5, execution: 'async',
+    description: 'Best-in-class Flux image quality via your fal key.',
+  },
+  {
+    id: 'fal-kling-video-2-6-pro', label: 'Kling 2.6 Pro (fal)', family: 'fal.ai', featured: true, kind: 'video',
+    providerKey: 'fal', capabilities: ['generate_video'],
+    aspectRatios: ['16:9', '9:16', '1:1'], durations: [5, 10],
+    maxBatch: 1, creditCost: 4, execution: 'async',
+    description: 'Top price/quality video with native audio via your fal key.',
+  },
+  {
+    id: 'fal-veo-3-1', label: 'Veo 3.1 (fal)', family: 'fal.ai', featured: false, kind: 'video',
+    providerKey: 'fal', capabilities: ['generate_video'],
+    aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8],
+    maxBatch: 1, creditCost: 12, execution: 'async',
+    description: 'Google Veo 3.1 with audio via your fal key (premium).',
+  },
 ]
 
 export function getCanvasModel(id: string): CanvasModel | undefined {
