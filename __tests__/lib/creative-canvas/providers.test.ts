@@ -6,7 +6,7 @@ import {
 describe('creative canvas provider registry', () => {
   it('lists V1 providers with risk and approval metadata', () => {
     const providers = listCreativeCanvasProviders()
-    expect(providers.map((provider) => provider.key)).toEqual(['manual_upload', 'xai', 'higgsfield', 'agent_task'])
+    expect(providers.map((provider) => provider.key)).toEqual(['manual_upload', 'xai', 'google', 'fal', 'recraft', 'higgsfield', 'agent_task'])
     expect(getCreativeCanvasProvider('higgsfield')).toMatchObject({
       key: 'higgsfield',
       usesExternalCredits: true,
