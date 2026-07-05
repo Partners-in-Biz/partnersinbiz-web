@@ -491,6 +491,8 @@ export interface CreativeCanvasRun {
     providerRequestId?: string
     providerStatusUrl?: string
     providerCallbackUrl?: string
+    /** BYOK connection used at submit; polls reuse it without user context. */
+    connectionId?: string
     model?: string
     costUnits?: number
     costLabel?: string

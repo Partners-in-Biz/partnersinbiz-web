@@ -820,6 +820,9 @@ export async function dispatchCreativeCanvasProviderRun(
     ...(providerCallbackUrl ?? run.provenance.providerCallbackUrl
       ? { providerCallbackUrl: providerCallbackUrl ?? run.provenance.providerCallbackUrl }
       : {}),
+    ...(cleanString(body.connectionId) ?? run.provenance.connectionId
+      ? { connectionId: cleanString(body.connectionId) ?? run.provenance.connectionId }
+      : {}),
   }
   const nextRun: CreativeCanvasRun & { id: string } = {
     ...run,

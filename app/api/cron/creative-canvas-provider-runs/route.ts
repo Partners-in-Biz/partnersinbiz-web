@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { drainHiggsfieldCreativeCanvasRuns } from '@/lib/creative-canvas/provider-runtime'
+import { drainDirectCreativeCanvasRuns } from '@/lib/creative-canvas/direct-provider-runtime'
 import { runWithFirestoreReadAudit } from '@/lib/firebase/read-audit'
 
 export const dynamic = 'force-dynamic'
@@ -17,12 +18,17 @@ async function runProviderDrain(req: NextRequest) {
   const url = new URL(req.url)
   const submitLimit = Number.parseInt(url.searchParams.get('submitLimit') ?? '', 10)
   const pollLimit = Number.parseInt(url.searchParams.get('pollLimit') ?? '', 10)
-  const result = await runWithFirestoreReadAudit('api/cron/creative-canvas-provider-runs', () =>
-    drainHiggsfieldCreativeCanvasRuns({
+  const result = await runWithFirestoreReadAudit('api/cron/creative-canvas-provider-runs', async () => {
+    const higgsfield = await drainHiggsfieldCreativeCanvasRuns({
       submitLimit: Number.isFinite(submitLimit) ? submitLimit : undefined,
       pollLimit: Number.isFinite(pollLimit) ? pollLimit : undefined,
-    }),
-  )
+    })
+    const direct = await drainDirectCreativeCanvasRuns({
+      submitLimit: Number.isFinite(submitLimit) ? submitLimit : undefined,
+      pollLimit: Number.isFinite(pollLimit) ? pollLimit : undefined,
+    })
+    return { ...higgsfield, direct }
+  })
   return apiSuccess(result)
 }
 

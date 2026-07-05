@@ -22,6 +22,8 @@ export interface InlineGenerationInput {
   model: string
   prompt: string
   aspectRatio?: string
+  /** BYOK credentials resolved by the caller; absent = platform env fallback where allowed. */
+  credentials?: Record<string, string>
 }
 
 export interface InlineGenerationResult {
@@ -31,7 +33,18 @@ export interface InlineGenerationResult {
   text?: string
 }
 
-const XAI_IMAGE_MODEL = 'grok-imagine-image-quality'
+/** Default xAI image model for callers that leave `model` empty (social route parity). */
+const XAI_DEFAULT_IMAGE_MODEL = 'grok-imagine-image-quality'
+
+/**
+ * Sync image providers exposing an OpenAI-compatible `/images/generations`
+ * endpoint. `envKey` is the platform-paid fallback API key (xai only).
+ */
+const OPENAI_COMPAT: Record<string, { baseUrl: string; envKey?: string }> = {
+  xai: { baseUrl: 'https://api.x.ai/v1', envKey: 'XAI_API_KEY' },
+  google: { baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai' },
+  recraft: { baseUrl: 'https://external.api.recraft.ai/v1' },
+}
 
 function safeProviderMessage(value: unknown): string | null {
   if (!value) return null
@@ -51,28 +64,32 @@ function safeProviderMessage(value: unknown): string | null {
 }
 
 /**
- * Single internal network call to the xAI (Grok) image endpoint.
- * Isolated so tests can mock global.fetch.
+ * Single internal network call to an OpenAI-compatible image endpoint
+ * (xAI / Google Gemini / Recraft). Isolated so tests can mock global.fetch.
  */
-async function callXaiImage(
-  prompt: string,
+async function callCompatImage(
+  baseUrl: string,
   apiKey: string,
+  model: string,
+  prompt: string,
+  aspectRatio?: string,
 ): Promise<InlineGenerationResult> {
-  const response = await fetch('https://api.x.ai/v1/images/generations', {
+  const response = await fetch(`${baseUrl}/images/generations`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: XAI_IMAGE_MODEL,
+      model,
       prompt,
+      ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
     }),
   })
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null)
-    const msg = safeProviderMessage(errorData) ?? `xAI API error (${response.status})`
+    const msg = safeProviderMessage(errorData) ?? `Provider API error (${response.status})`
     if (response.status === 429) throw new Error('RATE_LIMIT')
     if (response.status === 400 && msg.toLowerCase().includes('policy')) {
       throw new Error('CONTENT_POLICY')
@@ -86,7 +103,7 @@ async function callXaiImage(
 
   const image = data.data?.[0]
   if (!image?.url && !image?.b64_json) {
-    throw new Error('No image returned from xAI')
+    throw new Error('No image returned from the provider')
   }
 
   if (image.url) {
@@ -114,9 +131,9 @@ async function callAgentLlmText(prompt: string): Promise<InlineGenerationResult>
 }
 
 /**
- * Generate inline (synchronously). The 'xai' provider returns images, the
- * 'agent_task' provider returns text; all other providers throw
- * InlineNotSupportedError.
+ * Generate inline (synchronously). The 'agent_task' provider returns text; the
+ * OpenAI-compatible image providers (xai/google/recraft) return images; all
+ * other providers throw InlineNotSupportedError.
  */
 export async function generateInline(
   input: InlineGenerationInput,
@@ -125,16 +142,22 @@ export async function generateInline(
     return callAgentLlmText(input.prompt)
   }
 
-  if (input.providerKey !== 'xai') {
+  const compat = OPENAI_COMPAT[input.providerKey]
+  if (!compat) {
     throw new InlineNotSupportedError(
       `Provider "${input.providerKey}" does not support inline generation`,
     )
   }
 
-  const apiKey = process.env.XAI_API_KEY
+  const apiKey = input.credentials?.apiKey
+    ?? (compat.envKey ? process.env[compat.envKey] : undefined)
   if (!apiKey) {
-    throw new Error('XAI_API_KEY not configured')
+    throw new Error('connection_required')
   }
 
-  return callXaiImage(input.prompt, apiKey)
+  const model = input.providerKey === 'xai'
+    ? (input.model || XAI_DEFAULT_IMAGE_MODEL)
+    : input.model
+
+  return callCompatImage(compat.baseUrl, apiKey, model, input.prompt, input.aspectRatio)
 }

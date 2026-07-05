@@ -122,9 +122,11 @@ describe('Higgsfield creative canvas provider runtime', () => {
       providerKey: 'agent_task',
       model: 'agent-llm',
     } as never, {
-      HIGGSFIELD_RUNTIME_API_KEY: 'secret-key',
-      NEXT_PUBLIC_APP_URL: 'https://partnersinbiz.online',
-    } as NodeJS.ProcessEnv)
+      env: {
+        HIGGSFIELD_RUNTIME_API_KEY: 'secret-key',
+        NEXT_PUBLIC_APP_URL: 'https://partnersinbiz.online',
+      } as NodeJS.ProcessEnv,
+    })
 
     expect(result).toBe('not_configured')
     expect(global.fetch).not.toHaveBeenCalled()

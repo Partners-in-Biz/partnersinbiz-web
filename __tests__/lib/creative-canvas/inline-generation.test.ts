@@ -63,8 +63,9 @@ describe('generateInline', () => {
     expect(url).toBe('https://api.x.ai/v1/images/generations')
     const sentBody = JSON.parse((init as RequestInit).body as string)
     expect(sentBody).toEqual({
-      model: 'grok-imagine-image-quality',
+      model: 'grok-image',
       prompt: 'a sunset over mountains',
+      aspect_ratio: '16:9',
     })
   })
 
@@ -120,7 +121,7 @@ describe('generateInline', () => {
       prompt: 'a tree',
     })
 
-    await expect(promise).rejects.toThrow('XAI_API_KEY not configured')
+    await expect(promise).rejects.toThrow('connection_required')
     await expect(promise).rejects.not.toBeInstanceOf(InlineNotSupportedError)
   })
 })
