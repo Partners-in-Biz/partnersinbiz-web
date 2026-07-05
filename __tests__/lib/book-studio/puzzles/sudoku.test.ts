@@ -3,11 +3,11 @@ import type { PuzzleDifficulty } from '@/lib/book-studio/puzzles/types'
 
 const SEEDS = [1, 42, 1337]
 const DIFFICULTIES: PuzzleDifficulty[] = ['easy', 'medium', 'hard', 'expert']
-const BAND_MAX: Record<PuzzleDifficulty, number> = {
-  easy: 40,
-  medium: 35,
-  hard: 29,
-  expert: 25,
+const BANDS: Record<PuzzleDifficulty, { min: number; max: number }> = {
+  easy: { min: 36, max: 40 },
+  medium: { min: 30, max: 35 },
+  hard: { min: 26, max: 29 },
+  expert: { min: 22, max: 25 },
 }
 
 // Independent counting solver (plain backtracking, cap 2) so uniqueness is
@@ -113,8 +113,8 @@ describe('generateSudoku', () => {
 
       test('givens are within band limits', () => {
         const givens = (result.meta as { givens: number }).givens
-        expect(givens).toBeLessThanOrEqual(BAND_MAX[difficulty])
-        expect(givens).toBeGreaterThanOrEqual(17) // hard theoretical floor
+        expect(givens).toBeLessThanOrEqual(BANDS[difficulty].max)
+        expect(givens).toBeGreaterThanOrEqual(BANDS[difficulty].min)
       })
 
       test('layout structure: 20 grid lines with thick box borders', () => {
@@ -149,6 +149,20 @@ describe('generateSudoku', () => {
       })
     })
   })
+
+  test(
+    'expert givens land within [22, 25] for seeds 1..30',
+    () => {
+      for (let seed = 1; seed <= 30; seed++) {
+        const result = generateSudoku(seed, 'expert')
+        const givens = (result.meta as { givens: number }).givens
+        expect(givens).toBeGreaterThanOrEqual(BANDS.expert.min)
+        expect(givens).toBeLessThanOrEqual(BANDS.expert.max)
+        expect(countSolutions(result.puzzle)).toBe(1)
+      }
+    },
+    50000
+  )
 
   test('easy has more givens than expert', () => {
     for (const seed of SEEDS) {

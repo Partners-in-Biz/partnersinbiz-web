@@ -1,7 +1,7 @@
 // Deterministic sudoku generator: randomized-backtracking fill, then hole
 // punching with a uniqueness check after every removal.
 
-import { createRng, shuffle, type Rng } from './prng'
+import { createRng, randInt, shuffle, type Rng } from './prng'
 import type {
   GeneratedPuzzle,
   PuzzleCell,
@@ -119,37 +119,93 @@ function gridToCells(grid: number[][], includeZeros: boolean): PuzzleCell[] {
   return cells
 }
 
-export function generateSudoku(
-  seed: number,
-  difficulty: PuzzleDifficulty
-): GeneratedPuzzle & { puzzle: number[][]; solution: number[][] } {
-  const rng = createRng(seed)
-  const band = BANDS[difficulty]
+// Try to remove one cell, keeping uniqueness. Returns true when removed.
+function tryRemove(puzzle: number[][], idx: number): boolean {
+  const row = Math.floor(idx / SIZE)
+  const col = idx % SIZE
+  const saved = puzzle[row][col]
+  puzzle[row][col] = 0
+  if (countSolutions(puzzle) !== 1) {
+    puzzle[row][col] = saved // removal broke uniqueness; restore
+    return false
+  }
+  return true
+}
+
+// One full generation attempt from a concrete rng seed: fill a solution grid,
+// pick a target within the band, then punch holes in rng-shuffled order,
+// keeping only removals that preserve solution uniqueness. Removals that were
+// blocked earlier often become safe after other cells are removed, so if the
+// first pass finishes above band.max we keep re-sweeping the restored cells
+// (rng-shuffled each pass) until we land in band or a full pass stalls.
+function attemptSudoku(
+  attemptSeed: number,
+  band: { min: number; max: number }
+): { puzzle: number[][]; solution: number[][]; givens: number } {
+  const rng = createRng(attemptSeed)
 
   const solution: number[][] = Array.from({ length: SIZE }, () => Array(SIZE).fill(0))
   fillGrid(solution, rng)
 
-  // Pick a target within the band, then punch holes in rng-shuffled order,
-  // keeping only removals that preserve solution uniqueness.
-  const target = band.min + Math.floor(rng() * (band.max - band.min + 1))
+  const target = randInt(rng, band.min, band.max)
   const puzzle = solution.map((r) => r.slice())
   let givens = SIZE * SIZE
+
+  let restored: number[] = []
   const order = shuffle(
     Array.from({ length: SIZE * SIZE }, (_, i) => i),
     rng
   )
   for (const idx of order) {
     if (givens <= target) break
-    const row = Math.floor(idx / SIZE)
-    const col = idx % SIZE
-    const saved = puzzle[row][col]
-    puzzle[row][col] = 0
-    if (countSolutions(puzzle) !== 1) {
-      puzzle[row][col] = saved // removal broke uniqueness; restore
-    } else {
-      givens--
-    }
+    if (tryRemove(puzzle, idx)) givens--
+    else restored.push(idx)
   }
+
+  // Extra passes over previously-restored cells until in band or stalled.
+  while (givens > band.max && restored.length > 0) {
+    const pass = shuffle(restored, rng)
+    const stillRestored: number[] = []
+    let progress = false
+    for (const idx of pass) {
+      if (givens <= band.max) break
+      if (tryRemove(puzzle, idx)) {
+        givens--
+        progress = true
+      } else {
+        stillRestored.push(idx)
+      }
+    }
+    restored = stillRestored
+    if (!progress) break
+  }
+
+  return { puzzle, solution, givens }
+}
+
+const MAX_ATTEMPTS = 8
+
+export function generateSudoku(
+  seed: number,
+  difficulty: PuzzleDifficulty
+): GeneratedPuzzle & { puzzle: number[][]; solution: number[][] } {
+  const band = BANDS[difficulty]
+
+  // If an attempt still exceeds band.max after multi-pass removal, retry the
+  // whole generation with a seed derived deterministically from the original
+  // seed. The caller-visible identity stays the input seed: same seed always
+  // walks the same attempt sequence, so output is fully deterministic.
+  let best: { puzzle: number[][]; solution: number[][]; givens: number } | null = null
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const attemptSeed = attempt === 0 ? seed : (seed + attempt * 0x9e3779b9) | 0
+    const result = attemptSudoku(attemptSeed, band)
+    if (!best || result.givens < best.givens) best = result
+    if (result.givens <= band.max) break
+  }
+  // best is always set (loop runs at least once). If every attempt exceeded
+  // band.max (shouldn't happen in practice), return the fewest-givens attempt
+  // and record actual givens in meta.
+  const { puzzle, solution, givens } = best!
 
   const gridLines = sudokuGridLines()
   const layout: PuzzleLayout = {
