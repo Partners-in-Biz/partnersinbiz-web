@@ -10,7 +10,9 @@ const TARGETS: Partial<Record<CreativeCanvasProviderKey, ValidationTarget>> = {
   xai: { url: 'https://api.x.ai/v1/models', headers: (c) => ({ Authorization: `Bearer ${c.apiKey}` }) },
   google: { url: 'https://generativelanguage.googleapis.com/v1beta/openai/models', headers: (c) => ({ Authorization: `Bearer ${c.apiKey}` }) },
   recraft: { url: 'https://external.api.recraft.ai/v1/styles', headers: (c) => ({ Authorization: `Bearer ${c.apiKey}` }) },
-  fal: { url: 'https://fal.run/fal-ai/models', headers: (c) => ({ Authorization: `Key ${c.apiKey}` }) },
+  // fal model discovery lives on api.fal.ai — fal.run/{owner}/{app} is the
+  // invocation scheme and 404s for any non-app path regardless of key validity.
+  fal: { url: 'https://api.fal.ai/v1/models', headers: (c) => ({ Authorization: `Key ${c.apiKey}` }) },
 }
 
 export async function validateProviderCredentials(
