@@ -14,8 +14,11 @@ const COLLECTIONS = [
   'social_media',
   'social_posts',
   'youtube_source_assets',
+  'youtube_render_jobs',
   'book_studio_artifact_links',
 ] as const
+
+const RENDERED_JOB_STATUSES = new Set(['rendered', 'qa_review', 'approved'])
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
@@ -216,6 +219,35 @@ function fromYouTubeSourceAsset(doc: FirestoreDoc): CreativeCanvasSourceLibraryI
   })
 }
 
+function fromYouTubeRenderJob(doc: FirestoreDoc): CreativeCanvasSourceLibraryItem | null {
+  const data = doc.data()
+  const status = cleanString(data.status)
+  if (!status || !RENDERED_JOB_STATUSES.has(status)) return null
+
+  const output = asRecord(data.output)
+  const storage = asRecord(output.storage)
+  const url = cleanString(output.previewUrl) ?? cleanString(output.downloadUrl)
+  const storagePath = cleanString(storage.storagePath) ?? cleanString(output.storagePath)
+  if (!url && !storagePath) return null
+
+  const versionNumber = typeof data.versionNumber === 'number' ? String(data.versionNumber) : cleanString(data.versionNumber)
+  const descriptionParts = [`YouTube render / ${status}`]
+  if (versionNumber) descriptionParts.push(`v${versionNumber}`)
+
+  return sourceItem({
+    id: doc.id,
+    title: cleanString(data.title) ?? 'YouTube render',
+    description: descriptionParts.join(' '),
+    sourceCollection: 'youtube_render_jobs',
+    kind: 'youtube_asset',
+    refId: doc.id,
+    url,
+    thumbnailUrl: url,
+    storagePath,
+    mimeType: cleanString(storage.mimeType) ?? 'video/mp4',
+  })
+}
+
 function fromBookStudioArtifact(doc: FirestoreDoc): CreativeCanvasSourceLibraryItem | null {
   const data = doc.data()
   return sourceItem({
@@ -247,6 +279,8 @@ function mapDoc(collection: string, doc: FirestoreDoc): CreativeCanvasSourceLibr
       return fromSocialPost(doc)
     case 'youtube_source_assets':
       return fromYouTubeSourceAsset(doc)
+    case 'youtube_render_jobs':
+      return fromYouTubeRenderJob(doc)
     case 'book_studio_artifact_links':
       return fromBookStudioArtifact(doc)
     default:

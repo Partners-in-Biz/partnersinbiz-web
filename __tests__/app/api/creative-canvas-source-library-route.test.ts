@@ -79,6 +79,44 @@ beforeEach(() => {
               deleted: false,
             }),
           ],
+          youtube_render_jobs: [
+            doc('render-job-1', {
+              orgId: 'org-1',
+              title: 'Launch trailer cut',
+              status: 'rendered',
+              versionNumber: 2,
+              output: {
+                previewUrl: 'https://cdn.example.com/render-1-preview.mp4',
+                downloadUrl: 'https://cdn.example.com/render-1.mp4',
+                storage: { mimeType: 'video/mp4', storagePath: 'youtube-render-jobs/org-1/render-1.mp4' },
+              },
+            }),
+            doc('render-job-2', {
+              orgId: 'org-1',
+              title: 'QA review cut',
+              status: 'qa_review',
+              output: {
+                previewUrl: 'https://cdn.example.com/render-2-preview.mp4',
+              },
+            }),
+            doc('render-job-planning', {
+              orgId: 'org-1',
+              title: 'Not ready yet',
+              status: 'planning',
+              output: { previewUrl: 'https://cdn.example.com/render-planning.mp4' },
+            }),
+            doc('render-job-blocked', {
+              orgId: 'org-1',
+              title: 'Blocked cut',
+              status: 'blocked',
+              output: { previewUrl: 'https://cdn.example.com/render-blocked.mp4' },
+            }),
+            doc('render-job-no-url', {
+              orgId: 'org-1',
+              title: 'Rendered but no output yet',
+              status: 'rendered',
+            }),
+          ],
           book_studio_artifact_links: [
             doc('book-1', {
               orgId: 'org-1',
@@ -139,8 +177,37 @@ describe('creative canvas source library API', () => {
           url: 'https://cdn.example.com/cover.pdf',
         }),
       }),
+      expect.objectContaining({
+        id: 'youtube_asset:render-job-1',
+        title: 'Launch trailer cut',
+        description: 'YouTube render / rendered v2',
+        sourceCollection: 'youtube_render_jobs',
+        source: expect.objectContaining({
+          kind: 'youtube_asset',
+          refId: 'render-job-1',
+          url: 'https://cdn.example.com/render-1-preview.mp4',
+          mimeType: 'video/mp4',
+        }),
+      }),
+      expect.objectContaining({
+        id: 'youtube_asset:render-job-2',
+        title: 'QA review cut',
+        description: 'YouTube render / qa_review',
+        sourceCollection: 'youtube_render_jobs',
+        source: expect.objectContaining({
+          kind: 'youtube_asset',
+          refId: 'render-job-2',
+          url: 'https://cdn.example.com/render-2-preview.mp4',
+          mimeType: 'video/mp4',
+        }),
+      }),
     ]))
-    expect(body.data.sources).toHaveLength(7)
+    expect(body.data.sources).toHaveLength(9)
+    expect(body.data.sources).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'youtube_asset:render-job-planning' }),
+      expect.objectContaining({ id: 'youtube_asset:render-job-blocked' }),
+      expect.objectContaining({ id: 'youtube_asset:render-job-no-url' }),
+    ]))
   })
 
   it('filters source references by query text', async () => {
@@ -175,6 +242,8 @@ describe('creative canvas source library API', () => {
     expect(videoBody.data.sources).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'social_post:media-1' }),
       expect.objectContaining({ id: 'youtube_asset:youtube-1' }),
+      expect.objectContaining({ id: 'youtube_asset:render-job-1' }),
+      expect.objectContaining({ id: 'youtube_asset:render-job-2' }),
     ]))
     expect(videoBody.data.sources).not.toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'upload:upload-1' }),
