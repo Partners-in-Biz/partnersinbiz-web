@@ -103,4 +103,16 @@ describe('creative provider connection store', () => {
     const list = await listCreativeProviderConnections({ orgId: 'org-1', uid: 'uid-9' })
     expect(list.map((c) => c.id)).toEqual(['user:uid-9:recraft'])
   })
+
+  it('upserting over a revoked connection resurrects it with fresh credentials', async () => {
+    const conn = await upsertCreativeProviderConnection({
+      provider: 'xai', scope: 'org', orgId: 'org-1', ownerUid: null,
+      label: 'Org xAI again', credentials: { apiKey: 'xai-freshkey9999' },
+    }, ACTOR)
+    expect(conn.id).toBe('org:org-1:xai')
+    expect(conn.status).toBe('connected')
+    expect(conn.hasCredentials).toBe(true)
+    const list = await listCreativeProviderConnections({ orgId: 'org-1', uid: 'uid-9' })
+    expect(list.map((c) => c.id).sort()).toEqual(['org:org-1:xai', 'user:uid-9:recraft'])
+  })
 })

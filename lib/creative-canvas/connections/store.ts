@@ -73,6 +73,10 @@ export async function upsertCreativeProviderConnection(
   return maskConnection({ ...(saved.data() as CreativeProviderConnection), id })
 }
 
+/**
+ * @internal Raw accessor — the returned doc includes `credentialsEnc`.
+ * Never return this from an API route; always pass through `maskConnection`.
+ */
 export async function getCreativeProviderConnection(id: string): Promise<CreativeProviderConnection | null> {
   const snap = await adminDb.collection(CREATIVE_PROVIDER_CONNECTIONS_COLLECTION).doc(id).get()
   return snap.exists ? { ...(snap.data() as CreativeProviderConnection), id: snap.id } : null
