@@ -11,10 +11,14 @@ const mockDecryptConnectionCredentials = jest.fn()
 const mockGetCreativeCanvasProvider = jest.fn()
 
 const FIXTURE_USER = { uid: 'uid-9', role: 'client', authKind: 'session', orgId: 'org-1', orgIds: ['org-1'] }
+const AI_FIXTURE_USER = { uid: 'agent:acme', role: 'ai', authKind: 'agent_api_key', agentId: 'acme', orgId: 'org-1' }
+
+// Mutable current-user so individual tests can swap the caller (client vs ai).
+let currentUser: any = FIXTURE_USER
 
 jest.mock('@/lib/api/auth', () => ({
   withAuth: (_role: string, handler: any) => async (req: NextRequest, context?: unknown) =>
-    handler(req, FIXTURE_USER, context),
+    handler(req, currentUser, context),
 }))
 
 jest.mock('@/lib/creative-canvas/providers', () => ({
@@ -78,6 +82,7 @@ const MASKED_CONNECTION = {
 describe('creative canvas connections API', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    currentUser = FIXTURE_USER
   })
 
   describe('POST /connections', () => {
@@ -166,6 +171,55 @@ describe('creative canvas connections API', () => {
         expect.anything(),
       )
     })
+
+    it('rejects a client posting to another org with 403 and does not validate/upsert', async () => {
+      const { POST } = await import('@/app/api/v1/creative-canvas/connections/route')
+      mockGetCreativeCanvasProvider.mockReturnValue(XAI_PROVIDER)
+
+      const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/connections?orgId=org-2', {
+        method: 'POST',
+        body: JSON.stringify({ provider: 'xai', scope: 'org', credentials: { apiKey: 'xai-secret-key-12345' } }),
+      }))
+      const body = await res.json()
+
+      expect(res.status).toBe(403)
+      expect(body).toMatchObject({ success: false, error: 'Forbidden' })
+      expect(mockValidateProviderCredentials).not.toHaveBeenCalled()
+      expect(mockUpsertCreativeProviderConnection).not.toHaveBeenCalled()
+    })
+
+    it('rejects a credential value longer than 4096 chars with 400 and does not validate/upsert', async () => {
+      const { POST } = await import('@/app/api/v1/creative-canvas/connections/route')
+      mockGetCreativeCanvasProvider.mockReturnValue(XAI_PROVIDER)
+
+      const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/connections?orgId=org-1', {
+        method: 'POST',
+        body: JSON.stringify({ provider: 'xai', scope: 'org', credentials: { apiKey: 'x'.repeat(4097) } }),
+      }))
+      const body = await res.json()
+
+      expect(res.status).toBe(400)
+      expect(body).toMatchObject({ success: false, error: 'Credential value too long' })
+      expect(mockValidateProviderCredentials).not.toHaveBeenCalled()
+      expect(mockUpsertCreativeProviderConnection).not.toHaveBeenCalled()
+    })
+
+    it('rejects an ai caller creating a user-scoped connection with 400', async () => {
+      currentUser = AI_FIXTURE_USER
+      const { POST } = await import('@/app/api/v1/creative-canvas/connections/route')
+      mockGetCreativeCanvasProvider.mockReturnValue(XAI_PROVIDER)
+
+      const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/connections?orgId=org-1', {
+        method: 'POST',
+        body: JSON.stringify({ provider: 'xai', scope: 'user', credentials: { apiKey: 'xai-secret-key-12345' } }),
+      }))
+      const body = await res.json()
+
+      expect(res.status).toBe(400)
+      expect(body).toMatchObject({ success: false, error: 'Agents can only create organisation-scoped connections' })
+      expect(mockValidateProviderCredentials).not.toHaveBeenCalled()
+      expect(mockUpsertCreativeProviderConnection).not.toHaveBeenCalled()
+    })
   })
 
   describe('GET /connections', () => {
@@ -178,6 +232,17 @@ describe('creative canvas connections API', () => {
 
       expect(mockListCreativeProviderConnections).toHaveBeenCalledWith({ orgId: 'org-1', uid: 'uid-9' })
       expect(body).toMatchObject({ success: true, data: { connections: [MASKED_CONNECTION] } })
+    })
+
+    it('rejects a client listing another org with 403 and does not call the store', async () => {
+      const { GET } = await import('@/app/api/v1/creative-canvas/connections/route')
+
+      const res = await GET(new NextRequest('http://test.local/api/v1/creative-canvas/connections?orgId=org-2'))
+      const body = await res.json()
+
+      expect(res.status).toBe(403)
+      expect(body).toMatchObject({ success: false, error: 'Forbidden' })
+      expect(mockListCreativeProviderConnections).not.toHaveBeenCalled()
     })
   })
 
@@ -213,6 +278,20 @@ describe('creative canvas connections API', () => {
       expect(res.status).toBe(403)
       expect(body).toMatchObject({ success: false, error: 'Forbidden' })
     })
+
+    it('rejects a client deleting in another org with 403 and does not call revoke', async () => {
+      const { DELETE } = await import('@/app/api/v1/creative-canvas/connections/[id]/route')
+
+      const res = await DELETE(
+        new NextRequest('http://test.local/api/v1/creative-canvas/connections/org:org-2:xai?orgId=org-2', { method: 'DELETE' }),
+        { params: Promise.resolve({ id: 'org:org-2:xai' }) },
+      )
+      const body = await res.json()
+
+      expect(res.status).toBe(403)
+      expect(body).toMatchObject({ success: false, error: 'Forbidden' })
+      expect(mockRevokeCreativeProviderConnection).not.toHaveBeenCalled()
+    })
   })
 
   describe('POST /connections/[id]/validate', () => {
@@ -243,6 +322,20 @@ describe('creative canvas connections API', () => {
         success: true,
         data: { validation: { ok: false, error: 'Stored credentials could not be decrypted — reconnect the provider' } },
       })
+    })
+
+    it('rejects a client validating in another org with 403 and does not look up the connection', async () => {
+      const { POST } = await import('@/app/api/v1/creative-canvas/connections/[id]/validate/route')
+
+      const res = await POST(
+        new NextRequest('http://test.local/api/v1/creative-canvas/connections/org:org-2:xai/validate?orgId=org-2', { method: 'POST' }),
+        { params: Promise.resolve({ id: 'org:org-2:xai' }) },
+      )
+      const body = await res.json()
+
+      expect(res.status).toBe(403)
+      expect(body).toMatchObject({ success: false, error: 'Forbidden' })
+      expect(mockGetCreativeProviderConnection).not.toHaveBeenCalled()
     })
   })
 })

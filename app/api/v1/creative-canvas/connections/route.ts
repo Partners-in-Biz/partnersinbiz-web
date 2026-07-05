@@ -5,6 +5,7 @@ import type { ApiUser } from '@/lib/api/types'
 import { getCreativeCanvasProvider } from '@/lib/creative-canvas/providers'
 import { listCreativeProviderConnections, upsertCreativeProviderConnection } from '@/lib/creative-canvas/connections/store'
 import { validateProviderCredentials } from '@/lib/creative-canvas/connections/validate'
+import { clientCanAccessOrg } from '@/lib/creative-canvas/connections/org-guard'
 import type { CreativeCanvasActor } from '@/lib/creative-canvas/types'
 
 export const dynamic = 'force-dynamic'
@@ -24,6 +25,7 @@ function actorFromUser(user: ApiUser): CreativeCanvasActor {
 export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) => {
   const orgId = resolveOrgId(req, user)
   if (!orgId) return apiError('orgId is required', 400)
+  if (!clientCanAccessOrg(user, orgId)) return apiError('Forbidden', 403)
   const connections = await listCreativeProviderConnections({ orgId, uid: user.uid })
   return apiSuccess({ connections })
 })
@@ -31,6 +33,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
 export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) => {
   const orgId = resolveOrgId(req, user)
   if (!orgId) return apiError('orgId is required', 400)
+  if (!clientCanAccessOrg(user, orgId)) return apiError('Forbidden', 403)
   const body = await req.json().catch(() => null)
   if (!body) return apiError('Malformed JSON body', 400)
 
@@ -45,13 +48,19 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
   const providerDef = provider ? getCreativeCanvasProvider(provider) : null
   if (!providerDef?.connection) return apiError('Provider does not support connections', 400)
   if (scope !== 'org' && scope !== 'user') return apiError('scope must be "org" or "user"', 400)
+  if (scope === 'user' && user.role === 'ai') {
+    return apiError('Agents can only create organisation-scoped connections', 400)
+  }
   if (!credentials || typeof credentials !== 'object') return apiError('credentials are required', 400)
 
   // Only accept the fields the provider declares — nothing else gets encrypted.
   const allowed = new Set(providerDef.connection.credentialFields.map((f) => f.key))
   const cleaned: Record<string, string> = {}
   for (const [key, value] of Object.entries(credentials)) {
-    if (allowed.has(key) && typeof value === 'string' && value.trim()) cleaned[key] = value.trim()
+    if (allowed.has(key) && typeof value === 'string' && value.trim()) {
+      if (value.trim().length > 4096) return apiError('Credential value too long', 400)
+      cleaned[key] = value.trim()
+    }
   }
   for (const field of providerDef.connection.credentialFields) {
     if (!cleaned[field.key]) return apiError(`${field.label} is required`, 400)

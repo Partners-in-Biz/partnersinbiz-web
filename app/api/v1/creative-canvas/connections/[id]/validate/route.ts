@@ -6,6 +6,7 @@ import { getCreativeProviderConnection, canManageConnection, markConnectionValid
 import { decryptConnectionCredentials } from '@/lib/creative-canvas/connections/crypto'
 import { validateProviderCredentials } from '@/lib/creative-canvas/connections/validate'
 import { maskConnection } from '@/lib/creative-canvas/connections/types'
+import { clientCanAccessOrg } from '@/lib/creative-canvas/connections/org-guard'
 
 export const dynamic = 'force-dynamic'
 type RouteContext = { params: Promise<{ id: string }> }
@@ -15,6 +16,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   const url = new URL(req.url)
   const orgId = url.searchParams.get('orgId') ?? req.headers.get('x-org-id') ?? user.orgId ?? user.orgIds?.[0]
   if (!orgId) return apiError('orgId is required', 400)
+  if (!clientCanAccessOrg(user, orgId)) return apiError('Forbidden', 403)
   const connection = await getCreativeProviderConnection(decodeURIComponent(id))
   if (!connection) return apiError('Connection not found', 404)
   if (!canManageConnection(connection, { orgId, uid: user.uid })) return apiError('Forbidden', 403)
