@@ -442,4 +442,56 @@ describe('drainDueYouTubeReleasePlans', () => {
     expect(result.due).toBe(1)
     expect(result.published).toBe(1)
   })
+
+  it('never picks up a plan another tick is still publishing (in-flight guard)', async () => {
+    const now = new Date('2026-01-01T00:00:00.000Z')
+    stageFirestore({
+      [COLLECTIONS.releasePlans]: [{
+        id: 'r-inflight',
+        data: {
+          ...releasePlan({ id: 'r-inflight', scheduledPublishAt: '2020-01-01T00:00:00.000Z' }),
+          publishExecutionStatus: 'publishing',
+          // Attempt started 2 minutes ago — well inside the 30-min staleness window.
+          lastPublishAttemptAt: new Date(now.getTime() - 2 * 60 * 1000).toISOString(),
+        } as Record<string, unknown>,
+      }],
+      [COLLECTIONS.packets]: [{ id: 'packet-1', data: { ...packet() } as Record<string, unknown> }],
+      [COLLECTIONS.channels]: [{ id: 'channel-1', data: { ...channel() } as Record<string, unknown> }],
+      [COLLECTIONS.videos]: [{ id: 'video-1', data: { id: 'video-1', orgId: 'org-1', deleted: false } }],
+      [COLLECTIONS.sourceAssets]: [{ id: 'asset-1', data: { ...sourceAsset() } as Record<string, unknown> }],
+    })
+    successProvider()
+    const { drainDueYouTubeReleasePlans } = await import('@/lib/youtube-studio/publish-executor')
+
+    const result = await drainDueYouTubeReleasePlans({ now })
+
+    // Excluded from the batch entirely — no due count, no publish, no upload.
+    expect(result.due).toBe(0)
+    expect(result.published).toBe(0)
+  })
+
+  it('retries a plan wedged in publishing after the 30-minute staleness window (crashed tick)', async () => {
+    const now = new Date('2026-01-01T01:00:00.000Z')
+    stageFirestore({
+      [COLLECTIONS.releasePlans]: [{
+        id: 'r-stale',
+        data: {
+          ...releasePlan({ id: 'r-stale', scheduledPublishAt: '2020-01-01T00:00:00.000Z' }),
+          publishExecutionStatus: 'publishing',
+          lastPublishAttemptAt: new Date(now.getTime() - 45 * 60 * 1000).toISOString(),
+        } as Record<string, unknown>,
+      }],
+      [COLLECTIONS.packets]: [{ id: 'packet-1', data: { ...packet() } as Record<string, unknown> }],
+      [COLLECTIONS.channels]: [{ id: 'channel-1', data: { ...channel() } as Record<string, unknown> }],
+      [COLLECTIONS.videos]: [{ id: 'video-1', data: { id: 'video-1', orgId: 'org-1', deleted: false } }],
+      [COLLECTIONS.sourceAssets]: [{ id: 'asset-1', data: { ...sourceAsset() } as Record<string, unknown> }],
+    })
+    successProvider()
+    const { drainDueYouTubeReleasePlans } = await import('@/lib/youtube-studio/publish-executor')
+
+    const result = await drainDueYouTubeReleasePlans({ now })
+
+    expect(result.due).toBe(1)
+    expect(result.published).toBe(1)
+  })
 })

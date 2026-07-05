@@ -237,6 +237,26 @@ async function loadContext(
   return { releasePlan, releaseRef, packet, channel, channelRef: channelRecord.ref, videoAsset }
 }
 
+/** After this long, an in-flight 'publishing' marker is considered a crashed tick and retried. */
+const PUBLISHING_STALE_MS = 30 * 60 * 1000
+
+/** Firestore Timestamp | ISO string | Date → epoch millis, else null. */
+function toMillis(value: unknown): number | null {
+  if (!value) return null
+  if (value instanceof Date) return value.getTime()
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  if (typeof value === 'object' && typeof (value as { toMillis?: () => number }).toMillis === 'function') {
+    return (value as { toMillis: () => number }).toMillis()
+  }
+  if (typeof value === 'object' && typeof (value as { _seconds?: number })._seconds === 'number') {
+    return (value as { _seconds: number })._seconds * 1000
+  }
+  return null
+}
+
 /**
  * Drains release plans whose scheduled publish window has arrived and pushes them through the
  * shared publish core with capped retry. Per-plan try/catch isolation: one bad plan never aborts
@@ -267,6 +287,15 @@ export async function drainDueYouTubeReleasePlans(input: {
     .filter(({ plan }) => !plan.externalYouTubeVideoId)
     .filter(({ plan }) => plan.publishExecutionStatus !== 'published' && plan.publishExecutionStatus !== 'failed')
     .filter(({ plan }) => plan.status !== 'published' && plan.status !== 'cancelled')
+    // In-flight guard: an upload can outlive a 5-min cron tick — never pick up
+    // a plan another tick is still publishing (prevents duplicate YouTube
+    // uploads). Escape hatch: treat 'publishing' as stale after 30 minutes so
+    // a crash mid-upload can't wedge the plan forever.
+    .filter(({ plan }) => {
+      if (plan.publishExecutionStatus !== 'publishing') return true
+      const lastAttempt = toMillis(plan.lastPublishAttemptAt)
+      return lastAttempt !== null && now.getTime() - lastAttempt > PUBLISHING_STALE_MS
+    })
 
   const batch = candidates.slice(0, limit)
   result.due = batch.length

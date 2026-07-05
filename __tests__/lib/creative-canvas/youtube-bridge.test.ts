@@ -87,6 +87,17 @@ beforeEach(() => {
 const ORG = 'org-1'
 const PROJECT = 'ytproj-1'
 
+/** Stage the linked video project doc — the bridge's tenant guard requires it to exist in-org. */
+function stageProject(overrides: Record<string, unknown> = {}) {
+  store.set(keyFor('youtube_video_projects', PROJECT), {
+    orgId: ORG,
+    channelWorkspaceId: 'ch-1',
+    title: 'Test video project',
+    deleted: false,
+    ...overrides,
+  })
+}
+
 function baseRun(overrides: Partial<CreativeCanvasRun> = {}): CreativeCanvasRun & { id: string } {
   return {
     id: 'run-1',
@@ -125,7 +136,31 @@ function linkedCanvas(overrides: Partial<CreativeCanvas> = {}): CreativeCanvas &
 }
 
 describe('syncCanvasRunOutputToYouTube', () => {
+  it('skips when the linked project belongs to another org (tenant guard)', async () => {
+    stageProject({ orgId: 'org-EVIL' })
+    const result = await syncCanvasRunOutputToYouTube(baseRun(), linkedCanvas())
+    expect(result).toBe('skipped')
+    expect(store.has(keyFor('youtube_source_assets', 'canvas-run-run-1'))).toBe(false)
+  })
+
+  it('skips when the linked project is deleted or missing', async () => {
+    stageProject({ deleted: true })
+    expect(await syncCanvasRunOutputToYouTube(baseRun(), linkedCanvas())).toBe('skipped')
+    store.delete(keyFor('youtube_video_projects', PROJECT))
+    expect(await syncCanvasRunOutputToYouTube(baseRun(), linkedCanvas())).toBe('skipped')
+  })
+
+  it('does not churn createdAt on idempotent replay of the same run', async () => {
+    stageProject()
+    await syncCanvasRunOutputToYouTube(baseRun(), linkedCanvas())
+    const assetKey = keyFor('youtube_source_assets', 'canvas-run-run-1')
+    store.set(assetKey, { ...(store.get(assetKey) ?? {}), createdAt: 'ORIGINAL_TS' })
+    await syncCanvasRunOutputToYouTube(baseRun(), linkedCanvas())
+    expect(store.get(assetKey)?.createdAt).toBe('ORIGINAL_TS')
+  })
+
   it('creates a source asset with the deterministic id + provenance for a linked video output', async () => {
+    stageProject()
     const result = await syncCanvasRunOutputToYouTube(baseRun(), linkedCanvas())
 
     expect(result).toBe('asset_only')
@@ -142,6 +177,7 @@ describe('syncCanvasRunOutputToYouTube', () => {
   })
 
   it('is idempotent — a second call does not create a duplicate or bump anything', async () => {
+    stageProject()
     await syncCanvasRunOutputToYouTube(baseRun(), linkedCanvas())
     const first = store.get(keyFor(YOUTUBE_COLLECTIONS.sourceAssets, 'canvas-run-run-1'))
     await syncCanvasRunOutputToYouTube(baseRun(), linkedCanvas())
@@ -154,6 +190,7 @@ describe('syncCanvasRunOutputToYouTube', () => {
   })
 
   it('flips an open render job to rendered with the creative_canvas stamp (youtube_render)', async () => {
+    stageProject()
     store.set(keyFor(YOUTUBE_COLLECTIONS.renderJobs, 'job-1'), {
       orgId: ORG, videoProjectId: PROJECT, channelWorkspaceId: 'ch-1',
       status: 'rendering', versionNumber: 1, deleted: false, createdAt: 100,
@@ -176,6 +213,7 @@ describe('syncCanvasRunOutputToYouTube', () => {
   })
 
   it('creates a rendered render job directly when none is open (youtube_render)', async () => {
+    stageProject()
     const run = baseRun({
       input: { sourceNodeIds: [], sourceArtifactIds: [], outputKind: 'youtube_render' },
       output: { outputNodeId: 'node-1-output', url: 'https://cdn.example.com/out.mp4', kind: 'youtube_render' } as CreativeCanvasRun['output'],
@@ -216,6 +254,7 @@ describe('syncCanvasRunOutputToYouTube', () => {
   })
 
   it('does not re-update a render job already stamped with this run id', async () => {
+    stageProject()
     store.set(keyFor(YOUTUBE_COLLECTIONS.renderJobs, 'job-1'), {
       orgId: ORG, videoProjectId: PROJECT, channelWorkspaceId: 'ch-1',
       status: 'rendered', versionNumber: 1, deleted: false, createdAt: 100,
@@ -236,6 +275,7 @@ describe('syncCanvasRunOutputToYouTube', () => {
   })
 
   it('loads the canvas itself when not supplied', async () => {
+    stageProject()
     mockGetCreativeCanvas.mockResolvedValue(linkedCanvas())
     const result = await syncCanvasRunOutputToYouTube(baseRun())
     expect(mockGetCreativeCanvas).toHaveBeenCalledWith('canvas-1', ORG)

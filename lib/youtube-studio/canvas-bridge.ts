@@ -22,7 +22,13 @@ import type { YouTubeProductionDraft, YouTubeVideoProject } from '@/lib/youtube-
 // re-seeding is idempotent (Task 6 open-in-canvas relies on this).
 // ---------------------------------------------------------------------------
 
-/** Default voiceover/audio model — Sonilo (Higgsfield-native unlimited tier). */
+/**
+ * Default scene-audio model — Sonilo music beds (Higgsfield-native unlimited
+ * tier). NOTE: the platform has no TTS model yet (sonilo = music, mirelo =
+ * SFX), so seeded audio nodes are MUSIC BEDS, not spoken voiceover. The scene
+ * narration text stays on the prompt node so a future TTS provider (e.g.
+ * ElevenLabs BYOK) can consume it without re-seeding.
+ */
 const AUDIO_MODEL = 'sonilo_music'
 /**
  * Default video model — Seedance 2.0. Matches the `youtube_render` node in the
@@ -155,14 +161,14 @@ export function buildCanvasGraphFromVideoProject(input: CanvasSeedInput): Creati
       id: audioId,
       orgId,
       type: 'model',
-      title: `Scene ${n} voiceover`,
+      title: `Scene ${n} music bed`,
       position: { x: COL_GENERATOR, y: y - 60 },
-      data: { workflowRole: 'generation', ownerAgentId: OWNER_AGENT_ID, outputKind: 'audio', sceneIndex: n },
-      provider: { key: PROVIDER_KEY, model: AUDIO_MODEL, mode: 'voiceover' },
+      data: { workflowRole: 'generation', ownerAgentId: OWNER_AGENT_ID, outputKind: 'audio', sceneIndex: n, narrationText: voiceover },
+      provider: { key: PROVIDER_KEY, model: AUDIO_MODEL, mode: 'scene_audio' },
       edit: {
         operation: 'variation',
         outputKind: 'audio',
-        prompt: voiceover,
+        prompt: `Instrumental music bed matching this scene's mood: ${voiceover}`,
         references: [{ sourceNodeId: promptId, role: 'general', weight: 1 }],
       },
     })

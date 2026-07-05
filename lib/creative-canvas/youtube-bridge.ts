@@ -24,14 +24,18 @@ const AGENT_ACTOR = { uid: 'agent:pip', type: 'agent' as const }
 // completed canvas render fulfils exactly one of these.
 const OPEN_RENDER_JOB_STATUSES = new Set(['planning', 'ready_for_edit', 'rendering'])
 
-function agentActorFields() {
+function agentActorFields(options: { includeCreated?: boolean } = {}) {
   return {
-    createdBy: AGENT_ACTOR.uid,
-    createdByType: AGENT_ACTOR.type,
     updatedBy: AGENT_ACTOR.uid,
     updatedByType: AGENT_ACTOR.type,
-    createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
+    // createdAt/createdBy only on first write — idempotent replays of the same
+    // run must not churn creation metadata.
+    ...(options.includeCreated === false ? {} : {
+      createdBy: AGENT_ACTOR.uid,
+      createdByType: AGENT_ACTOR.type,
+      createdAt: FieldValue.serverTimestamp(),
+    }),
   }
 }
 
@@ -61,6 +65,11 @@ export async function syncCanvasRunOutputToYouTube(
   // assets and needed for created render jobs.
   const projectSnap = await adminDb.collection(YOUTUBE_COLLECTIONS.videos).doc(videoProjectId).get()
   const projectData = projectSnap.exists ? (projectSnap.data() as Record<string, unknown>) : undefined
+  // Tenant isolation, defense-in-depth: never write into a project owned by a
+  // different org than the run's, no matter what the canvas link claims
+  // (mislinked doc, bad migration, manual edit). Linking routes are org-scoped
+  // today, but the bridge must not rely on caller discipline.
+  if (!projectData || projectData.orgId !== run.orgId || projectData.deleted === true) return 'skipped'
   const channelWorkspaceId = typeof projectData?.channelWorkspaceId === 'string' ? projectData.channelWorkspaceId : ''
   const projectTitle = typeof projectData?.title === 'string' ? projectData.title : undefined
 
@@ -79,10 +88,12 @@ export async function syncCanvasRunOutputToYouTube(
     sourceUrl: outputUrl,
     internalNotes: provenanceNote,
   })
-  await adminDb.collection(YOUTUBE_COLLECTIONS.sourceAssets).doc(assetId).set({
+  const assetRef = adminDb.collection(YOUTUBE_COLLECTIONS.sourceAssets).doc(assetId)
+  const existingAsset = await assetRef.get()
+  await assetRef.set({
     ...assetData,
     deleted: false,
-    ...agentActorFields(),
+    ...agentActorFields({ includeCreated: !existingAsset.exists }),
   }, { merge: true })
 
   if (kind !== 'youtube_render') return 'asset_only'

@@ -121,6 +121,11 @@ export async function listChannelWorkspaces(orgId: string): Promise<Array<YouTub
  * Create a YouTube video project record, mirroring the create path of the
  * videos POST route (sanitize → actor stamp → add). Shared so the creative
  * canvas export auto-create path doesn't hand-roll Firestore writes.
+ *
+ * CALLER CONTRACT: unlike the videos POST route, this helper does NOT validate
+ * that `channelWorkspaceId`/`seriesId` exist, are non-deleted, or belong to
+ * `orgId` — callers must pass pre-validated, org-scoped ids (e.g. from
+ * `listChannelWorkspaces(orgId)`).
  */
 export async function createYouTubeVideoProject(
   input: Partial<YouTubeVideoProject> & { orgId: string; channelWorkspaceId: string },
