@@ -108,4 +108,44 @@ describe('drainDirectCreativeCanvasRuns', () => {
     }), { uid: 'agent:maya', type: 'agent' })
     expect(result.failed).toBe(1)
   })
+
+  it('fails a run with connection_lost when the recorded connection is revoked, without consulting the org resolver', async () => {
+    setupQuery([[], [runningFal]]) // runningFal has connectionId: 'conn-9'
+    mockGetConnection.mockResolvedValue({ id: 'conn-9', status: 'revoked', credentialsEnc: null, scopeKeyRef: 'org-1' })
+
+    const result = await drainDirectCreativeCanvasRuns()
+
+    // No key substitution: the org/env resolver must not be reached.
+    expect(mockResolve).not.toHaveBeenCalled()
+    // And no provider poll went out.
+    expect(global.fetch).not.toHaveBeenCalled()
+    expect(mockRefresh).toHaveBeenCalledWith('run-r', 'org-1', expect.objectContaining({
+      status: 'failed',
+      error: expect.objectContaining({ code: 'connection_lost', retryable: true }),
+    }), { uid: 'agent:maya', type: 'agent' })
+    expect(result.failed).toBe(1)
+  })
+
+  it('isolates a per-run poll failure so the rest of the batch still runs', async () => {
+    const runningFalB = {
+      ...runningFal,
+      id: 'run-r2', nodeId: 'model-3',
+      provenance: { ...runningFal.provenance, providerJobId: 'fal-req-10', connectionId: 'conn-10' },
+    }
+    setupQuery([[], [runningFal, runningFalB]]) // two running runs
+    mockGetConnection.mockResolvedValue({ id: 'conn', status: 'connected', credentialsEnc: 'ENC', scopeKeyRef: 'org-1' })
+    mockDecrypt.mockReturnValue({ apiKey: 'fal-conn-key' })
+    // First run's poll rejects (network). Second run polls + completes.
+    ;(global.fetch as jest.Mock)
+      .mockRejectedValueOnce(new Error('network down'))
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'COMPLETED' }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ video: { url: 'https://cdn/kling.mp4' } }) })
+
+    const result = await drainDirectCreativeCanvasRuns()
+
+    // Second run was still polled and completed despite the first one throwing.
+    expect(mockComplete).toHaveBeenCalledWith('run-r2', 'org-1', expect.anything(), { uid: 'agent:maya', type: 'agent' })
+    expect(result.completed).toBe(1)
+    expect(result.skipped).toBe(1)
+  })
 })

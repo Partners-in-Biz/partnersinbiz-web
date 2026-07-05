@@ -110,6 +110,24 @@ describe('pollDirectRun — xai video', () => {
     const result = await pollDirectRun(running(), { apiKey: 'k' })
     expect(result.status).toBe('running')
   })
+
+  it.each([401, 403, 404])('terminates on definitive %s auth/not-found with an unauthorized failure', async (code) => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false, status: code, json: async () => ({ error: 'nope' }),
+    }) as unknown as typeof fetch
+    const result = await pollDirectRun(running(), { apiKey: 'k' })
+    expect(result.status).toBe('failed')
+    expect(result.error?.code).toContain('unauthorized')
+    expect(result.error?.retryable).toBe(true)
+  })
+
+  it('keeps transient 500 as running (does not fail the run)', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false, status: 500, json: async () => ({}),
+    }) as unknown as typeof fetch
+    const result = await pollDirectRun(running(), { apiKey: 'k' })
+    expect(result.status).toBe('running')
+  })
 })
 
 describe('submitDirectRun — fal', () => {
@@ -179,6 +197,33 @@ describe('pollDirectRun — fal', () => {
     }) as unknown as typeof fetch
     const result = await pollDirectRun(falRunning(), { apiKey: 'k' })
     expect(result.status).toBe('running')
+  })
+
+  it.each([401, 403, 404])('terminates the status fetch on definitive %s with an unauthorized failure', async (code) => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false, status: code, json: async () => ({ error: 'nope' }),
+    }) as unknown as typeof fetch
+    const result = await pollDirectRun(falRunning(), { apiKey: 'k' })
+    expect(result.status).toBe('failed')
+    expect(result.error?.code).toContain('unauthorized')
+    expect(result.error?.retryable).toBe(true)
+  })
+
+  it('keeps a transient 500 status fetch as running', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false, status: 500, json: async () => ({}),
+    }) as unknown as typeof fetch
+    const result = await pollDirectRun(falRunning(), { apiKey: 'k' })
+    expect(result.status).toBe('running')
+  })
+
+  it('terminates the result fetch on definitive 404 with an unauthorized failure', async () => {
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'COMPLETED' }) })
+      .mockResolvedValueOnce({ ok: false, status: 404, json: async () => ({}) }) as unknown as typeof fetch
+    const result = await pollDirectRun(falRunning(), { apiKey: 'k' })
+    expect(result.status).toBe('failed')
+    expect(result.error?.code).toContain('unauthorized')
   })
 })
 

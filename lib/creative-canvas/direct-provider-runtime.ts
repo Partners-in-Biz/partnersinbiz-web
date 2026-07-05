@@ -142,6 +142,23 @@ export async function submitDirectRun(run: RunWithId, credentials: DirectCredent
 // Poll
 // ---------------------------------------------------------------------------
 
+/**
+ * A definitive auth/not-found poll response (401/403/404) means the key was
+ * revoked or the job expired under it — the run can never complete on this
+ * credential, so stop polling and fail (retryable: a fresh submit re-resolves).
+ * Transient errors (5xx, 429) are left as `running` by the caller.
+ */
+function terminalPollFailure(provider: string, status: number): DirectPollResult {
+  return {
+    status: 'failed',
+    error: {
+      code: `${provider}_poll_unauthorized`,
+      message: `Provider rejected the poll (${status}) — the key may have been revoked or the job expired`,
+      retryable: true,
+    },
+  }
+}
+
 async function pollXaiVideo(run: RunWithId, credentials: DirectCredentials): Promise<DirectPollResult> {
   const jobId = run.provenance.providerJobId
   if (!jobId) return { status: 'running' }
@@ -149,6 +166,9 @@ async function pollXaiVideo(run: RunWithId, credentials: DirectCredentials): Pro
     headers: { Authorization: `Bearer ${credentials.apiKey}` },
   })
   const body = (await response.json().catch(() => null)) as Record<string, unknown> | null
+  if (response.status === 401 || response.status === 403 || response.status === 404) {
+    return terminalPollFailure('xai', response.status)
+  }
   if (!response.ok) return { status: 'running' }
   const status = cleanString(body?.status)?.toLowerCase()
   if (status === 'completed' || status === 'succeeded' || status === 'success') {
@@ -174,6 +194,9 @@ async function pollFal(run: RunWithId, credentials: DirectCredentials): Promise<
     headers: { Authorization: `Key ${credentials.apiKey}` },
   })
   const statusBody = (await statusResponse.json().catch(() => null)) as Record<string, unknown> | null
+  if (statusResponse.status === 401 || statusResponse.status === 403 || statusResponse.status === 404) {
+    return terminalPollFailure('fal', statusResponse.status)
+  }
   if (!statusResponse.ok) return { status: 'running' }
   const status = cleanString(statusBody?.status)?.toUpperCase()
 
@@ -185,6 +208,9 @@ async function pollFal(run: RunWithId, credentials: DirectCredentials): Promise<
   const resultResponse = await fetch(`${FAL_QUEUE_BASE}/${endpoint}/requests/${jobId}`, {
     headers: { Authorization: `Key ${credentials.apiKey}` },
   })
+  if (resultResponse.status === 401 || resultResponse.status === 403 || resultResponse.status === 404) {
+    return terminalPollFailure('fal', resultResponse.status)
+  }
   const resultBody = (await resultResponse.json().catch(() => null)) as Record<string, unknown> | null
   if (!resultResponse.ok || !resultBody) {
     return { status: 'failed', error: { code: 'fal_missing_output', message: 'fal reported completion but the result could not be fetched.', retryable: true } }
@@ -219,29 +245,52 @@ async function listDirectRunsByStatus(status: string, limit: number): Promise<Ru
 }
 
 /**
- * Resolve the credential a running direct run should poll with. Prefers the
- * BYOK connection recorded at submit (no user context needed); falls back to
- * org-scoped resolution, then xai platform env.
+ * Outcome of resolving the credential a running direct run should poll with.
+ * `connection_lost` is deliberately distinct from `none`: when the run recorded
+ * a specific BYOK connection that is no longer usable, we must NOT substitute
+ * any other key — the provider job only exists under the original account, so
+ * polling with a different key would query a job that doesn't exist there and
+ * leave the run stuck forever. We fail the run instead.
  */
-async function resolvePollCredentials(run: RunWithId): Promise<DirectCredentials | null> {
+export type PollCredentialResolution =
+  | { kind: 'ok'; credentials: DirectCredentials }
+  | { kind: 'connection_lost'; message: string }
+  | { kind: 'none' }
+
+const CONNECTION_LOST_MESSAGE =
+  'The account used for this run was disconnected — reconnect it or retry the generation.'
+
+/**
+ * Resolve the credential a running direct run should poll with.
+ * - `connectionId` set + connection usable → `ok`.
+ * - `connectionId` set + NOT usable (missing / revoked / decrypt fails) →
+ *   `connection_lost` (do NOT fall back to another key — see type doc).
+ * - no `connectionId` (shared-env submits, legacy) → org/env fallback chain →
+ *   `ok` or `none`.
+ */
+async function resolvePollCredentials(run: RunWithId): Promise<PollCredentialResolution> {
   const connectionId = cleanString(run.provenance.connectionId)
   if (connectionId) {
     const conn = await getCreativeProviderConnection(connectionId)
     if (conn && conn.status === 'connected' && conn.credentialsEnc) {
       try {
         const creds = decryptConnectionCredentials(conn.credentialsEnc, conn.scopeKeyRef)
-        if (creds.apiKey) return creds as DirectCredentials
+        if (creds.apiKey) return { kind: 'ok', credentials: creds as DirectCredentials }
       } catch {
-        // Rotated master key — fall through to broader resolution.
+        // Decrypt failed (e.g. rotated master key) — the recorded connection is
+        // no longer usable. Fail loudly rather than polling under another key.
       }
     }
+    return { kind: 'connection_lost', message: CONNECTION_LOST_MESSAGE }
   }
   const resolved = await resolveCreativeProviderCredential({ provider: run.providerKey, orgId: run.orgId, uid: '' })
-  if (resolved.kind === 'byok' && resolved.credentials.apiKey) return resolved.credentials as DirectCredentials
-  if (run.providerKey === 'xai' && process.env.XAI_API_KEY?.trim()) {
-    return { apiKey: process.env.XAI_API_KEY.trim() }
+  if (resolved.kind === 'byok' && resolved.credentials.apiKey) {
+    return { kind: 'ok', credentials: resolved.credentials as DirectCredentials }
   }
-  return null
+  if (run.providerKey === 'xai' && process.env.XAI_API_KEY?.trim()) {
+    return { kind: 'ok', credentials: { apiKey: process.env.XAI_API_KEY.trim() } }
+  }
+  return { kind: 'none' }
 }
 
 async function applyPollResult(run: RunWithId, result: DirectPollResult): Promise<'completed' | 'failed' | 'refreshed'> {
@@ -280,33 +329,66 @@ async function applyPollResult(run: RunWithId, result: DirectPollResult): Promis
 export async function drainDirectCreativeCanvasRuns(options: {
   submitLimit?: number
   pollLimit?: number
-} = {}): Promise<{ submitted: number; polled: number; completed: number; failed: number }> {
+} = {}): Promise<{ submitted: number; polled: number; completed: number; failed: number; skipped: number }> {
   let submitted = 0
   let polled = 0
   let completed = 0
   let failed = 0
+  let skipped = 0
 
   // Lazy import avoids the provider-runtime ↔ direct-provider-runtime cycle.
   const { dispatchCreativeCanvasRunNow } = await import('./provider-runtime')
 
   const queuedRuns = await listDirectRunsByStatus('queued', options.submitLimit ?? DEFAULT_BATCH_SIZE)
   for (const run of queuedRuns) {
-    const outcome = await dispatchCreativeCanvasRunNow(run, {})
-    if (outcome === 'submitted') submitted++
-    if (outcome === 'completed') completed++
-    if (outcome === 'failed') failed++
+    // Isolate each run: one bad submit must not abort the whole batch.
+    try {
+      const outcome = await dispatchCreativeCanvasRunNow(run, {})
+      if (outcome === 'submitted') submitted++
+      if (outcome === 'completed') completed++
+      if (outcome === 'failed') failed++
+    } catch (err) {
+      skipped++
+      console.error(`[direct-drain] submit dispatch failed for run ${run.id}`, err)
+    }
   }
 
   const runningRuns = await listDirectRunsByStatus('running', options.pollLimit ?? DEFAULT_BATCH_SIZE)
   for (const run of runningRuns) {
-    const credentials = await resolvePollCredentials(run)
-    if (!credentials) continue
-    const result = await pollDirectRun(run, credentials)
-    const applied = await applyPollResult(run, result)
-    if (applied === 'completed') completed++
-    else if (applied === 'failed') failed++
-    else polled++
+    // Isolate each run: one bad poll/apply must not abort the whole batch.
+    try {
+      const resolution = await resolvePollCredentials(run)
+      if (resolution.kind === 'connection_lost') {
+        await refreshCreativeCanvasProviderRunStatus(run.id, run.orgId, {
+          status: 'failed',
+          providerStatus: 'connection_lost',
+          providerStatusMessage: resolution.message,
+          error: { code: 'connection_lost', message: resolution.message, retryable: true },
+        }, DIRECT_ACTOR)
+        failed++
+        continue
+      }
+      if (resolution.kind === 'none') {
+        const message = 'No usable credential is connected for this provider — connect one and retry the generation.'
+        await refreshCreativeCanvasProviderRunStatus(run.id, run.orgId, {
+          status: 'failed',
+          providerStatus: 'connection_required',
+          providerStatusMessage: message,
+          error: { code: 'connection_required', message, retryable: false },
+        }, DIRECT_ACTOR)
+        failed++
+        continue
+      }
+      const result = await pollDirectRun(run, resolution.credentials)
+      const applied = await applyPollResult(run, result)
+      if (applied === 'completed') completed++
+      else if (applied === 'failed') failed++
+      else polled++
+    } catch (err) {
+      skipped++
+      console.error(`[direct-drain] poll/apply failed for run ${run.id}`, err)
+    }
   }
 
-  return { submitted, polled, completed, failed }
+  return { submitted, polled, completed, failed, skipped }
 }
