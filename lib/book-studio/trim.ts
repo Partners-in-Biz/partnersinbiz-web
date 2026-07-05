@@ -25,7 +25,7 @@ export function getTrimSpec(id: TrimPresetId): TrimSpec {
 }
 
 export function resolveTrimSpec(id: string): TrimSpec | null {
-  return TRIM_PRESETS[id as TrimPresetId] ?? null
+  return Object.hasOwn(TRIM_PRESETS, id) ? TRIM_PRESETS[id as TrimPresetId] : null
 }
 
 // KDP margin rules: 0.5" outer margins (safe above the 0.25" minimum);

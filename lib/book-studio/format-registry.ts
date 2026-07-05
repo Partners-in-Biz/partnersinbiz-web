@@ -103,7 +103,7 @@ const BOOK_FORMATS: Record<BookFormatId, BookFormat> = {
 }
 
 export function getBookFormat(id: string): BookFormat | null {
-  return BOOK_FORMATS[id as BookFormatId] ?? null
+  return Object.hasOwn(BOOK_FORMATS, id) ? BOOK_FORMATS[id as BookFormatId] : null
 }
 
 export function listBookFormats(): BookFormat[] {
