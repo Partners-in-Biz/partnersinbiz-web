@@ -6,9 +6,11 @@ jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
 }))
 
+let mockUser: Record<string, unknown> = { uid: 'user-1', role: 'admin', authKind: 'test', orgId: 'org-1', orgIds: ['org-1'] }
+
 jest.mock('@/lib/api/auth', () => ({
   withAuth: (_role: string, handler: any) => async (req: NextRequest) =>
-    handler(req, { uid: 'user-1', role: 'admin', authKind: 'test', orgId: 'org-1', orgIds: ['org-1'] }),
+    handler(req, mockUser),
 }))
 
 function doc(id: string, data: Record<string, unknown>) {
@@ -17,6 +19,7 @@ function doc(id: string, data: Record<string, unknown>) {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockUser = { uid: 'user-1', role: 'admin', authKind: 'test', orgId: 'org-1', orgIds: ['org-1'] }
   mockCollection.mockImplementation((name: string) => ({
     where: jest.fn(() => ({
       get: jest.fn(async () => {
@@ -116,6 +119,28 @@ beforeEach(() => {
               title: 'Rendered but no output yet',
               status: 'rendered',
             }),
+            doc('render-job-storage-only', {
+              orgId: 'org-1',
+              title: 'Rendered but storage path only',
+              status: 'rendered',
+              output: {
+                storage: { mimeType: 'video/mp4', storagePath: 'youtube-render-jobs/org-1/render-storage-only.mp4' },
+              },
+            }),
+            doc('render-job-portal-visible', {
+              orgId: 'org-1',
+              title: 'Client-approved cut',
+              status: 'approved',
+              output: { previewUrl: 'https://cdn.example.com/render-portal-visible.mp4' },
+              visibility: { showOutputsInPortal: true },
+            }),
+            doc('render-job-internal-only', {
+              orgId: 'org-1',
+              title: 'Internal-only cut',
+              status: 'approved',
+              output: { previewUrl: 'https://cdn.example.com/render-internal-only.mp4' },
+              visibility: { showOutputsInPortal: false, showInClientPortal: false },
+            }),
           ],
           book_studio_artifact_links: [
             doc('book-1', {
@@ -201,12 +226,55 @@ describe('creative canvas source library API', () => {
           mimeType: 'video/mp4',
         }),
       }),
+      expect.objectContaining({ id: 'youtube_asset:render-job-portal-visible' }),
+      expect.objectContaining({ id: 'youtube_asset:render-job-internal-only' }),
     ]))
-    expect(body.data.sources).toHaveLength(9)
+    expect(body.data.sources).toHaveLength(11)
     expect(body.data.sources).not.toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'youtube_asset:render-job-planning' }),
       expect.objectContaining({ id: 'youtube_asset:render-job-blocked' }),
       expect.objectContaining({ id: 'youtube_asset:render-job-no-url' }),
+      expect.objectContaining({ id: 'youtube_asset:render-job-storage-only' }),
+    ]))
+  })
+
+  it('excludes admin-role rendered jobs that only have a storage path (no http url)', async () => {
+    const { GET } = await import('@/app/api/v1/creative-canvas/sources/route')
+    const res = await GET(new NextRequest('http://test.local/api/v1/creative-canvas/sources?orgId=org-1'))
+    const body = await res.json()
+
+    expect(body.data.sources).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'youtube_asset:render-job-storage-only' }),
+    ]))
+  })
+
+  it('gates render job visibility by portal flags for client-role callers', async () => {
+    mockUser = { uid: 'client-user-1', role: 'client', authKind: 'test', orgId: 'org-1', orgIds: ['org-1'] }
+    const { GET } = await import('@/app/api/v1/creative-canvas/sources/route')
+    const res = await GET(new NextRequest('http://test.local/api/v1/creative-canvas/sources?orgId=org-1'))
+    const body = await res.json()
+
+    expect(body.data.sources).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'youtube_asset:render-job-portal-visible' }),
+    ]))
+    expect(body.data.sources).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'youtube_asset:render-job-1' }),
+      expect.objectContaining({ id: 'youtube_asset:render-job-2' }),
+      expect.objectContaining({ id: 'youtube_asset:render-job-internal-only' }),
+    ]))
+  })
+
+  it('does not restrict render job visibility for admin-role callers (regression)', async () => {
+    mockUser = { uid: 'user-1', role: 'admin', authKind: 'test', orgId: 'org-1', orgIds: ['org-1'] }
+    const { GET } = await import('@/app/api/v1/creative-canvas/sources/route')
+    const res = await GET(new NextRequest('http://test.local/api/v1/creative-canvas/sources?orgId=org-1'))
+    const body = await res.json()
+
+    expect(body.data.sources).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'youtube_asset:render-job-1' }),
+      expect.objectContaining({ id: 'youtube_asset:render-job-2' }),
+      expect.objectContaining({ id: 'youtube_asset:render-job-portal-visible' }),
+      expect.objectContaining({ id: 'youtube_asset:render-job-internal-only' }),
     ]))
   })
 

@@ -34,6 +34,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
     referenceRole: url.searchParams.get('referenceRole'),
     mediaType: url.searchParams.get('mediaType'),
     limit: Number.isFinite(limit) ? limit : 50,
+    viewerRole: user.role,
   })
 
   return apiSuccess({ sources, lookup: { orgId } })
