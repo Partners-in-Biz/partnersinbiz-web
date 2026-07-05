@@ -26,6 +26,8 @@ interface CanvasTopBarProps {
   creditsTone?: 'normal' | 'warn' | 'over'
   creditsTitle?: string
   onOpenSpend?: () => void
+  /** When this canvas is linked to a YouTube Studio video project, a deep link to the studio page. */
+  linkedYouTubeHref?: string
 }
 
 function barButton(active = false): React.CSSProperties {
@@ -68,6 +70,7 @@ export default function CanvasTopBar({
   creditsTone = 'normal',
   creditsTitle,
   onOpenSpend,
+  linkedYouTubeHref,
 }: CanvasTopBarProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(title)
@@ -183,6 +186,30 @@ export default function CanvasTopBar({
       </div>
 
       <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+        {linkedYouTubeHref ? (
+          <a
+            href={linkedYouTubeHref}
+            aria-label="Open linked YouTube Studio project"
+            title="Open the linked YouTube Studio video project"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              height: 34,
+              padding: '0 10px',
+              borderRadius: 9,
+              border: `1px solid ${canvasTheme.border}`,
+              background: canvasTheme.surface,
+              color: canvasTheme.text,
+              fontSize: 13,
+              fontWeight: 600,
+              textDecoration: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            ▶ YT project ↗
+          </a>
+        ) : null}
         {creditsLabel ? (
           <button
             type="button"

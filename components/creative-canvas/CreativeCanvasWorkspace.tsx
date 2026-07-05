@@ -4791,6 +4791,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         creditsTone={creditBudget.tone}
         creditsTitle={creditBudget.title}
         onOpenSpend={() => setTopBarPanel('spend')}
+        linkedYouTubeHref={mode === 'admin' && activeCanvas?.linked?.youtubeVideoProjectId && (resolvedOrgId || activeCanvas?.orgId)
+          ? `/admin/org/${encodeURIComponent(resolvedOrgId || activeCanvas!.orgId)}/youtube-studio`
+          : undefined}
       />
 
       {splitVideoNodeId ? (() => {

@@ -44,4 +44,16 @@ describe('CanvasTopBar', () => {
     renderBar({ onHome: jest.fn() })
     expect(screen.queryByRole('button', { name: /new canvas/i })).toBeNull()
   })
+
+  it('renders a linked YouTube project chip when a href is provided', () => {
+    renderBar({ linkedYouTubeHref: '/admin/org/org-1/youtube-studio' })
+    const chip = screen.getByRole('link', { name: /open linked youtube studio project/i })
+    expect(chip).toHaveAttribute('href', '/admin/org/org-1/youtube-studio')
+    expect(chip).toHaveTextContent(/YT project/i)
+  })
+
+  it('hides the YouTube project chip without a linked href', () => {
+    renderBar()
+    expect(screen.queryByRole('link', { name: /open linked youtube studio project/i })).toBeNull()
+  })
 })
