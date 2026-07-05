@@ -27,6 +27,7 @@ interface RuntimeResult {
   providerRequestId?: string
   providerStatusUrl?: string
   providerCallbackUrl?: string
+  connectionId?: string
   status?: CreativeCanvasRunStatus
   providerStatus?: string
   providerStatusMessage?: string
@@ -244,6 +245,7 @@ async function applyRuntimeResult(run: RunWithId, result: RuntimeResult): Promis
       providerRequestId: result.providerRequestId,
       providerStatusUrl: result.providerStatusUrl,
       providerCallbackUrl: result.providerCallbackUrl,
+      ...(result.connectionId ? { connectionId: result.connectionId } : {}),
     }, HIGGSFIELD_ACTOR)
   }
 
@@ -293,7 +295,7 @@ async function applyRuntimeResult(run: RunWithId, result: RuntimeResult): Promis
   return result.providerJobId ? 'dispatched' : 'refreshed'
 }
 
-async function submitQueuedRun(run: RunWithId, config: HiggsfieldRuntimeConfig): Promise<'submitted' | 'completed' | 'failed'> {
+async function submitQueuedRun(run: RunWithId, config: HiggsfieldRuntimeConfig, uid = ''): Promise<'submitted' | 'completed' | 'failed'> {
   if (!config.submitUrl) return 'failed'
   const canvas = await getCreativeCanvas(run.canvasId, run.orgId)
   if (!canvas) {
@@ -302,6 +304,9 @@ async function submitQueuedRun(run: RunWithId, config: HiggsfieldRuntimeConfig):
   }
   await markRunSubmissionStarted(run)
   const manifest = buildHiggsfieldExecutionManifest(run, canvas)
+  const resolved = await resolveCreativeProviderCredential({ provider: 'higgsfield', orgId: run.orgId, uid })
+  const byokCredentials = resolved.kind === 'byok' ? resolved.credentials : undefined
+  const connectionId = resolved.kind === 'byok' ? resolved.connection.id : undefined
   const response = await fetch(config.submitUrl, {
     method: 'POST',
     headers: runtimeHeaders(config),
@@ -315,6 +320,7 @@ async function submitQueuedRun(run: RunWithId, config: HiggsfieldRuntimeConfig):
         purpose: canvas.purpose,
       },
       manifest,
+      ...(byokCredentials ? { byokCredentials } : {}),
       callback: {
         url: callbackUrl(config),
         secretHeader: config.webhookSecret ? 'x-creative-canvas-provider-secret' : undefined,
@@ -330,6 +336,7 @@ async function submitQueuedRun(run: RunWithId, config: HiggsfieldRuntimeConfig):
   const result = normalizeRuntimeResult(body)
   result.providerStatusUrl = absoluteRuntimeUrl(result.providerStatusUrl, config)
   result.providerCallbackUrl = absoluteRuntimeUrl(result.providerCallbackUrl, config)
+  if (connectionId) result.connectionId = connectionId
   const applied = await applyRuntimeResult(run, result)
   return applied === 'completed' ? 'completed' : applied === 'failed' ? 'failed' : 'submitted'
 }
@@ -405,7 +412,7 @@ export async function dispatchCreativeCanvasRunNow(
   if (run.providerKey === 'higgsfield') {
     const config = runtimeConfigFromEnv(opts.env ?? process.env)
     if (!config.submitUrl) return 'not_configured'
-    return submitQueuedRun(run, config)
+    return submitQueuedRun(run, config, opts.uid ?? '')
   }
 
   if (DIRECT_ASYNC_PROVIDERS.includes(run.providerKey)) {

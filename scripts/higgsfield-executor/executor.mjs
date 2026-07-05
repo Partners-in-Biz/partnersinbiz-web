@@ -111,9 +111,10 @@ async function platformPut(base, path, body) {
   return { ok: response.ok, status: response.status, body: text }
 }
 
-function runCli(args, timeoutMs) {
+function runCli(args, timeoutMs, envOverrides) {
   return new Promise((resolve) => {
-    const child = spawn(HIGGSFIELD_BIN, args, { stdio: ['ignore', 'pipe', 'pipe'] })
+    const spawnEnv = envOverrides ? { ...process.env, ...envOverrides } : undefined
+    const child = spawn(HIGGSFIELD_BIN, args, { stdio: ['ignore', 'pipe', 'pipe'], ...(spawnEnv ? { env: spawnEnv } : {}) })
     let stdout = ''
     let stderr = ''
     const timer = setTimeout(() => { child.kill('SIGKILL') }, timeoutMs)
@@ -279,6 +280,14 @@ async function executeRun(job, input) {
     const prompt = run.input?.promptSummary || 'Generate a reviewable internal creative asset.'
     workDir = await mkdtemp(join(tmpdir(), 'hfx-'))
 
+    // BYOK: if this run carries a per-connection Higgsfield key, scope it to the
+    // CLI child process's env only (never process.env, never disk, never logs).
+    const byokApiKey = typeof input.byokCredentials?.apiKey === 'string' ? input.byokCredentials.apiKey : undefined
+    const byokApiSecret = typeof input.byokCredentials?.apiSecret === 'string' ? input.byokCredentials.apiSecret : undefined
+    const cliEnvOverrides = byokApiKey
+      ? { HF_API_KEY: byokApiKey, ...(byokApiSecret ? { HF_API_SECRET: byokApiSecret } : {}) }
+      : undefined
+
     const mediaArgs = []
     const sourceMedia = Array.isArray(manifest.sourceMedia) ? manifest.sourceMedia : []
     for (let index = 0; index < sourceMedia.length; index += 1) {
@@ -310,10 +319,10 @@ async function executeRun(job, input) {
     if (run.input?.durationSeconds) extras.push('--duration', String(run.input.durationSeconds))
 
     const timeoutMs = 25 * 60 * 1000
-    let result = await runCli(buildArgs(extras), timeoutMs)
+    let result = await runCli(buildArgs(extras), timeoutMs, cliEnvOverrides)
     if (result.code !== 0 && extras.length && /param|unknown flag|invalid|not allowed|unexpected/i.test(result.stderr + result.stdout)) {
       log('warn', 'retrying without optional params', { runId: run.id })
-      result = await runCli(buildArgs([]), timeoutMs)
+      result = await runCli(buildArgs([]), timeoutMs, cliEnvOverrides)
     }
 
     // Higgsfield runs an async IP/rights check on input media (image-to-video,
@@ -328,7 +337,7 @@ async function executeRun(job, input) {
       for (let attempt = 1; attempt <= IP_CHECK_MAX_RETRIES && ipCheckPending(result); attempt += 1) {
         log('warn', 'input media IP check not finished — waiting to retry', { runId: run.id, attempt, delayMs: IP_CHECK_RETRY_MS })
         await sleep(IP_CHECK_RETRY_MS)
-        result = await runCli(buildArgs(extras), timeoutMs)
+        result = await runCli(buildArgs(extras), timeoutMs, cliEnvOverrides)
       }
     }
 

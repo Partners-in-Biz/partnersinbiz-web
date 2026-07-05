@@ -9,6 +9,7 @@ const mockDispatchCreativeCanvasProviderRun = jest.fn()
 const mockRefreshCreativeCanvasProviderRunStatus = jest.fn()
 const mockCompleteCreativeCanvasRun = jest.fn()
 const mockEnsureCreativeCanvasRunOutputNode = jest.fn()
+const mockResolveCreativeProviderCredential = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
@@ -20,6 +21,10 @@ jest.mock('firebase-admin/firestore', () => ({
 
 jest.mock('@/lib/creative-canvas/store', () => ({
   getCreativeCanvas: (...args: unknown[]) => mockGetCreativeCanvas(...args),
+}))
+
+jest.mock('@/lib/creative-canvas/connections/resolve', () => ({
+  resolveCreativeProviderCredential: (...args: unknown[]) => mockResolveCreativeProviderCredential(...args),
 }))
 
 jest.mock('@/lib/creative-canvas/runs', () => ({
@@ -99,6 +104,7 @@ describe('Higgsfield creative canvas provider runtime', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     global.fetch = jest.fn() as jest.Mock
+    mockResolveCreativeProviderCredential.mockResolvedValue({ kind: 'shared' })
   })
 
   it('does not claim queued runs when no runtime bridge is configured', async () => {
