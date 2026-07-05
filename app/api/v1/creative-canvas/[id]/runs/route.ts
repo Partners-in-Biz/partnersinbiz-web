@@ -50,7 +50,12 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   if (!canvas) return apiError('Creative canvas not found', 404)
   const body = await req.json().catch(() => null)
   if (!body) return apiError('Malformed JSON body', 400)
-  const run = await createCreativeCanvasRun({ ...body, canvasId: id }, orgId, actorFromUser(user))
+  // Billing fields (costUnits/costLabel/connectionId) are server-derived only —
+  // the generate route stamps them from the credential resolver. Client-supplied
+  // provenance must not reach the sanitizer's whitelist, or callers could forge
+  // BYOK cost stamps or inject another connection's id into the poller.
+  const { provenance: _clientProvenance, ...safeBody } = body as Record<string, unknown>
+  const run = await createCreativeCanvasRun({ ...safeBody, canvasId: id }, orgId, actorFromUser(user))
   const agentTaskDraft = buildCreativeCanvasAgentTask(run, canvas)
   return apiSuccess({ run, agentTaskDraft }, 201)
 })
