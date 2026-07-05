@@ -230,6 +230,48 @@ describe('syncCanvasRunOutputToYouTube', () => {
     expect((job.output as Record<string, unknown>)?.downloadUrl).toBe('https://cdn.example.com/out.mp4')
   })
 
+  it("completes a render job from a plain VIDEO run when the generating NODE declares youtube_render (the real generate-route path — run.input.outputKind is the model's registry kind)", async () => {
+    stageProject()
+    store.set(keyFor(YOUTUBE_COLLECTIONS.renderJobs, 'job-1'), {
+      orgId: ORG, videoProjectId: PROJECT, channelWorkspaceId: 'ch-1',
+      status: 'rendering', versionNumber: 1, deleted: false, createdAt: 100,
+    })
+    // Run kind is 'video' (what the generate route stamps from the model
+    // registry); render intent lives on the node, as authored by the seeder.
+    const run = baseRun({ nodeId: 'yt-proj-assembly' })
+    const canvas = linkedCanvas({
+      nodes: [{
+        id: 'yt-proj-assembly', orgId: ORG, type: 'model', title: 'Final assembly',
+        position: { x: 0, y: 0 },
+        data: { outputKind: 'youtube_render' },
+        edit: { operation: 'video_motion', outputKind: 'youtube_render' },
+      }] as CreativeCanvas['nodes'],
+    })
+
+    const result = await syncCanvasRunOutputToYouTube(run, canvas)
+
+    expect(result).toBe('render_completed')
+    const job = store.get(keyFor(YOUTUBE_COLLECTIONS.renderJobs, 'job-1'))
+    expect(job?.status).toBe('rendered')
+    expect((job?.renderEngine as Record<string, unknown>)?.provider).toBe('creative_canvas')
+  })
+
+  it('a plain video run on a NON-assembly node stays asset_only', async () => {
+    stageProject()
+    const run = baseRun({ nodeId: 'scene-video-node' })
+    const canvas = linkedCanvas({
+      nodes: [{
+        id: 'scene-video-node', orgId: ORG, type: 'model', title: 'Scene 1 visual',
+        position: { x: 0, y: 0 },
+        data: { outputKind: 'video' },
+        edit: { operation: 'video_motion', outputKind: 'video' },
+      }] as CreativeCanvas['nodes'],
+    })
+    expect(await syncCanvasRunOutputToYouTube(run, canvas)).toBe('asset_only')
+    const jobDocs = [...store.keys()].filter((k) => k.startsWith(`${YOUTUBE_COLLECTIONS.renderJobs}/`))
+    expect(jobDocs).toHaveLength(0)
+  })
+
   it('skips (no writes) when the canvas is not linked to a video project', async () => {
     const result = await syncCanvasRunOutputToYouTube(baseRun(), linkedCanvas({ linked: {} }))
     expect(result).toBe('skipped')

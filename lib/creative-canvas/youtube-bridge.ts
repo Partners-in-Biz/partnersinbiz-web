@@ -43,9 +43,30 @@ function outputKindOf(run: CreativeCanvasRun): CreativeCanvasOutputKind | undefi
   return (run.output as { kind?: CreativeCanvasOutputKind } | undefined)?.kind ?? run.input.outputKind
 }
 
+/**
+ * The generate route stamps `run.input.outputKind` from the MODEL's registry
+ * kind ('video' for every video model — no model is registered as
+ * 'youtube_render'), so a run's kind alone can't carry render intent. The
+ * intent lives on the generating NODE (`edit.outputKind` / `data.outputKind`
+ * — how the seeded assembly node is authored), so treat a video run as a
+ * render when its node declares youtube_render.
+ */
+function isYouTubeRenderIntent(
+  run: CreativeCanvasRun & { id: string },
+  nodes: CreativeCanvas['nodes'] | undefined,
+  kind: CreativeCanvasOutputKind | undefined,
+): boolean {
+  if (kind === 'youtube_render') return true
+  const node = nodes?.find((item) => item.id === run.nodeId)
+  if (!node) return false
+  const editKind = node.edit?.outputKind
+  const dataKind = (node.data as { outputKind?: unknown } | undefined)?.outputKind
+  return editKind === 'youtube_render' || dataKind === 'youtube_render'
+}
+
 export async function syncCanvasRunOutputToYouTube(
   run: CreativeCanvasRun & { id: string },
-  canvas?: Pick<CreativeCanvas, 'id' | 'orgId' | 'linked'> | null,
+  canvas?: (Pick<CreativeCanvas, 'id' | 'orgId' | 'linked'> & { nodes?: CreativeCanvas['nodes'] }) | null,
 ): Promise<'skipped' | 'asset_only' | 'render_completed' | 'render_created'> {
   const resolvedCanvas = canvas ?? (await getCreativeCanvas(run.canvasId, run.orgId))
   if (!resolvedCanvas) return 'skipped'
@@ -60,6 +81,7 @@ export async function syncCanvasRunOutputToYouTube(
 
   const kind = outputKindOf(run)
   if (kind !== 'video' && kind !== 'youtube_render') return 'skipped'
+  const renderIntent = isYouTubeRenderIntent(run, resolvedCanvas.nodes, kind)
 
   // Resolve the channelWorkspaceId from the video project — required on source
   // assets and needed for created render jobs.
@@ -96,7 +118,7 @@ export async function syncCanvasRunOutputToYouTube(
     ...agentActorFields({ includeCreated: !existingAsset.exists }),
   }, { merge: true })
 
-  if (kind !== 'youtube_render') return 'asset_only'
+  if (!renderIntent) return 'asset_only'
 
   // (2) Render-job completion — youtube_render only.
   const jobSnap = await adminDb.collection(YOUTUBE_COLLECTIONS.renderJobs)
