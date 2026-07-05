@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { canvasTheme } from '@/components/creative-canvas/theme/tokens'
 import { starterCanvasTemplates } from '@/lib/creative-canvas/starter-templates'
 import CreativeProviderConnections from '@/components/creative-canvas/connections/CreativeProviderConnections'
@@ -28,6 +28,8 @@ export interface CanvasLandingProps {
   onRenameBoard?: (id: string, title: string) => void
   onDeleteBoard?: (id: string) => void
   orgId?: string
+  /** Tab to focus when the landing is (re)opened — e.g. 'providers' from a Connect chip. */
+  initialTab?: 'all' | 'templates' | 'providers'
 }
 
 type LandingTab = 'all' | 'templates' | 'providers'
@@ -56,8 +58,12 @@ export default function CanvasLanding({
   onRenameBoard,
   onDeleteBoard,
   orgId,
+  initialTab,
 }: CanvasLandingProps) {
-  const [tab, setTab] = useState<LandingTab>('all')
+  const [tab, setTab] = useState<LandingTab>(initialTab ?? 'all')
+  useEffect(() => {
+    if (initialTab) setTab(initialTab)
+  }, [initialTab])
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
 

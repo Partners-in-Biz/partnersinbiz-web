@@ -2010,9 +2010,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
 
   // Navigate the user to the Providers surface to connect a BYOK provider.
   // The landing view hosts the Providers tab (CreativeProviderConnections);
-  // there is no in-canvas connect modal yet, so surface the landing.
+  // there is no in-canvas connect modal yet, so surface the landing on that tab.
+  const [landingInitialTab, setLandingInitialTab] = useState<'all' | 'templates' | 'providers' | undefined>(undefined)
   const handleConnectProvider = useCallback((_provider: CreativeCanvasProviderKey) => {
     setSettingsCollapsed(true)
+    setLandingInitialTab('providers')
     setShowLanding(true)
   }, [])
 
@@ -4729,6 +4731,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       <main className="mx-auto max-w-7xl px-4 py-6">
         <CanvasLanding
           orgId={resolvedOrgId || activeCanvas?.orgId || undefined}
+          initialTab={landingInitialTab}
           boards={canvases.map((canvas) => ({ id: canvas.id ?? '', title: canvas.title }))}
           templates={templates.map((template) => ({ id: template.id, title: template.title, description: template.description, thumbnailUrl: template.thumbnailUrl }))}
           onCreate={() => { void createBlankCanvas() }}
@@ -4776,7 +4779,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         presenceCount={presence?.length ?? 0}
         onOpenChat={() => setTopBarPanel('chat')}
         onShare={() => setTopBarPanel('share')}
-        onHome={() => setShowLanding(true)}
+        onHome={() => { setLandingInitialTab(undefined); setShowLanding(true) }}
         onNewCanvas={mode === 'admin' ? () => { setShowLanding(false); void createBlankCanvas() } : undefined}
         immersive={immersiveCanvas}
         onToggleImmersive={() => setImmersiveCanvas((value) => !value)}
