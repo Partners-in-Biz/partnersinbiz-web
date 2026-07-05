@@ -61,7 +61,10 @@ function limitValue(limit?: number): number {
 
 function userScopedOrgIds(user: ApiUser, requestedOrgId?: string | null): string[] | null {
   if (requestedOrgId) {
-    if (user.role === 'admin' && !canAccessOrg(user, requestedOrgId)) {
+    // All roles must have access to a request-supplied org scope. canAccessOrg
+    // covers admins (allowedOrgIds), clients (orgId/activeOrgId/orgIds) and
+    // always passes for platform-level 'ai' callers.
+    if (!canAccessOrg(user, requestedOrgId)) {
       throw Object.assign(new Error('Forbidden'), { status: 403 })
     }
     return [requestedOrgId]
@@ -946,7 +949,7 @@ export async function createBriefingSnapshot(user: ApiUser, input: BriefingSnaps
   const title = input.title?.trim() || `Admin briefing snapshot — ${new Date().toLocaleDateString('en-ZA')}`
   const scopedOrgIds = userScopedOrgIds(user, input.orgId)
   const orgId = input.orgId || user.orgId || scopedOrgIds?.[0] || PLATFORM_ORG_ID
-  if (user.role === 'admin' && !canAccessOrg(user, orgId)) {
+  if (!canAccessOrg(user, orgId)) {
     throw Object.assign(new Error('Forbidden'), { status: 403 })
   }
   const priorityCounts = feed.items.reduce<Record<string, number>>((acc, item) => {
