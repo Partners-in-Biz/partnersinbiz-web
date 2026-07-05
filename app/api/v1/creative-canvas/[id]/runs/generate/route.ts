@@ -91,7 +91,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   // platform credits entirely; the shared platform path charges them as before.
   const needsCredentialResolution = CREDENTIAL_PROVIDERS.includes(m.providerKey)
   let byok = false
-  let byokCredentials: Record<string, unknown> | undefined
+  let byokCredentials: Record<string, string> | undefined
   let byokConnectionId: string | undefined
   if (needsCredentialResolution) {
     const resolved = await resolveCreativeProviderCredential({ provider: m.providerKey, orgId, uid: user.uid })
@@ -100,7 +100,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
     }
     if (resolved.kind === 'byok') {
       byok = true
-      byokCredentials = resolved.credentials as Record<string, unknown>
+      byokCredentials = resolved.credentials
       byokConnectionId = resolved.connection.id
     }
   }
