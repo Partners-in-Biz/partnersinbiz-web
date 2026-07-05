@@ -587,6 +587,36 @@ describe('youtube studio sanitizers', () => {
     })
   })
 
+  it('keeps a valid creativeCanvasId on a video project and drops invalid values', () => {
+    const withCanvas = sanitizeYouTubeVideoProjectInput({
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      title: 'Video',
+      objective: 'Explain the service',
+      creativeCanvasId: ' canvas-1 ',
+    })
+    expect(withCanvas.creativeCanvasId).toBe('canvas-1')
+    expectNoUndefinedValues(withCanvas)
+
+    const withoutCanvas = sanitizeYouTubeVideoProjectInput({
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      title: 'Video',
+      objective: 'Explain the service',
+      creativeCanvasId: '   ',
+    })
+    expect(withoutCanvas).not.toHaveProperty('creativeCanvasId')
+
+    const withNonString = sanitizeYouTubeVideoProjectInput({
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      title: 'Video',
+      objective: 'Explain the service',
+      creativeCanvasId: { bad: true },
+    })
+    expect(withNonString).not.toHaveProperty('creativeCanvasId')
+  })
+
   it('drops malformed portal video scalars and nested review/source values', () => {
     const safe = clientSafeYouTubeVideoProject({
       id: { raw: 'video-secret-id' } as unknown as string,

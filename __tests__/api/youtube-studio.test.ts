@@ -306,6 +306,39 @@ describe('youtube studio admin API', () => {
     }))
   })
 
+  it('persists creativeCanvasId on video project creation', async () => {
+    stageFirestore({
+      youtube_channel_workspaces: {
+        docs: {
+          'channel-1': {
+            id: 'channel-1',
+            data: { orgId: 'org-1', title: 'Acme', deleted: false },
+          },
+        },
+      },
+      youtube_video_projects: {},
+    })
+
+    const { POST } = await import('@/app/api/v1/youtube-studio/videos/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/youtube-studio/videos', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        channelWorkspaceId: 'channel-1',
+        title: 'Launch video',
+        creativeCanvasId: 'canvas-1',
+      }),
+    }))
+
+    expect(res.status).toBe(201)
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      title: 'Launch video',
+      creativeCanvasId: 'canvas-1',
+    }))
+  })
+
   it.each([
     ['missing', {}],
     ['cross-org', {
@@ -394,6 +427,42 @@ describe('youtube studio admin API', () => {
       updatedBy: 'admin-1',
       updatedByType: 'user',
       updatedAt: 'SERVER_TS',
+    }), { merge: true })
+  })
+
+  it('persists creativeCanvasId when updating a video project', async () => {
+    const existingVideo = {
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      title: 'Old',
+      objective: 'Keep the original objective',
+      status: 'production',
+      videoType: 'tutorial',
+      source: { intakeType: 'source_url', sourceUrl: 'https://example.com/source' },
+      linked: { taskIds: ['task-1'], documentIds: ['doc-1'] },
+      approvalPolicy: { requireClientDraftApproval: false },
+      deleted: false,
+    }
+
+    stageFirestore({
+      youtube_video_projects: {
+        docs: {
+          'video-1': { id: 'video-1', data: existingVideo },
+        },
+      },
+    })
+
+    const { PUT } = await import('@/app/api/v1/youtube-studio/videos/[id]/route')
+    const res = await PUT(new NextRequest('http://localhost/api/v1/youtube-studio/videos/video-1', {
+      method: 'PUT',
+      body: JSON.stringify({ creativeCanvasId: 'canvas-2' }),
+    }), { params: Promise.resolve({ id: 'video-1' }) })
+
+    expect(res.status).toBe(200)
+    expect(mockDocSet).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      creativeCanvasId: 'canvas-2',
     }), { merge: true })
   })
 

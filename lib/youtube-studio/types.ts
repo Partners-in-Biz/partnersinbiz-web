@@ -350,6 +350,8 @@ export interface YouTubeVideoProject {
     campaignId?: string
     socialPostIds?: string[]
   }
+  /** Canvas linked as this project's production engine (two-way with canvas linked.youtubeVideoProjectId). */
+  creativeCanvasId?: string
   approvalPolicy: YouTubeApprovalPolicy
   publishPacketId?: string
   youtubeVideoId?: string

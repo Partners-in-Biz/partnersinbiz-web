@@ -786,6 +786,7 @@ export function sanitizeYouTubeVideoProjectInput(
       campaignId: cleanString(linked.campaignId),
       socialPostIds: cleanStringArray(linked.socialPostIds),
     },
+    creativeCanvasId: cleanString(input.creativeCanvasId),
     approvalPolicy: approvalPolicyFrom(input.approvalPolicy),
     publishPacketId: cleanString(input.publishPacketId),
     youtubeVideoId: cleanString(input.youtubeVideoId),
