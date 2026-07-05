@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { canvasTheme } from '@/components/creative-canvas/theme/tokens'
 import { starterCanvasTemplates } from '@/lib/creative-canvas/starter-templates'
+import CreativeProviderConnections from '@/components/creative-canvas/connections/CreativeProviderConnections'
 
 export interface CanvasBoardSummary {
   id: string
@@ -26,9 +27,10 @@ export interface CanvasLandingProps {
   onUseTemplate: (id: string) => void
   onRenameBoard?: (id: string, title: string) => void
   onDeleteBoard?: (id: string) => void
+  orgId?: string
 }
 
-type LandingTab = 'all' | 'templates'
+type LandingTab = 'all' | 'templates' | 'providers'
 
 const thumbStyle: React.CSSProperties = {
   width: '100%',
@@ -53,6 +55,7 @@ export default function CanvasLanding({
   onUseTemplate,
   onRenameBoard,
   onDeleteBoard,
+  orgId,
 }: CanvasLandingProps) {
   const [tab, setTab] = useState<LandingTab>('all')
   const [renamingId, setRenamingId] = useState<string | null>(null)
@@ -129,6 +132,7 @@ export default function CanvasLanding({
       >
         {tabButton('all', 'All Canvases')}
         {tabButton('templates', 'Templates')}
+        {tabButton('providers', 'Providers')}
       </div>
 
       <div
@@ -338,6 +342,30 @@ export default function CanvasLanding({
                   ))}
                 </div>
               </section>
+            )}
+          </div>
+        )}
+
+        {tab === 'providers' && (
+          <div style={{ gridColumn: '1 / -1', maxWidth: 640 }}>
+            <p
+              style={{
+                margin: '0 0 12px',
+                fontSize: '13px',
+                fontWeight: 600,
+                letterSpacing: '0.02em',
+                textTransform: 'uppercase',
+                color: canvasTheme.textMuted,
+              }}
+            >
+              Creative providers
+            </p>
+            {orgId ? (
+              <CreativeProviderConnections orgId={orgId} />
+            ) : (
+              <div style={{ fontSize: 13, color: canvasTheme.textMuted }}>
+                Select an organisation to manage provider connections.
+              </div>
             )}
           </div>
         )}
