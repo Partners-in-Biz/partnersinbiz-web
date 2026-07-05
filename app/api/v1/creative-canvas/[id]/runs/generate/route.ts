@@ -20,7 +20,13 @@ import {
   InlineNotSupportedError,
 } from '@/lib/creative-canvas/inline-generation'
 import { dispatchCreativeCanvasRunNow } from '@/lib/creative-canvas/provider-runtime'
+import { resolveCreativeProviderCredential } from '@/lib/creative-canvas/connections/resolve'
 import type { CreativeCanvasActor } from '@/lib/creative-canvas/types'
+
+// Providers whose runs can require a caller/org credential. agent_task and
+// manual_upload never need one, so the resolver is skipped for them (it would
+// wrongly return connection_required).
+const CREDENTIAL_PROVIDERS = ['higgsfield', 'xai', 'google', 'fal', 'recraft']
 
 export const dynamic = 'force-dynamic'
 
@@ -81,15 +87,38 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   const m = getCanvasModel(typeof model === 'string' ? model : '')
   if (!m) return apiError('Unknown creative canvas model', 400)
 
+  // Resolve WHICH credential this run uses, once. BYOK (user/org key) bypasses
+  // platform credits entirely; the shared platform path charges them as before.
+  const needsCredentialResolution = CREDENTIAL_PROVIDERS.includes(m.providerKey)
+  let byok = false
+  let byokCredentials: Record<string, unknown> | undefined
+  let byokConnectionId: string | undefined
+  if (needsCredentialResolution) {
+    const resolved = await resolveCreativeProviderCredential({ provider: m.providerKey, orgId, uid: user.uid })
+    if (resolved.kind === 'connection_required') {
+      return apiError(`Connect a ${m.providerKey} account in Creative providers to use this model`, 400)
+    }
+    if (resolved.kind === 'byok') {
+      byok = true
+      byokCredentials = resolved.credentials as Record<string, unknown>
+      byokConnectionId = resolved.connection.id
+    }
+  }
+
   // Credit metering: blocks only when the org has a configured limit (default
   // limit is null → always allowed, so existing generation never regresses).
-  const credits = await getCanvasCredits(orgId)
-  if (!hasSufficientCredits(credits, m.creditCost)) {
-    return apiError('Insufficient creative canvas credits', 402)
+  // BYOK runs are the user's own key — they never touch platform credits.
+  if (!byok) {
+    const credits = await getCanvasCredits(orgId)
+    if (!hasSufficientCredits(credits, m.creditCost)) {
+      return apiError('Insufficient creative canvas credits', 402)
+    }
   }
 
   const recordUsage = (runId: string, variantsGenerated: number) =>
-    recordCanvasCreditUsage(orgId, m.creditCost * Math.max(1, variantsGenerated), { runId, model: m.id }).catch(() => undefined)
+    byok
+      ? Promise.resolve(undefined)
+      : recordCanvasCreditUsage(orgId, m.creditCost * Math.max(1, variantsGenerated), { runId, model: m.id }).catch(() => undefined)
 
   const actor = actorFromUser(user)
   const promptSummary = typeof prompt === 'string' ? prompt : undefined
@@ -115,6 +144,12 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
       ...(typeof generateAudio === 'boolean' ? { generateAudio } : {}),
       ...(referenceUrls.length ? { referenceImageUrls: referenceUrls } : {}),
     },
+    // Stamp BYOK provenance so run history / spend panel can tell the lanes
+    // apart: byok runs cost 0 platform credits and carry a `byok:<provider>`
+    // label + the connection id. Shared runs leave provenance to the sanitizer.
+    ...(byok
+      ? { provenance: { costUnits: 0, costLabel: `byok:${m.providerKey}`, ...(byokConnectionId ? { connectionId: byokConnectionId } : {}) } }
+      : {}),
   }
 
   if (m.execution === 'sync') {
@@ -142,6 +177,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
           model: m.id,
           prompt: promptSummary ?? '',
           aspectRatio,
+          ...(byok ? { credentials: byokCredentials } : {}),
         })
         results.push(result)
       } catch (err) {
@@ -150,9 +186,14 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
           // Only relevant on the first attempt; if it happens later something
           // is very wrong with the provider, but we still fall back safely.
           await recordUsage(run.id, 1)
-          await dispatchCreativeCanvasRunNow(run).catch(() => undefined)
+          await dispatchCreativeCanvasRunNow(run, { uid: user.uid }).catch(() => undefined)
           const agentTaskDraft = buildCreativeCanvasAgentTask(run, canvas)
           return apiSuccess({ run, agentTaskDraft, pending: true }, 201)
+        }
+        // The inline layer throws Error('connection_required') when it can't
+        // find a usable key mid-flight — surface it as a friendly 400, not a 500.
+        if (err instanceof Error && err.message === 'connection_required') {
+          return apiError(`Connect a ${m.providerKey} account in Creative providers to use this model`, 400)
         }
         firstError = err
         break
@@ -224,7 +265,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   }
   await recordUsage(run.id, 1)
   // Kick the run to the Higgsfield runtime now instead of waiting for the cron.
-  await dispatchCreativeCanvasRunNow(run).catch(() => undefined)
+  await dispatchCreativeCanvasRunNow(run, { uid: user.uid }).catch(() => undefined)
   const agentTaskDraft = buildCreativeCanvasAgentTask(run, canvas)
   return apiSuccess({ run, agentTaskDraft, pending: true }, 201)
 })

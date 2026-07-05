@@ -679,7 +679,15 @@ export async function createCreativeCanvasRun(
       generatedBy: actor.type,
       agentId: cleanAgentId(actor),
       model,
-      costLabel: provider.usesExternalCredits ? 'external_credits' : undefined,
+      // Caller-supplied cost provenance (e.g. BYOK: costUnits 0 + costLabel
+      // `byok:<provider>`) is whitelisted here — without this the sanitizer
+      // silently drops these fields. Falls back to the provider's external-credit
+      // label when the caller doesn't override.
+      costUnits: typeof provenance.costUnits === 'number' && Number.isFinite(provenance.costUnits)
+        ? provenance.costUnits
+        : undefined,
+      costLabel: cleanString(provenance.costLabel) ?? (provider.usesExternalCredits ? 'external_credits' : undefined),
+      ...(cleanString(provenance.connectionId) ? { connectionId: cleanString(provenance.connectionId) } : {}),
       promptStored: cleanString(runInput.promptSummary) ? 'summary' : 'none',
       syntheticMedia: provenance.syntheticMedia === true || providerKey === 'higgsfield' || providerKey === 'xai',
     },
