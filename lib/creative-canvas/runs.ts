@@ -6,6 +6,7 @@ import {
   CREATIVE_CANVAS_COLLECTION,
   getCreativeCanvas,
 } from './store'
+import { syncCanvasRunOutputToYouTube } from './youtube-bridge'
 import type {
   CreativeCanvas,
   CreativeCanvasActor,
@@ -627,6 +628,11 @@ async function completeLoadedCreativeCanvasRun(
     updatedBy: actor.uid,
     updatedByType: actor.type,
   })
+
+  // Fire-and-forget sync-back to a linked YouTube Studio project. NEVER awaited
+  // into the critical path and NEVER able to fail run completion — the bridge's
+  // own governance keeps it to source assets + render-job rendered-completion.
+  void syncCanvasRunOutputToYouTube(completedRun, canvas).catch(() => undefined)
 
   return { run: completedRun, outputNode }
 }
