@@ -49,6 +49,9 @@ export type CreativeCanvasReferenceRole =
 export type CreativeCanvasProviderKey =
   | 'higgsfield'
   | 'xai'
+  | 'google'
+  | 'fal'
+  | 'recraft'
   | 'manual_upload'
   | 'text_generation'
   | 'document_generation'
@@ -159,6 +162,13 @@ export interface CreativeCanvasProvider {
   riskLevel: CreativeCanvasProviderRiskLevel
   requiresApprovalBeforeClientVisibility: boolean
   ownerAgentId: string
+  /** BYOK connection metadata — absent for providers that can't be user-connected. */
+  connection?: {
+    authKind: 'api_key' | 'api_key_secret' | 'oauth2'
+    credentialFields: Array<{ key: string; label: string; secret: boolean; placeholder?: string }>
+    consoleUrl: string
+    docsUrl?: string
+  }
 }
 
 export interface CreativeCanvasLinkMap {
