@@ -5,8 +5,9 @@ import { canvasTheme } from '@/components/creative-canvas/theme/tokens'
 import ModelPicker from '@/components/creative-canvas/panels/ModelPicker'
 import { getCanvasModel } from '@/lib/creative-canvas/model-registry'
 import type { CanvasModel } from '@/lib/creative-canvas/model-registry'
+import { getCreativeCanvasProvider } from '@/lib/creative-canvas/providers'
 import type { CanvasNodeType } from '@/components/creative-canvas/nodes/ports'
-import type { CreativeCanvasNode } from '@/lib/creative-canvas/types'
+import type { CreativeCanvasNode, CreativeCanvasProviderKey } from '@/lib/creative-canvas/types'
 
 type Tab = 'configure' | 'review' | 'provenance' | 'export'
 
@@ -44,6 +45,8 @@ export interface NodeSettingsPanelProps {
   onGenerate: () => void
   onClose: () => void
   onExport?: () => void
+  connectedProviders?: CreativeCanvasProviderKey[]
+  onConnectProvider?: (provider: CreativeCanvasProviderKey) => void
 }
 
 const ASPECT_RATIOS = ['1:1', '9:16', '16:9', '4:5', '3:2']
@@ -109,7 +112,7 @@ function Segmented<T extends string | number>({ options, value, onChange }: { op
 /** Slide-in node settings. Configure is the default; the
  *  enterprise layer (Review / Provenance / Export) is tucked into tabs. */
 export default function NodeSettingsPanel(props: NodeSettingsPanelProps) {
-  const { open, node, presentationType, values, prompt, generating, canGenerate, preflight, onPromptChange, onModelSelect, onChange, onGenerate, onClose, onExport } = props
+  const { open, node, presentationType, values, prompt, generating, canGenerate, preflight, onPromptChange, onModelSelect, onChange, onGenerate, onClose, onExport, connectedProviders, onConnectProvider } = props
   const [tab, setTab] = useState<Tab>('configure')
   const [modelPickerOpen, setModelPickerOpen] = useState(false)
   const nodeOutputKind = (node?.data as Record<string, unknown> | undefined)?.outputKind
@@ -207,11 +210,18 @@ export default function NodeSettingsPanel(props: NodeSettingsPanelProps) {
                 {model?.label ?? values.model ?? 'Select model'}
               </button>
             </div>
+            {model ? (
+              <p style={{ margin: '2px 0 0', fontSize: 11, color: canvasTheme.textMuted, textAlign: 'right' }}>
+                {getCreativeCanvasProvider(model.providerKey)?.label ?? model.providerKey}
+              </p>
+            ) : null}
             {modelPickerOpen ? (
               <div style={{ margin: '8px 0', border: `1px solid ${canvasTheme.border}`, borderRadius: 10, padding: 8, background: canvasTheme.bg }}>
                 <ModelPicker
                   kind={kind}
                   selectedModelId={values.model}
+                  connectedProviders={connectedProviders}
+                  onConnectProvider={onConnectProvider}
                   onSelect={(id) => {
                     onModelSelect(id)
                     setModelPickerOpen(false)

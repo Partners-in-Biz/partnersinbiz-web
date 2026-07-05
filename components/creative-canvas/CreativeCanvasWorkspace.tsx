@@ -30,6 +30,7 @@ import type { VideoSegment } from '@/components/creative-canvas/panels/VideoSpli
 import CanvasSpendPanel from '@/components/creative-canvas/panels/CanvasSpendPanel'
 import ReferencePicker, { type ReferenceAsset } from '@/components/creative-canvas/panels/ReferencePicker'
 import CanvasLanding from '@/components/creative-canvas/landing/CanvasLanding'
+import { listConnections } from '@/lib/creative-canvas/connections/client'
 import { canvasTheme } from '@/components/creative-canvas/theme/tokens'
 import type {
   CreativeCanvasAssetOrigin,
@@ -41,6 +42,7 @@ import type {
   CreativeCanvasNode,
   CreativeCanvasNodeType,
   CreativeCanvasOutputKind,
+  CreativeCanvasProviderKey,
   CreativeCanvasRunOperationsSummary,
   CreativeCanvasRunBatchRetryResult,
   CreativeCanvasProviderRuntimeReadiness,
@@ -1974,6 +1976,45 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [settingsCollapsed, setSettingsCollapsed] = useState(false)
 
   const [canvasCredits, setCanvasCredits] = useState<{ used: number; limit: number | null; higgsfieldCredits?: number; higgsfieldPlan?: string } | null>(null)
+
+  // Provider keys usable from the model picker. Platform-native lanes
+  // (`higgsfield`, `agent_task`) plus `xai` (platform env fallback key) are
+  // always on; BYOK providers appear once the org has a connected connection.
+  const [connectedProviders, setConnectedProviders] = useState<CreativeCanvasProviderKey[]>(['higgsfield', 'agent_task', 'xai'])
+
+  useEffect(() => {
+    const canvasOrgId = resolvedOrgId || activeCanvas?.orgId || ''
+    if (!canvasOrgId) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const connections = await listConnections(canvasOrgId)
+        if (cancelled) return
+        setConnectedProviders(
+          Array.from(new Set<CreativeCanvasProviderKey>([
+            'higgsfield',
+            'agent_task',
+            'xai',
+            ...connections
+              .filter((c) => c.status === 'connected')
+              .map((c) => c.provider as CreativeCanvasProviderKey),
+          ])),
+        )
+      } catch {
+        // Best-effort: leave the platform-native default list in place.
+        ignoreCanvasBestEffortFailure()
+      }
+    })()
+    return () => { cancelled = true }
+  }, [activeCanvas?.orgId, resolvedOrgId])
+
+  // Navigate the user to the Providers surface to connect a BYOK provider.
+  // The landing view hosts the Providers tab (CreativeProviderConnections);
+  // there is no in-canvas connect modal yet, so surface the landing.
+  const handleConnectProvider = useCallback((_provider: CreativeCanvasProviderKey) => {
+    setSettingsCollapsed(true)
+    setShowLanding(true)
+  }, [])
 
   const loadCanvasCredits = useCallback(async () => {
     const canvasOrgId = resolvedOrgId || activeCanvas?.orgId || ''
@@ -4687,6 +4728,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     return (
       <main className="mx-auto max-w-7xl px-4 py-6">
         <CanvasLanding
+          orgId={resolvedOrgId || activeCanvas?.orgId || undefined}
           boards={canvases.map((canvas) => ({ id: canvas.id ?? '', title: canvas.title }))}
           templates={templates.map((template) => ({ id: template.id, title: template.title, description: template.description, thumbnailUrl: template.thumbnailUrl }))}
           onCreate={() => { void createBlankCanvas() }}
@@ -5423,6 +5465,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                 }}
                 generating={Boolean(selectedNodeId && generatingNodeIds.has(selectedNodeId))}
                 preflight={selectedNodePreflight}
+                connectedProviders={connectedProviders}
+                onConnectProvider={handleConnectProvider}
                 onGenerate={() => { if (selectedNodeId) void generateInlineForNode(selectedNodeId) }}
                 onClose={() => setSettingsCollapsed(true)}
               />

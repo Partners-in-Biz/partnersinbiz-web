@@ -2,9 +2,8 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import ModelPicker from '@/components/creative-canvas/panels/ModelPicker'
 
 describe('ModelPicker', () => {
-  test('renders Featured and All headings and shows the Higgsfield catalog', () => {
+  test('renders the All heading and shows the Higgsfield catalog', () => {
     render(<ModelPicker kind="image" onSelect={() => {}} />)
-    expect(screen.getByText('Featured models')).toBeInTheDocument()
     expect(screen.getByText('All models')).toBeInTheDocument()
     expect(screen.getAllByText('GPT Image 2').length).toBeGreaterThan(0)
   })
