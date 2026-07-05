@@ -8,6 +8,7 @@ import type { ApiUser } from '@/lib/api/types'
 import { actorFields } from '@/lib/book-studio/api'
 import { sanitizeBookStudioRecordInput } from '@/lib/book-studio/sanitize'
 import { createClientDocument } from '@/lib/client-documents/store'
+import { createYouTubeVideoProject, listChannelWorkspaces } from '@/lib/youtube-studio/api'
 import { buildCreativeCanvasDraftExport, resolveExportableNode } from '@/lib/creative-canvas/exporters/drafts'
 import { getCreativeCanvas, CREATIVE_CANVAS_COLLECTION } from '@/lib/creative-canvas/store'
 import { makeBlockId, type Block } from '@/lib/email-builder/types'
@@ -229,6 +230,45 @@ async function ensureEmailSnippet(
   return ref.id
 }
 
+/**
+ * Publishing to YouTube Studio from an unlinked canvas auto-creates a
+ * `YouTubeVideoProject` in one of the org's channel workspaces (resolving the
+ * workspace from an explicit `channelWorkspaceId` or the sole workspace when
+ * there is exactly one), stamps `creativeCanvasId` for two-way linking, and
+ * links the canvas to it. Returns the new video project id, or an `apiError`
+ * Response when the workspace can't be resolved (caller returns it directly).
+ */
+async function ensureYouTubeVideoProject(
+  canvas: CreativeCanvas & { id: string },
+  user: ApiUser,
+  channelWorkspaceId: string | undefined,
+): Promise<string | Response> {
+  const workspaces = await listChannelWorkspaces(canvas.orgId)
+
+  let workspaceId: string
+  if (channelWorkspaceId) {
+    const match = workspaces.find((workspace) => workspace.id === channelWorkspaceId)
+    if (!match) return apiError('Channel workspace not found', 400)
+    workspaceId = match.id
+  } else if (workspaces.length === 0) {
+    return apiError('Create a YouTube channel workspace first — YouTube Studio → Channels.', 400)
+  } else if (workspaces.length === 1) {
+    workspaceId = workspaces[0].id
+  } else {
+    const options = workspaces.map((workspace) => `${workspace.id} (${workspace.title})`).join(', ')
+    return apiError(`Multiple channel workspaces — pass channelWorkspaceId: ${options}`, 400)
+  }
+
+  const videoProjectId = await createYouTubeVideoProject({
+    orgId: canvas.orgId,
+    channelWorkspaceId: workspaceId,
+    title: cleanString(canvas.title) ?? 'Canvas export',
+    creativeCanvasId: canvas.id,
+  }, user)
+  await linkCanvas(canvas.id, 'youtubeVideoProjectId', videoProjectId)
+  return videoProjectId
+}
+
 function downstreamDraftIdFrom(
   canvas: CreativeCanvas & { id: string },
   node: CreativeCanvasNode,
@@ -253,6 +293,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   if (!body) return apiError('Malformed JSON body', 400)
 
   const nodeId = typeof body.nodeId === 'string' ? body.nodeId : ''
+  const channelWorkspaceId = cleanString(body.channelWorkspaceId)
   const target = cleanTarget(body.target)
   if (!target) return apiError('Unsupported creative canvas export target', 400)
 
@@ -273,11 +314,12 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
         // size, mime type) we cannot synthesize here — no auto-create.
         return apiError('Link an ad creative first — upload the asset in Ads Studio, then link it to this canvas (linked.adCreativeId).', 400)
       } else if (target === 'youtube_studio') {
-        // Video projects require a channelWorkspaceId tied to a real,
-        // connected YouTube channel (sanitizeYouTubeVideoProjectInput hard-
-        // requires it; the videos POST route 404s without one) — we cannot
-        // synthesize a channel connection here, so no auto-create.
-        return apiError('Connect/create a YouTube video project first — set up a channel workspace in YouTube Studio, then link the video project to this canvas (linked.youtubeVideoProjectId).', 400)
+        // Auto-create a linked YouTube video project in the org's channel
+        // workspace (resolved from an explicit channelWorkspaceId or the sole
+        // workspace), stamping creativeCanvasId for two-way linking.
+        const ensured = await ensureYouTubeVideoProject(canvas, user, channelWorkspaceId)
+        if (ensured instanceof Response) return ensured
+        downstreamDraftId = ensured
       } else if (target === 'seo_content') {
         // SEO content items belong to a sprint; creating one without a
         // sprint would orphan it from every sprint view — no auto-create.

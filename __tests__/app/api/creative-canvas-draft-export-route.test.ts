@@ -4,6 +4,8 @@ const mockAdd = jest.fn()
 const mockCollection = jest.fn()
 const mockGetCreativeCanvas = jest.fn()
 const mockCreateClientDocument = jest.fn()
+const mockListChannelWorkspaces = jest.fn()
+const mockCreateYouTubeVideoProject = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
@@ -27,11 +29,18 @@ jest.mock('@/lib/client-documents/store', () => ({
   createClientDocument: mockCreateClientDocument,
 }))
 
+jest.mock('@/lib/youtube-studio/api', () => ({
+  listChannelWorkspaces: mockListChannelWorkspaces,
+  createYouTubeVideoProject: mockCreateYouTubeVideoProject,
+}))
+
 beforeEach(() => {
   jest.clearAllMocks()
   mockCollection.mockReturnValue({ add: mockAdd })
   mockAdd.mockResolvedValue({ id: 'export-1' })
   mockCreateClientDocument.mockResolvedValue({ id: 'client-doc-1', versionId: 'version-1', shareToken: 'token-1' })
+  mockListChannelWorkspaces.mockResolvedValue([{ id: 'workspace-1', title: 'Main Channel' }])
+  mockCreateYouTubeVideoProject.mockResolvedValue('video-project-new')
   mockGetCreativeCanvas.mockResolvedValue({
     id: 'canvas-1',
     orgId: 'org-1',
@@ -349,13 +358,12 @@ describe('creative canvas generic draft export API', () => {
     }
   })
 
-  it('rejects unlinked ads_creative, seo_content, and youtube_studio publishes with actionable errors instead of auto-creating', async () => {
+  it('rejects unlinked ads_creative and seo_content publishes with actionable errors instead of auto-creating', async () => {
     const { POST } = await import('@/app/api/v1/creative-canvas/[id]/exports/draft/route')
 
     for (const [target, message] of [
       ['ads_creative', 'Link an ad creative first'],
       ['seo_content', 'Link an SEO content item first'],
-      ['youtube_studio', 'Connect/create a YouTube video project first'],
     ] as const) {
       mockGetCreativeCanvas.mockResolvedValueOnce(unlinkedCanvas())
       const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/exports/draft?orgId=org-1', {
@@ -371,6 +379,146 @@ describe('creative canvas generic draft export API', () => {
       })
     }
     expect(mockAdd).not.toHaveBeenCalled()
+  })
+
+  describe('youtube_studio auto-create', () => {
+    it('auto-creates a linked YouTube video project when the org has exactly one channel workspace', async () => {
+      const { POST } = await import('@/app/api/v1/creative-canvas/[id]/exports/draft/route')
+      const canvasUpdate = jest.fn().mockResolvedValue(undefined)
+      mockCollection.mockImplementation((name: string) => {
+        if (name === 'creative_canvases') return { doc: jest.fn(() => ({ update: canvasUpdate })) }
+        return { add: mockAdd }
+      })
+      mockGetCreativeCanvas.mockResolvedValueOnce(unlinkedCanvas())
+
+      const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/exports/draft?orgId=org-1', {
+        method: 'POST',
+        body: JSON.stringify({ nodeId: 'output-1', target: 'youtube_studio' }),
+      }), { params: Promise.resolve({ id: 'canvas-1' }) })
+      const body = await res.json()
+
+      expect(res.status).toBe(201)
+      expect(mockCreateYouTubeVideoProject).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orgId: 'org-1',
+          channelWorkspaceId: 'workspace-1',
+          title: 'Launch Canvas',
+          creativeCanvasId: 'canvas-1',
+        }),
+        expect.objectContaining({ uid: 'user-1' }),
+      )
+      expect(canvasUpdate).toHaveBeenCalledWith(expect.objectContaining({
+        'linked.youtubeVideoProjectId': 'video-project-new',
+      }))
+      expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+        target: 'youtube_studio',
+        downstreamDraftId: 'video-project-new',
+        status: 'drafted',
+      }))
+      expect(body).toMatchObject({
+        success: true,
+        data: { draft: { target: 'youtube_studio', status: 'internal_draft' } },
+      })
+    })
+
+    it('uses an explicit channelWorkspaceId when provided', async () => {
+      const { POST } = await import('@/app/api/v1/creative-canvas/[id]/exports/draft/route')
+      const canvasUpdate = jest.fn().mockResolvedValue(undefined)
+      mockCollection.mockImplementation((name: string) => {
+        if (name === 'creative_canvases') return { doc: jest.fn(() => ({ update: canvasUpdate })) }
+        return { add: mockAdd }
+      })
+      mockListChannelWorkspaces.mockResolvedValueOnce([
+        { id: 'workspace-1', title: 'Main Channel' },
+        { id: 'workspace-2', title: 'Second Channel' },
+      ])
+      mockGetCreativeCanvas.mockResolvedValueOnce(unlinkedCanvas())
+
+      const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/exports/draft?orgId=org-1', {
+        method: 'POST',
+        body: JSON.stringify({ nodeId: 'output-1', target: 'youtube_studio', channelWorkspaceId: 'workspace-2' }),
+      }), { params: Promise.resolve({ id: 'canvas-1' }) })
+
+      expect(res.status).toBe(201)
+      expect(mockCreateYouTubeVideoProject).toHaveBeenCalledWith(
+        expect.objectContaining({ channelWorkspaceId: 'workspace-2' }),
+        expect.anything(),
+      )
+    })
+
+    it('rejects with 400 when the org has no channel workspaces', async () => {
+      const { POST } = await import('@/app/api/v1/creative-canvas/[id]/exports/draft/route')
+      mockListChannelWorkspaces.mockResolvedValueOnce([])
+      mockGetCreativeCanvas.mockResolvedValueOnce(unlinkedCanvas())
+
+      const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/exports/draft?orgId=org-1', {
+        method: 'POST',
+        body: JSON.stringify({ nodeId: 'output-1', target: 'youtube_studio' }),
+      }), { params: Promise.resolve({ id: 'canvas-1' }) })
+      const body = await res.json()
+
+      expect(res.status).toBe(400)
+      expect(body).toMatchObject({
+        success: false,
+        error: expect.stringContaining('Create a YouTube channel workspace first'),
+      })
+      expect(mockCreateYouTubeVideoProject).not.toHaveBeenCalled()
+      expect(mockAdd).not.toHaveBeenCalled()
+    })
+
+    it('rejects with 400 listing workspace ids when multiple exist and none is specified', async () => {
+      const { POST } = await import('@/app/api/v1/creative-canvas/[id]/exports/draft/route')
+      mockListChannelWorkspaces.mockResolvedValueOnce([
+        { id: 'workspace-1', title: 'Main Channel' },
+        { id: 'workspace-2', title: 'Second Channel' },
+      ])
+      mockGetCreativeCanvas.mockResolvedValueOnce(unlinkedCanvas())
+
+      const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/exports/draft?orgId=org-1', {
+        method: 'POST',
+        body: JSON.stringify({ nodeId: 'output-1', target: 'youtube_studio' }),
+      }), { params: Promise.resolve({ id: 'canvas-1' }) })
+      const body = await res.json()
+
+      expect(res.status).toBe(400)
+      expect(body.error).toContain('Multiple channel workspaces')
+      expect(body.error).toContain('workspace-1')
+      expect(body.error).toContain('workspace-2')
+      expect(mockCreateYouTubeVideoProject).not.toHaveBeenCalled()
+    })
+
+    it('rejects with 400 when an explicit channelWorkspaceId is not found in-org', async () => {
+      const { POST } = await import('@/app/api/v1/creative-canvas/[id]/exports/draft/route')
+      mockListChannelWorkspaces.mockResolvedValueOnce([{ id: 'workspace-1', title: 'Main Channel' }])
+      mockGetCreativeCanvas.mockResolvedValueOnce(unlinkedCanvas())
+
+      const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/exports/draft?orgId=org-1', {
+        method: 'POST',
+        body: JSON.stringify({ nodeId: 'output-1', target: 'youtube_studio', channelWorkspaceId: 'workspace-999' }),
+      }), { params: Promise.resolve({ id: 'canvas-1' }) })
+      const body = await res.json()
+
+      expect(res.status).toBe(400)
+      expect(body.error).toContain('Channel workspace not found')
+      expect(mockCreateYouTubeVideoProject).not.toHaveBeenCalled()
+    })
+
+    it('does not auto-create when the canvas is already linked to a video project (regression)', async () => {
+      const { POST } = await import('@/app/api/v1/creative-canvas/[id]/exports/draft/route')
+
+      const res = await POST(new NextRequest('http://test.local/api/v1/creative-canvas/canvas-1/exports/draft?orgId=org-1', {
+        method: 'POST',
+        body: JSON.stringify({ nodeId: 'output-1', target: 'youtube_studio' }),
+      }), { params: Promise.resolve({ id: 'canvas-1' }) })
+
+      expect(res.status).toBe(201)
+      expect(mockListChannelWorkspaces).not.toHaveBeenCalled()
+      expect(mockCreateYouTubeVideoProject).not.toHaveBeenCalled()
+      expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+        target: 'youtube_studio',
+        downstreamDraftId: 'video-project-1',
+      }))
+    })
   })
 
   it('allows blog post draft exports with durable category evidence fields', async () => {

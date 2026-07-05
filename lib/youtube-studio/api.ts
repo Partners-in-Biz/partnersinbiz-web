@@ -3,6 +3,8 @@ import { adminDb } from '@/lib/firebase/admin'
 import { apiError } from '@/lib/api/response'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import type { ApiUser } from '@/lib/api/types'
+import { sanitizeYouTubeVideoProjectInput, serializeYouTubeRecord } from '@/lib/youtube-studio/sanitize'
+import type { YouTubeChannelWorkspace, YouTubeVideoProject } from '@/lib/youtube-studio/types'
 
 type PlainRecord = Record<string, unknown>
 
@@ -103,6 +105,34 @@ export function mergePatchForSanitizer(
     ...deepMerge(existing, patch),
     ...lockedFields,
   }
+}
+
+/**
+ * List an org's non-deleted YouTube channel workspaces. Thin wrapper over
+ * `listByOrg` used by the export auto-create path (which needs to resolve which
+ * workspace a new video project belongs to).
+ */
+export async function listChannelWorkspaces(orgId: string): Promise<Array<YouTubeChannelWorkspace & { id: string }>> {
+  const docs = await listByOrg(YOUTUBE_COLLECTIONS.channels, orgId)
+  return docs.map((doc) => serializeYouTubeRecord<YouTubeChannelWorkspace>(doc.id, doc.data()))
+}
+
+/**
+ * Create a YouTube video project record, mirroring the create path of the
+ * videos POST route (sanitize → actor stamp → add). Shared so the creative
+ * canvas export auto-create path doesn't hand-roll Firestore writes.
+ */
+export async function createYouTubeVideoProject(
+  input: Partial<YouTubeVideoProject> & { orgId: string; channelWorkspaceId: string },
+  user: ApiUser,
+): Promise<string> {
+  const data = sanitizeYouTubeVideoProjectInput(input as Record<string, unknown>)
+  const ref = await adminDb.collection(YOUTUBE_COLLECTIONS.videos).add({
+    ...data,
+    deleted: false,
+    ...actorFields(user),
+  })
+  return ref.id
 }
 
 export function stripUndefinedDeep<T>(value: T): T {
