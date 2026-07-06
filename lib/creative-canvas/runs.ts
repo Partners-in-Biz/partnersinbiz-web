@@ -7,6 +7,7 @@ import {
   getCreativeCanvas,
 } from './store'
 import { syncCanvasRunOutputToYouTube } from './youtube-bridge'
+import { syncCanvasRunOutputToBookStudio } from './book-bridge'
 import type {
   CreativeCanvas,
   CreativeCanvasActor,
@@ -633,6 +634,7 @@ async function completeLoadedCreativeCanvasRun(
   // into the critical path and NEVER able to fail run completion — the bridge's
   // own governance keeps it to source assets + render-job rendered-completion.
   void syncCanvasRunOutputToYouTube(completedRun, canvas).catch(() => undefined)
+  void syncCanvasRunOutputToBookStudio(completedRun, canvas).catch(() => undefined)
 
   return { run: completedRun, outputNode }
 }
