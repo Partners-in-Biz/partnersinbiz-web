@@ -26,11 +26,13 @@ describe('BookStudioAdminWorkspace admin command center', () => {
 
   it('uses governance controls for the top-level selected-org Book Studio route', () => {
     const route = source('app/(admin)/admin/org/[slug]/book-studio/page.tsx')
+    const tabs = source('components/book-studio/BookStudioAdminIndexTabs.tsx')
     const governance = source('components/book-studio/AdminBookStudioGovernanceWorkspace.tsx')
     const sharedPolicyControls = source('components/admin-governance/OrganizationModulePolicyControls.tsx')
 
-    expect(route).toContain('AdminBookStudioGovernanceWorkspace')
+    expect(route).toContain('BookStudioAdminIndexTabs')
     expect(route).not.toContain('BookStudioAdminWorkspace')
+    expect(tabs).toContain('AdminBookStudioGovernanceWorkspace')
     expect(governance).toContain('Book Studio governance')
     expect(governance).toContain('Who can use Book Studio')
     expect(governance).toContain('Default Book Studio templates plus organisation custom templates')
