@@ -41,6 +41,13 @@ function cleanObject(value: unknown): Record<string, unknown> {
 const MEDIA_FORMATS = ['horizontal', 'vertical', 'square'] as const
 type ImportMediaFormat = (typeof MEDIA_FORMATS)[number]
 
+async function originBelongsToOrg(originType: 'campaign' | 'social_post', originId: string, orgId: string): Promise<boolean> {
+  const collectionName = originType === 'campaign' ? 'campaigns' : 'social_posts'
+  const originDoc = await adminDb.collection(collectionName).doc(originId).get()
+  const originData = originDoc.data()
+  return originDoc.exists && originData?.deleted !== true && originData?.orgId === orgId
+}
+
 export const POST = withAuth('client', withTenant(async (req: NextRequest, user, orgId) => {
   const body = cleanObject(await req.json().catch(() => ({})))
 
@@ -75,6 +82,9 @@ export const POST = withAuth('client', withTenant(async (req: NextRequest, user,
   }
   if (channelDoc.data()?.orgId !== orgId) {
     return apiError('channelWorkspaceId does not belong to organisation', 400)
+  }
+  if (!await originBelongsToOrg(originType, originId, orgId)) {
+    return apiError('origin does not belong to organisation', 400)
   }
 
   const videoData = sanitizeYouTubeVideoProjectInput({

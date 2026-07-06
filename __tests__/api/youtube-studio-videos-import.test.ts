@@ -3,6 +3,8 @@ import type { ApiUser } from '@/lib/api/types'
 
 const mockOrgGet = jest.fn()
 const mockChannelGet = jest.fn()
+const mockCampaignGet = jest.fn()
+const mockSocialPostGet = jest.fn()
 const mockVideosAdd = jest.fn()
 const mockAssetsAdd = jest.fn()
 
@@ -13,6 +15,8 @@ jest.mock('@/lib/firebase/admin', () => ({
     collection: (name: string) => {
       if (name === 'organizations') return { doc: () => ({ get: mockOrgGet }) }
       if (name === 'youtube_channel_workspaces') return { doc: () => ({ get: mockChannelGet }) }
+      if (name === 'campaigns') return { doc: () => ({ get: mockCampaignGet }) }
+      if (name === 'social_posts') return { doc: () => ({ get: mockSocialPostGet }) }
       if (name === 'youtube_video_projects') return { add: mockVideosAdd }
       if (name === 'youtube_source_assets') return { add: mockAssetsAdd }
       throw new Error(`Unexpected collection ${name}`)
@@ -43,6 +47,16 @@ function stage() {
     exists: true,
     id: 'channel-1',
     data: () => ({ orgId: 'org-1', title: 'Acme Films', deleted: false }),
+  })
+  mockCampaignGet.mockResolvedValue({
+    exists: true,
+    id: 'campaign-1',
+    data: () => ({ orgId: 'org-1', deleted: false }),
+  })
+  mockSocialPostGet.mockResolvedValue({
+    exists: true,
+    id: 'post-1',
+    data: () => ({ orgId: 'org-1', deleted: false }),
   })
   mockVideosAdd.mockResolvedValue({ id: 'video-new' })
   mockAssetsAdd.mockResolvedValue({ id: 'asset-new' })
@@ -114,6 +128,44 @@ describe('POST /api/v1/youtube-studio/videos/import', () => {
     const videoPayload = mockVideosAdd.mock.calls[0][0]
     expect(videoPayload.videoType).toBe('long_form')
     expect(videoPayload.linked.socialPostIds).toEqual(['post-1'])
+  })
+
+  it('400s when the campaign origin is missing or belongs to another org', async () => {
+    mockCampaignGet.mockResolvedValue({
+      exists: true,
+      id: 'campaign-1',
+      data: () => ({ orgId: 'org-other', deleted: false }),
+    })
+    const { POST } = await import('@/app/api/v1/youtube-studio/videos/import/route')
+    const res = await POST(postReq({
+      channelWorkspaceId: 'channel-1',
+      title: 'Launch reel',
+      sourceUrl: 'https://cdn.example/launch.mp4',
+      origin: { type: 'campaign', id: 'campaign-1' },
+    }))
+
+    expect(res.status).toBe(400)
+    expect(mockVideosAdd).not.toHaveBeenCalled()
+    expect(mockAssetsAdd).not.toHaveBeenCalled()
+  })
+
+  it('400s when the social post origin is missing or belongs to another org', async () => {
+    mockSocialPostGet.mockResolvedValue({
+      exists: true,
+      id: 'post-1',
+      data: () => ({ orgId: 'org-other', deleted: false }),
+    })
+    const { POST } = await import('@/app/api/v1/youtube-studio/videos/import/route')
+    const res = await POST(postReq({
+      channelWorkspaceId: 'channel-1',
+      title: 'Webinar recording',
+      sourceUrl: 'https://cdn.example/webinar.mp4',
+      origin: { type: 'social_post', id: 'post-1' },
+    }))
+
+    expect(res.status).toBe(400)
+    expect(mockVideosAdd).not.toHaveBeenCalled()
+    expect(mockAssetsAdd).not.toHaveBeenCalled()
   })
 
   it('400s without media reference or origin', async () => {
