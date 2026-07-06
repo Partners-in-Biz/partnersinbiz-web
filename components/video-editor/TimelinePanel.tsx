@@ -1,10 +1,23 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import type { EditorTimeline, EditorTrackKind } from '@/lib/video-editor/types'
 
 export interface TimelineSelection {
   trackId: string
   clipIds: string[]
+}
+
+const TRIM_COMMIT_THRESHOLD_SECONDS = 0.05
+const TRIM_KEY_STEP_SECONDS = 0.1
+const TRIM_KEY_STEP_LARGE_SECONDS = 1
+
+interface TrimDragState {
+  trackId: string
+  clipId: string
+  edge: 'start' | 'end'
+  originClientX: number
+  deltaSeconds: number
 }
 
 interface TimelinePanelProps {
@@ -53,6 +66,38 @@ export function TimelinePanel({
   const duration = Math.max(30, ...timeline.tracks.flatMap((track) => track.clips.map((clip) => clip.timelineStart + clip.duration)))
   const rulerTicks = Array.from({ length: Math.ceil(duration / 5) + 1 }, (_, index) => index * 5)
   const snapCandidates = timeline.tracks.flatMap((track) => track.clips.flatMap((clip) => [clip.timelineStart, clip.timelineStart + clip.duration]))
+
+  const [trimDrag, setTrimDrag] = useState<TrimDragState | null>(null)
+
+  useEffect(() => {
+    if (!trimDrag) return
+    const handleMove = (event: PointerEvent) => {
+      setTrimDrag((current) => current
+        ? { ...current, deltaSeconds: (event.clientX - current.originClientX) / pxPerSecond }
+        : current)
+    }
+    const handleUp = (event: PointerEvent) => {
+      const deltaSeconds = (event.clientX - trimDrag.originClientX) / pxPerSecond
+      setTrimDrag(null)
+      if (Math.abs(deltaSeconds) >= TRIM_COMMIT_THRESHOLD_SECONDS) {
+        onTrimClip(trimDrag.trackId, trimDrag.clipId, trimDrag.edge, Math.round(deltaSeconds * 1000) / 1000)
+      }
+    }
+    window.addEventListener('pointermove', handleMove)
+    window.addEventListener('pointerup', handleUp)
+    return () => {
+      window.removeEventListener('pointermove', handleMove)
+      window.removeEventListener('pointerup', handleUp)
+    }
+  }, [trimDrag, pxPerSecond, onTrimClip])
+
+  function handleTrimKeyDown(event: React.KeyboardEvent, trackId: string, clipId: string, edge: 'start' | 'end') {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+    event.preventDefault()
+    event.stopPropagation()
+    const step = event.shiftKey ? TRIM_KEY_STEP_LARGE_SECONDS : TRIM_KEY_STEP_SECONDS
+    onTrimClip(trackId, clipId, edge, event.key === 'ArrowLeft' ? -step : step)
+  }
 
   return (
     <section className="pib-card-section overflow-hidden">
@@ -127,25 +172,63 @@ export function TimelinePanel({
               <div className="relative h-20 flex-1">
                 {track.clips.map((clip) => {
                   const selected = selection?.trackId === track.id && selection.clipIds.includes(clip.id)
+                  const isDraggingThisClip = trimDrag?.trackId === track.id && trimDrag.clipId === clip.id
+                  const startPreview = isDraggingThisClip && trimDrag.edge === 'start' ? trimDrag.deltaSeconds : 0
+                  const endPreview = isDraggingThisClip && trimDrag.edge === 'end' ? trimDrag.deltaSeconds : 0
+                  const left = (clip.timelineStart + startPreview) * pxPerSecond
+                  const width = Math.max(8, (clip.duration - startPreview + endPreview) * pxPerSecond)
+                  const clipLabel = clip.text?.content || clip.media?.mediaKind || clip.id
                   return (
-                    <button
+                    <div
                       key={clip.id}
-                      type="button"
                       data-testid={`timeline-clip-${clip.id}`}
-                      style={{ left: `${clip.timelineStart * pxPerSecond}px`, width: `${clip.duration * pxPerSecond}px` }}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Clip ${clipLabel}`}
+                      style={{ left: `${left}px`, width: `${width}px` }}
                       className={[
-                        'absolute top-3 h-12 overflow-hidden rounded-md border px-2 text-left text-xs',
+                        'group absolute top-3 h-12 overflow-hidden rounded-md border px-2 text-left text-xs',
                         selected ? 'border-[var(--color-pib-primary)] bg-[var(--color-pib-primary)]/20 text-on-surface' : 'border-[var(--color-pib-line)] bg-white/[0.04] text-on-surface-variant',
                       ].join(' ')}
                       onClick={(event) => {
                         event.stopPropagation()
                         onSelectionChange({ trackId: track.id, clipIds: [clip.id] })
                       }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          onSelectionChange({ trackId: track.id, clipIds: [clip.id] })
+                        }
+                      }}
                       onDoubleClick={() => onMoveClip(track.id, clip.id, snapSeconds(clip.timelineStart + 1, snapCandidates))}
                     >
-                      <span className="block truncate">{clip.text?.content || clip.media?.mediaKind || clip.id}</span>
+                      <span className="block truncate">{clipLabel}</span>
                       <span className="block truncate">{clip.duration}s</span>
-                    </button>
+                      <button
+                        type="button"
+                        aria-label={`Trim start of clip ${clip.id}`}
+                        className="absolute inset-y-0 left-0 w-2 cursor-ew-resize bg-[var(--color-pib-primary)]/40 opacity-0 focus:opacity-100 focus:outline-2 group-hover:opacity-100"
+                        onClick={(event) => event.stopPropagation()}
+                        onPointerDown={(event) => {
+                          event.stopPropagation()
+                          event.preventDefault()
+                          setTrimDrag({ trackId: track.id, clipId: clip.id, edge: 'start', originClientX: event.clientX, deltaSeconds: 0 })
+                        }}
+                        onKeyDown={(event) => handleTrimKeyDown(event, track.id, clip.id, 'start')}
+                      />
+                      <button
+                        type="button"
+                        aria-label={`Trim end of clip ${clip.id}`}
+                        className="absolute inset-y-0 right-0 w-2 cursor-ew-resize bg-[var(--color-pib-primary)]/40 opacity-0 focus:opacity-100 focus:outline-2 group-hover:opacity-100"
+                        onClick={(event) => event.stopPropagation()}
+                        onPointerDown={(event) => {
+                          event.stopPropagation()
+                          event.preventDefault()
+                          setTrimDrag({ trackId: track.id, clipId: clip.id, edge: 'end', originClientX: event.clientX, deltaSeconds: 0 })
+                        }}
+                        onKeyDown={(event) => handleTrimKeyDown(event, track.id, clip.id, 'end')}
+                      />
+                    </div>
                   )
                 })}
               </div>
