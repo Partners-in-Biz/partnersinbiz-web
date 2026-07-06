@@ -158,7 +158,7 @@ describe('portal Book Studio resource routes', () => {
   })
 
   it('patches a chapter body with edit', async () => {
-    stageFirestore({
+    const { updateSpy } = stageFirestore({
       portalModules: { bookStudio: true },
       modulePolicies: {
         bookStudio: {
@@ -186,6 +186,18 @@ describe('portal Book Studio resource routes', () => {
 
     expect(res.status).toBe(200)
     expect(body.data).toMatchObject({ id: 'chap-1', resource: 'chapters', updated: true })
+    // Verify the patch was actually persisted, including the server-computed word count.
+    expect(updateSpy).toHaveBeenCalledTimes(1)
+    expect(updateSpy).toHaveBeenCalledWith(
+      'book_studio_chapters',
+      'chap-1',
+      expect.objectContaining({
+        body: 'New body content',
+        wordCount: 3,
+        updatedBy: 'uid-1',
+        updatedByType: 'user',
+      }),
+    )
   })
 
   it('403s status:"approved" patch without approvalGates', async () => {
