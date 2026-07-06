@@ -68,7 +68,7 @@ export function drawPuzzleLayout(
   // Pre-flow list content (word lists / clues) so we know how much of the
   // box to reserve below the grid. Lists take at most 40% of box height.
   const hasLists = Boolean(layout.lists && layout.lists.length > 0)
-  let listLines: ListLine[] = []
+  const listLines: ListLine[] = []
   let numCols = 2
   let listH = 0
   if (hasLists) {
