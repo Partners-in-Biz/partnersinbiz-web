@@ -262,18 +262,23 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
 
     render(<YouTubeStudioPortalWorkspace />)
 
-    expect(await screen.findByText('Launch plan')).toBeInTheDocument()
-    expect(screen.getByText('Client-safe launch description')).toBeInTheDocument()
-    expect(screen.getByText('growth')).toBeInTheDocument()
-    expect(screen.getByText('retention')).toBeInTheDocument()
-    expect(screen.getByText('rights: pass')).toBeInTheDocument()
-    expect(screen.getAllByText('connected account: pass').length).toBeGreaterThan(0)
+    fireEvent.click(await screen.findByRole('tab', { name: /Publishing packets/ }))
+
+    const packetsPanel = within(await screen.findByRole('tabpanel'))
+    expect(await packetsPanel.findByText('Launch plan')).toBeInTheDocument()
+    expect(packetsPanel.getByText('Client-safe launch description')).toBeInTheDocument()
+    expect(packetsPanel.getByText('growth')).toBeInTheDocument()
+    expect(packetsPanel.getByText('retention')).toBeInTheDocument()
+    expect(packetsPanel.getByText('rights: pass')).toBeInTheDocument()
+    expect(packetsPanel.getAllByText('connected account: pass').length).toBeGreaterThan(0)
   })
 
   it('renders client-facing release plan summaries', async () => {
     global.fetch = jest.fn().mockResolvedValue(jsonResponse(portalData))
 
     render(<YouTubeStudioPortalWorkspace />)
+
+    fireEvent.click(await screen.findByRole('tab', { name: /Release plans/ }))
 
     expect(await screen.findByText('Launch goes live next week.')).toBeInTheDocument()
     expect(screen.getByText('scheduled api publish / scheduled / public')).toBeInTheDocument()
@@ -291,6 +296,9 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
     expect(screen.getByText('raw footage / ready / 960s')).toBeInTheDocument()
     expect(screen.getByText('Client supplied launch interview footage.')).toBeInTheDocument()
     expect(screen.getByText('rights: needs review')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: /Clip candidates/ }))
+
     expect(screen.getByText('Strong customer proof moment')).toBeInTheDocument()
     expect(screen.getByText('120s-178s / vertical short / suggested')).toBeInTheDocument()
     expect(screen.getByText('Client explains the measurable result.')).toBeInTheDocument()
@@ -303,14 +311,17 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
 
     render(<YouTubeStudioPortalWorkspace />)
 
-    expect(await screen.findByText('Launch story draft')).toBeInTheDocument()
-    expect(screen.getByText('script / client review / v2')).toBeInTheDocument()
-    expect(screen.getByText('Narrative arc for the launch story.')).toBeInTheDocument()
-    expect(screen.getByText('Open with the before/after tension.')).toBeInTheDocument()
-    expect(screen.getByText('Client-visible draft script excerpt.')).toBeInTheDocument()
-    expect(screen.getByText('Hook / 45s')).toBeInTheDocument()
-    expect(screen.getByText('Founder opens with the measurable result.')).toBeInTheDocument()
-    expect(screen.getByText('claims: warning')).toBeInTheDocument()
+    fireEvent.click(await screen.findByRole('tab', { name: /Drafts/ }))
+
+    const draftsPanel = within(await screen.findByRole('tabpanel'))
+    expect(await draftsPanel.findByText('Launch story draft')).toBeInTheDocument()
+    expect(draftsPanel.getByText('script / client review / v2')).toBeInTheDocument()
+    expect(draftsPanel.getByText('Narrative arc for the launch story.')).toBeInTheDocument()
+    expect(draftsPanel.getByText('Open with the before/after tension.')).toBeInTheDocument()
+    expect(draftsPanel.getByText('Client-visible draft script excerpt.')).toBeInTheDocument()
+    expect(draftsPanel.getByText('Hook / 45s')).toBeInTheDocument()
+    expect(draftsPanel.getByText('Founder opens with the measurable result.')).toBeInTheDocument()
+    expect(draftsPanel.getByText('claims: warning')).toBeInTheDocument()
     expect(screen.queryByText('Operator-only')).not.toBeInTheDocument()
   })
 
@@ -319,16 +330,19 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
 
     render(<YouTubeStudioPortalWorkspace />)
 
-    expect(await screen.findByText('Launch final assembly')).toBeInTheDocument()
-    expect(screen.getByText('full video / qa review / horizontal 16 9')).toBeInTheDocument()
-    expect(screen.getByText('Final talking-head edit with product overlay.')).toBeInTheDocument()
-    expect(screen.getByText('Hook / 0s-45s')).toBeInTheDocument()
-    expect(screen.getByText('Open with the measurable result.')).toBeInTheDocument()
-    expect(screen.getAllByText('We cut reporting time in half.').length).toBeGreaterThan(0)
-    expect(screen.getByText('Client-safe edit note.')).toBeInTheDocument()
-    expect(screen.getByText('render quality: pass')).toBeInTheDocument()
-    expect(screen.getByText(/preview ready/)).toBeInTheDocument()
-    expect(screen.getByText('Client can inspect the edit assembly.')).toBeInTheDocument()
+    fireEvent.click(await screen.findByRole('tab', { name: /Renders/ }))
+
+    const rendersPanel = within(await screen.findByRole('tabpanel'))
+    expect(await rendersPanel.findByText('Launch final assembly')).toBeInTheDocument()
+    expect(rendersPanel.getByText('full video / qa review / horizontal 16 9')).toBeInTheDocument()
+    expect(rendersPanel.getByText('Final talking-head edit with product overlay.')).toBeInTheDocument()
+    expect(rendersPanel.getByText('Hook / 0s-45s')).toBeInTheDocument()
+    expect(rendersPanel.getByText('Open with the measurable result.')).toBeInTheDocument()
+    expect(rendersPanel.getAllByText('We cut reporting time in half.').length).toBeGreaterThan(0)
+    expect(rendersPanel.getByText('Client-safe edit note.')).toBeInTheDocument()
+    expect(rendersPanel.getByText('render quality: pass')).toBeInTheDocument()
+    expect(rendersPanel.getByText(/preview ready/)).toBeInTheDocument()
+    expect(rendersPanel.getByText('Client can inspect the edit assembly.')).toBeInTheDocument()
     expect(screen.queryByText('secret-render-execution')).not.toBeInTheDocument()
   })
 
@@ -340,6 +354,8 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
     global.fetch = fetchMock as jest.Mock
 
     render(<YouTubeStudioPortalWorkspace />)
+
+    fireEvent.click(await screen.findByRole('tab', { name: /Publishing packets/ }))
 
     const approvePacketButton = await screen.findByRole('button', { name: 'Approve packet' })
     fireEvent.click(approvePacketButton)
@@ -369,6 +385,8 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
 
     render(<YouTubeStudioPortalWorkspace />)
 
+    fireEvent.click(await screen.findByRole('tab', { name: /Drafts/ }))
+
     const approveDraftButton = await screen.findByRole('button', { name: 'Approve draft' })
     fireEvent.click(approveDraftButton)
 
@@ -396,6 +414,8 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
     global.fetch = fetchMock as jest.Mock
 
     render(<YouTubeStudioPortalWorkspace />)
+
+    fireEvent.click(await screen.findByRole('tab', { name: /Renders/ }))
 
     const approveRenderButton = await screen.findByRole('button', { name: 'Approve render' })
     fireEvent.click(approveRenderButton)
