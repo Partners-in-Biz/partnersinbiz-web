@@ -30,7 +30,7 @@ const projectRecords = [
     trim: { presetId: '6x9' },
     stylePrompt: 'Warm, confident, evidence-led narration.',
     seriesVolumeNumber: 1,
-    packageManifest: { version: '3', files: [{ href: 'https://cdn.example/a.pdf' }, { href: 'https://cdn.example/b.epub' }] },
+    packageManifest: { version: 3, files: [{ href: 'https://cdn.example/a.pdf' }, { href: 'https://cdn.example/b.epub' }] },
     createdAt: '2026-01-01T00:00:00Z',
   },
   {
@@ -136,5 +136,31 @@ describe('BookSeriesWorkspace', () => {
 
     await waitFor(() => expect(patchedBody).toBeDefined())
     expect(patchedBody?.volumeOrder).toEqual(['project-2', 'project-1', 'project-3'])
+  })
+
+  it('disables/hides the header create-next-volume action when the series failed to load', async () => {
+    const fetchMock = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+      if (url.includes('/api/v1/book-studio/series') && method === 'GET') {
+        return jsonResponse({ success: true, data: { resource: 'series', records: [] } })
+      }
+      if (url.includes('/api/v1/book-studio/projects') && method === 'GET') {
+        return jsonResponse({ success: true, data: { resource: 'projects', records: [] } })
+      }
+      return jsonResponse({ success: true, data: {} })
+    })
+    global.fetch = fetchMock as jest.Mock
+
+    render(<BookSeriesWorkspace orgId="org-1" seriesId="series-missing" />)
+
+    await screen.findByText('Series not found')
+
+    const headerCreateButton = screen.queryByRole('button', { name: /create next volume/i })
+    if (headerCreateButton) {
+      expect(headerCreateButton).toBeDisabled()
+    } else {
+      expect(headerCreateButton).not.toBeInTheDocument()
+    }
   })
 })

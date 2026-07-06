@@ -34,7 +34,7 @@ type BookStudioProjectRecord = {
   stylePrompt?: string
   seriesVolumeNumber?: number
   metadata?: { authorName?: string; imprint?: string }
-  packageManifest?: { version?: string; files?: unknown[] }
+  packageManifest?: { version?: number; files?: unknown[] }
   createdAt?: unknown
 }
 
@@ -299,9 +299,11 @@ export function BookSeriesWorkspace({ orgId, seriesId }: BookSeriesWorkspaceProp
           description="Manage shared series metadata, volume ordering, and create the next volume from the last one's format and style."
           meta={<span>Org ID: {orgId}</span>}
           actions={
-            <button type="button" onClick={() => void createNextVolume()} disabled={creatingVolume || loading} className="btn-primary disabled:cursor-not-allowed disabled:opacity-50">
-              {creatingVolume ? 'Creating…' : 'Create next volume'}
-            </button>
+            !loading && !series ? null : (
+              <button type="button" onClick={() => void createNextVolume()} disabled={creatingVolume || loading || !series} className="btn-primary disabled:cursor-not-allowed disabled:opacity-50">
+                {creatingVolume ? 'Creating…' : 'Create next volume'}
+              </button>
+            )
           }
         />
       }
