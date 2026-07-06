@@ -30,6 +30,9 @@ export const GET = withAuth('client', withTenant(async (req: NextRequest, user, 
     platform === 'linkedin' && url.searchParams.get('linkedinMode') === 'organization'
       ? 'organization'
       : 'personal'
+  const feature = url.searchParams.get('feature') === 'youtube_studio' ? 'youtube_studio' : undefined
+  const rawPrompt = url.searchParams.get('prompt')
+  const requestedPrompt = rawPrompt === 'select_account' || rawPrompt === 'consent' ? rawPrompt : undefined
 
   // Special handling for non-OAuth platforms
   if (platform === 'bluesky') {
@@ -51,7 +54,16 @@ export const GET = withAuth('client', withTenant(async (req: NextRequest, user, 
 
   // Generate state token
   const nonce = crypto.randomBytes(16).toString('hex')
-  const stateData = { orgId, platform, nonce, redirectUrl, accountScope, ownerUid: user.uid, ...(platform === 'linkedin' ? { linkedinMode } : {}) }
+  const stateData = {
+    orgId,
+    platform,
+    nonce,
+    redirectUrl,
+    accountScope,
+    ownerUid: user.uid,
+    ...(platform === 'linkedin' ? { linkedinMode } : {}),
+    ...(feature ? { feature } : {}),
+  }
   const stateToken = Buffer.from(JSON.stringify(stateData)).toString('base64url')
 
   // Generate PKCE code_verifier if platform requires it
@@ -68,6 +80,7 @@ export const GET = withAuth('client', withTenant(async (req: NextRequest, user, 
     redirectUrl,
     accountScope,
     ownerUid: user.uid,
+    ...(feature ? { feature } : {}),
     ...(codeVerifier ? { codeVerifier } : {}),
     expiresAt: Timestamp.fromDate(new Date(Date.now() + 10 * 60 * 1000)),
     createdAt: Timestamp.now(),
@@ -85,6 +98,14 @@ export const GET = withAuth('client', withTenant(async (req: NextRequest, user, 
     state: stateToken,
     ...config.extraAuthParams,
   })
+
+  if (requestedPrompt) {
+    const promptParts = new Set([
+      ...(authParams.get('prompt')?.split(/\s+/).filter(Boolean) ?? []),
+      requestedPrompt,
+    ])
+    authParams.set('prompt', Array.from(promptParts).join(' '))
+  }
 
   // Add PKCE challenge if required
   if (codeVerifier) {
