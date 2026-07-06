@@ -3,6 +3,12 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { YouTubeStudioAdminWorkspace } from '@/components/youtube-studio/YouTubeStudioAdminWorkspace'
 import { YouTubeStudioPortalWorkspace } from '@/components/youtube-studio/YouTubeStudioPortalWorkspace'
 
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: jest.fn(), push: jest.fn() }),
+  usePathname: () => '/portal/youtube-studio',
+  useSearchParams: () => new URLSearchParams(''),
+}))
+
 function jsonResponse(body: unknown, ok = true): Response {
   return {
     ok,

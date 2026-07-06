@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   YouTubeAnalyticsSnapshot,
   YouTubeChannelWorkspace,
@@ -14,6 +14,7 @@ import type {
   YouTubeVideoProject,
 } from '@/lib/youtube-studio/types'
 import { YouTubeChannelCard, YouTubeVideoCard } from '@/components/youtube-studio/YouTubeStudioCards'
+import { YouTubeStudioOAuthReturnHandler } from '@/components/youtube-studio/YouTubeStudioOAuthReturnHandler'
 import { YouTubeStudioWorkspaceShell } from '@/components/youtube-studio/YouTubeStudioWorkspaceShell'
 import { appendQueryParams, scopedApiPath } from '@/lib/portal/scoped-routing'
 
@@ -83,6 +84,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   const [actionNotice, setActionNotice] = useState('')
   const [moduleDisabled, setModuleDisabled] = useState(false)
   const [capabilities, setCapabilities] = useState<YouTubeStudioCapabilities>(defaultCapabilities)
+  const [retryAccountId, setRetryAccountId] = useState<string | null>(null)
   const submittingRequestRef = useRef(false)
   const reviewingIdRef = useRef<string | null>(null)
   const reviewingPacketIdRef = useRef<string | null>(null)
@@ -408,6 +410,9 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
         loading={loading}
         className="p-4 sm:p-6 lg:p-8"
       >
+        <Suspense fallback={null}>
+          <YouTubeStudioOAuthReturnHandler onRefresh={load} onProvisionFailed={setRetryAccountId} />
+        </Suspense>
         <div className="rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-6 text-sm text-[var(--color-pib-text)]">
           YouTube Studio is not enabled for this portal.
         </div>
@@ -428,6 +433,9 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       loading={loading}
       className="p-4 sm:p-6 lg:p-8"
     >
+      <Suspense fallback={null}>
+        <YouTubeStudioOAuthReturnHandler onRefresh={load} onProvisionFailed={setRetryAccountId} />
+      </Suspense>
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <section className="space-y-4">
           {channels.map((channel) => (
