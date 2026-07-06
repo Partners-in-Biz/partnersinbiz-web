@@ -177,6 +177,7 @@ const SUDOKU_PROJECT: Doc = {
   title: 'Sudoku Vol 1',
   format: 'puzzle_sudoku',
   deleted: false,
+  lifecycleState: 'rights_cleared',
 }
 
 const STORY_PROJECT: Doc = {
@@ -185,6 +186,7 @@ const STORY_PROJECT: Doc = {
   format: 'story',
   metadata: { authorName: 'Pip Press' },
   deleted: false,
+  lifecycleState: 'rights_cleared',
 }
 
 const COLOURING_PROJECT: Doc = {
@@ -192,6 +194,7 @@ const COLOURING_PROJECT: Doc = {
   title: 'Colour Me Happy',
   format: 'colouring',
   deleted: false,
+  lifecycleState: 'rights_cleared',
 }
 
 function sudokuPageDocs(count: number) {

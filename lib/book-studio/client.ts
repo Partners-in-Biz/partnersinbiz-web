@@ -125,6 +125,29 @@ export function assembleBookStudioProject<T>(projectId: string, orgId: string) {
   })
 }
 
+export type TransitionBookStudioProjectResult = { from: string; to: string }
+
+// Calls the admin or portal lifecycle transition endpoint. Guard-check
+// failures come back as a 422 with `{ error, blockers: string[] }` — callers
+// should surface both `error` and `extra.blockers` verbatim, not reword them.
+export function transitionBookStudioProject<T = TransitionBookStudioProjectResult>(
+  projectId: string,
+  orgId: string,
+  toState: string,
+  reason?: string,
+  surface: BookStudioSurface = 'admin',
+) {
+  const path =
+    surface === 'portal'
+      ? `/api/v1/portal/book-studio/projects/${encodeURIComponent(projectId)}/transition`
+      : withOrg(`/api/v1/book-studio/projects/${encodeURIComponent(projectId)}/transition`, orgId)
+  return request<T>(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(reason ? { toState, reason } : { toState }),
+  })
+}
+
 export type RequestBookStudioDraftPayload = {
   unitType: 'chapter' | 'page' | 'cover' | 'research'
   unitId?: string

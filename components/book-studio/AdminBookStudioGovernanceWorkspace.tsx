@@ -47,6 +47,65 @@ const BOOK_OWNER_ROWS = [
   'Manage publishing packet',
 ]
 
+// Mirrors lib/book-studio/lifecycle.ts's LIFECYCLE_STATES / BookLifecycleState.
+// Declared locally (rather than importing from lifecycle.ts) because that
+// module imports `firebase-admin/firestore` at module scope and is not
+// client-bundle-safe; this file is `'use client'`.
+const LIFECYCLE_PIPELINE_STATES = [
+  'draft', 'content_complete', 'rights_cleared', 'assembled',
+  'qa_approved', 'submission_ready', 'submitted', 'live', 'archived',
+] as const
+
+export type LifecyclePipelineProject = {
+  id: string
+  title?: string
+  lifecycleState?: string
+}
+
+function groupProjectsByLifecycleState(
+  projects: LifecyclePipelineProject[],
+): Record<(typeof LIFECYCLE_PIPELINE_STATES)[number], LifecyclePipelineProject[]> {
+  const grouped = Object.fromEntries(
+    LIFECYCLE_PIPELINE_STATES.map((state) => [state, [] as LifecyclePipelineProject[]]),
+  ) as Record<(typeof LIFECYCLE_PIPELINE_STATES)[number], LifecyclePipelineProject[]>
+  projects.forEach((project) => {
+    const state = LIFECYCLE_PIPELINE_STATES.includes(project.lifecycleState as (typeof LIFECYCLE_PIPELINE_STATES)[number])
+      ? (project.lifecycleState as (typeof LIFECYCLE_PIPELINE_STATES)[number])
+      : 'draft'
+    grouped[state].push(project)
+  })
+  return grouped
+}
+
+function lifecycleStateLabel(state: string): string {
+  return state.replace(/_/g, ' ')
+}
+
+export function LifecyclePipelineBoard({ projects }: { projects: LifecyclePipelineProject[] }) {
+  const grouped = groupProjectsByLifecycleState(projects)
+  return (
+    <Surface className="p-4">
+      <h3 className="mb-3 text-sm font-semibold text-[var(--color-pib-text-secondary)]">
+        Pipeline by lifecycle state
+      </h3>
+      <div className="grid grid-cols-1 gap-3 overflow-x-auto sm:grid-cols-3 lg:grid-cols-9">
+        {LIFECYCLE_PIPELINE_STATES.map((state) => (
+          <div key={state} data-testid={`lifecycle-column-${state}`} className="min-w-[140px] rounded-md border border-[var(--color-pib-border)] p-2">
+            <div className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--color-pib-text-secondary)]">
+              {lifecycleStateLabel(state)} ({grouped[state].length})
+            </div>
+            <ul className="space-y-1">
+              {grouped[state].map((project) => (
+                <li key={project.id} className="truncate text-sm">{project.title ?? 'Untitled book project'}</li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </Surface>
+  )
+}
+
 interface AdminBookStudioGovernanceWorkspaceProps {
   orgSlug: string
 }
@@ -189,6 +248,8 @@ export function AdminBookStudioGovernanceWorkspace({ orgSlug }: AdminBookStudioG
           onControlChange={policyControls.setOwnerControl}
         />
       </Surface>
+
+      <LifecyclePipelineBoard projects={[]} />
     </div>
   )
 }

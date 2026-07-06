@@ -40,6 +40,7 @@ export type BookProject = {
   title?: string
   status?: string
   stage?: string
+  lifecycleState?: string
   format?: string
   trim?: BookProjectTrim
   stylePrompt?: string

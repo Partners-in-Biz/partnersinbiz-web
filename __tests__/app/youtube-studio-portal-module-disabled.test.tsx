@@ -222,8 +222,9 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
       expect(fetchMock).toHaveBeenCalledWith(scopedPath)
     })
 
-    fireEvent.change(await screen.findByLabelText('Channel'), { target: { value: 'channel-1' } })
+    fireEvent.click(await screen.findByRole('radio', { name: /Lumen Channel/ }))
     fireEvent.change(screen.getByLabelText('Video title'), { target: { value: 'New launch video' } })
+    fireEvent.change(screen.getByLabelText('Objective'), { target: { value: 'Grow subscribers' } })
     fireEvent.click(screen.getByRole('button', { name: 'Send request' }))
 
     await waitFor(() => {
@@ -446,8 +447,9 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
     const { rerender } = render(<YouTubeStudioPortalWorkspace orgId="lumen-org" />)
 
     expect(await screen.findAllByText('Lumen Channel')).not.toHaveLength(0)
-    fireEvent.change(screen.getByLabelText('Channel'), { target: { value: 'channel-1' } })
+    fireEvent.click(screen.getByRole('radio', { name: /Lumen Channel/ }))
     fireEvent.change(screen.getByLabelText('Video title'), { target: { value: 'Lumen stale request' } })
+    fireEvent.change(screen.getByLabelText('Objective'), { target: { value: 'Grow subscribers' } })
     fireEvent.click(screen.getByRole('button', { name: 'Send request' }))
 
     await waitFor(() => {
@@ -457,7 +459,7 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
     rerender(<YouTubeStudioPortalWorkspace orgId="velox-org" />)
 
     expect(await screen.findAllByText('Velox Channel')).not.toHaveLength(0)
-    expect((screen.getByLabelText('Channel') as HTMLSelectElement).value).toBe('')
+    expect(screen.queryAllByRole('radio').some((radio) => (radio as HTMLInputElement).checked)).toBe(false)
     expect((screen.getByLabelText('Video title') as HTMLInputElement).value).toBe('')
 
     await act(async () => {

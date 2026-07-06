@@ -401,6 +401,8 @@ export function BookProjectWorkspace({
       header={
         <BookProjectHeader
           project={project}
+          orgId={orgId}
+          surface={surface}
           onOpenInCanvas={openInCanvas}
           openingCanvas={openingCanvas}
           onAssemble={assemble}
@@ -408,6 +410,7 @@ export function BookProjectWorkspace({
           showOperatorActions={capabilities.isOperator}
           onRequestDraft={capabilities.canEdit ? requestDraft : undefined}
           requestingDraft={requestingDraft}
+          onTransitioned={() => { void load() }}
         />
       }
     >

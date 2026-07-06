@@ -1,7 +1,9 @@
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
+import { adminDb } from '@/lib/firebase/admin'
 import { ensureBookStudioAccess } from '@/lib/book-studio/api'
+import { assertMinState, LifecycleStateTooLowError } from '@/lib/book-studio/lifecycle'
 import {
   assembleBookProject,
   AssemblyNotFoundError,
@@ -29,6 +31,20 @@ export const POST = withAuth('admin', async (req: NextRequest, user, context: Ro
   const access = await ensureBookStudioAccess(req, user, body, 'write')
   if (access.error) return access.error
   const orgId = access.orgId
+
+  const projectSnap = await adminDb.collection('book_studio_projects').doc(projectId).get()
+  if (!projectSnap.exists) return apiError('book project not found', 404)
+  const project = projectSnap.data() ?? {}
+  if (project.orgId !== orgId || project.deleted === true) return apiError('book project not found', 404)
+
+  try {
+    assertMinState(project, 'rights_cleared')
+  } catch (error) {
+    if (error instanceof LifecycleStateTooLowError) {
+      return apiError(error.message, 422, { blockers: error.blockers })
+    }
+    throw error
+  }
 
   try {
     const manifest = await assembleBookProject({ projectId, orgId, actor: user })
