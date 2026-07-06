@@ -17,6 +17,7 @@ jest.mock('@/components/ui/Toast', () => ({
 }))
 
 import { YouTubeStudioOAuthReturnHandler } from '@/components/youtube-studio/YouTubeStudioOAuthReturnHandler'
+import { SendToYouTubeStudioButton } from '@/components/youtube-studio/SendToYouTubeStudioButton'
 import { YouTubeChannelCard } from '@/components/youtube-studio/YouTubeStudioCards'
 import { YouTubeStudioPipelineBoard } from '@/components/youtube-studio/YouTubeStudioPipelineBoard'
 import { YouTubeStudioPortalWorkspace } from '@/components/youtube-studio/YouTubeStudioPortalWorkspace'
@@ -282,5 +283,78 @@ describe('YouTubeStudioPipelineBoard', () => {
   it('renders an explanatory empty state per empty column', () => {
     render(<YouTubeStudioPipelineBoard videos={[]} onReview={jest.fn()} onRepurpose={jest.fn()} />)
     expect(screen.getAllByText(/Nothing here yet/).length).toBe(5)
+  })
+})
+
+describe('SendToYouTubeStudioButton', () => {
+  it('imports the video into the first connected channel on click', async () => {
+    const fetchMock = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/channels/links')) {
+        return jsonResponse({
+          success: true,
+          data: {
+            links: [
+              {
+                channelWorkspaceId: 'channel-1',
+                accountId: 'acct-1',
+                title: 'Acme Films',
+                accountStatus: 'connected',
+              },
+            ],
+          },
+        })
+      }
+      if (url.includes('/videos/import') && init?.method === 'POST') {
+        return jsonResponse({ success: true, data: { videoProjectId: 'video-new', sourceAssetId: 'asset-new' } })
+      }
+      throw new Error(`Unexpected fetch ${url}`)
+    })
+    global.fetch = fetchMock as jest.Mock
+
+    render(
+      <SendToYouTubeStudioButton
+        orgId="org-1"
+        title="Launch reel"
+        sourceUrl="https://cdn.example/launch.mp4"
+        mediaFormat="vertical"
+        origin={{ type: 'campaign', id: 'campaign-1' }}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /YouTube Studio/ }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/youtube-studio/videos/import'),
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
+    const importCall = fetchMock.mock.calls.find(([url]) => String(url).includes('/videos/import'))
+    expect(JSON.parse(String(importCall?.[1]?.body))).toMatchObject({
+      channelWorkspaceId: 'channel-1',
+      title: 'Launch reel',
+      sourceUrl: 'https://cdn.example/launch.mp4',
+      mediaFormat: 'vertical',
+      origin: { type: 'campaign', id: 'campaign-1' },
+    })
+    expect(await screen.findByText(/Sent to YouTube Studio/)).toBeInTheDocument()
+  })
+
+  it('explains when no channel is connected yet', async () => {
+    global.fetch = jest.fn().mockResolvedValue(jsonResponse({ success: true, data: { links: [] } })) as jest.Mock
+
+    render(
+      <SendToYouTubeStudioButton
+        orgId="org-1"
+        title="Launch reel"
+        sourceUrl="https://cdn.example/launch.mp4"
+        origin={{ type: 'social_post', id: 'post-1' }}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /YouTube Studio/ }))
+
+    expect(await screen.findByText(/No YouTube channel connected/)).toBeInTheDocument()
   })
 })

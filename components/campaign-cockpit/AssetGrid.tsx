@@ -16,6 +16,7 @@ import {
   type PreviewBlog,
   type PreviewBrand,
 } from '@/components/campaign-preview'
+import { SendToYouTubeStudioButton } from '@/components/youtube-studio/SendToYouTubeStudioButton'
 import { VideoTriptych } from './VideoTriptych'
 
 type Filter = 'all' | 'social' | 'blogs' | 'videos'
@@ -166,6 +167,22 @@ export function AssetGrid({
                   </span>
                 </div>
                 <VideoTriptych post={post} brand={brand} />
+                <SendToYouTubeStudioButton
+                  orgId={(post as unknown as { orgId?: string }).orgId}
+                  title={
+                    (post as unknown as { title?: string }).title ??
+                    (typeof post.content === 'string' ? post.content.slice(0, 80) : 'Campaign video')
+                  }
+                  sourceUrl={
+                    (post.media?.[0] as { urlYoutube?: string; url?: string } | undefined)?.urlYoutube ??
+                    (post.media?.[0] as { url?: string } | undefined)?.url
+                  }
+                  mediaFormat="horizontal"
+                  origin={{
+                    type: (post as unknown as { campaignId?: string }).campaignId ? 'campaign' : 'social_post',
+                    id: ((post as unknown as { campaignId?: string }).campaignId ?? post.id) as string,
+                  }}
+                />
                 {actionsFor(post, 'video', post.status ?? 'draft')}
               </div>
             ))}

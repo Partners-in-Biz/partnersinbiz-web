@@ -163,11 +163,15 @@ function SubAccountRow({
   onDisconnect,
   onSetDefault,
   disconnecting,
+  youtubeStudioChannelId,
+  onAdoptIntoYouTubeStudio,
 }: {
   account: SocialAccount
   onDisconnect: (account: SocialAccount) => void
   onSetDefault: (id: string) => void
   disconnecting: boolean
+  youtubeStudioChannelId?: string
+  onAdoptIntoYouTubeStudio?: (accountId: string) => void
 }) {
   const days = daysUntil(account.tokenExpiresAt)
   const subAccountType = account.subAccountType ?? account.accountType
@@ -207,6 +211,24 @@ function SubAccountRow({
             {subAccountType}
           </span>
         )}
+        {account.platform === 'youtube' && youtubeStudioChannelId ? (
+          <a
+            href="/portal/youtube-studio"
+            className="pib-pill pib-pill-info"
+            title="This connection also powers a YouTube Studio channel workspace"
+          >
+            YouTube Studio channel
+          </a>
+        ) : null}
+        {account.platform === 'youtube' && !youtubeStudioChannelId && onAdoptIntoYouTubeStudio ? (
+          <button
+            type="button"
+            onClick={() => onAdoptIntoYouTubeStudio(account.id)}
+            className="rounded-md border border-[var(--color-card-border)] px-2.5 py-1 text-xs font-label text-on-surface-variant transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-accent)]"
+          >
+            Use in YouTube Studio
+          </button>
+        ) : null}
         <button
           type="button"
           aria-pressed={account.isDefault}
@@ -242,6 +264,8 @@ function PlatformCard({
   scope,
   redirectPath,
   orgId,
+  youtubeStudioLinks,
+  onAdoptIntoYouTubeStudio,
 }: {
   platform: string
   accounts: SocialAccount[]
@@ -251,6 +275,8 @@ function PlatformCard({
   scope: SocialScope
   redirectPath: string
   orgId?: string | null
+  youtubeStudioLinks: Record<string, string>
+  onAdoptIntoYouTubeStudio?: (accountId: string) => void
 }) {
   const label = PLATFORM_LABELS[platform] ?? platform
   const oauthUrl = appendQueryParams(`/api/v1/social/oauth/${platform}`, {
@@ -297,6 +323,8 @@ function PlatformCard({
           onDisconnect={onDisconnect}
           onSetDefault={onSetDefault}
           disconnecting={disconnectingId === account.id}
+          youtubeStudioChannelId={youtubeStudioLinks[account.id]}
+          onAdoptIntoYouTubeStudio={account.platform === 'youtube' ? onAdoptIntoYouTubeStudio : undefined}
         />
       ))}
     </section>
@@ -576,6 +604,7 @@ export default function SocialAccountsManager({
   const [disconnectCandidate, setDisconnectCandidate] = useState<SocialAccount | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  const [youtubeStudioLinks, setYoutubeStudioLinks] = useState<Record<string, string>>({})
 
   const pickerNonce = searchParams.get('picker')
   const pickerPlatform = searchParams.get('platform') ?? ''
@@ -602,6 +631,28 @@ export default function SocialAccountsManager({
   useEffect(() => {
     fetchAccounts()
   }, [fetchAccounts])
+
+  useEffect(() => {
+    if (scope === 'personal') {
+      setYoutubeStudioLinks({})
+      return
+    }
+    let cancelled = false
+    fetch(appendQueryParams('/api/v1/youtube-studio/channels/links', { orgId }))
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error('links failed'))))
+      .then((body) => {
+        if (cancelled) return
+        const links: Array<{ accountId: string; channelWorkspaceId: string }> =
+          Array.isArray(body.data?.links) ? body.data.links : []
+        setYoutubeStudioLinks(Object.fromEntries(links.map((link) => [link.accountId, link.channelWorkspaceId])))
+      })
+      .catch(() => {
+        // YouTube Studio chips are best-effort.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [orgId, scope])
 
   useEffect(() => {
     const status = searchParams.get('status')
@@ -652,6 +703,21 @@ export default function SocialAccountsManager({
       await fetchAccounts()
     } catch {
       setActionError('Failed to update default account.')
+    }
+  }
+
+  async function adoptIntoYouTubeStudio(accountId: string) {
+    const res = await fetch(appendQueryParams('/api/v1/youtube-studio/channels/adopt', { orgId }), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accountId }),
+    })
+    if (res.ok) {
+      const body = await res.json().catch(() => ({}))
+      const channelWorkspaceId = body.data?.channelWorkspaceId
+      if (typeof channelWorkspaceId === 'string') {
+        setYoutubeStudioLinks((prev) => ({ ...prev, [accountId]: channelWorkspaceId }))
+      }
     }
   }
 
@@ -863,6 +929,8 @@ export default function SocialAccountsManager({
                 scope={scope}
                 redirectPath={basePath}
                 orgId={orgId}
+                youtubeStudioLinks={youtubeStudioLinks}
+                onAdoptIntoYouTubeStudio={scope === 'personal' ? undefined : adoptIntoYouTubeStudio}
               />
             ))}
           </div>
