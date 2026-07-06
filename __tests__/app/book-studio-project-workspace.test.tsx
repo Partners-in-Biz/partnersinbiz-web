@@ -1,5 +1,10 @@
 import React from 'react'
 import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
+
+function headerRequestDraftButton(): HTMLElement {
+  const header = document.querySelector('[data-slot="app-shell-header"]') as HTMLElement
+  return within(header).getByRole('button', { name: /Request AI draft/i })
+}
 import { BookProjectWorkspace } from '@/components/book-studio/BookProjectWorkspace'
 import type { BookStudioCapabilities } from '@/lib/book-studio/capabilities'
 import * as bookStudioClient from '@/lib/book-studio/client'
@@ -477,7 +482,7 @@ describe('BookProjectWorkspace', () => {
     await screen.findByText('The Proof Chronicles')
     expect(screen.queryByRole('button', { name: /Open in canvas/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Assemble/i })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Request AI draft/i })).toBeInTheDocument()
+    expect(headerRequestDraftButton()).toBeInTheDocument()
   })
 
   it('clicking "Request AI draft" calls requestBookStudioDraft and shows a success notice', async () => {
@@ -496,7 +501,7 @@ describe('BookProjectWorkspace', () => {
     )
 
     await screen.findByText('The Proof Chronicles')
-    fireEvent.click(screen.getByRole('button', { name: /Request AI draft/i }))
+    fireEvent.click(headerRequestDraftButton())
 
     await screen.findByText('AI draft request sent to your PiB team.')
     expect(requestSpy).toHaveBeenCalledWith('project-story', { unitType: 'cover' })
@@ -521,7 +526,7 @@ describe('BookProjectWorkspace', () => {
     )
 
     await screen.findByText('The Proof Chronicles')
-    fireEvent.click(screen.getByRole('button', { name: /Request AI draft/i }))
+    fireEvent.click(headerRequestDraftButton())
 
     await screen.findByText('An AI draft request for this item is already open')
     requestSpy.mockRestore()
@@ -597,7 +602,6 @@ describe('BookProjectWorkspace', () => {
     )
 
     await screen.findByText('The Proof Chronicles')
-    fireEvent.click(screen.getByRole('button', { name: 'Expand' }))
     const statusSelect = (await screen.findByLabelText('Status')) as HTMLSelectElement
     const optionValues = Array.from(statusSelect.options).map((option) => option.value)
     expect(optionValues).not.toContain('approved')

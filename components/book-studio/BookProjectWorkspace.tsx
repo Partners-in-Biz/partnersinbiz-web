@@ -234,6 +234,7 @@ export function BookProjectWorkspace({
   }
 
   async function editChapterBody(chapterId: string, body: string) {
+    // Server computes wordCount from body — never send it from the client.
     const result = await patchBookStudioRecord('chapters', chapterId, orgId, { body }, surface)
     if (!result.ok) {
       setNotice(result.error)
@@ -249,6 +250,43 @@ export function BookProjectWorkspace({
       return
     }
     await load()
+  }
+
+  async function moveChapter(chapterId: string, direction: 'up' | 'down') {
+    const ordered = [...chapters].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    const index = ordered.findIndex((chapter) => chapter.id === chapterId)
+    const swapIndex = direction === 'up' ? index - 1 : index + 1
+    if (index < 0 || swapIndex < 0 || swapIndex >= ordered.length) return
+    const current = ordered[index]
+    const swap = ordered[swapIndex]
+    const currentOrder = current.order ?? index
+    const swapOrder = swap.order ?? swapIndex
+    const [currentResult, swapResult] = await Promise.all([
+      patchBookStudioRecord('chapters', current.id, orgId, { order: swapOrder }, surface),
+      patchBookStudioRecord('chapters', swap.id, orgId, { order: currentOrder }, surface),
+    ])
+    await load()
+    if (!currentResult.ok || !swapResult.ok) {
+      setNotice(!currentResult.ok ? currentResult.error : (swapResult as { ok: false; error: string }).error)
+    }
+  }
+
+  async function requestChapterDraft(chapterId: string) {
+    setNotice('')
+    try {
+      const result = await requestBookStudioDraft<{ taskId: string }>(projectId, { unitType: 'chapter', unitId: chapterId })
+      if (!result.ok) {
+        setNotice(
+          result.status === 409
+            ? result.error
+            : result.error || 'Could not send the AI draft request.',
+        )
+        return
+      }
+      setNotice('AI draft request sent to your PiB team.')
+    } catch {
+      setNotice('Could not send the AI draft request.')
+    }
   }
 
   async function addChapter(title: string) {
@@ -396,6 +434,8 @@ export function BookProjectWorkspace({
               readOnly={!capabilities.canEdit}
               canApprove={capabilities.canApprovalGates}
               canDelete={capabilities.canArchiveDelete}
+              onMoveChapter={moveChapter}
+              onRequestDraft={surface === 'portal' ? requestChapterDraft : undefined}
             />
           ) : (
             <BookProjectPagesPanel
