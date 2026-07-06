@@ -202,7 +202,54 @@ In `BookSeriesWorkspace`:
 - Volume list renders order with up/down reorder writing `volumeOrder`.
 - Portal: series visible read-only when `visibility`; create-next-volume requires `create`.
 
-## 9. API summary (new/changed)
+## 9. Publishing-house essentials
+
+Gap analysis against a real publishing house (Peet, 2026-07-06) added four structural items. The book → marketing "Launch Bridge" was deliberately split into its own follow-up spec (`2026-07-06-book-launch-bridge-outline.md`).
+
+### 9.1 ISBN per format
+
+Print and ebook editions legally require separate ISBNs; a single `isbn` field is wrong.
+
+- `BookProjectMetadata`: replace `isbn` with `isbnPrint?: string` and `isbnEbook?: string`. Legacy migration: when loading a project with `isbn` set and both new fields empty, prefill `isbnPrint` in the panel; on save, write the new fields (leave `isbn` untouched for old records — readers fall back `isbnPrint ?? isbn`).
+- Sanitizer: whitelist both; validate shape (10 or 13 chars after stripping hyphens, 13-digit form must start `978`/`979`). Invalid → drop with a 400 field error, not silent.
+- Assembly: `epub.ts` OPF identifier uses `isbnEbook ?? isbn`; `interior-pdf.ts` copyright page lists each edition's ISBN when present.
+- Metadata panel: two inputs with helper text — "Leave blank to use the store-assigned identifier (KDP assigns a free ASIN/ISBN)."
+
+### 9.2 Front & back matter (reflowable formats)
+
+Project-level config (whitelisted in `sanitize.ts`, rendered by `interior-pdf.ts` and `epub.ts`):
+
+```ts
+frontMatter?: {
+  dedication?: string        // ≤2KB plain text
+  tocEnabled?: boolean       // default true for nonfiction, false for story
+  forewordChapterId?: string // marks an existing chapter as foreword (renders before Chapter 1, unnumbered)
+}
+backMatter?: {
+  aboutTheAuthor?: string    // ≤8KB markdown
+  alsoByEnabled?: boolean    // auto-renders series volume list when seriesId is set
+}
+```
+
+Render order: title page → copyright → dedication → TOC → foreword → chapters → about the author → also-by. EPUB nav already exists; the interior PDF gains an optional TOC page (chapter titles + page numbers, computed after pagination). Metadata panel gains a "Book matter" section.
+
+### 9.3 Editorial review comments
+
+A publisher runs developmental edit → copyedit → proofread with margin notes. V1 approximation without track-changes: reuse the platform's existing unified-comments primitives (same collection/API used by tasks/docs — see platform collaboration primitives) targeting `book_studio_chapters/{id}`.
+
+- ChapterEditor: comment drawer per chapter (thread list, add, resolve); unresolved-count chip on the chapter in the sidebar.
+- Permissions: `edit` capability to comment and resolve; read-only roles see threads.
+- No inline text anchoring in V1 — one thread per chapter. Track-changes is explicitly future scope.
+
+### 9.4 Pricing & territories on the publishing packet
+
+Surface what the packet gates already demand, so the manual-upload packet is complete:
+
+- `book_studio_publishing_packets` records gain (sanitizer-whitelisted): `channelPricing?: Array<{ channel: 'kdp' | 'google_play_books'; listPrice: number; currency: string; territories: 'world' | 'selected'; territoryNotes?: string }>`.
+- Assembly tab (operator, and portal roles with `publishingPackets`): read/edit pricing card per channel next to the manifest. Channel-specific, never merged (same locked rule as categories).
+- Pure packet data for the human upload — no store mutation.
+
+## 10. API summary (new/changed)
 
 | Route | Change |
 |---|---|
@@ -212,7 +259,7 @@ In `BookSeriesWorkspace`:
 | `PATCH projects` | accepts new metadata fields + `isFixture` (operator/agent only) |
 | assemble / open-in-canvas / generate-puzzles | unchanged, operator-only |
 
-## 10. Testing
+## 11. Testing
 
 - **Capabilities unit tests:** matrix of role × action → allowed/denied, incl. operator override and module-disabled short-circuit.
 - **Route enforcement:** portal session with `edit` can PATCH chapter body; without `edit` gets 403; `approved` status flip requires `approvalGates`; DELETE requires `archiveDelete`; assemble as portal user → 403 always.
@@ -222,25 +269,33 @@ In `BookSeriesWorkspace`:
 - **Research panel:** link append preserves existing bridgeLinks; request-research 409 on duplicate open request.
 - **Portal hygiene:** `isFixture` projects excluded from portal list, still visible in admin.
 - **Series:** next volume inherits format/trim/style/sharedMetadata and increments volume number.
+- **ISBN:** shape validation (valid 10/13 accepted, junk rejected with field error), legacy `isbn` fallback in EPUB OPF, copyright page renders per-edition ISBNs.
+- **Front/back matter:** render order in interior PDF and EPUB (dedication/TOC/foreword/about/also-by), length guards enforced, also-by lists series volumes.
+- **Comments:** thread create/resolve on a chapter, unresolved count, read-only role sees but cannot post.
+- **Pricing:** channelPricing sanitized (channel enum, positive price, currency code), rendered per channel in Assembly tab.
 - Update existing suites: `book-studio-project-workspace.test.tsx`, `portal-book-studio.test.ts`, `book-studio-admin-command-center.test.tsx`.
 - Live QA on :3010 before push: create book from portal member account → write chapter → request AI draft (task appears) → operator opens canvas → sync-back respects `edited` → assemble → portal sees manifest per capability.
 
-## 11. Build order (each slice ships working)
+## 12. Build order (each slice ships working)
 
 1. Capabilities module + route enforcement + portal-session auth branch (foundation; no UI change).
 2. NewBookDialog + templates + admin index project list (front door, admin first).
 3. Portal project page mount + capability projection + request-draft route.
 4. ChapterEditor (TipTap).
 5. Taxonomy + metadata panel store-listing section.
-6. Research tab.
-7. Portal listing hygiene + fixture backfill script.
-8. Series create-next-volume + reorder.
-9. Skills/docs: update `platform-ops`/`client-manager` skill references + wiki article + this spec marked implemented.
+6. Publishing-house metadata: ISBN split + front/back matter (data, sanitizers, assembly, panel) + packet pricing card.
+7. Editorial comments on chapters.
+8. Research tab.
+9. Portal listing hygiene + fixture backfill script.
+10. Series create-next-volume + reorder.
+11. Skills/docs: update `platform-ops`/`client-manager` skill references + wiki article + this spec marked implemented.
 
 ## Out of scope (unchanged / future)
 
 - Direct store publishing, marketplace credentials (locked out).
 - Client-triggered AI generation (revisit after operator flow proves out).
 - Hermes runtime dispatch for book skills.
-- Collaborative real-time editing, track changes, comments-in-editor (future spec if needed).
+- Collaborative real-time editing, track changes, inline-anchored comments (chapter-level threads ARE in scope, Section 9.3).
+- Book Launch Bridge (book → campaign/landing page/email/social repurposing) — own follow-up spec: `2026-07-06-book-launch-bridge-outline.md`.
+- Typography/interior style presets, ONIX export, ARC/review-copy management — revisit once books ship monthly.
 - Fixed-layout EPUB, audiobooks, additional puzzle kinds (already tracked in the 2026-07-05 spec's phase 2).
