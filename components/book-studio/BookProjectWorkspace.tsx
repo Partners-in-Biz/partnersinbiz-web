@@ -115,11 +115,14 @@ export function BookProjectWorkspace({ orgId, projectId }: BookProjectWorkspaceP
     const swap = ordered[swapIndex]
     const currentOrder = current.order ?? index
     const swapOrder = swap.order ?? swapIndex
-    await Promise.all([
+    const [currentResult, swapResult] = await Promise.all([
       patchBookStudioRecord('pages', current.id, orgId, { order: swapOrder }),
       patchBookStudioRecord('pages', swap.id, orgId, { order: currentOrder }),
     ])
     await load()
+    if (!currentResult.ok || !swapResult.ok) {
+      setNotice(!currentResult.ok ? currentResult.error : (swapResult as { ok: false; error: string }).error)
+    }
   }
 
   async function editPage(pageId: string, patch: { title?: string; prompt?: string; caption?: string }) {
@@ -167,28 +170,37 @@ export function BookProjectWorkspace({ orgId, projectId }: BookProjectWorkspaceP
     setRegeneratingPageId(page.id)
     setNotice('')
     try {
-      const deleteResult = await deleteBookStudioRecord('pages', page.id, orgId)
-      if (!deleteResult.ok) {
-        setNotice(deleteResult.error)
-        return
-      }
+      const ordered = [...pages].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+      const pageIndex = ordered.findIndex((candidate) => candidate.id === page.id)
+      const startOrder = page.order ?? (pageIndex >= 0 ? pageIndex : undefined)
+
+      // Generate FIRST — the route validates before writing anything, so a
+      // failure here leaves the existing page fully intact. Only delete the
+      // old page once the replacement has been successfully created.
       const result = await generateBookStudioPuzzles(projectId, orgId, {
         kind: page.puzzle.kind as GeneratePuzzlesPayload['kind'],
         count: 1,
         difficulty: (page.puzzle.difficulty as GeneratePuzzlesPayload['difficulty']) ?? 'medium',
-        startOrder: page.order,
+        startOrder,
+        params: page.puzzle.params,
       })
       if (!result.ok) {
+        await load()
         setNotice(result.error)
         return
       }
+
+      const deleteResult = await deleteBookStudioRecord('pages', page.id, orgId)
       await load()
+      if (!deleteResult.ok) {
+        setNotice(deleteResult.error)
+      }
     } finally {
       setRegeneratingPageId(null)
     }
   }
 
-  async function generatePuzzles(input: { kind: string; count: number; difficulty: string; words?: string[]; entries?: string[] }) {
+  async function generatePuzzles(input: { kind: string; count: number; difficulty: string; words?: string[]; entries?: { word: string; clue: string }[] }) {
     setGeneratingPuzzles(true)
     setNotice('')
     try {

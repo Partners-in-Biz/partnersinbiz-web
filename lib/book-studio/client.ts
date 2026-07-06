@@ -65,7 +65,7 @@ export type GeneratePuzzlesPayload = {
   kind: 'sudoku' | 'word_search' | 'maze' | 'crossword'
   count: number
   difficulty: 'easy' | 'medium' | 'hard' | 'expert'
-  params?: { words?: string[]; entries?: string[] }
+  params?: { words?: string[]; entries?: { word: string; clue: string }[] }
   startOrder?: number
 }
 

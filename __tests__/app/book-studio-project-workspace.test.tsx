@@ -43,6 +43,25 @@ const pagesForColouring = [
   { id: 'page-2', orgId: 'org-1', projectId: 'project-1', kind: 'colouring', order: 1, title: 'Octopus', status: 'draft' },
 ]
 
+const crosswordProject = {
+  id: 'project-crossword',
+  orgId: 'org-1',
+  title: 'Crossword Capers',
+  status: 'draft',
+  format: 'puzzle_crossword',
+}
+
+const crosswordPuzzlePage = {
+  id: 'page-crossword-1',
+  orgId: 'org-1',
+  projectId: 'project-crossword',
+  kind: 'puzzle',
+  order: 3,
+  title: 'Crossword — medium #1',
+  status: 'generated',
+  puzzle: { kind: 'crossword', seed: 42, difficulty: 'medium', params: { entries: [{ word: 'OCEAN', clue: 'Large body of salt water' }] } },
+}
+
 const chaptersForStory = [
   { id: 'chapter-1', orgId: 'org-1', projectId: 'project-story', title: 'Chapter One', order: 0, wordCount: 120, status: 'draft' },
 ]
@@ -274,5 +293,160 @@ describe('BookProjectWorkspace', () => {
 
     await screen.findByText('pages are missing required image assets')
     expect(screen.getByText(/Missing page orders: 0, 2/)).toBeInTheDocument()
+  })
+
+  it('parses crossword dialog entries into {word, clue}[] before posting', async () => {
+    let posted: Record<string, unknown> | undefined
+    installFetch({ projects: [crosswordProject], pages: [], onGeneratePuzzles: (body) => { posted = body } })
+    render(<BookProjectWorkspace orgId="org-1" projectId="project-crossword" />)
+
+    await screen.findByText('Crossword Capers')
+    fireEvent.click(screen.getByRole('button', { name: 'Generate puzzles' }))
+
+    const dialog = await screen.findByRole('dialog', { name: 'Generate puzzles' })
+    const entriesInput = within(dialog).getByLabelText(/Entries/)
+    fireEvent.change(entriesInput, {
+      target: { value: 'OCEAN:Large body of salt water\nWHALE:Big marine mammal\nnoseparatorline\n:missingword\nEMPTYCLUE:' },
+    })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Generate puzzles' }))
+
+    await waitFor(() => expect(posted).toBeDefined())
+    expect(posted).toMatchObject({
+      kind: 'crossword',
+      params: {
+        entries: [
+          { word: 'OCEAN', clue: 'Large body of salt water' },
+          { word: 'WHALE', clue: 'Big marine mammal' },
+        ],
+      },
+    })
+  })
+
+  it('shows an inline validation message when no crossword entries parse', async () => {
+    installFetch({ projects: [crosswordProject], pages: [] })
+    render(<BookProjectWorkspace orgId="org-1" projectId="project-crossword" />)
+
+    await screen.findByText('Crossword Capers')
+    fireEvent.click(screen.getByRole('button', { name: 'Generate puzzles' }))
+
+    const dialog = await screen.findByRole('dialog', { name: 'Generate puzzles' })
+    const entriesInput = within(dialog).getByLabelText(/Entries/)
+    fireEvent.change(entriesInput, { target: { value: 'no colon here\nanother bad line' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Generate puzzles' }))
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Enter at least one valid "word:clue" line')
+  })
+
+  it('regenerate calls generate before delete, passes stored params + preserved startOrder', async () => {
+    const callOrder: string[] = []
+    let generatePayload: Record<string, unknown> | undefined
+    let deleteBody: Record<string, unknown> | undefined
+
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+      if (url.includes('/pages/generate-puzzles') && method === 'POST') {
+        callOrder.push('generate')
+        generatePayload = JSON.parse(String(init?.body ?? '{}'))
+        return jsonResponse({ success: true, data: { pages: [{ id: 'page-crossword-2' }] } }, true, 201)
+      }
+      if (url.includes('/api/v1/book-studio/pages/') && method === 'PATCH') {
+        callOrder.push('delete')
+        deleteBody = JSON.parse(String(init?.body ?? '{}'))
+        return jsonResponse({ success: true, data: { updated: true } })
+      }
+      if (url.includes('/api/v1/book-studio/projects') && method === 'GET') {
+        return jsonResponse({ success: true, data: { resource: 'projects', records: [crosswordProject] } })
+      }
+      if (url.includes('/api/v1/book-studio/chapters') && method === 'GET') {
+        return jsonResponse({ success: true, data: { resource: 'chapters', records: [] } })
+      }
+      if (url.includes('/api/v1/book-studio/pages') && method === 'GET') {
+        return jsonResponse({ success: true, data: { resource: 'pages', records: [crosswordPuzzlePage] } })
+      }
+      return jsonResponse({ success: true, data: {} })
+    }) as jest.Mock
+
+    render(<BookProjectWorkspace orgId="org-1" projectId="project-crossword" />)
+    await screen.findByText('Crossword Capers')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Regenerate' }))
+
+    await waitFor(() => expect(callOrder).toEqual(['generate', 'delete']))
+    expect(generatePayload).toMatchObject({
+      kind: 'crossword',
+      count: 1,
+      difficulty: 'medium',
+      startOrder: 3,
+      params: { entries: [{ word: 'OCEAN', clue: 'Large body of salt water' }] },
+    })
+    expect(deleteBody).toMatchObject({ deleted: true })
+  })
+
+  it('leaves the page un-deleted and shows an error when regenerate generation fails', async () => {
+    let deleteCalled = false
+
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+      if (url.includes('/pages/generate-puzzles') && method === 'POST') {
+        return jsonResponse({ success: false, error: 'Crossword: no valid entries after sanitisation' }, false, 400)
+      }
+      if (url.includes('/api/v1/book-studio/pages/') && method === 'PATCH') {
+        deleteCalled = true
+        return jsonResponse({ success: true, data: { updated: true } })
+      }
+      if (url.includes('/api/v1/book-studio/projects') && method === 'GET') {
+        return jsonResponse({ success: true, data: { resource: 'projects', records: [crosswordProject] } })
+      }
+      if (url.includes('/api/v1/book-studio/chapters') && method === 'GET') {
+        return jsonResponse({ success: true, data: { resource: 'chapters', records: [] } })
+      }
+      if (url.includes('/api/v1/book-studio/pages') && method === 'GET') {
+        return jsonResponse({ success: true, data: { resource: 'pages', records: [crosswordPuzzlePage] } })
+      }
+      return jsonResponse({ success: true, data: {} })
+    }) as jest.Mock
+
+    render(<BookProjectWorkspace orgId="org-1" projectId="project-crossword" />)
+    await screen.findByText('Crossword Capers')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Regenerate' }))
+
+    await screen.findByText('Crossword: no valid entries after sanitisation')
+    expect(deleteCalled).toBe(false)
+  })
+
+  it('surfaces an error and still refetches when one of the movePage order PATCHes fails', async () => {
+    let patchCount = 0
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+      if (url.includes('/api/v1/book-studio/pages/') && method === 'PATCH') {
+        patchCount += 1
+        if (patchCount === 2) {
+          return jsonResponse({ success: false, error: 'order update rejected' }, false, 500)
+        }
+        return jsonResponse({ success: true, data: { updated: true } })
+      }
+      if (url.includes('/api/v1/book-studio/projects') && method === 'GET') {
+        return jsonResponse({ success: true, data: { resource: 'projects', records: [colouringProject] } })
+      }
+      if (url.includes('/api/v1/book-studio/chapters') && method === 'GET') {
+        return jsonResponse({ success: true, data: { resource: 'chapters', records: [] } })
+      }
+      if (url.includes('/api/v1/book-studio/pages') && method === 'GET') {
+        return jsonResponse({ success: true, data: { resource: 'pages', records: pagesForColouring } })
+      }
+      return jsonResponse({ success: true, data: {} })
+    }) as jest.Mock
+
+    render(<BookProjectWorkspace orgId="org-1" projectId="project-1" />)
+    await screen.findByText('Ocean Friends Colouring Book')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Whale down' }))
+
+    await screen.findByText('order update rejected')
+    expect(patchCount).toBe(2)
   })
 })

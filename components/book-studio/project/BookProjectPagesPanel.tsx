@@ -18,7 +18,7 @@ type BookProjectPagesPanelProps = {
     count: number
     difficulty: string
     words?: string[]
-    entries?: string[]
+    entries?: { word: string; clue: string }[]
   }) => Promise<{ ok: boolean; error?: string }>
   addingPage: boolean
   regeneratingPageId: string | null
@@ -150,7 +150,7 @@ function GeneratePuzzlesDialog({
   open: boolean
   puzzleKind: PuzzleKind
   onClose: () => void
-  onGenerate: (input: { kind: string; count: number; difficulty: string; words?: string[]; entries?: string[] }) => Promise<{ ok: boolean; error?: string }>
+  onGenerate: (input: { kind: string; count: number; difficulty: string; words?: string[]; entries?: { word: string; clue: string }[] }) => Promise<{ ok: boolean; error?: string }>
   generating: boolean
 }) {
   const isMixed = puzzleKind === 'mixed'
@@ -160,17 +160,41 @@ function GeneratePuzzlesDialog({
   const [wordsText, setWordsText] = useState('')
   const [error, setError] = useState('')
 
+  function parseEntries(lines: string[]): { word: string; clue: string }[] {
+    const entries: { word: string; clue: string }[] = []
+    for (const line of lines) {
+      const separatorIndex = line.indexOf(':')
+      if (separatorIndex === -1) continue
+      const word = line.slice(0, separatorIndex).trim()
+      const clue = line.slice(separatorIndex + 1).trim()
+      if (!word || !clue) continue
+      entries.push({ word, clue })
+    }
+    return entries
+  }
+
   async function submit(event: React.FormEvent) {
     event.preventDefault()
     setError('')
     const lines = wordsText.split('\n').map((line) => line.trim()).filter(Boolean)
     const isCrossword = kind === 'crossword'
+
+    let entries: { word: string; clue: string }[] | undefined
+    if (isCrossword) {
+      entries = parseEntries(lines)
+      if (lines.length && entries.length === 0) {
+        setError('Enter at least one valid "word:clue" line')
+        return
+      }
+      if (entries.length === 0) entries = undefined
+    }
+
     const result = await onGenerate({
       kind,
       count,
       difficulty,
       words: !isCrossword && lines.length ? lines : undefined,
-      entries: isCrossword && lines.length ? lines : undefined,
+      entries,
     })
     if (!result.ok) {
       setError(result.error ?? 'Could not generate puzzles')

@@ -64,6 +64,7 @@ export type BookPagePuzzle = {
   kind?: string
   seed?: number
   difficulty?: string
+  params?: { words?: string[]; entries?: { word: string; clue: string }[] }
 }
 
 export type BookPageKind =
