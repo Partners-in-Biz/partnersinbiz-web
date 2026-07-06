@@ -2,6 +2,7 @@ import React from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { YouTubeStudioChannelHeader } from '@/components/youtube-studio/YouTubeStudioChannelHeader'
 import { YouTubeStudioWorkQueue } from '@/components/youtube-studio/YouTubeStudioWorkQueue'
+import { YouTubeStudioDetailsTabs } from '@/components/youtube-studio/YouTubeStudioDetailsTabs'
 import { buildWorkQueue } from '@/lib/youtube-studio/work-queue'
 import type { YouTubeChannelWorkspace, YouTubeVideoProject } from '@/lib/youtube-studio/types'
 
@@ -139,5 +140,83 @@ describe('YouTubeStudioWorkQueue', () => {
     render(<YouTubeStudioWorkQueue groups={groups} renderItemActions={() => null} />)
     expect(screen.getByText(/No video work yet/)).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: /Needs your input/ })).not.toBeInTheDocument()
+  })
+})
+
+const noopDecisions = {
+  canReviewApprovals: true,
+  draftNotes: {},
+  renderNotes: {},
+  packetNotes: {},
+  reviewingDraftId: null,
+  reviewingRenderId: null,
+  reviewingPacketId: null,
+  onDraftNotesChange: jest.fn(),
+  onRenderNotesChange: jest.fn(),
+  onPacketNotesChange: jest.fn(),
+  onDraftDecision: jest.fn(),
+  onRenderDecision: jest.fn(),
+  onPacketDecision: jest.fn(),
+}
+
+describe('YouTubeStudioDetailsTabs', () => {
+  it('renders nothing when every collection is empty', () => {
+    const { container } = render(
+      <YouTubeStudioDetailsTabs
+        sourceAssets={[]}
+        clipCandidates={[]}
+        productionDrafts={[]}
+        renderJobs={[]}
+        packets={[]}
+        releasePlans={[]}
+        analytics={[]}
+        {...noopDecisions}
+      />,
+    )
+    expect(container).toBeEmptyDOMElement()
+  })
+
+  it('only renders tabs for populated collections and switches between them', () => {
+    render(
+      <YouTubeStudioDetailsTabs
+        sourceAssets={[{ id: 'a1', orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Raw shoot', assetType: 'raw_footage', status: 'ready', deleted: false } as never]}
+        clipCandidates={[]}
+        productionDrafts={[]}
+        renderJobs={[{ id: 'r1', orgId: 'org-1', channelWorkspaceId: 'channel-1', videoProjectId: 'v1', title: 'Cut A', renderType: 'full_video', targetFormat: 'horizontal_16_9', status: 'qa_review', versionNumber: 1, timeline: [], deleted: false } as never]}
+        packets={[]}
+        releasePlans={[]}
+        analytics={[]}
+        {...noopDecisions}
+      />,
+    )
+    expect(screen.getByRole('tab', { name: /Source assets \(1\)/ })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: /Renders \(1\)/ })).toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: /Clip candidates/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: /Packets/ })).not.toBeInTheDocument()
+
+    // first populated tab is active by default
+    expect(screen.getByText('Raw shoot')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: /Renders \(1\)/ }))
+    expect(screen.getByText('Cut A')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Approve render' })).toBeInTheDocument()
+  })
+
+  it('fires render decisions from the renders tab', () => {
+    const onRenderDecision = jest.fn()
+    render(
+      <YouTubeStudioDetailsTabs
+        sourceAssets={[]}
+        clipCandidates={[]}
+        productionDrafts={[]}
+        renderJobs={[{ id: 'r1', orgId: 'org-1', channelWorkspaceId: 'channel-1', videoProjectId: 'v1', title: 'Cut A', renderType: 'full_video', targetFormat: 'horizontal_16_9', status: 'qa_review', versionNumber: 1, timeline: [], deleted: false } as never]}
+        packets={[]}
+        releasePlans={[]}
+        analytics={[]}
+        {...noopDecisions}
+        onRenderDecision={onRenderDecision}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Approve render' }))
+    expect(onRenderDecision).toHaveBeenCalledWith('r1', 'approved')
   })
 })
