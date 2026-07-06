@@ -83,6 +83,29 @@ export function buildMarketingHubProps(config: MarketingHubSurface): HubPageProp
             eyebrow: 'Connect',
           },
         ]),
+        section('Studio', [
+          {
+            label: 'Marketing Studio',
+            href: scopedPortalPath('/portal/creative-canvas', config),
+            icon: 'draw',
+            description: 'Create campaign visuals and reusable media assets.',
+            eyebrow: 'Canvas',
+          },
+          {
+            label: 'Video Editor',
+            href: scopedPortalPath('/portal/video-editor', config),
+            icon: 'movie_edit',
+            description: 'Assemble clips, add text, render MP4s, and send outputs into YouTube or Marketing Studio.',
+            eyebrow: 'Edit',
+          },
+          {
+            label: 'YouTube Studio',
+            href: scopedPortalPath('/portal/youtube-studio', config),
+            icon: 'smart_display',
+            description: 'Request videos, review drafts, and manage channel production work.',
+            eyebrow: 'YouTube',
+          },
+        ]),
         section('Social media', [
           {
             label: 'Social overview',

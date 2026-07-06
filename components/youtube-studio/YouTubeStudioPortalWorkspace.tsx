@@ -18,6 +18,7 @@ import { YouTubeStudioGuide } from '@/components/youtube-studio/YouTubeStudioGui
 import { YouTubeStudioOAuthReturnHandler } from '@/components/youtube-studio/YouTubeStudioOAuthReturnHandler'
 import { YouTubeStudioPipelineBoard } from '@/components/youtube-studio/YouTubeStudioPipelineBoard'
 import { YouTubeStudioWorkspaceShell } from '@/components/youtube-studio/YouTubeStudioWorkspaceShell'
+import { VideoEditorProjectList } from '@/components/video-editor/VideoEditorProjectList'
 import { appendQueryParams, scopedApiPath } from '@/lib/portal/scoped-routing'
 
 interface YouTubeStudioPortalWorkspaceProps {
@@ -788,6 +789,8 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
               ))
             )}
           </div>
+
+          <VideoEditorProjectList orgId={activeOrgId} compact />
 
           <div className="space-y-3">
             <h2 className="font-headline text-xl font-semibold text-on-surface">Publishing packets</h2>

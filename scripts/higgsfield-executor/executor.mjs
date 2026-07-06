@@ -31,9 +31,11 @@
 import { createServer } from 'node:http'
 import { spawn } from 'node:child_process'
 import { createHash, timingSafeEqual, randomUUID } from 'node:crypto'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { compileEditorFiltergraph } from './lib/editor-filtergraph.mjs'
+import { assertAllowedMediaUrl } from './lib/editor-media.mjs'
 
 const PORT = Number(process.env.PORT || 8690)
 const RUNTIME_API_KEY = process.env.RUNTIME_API_KEY || ''
@@ -132,6 +134,11 @@ function runCli(args, timeoutMs, envOverrides) {
 }
 
 const FFMPEG_BIN = process.env.FFMPEG_BIN || 'ffmpeg'
+const EDITOR_RENDER_TIMEOUT_MS = Number(process.env.EDITOR_RENDER_TIMEOUT_MS || 30 * 60 * 1000)
+const EDITOR_MEDIA_MAX_BYTES = Number(process.env.EDITOR_MEDIA_MAX_BYTES || 2_000_000_000)
+const EDITOR_EXTRA_MEDIA_HOSTS = (process.env.EDITOR_EXTRA_MEDIA_HOSTS || '')
+  .split(',').map((host) => host.trim().toLowerCase()).filter(Boolean)
+const EDITOR_FONT_FILE = process.env.EDITOR_FONT_FILE || undefined
 
 /** Run ffmpeg, capturing stderr. Never rejects — resolves with the exit code. */
 function runFfmpeg(args, timeoutMs) {
@@ -245,6 +252,156 @@ async function downloadMedia(url, dir, index) {
   const file = join(dir, `ref-${index}.${extension === 'jpeg' ? 'jpg' : extension}`)
   await writeFile(file, buffer)
   return file
+}
+
+async function downloadEditorMedia(url, dir, index) {
+  let current = assertAllowedMediaUrl(url, { extraHosts: EDITOR_EXTRA_MEDIA_HOSTS }).href
+  let response
+  for (let hop = 0; hop < 5; hop += 1) {
+    response = await fetch(current, { redirect: 'manual' })
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location')
+      if (!location) throw new Error(`redirect without location: ${current.slice(0, 120)}`)
+      current = assertAllowedMediaUrl(new URL(location, current).href, { extraHosts: EDITOR_EXTRA_MEDIA_HOSTS }).href
+      continue
+    }
+    break
+  }
+  if (!response || !response.ok) {
+    throw new Error(`media download failed (${response ? response.status : 'no response'}): ${current.slice(0, 120)}`)
+  }
+  const buffer = Buffer.from(await response.arrayBuffer())
+  if (buffer.length > EDITOR_MEDIA_MAX_BYTES) throw new Error(`media larger than ${EDITOR_MEDIA_MAX_BYTES} bytes: ${current.slice(0, 120)}`)
+  const contentType = (response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()
+  const extension = CONTENT_TYPE_EXTENSIONS[contentType]
+    ?? (new URL(current).pathname.match(/\.(png|jpe?g|webp|gif|mp4|mov|webm|mp3|wav)$/i) || [])[1]?.toLowerCase()
+    ?? sniffExtension(buffer)
+  if (!extension) throw new Error(`could not determine media type: ${current.slice(0, 120)}`)
+  const file = join(dir, `media-${index}.${extension === 'jpeg' ? 'jpg' : extension}`)
+  await writeFile(file, buffer)
+  return file
+}
+
+async function uploadRenderedMp4(base, filePath, orgId, folder, filename) {
+  const buffer = await readFile(filePath)
+  const form = new FormData()
+  form.set('file', new Blob([buffer], { type: 'video/mp4' }), filename)
+  form.set('folder', folder)
+  form.set('filename', filename)
+  form.set('orgId', orgId)
+  const response = await fetch(`${base}/api/v1/upload`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${PIB_AGENT_API_KEY}` },
+    body: form,
+  })
+  const text = await response.text().catch(() => '')
+  if (!response.ok) throw new Error(`platform upload failed (${response.status}): ${text.slice(0, 300)}`)
+  let body = {}
+  try { body = JSON.parse(text) } catch { /* keep empty */ }
+  const data = body?.data ?? body
+  if (!data?.url || !data?.storagePath) throw new Error('platform upload returned no url/storagePath')
+  return {
+    url: data.url,
+    storagePath: data.storagePath,
+    uploadId: data.id,
+    sha256: createHash('sha256').update(buffer).digest('hex'),
+    sizeBytes: buffer.length,
+  }
+}
+
+async function executeEditorRender(job, manifest) {
+  const base = baseUrlFrom(manifest)
+  const reportPath = manifest.report?.path
+    || `/api/v1/video-editor/render-jobs/${manifest.job.id}?orgId=${encodeURIComponent(manifest.job.orgId)}`
+
+  const fail = async (message, code = 'editor_render_error') => {
+    job.status = 'failed'
+    job.providerStatus = code
+    job.providerStatusMessage = message.slice(0, 1500)
+    log('error', 'editor render failed', { jobId: manifest.job.id, code, message: job.providerStatusMessage })
+    await platformPut(base, reportPath, { status: 'failed', error: { code, message: message.slice(0, 4000) } })
+  }
+
+  let workDir
+  try {
+    await platformPut(base, reportPath, { status: 'rendering' })
+    workDir = await mkdtemp(join(tmpdir(), 'vedit-'))
+
+    const localMediaPaths = {}
+    const media = Array.isArray(manifest.media) ? manifest.media : []
+    for (let index = 0; index < media.length; index += 1) {
+      const entry = media[index]
+      if (!entry?.clipId || !entry?.url) continue
+      try {
+        localMediaPaths[entry.clipId] = await downloadEditorMedia(entry.url, workDir, index)
+      } catch (error) {
+        await fail(
+          `Media download failed for clip ${entry.clipId} (${String(entry.url).slice(0, 120)}): ${String(error?.message || error)}`,
+          'editor_media_download_failed',
+        )
+        return
+      }
+    }
+
+    const compiled = compileEditorFiltergraph({
+      timeline: manifest.timeline,
+      settings: manifest.settings,
+      localMediaPaths,
+      ...(EDITOR_FONT_FILE ? { fontFile: EDITOR_FONT_FILE } : {}),
+    })
+
+    const outPath = join(workDir, 'out.mp4')
+    const result = await runFfmpeg(
+      ['-y', ...compiled.inputs, '-filter_complex', compiled.filterComplex, ...compiled.outputArgs, outPath],
+      EDITOR_RENDER_TIMEOUT_MS,
+    )
+    if (result.code !== 0) {
+      await fail(`ffmpeg exited ${result.code}: ${result.stderr.trim().slice(-1500)}`, 'ffmpeg_failed')
+      return
+    }
+    const stats = await stat(outPath)
+    if (!(stats.size > 0)) {
+      await fail('ffmpeg produced an empty output file', 'ffmpeg_empty_output')
+      return
+    }
+
+    const uploaded = await uploadRenderedMp4(
+      base,
+      outPath,
+      manifest.job.orgId,
+      manifest.upload?.folder || `video-editor/${manifest.job.orgId}/${manifest.job.projectId}`,
+      manifest.upload?.filename || `${manifest.job.id}.mp4`,
+    )
+
+    const report = await platformPut(base, reportPath, {
+      status: 'rendered',
+      output: {
+        url: uploaded.url,
+        storagePath: uploaded.storagePath,
+        durationSeconds: compiled.durationSeconds,
+        sizeBytes: uploaded.sizeBytes,
+        sha256: uploaded.sha256,
+      },
+    })
+    if (!report.ok) {
+      await fail(
+        `Render succeeded but the platform rejected completion (HTTP ${report.status}): ${(report.body || '').slice(0, 300)}`,
+        'platform_complete_failed',
+      )
+      return
+    }
+
+    job.status = 'completed'
+    job.providerStatus = 'completed'
+    job.providerStatusMessage = 'Rendered by higgsfield-executor.'
+    job.output = { kind: 'video', url: uploaded.url, storagePath: uploaded.storagePath, sha256: uploaded.sha256 }
+    log('info', 'editor render completed', { jobId: manifest.job.id, sizeBytes: uploaded.sizeBytes, durationSeconds: compiled.durationSeconds })
+  } catch (error) {
+    await fail(`Executor error: ${String(error?.message || error).slice(0, 800)}`, 'executor_error')
+  } finally {
+    if (workDir) rm(workDir, { recursive: true, force: true }).catch(() => {})
+    setTimeout(() => jobs.delete(job.providerJobId), JOB_TTL_MS).unref?.()
+  }
 }
 
 async function executeRun(job, input) {
@@ -411,6 +568,40 @@ const server = createServer(async (req, res) => {
         providerStatus: job.providerStatus,
         providerStatusMessage: job.providerStatusMessage,
         providerStatusUrl: `/higgsfield-executor/creative-canvas/runs/${providerJobId}`,
+      })
+    }
+
+    if (req.method === 'POST' && url.pathname === '/video-editor/renders') {
+      const body = JSON.parse(await readBody(req) || 'null')
+      if (body?.kind !== 'video_editor_render' || !body.job?.id || !body.job?.orgId || !body.job?.projectId
+          || !body.timeline || !body.settings) {
+        return json(res, 400, { error: 'Valid video_editor_render manifest is required' })
+      }
+      const providerJobId = `vedit-${body.job.id}-${randomUUID().slice(0, 8)}`
+      const job = {
+        providerJobId,
+        jobId: body.job.id,
+        status: 'running',
+        providerStatus: 'executor_accepted',
+        providerStatusMessage: 'Editor render accepted.',
+        createdAt: Date.now(),
+      }
+      jobs.set(providerJobId, job)
+      log('info', 'editor render accepted', { jobId: body.job.id, providerJobId, mediaCount: Array.isArray(body.media) ? body.media.length : 0 })
+      executeEditorRender(job, body).catch((error) => log('error', 'executeEditorRender crashed', { jobId: body.job.id, error: String(error) }))
+      return json(res, 200, { providerJobId, status: 'running', providerStatus: job.providerStatus, providerStatusMessage: job.providerStatusMessage })
+    }
+
+    const editorStatusMatch = url.pathname.match(/^\/video-editor\/renders\/([A-Za-z0-9-]+)$/)
+    if (req.method === 'GET' && editorStatusMatch) {
+      const job = jobs.get(editorStatusMatch[1])
+      if (!job) return json(res, 404, { error: 'Job not found' })
+      return json(res, 200, {
+        providerJobId: job.providerJobId,
+        status: job.status,
+        providerStatus: job.providerStatus,
+        providerStatusMessage: job.providerStatusMessage,
+        ...(job.output ? { output: job.output } : {}),
       })
     }
 

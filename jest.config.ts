@@ -32,7 +32,9 @@ const config: Config = {
           '<rootDir>/jest.yoga-wasm-transform.js',
         '^.+\\.tsx?$': ['ts-jest', {}],
         '^.+\\.js$': ['ts-jest', { isolatedModules: true }],
+        '^.+\\.mjs$': ['ts-jest', { isolatedModules: true }],
       },
+      moduleFileExtensions: ['ts', 'tsx', 'js', 'mjs', 'json'],
     },
     {
       preset: 'ts-jest',

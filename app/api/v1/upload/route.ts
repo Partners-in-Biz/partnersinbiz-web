@@ -23,7 +23,12 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser) =>
   const relatedToType = (formData.get('relatedToType') as string) || null
   const relatedToId = (formData.get('relatedToId') as string) || null
   const ext = file.name.split('.').pop() ?? 'bin'
-  const filename = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+  const requestedFilename = ((formData.get('filename') as string) || '')
+    .replace(/[^a-zA-Z0-9._-]/g, '')
+    .slice(0, 120)
+  const filename = requestedFilename
+    ? `${folder}/${requestedFilename}`
+    : `${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
 
   const bytes = await file.arrayBuffer()
   const buffer = Buffer.from(bytes)
@@ -57,7 +62,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser) =>
       deleted: false,
     })
 
-    return apiSuccess({ id: docRef.id, url: publicUrl, name: file.name, mimeType: file.type, size: file.size })
+    return apiSuccess({ id: docRef.id, url: publicUrl, storagePath: filename, name: file.name, mimeType: file.type, size: file.size })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
     console.error('[upload] Firebase Storage error:', message)
