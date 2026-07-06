@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { scopedApiPath } from '@/lib/portal/scoped-routing'
-import { addClip, addTrack, moveClip, removeClip, splitClip } from '@/lib/video-editor/timeline-ops'
+import { addClip, addTrack, moveClip, removeClip, splitClip, trimClip } from '@/lib/video-editor/timeline-ops'
 import { defaultVideoEditorSettings } from '@/lib/video-editor/types'
 import type { EditorClip, EditorTimeline, EditorTrackKind, VideoEditorProject, VideoEditorRenderJob } from '@/lib/video-editor/types'
 import { ExportDialog } from './ExportDialog'
@@ -111,6 +111,14 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
         : track),
     }
     void persist(next)
+  }
+
+  function handleTrimClip(trackId: string, clipId: string, edge: 'start' | 'end', deltaSeconds: number) {
+    try {
+      void persist(trimClip(timeline, trackId, clipId, { edge, deltaSeconds }))
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not trim clip')
+    }
   }
 
   function addMediaClip(clip: EditorClip) {
@@ -239,7 +247,7 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
             onMoveClip={(trackId, clipId, toStart) => {
               try { void persist(moveClip(timeline, trackId, clipId, { toStart })) } catch (error) { setNotice(error instanceof Error ? error.message : 'Could not move clip') }
             }}
-            onTrimClip={() => undefined}
+            onTrimClip={handleTrimClip}
             onSplitAtPlayhead={() => {
               if (!selection?.clipIds[0]) return
               try { void persist(splitClip(timeline, selection.trackId, selection.clipIds[0], playhead)) } catch (error) { setNotice(error instanceof Error ? error.message : 'Could not split clip') }
@@ -256,7 +264,14 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
           />
         </div>
         <div className="space-y-4">
-          <InspectorPanel clip={selectedClip} onPatch={patchSelected} />
+          <InspectorPanel
+            clip={selectedClip}
+            onPatch={patchSelected}
+            onTrim={(edge, deltaSeconds) => {
+              if (!selection?.clipIds[0]) return
+              handleTrimClip(selection.trackId, selection.clipIds[0], edge, deltaSeconds)
+            }}
+          />
           <ExportDialog projectId={project.id} timeline={timeline} settings={settings} latestJob={jobs[0]} busy={busy} onRender={() => void renderProject()} />
         </div>
       </div>

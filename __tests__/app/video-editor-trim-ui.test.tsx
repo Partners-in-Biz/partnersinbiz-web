@@ -1,7 +1,8 @@
 import React from 'react'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { TimelinePanel } from '@/components/video-editor/TimelinePanel'
 import { InspectorPanel } from '@/components/video-editor/InspectorPanel'
+import { VideoEditorShell } from '@/components/video-editor/VideoEditorShell'
 import type { EditorTimeline } from '@/lib/video-editor/types'
 
 const timeline: EditorTimeline = {
@@ -136,5 +137,56 @@ describe('InspectorPanel trim fields', () => {
   it('hides trim fields when onTrim is not provided', () => {
     render(<InspectorPanel clip={clip} onPatch={jest.fn()} />)
     expect(screen.queryByLabelText('In point (s)')).not.toBeInTheDocument()
+  })
+})
+
+describe('VideoEditorShell trim wiring', () => {
+  const project = {
+    id: 'proj-1',
+    orgId: 'org-1',
+    title: 'Demo edit',
+    timeline: {
+      version: 1,
+      tracks: [
+        {
+          id: 't1',
+          kind: 'video',
+          label: 'V1',
+          clips: [{ id: 'a', timelineStart: 0, duration: 4, media: { type: 'upload', fileId: 'f-a', url: 'https://x.test/a.mp4', mediaKind: 'video' } }],
+        },
+      ],
+    },
+  }
+
+  beforeEach(() => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/api/v1/video-editor/projects/proj-1') && (!init?.method || init.method === 'GET')) {
+        return { ok: true, status: 200, json: async () => ({ success: true, data: { project } }) } as Response
+      }
+      if (url.includes('/api/v1/video-editor/render-jobs')) {
+        return { ok: true, status: 200, json: async () => ({ success: true, data: { jobs: [] } }) } as Response
+      }
+      return { ok: true, status: 200, json: async () => ({ success: true, data: {} }) } as Response
+    }) as jest.Mock
+  })
+
+  it('persists a trimmed timeline when a trim handle drag commits', async () => {
+    render(<VideoEditorShell projectId="proj-1" orgId="org-1" />)
+    const handle = await screen.findByRole('button', { name: 'Trim start of clip a' })
+    fireEvent.pointerDown(handle, { clientX: 100, pointerId: 1 })
+    fireEvent.pointerMove(window, { clientX: 160, pointerId: 1 })
+    fireEvent.pointerUp(window, { clientX: 160, pointerId: 1 })
+
+    await waitFor(() => {
+      const putCall = (global.fetch as jest.Mock).mock.calls.find(([url, init]) =>
+        String(url).includes('/api/v1/video-editor/projects/proj-1') && init?.method === 'PUT')
+      expect(putCall).toBeTruthy()
+      const body = JSON.parse(String(putCall?.[1]?.body))
+      const clip = body.timeline.tracks[0].clips[0]
+      expect(clip.timelineStart).toBe(1)
+      expect(clip.duration).toBe(3)
+      expect(clip.trimStart).toBe(1)
+    })
   })
 })
