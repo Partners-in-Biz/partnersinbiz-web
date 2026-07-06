@@ -7,6 +7,22 @@ function label(value?: string) {
   return value ? value.replace(/_/g, ' ') : 'not set'
 }
 
+function clientStatusLabel(value?: string) {
+  if (!value) return 'Not set'
+  const labels: Record<string, string> = {
+    intake: 'Requested',
+    briefing: 'Briefing',
+    production: 'PiB producing',
+    internal_review: 'PiB checking',
+    client_review: 'Your review',
+    changes_requested: 'Changes requested',
+    publish_ready: 'Ready to publish',
+    scheduled: 'Scheduled',
+    live: 'Live',
+  }
+  return labels[value] ?? label(value)
+}
+
 function maybeText(value?: string) {
   return value && value.trim() ? value.trim() : null
 }
@@ -14,7 +30,7 @@ function maybeText(value?: string) {
 export function StatusPill({ status }: { status?: string }) {
   return (
     <span className="shrink-0 whitespace-nowrap rounded-full border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
-      {label(status)}
+      {clientStatusLabel(status)}
     </span>
   )
 }
@@ -101,19 +117,19 @@ export function YouTubeVideoCard({
   children?: ReactNode
 }) {
   return (
-    <article className="pib-card-section min-w-0 space-y-3 p-4">
+    <article className="pib-card-section min-w-0 space-y-4 p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <h3 className="break-words font-headline text-lg font-semibold text-on-surface">{video.title}</h3>
-          <p className="break-words text-sm text-on-surface-variant">{video.objective || label(video.videoType)}</p>
+          <h3 className="break-words font-headline text-base font-semibold leading-snug text-on-surface">{video.title}</h3>
+          <p className="mt-1 break-words text-sm leading-relaxed text-on-surface-variant">{video.objective || label(video.videoType)}</p>
         </div>
         <StatusPill status={video.status} />
       </div>
-      <div className="grid grid-cols-2 gap-2 text-xs text-on-surface-variant sm:grid-cols-4">
-        <span className="min-w-0 break-words">Type: {label(video.videoType)}</span>
-        <span className="min-w-0 break-words">Review: {label(video.clientReview?.status)}</span>
-        <span className="min-w-0 break-words">Source: {label(video.source?.intakeType)}</span>
-        <span className="min-w-0 break-words">Target: {video.targetDurationSeconds ? `${video.targetDurationSeconds}s` : 'open'}</span>
+      <div className="grid gap-2 text-xs leading-relaxed text-on-surface-variant sm:grid-cols-2">
+        <span className="min-w-0 break-words">Format: {label(video.videoType)}</span>
+        <span className="min-w-0 break-words">Approval: {clientStatusLabel(video.clientReview?.status)}</span>
+        <span className="min-w-0 break-words">Input: {label(video.source?.intakeType)}</span>
+        <span className="min-w-0 break-words">Length: {video.targetDurationSeconds ? `${video.targetDurationSeconds}s` : 'Open'}</span>
       </div>
       {video.clientNotes ? <p className="break-words rounded-xl bg-white/[0.04] p-3 text-sm text-on-surface">{video.clientNotes}</p> : null}
       {children ? <div className="flex flex-wrap gap-2 pt-1">{children}</div> : null}

@@ -96,6 +96,8 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   const reviewingDraftIdRef = useRef<string | null>(null)
   const reviewingRenderIdRef = useRef<string | null>(null)
   const loadRequestIdRef = useRef(0)
+  const requestFormRef = useRef<HTMLFormElement>(null)
+  const editProjectsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setResolvedOrgId(orgId ?? '')
@@ -115,6 +117,34 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   const previousApiPathRef = useRef(apiPath)
   activeApiPathRef.current = apiPath
   const notice = loadNotice || actionNotice
+  const pendingVideoReviews = useMemo(() => videos.filter(isClientReviewOpen), [videos])
+  const pendingPacketReviews = useMemo(
+    () => packets.filter((packet) => packet.status === 'client_review'),
+    [packets],
+  )
+  const pendingDraftReviews = useMemo(
+    () => productionDrafts.filter((draft) => draft.status === 'client_review'),
+    [productionDrafts],
+  )
+  const pendingRenderReviews = useMemo(
+    () => renderJobs.filter((job) => job.status === 'qa_review'),
+    [renderJobs],
+  )
+  const pendingWorkCount =
+    pendingVideoReviews.length + pendingPacketReviews.length + pendingDraftReviews.length + pendingRenderReviews.length
+  const activeVideoCount = videos.filter((video) => video.status !== 'live').length
+  const requestCanSubmit = Boolean(
+    capabilities.canCreate && request.channelWorkspaceId && request.title.trim() && request.objective.trim(),
+  )
+  const requestHelpText = buildRequestHelpText(request, submittingRequest)
+  const hasClientProductionWork =
+    sourceAssets.length > 0 ||
+    clipCandidates.length > 0 ||
+    productionDrafts.length > 0 ||
+    renderJobs.length > 0 ||
+    packets.length > 0 ||
+    releasePlans.length > 0 ||
+    analytics.length > 0
 
   const load = useCallback(async () => {
     if (apiPath !== activeApiPathRef.current) return
@@ -222,13 +252,29 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
     setRequest((prev) => ({ ...prev, [field]: value }))
   }
 
+  function showOverviewSection(target: 'request' | 'editor') {
+    setActiveTab('overview')
+    const scrollToSection = () => {
+      const element = target === 'request' ? requestFormRef.current : editProjectsRef.current
+      element?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+    }
+    if (typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(scrollToSection)
+    } else {
+      scrollToSection()
+    }
+  }
+
   async function submitRequest(event: React.FormEvent) {
     event.preventDefault()
     if (!capabilities.canCreate) {
       setActionNotice('YouTube video requests are disabled for your organisation role.')
       return
     }
-    if (submittingRequestRef.current || !request.channelWorkspaceId || !request.title.trim()) return
+    if (submittingRequestRef.current || !requestCanSubmit) {
+      setActionNotice(requestHelpText)
+      return
+    }
     const mutationApiPath = apiPath
     const isCurrentMutation = () => mutationApiPath === activeApiPathRef.current
     submittingRequestRef.current = true
@@ -248,7 +294,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
         return
       }
       setRequest(emptyRequest)
-      setActionNotice('Video request sent to the PiB team.')
+      setActionNotice('Video request sent to the PiB team. Next: PiB will shape the brief and move it into the pipeline when work starts.')
       await load()
     } catch {
       if (isCurrentMutation()) {
@@ -475,6 +521,54 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       <Suspense fallback={null}>
         <YouTubeStudioOAuthReturnHandler onRefresh={load} onProvisionFailed={setRetryAccountId} />
       </Suspense>
+      <section className="grid gap-3 md:grid-cols-3">
+        <article className="pib-card-section flex min-w-0 flex-col gap-4 p-5">
+          <div className="min-w-0">
+            <p className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Request</p>
+            <h2 className="mt-1 font-headline text-xl font-semibold text-on-surface">Request a PiB video</h2>
+            <p className="mt-2 text-sm text-on-surface-variant">{channels.length ? 'Send PiB a clear brief for the next video.' : 'Link a channel before requesting production work.'}</p>
+          </div>
+          <button type="button" onClick={() => showOverviewSection('request')} className="pib-btn-primary mt-auto justify-center text-sm">
+            Request a PiB video
+          </button>
+        </article>
+        <article className="pib-card-section flex min-w-0 flex-col gap-4 p-5">
+          <div className="min-w-0">
+            <p className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Editor</p>
+            <h2 className="mt-1 font-headline text-xl font-semibold text-on-surface">Create or edit a video</h2>
+            <p className="mt-2 text-sm text-on-surface-variant">Start a channel-linked edit project or open recent edits.</p>
+          </div>
+          <button type="button" onClick={() => showOverviewSection('editor')} className="pib-btn-ghost mt-auto justify-center text-sm">
+            Create/edit a video
+          </button>
+        </article>
+        <article className="pib-card-section flex min-w-0 flex-col gap-4 p-5">
+          <div className="min-w-0">
+            <p className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Review</p>
+            <h2 className="mt-1 font-headline text-xl font-semibold text-on-surface">Review pending work</h2>
+            <p className="mt-2 text-sm text-on-surface-variant">
+              {pendingWorkCount ? `${pendingWorkCount} item${pendingWorkCount === 1 ? '' : 's'} waiting for a decision.` : 'No client decisions waiting right now.'}
+            </p>
+          </div>
+          <button type="button" onClick={() => setActiveTab('pipeline')} className="pib-btn-ghost mt-auto justify-center text-sm">
+            Review pending work
+          </button>
+        </article>
+      </section>
+      <section className="grid gap-3 sm:grid-cols-3">
+        <div className="pib-card-section px-4 py-3">
+          <p className="text-xs text-on-surface-variant">Connected channels</p>
+          <p className="text-2xl font-bold text-on-surface">{channels.length}</p>
+        </div>
+        <div className="pib-card-section px-4 py-3">
+          <p className="text-xs text-on-surface-variant">Active video work</p>
+          <p className="text-2xl font-bold text-on-surface">{activeVideoCount}</p>
+        </div>
+        <div className="pib-card-section px-4 py-3">
+          <p className="text-xs text-on-surface-variant">Waiting for review</p>
+          <p className="text-2xl font-bold text-on-surface">{pendingWorkCount}</p>
+        </div>
+      </section>
       <div className="flex gap-2">
         {(['overview', 'pipeline'] as const).map((tab) => (
           <button
@@ -518,11 +612,20 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
           </div>
 
           <div className="space-y-3">
-            <h2 className="font-headline text-xl font-semibold text-on-surface">Video reviews</h2>
-            {videos.length === 0 ? (
-              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No YouTube videos yet.</div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="font-headline text-xl font-semibold text-on-surface">Review queue</h2>
+              {videos.length ? (
+                <button type="button" onClick={() => setActiveTab('pipeline')} className="pib-btn-ghost text-sm">
+                  View full pipeline
+                </button>
+              ) : null}
+            </div>
+            {pendingVideoReviews.length === 0 ? (
+              <div className="pib-card-section p-5 text-sm text-on-surface-variant">
+                No video decisions are waiting. New requests and edits will appear in the pipeline as PiB works on them.
+              </div>
             ) : (
-              videos.map((video) => (
+              pendingVideoReviews.map((video) => (
                 <YouTubeVideoCard key={video.id ?? video.title} video={video}>
                   {capabilities.canReviewApprovals && video.id && isClientReviewOpen(video) ? (
                     <div className="w-full space-y-3">
@@ -567,12 +670,10 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
             )}
           </div>
 
+          {sourceAssets.length > 0 ? (
           <div className="space-y-3">
             <h2 className="font-headline text-xl font-semibold text-on-surface">Source assets</h2>
-            {sourceAssets.length === 0 ? (
-              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No source assets are visible yet.</div>
-            ) : (
-              sourceAssets.map((asset) => (
+            {sourceAssets.map((asset) => (
                 <article key={asset.id ?? asset.title} className="pib-card-section space-y-3 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -585,16 +686,14 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
                     <p className="break-words text-xs text-on-surface-variant">rights: {formatToken(asset.rights.status)}</p>
                   ) : null}
                 </article>
-              ))
-            )}
+              ))}
           </div>
+          ) : null}
 
+          {clipCandidates.length > 0 ? (
           <div className="space-y-3">
             <h2 className="font-headline text-xl font-semibold text-on-surface">Clip candidates</h2>
-            {clipCandidates.length === 0 ? (
-              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No clip candidates are visible yet.</div>
-            ) : (
-              clipCandidates.map((clip) => (
+            {clipCandidates.map((clip) => (
                 <article key={clip.id ?? `${clip.sourceAssetId}-${clip.startSeconds}`} className="pib-card-section space-y-3 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -613,16 +712,14 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
                     ))}
                   </div>
                 </article>
-              ))
-            )}
+              ))}
           </div>
+          ) : null}
 
+          {productionDrafts.length > 0 ? (
           <div className="space-y-3">
             <h2 className="font-headline text-xl font-semibold text-on-surface">Production drafts</h2>
-            {productionDrafts.length === 0 ? (
-              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No production drafts are visible yet.</div>
-            ) : (
-              productionDrafts.map((draft) => (
+            {productionDrafts.map((draft) => (
                 <article key={draft.id ?? `${draft.videoProjectId}-${draft.versionNumber}`} className="pib-card-section space-y-3 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -702,16 +799,14 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
                     </div>
                   ) : null}
                 </article>
-              ))
-            )}
+              ))}
           </div>
+          ) : null}
 
+          {renderJobs.length > 0 ? (
           <div className="space-y-3">
             <h2 className="font-headline text-xl font-semibold text-on-surface">Render jobs</h2>
-            {renderJobs.length === 0 ? (
-              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No render jobs are visible yet.</div>
-            ) : (
-              renderJobs.map((job) => (
+            {renderJobs.map((job) => (
                 <article key={job.id ?? `${job.videoProjectId}-${job.versionNumber}`} className="pib-card-section space-y-3 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -786,18 +881,18 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
                     </div>
                   ) : null}
                 </article>
-              ))
-            )}
+              ))}
+          </div>
+          ) : null}
+
+          <div ref={editProjectsRef}>
+            <VideoEditorProjectList orgId={activeOrgId} channelOptions={channels} compact />
           </div>
 
-          <VideoEditorProjectList orgId={activeOrgId} channelOptions={channels} compact />
-
+          {packets.length > 0 ? (
           <div className="space-y-3">
             <h2 className="font-headline text-xl font-semibold text-on-surface">Publishing packets</h2>
-            {packets.length === 0 ? (
-              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No publishing packets are ready for review yet.</div>
-            ) : (
-              packets.map((packet) => (
+            {packets.map((packet) => (
                 <article key={packet.id ?? `${packet.videoProjectId}-${packet.versionNumber}`} className="pib-card-section space-y-3 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -868,16 +963,14 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
                     </div>
                   ) : null}
                 </article>
-              ))
-            )}
+              ))}
           </div>
+          ) : null}
 
+          {releasePlans.length > 0 ? (
           <div className="space-y-3">
             <h2 className="font-headline text-xl font-semibold text-on-surface">Release plans</h2>
-            {releasePlans.length === 0 ? (
-              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No YouTube release plans are visible yet.</div>
-            ) : (
-              releasePlans.map((plan) => (
+            {releasePlans.map((plan) => (
                 <article key={plan.id ?? `${plan.videoProjectId}-${plan.publishingPacketId}`} className="pib-card-section space-y-3 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -903,16 +996,14 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
                     ))}
                   </div>
                 </article>
-              ))
-            )}
+              ))}
           </div>
+          ) : null}
 
+          {analytics.length > 0 ? (
           <div className="space-y-3">
             <h2 className="font-headline text-xl font-semibold text-on-surface">Analytics summaries</h2>
-            {analytics.length === 0 ? (
-              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No client-facing YouTube analytics summaries yet.</div>
-            ) : (
-              analytics.slice(0, 4).map((snapshot) => (
+            {analytics.slice(0, 4).map((snapshot) => (
                 <article key={snapshot.id ?? `${snapshot.channelWorkspaceId}-${snapshot.periodEnd}`} className="pib-card-section space-y-3 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -945,9 +1036,15 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
                     </div>
                   ) : null}
                 </article>
-              ))
-            )}
+              ))}
           </div>
+          ) : null}
+
+          {!hasClientProductionWork ? (
+            <div className="pib-card-section p-5 text-sm text-on-surface-variant">
+              Production details will appear here when PiB has drafts, renders, publishing plans, or analytics ready for you.
+            </div>
+          ) : null}
         </section>
 
         <aside className="h-fit space-y-4 lg:sticky lg:top-6">
@@ -992,25 +1089,21 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
           </div>
 
           {capabilities.canCreate ? (
-          <form onSubmit={submitRequest} className="pib-card-section space-y-4 p-5">
-            <h2 className="font-headline font-bold text-on-surface">Request a video</h2>
-            <label className="block text-sm">
-              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Channel</span>
-              <select
-                value={request.channelWorkspaceId}
-                onChange={(event) => update('channelWorkspaceId', event.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
-              >
-                <option value="">Select a channel</option>
-                {channels.map((channel) => (
-                  <option key={channel.id ?? channel.title} value={channel.id ?? ''}>{channel.title}</option>
-                ))}
-              </select>
-            </label>
+          <form ref={requestFormRef} onSubmit={submitRequest} className="pib-card-section space-y-4 p-5">
+            <div>
+              <h2 className="font-headline font-bold text-on-surface">Request a PiB video</h2>
+              <p className="mt-1 text-sm text-on-surface-variant">Channel, title, and objective are required before PiB can scope the work.</p>
+            </div>
+            <ChannelChoices
+              channels={channels}
+              selectedId={request.channelWorkspaceId}
+              onChange={(value) => update('channelWorkspaceId', value)}
+            />
             <Field label="Video title" value={request.title} onChange={(value) => update('title', value)} required />
-            <TextArea label="Objective" value={request.objective} onChange={(value) => update('objective', value)} />
+            <TextArea label="Objective" value={request.objective} onChange={(value) => update('objective', value)} required />
             <Field label="Source URL" value={request.sourceUrl} onChange={(value) => update('sourceUrl', value)} />
-            <button type="submit" disabled={submittingRequest || !request.channelWorkspaceId || !request.title.trim()} className="pib-btn-primary w-full">
+            <p className="text-xs text-on-surface-variant" aria-live="polite">{requestHelpText}</p>
+            <button type="submit" disabled={submittingRequest || !requestCanSubmit} className="pib-btn-primary w-full">
               {submittingRequest ? 'Sending...' : 'Send request'}
             </button>
           </form>
@@ -1108,6 +1201,85 @@ function releasePlanGateEntries(plan: YouTubeReleasePlan) {
   ]>
 }
 
+function buildRequestHelpText(request: RequestForm, submitting: boolean) {
+  if (submitting) return 'Sending your request to PiB.'
+  const missing = [
+    !request.channelWorkspaceId ? 'choose a channel' : null,
+    !request.title.trim() ? 'add a video title' : null,
+    !request.objective.trim() ? 'describe the objective' : null,
+  ].filter(Boolean)
+  if (missing.length === 0) return 'Ready to send to PiB.'
+  return `To send this request, ${joinHumanList(missing)}.`
+}
+
+function joinHumanList(items: unknown[]) {
+  const values = items.map(String)
+  if (values.length <= 1) return values[0] ?? ''
+  if (values.length === 2) return `${values[0]} and ${values[1]}`
+  return `${values.slice(0, -1).join(', ')}, and ${values[values.length - 1]}`
+}
+
+function channelChoiceLabel(channel: YouTubeChannelWorkspace) {
+  return channel.title || channel.youtubeHandle || 'YouTube channel'
+}
+
+function channelChoiceMeta(channel: YouTubeChannelWorkspace) {
+  return channel.youtubeHandle || channel.youtubeChannelId || 'Channel connection pending'
+}
+
+function ChannelChoices({
+  channels,
+  selectedId,
+  onChange,
+}: {
+  channels: YouTubeChannelWorkspace[]
+  selectedId: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Channel</legend>
+      {channels.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-[var(--color-pib-line)] p-3 text-sm text-on-surface-variant">
+          Link a YouTube channel before sending a request.
+        </div>
+      ) : (
+        <div className="grid gap-2">
+          {channels.map((channel) => {
+            const id = channel.id ?? ''
+            const checked = selectedId === id
+            return (
+              <label
+                key={id || channel.title}
+                className={[
+                  'flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm transition',
+                  checked
+                    ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10 text-on-surface'
+                    : 'border-[var(--color-outline-variant)] bg-[var(--color-surface)] text-on-surface-variant hover:border-[var(--color-primary)]',
+                ].join(' ')}
+              >
+                <input
+                  type="radio"
+                  name="youtube-request-channel"
+                  value={id}
+                  checked={checked}
+                  disabled={!id}
+                  onChange={(event) => onChange(event.target.value)}
+                  className="mt-1"
+                />
+                <span className="min-w-0">
+                  <span className="block break-words font-medium text-on-surface">{channelChoiceLabel(channel)}</span>
+                  <span className="block break-words text-xs text-on-surface-variant">{channelChoiceMeta(channel)}</span>
+                </span>
+              </label>
+            )
+          })}
+        </div>
+      )}
+    </fieldset>
+  )
+}
+
 function Field({
   label,
   value,
@@ -1136,15 +1308,18 @@ function TextArea({
   label,
   value,
   onChange,
+  required,
 }: {
   label: string
   value: string
   onChange: (value: string) => void
+  required?: boolean
 }) {
   return (
     <label className="block text-sm">
       <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">{label}</span>
       <textarea
+        required={required}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         rows={3}
