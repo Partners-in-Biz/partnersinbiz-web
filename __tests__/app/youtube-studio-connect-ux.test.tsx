@@ -126,6 +126,7 @@ describe('portal workspace channel actions', () => {
           connectedChannel,
           { ...connectedChannel, id: 'channel-2', title: 'Stale', publishingReadiness: { accountStatus: 'needs_reauth' } },
         ],
+        orgId: 'lumen-org',
         series: [],
         videos: [],
         packets: [],
@@ -147,6 +148,16 @@ describe('portal workspace channel actions', () => {
     expect(href).toContain('/api/v1/social/oauth/youtube')
     expect(href).toContain('prompt=select_account')
     expect(href).toContain('feature=youtube_studio')
+  })
+
+  it('preserves the resolved portal org in OAuth links when the route has no orgId query', async () => {
+    render(<YouTubeStudioPortalWorkspace />)
+
+    await waitFor(() => {
+      const href = screen.getByRole('link', { name: 'Link another channel' }).getAttribute('href') ?? ''
+      expect(href).toContain('orgId=lumen-org')
+      expect(href).toContain('redirectUrl=%2Fportal%2Fyoutube-studio%3ForgId%3Dlumen-org')
+    })
   })
 
   it('offers Reconnect only on channels that need reauth', async () => {

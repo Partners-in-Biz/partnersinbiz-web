@@ -61,6 +61,7 @@ function isClientReviewOpen(video: YouTubeVideoProject) {
 }
 
 export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorkspaceProps = {}) {
+  const [resolvedOrgId, setResolvedOrgId] = useState(orgId ?? '')
   const [channels, setChannels] = useState<YouTubeChannelWorkspace[]>([])
   const [series, setSeries] = useState<YouTubeSeries[]>([])
   const [videos, setVideos] = useState<YouTubeVideoProject[]>([])
@@ -95,11 +96,16 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   const reviewingRenderIdRef = useRef<string | null>(null)
   const loadRequestIdRef = useRef(0)
 
-  const apiPath = useMemo(() => scopedApiPath('/api/v1/portal/youtube-studio', { orgId }), [orgId])
-  const youtubeOAuthHref = useMemo(() => {
-    const redirectUrl = appendQueryParams('/portal/youtube-studio', { orgId })
-    return appendQueryParams('/api/v1/social/oauth/youtube', { redirectUrl, orgId, feature: 'youtube_studio' })
+  useEffect(() => {
+    setResolvedOrgId(orgId ?? '')
   }, [orgId])
+
+  const activeOrgId = resolvedOrgId || orgId || undefined
+  const apiPath = useMemo(() => scopedApiPath('/api/v1/portal/youtube-studio', { orgId: activeOrgId }), [activeOrgId])
+  const youtubeOAuthHref = useMemo(() => {
+    const redirectUrl = appendQueryParams('/portal/youtube-studio', { orgId: activeOrgId })
+    return appendQueryParams('/api/v1/social/oauth/youtube', { redirectUrl, orgId: activeOrgId, feature: 'youtube_studio' })
+  }, [activeOrgId])
   const linkAnotherChannelHref = useMemo(
     () => appendQueryParams(youtubeOAuthHref, { prompt: 'select_account' }),
     [youtubeOAuthHref],
@@ -137,6 +143,9 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       }
 
       setModuleDisabled(false)
+      if (typeof body.data?.orgId === 'string' && body.data.orgId.trim()) {
+        setResolvedOrgId(body.data.orgId.trim())
+      }
       setChannels(Array.isArray(body.data?.channels) ? body.data.channels : [])
       setSeries(Array.isArray(body.data?.series) ? body.data.series : [])
       setVideos(Array.isArray(body.data?.videos) ? body.data.videos : [])
@@ -408,7 +417,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
     setActionNotice('')
     try {
       const res = await fetch(
-        scopedApiPath(`/api/v1/youtube-studio/videos/${videoId}/repurpose`, { orgId }),
+        scopedApiPath(`/api/v1/youtube-studio/videos/${videoId}/repurpose`, { orgId: activeOrgId }),
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -952,7 +961,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
                 type="button"
                 onClick={async () => {
                   try {
-                    const res = await fetch(scopedApiPath('/api/v1/youtube-studio/channels/adopt', { orgId }), {
+                    const res = await fetch(scopedApiPath('/api/v1/youtube-studio/channels/adopt', { orgId: activeOrgId }), {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ accountId: retryAccountId }),

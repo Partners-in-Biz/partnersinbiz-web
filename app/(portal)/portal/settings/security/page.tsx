@@ -91,7 +91,7 @@ export default function SecuritySettingsPage() {
       if (!res.ok) throw new Error((data.error as string) ?? 'Failed to disable 2FA')
       setDisableToken('')
       setSetup(null)
-      try { sessionStorage.removeItem('pib_2fa_ok') } catch {}
+      try { sessionStorage.removeItem('pib_2fa_ok') } catch { void 0 }
       setPhase('disabled')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to disable 2FA')
@@ -101,7 +101,7 @@ export default function SecuritySettingsPage() {
   }
 
   function copy(text: string) {
-    try { navigator.clipboard?.writeText(text) } catch {}
+    try { navigator.clipboard?.writeText(text) } catch { void 0 }
   }
 
   return (

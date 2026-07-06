@@ -20,11 +20,23 @@ import { Timestamp } from 'firebase-admin/firestore'
 
 const PERSONAL_SCOPE = 'personal'
 
+function requestedOrgScope(req: NextRequest): boolean {
+  const url = new URL(req.url)
+  return Boolean(url.searchParams.get('orgId')?.trim() || req.headers.get('x-org-id')?.trim())
+}
+
+function resolveOAuthOrgId(req: NextRequest, user: { activeOrgId?: string }, orgId: string, redirectUrl: string): string {
+  if (requestedOrgScope(req)) return orgId
+  if (redirectUrl.startsWith('/portal') && user.activeOrgId) return user.activeOrgId
+  return orgId
+}
+
 export const GET = withAuth('client', withTenant(async (req: NextRequest, user, orgId) => {
   const url = new URL(req.url)
   const rawPlatform = url.pathname.split('/').slice(-1)[0]
   const platform = (rawPlatform === 'x' ? 'twitter' : rawPlatform) as SocialPlatformType
   const redirectUrl = sanitizeOAuthRedirectPath(url.searchParams.get('redirectUrl') ?? '/portal/social')
+  const oauthOrgId = resolveOAuthOrgId(req, user, orgId, redirectUrl)
   const accountScope = url.searchParams.get('scope') === PERSONAL_SCOPE ? PERSONAL_SCOPE : 'org'
   const linkedinMode: LinkedInOAuthMode =
     platform === 'linkedin' && url.searchParams.get('linkedinMode') === 'organization'
@@ -55,7 +67,7 @@ export const GET = withAuth('client', withTenant(async (req: NextRequest, user, 
   // Generate state token
   const nonce = crypto.randomBytes(16).toString('hex')
   const stateData = {
-    orgId,
+    orgId: oauthOrgId,
     platform,
     nonce,
     redirectUrl,
@@ -74,7 +86,7 @@ export const GET = withAuth('client', withTenant(async (req: NextRequest, user, 
 
   // Store state in Firestore with 10-minute TTL
   await adminDb.collection('social_oauth_states').doc(nonce).set({
-    orgId,
+    orgId: oauthOrgId,
     platform,
     nonce,
     redirectUrl,
