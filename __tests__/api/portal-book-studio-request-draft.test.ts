@@ -12,8 +12,7 @@ type MockPortalRoleHandler = (
   ...args: any[]
 ) => Promise<Response> | Response
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockRunTransaction = jest.fn<Promise<void>, [(tx: any) => Promise<void>]>()
+const mockRunTransaction = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: {
@@ -215,6 +214,28 @@ describe('POST /api/v1/portal/book-studio/projects/[id]/request-draft', () => {
 
     expect(res.status).toBe(409)
     expect(body.success).toBe(false)
+  })
+
+  it('creates exactly one task when two identical requests race', async () => {
+    const { addSpy } = stageFirestore({ settings: ENABLED_EDIT_SETTINGS, project })
+
+    const { POST } = await import(
+      '@/app/api/v1/portal/book-studio/projects/[id]/request-draft/route'
+    )
+    // Fire both requests before either resolves — with the old read-then-add
+    // dedupe both passed the check and both created a task; the transaction
+    // serializes them so the second sees the first's task and 409s.
+    const [res1, res2] = await Promise.all([
+      POST(makeRequest({ unitType: 'cover' }), { params: Promise.resolve({ id: 'proj-1' }) }),
+      POST(makeRequest({ unitType: 'cover' }), { params: Promise.resolve({ id: 'proj-1' }) }),
+    ])
+
+    expect([res1.status, res2.status].sort()).toEqual([201, 409])
+
+    const taskCalls = addSpy.mock.calls.filter((call) => call[0] === 'tasks')
+    expect(taskCalls).toHaveLength(1)
+    const decisionLogCalls = addSpy.mock.calls.filter((call) => call[0] === 'book_studio_decision_logs')
+    expect(decisionLogCalls).toHaveLength(1)
   })
 
   it('404s when the project belongs to another org', async () => {
