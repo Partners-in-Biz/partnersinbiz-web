@@ -192,3 +192,55 @@ describe('portal workspace channel actions', () => {
     expect(await screen.findByText('Channel setup completed.')).toBeInTheDocument()
   })
 })
+
+describe('studio empty state and guide', () => {
+  it('shows the how-it-works panel with the Link CTA when no channels exist', async () => {
+    global.fetch = jest.fn().mockResolvedValue(jsonResponse({
+      success: true,
+      data: {
+        channels: [],
+        series: [],
+        videos: [],
+        packets: [],
+        releasePlans: [],
+        sourceAssets: [],
+        clipCandidates: [],
+        productionDrafts: [],
+        renderJobs: [],
+        analytics: [],
+      },
+    })) as jest.Mock
+
+    render(<YouTubeStudioPortalWorkspace orgId="lumen-org" />)
+
+    expect(await screen.findByText('How YouTube Studio works')).toBeInTheDocument()
+    expect(screen.getByText('Connect your channel')).toBeInTheDocument()
+    expect(screen.getByText('Plan series & videos')).toBeInTheDocument()
+    expect(screen.getByText('Produce the content')).toBeInTheDocument()
+    expect(screen.getByText('Approve & publish')).toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: 'Link YouTube channel' }).length).toBeGreaterThan(0)
+  })
+
+  it('hides the guide once a channel exists', async () => {
+    global.fetch = jest.fn().mockResolvedValue(jsonResponse({
+      success: true,
+      data: {
+        channels: [connectedChannel],
+        series: [],
+        videos: [],
+        packets: [],
+        releasePlans: [],
+        sourceAssets: [],
+        clipCandidates: [],
+        productionDrafts: [],
+        renderJobs: [],
+        analytics: [],
+      },
+    })) as jest.Mock
+
+    render(<YouTubeStudioPortalWorkspace orgId="lumen-org" />)
+
+    await screen.findByRole('heading', { name: 'Acme Films' })
+    expect(screen.queryByText('How YouTube Studio works')).not.toBeInTheDocument()
+  })
+})

@@ -14,6 +14,7 @@ import type {
   YouTubeVideoProject,
 } from '@/lib/youtube-studio/types'
 import { channelNeedsReconnect, YouTubeChannelCard, YouTubeVideoCard } from '@/components/youtube-studio/YouTubeStudioCards'
+import { YouTubeStudioGuide } from '@/components/youtube-studio/YouTubeStudioGuide'
 import { YouTubeStudioOAuthReturnHandler } from '@/components/youtube-studio/YouTubeStudioOAuthReturnHandler'
 import { YouTubeStudioWorkspaceShell } from '@/components/youtube-studio/YouTubeStudioWorkspaceShell'
 import { appendQueryParams, scopedApiPath } from '@/lib/portal/scoped-routing'
@@ -442,16 +443,25 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       </Suspense>
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <section className="space-y-4">
-          {channels.map((channel) => (
-            <YouTubeChannelCard key={channel.id ?? channel.title} channel={channel}>
-              {channelNeedsReconnect(channel) ? (
-                <a href={youtubeOAuthHref} className="pib-btn-primary text-sm">Reconnect</a>
-              ) : null}
-            </YouTubeChannelCard>
-          ))}
-          {channels.length > 0 ? (
-            <a href={linkAnotherChannelHref} className="pib-btn-ghost text-sm">Link another channel</a>
+          {channels.length === 0 && !loading ? (
+            <YouTubeStudioGuide oauthHref={youtubeOAuthHref} />
           ) : null}
+
+          <div className="space-y-3">
+            {channels.length > 0 ? (
+              <h2 className="font-headline text-xl font-semibold text-on-surface">Channels</h2>
+            ) : null}
+            {channels.map((channel) => (
+              <YouTubeChannelCard key={channel.id ?? channel.title} channel={channel}>
+                {channelNeedsReconnect(channel) ? (
+                  <a href={youtubeOAuthHref} className="pib-btn-primary text-sm">Reconnect</a>
+                ) : null}
+              </YouTubeChannelCard>
+            ))}
+            {channels.length > 0 ? (
+              <a href={linkAnotherChannelHref} className="pib-btn-ghost text-sm">Link another channel</a>
+            ) : null}
+          </div>
 
           <div className="space-y-3">
             <h2 className="font-headline text-xl font-semibold text-on-surface">Video reviews</h2>
