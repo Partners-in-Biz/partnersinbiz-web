@@ -220,7 +220,8 @@ function cleanTrim(value: unknown) {
 }
 
 function cleanChapterBody(value: unknown): string | undefined {
-  if (typeof value !== 'string' || !value.trim()) return undefined
+  if (typeof value !== 'string') return undefined
+  if (!value.trim() && !patchMode) return undefined
   if (value.length > CHAPTER_BODY_MAX_CHARS) {
     throw new BookStudioValidationError(`chapter body exceeds the ${CHAPTER_BODY_MAX_CHARS} character limit`)
   }
@@ -569,6 +570,62 @@ const PATCH_SOURCE_KEYS: Record<string, string[]> = {
   wordCount: ['body'],
 }
 
+const PATCH_CLEARABLE_COMMON_KEYS = [
+  'seriesId',
+  'briefId',
+  'packetId',
+  'safeSummary',
+  'nextAction',
+  'description',
+  'audience',
+  'bookType',
+  'artifactLinks',
+  'bridgeLinks',
+  'href',
+  'gates',
+  'rightsLedger',
+  'metadata',
+  'packageManifest',
+  'analyticsSnapshot',
+  'approvalState',
+  'publishingReadinessStatus',
+  'evidenceIds',
+  'researchItemIds',
+  'clientDocumentIds',
+  'projectTaskIds',
+  'artifactIds',
+  'sourceDocumentId',
+  'sourceSpecVersion',
+  'approvalGateTaskId',
+]
+
+const PATCH_CLEARABLE_KEYS: Record<BookStudioResourceKey, string[]> = {
+  projects: [
+    ...PATCH_CLEARABLE_COMMON_KEYS,
+    'format',
+    'trim',
+    'pageTarget',
+    'stylePrompt',
+    'creativeCanvasId',
+    'seriesVolumeNumber',
+    'coverImageUrl',
+  ],
+  briefs: PATCH_CLEARABLE_COMMON_KEYS,
+  series: [...PATCH_CLEARABLE_COMMON_KEYS, 'volumeOrder', 'sharedMetadata', 'sharedStylePrompt'],
+  'artifact-links': PATCH_CLEARABLE_COMMON_KEYS,
+  'publishing-packets': PATCH_CLEARABLE_COMMON_KEYS,
+  'rights-ledgers': PATCH_CLEARABLE_COMMON_KEYS,
+  'package-manifests': PATCH_CLEARABLE_COMMON_KEYS,
+  'analytics-imports': PATCH_CLEARABLE_COMMON_KEYS,
+  'decision-logs': PATCH_CLEARABLE_COMMON_KEYS,
+  chapters: [...PATCH_CLEARABLE_COMMON_KEYS, 'order', 'canvasRunId'],
+  pages: [...PATCH_CLEARABLE_COMMON_KEYS, 'order', 'canvasRunId', 'kind', 'imageUrl', 'imageStoragePath', 'caption', 'prompt', 'puzzle'],
+}
+
+function isClearPatchValue(value: unknown): boolean {
+  return value === null || value === undefined || (typeof value === 'string' && value.trim() === '')
+}
+
 /**
  * Sanitizes a PATCH body: same whitelist/cleaning as create, but only fields
  * that were present in the request survive (no create-time defaults leak in),
@@ -588,6 +645,20 @@ export function sanitizeBookStudioRecordPatch(resource: BookStudioResourceKey, i
   } finally {
     patchMode = false
   }
+}
+
+export function bookStudioPatchDeletes(
+  resource: BookStudioResourceKey,
+  input: PlainRecord,
+  deleteValue: () => unknown,
+): PlainRecord {
+  const source = stripForbidden(cleanObject(input)) as PlainRecord
+  const clearable = PATCH_CLEARABLE_KEYS[resource] ?? []
+  return Object.fromEntries(clearable.flatMap((key) => {
+    const sourceKeys = PATCH_SOURCE_KEYS[key] ?? [key]
+    const shouldClear = sourceKeys.some((sourceKey) => sourceKey in source && isClearPatchValue(source[sourceKey]))
+    return shouldClear ? [[key, deleteValue()]] : []
+  }))
 }
 
 export function serializeBookStudioRecord(id: string, data: FirebaseFirestore.DocumentData): BookStudioRecord {

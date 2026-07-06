@@ -27,7 +27,7 @@ jest.mock('@/lib/api/platformAdmin', () => ({
 }))
 
 jest.mock('firebase-admin/firestore', () => ({
-  FieldValue: { serverTimestamp: () => 'SERVER_TS' },
+  FieldValue: { serverTimestamp: () => 'SERVER_TS', delete: () => 'DELETE_FIELD' },
 }))
 
 function stageFirestore({
@@ -385,6 +385,63 @@ describe('Book Studio content model (chapters, pages, format/trim/series, PATCH)
     expect(patchPayload.status).toBeUndefined()
     expect(patchPayload.title).toBeUndefined()
     expect(patchPayload.kind).toBeUndefined()
+  })
+
+  it('PATCH can intentionally clear optional fields with empty strings or nulls', async () => {
+    stageFirestore({
+      linkedDocs: {
+        'page-1': {
+          orgId: 'pib-platform-owner',
+          projectId: 'book-1',
+          title: 'Page',
+          imageUrl: 'https://cdn.example/old.png',
+          caption: 'Old caption',
+          prompt: 'Old prompt',
+          puzzle: { kind: 'sudoku', seed: 10 },
+          deleted: false,
+        },
+      },
+    })
+    const { PATCH } = await import('@/app/api/v1/book-studio/[resource]/[id]/route')
+
+    const res = await PATCH(jsonPatch('http://localhost/api/v1/book-studio/pages/page-1', {
+      projectId: null,
+      imageUrl: '',
+      caption: '',
+      prompt: null,
+      puzzle: null,
+    }), patchContext('pages', 'page-1'))
+
+    expect(res.status).toBe(200)
+    const [patchPayload] = mockUpdate.mock.calls[0]
+    expect(patchPayload).toMatchObject({
+      imageUrl: 'DELETE_FIELD',
+      caption: 'DELETE_FIELD',
+      prompt: 'DELETE_FIELD',
+      puzzle: 'DELETE_FIELD',
+      updatedBy: 'agent-pip',
+    })
+    expect(patchPayload.projectId).toBeUndefined()
+    expect(patchPayload.title).toBeUndefined()
+    expect(patchPayload.status).toBeUndefined()
+  })
+
+  it('PATCH can clear a chapter body to an empty string and recomputes wordCount to zero', async () => {
+    stageFirestore({
+      linkedDocs: {
+        'chap-1': { orgId: 'pib-platform-owner', projectId: 'book-1', title: 'Chapter', body: 'old body', wordCount: 2, deleted: false },
+      },
+    })
+    const { PATCH } = await import('@/app/api/v1/book-studio/[resource]/[id]/route')
+
+    const res = await PATCH(jsonPatch('http://localhost/api/v1/book-studio/chapters/chap-1', {
+      body: '',
+    }), patchContext('chapters', 'chap-1'))
+
+    expect(res.status).toBe(200)
+    const [patchPayload] = mockUpdate.mock.calls[0]
+    expect(patchPayload.body).toBe('')
+    expect(patchPayload.wordCount).toBe(0)
   })
 
   it('soft-deletes a record via PATCH { deleted: true }', async () => {

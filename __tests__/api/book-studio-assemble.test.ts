@@ -8,6 +8,7 @@ const mockGet = jest.fn()
 const mockAdd = jest.fn()
 const mockDoc = jest.fn()
 const mockUpdate = jest.fn()
+const mockRunTransaction = jest.fn()
 const mockOrgGet = jest.fn()
 const mockCanAccessOrg = jest.fn()
 const mockUploadBookFileToStorage = jest.fn()
@@ -23,7 +24,7 @@ const PNG_1X1 = Buffer.from(
 )
 
 jest.mock('@/lib/firebase/admin', () => ({
-  adminDb: { collection: mockCollection },
+  adminDb: { collection: mockCollection, runTransaction: mockRunTransaction },
   getAdminApp: () => ({}),
 }))
 
@@ -67,11 +68,13 @@ function stageFirestore({
   project,
   chapterDocs = [],
   pageDocs = [],
+  transactionProject,
 }: {
   orgSettings?: Record<string, unknown>
   project: Doc | null
   chapterDocs?: Array<{ id: string; data: () => Doc }>
   pageDocs?: Array<{ id: string; data: () => Doc }>
+  transactionProject?: Doc | null
 } = { project: null }) {
   uploadCounter = 0
   mockCanAccessOrg.mockReturnValue(true)
@@ -91,6 +94,16 @@ function stageFirestore({
     get: jest.fn().mockResolvedValue({ exists: project !== null, data: () => project }),
     update: mockUpdate,
   }
+  mockRunTransaction.mockImplementation(async (callback: (tx: { get: typeof projectDocRef.get; update: typeof mockUpdate }) => Promise<unknown>) => {
+    const tx = {
+      get: jest.fn().mockResolvedValue({
+        exists: (transactionProject ?? project) !== null,
+        data: () => transactionProject ?? project,
+      }),
+      update: mockUpdate,
+    }
+    return callback(tx)
+  })
 
   mockWhere.mockImplementation(() => ({
     where: mockWhere,
@@ -251,7 +264,8 @@ describe('POST /api/v1/book-studio/projects/[id]/assemble', () => {
     expect(manifest.checksum).toBe(interiorFile.checksum)
 
     expect(mockUpdate).toHaveBeenCalledTimes(1)
-    expect(mockUpdate.mock.calls[0][0].packageManifest.version).toBe(1)
+    expect(mockRunTransaction).toHaveBeenCalledTimes(1)
+    expect(mockUpdate.mock.calls[0][1].packageManifest.version).toBe(1)
     expect(mockAdd).toHaveBeenCalledTimes(1)
     expect(mockAdd.mock.calls[0][0]).toMatchObject({
       orgId: 'pib-platform-owner',
@@ -269,6 +283,22 @@ describe('POST /api/v1/book-studio/projects/[id]/assemble', () => {
     const body2 = await res2.json()
     expect(res2.status).toBe(200)
     expect(body2.data.manifest.version).toBe(2)
+  })
+
+  it('uses the latest packageManifest version from the final transaction snapshot', async () => {
+    stageFirestore({
+      project: SUDOKU_PROJECT,
+      transactionProject: { ...SUDOKU_PROJECT, packageManifest: { version: 7 } },
+      pageDocs: sudokuPageDocs(2),
+    })
+    const { POST } = await loadRoute()
+
+    const res = await POST(jsonPost('book-sudoku'), routeContext('book-sudoku'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.manifest.version).toBe(8)
+    expect(mockUpdate.mock.calls[0][1].packageManifest.version).toBe(8)
   })
 
   it('assembles a story project (2 chapters) and includes an epub file', async () => {
@@ -297,6 +327,20 @@ describe('POST /api/v1/book-studio/projects/[id]/assemble', () => {
     expect(res.status).toBe(422)
     expect(body.success).toBe(false)
     expect(body.missing).toEqual([2, 3])
+    expect(mockUpdate).not.toHaveBeenCalled()
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
+
+  it('returns 422 for fixed-layout projects with zero pages and writes NO manifest', async () => {
+    stageFirestore({ project: COLOURING_PROJECT, pageDocs: [] })
+    const { POST } = await loadRoute()
+
+    const res = await POST(jsonPost('book-colouring'), routeContext('book-colouring'))
+    const body = await res.json()
+
+    expect(res.status).toBe(422)
+    expect(body.error).toBe('no pages')
+    expect(mockUploadBookFileToStorage).not.toHaveBeenCalled()
     expect(mockUpdate).not.toHaveBeenCalled()
     expect(mockAdd).not.toHaveBeenCalled()
   })

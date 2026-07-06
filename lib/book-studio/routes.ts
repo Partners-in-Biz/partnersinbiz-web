@@ -1,9 +1,10 @@
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { adminDb } from '@/lib/firebase/admin'
+import { FieldValue } from 'firebase-admin/firestore'
 import { actorFields, collectionFor, ensureBookStudioAccess, updateActorFields, validateBookStudioReferences } from './api'
 import { findBookStudioRuntimeDispatchFields } from './hermes'
-import { BOOK_STUDIO_RESOURCES, BookStudioValidationError, sanitizeBookStudioRecordInput, sanitizeBookStudioRecordPatch, serializeBookStudioRecord } from './sanitize'
+import { BOOK_STUDIO_RESOURCES, BookStudioValidationError, bookStudioPatchDeletes, sanitizeBookStudioRecordInput, sanitizeBookStudioRecordPatch, serializeBookStudioRecord } from './sanitize'
 import type { BookStudioResourceKey } from './types'
 
 export function isBookStudioResourceKey(value: string): value is BookStudioResourceKey {
@@ -123,6 +124,7 @@ export function createBookStudioRecordHandlers() {
     // stale nested data from the previous value — unlike set(..., {merge:true}).
     await docRef.update({
       ...patch,
+      ...bookStudioPatchDeletes(resource, body, () => FieldValue.delete()),
       ...updateActorFields(user),
     })
 
