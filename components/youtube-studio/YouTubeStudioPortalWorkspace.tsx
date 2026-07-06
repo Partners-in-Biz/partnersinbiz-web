@@ -13,7 +13,7 @@ import type {
   YouTubeSourceAsset,
   YouTubeVideoProject,
 } from '@/lib/youtube-studio/types'
-import { YouTubeChannelCard, YouTubeVideoCard } from '@/components/youtube-studio/YouTubeStudioCards'
+import { channelNeedsReconnect, YouTubeChannelCard, YouTubeVideoCard } from '@/components/youtube-studio/YouTubeStudioCards'
 import { YouTubeStudioOAuthReturnHandler } from '@/components/youtube-studio/YouTubeStudioOAuthReturnHandler'
 import { YouTubeStudioWorkspaceShell } from '@/components/youtube-studio/YouTubeStudioWorkspaceShell'
 import { appendQueryParams, scopedApiPath } from '@/lib/portal/scoped-routing'
@@ -95,8 +95,12 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   const apiPath = useMemo(() => scopedApiPath('/api/v1/portal/youtube-studio', { orgId }), [orgId])
   const youtubeOAuthHref = useMemo(() => {
     const redirectUrl = appendQueryParams('/portal/youtube-studio', { orgId })
-    return appendQueryParams('/api/v1/social/oauth/youtube', { redirectUrl, orgId })
+    return appendQueryParams('/api/v1/social/oauth/youtube', { redirectUrl, orgId, feature: 'youtube_studio' })
   }, [orgId])
+  const linkAnotherChannelHref = useMemo(
+    () => appendQueryParams(youtubeOAuthHref, { prompt: 'select_account' }),
+    [youtubeOAuthHref],
+  )
   const activeApiPathRef = useRef(apiPath)
   const previousApiPathRef = useRef(apiPath)
   activeApiPathRef.current = apiPath
@@ -439,8 +443,15 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <section className="space-y-4">
           {channels.map((channel) => (
-            <YouTubeChannelCard key={channel.id ?? channel.title} channel={channel} />
+            <YouTubeChannelCard key={channel.id ?? channel.title} channel={channel}>
+              {channelNeedsReconnect(channel) ? (
+                <a href={youtubeOAuthHref} className="pib-btn-primary text-sm">Reconnect</a>
+              ) : null}
+            </YouTubeChannelCard>
           ))}
+          {channels.length > 0 ? (
+            <a href={linkAnotherChannelHref} className="pib-btn-ghost text-sm">Link another channel</a>
+          ) : null}
 
           <div className="space-y-3">
             <h2 className="font-headline text-xl font-semibold text-on-surface">Video reviews</h2>
@@ -882,6 +893,36 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
             <a href={youtubeOAuthHref} className="pib-btn-primary w-full justify-center text-center">
               Link YouTube channel
             </a>
+            {retryAccountId ? (
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const res = await fetch(scopedApiPath('/api/v1/youtube-studio/channels/adopt', { orgId }), {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ accountId: retryAccountId }),
+                    })
+                    const body = await res.json().catch(() => ({}))
+                    if (!res.ok) {
+                      setActionNotice(body.error ?? 'Could not finish channel setup')
+                      return
+                    }
+                    setRetryAccountId(null)
+                    setActionNotice('Channel setup completed.')
+                    await load()
+                  } catch {
+                    setActionNotice('Could not finish channel setup')
+                  }
+                }}
+                className="pib-btn-ghost w-full justify-center text-center text-sm"
+              >
+                Retry channel setup
+              </button>
+            ) : null}
+            <p className="text-xs text-on-surface-variant">
+              This connection is shared with Marketing Studio&apos;s social posting.
+            </p>
           </div>
 
           {capabilities.canCreate ? (

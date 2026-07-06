@@ -251,7 +251,7 @@ describe('YouTubeStudioPortalWorkspace module availability', () => {
     const link = await screen.findByRole('link', { name: 'Link YouTube channel' })
     expect(link).toHaveAttribute(
       'href',
-      '/api/v1/social/oauth/youtube?redirectUrl=%2Fportal%2Fyoutube-studio%3ForgId%3Dlumen-org&orgId=lumen-org',
+      '/api/v1/social/oauth/youtube?redirectUrl=%2Fportal%2Fyoutube-studio%3ForgId%3Dlumen-org&orgId=lumen-org&feature=youtube_studio',
     )
     expect(screen.getByText('Connects through the existing social-account OAuth flow and returns here after YouTube authorises the channel.')).toBeInTheDocument()
   })

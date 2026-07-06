@@ -19,6 +19,36 @@ export function StatusPill({ status }: { status?: string }) {
   )
 }
 
+type ConnectionState = 'connected' | 'needs_reauth' | 'not_connected'
+
+function connectionState(channel: YouTubeChannelWorkspace): ConnectionState {
+  const accountStatus = channel.publishingReadiness?.accountStatus
+  if (accountStatus === 'connected') return 'connected'
+  if (accountStatus === 'needs_reauth' || accountStatus === 'revoked' || accountStatus === 'blocked') return 'needs_reauth'
+  if (!accountStatus && channel.connectedAccountId) return 'connected'
+  return 'not_connected'
+}
+
+const CONNECTION_CHIP: Record<ConnectionState, { label: string; className: string }> = {
+  connected: { label: 'Connected', className: 'border-emerald-500/40 text-emerald-300' },
+  needs_reauth: { label: 'Needs reconnect', className: 'border-amber-500/40 text-amber-300' },
+  not_connected: { label: 'Not connected', className: 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)]' },
+}
+
+export function ConnectionChip({ channel }: { channel: YouTubeChannelWorkspace }) {
+  const state = connectionState(channel)
+  const chip = CONNECTION_CHIP[state]
+  return (
+    <span className={`shrink-0 whitespace-nowrap rounded-full border px-2 py-1 text-[11px] font-label uppercase tracking-widest ${chip.className}`}>
+      {chip.label}
+    </span>
+  )
+}
+
+export function channelNeedsReconnect(channel: YouTubeChannelWorkspace): boolean {
+  return connectionState(channel) === 'needs_reauth'
+}
+
 export function YouTubeChannelCard({
   channel,
   children,
@@ -35,7 +65,10 @@ export function YouTubeChannelCard({
           <h3 className="break-words font-headline text-lg font-semibold text-on-surface">{channel.title}</h3>
           <p className="break-words text-sm text-on-surface-variant">{handle}</p>
         </div>
-        <StatusPill status={channel.status} />
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <StatusPill status={channel.status} />
+          <ConnectionChip channel={channel} />
+        </div>
       </div>
       {channel.contentPillars?.length ? (
         <div className="flex flex-wrap gap-2">
