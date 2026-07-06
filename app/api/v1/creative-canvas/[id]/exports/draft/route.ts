@@ -6,6 +6,7 @@ import { actorFrom } from '@/lib/api/actor'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { actorFields } from '@/lib/book-studio/api'
+import { getBookFormat, listBookFormats } from '@/lib/book-studio/format-registry'
 import { sanitizeBookStudioRecordInput } from '@/lib/book-studio/sanitize'
 import { createClientDocument } from '@/lib/client-documents/store'
 import { createYouTubeVideoProject, listChannelWorkspaces } from '@/lib/youtube-studio/api'
@@ -141,13 +142,53 @@ async function linkCanvas(canvasId: string, field: string, value: string): Promi
  * Publishing to Book Studio from an unlinked canvas auto-creates the book
  * project (the natural container for chapters/manuscripts) and links the
  * canvas to it, so 📤 works on a fresh board without manual setup.
+ *
+ * Requires `format` (validated against the book format registry — missing or
+ * unknown values 400 with the list of valid ids) and accepts an optional
+ * `seriesId` (must resolve to a live, same-org `book_studio_series` doc) and
+ * `title` (falls back to the canvas title). Idempotent: if the canvas is
+ * already linked to a live, same-org book project, that project is reused
+ * instead of creating a duplicate — callers can tell the two cases apart via
+ * the returned `created` flag.
  */
 async function ensureBookStudioProject(
   canvas: CreativeCanvas & { id: string },
   user: ApiUser,
-): Promise<string> {
+  body: Record<string, unknown>,
+): Promise<{ projectId: string; created: boolean } | Response> {
+  const existingProjectId = cleanString(canvas.linked?.bookStudioProjectId)
+  if (existingProjectId) {
+    const existingSnap = await adminDb.collection('book_studio_projects').doc(existingProjectId).get()
+    const existingData = existingSnap.exists ? (existingSnap.data() as Record<string, unknown>) : undefined
+    if (existingData && existingData.orgId === canvas.orgId && existingData.deleted !== true) {
+      return { projectId: existingProjectId, created: false }
+    }
+  }
+
+  const formatId = cleanString(body.format)
+  const format = formatId ? getBookFormat(formatId) : null
+  if (!format) {
+    const validIds = listBookFormats().map((entry) => entry.id).join(', ')
+    return apiError(`format is required and must be one of: ${validIds}`, 400)
+  }
+
+  const seriesId = cleanString(body.seriesId)
+  if (seriesId) {
+    const seriesSnap = await adminDb.collection('book_studio_series').doc(seriesId).get()
+    const seriesData = seriesSnap.exists ? (seriesSnap.data() as Record<string, unknown>) : undefined
+    if (!seriesData || seriesData.orgId !== canvas.orgId || seriesData.deleted === true) {
+      return apiError('seriesId was not found', 400)
+    }
+  }
+
   const record = sanitizeBookStudioRecordInput('projects', {
-    title: `Book: ${canvasBaseTitle(canvas)}`,
+    title: cleanString(body.title) ?? canvasBaseTitle(canvas),
+    status: 'draft',
+    stage: 'intake',
+    format: format.id,
+    trim: { presetId: format.defaultTrim },
+    seriesId,
+    creativeCanvasId: canvas.id,
     description: `Auto-created by Creative Canvas publish from canvas ${canvas.id}.`,
     safeSummary: 'Book project created automatically when publishing a canvas text node to Book Studio.',
   }, canvas.orgId)
@@ -156,7 +197,7 @@ async function ensureBookStudioProject(
     ...actorFields(user),
   })
   await linkCanvas(canvas.id, 'bookStudioProjectId', ref.id)
-  return ref.id
+  return { projectId: ref.id, created: true }
 }
 
 /**
@@ -301,10 +342,18 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   if (!node) return apiError('Creative canvas output node not found', 404)
 
   try {
-    let downstreamDraftId = downstreamDraftIdFrom(canvas, node, target, body)
+    let downstreamDraftId = target === 'book_studio' ? undefined : downstreamDraftIdFrom(canvas, node, target, body)
+    let bookStudioProjectCreated: boolean | undefined
     if (!downstreamDraftId) {
       if (target === 'book_studio') {
-        downstreamDraftId = await ensureBookStudioProject(canvas, user)
+        // Always resolved through ensureBookStudioProject (rather than the
+        // generic downstreamDraftIdFrom shortcut) so a stale/soft-deleted
+        // link doesn't bypass the liveness + org check — see idempotency
+        // semantics in ensureBookStudioProject's doc comment above.
+        const ensured = await ensureBookStudioProject(canvas, user, body)
+        if (ensured instanceof Response) return ensured
+        downstreamDraftId = ensured.projectId
+        bookStudioProjectCreated = ensured.created
       } else if (target === 'client_document' || target === 'blog_post') {
         downstreamDraftId = await ensureClientDocumentDraft(canvas, user)
       } else if (target === 'email_block') {
@@ -342,7 +391,12 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
     const ref = await adminDb.collection('creative_canvas_exports').add(storedRecord)
     const exportRecord = { id: ref.id, ...storedRecord }
 
-    return apiSuccess({ exportId: ref.id, export: exportRecord, draft: draft.payload }, 201)
+    return apiSuccess({
+      exportId: ref.id,
+      export: exportRecord,
+      draft: draft.payload,
+      ...(target === 'book_studio' ? { projectId: downstreamDraftId, created: bookStudioProjectCreated } : {}),
+    }, 201)
   } catch (error) {
     return apiError(error instanceof Error ? error.message : 'Creative canvas draft export failed', 400)
   }
