@@ -46,6 +46,13 @@ export function buildMarketingHubProps(config: MarketingHubSurface): HubPageProp
             eyebrow: 'Content',
           },
           {
+            label: 'Video Editor',
+            href: scopedPortalPath('/portal/video-editor', config),
+            icon: 'movie_edit',
+            description: 'Assemble clips, add text, render MP4s, and send outputs into YouTube or Marketing Studio.',
+            eyebrow: 'Edit',
+          },
+          {
             label: 'Ads',
             href: scopedPortalPath('/portal/ads', config),
             icon: 'ads_click',
@@ -81,29 +88,6 @@ export function buildMarketingHubProps(config: MarketingHubSurface): HubPageProp
             icon: 'person_add',
             description: 'Connect social accounts and personal X MCP under your user profile, not the organisation.',
             eyebrow: 'Connect',
-          },
-        ]),
-        section('Studio', [
-          {
-            label: 'Marketing Studio',
-            href: scopedPortalPath('/portal/creative-canvas', config),
-            icon: 'draw',
-            description: 'Create campaign visuals and reusable media assets.',
-            eyebrow: 'Canvas',
-          },
-          {
-            label: 'Video Editor',
-            href: scopedPortalPath('/portal/video-editor', config),
-            icon: 'movie_edit',
-            description: 'Assemble clips, add text, render MP4s, and send outputs into YouTube or Marketing Studio.',
-            eyebrow: 'Edit',
-          },
-          {
-            label: 'YouTube Studio',
-            href: scopedPortalPath('/portal/youtube-studio', config),
-            icon: 'smart_display',
-            description: 'Request videos, review drafts, and manage channel production work.',
-            eyebrow: 'YouTube',
           },
         ]),
         section('Social media', [
