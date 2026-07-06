@@ -1349,6 +1349,23 @@ describe('portal youtube studio API', () => {
     expect(findUndefinedPaths(write)).toEqual([])
   })
 
+  it('rejects client video requests without an objective', async () => {
+    const { POST } = await import('@/app/api/v1/portal/youtube-studio/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/portal/youtube-studio', {
+      method: 'POST',
+      body: JSON.stringify({
+        channelWorkspaceId: 'channel-1',
+        title: 'New FAQ video',
+        objective: '   ',
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toMatch(/objective/i)
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
+
   it('blocks client video requests when the organisation role policy denies create access', async () => {
     stageFirestore({
       settings: {
@@ -1365,7 +1382,7 @@ describe('portal youtube studio API', () => {
     const { POST } = await import('@/app/api/v1/portal/youtube-studio/route')
     const res = await POST(new NextRequest('http://localhost/api/v1/portal/youtube-studio', {
       method: 'POST',
-      body: JSON.stringify({ channelWorkspaceId: 'channel-1', title: 'New FAQ video' }),
+      body: JSON.stringify({ channelWorkspaceId: 'channel-1', title: 'New FAQ video', objective: 'Answer buyers' }),
     }))
 
     expect(res.status).toBe(403)
@@ -1387,7 +1404,7 @@ describe('portal youtube studio API', () => {
     const { POST } = await import('@/app/api/v1/portal/youtube-studio/route')
     const res = await POST(new NextRequest('http://localhost/api/v1/portal/youtube-studio', {
       method: 'POST',
-      body: JSON.stringify({ channelWorkspaceId: 'channel-1', title: 'New FAQ video' }),
+      body: JSON.stringify({ channelWorkspaceId: 'channel-1', title: 'New FAQ video', objective: 'Answer buyers' }),
     }))
     const body = await res.json()
 
