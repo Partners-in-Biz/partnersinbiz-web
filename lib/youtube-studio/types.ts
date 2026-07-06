@@ -350,6 +350,8 @@ export interface YouTubeVideoProject {
     campaignId?: string
     socialPostIds?: string[]
   }
+  /** Canvas linked as this project's production engine (two-way with canvas linked.youtubeVideoProjectId). */
+  creativeCanvasId?: string
   approvalPolicy: YouTubeApprovalPolicy
   publishPacketId?: string
   youtubeVideoId?: string
@@ -758,6 +760,11 @@ export interface YouTubeReleasePlan {
   publishAttemptCount?: number
   lastPublishAttemptAt?: unknown
   lastPublishError?: string
+  /**
+   * Scheduled-publish executor lifecycle marker, distinct from the human-facing `status`.
+   * `failed` is terminal (retry cap reached) and excludes the plan from future drains.
+   */
+  publishExecutionStatus?: 'pending' | 'publishing' | 'published' | 'failed'
   publishAuditTrail?: YouTubePublishAuditEvent[]
   checks: {
     approvedPacket: YouTubeGateCheck

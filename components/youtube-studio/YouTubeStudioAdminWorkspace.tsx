@@ -467,6 +467,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
   const [creatingReleasePlan, setCreatingReleasePlan] = useState(false)
   const [updatingDraftId, setUpdatingDraftId] = useState<string | null>(null)
   const [updatingRenderId, setUpdatingRenderId] = useState<string | null>(null)
+  const [openingCanvasVideoId, setOpeningCanvasVideoId] = useState<string | null>(null)
   const [updatingPacketId, setUpdatingPacketId] = useState<string | null>(null)
   const [queueingJob, setQueueingJob] = useState(false)
   const [queueingContextJobId, setQueueingContextJobId] = useState<string | null>(null)
@@ -1305,6 +1306,41 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
     }
   }
 
+  async function openVideoInCanvas(videoId: string | undefined) {
+    if (openingCanvasVideoId || !videoId) return
+    const mutationOrgId = orgId
+    const isCurrentMutation = () => mutationOrgId === activeOrgIdRef.current
+    setOpeningCanvasVideoId(videoId)
+    setActionNotice('')
+    setLoadNotice('')
+    try {
+      const res = await fetch(
+        `/api/v1/youtube-studio/videos/${encodeURIComponent(videoId)}/open-in-canvas?orgId=${encodeURIComponent(mutationOrgId)}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' } },
+      )
+      const body = await res.json().catch(() => ({}))
+      if (!isCurrentMutation()) return
+      if (!res.ok) {
+        setActionNotice(body.error ?? 'Could not open this video in the canvas')
+        return
+      }
+      const payload = (body.data ?? body) as { canvasId?: string }
+      if (!payload.canvasId) {
+        setActionNotice('Canvas did not return an id')
+        return
+      }
+      window.open(`/admin/creative-canvas?canvas=${encodeURIComponent(payload.canvasId)}`, '_self')
+    } catch {
+      if (isCurrentMutation()) {
+        setActionNotice('Could not open this video in the canvas')
+      }
+    } finally {
+      if (isCurrentMutation()) {
+        setOpeningCanvasVideoId(null)
+      }
+    }
+  }
+
   async function createReleasePlan(event: React.FormEvent) {
     event.preventDefault()
     if (creatingReleasePlan || !form.releasePacketId) return
@@ -1645,7 +1681,29 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               <div className="pib-card-section p-5 text-sm text-on-surface-variant">No YouTube videos yet.</div>
             ) : (
               visibleVideos.map((video) => (
-                <YouTubeVideoCard key={video.id ?? video.title} video={{ ...video, title: `${video.title} video card` }} />
+                <YouTubeVideoCard key={video.id ?? video.title} video={{ ...video, title: `${video.title} video card` }}>
+                  {video.id ? (
+                    <>
+                      <button
+                        type="button"
+                        disabled={openingCanvasVideoId === video.id}
+                        onClick={() => void openVideoInCanvas(video.id)}
+                        className="pib-btn-primary text-sm"
+                      >
+                        {openingCanvasVideoId === video.id ? 'Opening…' : 'Open in canvas'}
+                      </button>
+                      {video.creativeCanvasId ? (
+                        <a
+                          href={`/admin/creative-canvas?canvas=${encodeURIComponent(video.creativeCanvasId)}`}
+                          aria-label={`Open linked canvas for ${video.title}`}
+                          className="rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant"
+                        >
+                          Canvas ↗
+                        </a>
+                      ) : null}
+                    </>
+                  ) : null}
+                </YouTubeVideoCard>
               ))
             )}
           </div>
@@ -1898,6 +1956,11 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                       ))}
                     </div>
                     {job.output?.previewUrl ? <StatusPill status="preview_ready" /> : null}
+                    {job.renderEngine?.provider === 'creative_canvas' ? (
+                      <p className="break-words text-xs text-on-surface-variant">
+                        Rendered by canvas run {job.renderEngine.jobId ? job.renderEngine.jobId.slice(0, 8) : 'unknown'}
+                      </p>
+                    ) : null}
                     {job.clientNotes ? <p className="break-words text-sm text-on-surface-variant">{job.clientNotes}</p> : null}
                     {job.id ? (
                       <div className="flex flex-wrap gap-2">

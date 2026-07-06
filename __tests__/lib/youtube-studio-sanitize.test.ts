@@ -587,6 +587,36 @@ describe('youtube studio sanitizers', () => {
     })
   })
 
+  it('keeps a valid creativeCanvasId on a video project and drops invalid values', () => {
+    const withCanvas = sanitizeYouTubeVideoProjectInput({
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      title: 'Video',
+      objective: 'Explain the service',
+      creativeCanvasId: ' canvas-1 ',
+    })
+    expect(withCanvas.creativeCanvasId).toBe('canvas-1')
+    expectNoUndefinedValues(withCanvas)
+
+    const withoutCanvas = sanitizeYouTubeVideoProjectInput({
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      title: 'Video',
+      objective: 'Explain the service',
+      creativeCanvasId: '   ',
+    })
+    expect(withoutCanvas).not.toHaveProperty('creativeCanvasId')
+
+    const withNonString = sanitizeYouTubeVideoProjectInput({
+      orgId: 'org-1',
+      channelWorkspaceId: 'channel-1',
+      title: 'Video',
+      objective: 'Explain the service',
+      creativeCanvasId: { bad: true },
+    })
+    expect(withNonString).not.toHaveProperty('creativeCanvasId')
+  })
+
   it('drops malformed portal video scalars and nested review/source values', () => {
     const safe = clientSafeYouTubeVideoProject({
       id: { raw: 'video-secret-id' } as unknown as string,
@@ -653,11 +683,12 @@ describe('youtube studio sanitizers', () => {
     expect(serialized).toMatchObject({ id: 'id-1', orgId: 'org-1', title: 'Acme' })
   })
 
-  it('hides internal channel access fields from portal clients', () => {
+  it('exposes safe connection fields but hides internal channel access fields from portal clients', () => {
     const channel = sanitizeYouTubeChannelWorkspaceInput({
       orgId: 'org-1',
       title: 'Client Channel',
       connectedAccountId: 'secret-oauth-id',
+      publishingReadiness: { accountStatus: 'connected', notes: 'internal readiness detail' },
       strategyDocumentId: 'strategy-secret',
       internalNotes: 'internal',
     })
@@ -668,7 +699,8 @@ describe('youtube studio sanitizers', () => {
       createdBy: 'admin-1',
       updatedBy: 'admin-2',
     })
-    expect(safe).not.toHaveProperty('connectedAccountId')
+    expect(safe.connectedAccountId).toBe('secret-oauth-id')
+    expect(safe.publishingReadiness).toEqual({ accountStatus: 'connected' })
     expect(safe).not.toHaveProperty('internalNotes')
     expect(safe).not.toHaveProperty('createdBy')
     expect(safe).not.toHaveProperty('updatedBy')

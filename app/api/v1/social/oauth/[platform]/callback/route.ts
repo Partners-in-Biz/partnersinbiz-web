@@ -17,6 +17,7 @@ import { encryptTokenBlock } from '@/lib/social/encryption'
 import { getProvider } from '@/lib/social/providers/registry'
 import { exchangeInstagramLongLivedToken } from '@/lib/social/instagram-oauth'
 import { logAudit } from '@/lib/social/audit'
+import { safeProvisionYouTubeChannelWorkspace } from '@/lib/youtube-studio/channel-provisioning'
 import type { SocialPlatformType } from '@/lib/social/providers/types'
 
 export async function GET(req: NextRequest) {
@@ -310,8 +311,30 @@ export async function GET(req: NextRequest) {
       details: { platform, displayName: profile.displayName },
     })
 
+    // YouTube: auto-provision / heal the YouTube Studio channel workspace.
+    // Runs for EVERY YouTube OAuth (also connections made from Marketing
+    // Studio's accounts page). Never fails the OAuth — on error the redirect
+    // carries provision=failed so the studio UI can offer a retry.
+    let provisionFailed = false
+    if (platform === 'youtube') {
+      const provisioned = await safeProvisionYouTubeChannelWorkspace(orgId, accountId, {
+        platformAccountId: profile.platformAccountId,
+        displayName: profile.displayName,
+        username: profile.username,
+        avatarUrl: profile.avatarUrl,
+        profileUrl: profile.profileUrl,
+        meta: profile.meta,
+      })
+      provisionFailed = !provisioned.ok
+    }
+
     return NextResponse.redirect(
-      new URL(buildOAuthRedirectPath(redirectUrl, { status: 'success', platform, account: accountId }), url.origin),
+      new URL(buildOAuthRedirectPath(redirectUrl, {
+        status: 'success',
+        platform,
+        account: accountId,
+        ...(provisionFailed ? { provision: 'failed' } : {}),
+      }), url.origin),
     )
   } catch (err) {
     console.error(`OAuth callback error for ${platform}:`, err)

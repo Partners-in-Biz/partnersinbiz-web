@@ -31,7 +31,7 @@ export function canAccessOrg(user: ApiUser | null | undefined, orgId: unknown): 
   }
   if (typeof orgId !== 'string' || !orgId) return false
   const clientOrgIds = user.orgIds?.length ? user.orgIds : (user.orgId ? [user.orgId] : [])
-  return clientOrgIds.includes(orgId)
+  return clientOrgIds.includes(orgId) || user.activeOrgId === orgId
 }
 
 export function isSuperAdmin(user: ApiUser | null | undefined): boolean {

@@ -3,6 +3,7 @@
 import { Handle, Position } from '@xyflow/react'
 import { canvasTheme } from '@/components/creative-canvas/theme/tokens'
 import { portsForNode, type CanvasNodeType } from '@/components/creative-canvas/nodes/ports'
+import { getCanvasModel } from '@/lib/creative-canvas/model-registry'
 
 export type CanvasNodeStatus = 'idle' | 'queued' | 'running' | 'done' | 'error'
 
@@ -16,6 +17,8 @@ export interface GeneratorNodeCardProps {
   assetUrl?: string
   assetKind?: 'image' | 'video'
   status?: CanvasNodeStatus
+  /** Failure reason shown on the card when status is 'error'. */
+  errorMessage?: string
   selected?: boolean
   /** Attached reference image URLs (Higgsfield-style image combine). */
   references?: string[]
@@ -87,6 +90,7 @@ export function GeneratorNodeCard(props: GeneratorNodeCardProps) {
     assetUrl,
     assetKind,
     status = 'idle',
+    errorMessage,
     selected = false,
     references = [],
     showGenerateBar = false,
@@ -152,6 +156,15 @@ export function GeneratorNodeCard(props: GeneratorNodeCardProps) {
 
       {showGenerateBar ? (
         <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {status === 'error' && errorMessage ? (
+            <div
+              role="alert"
+              style={{ display: 'flex', gap: 6, alignItems: 'flex-start', borderRadius: 8, border: '1px solid #ff6b6b', background: '#ff6b6b1a', color: '#ff9a9a', fontSize: 11, fontWeight: 600, padding: '6px 8px', lineHeight: 1.35 }}
+            >
+              <span aria-hidden>⚠</span>
+              <span>{errorMessage}</span>
+            </div>
+          ) : null}
           <textarea
             value={prompt}
             onChange={(event) => onPromptChange?.(event.target.value)}
@@ -184,7 +197,8 @@ export function GeneratorNodeCard(props: GeneratorNodeCardProps) {
                 type="button"
                 onClick={onAddReference}
                 className="nodrag"
-                title="Add reference image"
+                data-tip="Add reference image"
+                aria-label="Add reference image"
                 style={{
                   width: 40,
                   height: 40,
@@ -211,6 +225,7 @@ export function GeneratorNodeCard(props: GeneratorNodeCardProps) {
               type="button"
               onClick={onOpenModelPicker}
               className="nodrag"
+              data-tip="Choose generation model"
               style={{
                 flex: 1,
                 minWidth: 0,
@@ -227,12 +242,13 @@ export function GeneratorNodeCard(props: GeneratorNodeCardProps) {
                 cursor: 'pointer',
               }}
             >
-              {model ?? 'Select model'}
+              {(model ? getCanvasModel(model)?.label : undefined) ?? model ?? 'Select model'}
             </button>
             <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <button
                 type="button"
                 aria-label="Decrease batch"
+                data-tip="Fewer variants per run"
                 onClick={() => onBatchChange?.(Math.max(1, batch - 1))}
                 className="nodrag"
                 style={stepBtn}
@@ -243,6 +259,7 @@ export function GeneratorNodeCard(props: GeneratorNodeCardProps) {
               <button
                 type="button"
                 aria-label="Increase batch"
+                data-tip="More variants per run"
                 onClick={() => onBatchChange?.(Math.min(4, batch + 1))}
                 className="nodrag"
                 style={stepBtn}
@@ -266,9 +283,18 @@ export function GeneratorNodeCard(props: GeneratorNodeCardProps) {
               fontSize: 13,
               cursor: busy ? 'default' : 'pointer',
               opacity: busy ? 0.6 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
             }}
           >
-            {busy ? 'Generating…' : `Generate${typeof creditCost === 'number' ? `  ✦ ${creditCost}` : ''}`}
+            {busy ? (
+              <>
+                <span aria-hidden className="animate-spin" style={{ width: 13, height: 13, borderRadius: '50%', border: '2px solid currentColor', borderTopColor: 'transparent', display: 'inline-block' }} />
+                Generating…
+              </>
+            ) : `Generate${typeof creditCost === 'number' ? `  ✦ ${creditCost}` : ''}`}
           </button>
         </div>
       ) : null}

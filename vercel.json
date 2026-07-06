@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/creative-canvas-provider-runs",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/youtube-studio-publish",
+      "schedule": "*/5 * * * *"
     }
   ],
   "ignoreCommand": "node scripts/vercel-ignore-build.mjs"

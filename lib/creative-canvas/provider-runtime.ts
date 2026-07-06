@@ -3,9 +3,13 @@ import { adminDb } from '@/lib/firebase/admin'
 import { CREATIVE_CANVAS_RUN_COLLECTION, completeCreativeCanvasRun, dispatchCreativeCanvasProviderRun, ensureCreativeCanvasRunOutputNode, refreshCreativeCanvasProviderRunStatus } from './runs'
 import { getCreativeCanvas } from './store'
 import { buildHiggsfieldExecutionManifest } from './higgsfield-execution'
-import type { CreativeCanvas, CreativeCanvasActor, CreativeCanvasOutputKind, CreativeCanvasProviderRuntimeReadiness, CreativeCanvasRun, CreativeCanvasRunStatus } from './types'
+import { resolveCreativeProviderCredential } from './connections/resolve'
+import { submitDirectRun } from './direct-provider-runtime'
+import type { CreativeCanvas, CreativeCanvasActor, CreativeCanvasOutputKind, CreativeCanvasProviderKey, CreativeCanvasProviderRuntimeReadiness, CreativeCanvasRun, CreativeCanvasRunStatus } from './types'
 
 const HIGGSFIELD_ACTOR: CreativeCanvasActor = { uid: 'agent:maya', type: 'agent' }
+const DIRECT_ACTOR: CreativeCanvasActor = { uid: 'agent:maya', type: 'agent' }
+const DIRECT_ASYNC_PROVIDERS: CreativeCanvasProviderKey[] = ['xai', 'fal']
 const DEFAULT_BATCH_SIZE = 5
 
 type RunWithId = CreativeCanvasRun & { id: string }
@@ -23,6 +27,7 @@ interface RuntimeResult {
   providerRequestId?: string
   providerStatusUrl?: string
   providerCallbackUrl?: string
+  connectionId?: string
   status?: CreativeCanvasRunStatus
   providerStatus?: string
   providerStatusMessage?: string
@@ -240,6 +245,7 @@ async function applyRuntimeResult(run: RunWithId, result: RuntimeResult): Promis
       providerRequestId: result.providerRequestId,
       providerStatusUrl: result.providerStatusUrl,
       providerCallbackUrl: result.providerCallbackUrl,
+      ...(result.connectionId ? { connectionId: result.connectionId } : {}),
     }, HIGGSFIELD_ACTOR)
   }
 
@@ -289,7 +295,7 @@ async function applyRuntimeResult(run: RunWithId, result: RuntimeResult): Promis
   return result.providerJobId ? 'dispatched' : 'refreshed'
 }
 
-async function submitQueuedRun(run: RunWithId, config: HiggsfieldRuntimeConfig): Promise<'submitted' | 'completed' | 'failed'> {
+async function submitQueuedRun(run: RunWithId, config: HiggsfieldRuntimeConfig, uid = ''): Promise<'submitted' | 'completed' | 'failed'> {
   if (!config.submitUrl) return 'failed'
   const canvas = await getCreativeCanvas(run.canvasId, run.orgId)
   if (!canvas) {
@@ -298,6 +304,9 @@ async function submitQueuedRun(run: RunWithId, config: HiggsfieldRuntimeConfig):
   }
   await markRunSubmissionStarted(run)
   const manifest = buildHiggsfieldExecutionManifest(run, canvas)
+  const resolved = await resolveCreativeProviderCredential({ provider: 'higgsfield', orgId: run.orgId, uid })
+  const byokCredentials = resolved.kind === 'byok' ? resolved.credentials : undefined
+  const connectionId = resolved.kind === 'byok' ? resolved.connection.id : undefined
   const response = await fetch(config.submitUrl, {
     method: 'POST',
     headers: runtimeHeaders(config),
@@ -311,6 +320,7 @@ async function submitQueuedRun(run: RunWithId, config: HiggsfieldRuntimeConfig):
         purpose: canvas.purpose,
       },
       manifest,
+      ...(byokCredentials ? { byokCredentials } : {}),
       callback: {
         url: callbackUrl(config),
         secretHeader: config.webhookSecret ? 'x-creative-canvas-provider-secret' : undefined,
@@ -326,26 +336,91 @@ async function submitQueuedRun(run: RunWithId, config: HiggsfieldRuntimeConfig):
   const result = normalizeRuntimeResult(body)
   result.providerStatusUrl = absoluteRuntimeUrl(result.providerStatusUrl, config)
   result.providerCallbackUrl = absoluteRuntimeUrl(result.providerCallbackUrl, config)
+  if (connectionId) result.connectionId = connectionId
   const applied = await applyRuntimeResult(run, result)
   return applied === 'completed' ? 'completed' : applied === 'failed' ? 'failed' : 'submitted'
 }
 
+async function failDirectRun(
+  run: RunWithId,
+  code: string,
+  message: string,
+  retryable: boolean,
+): Promise<'failed'> {
+  await refreshCreativeCanvasProviderRunStatus(run.id, run.orgId, {
+    status: 'failed',
+    providerStatus: code,
+    providerStatusMessage: message,
+    error: { code, message, retryable },
+  }, DIRECT_ACTOR)
+  return 'failed'
+}
+
 /**
- * Immediately submit a just-created queued run to the Higgsfield runtime
- * (internal Hermes bridge / external runtime) instead of waiting for the
- * 5-minute drain cron. Safe no-op when the runtime isn't configured.
+ * Submit a queued direct-async run (xai video / fal) straight to the provider
+ * using a resolved BYOK (or xai platform env) credential. Failures route
+ * through refreshCreativeCanvasProviderRunStatus (the single refund choke
+ * point), same as the Higgsfield lane.
+ */
+async function submitDirectQueuedRun(run: RunWithId, uid: string): Promise<'submitted' | 'failed'> {
+  const resolved = await resolveCreativeProviderCredential({ provider: run.providerKey, orgId: run.orgId, uid })
+
+  if (resolved.kind === 'connection_required') {
+    return failDirectRun(run, 'connection_required', 'No connected account for this provider — connect it in Creative providers.', false)
+  }
+
+  let credentials: { apiKey: string }
+  let connectionId: string | undefined
+  if (resolved.kind === 'byok') {
+    credentials = resolved.credentials as { apiKey: string }
+    connectionId = resolved.connection.id
+  } else {
+    // 'shared' — xai env-key path (no shared credential for fal video).
+    const apiKey = process.env.XAI_API_KEY
+    if (!apiKey) {
+      return failDirectRun(run, 'connection_required', 'No connected account for this provider — connect it in Creative providers.', false)
+    }
+    credentials = { apiKey }
+  }
+
+  try {
+    const result = await submitDirectRun(run, credentials)
+    await dispatchCreativeCanvasProviderRun(run.id, run.orgId, {
+      providerJobId: result.providerJobId,
+      providerStatusUrl: result.providerStatusUrl,
+      ...(connectionId ? { connectionId } : {}),
+    }, DIRECT_ACTOR)
+    return 'submitted'
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Direct provider submission failed.'
+    return failDirectRun(run, 'direct_submit_failed', message, true)
+  }
+}
+
+/**
+ * Immediately submit a just-created queued run to its provider runtime instead
+ * of waiting for the 5-minute drain cron. Higgsfield goes through the executor
+ * bridge; xai/fal go through the direct BYOK lane. Safe no-op when nothing is
+ * configured for the run's provider.
  */
 export async function dispatchCreativeCanvasRunNow(
   run: RunWithId,
-  env: NodeJS.ProcessEnv = process.env,
+  opts: { uid?: string; env?: NodeJS.ProcessEnv } = {},
 ): Promise<'submitted' | 'completed' | 'failed' | 'not_configured'> {
-  // Only Higgsfield runs go to the executor — other providers (agent_task,
-  // manual_upload, …) have their own paths and the executor rejects them.
-  if (run.providerKey !== 'higgsfield') return 'not_configured'
-  const config = runtimeConfigFromEnv(env)
-  if (!config.submitUrl) return 'not_configured'
   if (run.status !== 'queued') return 'not_configured'
-  return submitQueuedRun(run, config)
+
+  if (run.providerKey === 'higgsfield') {
+    const config = runtimeConfigFromEnv(opts.env ?? process.env)
+    if (!config.submitUrl) return 'not_configured'
+    return submitQueuedRun(run, config, opts.uid ?? '')
+  }
+
+  if (DIRECT_ASYNC_PROVIDERS.includes(run.providerKey)) {
+    return submitDirectQueuedRun(run, opts.uid ?? '')
+  }
+
+  // Other providers (agent_task, manual_upload, …) have their own paths.
+  return 'not_configured'
 }
 
 async function pollRunningRun(run: RunWithId, config: HiggsfieldRuntimeConfig): Promise<'refreshed' | 'completed' | 'failed' | 'skipped'> {

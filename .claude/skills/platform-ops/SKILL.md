@@ -1288,6 +1288,271 @@ Response:
 
 ---
 
+## Creative provider connections (BYOK)
+
+Bring-your-own-key connections for the Creative Canvas. Lets a client wire up their own xAI, Google (Gemini), fal.ai, Recraft, or Higgsfield credentials so canvas generation runs on their account instead of platform credits. All routes: auth `client`, `orgId` via `?orgId=` query or `x-org-id` header (falls back to `user.orgId`/`orgIds[0]`).
+
+Providers that support connections: `xai`, `google`, `fal`, `recraft`, `higgsfield` (Higgsfield needs `apiKey` + `apiSecret`; the rest just `apiKey`).
+
+#### `GET /creative-canvas/connections?orgId=...` — auth: client
+Lists the caller's own user-scoped connections plus the org's org-scoped connections. Always masked — no `credentialsEnc`, only `credentialHint` (e.g. `xai-…1234`) and `hasCredentials`.
+
+Response:
+```json
+{ "connections": [
+  { "id": "org:org_abc:xai", "provider": "xai", "scope": "org", "orgId": "org_abc",
+    "ownerUid": null, "label": "xAI (Grok)", "status": "connected",
+    "credentialHint": "xai-…1234", "hasCredentials": true,
+    "lastValidatedAt": "...", "lastUsedAt": "...", "lastError": null }
+] }
+```
+
+#### `POST /creative-canvas/connections?orgId=...` — auth: client
+Body:
+```json
+{ "provider": "xai", "scope": "org", "label": "Marketing xAI key",
+  "credentials": { "apiKey": "xai-..." } }
+```
+For Higgsfield, `credentials` needs both `apiKey` and `apiSecret`.
+
+- `scope`: `"org"` (shared by everyone in the org) or `"user"` (portable across all orgs the calling user belongs to). **Agents (`role: "ai"`) can only create org-scoped connections** — `scope: "user"` from an agent caller returns 400 `Agents can only create organisation-scoped connections`.
+- The key is validated against the provider before it's stored — a bad/expired key returns 400 with the provider's validation error, nothing is persisted.
+- Credentials are AES-256-GCM encrypted, keyed off `org:{orgId}` or `user:{uid}` (org and user connections can never decrypt each other's blobs).
+- Connection id is derived as `org:{orgId}:{provider}` or `user:{uid}:{provider}` — URL-encode the colons when addressing `/connections/{id}`.
+- Errors: 400 `scope must be "org" or "user"`, 400 `credentials are required`, 400 `Credential value too long` (>4096 chars), 400 `<Field> is required` for missing required fields, 400 `Provider does not support connections` for providers without a `connection` config (e.g. `manual_upload`, `agent_task`).
+- Success: 201 `{ "connection": { ...masked } }`.
+
+#### `DELETE /creative-canvas/connections/{id}?orgId=...` — auth: client
+Revokes the connection (clears stored credentials, `status` → `revoked`). Errors: 403 `Forbidden`, 404 `Connection not found`. Success: `{ "connection": { ...masked } }`.
+
+#### `POST /creative-canvas/connections/{id}/validate?orgId=...` — auth: client
+Re-checks a stored key against the provider and updates `status`/`lastValidatedAt`/`lastError`. Response: `{ "connection": { ...masked }, "validation": { "ok": true } }` (or `{ "ok": false, "error": "..." }`). 400 `Connection has no stored credentials` if already revoked.
+
+### BYOK billing rule
+
+When generating on the canvas, credential resolution runs **user-scoped connection → org-scoped connection → shared platform runtime → `connection_required`**:
+
+- If a usable connection is found (user-scoped wins over org-scoped), the run is billed to the user's own provider account — run provenance is stamped `{ "costUnits": 0, "costLabel": "byok:<provider>" }` and it **bypasses platform creative-canvas credits entirely**.
+- `higgsfield` always has a shared-runtime fallback (unchanged behaviour — the existing VPS Higgsfield executor, billed in platform credits) even with no connection configured.
+- `xai` falls back to the platform `XAI_API_KEY` env var if no connection exists (still charges platform credits).
+- `google`, `fal`, and `recraft` have **no shared fallback** — generating with one of their models and no connection returns 400 `Connect a <provider> account in Creative providers to use this model`.
+
+### New canvas models (BYOK direct lane)
+
+These model ids run against the connected provider directly (not through the Higgsfield executor):
+
+| Model id | Provider | Kind | Execution |
+|---|---|---|---|
+| `grok-imagine-image` | xai | image | sync |
+| `grok-imagine-image-quality` | xai | image | sync |
+| `grok-imagine-video` | xai | video | async |
+| `grok-imagine-video-1.5` | xai | video | async |
+| `gemini-3-pro-image-preview` | google | image | sync |
+| `imagen-4` | google | image | sync |
+| `recraftv4` | recraft | image | sync |
+| `recraftv4-vector` | recraft | image | sync |
+| `fal-flux-2-pro` | fal | image | async |
+| `fal-kling-video-2-6-pro` | fal | video | async |
+| `fal-veo-3-1` | fal | video | async |
+
+`google`, `recraft`, and `fal` models always require a connection (no platform fallback). `xai` models fall back to the platform key if unconnected. Async models are dispatched via the direct-provider runtime (submit + poll against the provider's own API) rather than the shared Higgsfield job queue.
+
+---
+
+## YouTube Studio ↔ Creative Canvas bridge
+
+Turns a YouTube Studio video project into a fully seeded Creative Canvas production board, keeps the two in sync as canvas runs complete, and lets a canvas export create — and later publish — the video project on its own.
+
+#### `POST /youtube-studio/videos/{id}/open-in-canvas?orgId=...` — auth: client
+
+Opens (or creates) the canvas for a video project. Idempotent — calling it again on an already-linked video returns the existing canvas instead of creating a duplicate.
+
+Response: `{ "canvasId": "canvas_abc", "created": true }` (201 if a canvas was just created, 200 if one already existed).
+
+```bash
+curl -X POST "https://partnersinbiz.online/api/v1/youtube-studio/videos/vid_123/open-in-canvas?orgId=org_abc" \
+  -H "Authorization: Bearer $AI_API_KEY"
+```
+
+What gets seeded, from the video project's latest production draft:
+- A brief node summarizing the video.
+- One prompt node, one music-bed-audio node, and one video generator node per scene.
+- A final assembly node with `edit.outputKind: "youtube_render"`, which is what the sync-back logic (below) watches for.
+
+Note: seeded audio nodes are **music beds only** — there is no TTS model wired up yet, so scene narration is not auto-voiced. The narration script is preserved as text on each scene's prompt node so it isn't lost, it just isn't rendered to audio automatically.
+
+Two-way link stored on both records: `video.creativeCanvasId` ↔ `canvas.linked.youtubeVideoProjectId`.
+
+#### Sync-back (automatic, no endpoint to call)
+
+Once a video is linked, completed runs on that canvas write back to the video project automatically:
+
+- **Any** completed video run on the linked canvas adds a `rendered_video` source asset to the video project, keyed `canvas-run-{runId}` (idempotent — re-processing the same run never double-adds it).
+- A completed run on the node carrying `edit.outputKind: "youtube_render"` additionally flips the video's open render job to `rendered` (creating one if none exists), stamped with `renderEngine: { "provider": "creative_canvas", "jobId": "<runId>" }`.
+- Approval and publish state on the video project are never touched by sync-back — a canvas render completing does not itself approve or schedule anything.
+
+#### Export auto-create (canvas → new video project)
+
+Exporting a canvas node with target `youtube_studio` no longer requires the canvas to already be linked to a video project — it will auto-create one:
+
+- Org has exactly **one** YouTube channel workspace → auto-creates against it, no extra input needed.
+- Org has **several** channel workspaces → pass `channelWorkspaceId` in the export body to disambiguate.
+- Org has **none** → 400 asking the caller to create a channel workspace first.
+
+```bash
+curl -X POST "https://partnersinbiz.online/api/v1/creative-canvas/canvas_abc/exports/draft?orgId=org_abc" \
+  -H "Authorization: Bearer $AI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nodeId": "node_final_assembly",
+    "target": "youtube_studio",
+    "channelWorkspaceId": "chw_marketing"
+  }'
+```
+
+#### Scheduled publishing (cron)
+
+Release plans using an API publish mode with `scheduledPublishAt` are executed by a 5-minute cron, `GET /cron/youtube-studio-publish`:
+
+- Every run re-checks all approval and readiness gates before publishing — nothing bypasses approval just because it's scheduled.
+- Approval blocks never burn a retry attempt.
+- Genuine publish failures are capped at 3 attempts, tracked via `publishAttemptCount` and `lastPublishError` on the plan.
+- After 3 failed attempts the plan is marked terminal: `publishExecutionStatus: "failed"`, surfaced on the plan for a human to intervene.
+- An in-flight guard prevents overlapping cron ticks from double-publishing the same plan.
+
+#### Render imports into the canvas source library
+
+`youtube_render_jobs` whose status is `rendered`, `qa_review`, or `approved` — and which have an http(s) output URL — appear as importable sources in the Creative Canvas source library. Portal (client) users only see jobs whose visibility flags allow client viewing; internal-only render jobs stay invisible to them.
+
+---
+
+## Book Studio production engine
+
+Book Studio's content model (chapters/pages), puzzle generation, print/ebook assembly, and its Creative Canvas bridge — the production surface that turns a book project into real interior PDFs, cover PDFs, and EPUBs. All routes below: auth `admin`, `orgId` via `?orgId=` query (falls back to `x-org-id` header / caller's org).
+
+### Chapters and pages (content units)
+
+Chapters and pages are project-scoped content-unit documents, siblings of the other Book Studio resources (briefs, series, publishing-packets, etc.) served through the same generic resource routes.
+
+#### `GET /book-studio/chapters?orgId=...` / `GET /book-studio/pages?orgId=...`
+Lists live (non-deleted) records for the org.
+
+#### `POST /book-studio/chapters?orgId=...`
+Body fields: `projectId`, `title`, `body` (max 900,000 chars — over the limit 400s), `status` (`draft` | `generated` | `edited` | `approved`, default `draft`), `order` (non-negative int), `canvasRunId`.
+- `wordCount` is **server-computed** from `body` on every write — a client-supplied `wordCount` is always ignored/overwritten.
+- Chapters/pages suppress the generic `stage`/`channel` pipeline fields entirely (they don't apply to content units).
+
+#### `POST /book-studio/pages?orgId=...`
+Body fields: `projectId`, `title`, `kind` (`illustration` | `colouring` | `comic` | `puzzle` | `activity` | `text` | `front_matter` | `back_matter`), `status` (same content-status enum as chapters), `order`, `imageUrl`, `imageStoragePath`, `caption`, `prompt`, `canvasRunId`, and:
+```json
+{ "puzzle": { "kind": "sudoku", "seed": 123456, "difficulty": "medium",
+    "params": { "words": ["OCEAN", "REEF"] } } }
+```
+`puzzle` is a composite object: `kind` (required for the object to be kept), `seed` (int), `difficulty` (string), `params` (whitelisted to `words: string[]` or `entries: {word,clue}[]` shape — any other key is dropped), `solutionRef`.
+
+### Generic PATCH for any Book Studio resource
+
+#### `PATCH /book-studio/{resource}/{id}?orgId=...`
+One endpoint patches every Book Studio resource (`projects`, `briefs`, `series`, `chapters`, `pages`, `artifact-links`, `publishing-packets`, `rights-ledgers`, `package-manifests`, `analytics-imports`, `decision-logs`) — `{resource}` is the same plural-kebab key used in the collection's own GET/POST path.
+- Only fields present in the request body are touched — no create-time defaults leak in, and `orgId`/`projectId` can never be changed through a patch (silently stripped even if sent).
+- Soft-delete: `{ "deleted": true }` — the record disappears from GET list results but is not physically removed.
+- **Invalid enum values 400 instead of silently falling back.** In create mode an out-of-range enum silently falls back to a default; in PATCH mode a *present-but-invalid* value throws, e.g. `PATCH pages/{id}` with `{"kind": "not_a_kind"}` → 400 `invalid value for kind`. This applies to every enum-ish field (`status`, `kind`, gate `status`, rights `status`, package-manifest `qaStatus`, etc.).
+- Composite objects (`puzzle`, `packageManifest`, `gates`, `rightsLedger`, `metadata`, `approvalState`, `analyticsSnapshot`, `trim`) **replace wholesale** — Firestore `update()` overwrites the whole top-level key, so patching `puzzle` with a new object never merges with the old one; send the full object you want.
+- Cross-org or already-deleted records 404 indistinguishably from records that never existed.
+
+```bash
+curl -X PATCH "https://partnersinbiz.online/api/v1/book-studio/pages/page_123?orgId=org_abc" \
+  -H "Authorization: Bearer $AI_API_KEY" -H "Content-Type: application/json" \
+  -d '{"status": "edited", "imageUrl": "https://.../page-1.png"}'
+```
+
+### Project and series content-model fields
+
+Beyond the shared Book Studio fields (title, status, stage, bridgeLinks, gates, etc.), `projects` and `series` accept:
+
+**Projects** — `format` (registry id, validated against the format registry; unknown id → 400 `unknown book format`), `trim` (`{ presetId }`, must resolve to a known preset or 400 `unknown trim preset`), `stylePrompt`, `coverImageUrl`, `creativeCanvasId`, `seriesVolumeNumber` (positive int).
+
+Format registry ids (`BookFormatId`): `story`, `nonfiction`, `kids_picture`, `colouring`, `comic`, `activity_workbook`, `puzzle_sudoku`, `puzzle_word_search`, `puzzle_maze`, `puzzle_crossword`, `puzzle_mixed`. Each format fixes a `layout` (`reflowable` for chapter-based books, `fixed` for page/image-based ones), `contentUnits` (`chapters` vs `pages`), a default + supported trim list, which assembly outputs it produces, and (for puzzle formats) a `puzzleKind`.
+
+Trim presets (`TrimPresetId`): `5x8`, `6x9`, `7x10`, `8x10`, `8.5x8.5`, `8.5x11` — all KDP-spec (0.125" bleed, 300 DPI); `resolveTrimSpec` also derives margins/gutter and paperback spine width from page count.
+
+**Series** — `volumeOrder` (string array of project ids), `sharedMetadata` (`{ authorName, imprint, keywords, categories }`), `sharedStylePrompt`.
+
+### `POST /book-studio/projects/{id}/pages/generate-puzzles?orgId=...`
+
+Generates a batch of deterministic, seeded puzzle pages and creates them as `pages` records in one call.
+
+Body:
+```json
+{ "kind": "word_search", "count": 20, "difficulty": "medium",
+  "params": { "words": ["OCEAN", "REEF", "CORAL"] },
+  "startOrder": 40 }
+```
+- `kind`: `sudoku` | `word_search` | `maze` | `crossword` — must match the project format's `puzzleKind` (or the format must be `puzzle_mixed`), else 400.
+- `count`: integer 1–100.
+- `difficulty`: `easy` | `medium` | `hard` | `expert`.
+- `params`: `{ words: string[] }` for word_search, `{ entries: {word, clue}[] }` for crossword (unknown/other keys dropped).
+- `startOrder` (optional): int ≥ 0; defaults to `max(existing live page order for this project) + 1`.
+- **Validate-all-before-write**: every one of `count` puzzles is generated and validated first; if any single one fails, the whole call 400s and nothing is written — never a partial batch.
+- Seeds are derived from a random base + index, so pages are deterministically reproducible per seed but not predictable batch-to-batch.
+- Response: 201 `{ "pages": [ {...created page records...} ] }`, each pre-tagged `kind: "puzzle"`, `status: "generated"`.
+
+### `POST /book-studio/projects/{id}/assemble?orgId=...`
+
+Produces the real, downloadable production files for a book project — this is the actual print/ebook build step, not a preview.
+
+- Loads the project's live chapters/pages, builds whichever of interior PDF / full-wrap cover PDF / EPUB the format calls for (`format.assembly`), and uploads each to Firebase Storage.
+- **Readiness gates before building anything**: reflowable formats need at least one chapter with non-empty body (else 422 `AssemblyNotReadyError` "no chapters"); fixed-layout formats need every image-kind page (`illustration`, `colouring`, `comic`, `activity`) to have an `imageUrl`, else **422 `{ "missing": [<page orders>] }`**.
+- Writes `packageManifest` back onto the project: `{ status: "generated", version: <incremented from previous>, qaStatus: "pending_review", generatedAt, checksum, files: [{ role, label, href, storagePath, checksum, bytes, pageCount? }] }`. Each file carries its own **sha256 checksum**; the manifest's top-level `checksum` mirrors the interior PDF's (or the first file's, for formats with no interior).
+- Also writes a `decision-logs` entry (`decision: "package_assembled"`) summarizing which files were produced.
+- **Store upload remains manual per governance** — assembly produces the files and manifest only; nothing here submits to KDP/Google Play Books/Apple Books/etc. (the publishing-packet `manual_upload_review` stage still owns that human step).
+- Errors: 404 `book project not found`, 400 unknown format/trim, 422 not-ready / missing assets (as above).
+
+```bash
+curl -X POST "https://partnersinbiz.online/api/v1/book-studio/projects/proj_123/assemble?orgId=org_abc" \
+  -H "Authorization: Bearer $AI_API_KEY"
+```
+
+### `POST /book-studio/projects/{id}/open-in-canvas?orgId=...`
+
+Opens (or creates) a Creative Canvas production board for a book project — same idempotent pattern as the YouTube Studio bridge above.
+
+Response: `{ "canvasId": "canvas_abc", "created": true|false }` — `created: false` and the existing canvas short-circuit if the project is already linked to a live canvas; a stale link (canvas deleted) falls through and re-creates.
+
+What gets seeded, keyed off the project's `format.canvasRecipe`:
+- A brief node (title/format/audience/style summary) that every generator references.
+- A cover image generation node — always seeded, tagged `data.bookRole: "cover"`.
+- `picture_book` / `colouring_book` / `comic_book` recipes → one image generation node per page still missing `imageUrl`, tagged `data.bookRole: "page_illustration"` + `data.bookPageId`.
+- `text_book` recipe → one copy-generation node per chapter still needing prose (`status` unset/`draft`/`generated`), tagged `data.bookRole: "chapter_text"` + `data.bookChapterId`.
+- `none` recipe (puzzle/activity formats) → brief + cover only; puzzle interiors are always generated deterministically via `generate-puzzles`, never via canvas models.
+- Every generation node carries `edit.outputKind: "book_artifact"` so downstream export/routing can identify book outputs in the run stream. Hard cap of 24 generation nodes (cover included) per seed.
+- Two-way link stored on both records: `project.creativeCanvasId` ↔ `canvas.linked.bookStudioProjectId`.
+
+#### Sync-back (automatic, no endpoint to call)
+
+Completed runs on a linked canvas write back to the book project automatically, scoped to exactly three fields — nothing else in Book Studio is ever touched by canvas sync-back:
+- `bookRole: "cover"` run completes → project `coverImageUrl` set to the run's output URL, plus an `artifact-links` record (`canvas-run-{runId}`, idempotent).
+- `bookRole: "page_illustration"` run completes → the tagged page's `imageUrl` set, `canvasRunId` stamped, `status` set to `generated`.
+- `bookRole: "chapter_text"` run completes → the tagged chapter's `body` set (and `wordCount` recomputed), `canvasRunId` stamped, `status` set to `generated`.
+- **Edited/approved content is never clobbered**: a page already `edited` or `approved`, or a chapter whose status isn't `draft`/`generated`, is left untouched even if its generating node completes again.
+
+### Canvas exports/drafts → Book Studio
+
+Exporting a canvas node with `target: "book_studio"` (output kind `book_artifact`) auto-creates a linked book project if the canvas isn't already linked to one — same auto-create convention as `youtube_studio`/`client_document` targets.
+
+```bash
+curl -X POST "https://partnersinbiz.online/api/v1/creative-canvas/canvas_abc/exports/draft?orgId=org_abc" \
+  -H "Authorization: Bearer $AI_API_KEY" -H "Content-Type: application/json" \
+  -d '{ "nodeId": "node_chapter_1", "target": "book_studio",
+        "format": "story", "seriesId": "series_abc", "title": "Book title" }'
+```
+- `format` is **required** on first (unlinked) export — must be a valid format-registry id, else 400 listing the valid ids.
+- `seriesId` (optional) must resolve to a live, same-org `book_studio_series` doc, else 400.
+- `title` optional — falls back to the canvas's own title.
+- Idempotent: if the canvas is already linked to a live, same-org book project, that project is reused (`created: false`) instead of creating a duplicate; response includes `projectId` and `created`.
+
+---
+
 ## FX Rates
 
 #### `GET /fx/rates` — auth: public (no API key required)

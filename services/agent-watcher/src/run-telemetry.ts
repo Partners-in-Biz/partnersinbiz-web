@@ -1,6 +1,7 @@
 export type AgentRunTelemetrySource = 'upstream' | 'unavailable'
 
 export interface AgentRunTelemetry {
+  provider: string | null
   model: string | null
   reasoningEffort: string | null
   inputTokens: number | null
@@ -43,6 +44,16 @@ function cleanString(value: unknown): string | null {
 
 function cleanNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function providerFromModel(model: string | null): string | null {
+  if (!model) return null
+  if (model.includes('/')) return model.split('/')[0] || null
+  if (/claude/i.test(model)) return 'anthropic'
+  if (/gpt|openai/i.test(model)) return 'openai'
+  if (/gemini/i.test(model)) return 'google'
+  if (/grok|xai/i.test(model)) return 'xai'
+  return null
 }
 
 function telemetrySources(payloads: Array<Record<string, unknown> | null | undefined>): Array<Record<string, unknown> | null> {
@@ -122,6 +133,7 @@ function costUsdFromSources(sources: Array<Record<string, unknown> | null>): num
 export function buildAgentRunTelemetry(input: BuildAgentRunTelemetryInput): AgentRunTelemetry {
   const sources = telemetrySources(input.payloads)
   const model = firstString(sources, ['model', 'agentModel', 'modelId', 'model_id']) ?? input.requestedModel ?? null
+  const provider = firstString(sources, ['provider', 'providerId', 'provider_id']) ?? providerFromModel(model)
   const reasoningEffort = firstString(sources, ['reasoningEffort', 'reasoning_effort', 'agentEffort']) ?? input.requestedReasoningEffort ?? null
   const inputTokens = firstNumber(sources, ['inputTokens', 'input_tokens', 'promptTokens', 'prompt_tokens'])
   const outputTokens = firstNumber(sources, ['outputTokens', 'output_tokens', 'completionTokens', 'completion_tokens'])
@@ -143,6 +155,7 @@ export function buildAgentRunTelemetry(input: BuildAgentRunTelemetryInput): Agen
   ].filter((value): value is string => Boolean(value))
 
   return {
+    provider,
     model,
     reasoningEffort,
     inputTokens,

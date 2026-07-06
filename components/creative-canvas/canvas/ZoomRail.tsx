@@ -25,7 +25,7 @@ function RailButton({
     <button
       type="button"
       aria-label={label}
-      title={label}
+      data-tip={label}
       onClick={onClick}
       disabled={disabled}
       style={{

@@ -1,10 +1,15 @@
 import { NextRequest } from 'next/server'
 
 const mockDrainHiggsfieldCreativeCanvasRuns = jest.fn()
+const mockDrainDirectCreativeCanvasRuns = jest.fn(async () => ({ submitted: 0, polled: 0, completed: 0, failed: 0 }))
 const mockRunWithFirestoreReadAudit = jest.fn((_label: string, fn: () => unknown) => fn())
 
 jest.mock('@/lib/creative-canvas/provider-runtime', () => ({
   drainHiggsfieldCreativeCanvasRuns: (...args: unknown[]) => mockDrainHiggsfieldCreativeCanvasRuns(...args),
+}))
+
+jest.mock('@/lib/creative-canvas/direct-provider-runtime', () => ({
+  drainDirectCreativeCanvasRuns: (...args: unknown[]) => mockDrainDirectCreativeCanvasRuns(...args),
 }))
 
 jest.mock('@/lib/firebase/read-audit', () => ({
@@ -48,12 +53,14 @@ describe('creative canvas provider runtime cron route', () => {
     expect(res.status).toBe(200)
     expect(mockRunWithFirestoreReadAudit).toHaveBeenCalledWith('api/cron/creative-canvas-provider-runs', expect.any(Function))
     expect(mockDrainHiggsfieldCreativeCanvasRuns).toHaveBeenCalledWith({ submitLimit: 2, pollLimit: 3 })
+    expect(mockDrainDirectCreativeCanvasRuns).toHaveBeenCalledWith({ submitLimit: 2, pollLimit: 3 })
     expect(body).toMatchObject({
       success: true,
       data: {
         submitted: 1,
         completed: 1,
         runtimeConfigured: true,
+        direct: { submitted: 0, polled: 0, completed: 0, failed: 0 },
       },
     })
   })

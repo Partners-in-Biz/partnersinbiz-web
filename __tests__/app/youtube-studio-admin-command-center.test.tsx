@@ -158,3 +158,85 @@ describe('YouTubeStudioAdminWorkspace command center', () => {
     expect(within(cockpit).getByText('Brief accepted for production')).toBeInTheDocument()
   })
 })
+
+function installCanvasBridgeFetch(openInCanvasResponse?: Response) {
+  const fetchMock = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input)
+    if (url.includes('/open-in-canvas')) {
+      if (init?.method !== 'POST') return jsonResponse({ success: false }, false)
+      return openInCanvasResponse ?? jsonResponse({ success: true, data: { canvasId: 'canvas-77', created: true } })
+    }
+    if (url.includes('/channels')) return jsonResponse({ success: true, data: { channels: [
+      { id: 'channel-1', title: 'Lumen Growth Channel', status: 'active', youtubeHandle: '@lumen',
+        publishingPolicy: { connectedAccountStatus: 'connected', apiProjectStatus: 'verified', publishingReadiness: 'scheduled_publish_ready', defaultVisibility: 'private' } },
+    ] } })
+    if (url.includes('/series')) return jsonResponse({ success: true, data: { series: [] } })
+    if (url.includes('/videos')) return jsonResponse({ success: true, data: { videos: [
+      { id: 'video-linked', channelWorkspaceId: 'channel-1', title: 'Linked cockpit', status: 'production', objective: 'Linked video.', videoType: 'long_form', creativeCanvasId: 'canvas-linked-1' },
+      { id: 'video-fresh', channelWorkspaceId: 'channel-1', title: 'Fresh cockpit', status: 'production', objective: 'Unlinked video.', videoType: 'long_form' },
+    ] } })
+    if (url.includes('/source-assets')) return jsonResponse({ success: true, data: { sourceAssets: [] } })
+    if (url.includes('/clip-candidates')) return jsonResponse({ success: true, data: { clipCandidates: [] } })
+    if (url.includes('/production-drafts')) return jsonResponse({ success: true, data: { productionDrafts: [] } })
+    if (url.includes('/render-jobs')) return jsonResponse({ success: true, data: { renderJobs: [
+      { id: 'render-canvas', channelWorkspaceId: 'channel-1', videoProjectId: 'video-linked', title: 'Canvas render', renderType: 'full_video', targetFormat: 'horizontal_16_9', status: 'rendered', renderEngine: { provider: 'creative_canvas', jobId: 'run-abcdef123456', status: 'completed' }, output: { previewUrl: 'https://cdn.example/out.mp4' } },
+    ] } })
+    if (url.includes('/publish-packets')) return jsonResponse({ success: true, data: { packets: [] } })
+    if (url.includes('/release-plans')) return jsonResponse({ success: true, data: { releasePlans: [] } })
+    if (url.includes('/agent-jobs')) return jsonResponse({ success: true, data: { jobs: [] } })
+    if (url.includes('/analytics')) return jsonResponse({ success: true, data: { snapshots: [] } })
+    return jsonResponse({ success: true, data: {} })
+  })
+  global.fetch = fetchMock as jest.Mock
+  return fetchMock
+}
+
+describe('YouTubeStudioAdminWorkspace canvas bridge', () => {
+  let openMock: jest.SpyInstance
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    openMock = jest.spyOn(window, 'open').mockImplementation(() => null)
+  })
+
+  afterEach(() => {
+    openMock.mockRestore()
+  })
+
+  it('renders an Open in canvas button per video project, POSTs and navigates on click', async () => {
+    const fetchMock = installCanvasBridgeFetch()
+    render(<YouTubeStudioAdminWorkspace orgId="pib-platform-owner" orgName="Partners in Biz" />)
+
+    const buttons = await screen.findAllByRole('button', { name: 'Open in canvas' })
+    expect(buttons.length).toBeGreaterThanOrEqual(2)
+
+    fireEvent.click(buttons[1])
+
+    await screen.findByText('Opening…')
+    await Promise.resolve()
+
+    const openCall = fetchMock.mock.calls.find(([input]) => String(input).includes('/open-in-canvas'))
+    expect(openCall).toBeTruthy()
+    expect(String(openCall![0])).toContain('/videos/video-fresh/open-in-canvas')
+    expect((openCall![1] as RequestInit)?.method).toBe('POST')
+
+    await screen.findByText('Open in canvas')
+    expect(openMock).toHaveBeenCalledWith('/admin/creative-canvas?canvas=canvas-77', '_self')
+  })
+
+  it('renders a linked canvas chip when creativeCanvasId is present', async () => {
+    installCanvasBridgeFetch()
+    render(<YouTubeStudioAdminWorkspace orgId="pib-platform-owner" orgName="Partners in Biz" />)
+
+    const chip = await screen.findByRole('link', { name: /open linked canvas for linked cockpit/i })
+    expect(chip).toHaveAttribute('href', '/admin/creative-canvas?canvas=canvas-linked-1')
+    expect(chip).toHaveTextContent(/canvas/i)
+  })
+
+  it('shows a canvas provenance note on render jobs completed by the canvas', async () => {
+    installCanvasBridgeFetch()
+    render(<YouTubeStudioAdminWorkspace orgId="pib-platform-owner" orgName="Partners in Biz" />)
+
+    expect(await screen.findByText(/Rendered by canvas run run-abcd/i)).toBeInTheDocument()
+  })
+})

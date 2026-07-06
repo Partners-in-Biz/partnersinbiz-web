@@ -5,8 +5,9 @@ import { canvasTheme } from '@/components/creative-canvas/theme/tokens'
 import ModelPicker from '@/components/creative-canvas/panels/ModelPicker'
 import { getCanvasModel } from '@/lib/creative-canvas/model-registry'
 import type { CanvasModel } from '@/lib/creative-canvas/model-registry'
+import { getCreativeCanvasProvider } from '@/lib/creative-canvas/providers'
 import type { CanvasNodeType } from '@/components/creative-canvas/nodes/ports'
-import type { CreativeCanvasNode } from '@/lib/creative-canvas/types'
+import type { CreativeCanvasNode, CreativeCanvasProviderKey } from '@/lib/creative-canvas/types'
 
 type Tab = 'configure' | 'review' | 'provenance' | 'export'
 
@@ -20,6 +21,15 @@ export interface NodeSettingsValues {
   batch: number
 }
 
+export interface VideoPreflight {
+  /** Number of linked video sources this run will process. */
+  linkedVideos: number
+  /** Seconds of footage from trimmed segments (known windows only). */
+  trimmedSeconds: number
+  /** True when at least one linked video has no trim window (full-length). */
+  hasUntrimmed: boolean
+}
+
 export interface NodeSettingsPanelProps {
   open: boolean
   node: CreativeCanvasNode | null
@@ -28,12 +38,15 @@ export interface NodeSettingsPanelProps {
   prompt: string
   generating: boolean
   canGenerate: boolean
+  preflight?: VideoPreflight | null
   onPromptChange: (value: string) => void
   onModelSelect: (modelId: string) => void
   onChange: (patch: Partial<NodeSettingsValues>) => void
   onGenerate: () => void
   onClose: () => void
   onExport?: () => void
+  connectedProviders?: CreativeCanvasProviderKey[]
+  onConnectProvider?: (provider: CreativeCanvasProviderKey) => void
 }
 
 const ASPECT_RATIOS = ['1:1', '9:16', '16:9', '4:5', '3:2']
@@ -99,7 +112,7 @@ function Segmented<T extends string | number>({ options, value, onChange }: { op
 /** Slide-in node settings. Configure is the default; the
  *  enterprise layer (Review / Provenance / Export) is tucked into tabs. */
 export default function NodeSettingsPanel(props: NodeSettingsPanelProps) {
-  const { open, node, presentationType, values, prompt, generating, canGenerate, onPromptChange, onModelSelect, onChange, onGenerate, onClose, onExport } = props
+  const { open, node, presentationType, values, prompt, generating, canGenerate, preflight, onPromptChange, onModelSelect, onChange, onGenerate, onClose, onExport, connectedProviders, onConnectProvider } = props
   const [tab, setTab] = useState<Tab>('configure')
   const [modelPickerOpen, setModelPickerOpen] = useState(false)
   const nodeOutputKind = (node?.data as Record<string, unknown> | undefined)?.outputKind
@@ -138,7 +151,7 @@ export default function NodeSettingsPanel(props: NodeSettingsPanelProps) {
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderBottom: `1px solid ${canvasTheme.border}` }}>
         <span style={{ fontSize: 13, fontWeight: 700 }}>{node?.title ?? 'Node settings'}</span>
-        <button type="button" aria-label="Close settings" onClick={onClose} style={{ background: 'transparent', border: 'none', color: canvasTheme.textMuted, cursor: 'pointer', fontSize: 16 }}>×</button>
+        <button type="button" aria-label="Close settings" data-tip="Close settings" onClick={onClose} style={{ background: 'transparent', border: 'none', color: canvasTheme.textMuted, cursor: 'pointer', fontSize: 16 }}>×</button>
       </div>
 
       <div style={{ display: 'flex', gap: 4, padding: '8px 10px', borderBottom: `1px solid ${canvasTheme.border}` }}>
@@ -197,11 +210,18 @@ export default function NodeSettingsPanel(props: NodeSettingsPanelProps) {
                 {model?.label ?? values.model ?? 'Select model'}
               </button>
             </div>
+            {model ? (
+              <p style={{ margin: '2px 0 0', fontSize: 11, color: canvasTheme.textMuted, textAlign: 'right' }}>
+                {getCreativeCanvasProvider(model.providerKey)?.label ?? model.providerKey}
+              </p>
+            ) : null}
             {modelPickerOpen ? (
               <div style={{ margin: '8px 0', border: `1px solid ${canvasTheme.border}`, borderRadius: 10, padding: 8, background: canvasTheme.bg }}>
                 <ModelPicker
                   kind={kind}
                   selectedModelId={values.model}
+                  connectedProviders={connectedProviders}
+                  onConnectProvider={onConnectProvider}
                   onSelect={(id) => {
                     onModelSelect(id)
                     setModelPickerOpen(false)
@@ -248,19 +268,39 @@ export default function NodeSettingsPanel(props: NodeSettingsPanelProps) {
             <div style={rowStyle}>
               <span style={labelStyle}>Batch size</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <button type="button" aria-label="Decrease batch" onClick={() => onChange({ batch: Math.max(1, values.batch - 1) })} style={stepBtn}>−</button>
+                <button type="button" aria-label="Decrease batch" data-tip="Fewer variants per run" onClick={() => onChange({ batch: Math.max(1, values.batch - 1) })} style={stepBtn}>−</button>
                 <span style={{ width: 18, textAlign: 'center' }}>{values.batch}</span>
-                <button type="button" aria-label="Increase batch" onClick={() => onChange({ batch: Math.min(4, values.batch + 1) })} style={stepBtn}>+</button>
+                <button type="button" aria-label="Increase batch" data-tip="More variants per run" onClick={() => onChange({ batch: Math.min(4, values.batch + 1) })} style={stepBtn}>+</button>
               </div>
             </div>
+
+            {preflight && preflight.linkedVideos > 0 ? (
+              <div style={{ marginTop: 12, borderRadius: 9, border: `1px solid ${preflight.hasUntrimmed ? '#ffb547' : canvasTheme.border}`, background: preflight.hasUntrimmed ? '#ffb5471a' : canvasTheme.bg, padding: '8px 10px' }}>
+                <p style={{ fontSize: 12, fontWeight: 600, color: preflight.hasUntrimmed ? '#ffb547' : canvasTheme.textMuted }}>
+                  {preflight.hasUntrimmed
+                    ? '⚠ Full-length video linked'
+                    : `Processing ~${Math.round(preflight.trimmedSeconds * 10) / 10}s of footage`}
+                </p>
+                {preflight.hasUntrimmed ? (
+                  <p style={{ fontSize: 11, color: canvasTheme.textMuted, marginTop: 2 }}>
+                    Providers charge for every second they analyze. Use ✂ Split on the video to work from a short segment and cut the cost.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
 
             <button
               type="button"
               onClick={onGenerate}
               disabled={!canGenerate || generating}
-              style={{ marginTop: 14, width: '100%', height: 38, borderRadius: 9, border: 'none', background: canvasTheme.accent, color: canvasTheme.accentText, fontWeight: 700, fontSize: 14, cursor: !canGenerate || generating ? 'default' : 'pointer', opacity: !canGenerate || generating ? 0.5 : 1 }}
+              style={{ marginTop: 14, width: '100%', height: 38, borderRadius: 9, border: 'none', background: canvasTheme.accent, color: canvasTheme.accentText, fontWeight: 700, fontSize: 14, cursor: !canGenerate || generating ? 'default' : 'pointer', opacity: !canGenerate || generating ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
             >
-              {generating ? 'Generating…' : `Generate${typeof creditCost === 'number' ? `  ✦ ${creditCost}` : ''}`}
+              {generating ? (
+                <>
+                  <span aria-hidden className="animate-spin" style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid currentColor', borderTopColor: 'transparent', display: 'inline-block' }} />
+                  Generating…
+                </>
+              ) : `Generate${typeof creditCost === 'number' ? `  ✦ ${creditCost}` : ''}`}
             </button>
           </>
         ) : null}

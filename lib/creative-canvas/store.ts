@@ -207,6 +207,7 @@ function serializeCreativeCanvasTemplate(id: string, data: CanvasDoc): CreativeC
     title: String(data.title ?? 'Untitled template'),
     description: typeof data.description === 'string' ? data.description : undefined,
     category: typeof data.category === 'string' ? data.category : undefined,
+    thumbnailUrl: typeof data.thumbnailUrl === 'string' ? data.thumbnailUrl : undefined,
     sourceCanvasId: typeof data.sourceCanvasId === 'string' ? data.sourceCanvasId : undefined,
     sourceVersion: typeof data.sourceVersion === 'number' ? data.sourceVersion : undefined,
     nodes: Array.isArray(data.nodes) ? data.nodes as CreativeCanvasTemplate['nodes'] : [],
@@ -233,11 +234,20 @@ function sanitizeCreativeCanvasTemplateInput(
   const body = input && typeof input === 'object' && !Array.isArray(input) ? input as Record<string, unknown> : {}
   const graph = sanitizeCreativeCanvasGraph(body, orgId)
   if (!graph.nodes.length) throw new Error('template requires at least one node')
+  // Thumbnail: an explicit http(s) value wins; otherwise derive one from the
+  // first node that carries a usable image URL so gallery cards aren't blind.
+  const explicitThumb = cleanTemplateString(body.thumbnailUrl)
+  const isHttp = (value: string | undefined): value is string => Boolean(value && /^https?:\/\//.test(value))
+  const derivedThumb = graph.nodes
+    .map((node) => node.output?.thumbnailUrl ?? node.output?.url ?? node.source?.thumbnailUrl ?? node.source?.previewUrl ?? node.source?.url)
+    .find((value): value is string => isHttp(value))
+  const thumbnailUrl = isHttp(explicitThumb) ? explicitThumb : derivedThumb
   return {
     orgId,
     title: cleanTemplateString(body.title) ?? 'Untitled template',
     description: cleanTemplateString(body.description),
     category: cleanTemplateString(body.category) ?? 'custom',
+    ...(thumbnailUrl ? { thumbnailUrl } : {}),
     sourceCanvasId: cleanTemplateString(body.sourceCanvasId),
     sourceVersion: typeof body.sourceVersion === 'number' && Number.isFinite(body.sourceVersion)
       ? body.sourceVersion

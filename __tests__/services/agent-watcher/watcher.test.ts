@@ -123,6 +123,7 @@ describe('agent watcher dispatchTask', () => {
         output: 'done summary',
         error: null,
         telemetry: {
+          provider: null,
           model: null,
           reasoningEffort: null,
           inputTokens: null,
@@ -206,6 +207,7 @@ describe('agent watcher dispatchTask', () => {
         output: 'done summary',
         error: null,
         telemetry: {
+          provider: 'openai',
           model: 'openai/gpt-5.1',
           reasoningEffort: 'high',
           inputTokens: 1200,
@@ -245,6 +247,7 @@ describe('agent watcher dispatchTask', () => {
       agentOutput: expect.objectContaining({
         summary: 'done summary',
         telemetry: expect.objectContaining({
+          provider: 'openai',
           model: 'openai/gpt-5.1',
           inputTokens: 1200,
           outputTokens: 320,
@@ -274,6 +277,7 @@ describe('agent watcher dispatchTask', () => {
         taskId: 'task-1',
         agentId: 'theo',
         runId: 'run-metered-1',
+        provider: 'openai',
         model: 'openai/gpt-5.1',
         requiresExactModelTelemetry: true,
       }),

@@ -22,6 +22,14 @@ interface CanvasTopBarProps {
   immersive?: boolean
   onToggleImmersive?: () => void
   creditsLabel?: string
+  /** Budget pressure: 'warn' ≥ soft ceiling, 'over' at/past the limit. */
+  creditsTone?: 'normal' | 'warn' | 'over'
+  creditsTitle?: string
+  onOpenSpend?: () => void
+  /** When this canvas is linked to a YouTube Studio video project, a deep link to the studio page. */
+  linkedYouTubeHref?: string
+  /** When this canvas is linked to a Book Studio project, a deep link to the book project page. */
+  linkedBookHref?: string
 }
 
 function barButton(active = false): React.CSSProperties {
@@ -61,6 +69,11 @@ export default function CanvasTopBar({
   immersive,
   onToggleImmersive,
   creditsLabel,
+  creditsTone = 'normal',
+  creditsTitle,
+  onOpenSpend,
+  linkedYouTubeHref,
+  linkedBookHref,
 }: CanvasTopBarProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(title)
@@ -176,13 +189,77 @@ export default function CanvasTopBar({
       </div>
 
       <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-        {creditsLabel ? (
-          <span
-            title="Creative Canvas credits used"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, height: 34, padding: '0 10px', borderRadius: 9, border: `1px solid ${canvasTheme.border}`, background: canvasTheme.surface, color: canvasTheme.accent, fontSize: 13, fontWeight: 700 }}
+        {linkedYouTubeHref ? (
+          <a
+            href={linkedYouTubeHref}
+            aria-label="Open linked YouTube Studio project"
+            title="Open the linked YouTube Studio video project"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              height: 34,
+              padding: '0 10px',
+              borderRadius: 9,
+              border: `1px solid ${canvasTheme.border}`,
+              background: canvasTheme.surface,
+              color: canvasTheme.text,
+              fontSize: 13,
+              fontWeight: 600,
+              textDecoration: 'none',
+              cursor: 'pointer',
+            }}
           >
-            ✦ {creditsLabel}
-          </span>
+            ▶ YT project ↗
+          </a>
+        ) : null}
+        {linkedBookHref ? (
+          <a
+            href={linkedBookHref}
+            aria-label="Open linked Book Studio project"
+            title="Open the linked Book Studio project"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              height: 34,
+              padding: '0 10px',
+              borderRadius: 9,
+              border: `1px solid ${canvasTheme.border}`,
+              background: canvasTheme.surface,
+              color: canvasTheme.text,
+              fontSize: 13,
+              fontWeight: 600,
+              textDecoration: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            📖 Book ↗
+          </a>
+        ) : null}
+        {creditsLabel ? (
+          <button
+            type="button"
+            onClick={onOpenSpend}
+            title={creditsTitle ?? 'Creative Canvas credits used — click for spend breakdown'}
+            data-tip={creditsTone === 'over' ? 'Credit limit reached' : creditsTone === 'warn' ? 'Approaching credit limit' : 'View spend breakdown'}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              height: 34,
+              padding: '0 10px',
+              borderRadius: 9,
+              border: `1px solid ${creditsTone === 'over' ? '#ff6b6b' : creditsTone === 'warn' ? '#ffb547' : canvasTheme.border}`,
+              background: creditsTone === 'over' ? '#ff6b6b1f' : creditsTone === 'warn' ? '#ffb5471f' : canvasTheme.surface,
+              color: creditsTone === 'over' ? '#ff6b6b' : creditsTone === 'warn' ? '#ffb547' : canvasTheme.accent,
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: onOpenSpend ? 'pointer' : 'default',
+            }}
+          >
+            {creditsTone === 'over' ? '⚠ ' : ''}✦ {creditsLabel}
+          </button>
         ) : null}
         <button type="button" onClick={onOpenChat} style={barButton()}>
           💬 Team Chat{presenceCount > 0 ? ` · ${presenceCount}` : ''}

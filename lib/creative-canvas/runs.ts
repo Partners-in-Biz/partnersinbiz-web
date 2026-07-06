@@ -6,6 +6,8 @@ import {
   CREATIVE_CANVAS_COLLECTION,
   getCreativeCanvas,
 } from './store'
+import { syncCanvasRunOutputToYouTube } from './youtube-bridge'
+import { syncCanvasRunOutputToBookStudio } from './book-bridge'
 import type {
   CreativeCanvas,
   CreativeCanvasActor,
@@ -494,6 +496,8 @@ function buildOutputNode(input: {
   canvas: CreativeCanvas & { id: string }
   outputNodeId: string
   output: Record<string, unknown>
+  /** Offset index for additional batch-variant output nodes (0 = primary). */
+  variantIndex?: number
 }): CreativeCanvasNode {
   const sourceNode = input.canvas.nodes.find((node) => node.id === input.run.nodeId)
   const artifactId = cleanString(input.output.artifactId)
@@ -502,6 +506,7 @@ function buildOutputNode(input: {
   const storagePath = cleanString(input.output.storagePath)
   const textPreview = cleanString(input.output.textPreview)
   const now = new Date()
+  const variantIndex = input.variantIndex ?? 0
   return {
     id: input.outputNodeId,
     canvasId: input.canvas.id,
@@ -509,8 +514,8 @@ function buildOutputNode(input: {
     type: 'output',
     title: cleanString(input.output.title) ?? `${input.run.providerKey} output`,
     position: {
-      x: (sourceNode?.position.x ?? 0) + 320,
-      y: sourceNode?.position.y ?? 0,
+      x: (sourceNode?.position.x ?? 0) + 320 + variantIndex * 40,
+      y: (sourceNode?.position.y ?? 0) + variantIndex * 60,
     },
     data: {
       sourceRunId: input.run.id,
@@ -625,6 +630,12 @@ async function completeLoadedCreativeCanvasRun(
     updatedByType: actor.type,
   })
 
+  // Fire-and-forget sync-back to a linked YouTube Studio project. NEVER awaited
+  // into the critical path and NEVER able to fail run completion — the bridge's
+  // own governance keeps it to source assets + render-job rendered-completion.
+  void syncCanvasRunOutputToYouTube(completedRun, canvas).catch(() => undefined)
+  void syncCanvasRunOutputToBookStudio(completedRun, canvas).catch(() => undefined)
+
   return { run: completedRun, outputNode }
 }
 
@@ -656,6 +667,8 @@ export async function createCreativeCanvasRun(
       referenceImageUrls: cleanReferenceImageUrls(runInput.referenceImageUrls),
       format: cleanString(runInput.format),
       aspectRatio: cleanString(runInput.aspectRatio),
+      quality: cleanString(runInput.quality),
+      generateAudio: runInput.generateAudio === true ? true : undefined,
       durationSeconds: durationSeconds !== undefined
         ? Math.max(0, durationSeconds)
         : undefined,
@@ -674,7 +687,15 @@ export async function createCreativeCanvasRun(
       generatedBy: actor.type,
       agentId: cleanAgentId(actor),
       model,
-      costLabel: provider.usesExternalCredits ? 'external_credits' : undefined,
+      // Caller-supplied cost provenance (e.g. BYOK: costUnits 0 + costLabel
+      // `byok:<provider>`) is whitelisted here — without this the sanitizer
+      // silently drops these fields. Falls back to the provider's external-credit
+      // label when the caller doesn't override.
+      costUnits: typeof provenance.costUnits === 'number' && Number.isFinite(provenance.costUnits)
+        ? provenance.costUnits
+        : undefined,
+      costLabel: cleanString(provenance.costLabel) ?? (provider.usesExternalCredits ? 'external_credits' : undefined),
+      ...(cleanString(provenance.connectionId) ? { connectionId: cleanString(provenance.connectionId) } : {}),
       promptStored: cleanString(runInput.promptSummary) ? 'summary' : 'none',
       syntheticMedia: provenance.syntheticMedia === true || providerKey === 'higgsfield' || providerKey === 'xai',
     },
@@ -710,6 +731,42 @@ export async function completeCreativeCanvasRun(
   if (!runSnap.exists) throw new Error('Creative canvas run not found')
   const run = serializeRun(runSnap.id ?? runId, runSnap.data() as CreativeCanvasRun)
   return completeLoadedCreativeCanvasRun(run, orgId, input, actor)
+}
+
+/**
+ * Attach an ADDITIONAL output node for a batch-variant generation, without
+ * touching the run document's primary `output` field (which must keep
+ * pointing at the first/primary output node created by
+ * completeCreativeCanvasRun). Used by the sync generate route when
+ * variantCount > 1 produces more than one inline result for the same run.
+ */
+export async function appendCreativeCanvasRunOutputNode(
+  run: CreativeCanvasRun & { id: string },
+  orgId: string,
+  output: Record<string, unknown>,
+  actor: CreativeCanvasActor,
+  outputNodeId: string,
+  variantIndex: number,
+): Promise<CreativeCanvasNode> {
+  if (run.orgId !== orgId) throw new Error('Creative canvas run does not belong to organisation')
+
+  const canvas = await getCreativeCanvas(run.canvasId, orgId)
+  if (!canvas) throw new Error('Creative canvas not found')
+
+  const outputNode = buildOutputNode({ run, canvas, outputNodeId, output, variantIndex })
+
+  const nextNodes = upsertOutputNode(canvas, outputNode)
+  const nextEdges = upsertOutputEdge(canvas, run, outputNodeId)
+  await adminDb.collection(CREATIVE_CANVAS_COLLECTION).doc(canvas.id).update({
+    nodes: nextNodes,
+    edges: nextEdges,
+    activeVersion: canvas.activeVersion + 1,
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedBy: actor.uid,
+    updatedByType: actor.type,
+  })
+
+  return outputNode
 }
 
 export async function ensureCreativeCanvasRunOutputNode(
@@ -778,6 +835,9 @@ export async function dispatchCreativeCanvasProviderRun(
       : {}),
     ...(providerCallbackUrl ?? run.provenance.providerCallbackUrl
       ? { providerCallbackUrl: providerCallbackUrl ?? run.provenance.providerCallbackUrl }
+      : {}),
+    ...(cleanString(body.connectionId) ?? run.provenance.connectionId
+      ? { connectionId: cleanString(body.connectionId) ?? run.provenance.connectionId }
       : {}),
   }
   const nextRun: CreativeCanvasRun & { id: string } = {

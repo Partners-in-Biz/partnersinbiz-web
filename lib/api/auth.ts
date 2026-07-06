@@ -55,7 +55,13 @@ export function withAuth(requiredRole: 'admin' | 'client', handler: RouteHandler
       }
     }
 
-    if (user.role === 'admin') {
+    // Org scoping: when a request supplies a scoped orgId (query param or
+    // x-org-id header), the caller must actually have access to that org.
+    // Admins are checked against allowedOrgIds; clients against their own
+    // org membership (orgId / activeOrgId / orgIds). Without this, a client
+    // could inject another tenant's orgId into any route that trusts the
+    // request-supplied org scope. 'ai' callers are platform-level and exempt.
+    if (user.role === 'admin' || user.role === 'client') {
       const url = new URL(req.url)
       const scopedOrgId = url.searchParams.get('orgId') ?? req.headers.get('x-org-id')
       if (scopedOrgId && !canAccessOrg(user, scopedOrgId)) {

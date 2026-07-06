@@ -201,6 +201,7 @@ async function notifyNeedsPeet(input: {
 
 function fallbackTelemetry(input: TaskDispatchInput): AgentRunTelemetry {
   return {
+    provider: null,
     model: input.agentModel ?? null,
     reasoningEffort: input.agentEffort ?? null,
     inputTokens: null,
@@ -277,6 +278,7 @@ async function persistAgentDispatchRun(input: {
         taskId: input.taskRef.id,
         agentId: input.agentId,
         runId: input.runId,
+        provider: input.telemetry.provider,
         model: input.telemetry.model,
         reasoningEffort: input.telemetry.reasoningEffort,
         requiresExactModelTelemetry: true,

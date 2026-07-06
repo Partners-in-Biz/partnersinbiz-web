@@ -18,6 +18,8 @@ export interface CanvasNodeData {
   assetUrl?: string
   assetKind?: 'image' | 'video'
   status?: CanvasNodeStatus
+  /** Human-readable failure reason shown on the card when status is 'error'. */
+  errorMessage?: string
   reviewStatus?: string
   text?: string
   references?: string[]
@@ -40,6 +42,8 @@ export interface CanvasNodeData {
   onEditWithAi?: () => void
   onReplaceContent?: () => void
   onPublish?: () => void
+  /** Video nodes: open the split dialog to carve out a cheaper-to-process segment. */
+  onSplitVideo?: () => void
   /** Character node: Soul ID for identity-consistent generation. */
   soulId?: string
   /** Screen node: generate a UI mockup image from the description. */

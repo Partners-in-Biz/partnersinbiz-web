@@ -152,6 +152,37 @@ describe('creative canvas Higgsfield execution manifest', () => {
     expect(manifest?.generationSettings.durationSeconds).toBe(8)
   })
 
+  it('carries trim windows from video segment nodes and instructs clipping', () => {
+    const manifest = buildHiggsfieldExecutionManifest(run, {
+      ...canvas,
+      nodes: [
+        canvas.nodes[0],
+        {
+          ...canvas.nodes[1],
+          data: { segmentOf: 'demo-full', trim: { startSeconds: 12.5, endSeconds: 18 } },
+        },
+      ],
+    })
+
+    expect(manifest?.sourceMedia).toEqual([
+      { nodeId: 'source-image', flag: '--image', value: '/tmp/product.png', role: 'product' },
+      { nodeId: 'source-video', flag: '--video', value: '/tmp/demo.mp4', role: 'motion', trimStartSeconds: 12.5, trimEndSeconds: 18 },
+    ])
+    expect(manifest?.instructions.join('\n')).toContain('clip the file to that window first')
+  })
+
+  it('ignores malformed trim windows', () => {
+    const manifest = buildHiggsfieldExecutionManifest(run, {
+      ...canvas,
+      nodes: [
+        canvas.nodes[0],
+        { ...canvas.nodes[1], data: { trim: { startSeconds: 10, endSeconds: 4 } } },
+      ],
+    })
+    expect(manifest?.sourceMedia[1]).toEqual({ nodeId: 'source-video', flag: '--video', value: '/tmp/demo.mp4', role: 'motion', trimStartSeconds: 10 })
+    expect(manifest?.instructions.join('\n')).toContain('clip the file to that window first')
+  })
+
   it('skips non-Higgsfield runs', () => {
     expect(buildHiggsfieldExecutionManifest({
       ...run,

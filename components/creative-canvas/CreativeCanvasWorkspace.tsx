@@ -18,12 +18,19 @@ import CanvasTopBar from '@/components/creative-canvas/topbar/CanvasTopBar'
 import { canvasNodeTypes } from '@/components/creative-canvas/nodes/nodeTypes'
 import { isValidConnection, portsForNode, type CanvasNodeType } from '@/components/creative-canvas/nodes/ports'
 import { getCanvasModel } from '@/lib/creative-canvas/model-registry'
+import { getStarterCanvasTemplate } from '@/lib/creative-canvas/starter-templates'
+import { resolveGeneratorKind } from '@/lib/creative-canvas/node-kind'
 import CreateMenu from '@/components/creative-canvas/canvas/CreateMenu'
 import NodeEditChat from '@/components/creative-canvas/nodes/NodeEditChat'
 import NodePublishMenu, { type NodePublishPlatform, type NodePublishTarget } from '@/components/creative-canvas/nodes/NodePublishMenu'
 import NodeSettingsPanel from '@/components/creative-canvas/panels/NodeSettingsPanel'
+import type { NodeSettingsValues } from '@/components/creative-canvas/panels/NodeSettingsPanel'
+import VideoSplitDialog from '@/components/creative-canvas/panels/VideoSplitDialog'
+import type { VideoSegment } from '@/components/creative-canvas/panels/VideoSplitDialog'
+import CanvasSpendPanel from '@/components/creative-canvas/panels/CanvasSpendPanel'
 import ReferencePicker, { type ReferenceAsset } from '@/components/creative-canvas/panels/ReferencePicker'
 import CanvasLanding from '@/components/creative-canvas/landing/CanvasLanding'
+import { listConnections } from '@/lib/creative-canvas/connections/client'
 import { canvasTheme } from '@/components/creative-canvas/theme/tokens'
 import type {
   CreativeCanvasAssetOrigin,
@@ -35,6 +42,7 @@ import type {
   CreativeCanvasNode,
   CreativeCanvasNodeType,
   CreativeCanvasOutputKind,
+  CreativeCanvasProviderKey,
   CreativeCanvasRunOperationsSummary,
   CreativeCanvasRunBatchRetryResult,
   CreativeCanvasProviderRuntimeReadiness,
@@ -817,10 +825,30 @@ function presentationTypeFor(node: CreativeCanvasNode): CanvasNodeType {
       return 'image_generator'
     case 'model':
     default:
-      return node.output?.kind === 'video' || node.provider?.mode === 'video'
+      // Video vs image via the shared authoritative resolver (model kind, output,
+      // provider mode, or motion edit). Audio generators present as image cards
+      // today; their audio handling lives in the settings-panel kindFor path.
+      return node.output?.kind === 'video' || resolveGeneratorKind(node) === 'video'
         ? 'video_generator'
         : 'image_generator'
   }
+}
+
+/** Credits accumulate as floats (0.1 + 0.2 → 0.30000000000000004) — clamp to 2dp for display. */
+function roundCredits(value: number): number {
+  return Math.round(value * 100) / 100
+}
+
+/** Turn a run's error code/message into a short, human message for the card.
+ *  Provider hiccups read as "temporarily unavailable — will retry" rather than
+ *  a raw CLI dump, so a failed run never just silently stops. */
+function friendlyRunError(code?: string, message?: string): string {
+  if (code === 'higgsfield_ip_check_pending') return 'Provider is verifying the source image — retrying automatically'
+  if (code === 'platform_complete_failed') return 'Saved output but the canvas rejected it — tap Generate to retry'
+  if (code === 'higgsfield_missing_output') return 'Provider returned no media — tap Generate to retry'
+  if (/timed out|timeout|ETIMEDOUT|ECONNRESET|fetch failed|network/i.test(message ?? '')) return 'Provider timed out — tap Generate to retry'
+  if (/insufficient|quota|balance/i.test(message ?? '')) return 'Provider is out of credits'
+  return 'Generation failed — the provider may be temporarily down. Tap Generate to retry.'
 }
 
 function toFlowNode(node: CreativeCanvasNode, collaborators: Array<CreativeCanvasPresence & { id: string }> = []): Node {
@@ -1068,6 +1096,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [templates, setTemplates] = useState<Array<CreativeCanvasTemplate & { id: string }>>([])
   const [templateTitle, setTemplateTitle] = useState('')
   const [templateDescription, setTemplateDescription] = useState('')
+  const [templateImportUrl, setTemplateImportUrl] = useState('')
+  const [templateImporting, setTemplateImporting] = useState(false)
   const [collaborationLinkCopied, setCollaborationLinkCopied] = useState(false)
   const [autoFollowLiveDrafts, setAutoFollowLiveDrafts] = useState(false)
   const [ownPresenceId, setOwnPresenceId] = useState('')
@@ -1133,6 +1163,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   ), [collaboratorsByNodeId, ownPresenceId, selectedNodeId])
   const selectedNodeLockedByCollaborator = selectedNodeCollaborators.length > 0
   const [generatingNodeIds, setGeneratingNodeIds] = useState<Set<string>>(() => new Set())
+  const [splitVideoNodeId, setSplitVideoNodeId] = useState('')
   const nodeActionRefs = useRef<{
     generate: (nodeId: string) => void
     updatePrompt: (nodeId: string, value: string) => void
@@ -1145,14 +1176,47 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     editWithAi: (nodeId: string) => void
     publish: (nodeId: string) => void
     generateMockup: (nodeId: string) => void
-  }>({ generate: () => {}, updatePrompt: () => {}, updateText: () => {}, addReference: () => {}, updateOutputKind: () => {}, remove: () => {}, duplicate: () => {}, replaceContent: () => {}, editWithAi: () => {}, publish: () => {}, generateMockup: () => {} })
+    updateGenerationSettings: (nodeId: string, patch: Partial<NodeSettingsValues>) => void
+  }>({ generate: () => {}, updatePrompt: () => {}, updateText: () => {}, addReference: () => {}, updateOutputKind: () => {}, remove: () => {}, duplicate: () => {}, replaceContent: () => {}, editWithAi: () => {}, publish: () => {}, generateMockup: () => {}, updateGenerationSettings: () => {} })
   const pendingReferenceNodeIdRef = useRef<{ nodeId: string; mode: 'attach' | 'replace' } | null>(null)
   const referenceFileInputRef = useRef<HTMLInputElement | null>(null)
+
+  // Latest run per generator node, so a card can reflect the true provider state
+  // (still queued/running, or failed) even after the client's local spinner has
+  // cleared — async runs (video) settle minutes later.
+  const latestRunByNodeId = useMemo(() => {
+    const runSeconds = (run: CreativeCanvasRun & { id: string }): number => {
+      const at = run.createdAt as { _seconds?: number; seconds?: number } | number | undefined
+      if (typeof at === 'number') return at
+      return at?._seconds ?? at?.seconds ?? 0
+    }
+    const map = new Map<string, CreativeCanvasRun & { id: string }>()
+    for (const run of runHistory) {
+      if (!run.nodeId) continue
+      const existing = map.get(run.nodeId)
+      if (!existing || runSeconds(run) >= runSeconds(existing)) map.set(run.nodeId, run)
+    }
+    return map
+  }, [runHistory])
 
   const displayNodes = useMemo(() => nodes.map((node) => {
     const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
     if (!canvasNode) return node
     const flowNode = toFlowNode({ ...canvasNode, position: node.position }, collaboratorsByNodeId[node.id] ?? [])
+    // Per-node generation settings drive what the card shows (model, batch,
+    // credit estimate) so it stays in lockstep with the settings panel.
+    const nodeGeneration = (typeof (canvasNode.data as Record<string, unknown> | undefined)?.generation === 'object'
+      && (canvasNode.data as Record<string, unknown>).generation
+      ? (canvasNode.data as Record<string, unknown>).generation
+      : {}) as Partial<NodeSettingsValues>
+    const cardModelId = typeof nodeGeneration.model === 'string' && nodeGeneration.model
+      ? nodeGeneration.model
+      : flowNode.data.model as string | undefined
+    const cardBatch = typeof nodeGeneration.batch === 'number' ? nodeGeneration.batch : 1
+    const cardModel = getCanvasModel(cardModelId ?? '')
+    const cardCreditCost = typeof cardModel?.creditCost === 'number'
+      ? Math.round(cardModel.creditCost * Math.max(1, cardBatch) * 100) / 100
+      : undefined
     // Upstream nodes linked into this node (combine nodes surface these).
     const upstreamNodes = edges
       .filter((edge) => edge.target === node.id)
@@ -1164,6 +1228,21 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         return upstream?.output?.thumbnailUrl ?? upstream?.output?.url ?? upstream?.source?.thumbnailUrl ?? upstream?.source?.url
       })
       .filter((url): url is string => typeof url === 'string' && url.length > 0)
+    // Reflect the run lifecycle on the card: local spinner → live provider
+    // state (queued/running keeps "Generating…" through async retries) →
+    // failed shows a clear error instead of silently going idle.
+    const latestRun = latestRunByNodeId.get(node.id)
+    let nodeStatus = flowNode.data.status
+    let nodeErrorMessage: string | undefined
+    if (generatingNodeIds.has(node.id)) {
+      nodeStatus = 'running'
+    } else if (latestRun && flowNode.data.status !== 'done') {
+      if (latestRun.status === 'queued' || latestRun.status === 'running') nodeStatus = 'running'
+      else if (latestRun.status === 'failed' || latestRun.status === 'cancelled') {
+        nodeStatus = 'error'
+        nodeErrorMessage = friendlyRunError(latestRun.error?.code, latestRun.error?.message)
+      }
+    }
     return {
       // Keep the live React Flow node (measured size, selection, drag state) —
       // rebuilding from scratch resets measurement and edges never render.
@@ -1171,7 +1250,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       type: flowNode.type,
       data: {
         ...flowNode.data,
-        status: generatingNodeIds.has(node.id) ? 'running' : flowNode.data.status,
+        status: nodeStatus,
+        errorMessage: nodeErrorMessage,
         references: Array.isArray((canvasNode.data as Record<string, unknown> | undefined)?.references)
           ? ((canvasNode.data as Record<string, unknown>).references as string[])
           : [],
@@ -1194,6 +1274,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           : {}),
         inputCount: upstreamNodes.length,
         inputPreviews: upstreamPreviews,
+        model: cardModelId,
+        batch: cardBatch,
+        creditCost: cardCreditCost,
+        onBatchChange: (value: number) => nodeActionRefs.current.updateGenerationSettings(node.id, { batch: value }),
         onGenerate: () => nodeActionRefs.current.generate(node.id),
         onPromptChange: (value: string) => nodeActionRefs.current.updatePrompt(node.id, value),
         onTextChange: (value: string) => nodeActionRefs.current.updateText(node.id, value),
@@ -1211,6 +1295,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           ? { onPublish: () => nodeActionRefs.current.publish(node.id) }
           : {}),
         downloadUrl: canvasNode.output?.url ?? canvasNode.source?.url,
+        // Video media can be split into short segments (cheaper downstream edits).
+        ...((canvasNode.output?.kind === 'video' && canvasNode.output?.url)
+          || (canvasNode.source?.mimeType?.startsWith('video/') && canvasNode.source?.url)
+          ? { onSplitVideo: () => setSplitVideoNodeId(node.id) }
+          : {}),
         // "Select model" on a node opens the settings panel (which hosts the picker).
         onOpenModelPicker: () => {
           setSelectedFlowNodeId(node.id)
@@ -1218,7 +1307,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         },
       },
     }
-  }), [collaboratorsByNodeId, edges, generatingNodeIds, nodes])
+  }), [collaboratorsByNodeId, edges, generatingNodeIds, latestRunByNodeId, nodes])
 
   // Persisted edges carry no handle ids, but presentation nodes expose multiple
   // typed handles — without an explicit handle id React Flow cannot attach the
@@ -1874,7 +1963,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setEdges(snapshot.edges as Edge[])
   }, [graphHistory])
 
-  const [topBarPanel, setTopBarPanel] = useState<'chat' | 'share' | ''>('')
+  const [topBarPanel, setTopBarPanel] = useState<'chat' | 'share' | 'spend' | ''>('')
   const [createMenu, setCreateMenu] = useState<{ flow: { x: number; y: number }; client: { x: number; y: number } } | null>(null)
   const [showLanding, setShowLanding] = useState(false)
   const [immersiveCanvas, setImmersiveCanvas] = useState(true)
@@ -1887,6 +1976,47 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const [settingsCollapsed, setSettingsCollapsed] = useState(false)
 
   const [canvasCredits, setCanvasCredits] = useState<{ used: number; limit: number | null; higgsfieldCredits?: number; higgsfieldPlan?: string } | null>(null)
+
+  // Provider keys usable from the model picker. Platform-native lanes
+  // (`higgsfield`, `agent_task`) plus `xai` (platform env fallback key) are
+  // always on; BYOK providers appear once the org has a connected connection.
+  const [connectedProviders, setConnectedProviders] = useState<CreativeCanvasProviderKey[]>(['higgsfield', 'agent_task', 'xai'])
+
+  useEffect(() => {
+    const canvasOrgId = resolvedOrgId || activeCanvas?.orgId || ''
+    if (!canvasOrgId) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const connections = await listConnections(canvasOrgId)
+        if (cancelled) return
+        setConnectedProviders(
+          Array.from(new Set<CreativeCanvasProviderKey>([
+            'higgsfield',
+            'agent_task',
+            'xai',
+            ...connections
+              .filter((c) => c.status === 'connected')
+              .map((c) => c.provider as CreativeCanvasProviderKey),
+          ])),
+        )
+      } catch {
+        // Best-effort: leave the platform-native default list in place.
+        ignoreCanvasBestEffortFailure()
+      }
+    })()
+    return () => { cancelled = true }
+  }, [activeCanvas?.orgId, resolvedOrgId])
+
+  // Navigate the user to the Providers surface to connect a BYOK provider.
+  // The landing view hosts the Providers tab (CreativeProviderConnections);
+  // there is no in-canvas connect modal yet, so surface the landing on that tab.
+  const [landingInitialTab, setLandingInitialTab] = useState<'all' | 'templates' | 'providers' | undefined>(undefined)
+  const handleConnectProvider = useCallback((_provider: CreativeCanvasProviderKey) => {
+    setSettingsCollapsed(true)
+    setLandingInitialTab('providers')
+    setShowLanding(true)
+  }, [])
 
   const loadCanvasCredits = useCallback(async () => {
     const canvasOrgId = resolvedOrgId || activeCanvas?.orgId || ''
@@ -1911,6 +2041,70 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   useEffect(() => {
     void loadCanvasCredits()
   }, [loadCanvasCredits, activeCanvas?.id])
+
+  // Keep the credit balance fresh in the background. Async runs (especially
+  // video, whose provider IP-check retries settle minutes after the client
+  // stops polling for output) charge on dispatch and refund on terminal
+  // failure — without a periodic refresh the top bar would linger on the
+  // mid-flight charged value and read as if credits were lost.
+  useEffect(() => {
+    if (!activeCanvas?.id) return
+    const canvasOrgId = resolvedOrgId || activeCanvas.orgId
+    const interval = window.setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+      void loadCanvasCredits()
+      // Refresh run status too, so a node reflects an async provider failure
+      // (which lands minutes after the local spinner clears) instead of going
+      // silently idle. Only poll while a run is actually in flight.
+      const inFlight = runHistory.some((run) => run.status === 'queued' || run.status === 'running')
+        || generatingNodeIds.size > 0
+      if (inFlight && activeCanvas?.id && canvasOrgId) void loadRuns(activeCanvas.id, canvasOrgId)
+    }, 20_000)
+    return () => window.clearInterval(interval)
+  }, [activeCanvas?.id, activeCanvas?.orgId, generatingNodeIds, loadCanvasCredits, loadRuns, resolvedOrgId, runHistory])
+
+  // Video preflight for the selected node: how much linked video footage this
+  // run will process, and whether any of it is a full-length (untrimmed) clip
+  // the user could cheaply split first.
+  const selectedNodePreflight = useMemo(() => {
+    if (!selectedFlowNodeId) return null
+    const upstream = edges
+      .filter((edge) => edge.target === selectedFlowNodeId)
+      .map((edge) => nodes.find((node) => node.id === edge.source)?.data?.canvasNode as CreativeCanvasNode | undefined)
+      .filter((node): node is CreativeCanvasNode => Boolean(node))
+    let linkedVideos = 0
+    let trimmedSeconds = 0
+    let hasUntrimmed = false
+    for (const node of upstream) {
+      const isVideo = node.output?.kind === 'video' || node.source?.mimeType?.startsWith('video/')
+      if (!isVideo) continue
+      linkedVideos += 1
+      const trim = (node.data as Record<string, unknown> | undefined)?.trim as { startSeconds?: unknown; endSeconds?: unknown } | undefined
+      const start = typeof trim?.startSeconds === 'number' ? trim.startSeconds : undefined
+      const end = typeof trim?.endSeconds === 'number' ? trim.endSeconds : undefined
+      if (start !== undefined && end !== undefined && end > start) trimmedSeconds += end - start
+      else hasUntrimmed = true
+    }
+    return linkedVideos > 0 ? { linkedVideos, trimmedSeconds, hasUntrimmed } : null
+  }, [edges, nodes, selectedFlowNodeId])
+
+  // Budget pressure derived from the org's metered balance. Warn from 80% of a
+  // configured limit; 'over' once the limit is reached (generation then blocks
+  // client-side to match the API's 402). No limit configured → never blocks.
+  const creditBudget = useMemo(() => {
+    const used = canvasCredits?.used ?? 0
+    const limit = canvasCredits?.limit ?? null
+    if (limit === null || !(limit > 0)) {
+      return { tone: 'normal' as const, atLimit: false, title: undefined as string | undefined }
+    }
+    const ratio = used / limit
+    const remaining = Math.max(0, Math.round((limit - used) * 100) / 100)
+    const tone = ratio >= 1 ? 'over' as const : ratio >= 0.8 ? 'warn' as const : 'normal' as const
+    const title = tone === 'over'
+      ? `Credit limit reached (${Math.round(used * 100) / 100}/${limit}). Generation is paused.`
+      : `${remaining} credits remaining of ${limit}`
+    return { tone, atLimit: ratio >= 1, title }
+  }, [canvasCredits])
 
   const renameActiveCanvas = useCallback(async (nextTitle: string) => {
     if (!activeCanvas?.id) return
@@ -2154,6 +2348,34 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     setTemplateDescription('')
     setSaveMessage('')
     setActivityMessage(`Saved ${template.title} template`)
+  }
+
+  /** Pull a template definition from a third-party URL (server-side fetch +
+   *  sanitize) and add it to the org's saved templates. */
+  const importTemplateFromUrl = async () => {
+    const url = templateImportUrl.trim()
+    if (!url || !resolvedOrgId || templateImporting) return
+    setTemplateImporting(true)
+    try {
+      const response = await fetch(`/api/v1/creative-canvas/templates?orgId=${encodeURIComponent(resolvedOrgId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ importUrl: url }),
+      })
+      const payload = await response.json().catch(() => null) as CreativeCanvasTemplateApiResponse | null
+      const template = payload?.data?.template
+      if (!response.ok || !template) {
+        setActivityMessage(payload?.error ?? 'Template import failed')
+        return
+      }
+      setTemplates((current) => [template, ...current.filter((item) => item.id !== template.id)])
+      setTemplateImportUrl('')
+      setActivityMessage(`Imported ${template.title} template`)
+    } catch {
+      setActivityMessage('Template import failed')
+    } finally {
+      setTemplateImporting(false)
+    }
   }
 
   const applySavedTemplate = (template: CreativeCanvasTemplate & { id: string }) => {
@@ -2883,6 +3105,20 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const selectFlowNode = useCallback((_: unknown, node: Node) => {
     setSelectedFlowNodeId(node.id)
     setSettingsCollapsed(false)
+    // Hydrate the settings panel from the node's own saved generation
+    // settings so the panel always mirrors the card it represents.
+    const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
+    if (!canvasNode) return
+    const data = (canvasNode.data ?? {}) as Record<string, unknown>
+    const generation = (typeof data.generation === 'object' && data.generation ? data.generation : {}) as Partial<NodeSettingsValues>
+    const nodeModel = typeof generation.model === 'string' && generation.model ? generation.model : canvasNode.provider?.model
+    if (nodeModel) setRunModel(coerceCanvasModel(nodeModel))
+    if (typeof generation.aspectRatio === 'string') setRunAspectRatio(generation.aspectRatio)
+    if (typeof generation.resolution === 'string') setRunResolution(generation.resolution)
+    if (typeof generation.quality === 'string') setRunQuality(generation.quality)
+    if (typeof generation.duration === 'number') setRunDurationSeconds(generation.duration)
+    if (typeof generation.generateAudio === 'boolean') setRunGenerateAudio(generation.generateAudio)
+    if (typeof generation.batch === 'number') setRunVariantCount(generation.batch)
   }, [])
 
   const saveGraph = useCallback(async (reason: 'manual' | 'auto' = 'manual') => {
@@ -3103,6 +3339,41 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }))
   }, [])
 
+  /** Persist generation settings onto the node itself so the canvas card,
+   *  settings panel, and provenance tab all read the same values. */
+  const updateNodeGenerationSettings = useCallback((nodeId: string, patch: Partial<NodeSettingsValues>) => {
+    setNodes((current) => current.map((node) => {
+      if (node.id !== nodeId) return node
+      const canvasNode = node.data?.canvasNode as CreativeCanvasNode | undefined
+      if (!canvasNode) return node
+      const data = (canvasNode.data ?? {}) as Record<string, unknown>
+      const generation = {
+        ...(typeof data.generation === 'object' && data.generation ? data.generation : {}),
+        ...patch,
+      }
+      const provider = patch.model !== undefined
+        ? {
+            ...(canvasNode.provider ?? { key: 'higgsfield' as const }),
+            model: patch.model,
+            ...(getCanvasModel(patch.model)?.providerKey ? { key: getCanvasModel(patch.model)!.providerKey } : {}),
+          }
+        : canvasNode.provider
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          ...(patch.model !== undefined ? { model: patch.model } : {}),
+          ...(patch.batch !== undefined ? { batch: patch.batch } : {}),
+          canvasNode: {
+            ...canvasNode,
+            provider,
+            data: { ...data, generation },
+          },
+        },
+      }
+    }))
+  }, [])
+
   const updateNodeText = useCallback((nodeId: string, value: string) => {
     setNodes((current) => current.map((node) => {
       if (node.id !== nodeId) return node
@@ -3148,6 +3419,53 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   const addReferenceToNode = useCallback((nodeId: string) => {
     setReferencePicker({ nodeId })
   }, [])
+
+  /** Create trimmed segment source nodes from a video node. The segment nodes
+   *  reference the same media URL plus a `data.trim` window; downstream runs
+   *  carry the window so providers only process the clip, not the full video. */
+  const createVideoSegments = useCallback((segments: VideoSegment[]) => {
+    const target = nodes.find((node) => node.id === splitVideoNodeId)
+    const canvasNode = target?.data?.canvasNode as CreativeCanvasNode | undefined
+    const url = canvasNode?.output?.url ?? canvasNode?.source?.url
+    if (!canvasNode || !url || !segments.length) {
+      setSplitVideoNodeId('')
+      return
+    }
+    const org = resolvedOrgId || canvasNode.orgId
+    const stamp = Date.now()
+    const nextNodes = segments.map((segment, index): CreativeCanvasNode => ({
+      id: `${canvasNode.id}-segment-${stamp}-${index}`,
+      orgId: org,
+      type: 'source',
+      title: `${canvasNode.title} · ${segment.startSeconds.toFixed(1)}s–${segment.endSeconds.toFixed(1)}s`,
+      position: {
+        x: canvasNode.position.x + 60 + index * 36,
+        y: canvasNode.position.y + 240 + index * 48,
+      },
+      data: {
+        segmentOf: canvasNode.id,
+        trim: { startSeconds: segment.startSeconds, endSeconds: segment.endSeconds },
+      },
+      source: {
+        kind: 'url',
+        url,
+        thumbnailUrl: canvasNode.output?.thumbnailUrl ?? canvasNode.source?.thumbnailUrl,
+        mimeType: canvasNode.source?.mimeType ?? 'video/mp4',
+        altText: `Segment of ${canvasNode.title}`,
+      },
+    }))
+    setNodes((current) => [...current, ...nextNodes.map((node) => toFlowNode(node))])
+    setSplitVideoNodeId('')
+    recordCanvasActivity({
+      actorLabel: 'You',
+      action: 'Split video',
+      detail: `${canvasNode.title}: ${nextNodes.length} segment${nextNodes.length === 1 ? '' : 's'}`,
+      nodeId: canvasNode.id,
+      operation: 'node_add',
+      source: 'local',
+    })
+    setActivityMessage(`${nextNodes.length} video segment${nextNodes.length === 1 ? '' : 's'} created — edits on a segment only process that clip`)
+  }, [nodes, splitVideoNodeId, resolvedOrgId, recordCanvasActivity])
 
   const attachReferenceUrl = useCallback((nodeId: string, url: string) => {
     setNodes((current) => current.map((node) => {
@@ -3285,8 +3603,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
   }, [activeCanvas?.id, activeCanvas?.orgId, currentGraphSignature, edges, graphHasUnsavedChanges, nodes, resolvedOrgId, saveGraph])
 
   const generateInlineForNode = useCallback(async (nodeId: string) => {
-    if (mode !== 'admin') {
-      setActivityMessage('Generation is available in the admin canvas')
+    // Auto-pause: refuse to dispatch once the org's credit limit is reached.
+    // The API also returns 402, but blocking here saves a round trip and gives
+    // a clear message.
+    if (creditBudget.atLimit) {
+      setActivityMessage('Credit limit reached — generation is paused until the limit is raised')
       return
     }
     const target = nodes.find((node) => node.id === nodeId)
@@ -3296,6 +3617,20 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       return
     }
     const nodeData = (canvasNode.data ?? {}) as Record<string, unknown>
+    // Node-scoped settings win over the shared panel state — clicking Generate
+    // on an unselected card must use that card's own configuration.
+    const nodeGeneration = (typeof nodeData.generation === 'object' && nodeData.generation
+      ? nodeData.generation
+      : {}) as Partial<NodeSettingsValues>
+    const settingModel = typeof nodeGeneration.model === 'string' && nodeGeneration.model
+      ? nodeGeneration.model
+      : (canvasNode.provider?.model || runModel)
+    const settingAspectRatio = typeof nodeGeneration.aspectRatio === 'string' ? nodeGeneration.aspectRatio : runAspectRatio
+    const settingResolution = typeof nodeGeneration.resolution === 'string' ? nodeGeneration.resolution : runResolution
+    const settingQuality = typeof nodeGeneration.quality === 'string' ? nodeGeneration.quality : runQuality
+    const settingDuration = typeof nodeGeneration.duration === 'number' ? nodeGeneration.duration : runDurationSeconds
+    const settingGenerateAudio = typeof nodeGeneration.generateAudio === 'boolean' ? nodeGeneration.generateAudio : runGenerateAudio
+    const settingBatch = typeof nodeGeneration.batch === 'number' ? nodeGeneration.batch : runVariantCount
     const instruction = typeof nodeData.prompt === 'string' ? nodeData.prompt : ''
 
     // ---- Gather everything linked into this node (the combine flow). ----
@@ -3303,10 +3638,22 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       .filter((edge) => edge.target === nodeId)
       .map((edge) => nodes.find((candidate) => candidate.id === edge.source)?.data?.canvasNode as CreativeCanvasNode | undefined)
       .filter((candidate): candidate is CreativeCanvasNode => Boolean(candidate))
+    // A generator node's produced media lands on a sibling `${id}-output` node,
+    // not on the generator itself — so resolve a linked generator to its latest
+    // output image. This is what makes "video ← image generator" actually feed
+    // the generated still into the video run (image-to-video).
+    const resolvedOutputImageFor = (upstreamId: string): string | undefined => {
+      const outputNode = nodes.find((candidate) => candidate.id === `${upstreamId}-output`)?.data?.canvasNode as CreativeCanvasNode | undefined
+      return outputNode?.output?.url && outputNode.output.kind !== 'video' ? outputNode.output.url : undefined
+    }
     const upstreamImageUrls = upstreamCanvasNodes.flatMap((upstream) => {
       const urls: string[] = []
       if (upstream.output?.url && upstream.output.kind !== 'video') urls.push(upstream.output.url)
       else if (upstream.source?.url) urls.push(upstream.source.url)
+      else {
+        const resolved = resolvedOutputImageFor(upstream.id)
+        if (resolved) urls.push(resolved)
+      }
       const upstreamRefs = (upstream.data as Record<string, unknown> | undefined)?.references
       if (Array.isArray(upstreamRefs)) urls.push(...upstreamRefs.filter((url): url is string => typeof url === 'string'))
       return urls
@@ -3332,14 +3679,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     }
 
     // ---- Resolve the model against the node's requested output kind. ----
-    const presentationHint = String(nodeData.presentationType ?? '')
-    const isAudioNode = nodeData.outputKind === 'audio'
-      || canvasNode.provider?.mode === 'audio'
-      || ['voice_generator', 'voiceover', 'change_voice'].includes(presentationHint)
-    const requestedKind = isAudioNode
-      ? 'audio'
-      : nodeData.outputKind === 'video' || canvasNode.provider?.mode === 'video' ? 'video' : 'image'
-    const activeModel = getCanvasModel(runModel)
+    // The user's explicitly-chosen model is authoritative (shared resolver) so a
+    // selected video model produces a video instead of being downgraded to the
+    // default image model.
+    const activeModel = getCanvasModel(settingModel)
+    const requestedKind = resolveGeneratorKind(canvasNode, settingModel)
     // Some models cap reference media (Soul V2 accepts exactly one — the
     // provider rejects the run otherwise). Fall back to Nano Banana for
     // multi-reference combines and tell the user.
@@ -3366,14 +3710,17 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           nodeId,
+          // Upstream ids ride along so node-level metadata (e.g. video trim
+          // windows on segment nodes) reaches the provider manifest.
+          sourceNodeIds: [nodeId, ...upstreamCanvasNodes.map((upstream) => upstream.id)],
           model: effectiveModel,
           prompt,
-          aspectRatio: runAspectRatio,
-          resolution: runResolution,
-          quality: runQuality,
-          duration: runDurationSeconds,
-          generateAudio: runGenerateAudio,
-          batch: runVariantCount,
+          aspectRatio: settingAspectRatio,
+          resolution: settingResolution,
+          quality: settingQuality,
+          duration: settingDuration,
+          generateAudio: settingGenerateAudio,
+          batch: settingBatch,
           referenceImageUrls,
         }),
       })
@@ -3385,6 +3732,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       if (payload?.data?.pending) {
         // Async provider (e.g. Higgsfield video): bounded poll for the output node.
         setActivityMessage('Generation queued — waiting for output…')
+        // Pull the new run into history so the node keeps reflecting live state
+        // (queued → running → failed) via the periodic refresh, long after this
+        // bounded local poll ends.
+        void loadRuns(canvasId, canvasOrgId)
         let found = false
         for (let attempt = 0; attempt < 12 && !found; attempt += 1) {
           await new Promise((resolve) => { window.setTimeout(resolve, 3000) })
@@ -3406,7 +3757,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             }
           } catch { ignoreCanvasBestEffortFailure() }
         }
-        if (!found) setActivityMessage('Generation still processing — it will appear on refresh')
+        if (!found) {
+          setActivityMessage('Still generating — the node shows live status; it will appear here or flag an error if the provider fails')
+          void loadRuns(canvasId, canvasOrgId)
+        }
       } else {
         // Sync result — pull the fresh canvas (with the new output node) by id.
         try {
@@ -3427,7 +3781,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       })
       void loadCanvasCredits()
     }
-  }, [applyCanvasSnapshot, edges, ensurePersistedCanvas, loadCanvasCredits, mode, nodes, runAspectRatio, runDurationSeconds, runGenerateAudio, runModel, runQuality, runResolution, runVariantCount])
+  }, [applyCanvasSnapshot, creditBudget.atLimit, edges, ensurePersistedCanvas, loadCanvasCredits, loadRuns, nodes, runAspectRatio, runDurationSeconds, runGenerateAudio, runModel, runQuality, runResolution, runVariantCount])
 
   const [editChatBusy, setEditChatBusy] = useState(false)
   const [editChatError, setEditChatError] = useState('')
@@ -3997,6 +4351,7 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       replaceContent: (nodeId: string) => setReferencePicker({ nodeId, mode: 'replace' }),
       editWithAi: (nodeId: string) => setEditChatNodeId(nodeId),
       publish: (nodeId: string) => { setPublishNodeId(nodeId); setPublishError(''); setPublishSuccess('') },
+      updateGenerationSettings: updateNodeGenerationSettings,
     }
   })
 
@@ -4375,8 +4730,10 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     return (
       <main className="mx-auto max-w-7xl px-4 py-6">
         <CanvasLanding
+          orgId={resolvedOrgId || activeCanvas?.orgId || undefined}
+          initialTab={landingInitialTab}
           boards={canvases.map((canvas) => ({ id: canvas.id ?? '', title: canvas.title }))}
-          templates={templates.map((template) => ({ id: template.id, title: template.title }))}
+          templates={templates.map((template) => ({ id: template.id, title: template.title, description: template.description, thumbnailUrl: template.thumbnailUrl }))}
           onCreate={() => { void createBlankCanvas() }}
           onRenameBoard={(id, nextTitle) => { void renameCanvasById(id, nextTitle) }}
           onDeleteBoard={(id) => { void deleteCanvasById(id) }}
@@ -4388,11 +4745,15 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             }
           }}
           onUseTemplate={(id) => {
-            const template = templates.find((item) => item.id === id)
+            // Starter templates ship in-repo and are namespaced `starter-…`;
+            // saved templates come from the org's `templates` state.
+            const template = id.startsWith('starter-')
+              ? getStarterCanvasTemplate(id)
+              : templates.find((item) => item.id === id)
             setShowLanding(false)
             void (async () => {
               await createBlankCanvas()
-              if (template) applySavedTemplate(template)
+              if (template) applySavedTemplate(template as CreativeCanvasTemplate & { id: string })
             })()
           }}
         />
@@ -4418,16 +4779,39 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         presenceCount={presence?.length ?? 0}
         onOpenChat={() => setTopBarPanel('chat')}
         onShare={() => setTopBarPanel('share')}
-        onHome={() => setShowLanding(true)}
+        onHome={() => { setLandingInitialTab(undefined); setShowLanding(true) }}
         onNewCanvas={mode === 'admin' ? () => { setShowLanding(false); void createBlankCanvas() } : undefined}
         immersive={immersiveCanvas}
         onToggleImmersive={() => setImmersiveCanvas((value) => !value)}
         creditsLabel={canvasCredits?.higgsfieldCredits != null
-          ? `${canvasCredits.higgsfieldCredits}${canvasCredits.higgsfieldPlan ? ` · ${canvasCredits.higgsfieldPlan}` : ''}`
+          ? `${roundCredits(canvasCredits.higgsfieldCredits)}${canvasCredits.higgsfieldPlan ? ` · ${canvasCredits.higgsfieldPlan}` : ''}`
           : canvasCredits
-            ? `${canvasCredits.used}${canvasCredits.limit != null ? `/${canvasCredits.limit}` : ' used'}`
+            ? `${roundCredits(canvasCredits.used)}${canvasCredits.limit != null ? `/${roundCredits(canvasCredits.limit)}` : ' used'}`
             : undefined}
+        creditsTone={creditBudget.tone}
+        creditsTitle={creditBudget.title}
+        onOpenSpend={() => setTopBarPanel('spend')}
+        linkedYouTubeHref={mode === 'admin' && activeCanvas?.linked?.youtubeVideoProjectId && (resolvedOrgId || activeCanvas?.orgId)
+          ? `/admin/org/${encodeURIComponent(resolvedOrgId || activeCanvas!.orgId)}/youtube-studio`
+          : undefined}
+        linkedBookHref={mode === 'admin' && activeCanvas?.linked?.bookStudioProjectId && (resolvedOrgId || activeCanvas?.orgId)
+          ? `/admin/org/${encodeURIComponent(resolvedOrgId || activeCanvas!.orgId)}/book-studio/${encodeURIComponent(activeCanvas!.linked!.bookStudioProjectId!)}`
+          : undefined}
       />
+
+      {splitVideoNodeId ? (() => {
+        const splitTarget = nodes.find((node) => node.id === splitVideoNodeId)?.data?.canvasNode as CreativeCanvasNode | undefined
+        const splitUrl = splitTarget?.output?.url ?? splitTarget?.source?.url
+        return splitTarget && splitUrl ? (
+          <VideoSplitDialog
+            open
+            videoUrl={splitUrl}
+            nodeTitle={splitTarget.title}
+            onClose={() => setSplitVideoNodeId('')}
+            onSplit={createVideoSegments}
+          />
+        ) : null
+      })() : null}
 
       {topBarPanel ? (
         <div
@@ -4437,10 +4821,24 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
           onClick={() => setTopBarPanel('')}
         >
           <div
-            className="w-full max-w-md rounded-xl p-5 shadow-xl"
+            className={`w-full ${topBarPanel === 'spend' ? 'max-w-lg' : 'max-w-md'} max-h-[85vh] overflow-y-auto rounded-xl p-5 shadow-xl`}
             style={{ background: canvasTheme.surface, border: `1px solid ${canvasTheme.border}`, color: canvasTheme.text }}
             onClick={(event) => event.stopPropagation()}
           >
+            {topBarPanel === 'spend' ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold" style={{ color: canvasTheme.text }}>Spend breakdown</h2>
+                  <button type="button" aria-label="Close spend breakdown" data-tip="Close" onClick={() => setTopBarPanel('')} style={{ background: 'transparent', border: 'none', color: canvasTheme.textMuted, cursor: 'pointer', fontSize: 18 }}>×</button>
+                </div>
+                <CanvasSpendPanel
+                  runs={runHistory}
+                  nodes={activeCanvas?.nodes ?? nodes.map((node) => toCanvasNode(node, resolvedOrgId || activeCanvas?.orgId || ''))}
+                  used={canvasCredits?.used}
+                  limit={canvasCredits?.limit}
+                />
+              </div>
+            ) : null}
             {topBarPanel === 'share' ? (
               <div className="space-y-3">
                 <h2 className="text-lg font-semibold" style={{ color: canvasTheme.text }}>Share canvas</h2>
@@ -4812,6 +5210,30 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
               >
                 Save current graph as template
               </button>
+              <div className="border-t border-dashed border-[var(--color-pib-line)] pt-2">
+                <label className="block text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="creative-canvas-template-import-url">
+                  Import from URL
+                  <input
+                    id="creative-canvas-template-import-url"
+                    value={templateImportUrl}
+                    onChange={(event) => setTemplateImportUrl(event.target.value)}
+                    className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-white px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+                    placeholder="https://example.com/template.json"
+                    inputMode="url"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => { void importTemplateFromUrl() }}
+                  disabled={!templateImportUrl.trim() || templateImporting}
+                  className="mt-2 w-full rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left text-xs font-semibold text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {templateImporting ? 'Importing…' : 'Import third-party template'}
+                </button>
+                <p className="mt-1 text-[10px] text-[var(--color-pib-text-muted)]">
+                  Public https JSON with {'{'} title, nodes, edges {'}'} — free community templates work as-is.
+                </p>
+              </div>
             </div>
             <div className="mt-3 space-y-2">
               {templates.length ? templates.map((template) => (
@@ -5035,8 +5457,11 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   ? String((selectedCanvasNode!.data as Record<string, unknown>).prompt)
                   : ''}
                 onPromptChange={(value) => { if (selectedNodeId) updateNodePrompt(selectedNodeId, value) }}
-                canGenerate={mode === 'admin' && Boolean(selectedNodeId) && !versionPreview}
-                onModelSelect={setRunModel}
+                canGenerate={Boolean(selectedNodeId) && !versionPreview}
+                onModelSelect={(modelId) => {
+                  setRunModel(modelId)
+                  if (selectedNodeId) updateNodeGenerationSettings(selectedNodeId, { model: modelId })
+                }}
                 onChange={(patch) => {
                   if (patch.model !== undefined) setRunModel(patch.model)
                   if (patch.aspectRatio !== undefined) setRunAspectRatio(patch.aspectRatio)
@@ -5045,8 +5470,12 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
                   if (patch.duration !== undefined) setRunDurationSeconds(patch.duration)
                   if (patch.generateAudio !== undefined) setRunGenerateAudio(patch.generateAudio)
                   if (patch.batch !== undefined) setRunVariantCount(patch.batch)
+                  if (selectedNodeId) updateNodeGenerationSettings(selectedNodeId, patch)
                 }}
                 generating={Boolean(selectedNodeId && generatingNodeIds.has(selectedNodeId))}
+                preflight={selectedNodePreflight}
+                connectedProviders={connectedProviders}
+                onConnectProvider={handleConnectProvider}
                 onGenerate={() => { if (selectedNodeId) void generateInlineForNode(selectedNodeId) }}
                 onClose={() => setSettingsCollapsed(true)}
               />

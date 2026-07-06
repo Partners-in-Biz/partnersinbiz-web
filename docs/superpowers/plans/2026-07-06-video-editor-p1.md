@@ -1,0 +1,1 @@
+/Users/peetstander/Cowork/Cowork/agents/partners/wiki/video-editor-p1-plan.md

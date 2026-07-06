@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   YouTubeAnalyticsSnapshot,
   YouTubeChannelWorkspace,
@@ -13,7 +13,10 @@ import type {
   YouTubeSourceAsset,
   YouTubeVideoProject,
 } from '@/lib/youtube-studio/types'
-import { YouTubeChannelCard, YouTubeVideoCard } from '@/components/youtube-studio/YouTubeStudioCards'
+import { channelNeedsReconnect, YouTubeChannelCard, YouTubeVideoCard } from '@/components/youtube-studio/YouTubeStudioCards'
+import { YouTubeStudioGuide } from '@/components/youtube-studio/YouTubeStudioGuide'
+import { YouTubeStudioOAuthReturnHandler } from '@/components/youtube-studio/YouTubeStudioOAuthReturnHandler'
+import { YouTubeStudioPipelineBoard } from '@/components/youtube-studio/YouTubeStudioPipelineBoard'
 import { YouTubeStudioWorkspaceShell } from '@/components/youtube-studio/YouTubeStudioWorkspaceShell'
 import { appendQueryParams, scopedApiPath } from '@/lib/portal/scoped-routing'
 
@@ -83,6 +86,8 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   const [actionNotice, setActionNotice] = useState('')
   const [moduleDisabled, setModuleDisabled] = useState(false)
   const [capabilities, setCapabilities] = useState<YouTubeStudioCapabilities>(defaultCapabilities)
+  const [retryAccountId, setRetryAccountId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'overview' | 'pipeline'>('overview')
   const submittingRequestRef = useRef(false)
   const reviewingIdRef = useRef<string | null>(null)
   const reviewingPacketIdRef = useRef<string | null>(null)
@@ -93,8 +98,12 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   const apiPath = useMemo(() => scopedApiPath('/api/v1/portal/youtube-studio', { orgId }), [orgId])
   const youtubeOAuthHref = useMemo(() => {
     const redirectUrl = appendQueryParams('/portal/youtube-studio', { orgId })
-    return appendQueryParams('/api/v1/social/oauth/youtube', { redirectUrl, orgId })
+    return appendQueryParams('/api/v1/social/oauth/youtube', { redirectUrl, orgId, feature: 'youtube_studio' })
   }, [orgId])
+  const linkAnotherChannelHref = useMemo(
+    () => appendQueryParams(youtubeOAuthHref, { prompt: 'select_account' }),
+    [youtubeOAuthHref],
+  )
   const activeApiPathRef = useRef(apiPath)
   const previousApiPathRef = useRef(apiPath)
   activeApiPathRef.current = apiPath
@@ -395,6 +404,28 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
     }
   }
 
+  async function repurposeVideo(videoId: string) {
+    setActionNotice('')
+    try {
+      const res = await fetch(
+        scopedApiPath(`/api/v1/youtube-studio/videos/${videoId}/repurpose`, { orgId }),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ platforms: ['linkedin', 'twitter', 'facebook'] }),
+        },
+      )
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setActionNotice(body.error ?? 'Could not create social drafts')
+        return
+      }
+      setActionNotice('Draft social posts created — review them in Social.')
+    } catch {
+      setActionNotice('Could not create social drafts')
+    }
+  }
+
   if (moduleDisabled) {
     return (
       <YouTubeStudioWorkspaceShell
@@ -408,6 +439,9 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
         loading={loading}
         className="p-4 sm:p-6 lg:p-8"
       >
+        <Suspense fallback={null}>
+          <YouTubeStudioOAuthReturnHandler onRefresh={load} onProvisionFailed={setRetryAccountId} />
+        </Suspense>
         <div className="rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-6 text-sm text-[var(--color-pib-text)]">
           YouTube Studio is not enabled for this portal.
         </div>
@@ -428,11 +462,50 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       loading={loading}
       className="p-4 sm:p-6 lg:p-8"
     >
+      <Suspense fallback={null}>
+        <YouTubeStudioOAuthReturnHandler onRefresh={load} onProvisionFailed={setRetryAccountId} />
+      </Suspense>
+      <div className="flex gap-2">
+        {(['overview', 'pipeline'] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            aria-pressed={activeTab === tab}
+            className={activeTab === tab ? 'pib-btn-primary text-sm' : 'pib-btn-ghost text-sm'}
+          >
+            {tab === 'overview' ? 'Overview' : 'Pipeline'}
+          </button>
+        ))}
+      </div>
+      {activeTab === 'pipeline' ? (
+        <YouTubeStudioPipelineBoard
+          videos={videos}
+          onReview={() => setActiveTab('overview')}
+          onRepurpose={(videoId) => void repurposeVideo(videoId)}
+        />
+      ) : (
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <section className="space-y-4">
-          {channels.map((channel) => (
-            <YouTubeChannelCard key={channel.id ?? channel.title} channel={channel} />
-          ))}
+          {channels.length === 0 && !loading ? (
+            <YouTubeStudioGuide oauthHref={youtubeOAuthHref} />
+          ) : null}
+
+          <div className="space-y-3">
+            {channels.length > 0 ? (
+              <h2 className="font-headline text-xl font-semibold text-on-surface">Channels</h2>
+            ) : null}
+            {channels.map((channel) => (
+              <YouTubeChannelCard key={channel.id ?? channel.title} channel={channel}>
+                {channelNeedsReconnect(channel) ? (
+                  <a href={youtubeOAuthHref} className="pib-btn-primary text-sm">Reconnect</a>
+                ) : null}
+              </YouTubeChannelCard>
+            ))}
+            {channels.length > 0 ? (
+              <a href={linkAnotherChannelHref} className="pib-btn-ghost text-sm">Link another channel</a>
+            ) : null}
+          </div>
 
           <div className="space-y-3">
             <h2 className="font-headline text-xl font-semibold text-on-surface">Video reviews</h2>
@@ -874,6 +947,36 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
             <a href={youtubeOAuthHref} className="pib-btn-primary w-full justify-center text-center">
               Link YouTube channel
             </a>
+            {retryAccountId ? (
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const res = await fetch(scopedApiPath('/api/v1/youtube-studio/channels/adopt', { orgId }), {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ accountId: retryAccountId }),
+                    })
+                    const body = await res.json().catch(() => ({}))
+                    if (!res.ok) {
+                      setActionNotice(body.error ?? 'Could not finish channel setup')
+                      return
+                    }
+                    setRetryAccountId(null)
+                    setActionNotice('Channel setup completed.')
+                    await load()
+                  } catch {
+                    setActionNotice('Could not finish channel setup')
+                  }
+                }}
+                className="pib-btn-ghost w-full justify-center text-center text-sm"
+              >
+                Retry channel setup
+              </button>
+            ) : null}
+            <p className="text-xs text-on-surface-variant">
+              This connection is shared with Marketing Studio&apos;s social posting.
+            </p>
           </div>
 
           {capabilities.canCreate ? (
@@ -906,6 +1009,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
           )}
         </aside>
       </div>
+      )}
     </YouTubeStudioWorkspaceShell>
   )
 }

@@ -122,6 +122,7 @@ describe('agent watcher Hermes dispatch', () => {
       output: 'done',
       error: null,
       telemetry: {
+        provider: 'openai',
         model: 'openai/gpt-5.1',
         reasoningEffort: 'high',
         inputTokens: 1200,
@@ -159,6 +160,7 @@ describe('agent watcher Hermes dispatch', () => {
       output: 'done',
       error: null,
       telemetry: {
+        provider: 'anthropic',
         model: 'claude-sonnet-4-6',
         reasoningEffort: 'medium',
         inputTokens: null,

@@ -27,6 +27,8 @@ export const dynamic = 'force-dynamic'
 
 const COMPLETED = new Set(['completed', 'complete', 'succeeded', 'success', 'done', 'finished'])
 const FAILED = new Set(['failed', 'error', 'errored', 'cancelled', 'canceled', 'stopped', 'interrupted', 'lost', 'timed_out'])
+type UsageSource = 'upstream' | 'unavailable'
+type CostSource = 'upstream' | 'mixed' | 'unavailable'
 
 function tsToMillis(value: unknown): number | null {
   if (!value) return null
@@ -70,17 +72,51 @@ function num(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
+function str(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
+function inferProviderFromModel(model: string | null): string | null {
+  if (!model) return null
+  if (model.includes('/')) return model.split('/')[0] || null
+  if (/claude/i.test(model)) return 'anthropic'
+  if (/gpt|openai/i.test(model)) return 'openai'
+  if (/gemini/i.test(model)) return 'google'
+  if (/grok|xai/i.test(model)) return 'xai'
+  return null
+}
+
 interface RunUsage {
   inputTokens: number | null
   outputTokens: number | null
   totalTokens: number | null
   costUsd: number | null
+  model: string | null
+  provider: string | null
+  tokenSource: UsageSource
+  costSource: Exclude<CostSource, 'mixed'> | 'unavailable'
+  costUnavailableReason: 'cost_usd_unavailable_from_hermes' | 'usage_unavailable_from_hermes' | null
 }
 
 /** Extract token + cost from a run, tolerating OpenAI / Anthropic / custom shapes. */
 function extractUsage(response: unknown): RunUsage {
   const usage = findUsage(response)
-  if (!usage) return { inputTokens: null, outputTokens: null, totalTokens: null, costUsd: null }
+  const responseObj = asObject(response)
+  const model = str(usage?.model) ?? str(responseObj?.model) ?? str(responseObj?.model_id) ?? str(responseObj?.modelId)
+  const provider = str(usage?.provider) ?? str(responseObj?.provider) ?? inferProviderFromModel(model)
+  if (!usage) {
+    return {
+      inputTokens: null,
+      outputTokens: null,
+      totalTokens: null,
+      costUsd: null,
+      model,
+      provider,
+      tokenSource: 'unavailable',
+      costSource: 'unavailable',
+      costUnavailableReason: 'usage_unavailable_from_hermes',
+    }
+  }
 
   const input = num(usage.input_tokens) ?? num(usage.inputTokens) ?? num(usage.prompt_tokens) ?? num(usage.promptTokens)
   const output = num(usage.output_tokens) ?? num(usage.outputTokens) ?? num(usage.completion_tokens) ?? num(usage.completionTokens)
@@ -89,9 +125,20 @@ function extractUsage(response: unknown): RunUsage {
 
   const costUsd =
     num(usage.cost_usd) ?? num(usage.costUsd) ?? num(usage.cost) ??
-    num((asObject(response) ?? {}).cost_usd) ?? num((asObject(response) ?? {}).costUsd)
+    num(responseObj?.cost_usd) ?? num(responseObj?.costUsd)
 
-  return { inputTokens: input, outputTokens: output, totalTokens: total, costUsd }
+  const hasTokens = total != null || input != null || output != null
+  return {
+    inputTokens: input,
+    outputTokens: output,
+    totalTokens: total,
+    costUsd,
+    model,
+    provider,
+    tokenSource: hasTokens ? 'upstream' : 'unavailable',
+    costSource: costUsd != null ? 'upstream' : 'unavailable',
+    costUnavailableReason: costUsd != null ? null : (hasTokens ? 'cost_usd_unavailable_from_hermes' : 'usage_unavailable_from_hermes'),
+  }
 }
 
 function agentIdFromProfile(profile: unknown): string {
@@ -122,7 +169,10 @@ interface AgentAccumulator {
   tokenRuns: number
   costUsd: number
   costRuns: number
+  costMissingRuns: number
+  usageMissingRuns: number
   lastRunAt: number | null
+  providerModels: Map<string, { provider: string | null; model: string | null; runs: number }>
 }
 
 interface AgentMetrics {
@@ -134,15 +184,31 @@ interface AgentMetrics {
   successRate: number | null
   avgResponseMs: number | null
   p95ResponseMs: number | null
-  tokens: { input: number; output: number; total: number; runsWithUsage: number }
-  cost: { usd: number | null; runsWithCost: number }
+  tokens: { input: number; output: number; total: number; runsWithUsage: number; source: UsageSource }
+  cost: { usd: number | null; runsWithCost: number; runsMissingCost: number; source: CostSource; unavailableReason: string | null }
+  providerModels: Array<{ provider: string | null; model: string | null; runs: number }>
   lastRunAt: string | null
+}
+
+function costSourceFor(costRuns: number, missingRuns: number): CostSource {
+  if (costRuns > 0 && missingRuns > 0) return 'mixed'
+  if (costRuns > 0) return 'upstream'
+  return 'unavailable'
+}
+
+function costUnavailableReasonFor(acc: AgentAccumulator): string | null {
+  const missingRuns = acc.costMissingRuns + acc.usageMissingRuns
+  if (missingRuns === 0) return null
+  if (acc.costRuns > 0) return 'partial_cost_unavailable_from_hermes'
+  if (acc.costMissingRuns > 0) return 'cost_usd_unavailable_from_hermes'
+  return 'usage_unavailable_from_hermes'
 }
 
 function finalize(acc: AgentAccumulator): AgentMetrics {
   const durations = acc.durations.slice().sort((a, b) => a - b)
   const avg = durations.length ? durations.reduce((s, d) => s + d, 0) / durations.length : null
   const decided = acc.completed + acc.failed
+  const missingRuns = acc.costMissingRuns + acc.usageMissingRuns
   return {
     agentId: acc.agentId,
     runVolume: acc.total,
@@ -152,8 +218,22 @@ function finalize(acc: AgentAccumulator): AgentMetrics {
     successRate: decided > 0 ? acc.completed / decided : null,
     avgResponseMs: avg != null ? Math.round(avg) : null,
     p95ResponseMs: durations.length ? Math.round(percentile(durations, 95) as number) : null,
-    tokens: { input: acc.inputTokens, output: acc.outputTokens, total: acc.totalTokens, runsWithUsage: acc.tokenRuns },
-    cost: { usd: acc.costRuns > 0 ? Number(acc.costUsd.toFixed(4)) : null, runsWithCost: acc.costRuns },
+    tokens: {
+      input: acc.inputTokens,
+      output: acc.outputTokens,
+      total: acc.totalTokens,
+      runsWithUsage: acc.tokenRuns,
+      source: acc.tokenRuns > 0 ? 'upstream' : 'unavailable',
+    },
+    cost: {
+      usd: acc.costRuns > 0 ? Number(acc.costUsd.toFixed(4)) : null,
+      runsWithCost: acc.costRuns,
+      runsMissingCost: missingRuns,
+      source: costSourceFor(acc.costRuns, missingRuns),
+      unavailableReason: costUnavailableReasonFor(acc),
+    },
+    providerModels: Array.from(acc.providerModels.values())
+      .sort((a, b) => b.runs - a.runs || `${a.provider ?? ''}/${a.model ?? ''}`.localeCompare(`${b.provider ?? ''}/${b.model ?? ''}`)),
     lastRunAt: acc.lastRunAt != null ? new Date(acc.lastRunAt).toISOString() : null,
   }
 }
@@ -168,7 +248,8 @@ function buildCsv(rows: AgentMetrics[]): string {
   const header = [
     'agent_id', 'run_volume', 'completed', 'failed', 'in_progress_or_other', 'success_rate_pct',
     'avg_response_ms', 'p95_response_ms', 'input_tokens', 'output_tokens', 'total_tokens',
-    'runs_with_usage', 'cost_usd', 'runs_with_cost', 'last_run_at',
+    'runs_with_usage', 'token_source', 'cost_usd', 'runs_with_cost', 'runs_missing_cost',
+    'cost_source', 'cost_unavailable_reason', 'provider_models', 'last_run_at',
   ]
   const lines = [header.join(',')]
   for (const r of rows) {
@@ -185,8 +266,13 @@ function buildCsv(rows: AgentMetrics[]): string {
       r.tokens.output,
       r.tokens.total,
       r.tokens.runsWithUsage,
+      r.tokens.source,
       r.cost.usd ?? '',
       r.cost.runsWithCost,
+      r.cost.runsMissingCost,
+      r.cost.source,
+      r.cost.unavailableReason ?? '',
+      r.providerModels.map((m) => `${m.provider ?? 'unknown'}/${m.model ?? 'unknown'} (${m.runs})`).join('; '),
       r.lastRunAt ?? '',
     ].map(csvCell).join(','))
   }
@@ -210,7 +296,16 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
     if (!acc) {
       acc = {
         agentId, total: 0, completed: 0, failed: 0, other: 0, durations: [],
-        inputTokens: 0, outputTokens: 0, totalTokens: 0, tokenRuns: 0, costUsd: 0, costRuns: 0, lastRunAt: null,
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        tokenRuns: 0,
+        costUsd: 0,
+        costRuns: 0,
+        costMissingRuns: 0,
+        usageMissingRuns: 0,
+        lastRunAt: null,
+        providerModels: new Map(),
       }
       accumulators.set(agentId, acc)
     }
@@ -244,6 +339,12 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
     }
 
     const usage = extractUsage(d.response)
+    if (usage.provider || usage.model) {
+      const key = `${usage.provider ?? 'unknown'}:${usage.model ?? 'unknown'}`
+      const existing = acc.providerModels.get(key)
+      if (existing) existing.runs += 1
+      else acc.providerModels.set(key, { provider: usage.provider, model: usage.model, runs: 1 })
+    }
     if (usage.totalTokens != null || usage.inputTokens != null || usage.outputTokens != null) {
       acc.inputTokens += usage.inputTokens ?? 0
       acc.outputTokens += usage.outputTokens ?? 0
@@ -253,6 +354,10 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
     if (usage.costUsd != null) {
       acc.costUsd += usage.costUsd
       acc.costRuns += 1
+    } else if (usage.costUnavailableReason === 'cost_usd_unavailable_from_hermes') {
+      acc.costMissingRuns += 1
+    } else if (usage.costUnavailableReason === 'usage_unavailable_from_hermes') {
+      acc.usageMissingRuns += 1
     }
 
     const lastMs = tsToMillis(d.updatedAt) ?? createdMs
@@ -288,12 +393,22 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
       t.completed += a.completed
       t.failed += a.failed
       t.totalTokens += a.tokens.total
+      t.runsWithCost += a.cost.runsWithCost
+      t.runsMissingCost += a.cost.runsMissingCost
       if (a.cost.usd != null) t.costUsd += a.cost.usd
       return t
     },
-    { runVolume: 0, completed: 0, failed: 0, totalTokens: 0, costUsd: 0 },
+    { runVolume: 0, completed: 0, failed: 0, totalTokens: 0, costUsd: 0, runsWithCost: 0, runsMissingCost: 0 },
   )
   const decided = totals.completed + totals.failed
+  const summaryCostSource = costSourceFor(totals.runsWithCost, totals.runsMissingCost)
+  const summaryCostUnavailableReason = totals.runsMissingCost === 0
+    ? null
+    : totals.runsWithCost > 0
+      ? 'partial_cost_unavailable_from_hermes'
+      : agents.some((agent) => agent.cost.unavailableReason === 'cost_usd_unavailable_from_hermes')
+        ? 'cost_usd_unavailable_from_hermes'
+        : 'usage_unavailable_from_hermes'
 
   return apiSuccess({
     window: { days, sinceIso: new Date(sinceMs).toISOString() },
@@ -305,6 +420,10 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
       successRate: decided > 0 ? totals.completed / decided : null,
       totalTokens: totals.totalTokens,
       totalCostUsd: totals.costUsd > 0 ? Number(totals.costUsd.toFixed(4)) : null,
+      costSource: summaryCostSource,
+      costUnavailableReason: summaryCostUnavailableReason,
+      runsWithCost: totals.runsWithCost,
+      runsMissingCost: totals.runsMissingCost,
       activeAgents: agents.filter((a) => a.runVolume > 0).length,
     },
     agents,

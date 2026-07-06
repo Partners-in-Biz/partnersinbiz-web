@@ -284,6 +284,8 @@ export type ClientSafeYouTubeChannelWorkspace = {
   youtubeChannelId?: string
   youtubeHandle?: string
   status: YouTubeChannelStatus
+  connectedAccountId?: string
+  publishingReadiness?: { accountStatus: YouTubeConnectedAccountStatus }
   contentPillars: string[]
   audienceNotes?: string
   clientNotes?: string
@@ -786,6 +788,7 @@ export function sanitizeYouTubeVideoProjectInput(
       campaignId: cleanString(linked.campaignId),
       socialPostIds: cleanStringArray(linked.socialPostIds),
     },
+    creativeCanvasId: cleanString(input.creativeCanvasId),
     approvalPolicy: approvalPolicyFrom(input.approvalPolicy),
     publishPacketId: cleanString(input.publishPacketId),
     youtubeVideoId: cleanString(input.youtubeVideoId),
@@ -1416,6 +1419,16 @@ export function clientSafeYouTubeChannelWorkspace(
     youtubeChannelId: cleanString(channel.youtubeChannelId),
     youtubeHandle: cleanString(channel.youtubeHandle),
     status: pick(CHANNEL_STATUSES, channel.status, 'setup'),
+    connectedAccountId: cleanString(channel.connectedAccountId),
+    publishingReadiness: channel.publishingReadiness
+      ? {
+          accountStatus: pick(
+            CONNECTED_ACCOUNT_STATUSES,
+            cleanObject(channel.publishingReadiness as unknown).accountStatus,
+            'not_connected',
+          ),
+        }
+      : undefined,
     contentPillars: cleanStringArray(channel.contentPillars),
     audienceNotes: cleanString(channel.audienceNotes),
     clientNotes: cleanString(channel.clientNotes),

@@ -16,6 +16,7 @@ jest.mock('firebase-admin/firestore', () => ({
 
 import { buildCreativeCanvasAgentTask } from '@/lib/creative-canvas/agent-bridge'
 import {
+  appendCreativeCanvasRunOutputNode,
   completeCreativeCanvasProviderCallback,
   completeCreativeCanvasRun,
   createCreativeCanvasRun,
@@ -646,6 +647,66 @@ describe('creative canvas runs', () => {
     }))
     expect(result.run.status).toBe('completed')
     expect(result.outputNode?.id).toBe('output-1')
+  })
+
+  it('appendCreativeCanvasRunOutputNode attaches a sibling output node without touching the run doc', async () => {
+    mockDocGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'canvas-1',
+      data: () => ({
+        orgId: 'org-1',
+        title: 'Launch Canvas',
+        purpose: 'Launch',
+        activeVersion: 4,
+        deleted: false,
+        nodes: [
+          { id: 'model-1', orgId: 'org-1', type: 'model', title: 'Higgsfield', position: { x: 0, y: 0 }, data: {} },
+          { id: 'source-1-output', orgId: 'org-1', type: 'output', title: 'output', position: { x: 320, y: 0 }, data: {}, output: { kind: 'image', url: 'https://cdn.example.com/1.png' } },
+        ],
+        edges: [
+          { id: 'model-1-source-1-output', canvasId: 'canvas-1', orgId: 'org-1', sourceNodeId: 'model-1', targetNodeId: 'source-1-output', label: 'generated output', data: {} },
+        ],
+      }),
+    })
+
+    const run = {
+      id: 'run-1',
+      orgId: 'org-1',
+      canvasId: 'canvas-1',
+      nodeId: 'model-1',
+      providerKey: 'xai',
+      model: 'grok-image',
+      status: 'completed' as const,
+      input: { sourceNodeIds: ['model-1'], sourceArtifactIds: [] },
+      provenance: { generatedBy: 'agent' as const, agentId: 'maya', promptStored: 'summary' as const, syntheticMedia: true },
+    }
+
+    const node = await appendCreativeCanvasRunOutputNode(
+      run,
+      'org-1',
+      { kind: 'image', url: 'https://cdn.example.com/2.png' },
+      ACTOR,
+      'source-1-output-2',
+      1,
+    )
+
+    expect(node).toMatchObject({
+      id: 'source-1-output-2',
+      type: 'output',
+      position: { x: 360, y: 60 },
+      output: { kind: 'image', url: 'https://cdn.example.com/2.png' },
+    })
+    expect(mockDocUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      activeVersion: 5,
+      nodes: expect.arrayContaining([
+        expect.objectContaining({ id: 'source-1-output-2', output: expect.objectContaining({ url: 'https://cdn.example.com/2.png' }) }),
+      ]),
+      edges: expect.arrayContaining([
+        expect.objectContaining({ sourceNodeId: 'model-1', targetNodeId: 'source-1-output-2' }),
+      ]),
+    }))
+    // The run document itself is never updated by this helper.
+    expect(mockCollection).not.toHaveBeenCalledWith('creative_canvas_runs')
   })
 
   it('ingests a Higgsfield provider callback by provider job id', async () => {

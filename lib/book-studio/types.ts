@@ -8,6 +8,28 @@ export type BookStudioResourceKey =
   | 'package-manifests'
   | 'analytics-imports'
   | 'decision-logs'
+  | 'chapters'
+  | 'pages'
+
+export type BookStudioContentStatus = 'draft' | 'generated' | 'edited' | 'approved'
+
+export type BookStudioPageKind =
+  | 'illustration'
+  | 'colouring'
+  | 'comic'
+  | 'puzzle'
+  | 'activity'
+  | 'text'
+  | 'front_matter'
+  | 'back_matter'
+
+export type BookStudioPagePuzzle = {
+  kind: string
+  seed?: number
+  difficulty?: string
+  params?: Record<string, string | number | string[]>
+  solutionRef?: string
+}
 
 export type BookStudioStage =
   | 'intake'

@@ -7,6 +7,8 @@ import type {
 
 type FirestoreDoc = { id: string; data: () => Record<string, unknown> }
 
+export type CreativeCanvasViewerRole = 'admin' | 'client' | 'ai'
+
 const COLLECTIONS = [
   'uploads',
   'workspace_artifacts',
@@ -14,8 +16,11 @@ const COLLECTIONS = [
   'social_media',
   'social_posts',
   'youtube_source_assets',
+  'youtube_render_jobs',
   'book_studio_artifact_links',
 ] as const
+
+const RENDERED_JOB_STATUSES = new Set(['rendered', 'qa_review', 'approved'])
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
@@ -216,6 +221,42 @@ function fromYouTubeSourceAsset(doc: FirestoreDoc): CreativeCanvasSourceLibraryI
   })
 }
 
+function fromYouTubeRenderJob(doc: FirestoreDoc, viewerRole: CreativeCanvasViewerRole): CreativeCanvasSourceLibraryItem | null {
+  const data = doc.data()
+  const status = cleanString(data.status)
+  if (!status || !RENDERED_JOB_STATUSES.has(status)) return null
+
+  const output = asRecord(data.output)
+  const storage = asRecord(output.storage)
+  const url = cleanHttpUrl(output.previewUrl) ?? cleanHttpUrl(output.downloadUrl)
+  if (!url) return null
+
+  if (viewerRole === 'client') {
+    const visibility = asRecord(data.visibility)
+    const portalVisible = visibility.showOutputsInPortal === true || visibility.showInClientPortal === true
+    if (!portalVisible) return null
+  }
+
+  const storagePath = cleanString(storage.storagePath) ?? cleanString(output.storagePath)
+
+  const versionNumber = typeof data.versionNumber === 'number' ? String(data.versionNumber) : cleanString(data.versionNumber)
+  const descriptionParts = [`YouTube render / ${status}`]
+  if (versionNumber) descriptionParts.push(`v${versionNumber}`)
+
+  return sourceItem({
+    id: doc.id,
+    title: cleanString(data.title) ?? 'YouTube render',
+    description: descriptionParts.join(' '),
+    sourceCollection: 'youtube_render_jobs',
+    kind: 'youtube_asset',
+    refId: doc.id,
+    url,
+    thumbnailUrl: url,
+    storagePath,
+    mimeType: cleanString(storage.mimeType) ?? 'video/mp4',
+  })
+}
+
 function fromBookStudioArtifact(doc: FirestoreDoc): CreativeCanvasSourceLibraryItem | null {
   const data = doc.data()
   return sourceItem({
@@ -231,7 +272,7 @@ function fromBookStudioArtifact(doc: FirestoreDoc): CreativeCanvasSourceLibraryI
   })
 }
 
-function mapDoc(collection: string, doc: FirestoreDoc): CreativeCanvasSourceLibraryItem | null {
+function mapDoc(collection: string, doc: FirestoreDoc, viewerRole: CreativeCanvasViewerRole): CreativeCanvasSourceLibraryItem | null {
   const data = doc.data()
   if (data.deleted === true) return null
   switch (collection) {
@@ -247,6 +288,8 @@ function mapDoc(collection: string, doc: FirestoreDoc): CreativeCanvasSourceLibr
       return fromSocialPost(doc)
     case 'youtube_source_assets':
       return fromYouTubeSourceAsset(doc)
+    case 'youtube_render_jobs':
+      return fromYouTubeRenderJob(doc, viewerRole)
     case 'book_studio_artifact_links':
       return fromBookStudioArtifact(doc)
     default:
@@ -261,11 +304,13 @@ export async function listCreativeCanvasSourceLibrary(input: {
   referenceRole?: string | null
   mediaType?: string | null
   limit?: number
+  viewerRole?: CreativeCanvasViewerRole
 }): Promise<CreativeCanvasSourceLibraryItem[]> {
+  const viewerRole = input.viewerRole ?? 'admin'
   const collections = await Promise.all(COLLECTIONS.map(async (collection) => {
     const snapshot = await adminDb.collection(collection).where('orgId', '==', input.orgId).get()
     return snapshot.docs
-      .map((doc) => mapDoc(collection, doc as FirestoreDoc))
+      .map((doc) => mapDoc(collection, doc as FirestoreDoc, viewerRole))
       .filter((item): item is CreativeCanvasSourceLibraryItem => Boolean(item))
   }))
 

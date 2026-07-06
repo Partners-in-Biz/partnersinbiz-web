@@ -18,6 +18,7 @@ function LLMAssistantNodeComponent({ data, selected }: NodeProps) {
       creditCost={d.creditCost}
       batch={d.batch}
       status={d.status}
+      errorMessage={d.errorMessage}
       selected={Boolean(selected)}
       showGenerateBar
       onPromptChange={d.onPromptChange}

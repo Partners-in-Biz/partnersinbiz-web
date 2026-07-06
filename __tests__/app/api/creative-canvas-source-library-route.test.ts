@@ -6,9 +6,11 @@ jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
 }))
 
+let mockUser: Record<string, unknown> = { uid: 'user-1', role: 'admin', authKind: 'test', orgId: 'org-1', orgIds: ['org-1'] }
+
 jest.mock('@/lib/api/auth', () => ({
   withAuth: (_role: string, handler: any) => async (req: NextRequest) =>
-    handler(req, { uid: 'user-1', role: 'admin', authKind: 'test', orgId: 'org-1', orgIds: ['org-1'] }),
+    handler(req, mockUser),
 }))
 
 function doc(id: string, data: Record<string, unknown>) {
@@ -17,6 +19,7 @@ function doc(id: string, data: Record<string, unknown>) {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockUser = { uid: 'user-1', role: 'admin', authKind: 'test', orgId: 'org-1', orgIds: ['org-1'] }
   mockCollection.mockImplementation((name: string) => ({
     where: jest.fn(() => ({
       get: jest.fn(async () => {
@@ -79,6 +82,66 @@ beforeEach(() => {
               deleted: false,
             }),
           ],
+          youtube_render_jobs: [
+            doc('render-job-1', {
+              orgId: 'org-1',
+              title: 'Launch trailer cut',
+              status: 'rendered',
+              versionNumber: 2,
+              output: {
+                previewUrl: 'https://cdn.example.com/render-1-preview.mp4',
+                downloadUrl: 'https://cdn.example.com/render-1.mp4',
+                storage: { mimeType: 'video/mp4', storagePath: 'youtube-render-jobs/org-1/render-1.mp4' },
+              },
+            }),
+            doc('render-job-2', {
+              orgId: 'org-1',
+              title: 'QA review cut',
+              status: 'qa_review',
+              output: {
+                previewUrl: 'https://cdn.example.com/render-2-preview.mp4',
+              },
+            }),
+            doc('render-job-planning', {
+              orgId: 'org-1',
+              title: 'Not ready yet',
+              status: 'planning',
+              output: { previewUrl: 'https://cdn.example.com/render-planning.mp4' },
+            }),
+            doc('render-job-blocked', {
+              orgId: 'org-1',
+              title: 'Blocked cut',
+              status: 'blocked',
+              output: { previewUrl: 'https://cdn.example.com/render-blocked.mp4' },
+            }),
+            doc('render-job-no-url', {
+              orgId: 'org-1',
+              title: 'Rendered but no output yet',
+              status: 'rendered',
+            }),
+            doc('render-job-storage-only', {
+              orgId: 'org-1',
+              title: 'Rendered but storage path only',
+              status: 'rendered',
+              output: {
+                storage: { mimeType: 'video/mp4', storagePath: 'youtube-render-jobs/org-1/render-storage-only.mp4' },
+              },
+            }),
+            doc('render-job-portal-visible', {
+              orgId: 'org-1',
+              title: 'Client-approved cut',
+              status: 'approved',
+              output: { previewUrl: 'https://cdn.example.com/render-portal-visible.mp4' },
+              visibility: { showOutputsInPortal: true },
+            }),
+            doc('render-job-internal-only', {
+              orgId: 'org-1',
+              title: 'Internal-only cut',
+              status: 'approved',
+              output: { previewUrl: 'https://cdn.example.com/render-internal-only.mp4' },
+              visibility: { showOutputsInPortal: false, showInClientPortal: false },
+            }),
+          ],
           book_studio_artifact_links: [
             doc('book-1', {
               orgId: 'org-1',
@@ -139,8 +202,80 @@ describe('creative canvas source library API', () => {
           url: 'https://cdn.example.com/cover.pdf',
         }),
       }),
+      expect.objectContaining({
+        id: 'youtube_asset:render-job-1',
+        title: 'Launch trailer cut',
+        description: 'YouTube render / rendered v2',
+        sourceCollection: 'youtube_render_jobs',
+        source: expect.objectContaining({
+          kind: 'youtube_asset',
+          refId: 'render-job-1',
+          url: 'https://cdn.example.com/render-1-preview.mp4',
+          mimeType: 'video/mp4',
+        }),
+      }),
+      expect.objectContaining({
+        id: 'youtube_asset:render-job-2',
+        title: 'QA review cut',
+        description: 'YouTube render / qa_review',
+        sourceCollection: 'youtube_render_jobs',
+        source: expect.objectContaining({
+          kind: 'youtube_asset',
+          refId: 'render-job-2',
+          url: 'https://cdn.example.com/render-2-preview.mp4',
+          mimeType: 'video/mp4',
+        }),
+      }),
+      expect.objectContaining({ id: 'youtube_asset:render-job-portal-visible' }),
+      expect.objectContaining({ id: 'youtube_asset:render-job-internal-only' }),
     ]))
-    expect(body.data.sources).toHaveLength(7)
+    expect(body.data.sources).toHaveLength(11)
+    expect(body.data.sources).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'youtube_asset:render-job-planning' }),
+      expect.objectContaining({ id: 'youtube_asset:render-job-blocked' }),
+      expect.objectContaining({ id: 'youtube_asset:render-job-no-url' }),
+      expect.objectContaining({ id: 'youtube_asset:render-job-storage-only' }),
+    ]))
+  })
+
+  it('excludes admin-role rendered jobs that only have a storage path (no http url)', async () => {
+    const { GET } = await import('@/app/api/v1/creative-canvas/sources/route')
+    const res = await GET(new NextRequest('http://test.local/api/v1/creative-canvas/sources?orgId=org-1'))
+    const body = await res.json()
+
+    expect(body.data.sources).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'youtube_asset:render-job-storage-only' }),
+    ]))
+  })
+
+  it('gates render job visibility by portal flags for client-role callers', async () => {
+    mockUser = { uid: 'client-user-1', role: 'client', authKind: 'test', orgId: 'org-1', orgIds: ['org-1'] }
+    const { GET } = await import('@/app/api/v1/creative-canvas/sources/route')
+    const res = await GET(new NextRequest('http://test.local/api/v1/creative-canvas/sources?orgId=org-1'))
+    const body = await res.json()
+
+    expect(body.data.sources).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'youtube_asset:render-job-portal-visible' }),
+    ]))
+    expect(body.data.sources).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'youtube_asset:render-job-1' }),
+      expect.objectContaining({ id: 'youtube_asset:render-job-2' }),
+      expect.objectContaining({ id: 'youtube_asset:render-job-internal-only' }),
+    ]))
+  })
+
+  it('does not restrict render job visibility for admin-role callers (regression)', async () => {
+    mockUser = { uid: 'user-1', role: 'admin', authKind: 'test', orgId: 'org-1', orgIds: ['org-1'] }
+    const { GET } = await import('@/app/api/v1/creative-canvas/sources/route')
+    const res = await GET(new NextRequest('http://test.local/api/v1/creative-canvas/sources?orgId=org-1'))
+    const body = await res.json()
+
+    expect(body.data.sources).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'youtube_asset:render-job-1' }),
+      expect.objectContaining({ id: 'youtube_asset:render-job-2' }),
+      expect.objectContaining({ id: 'youtube_asset:render-job-portal-visible' }),
+      expect.objectContaining({ id: 'youtube_asset:render-job-internal-only' }),
+    ]))
   })
 
   it('filters source references by query text', async () => {
@@ -175,6 +310,8 @@ describe('creative canvas source library API', () => {
     expect(videoBody.data.sources).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'social_post:media-1' }),
       expect.objectContaining({ id: 'youtube_asset:youtube-1' }),
+      expect.objectContaining({ id: 'youtube_asset:render-job-1' }),
+      expect.objectContaining({ id: 'youtube_asset:render-job-2' }),
     ]))
     expect(videoBody.data.sources).not.toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'upload:upload-1' }),

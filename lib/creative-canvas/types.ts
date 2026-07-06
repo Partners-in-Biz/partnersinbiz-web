@@ -49,6 +49,9 @@ export type CreativeCanvasReferenceRole =
 export type CreativeCanvasProviderKey =
   | 'higgsfield'
   | 'xai'
+  | 'google'
+  | 'fal'
+  | 'recraft'
   | 'manual_upload'
   | 'text_generation'
   | 'document_generation'
@@ -159,6 +162,13 @@ export interface CreativeCanvasProvider {
   riskLevel: CreativeCanvasProviderRiskLevel
   requiresApprovalBeforeClientVisibility: boolean
   ownerAgentId: string
+  /** BYOK connection metadata — absent for providers that can't be user-connected. */
+  connection?: {
+    authKind: 'api_key' | 'api_key_secret' | 'oauth2'
+    credentialFields: Array<{ key: string; label: string; secret: boolean; placeholder?: string }>
+    consoleUrl: string
+    docsUrl?: string
+  }
 }
 
 export interface CreativeCanvasLinkMap {
@@ -295,6 +305,8 @@ export interface CreativeCanvasTemplate {
   title: string
   description?: string
   category?: string
+  /** Representative image (a node's output/source thumbnail) for gallery cards. */
+  thumbnailUrl?: string
   sourceCanvasId?: string
   sourceVersion?: number
   nodes: CreativeCanvasNode[]
@@ -450,6 +462,8 @@ export interface CreativeCanvasRun {
     referenceImageUrls?: string[]
     format?: string
     aspectRatio?: string
+    quality?: string
+    generateAudio?: boolean
     durationSeconds?: number
     outputKind?: CreativeCanvasOutputKind
     operation?: CreativeCanvasEditOperation
@@ -477,6 +491,8 @@ export interface CreativeCanvasRun {
     providerRequestId?: string
     providerStatusUrl?: string
     providerCallbackUrl?: string
+    /** BYOK connection used at submit; polls reuse it without user context. */
+    connectionId?: string
     model?: string
     costUnits?: number
     costLabel?: string

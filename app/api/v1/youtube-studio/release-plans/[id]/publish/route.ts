@@ -2,8 +2,7 @@ import { NextRequest } from 'next/server'
 import { FieldValue } from 'firebase-admin/firestore'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
-import { adminDb } from '@/lib/firebase/admin'
-import { resolveProvider, refreshAccountToken, markAccountTokenExpired } from '@/lib/social/account-resolver'
+import { markAccountTokenExpired } from '@/lib/social/account-resolver'
 import {
   ensureOrgAccess,
   loadScopedRecord,
@@ -12,12 +11,7 @@ import {
   YOUTUBE_COLLECTIONS,
 } from '@/lib/youtube-studio/api'
 import { serializeYouTubeRecord } from '@/lib/youtube-studio/sanitize'
-import {
-  buildYouTubeUploadOptions,
-  classifyYouTubePublishError,
-  evaluateYouTubePublishReadiness,
-  YOUTUBE_UPLOAD_QUOTA_UNITS,
-} from '@/lib/youtube-studio/publishing'
+import { publishLoadedReleasePlan } from '@/lib/youtube-studio/publish-executor'
 import type {
   YouTubeChannelWorkspace,
   YouTubePublishingPacket,
@@ -43,23 +37,6 @@ async function loadRequired<T extends object>(collection: string, id: string, no
   const record = await loadScopedRecord(collection, id)
   if (!record || record.data.deleted === true) return { error: apiError(notFoundMessage, 404) }
   return { record, data: serializeYouTubeRecord<T>(record.id, record.data) }
-}
-
-async function publishWithOneRefresh(input: {
-  provider: Awaited<ReturnType<typeof resolveProvider>>['provider']
-  options: ReturnType<typeof buildYouTubeUploadOptions>
-  accountId: string
-  orgId: string
-}) {
-  try {
-    return await input.provider.publishPost(input.options)
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    if (!message.includes('401') && !message.toLowerCase().includes('unauthorized')) throw error
-    const refreshed = await refreshAccountToken(input.accountId, input.orgId, 'youtube')
-    if (!refreshed) throw error
-    return await refreshed.publishPost(input.options)
-  }
 }
 
 export const POST = withAuth('admin', async (req: NextRequest, user, ctx: Params) => {
@@ -100,127 +77,68 @@ export const POST = withAuth('admin', async (req: NextRequest, user, ctx: Params
   const videoAsset = assetLoaded.data!
   if (videoAsset.orgId !== orgId) return apiError('Video source asset does not belong to organisation', 400)
 
-  const readiness = evaluateYouTubePublishReadiness({ channel, packet, releasePlan, videoAsset })
-  if (!readiness.ready) {
-    const eventName = readiness.manualHandoffRequired ? 'manual_handoff_required' : 'readiness_blocked'
-    await releaseRef.set(stripUndefinedDeep({
-      status: readiness.manualHandoffRequired ? releasePlan.status : 'blocked',
-      lastPublishError: readiness.blockers.join('; '),
-      publishAuditTrail: FieldValue.arrayUnion({
-        event: eventName,
-        message: readiness.blockers.join('; '),
-        at: FieldValue.serverTimestamp(),
-        actorId: user.uid,
-        actorType: user.role === 'ai' ? 'agent' : 'user',
-      }),
-      ...updateActorFields(user),
-    }), { merge: true })
-    return apiError('YouTube publish readiness checks did not pass', 409, { readiness })
-  }
-
-  const options = buildYouTubeUploadOptions({ packet, releasePlan, videoAsset })
   const accountId = channel.connectedAccountId!
 
-  try {
-    const { provider, accountId: resolvedAccountId } = await resolveProvider({
-      orgId,
-      platform: 'youtube',
-      accountIds: [accountId],
-      content: { text: options.text },
-    }, orgId, 'youtube')
-    if (!resolvedAccountId) return apiError('No active connected YouTube account for this organisation', 409)
+  // Delegate to the shared publish core (reused by the scheduled-publish cron executor).
+  // The core re-runs ALL readiness/approval gates, records the readiness-block audit, runs the
+  // upload, and writes the success batch — identical to the previous inline behaviour.
+  const outcome = await publishLoadedReleasePlan({
+    context: { releasePlan, releaseRef, packet, channel, channelRef, videoAsset },
+    actor: { uid: user.uid, type: user.role === 'ai' ? 'agent' : 'user' },
+  })
 
-    await releaseRef.set(stripUndefinedDeep({
-      status: 'scheduled',
-      publishAttemptCount: FieldValue.increment(1),
-      lastPublishAttemptAt: FieldValue.serverTimestamp(),
-      publishAuditTrail: FieldValue.arrayUnion({
-        event: 'upload_started',
-        message: 'YouTube Data API upload started after all readiness gates passed.',
-        quotaUnits: YOUTUBE_UPLOAD_QUOTA_UNITS,
-        at: FieldValue.serverTimestamp(),
-        actorId: user.uid,
-        actorType: user.role === 'ai' ? 'agent' : 'user',
-      }),
-      ...updateActorFields(user),
-    }), { merge: true })
-
-    const published = await publishWithOneRefresh({ provider, options, accountId: resolvedAccountId, orgId })
-    const externalYouTubeVideoId = published.platformPostId
-    const externalYouTubeUrl = published.platformPostUrl ?? `https://www.youtube.com/watch?v=${externalYouTubeVideoId}`
-    const finalStatus = releasePlan.mode === 'scheduled_api_publish' ? 'scheduled' : 'published'
-
-    const batch = adminDb.batch()
-    batch.set(releaseRef, stripUndefinedDeep({
-      status: finalStatus,
-      externalYouTubeVideoId,
-      externalYouTubeUrl,
-      lastPublishError: null,
-      publishAuditTrail: FieldValue.arrayUnion({
-        event: 'upload_succeeded',
-        message: releasePlan.mode === 'scheduled_api_publish'
-          ? 'YouTube Data API upload succeeded and scheduled publish metadata was accepted.'
-          : 'YouTube Data API private upload succeeded.',
-        externalYouTubeVideoId,
-        quotaUnits: YOUTUBE_UPLOAD_QUOTA_UNITS,
-        at: FieldValue.serverTimestamp(),
-        actorId: user.uid,
-        actorType: user.role === 'ai' ? 'agent' : 'user',
-      }),
-      ...updateActorFields(user),
-    }), { merge: true })
-    batch.set(adminDb.collection(YOUTUBE_COLLECTIONS.videos).doc(releasePlan.videoProjectId), stripUndefinedDeep({
-      status: releasePlan.mode === 'scheduled_api_publish' ? 'scheduled' : 'live',
-      externalYouTubeVideoId,
-      externalYouTubeUrl,
-      publishedAt: releasePlan.mode === 'scheduled_api_publish' ? undefined : FieldValue.serverTimestamp(),
-      scheduledAt: releasePlan.mode === 'scheduled_api_publish' ? releasePlan.scheduledPublishAt : undefined,
-      ...updateActorFields(user),
-    }), { merge: true })
-    batch.set(adminDb.collection(YOUTUBE_COLLECTIONS.packets).doc(releasePlan.publishingPacketId), stripUndefinedDeep({
-      status: 'published',
-      externalYouTubeVideoId,
-      ...updateActorFields(user),
-    }), { merge: true })
-    batch.set(channelRef, stripUndefinedDeep({
-      'publishingReadiness.quotaUnitsRemaining': FieldValue.increment(-YOUTUBE_UPLOAD_QUOTA_UNITS),
-      'publishingReadiness.lastCheckedAt': FieldValue.serverTimestamp(),
-      ...updateActorFields(user),
-    }), { merge: true })
-    await batch.commit()
-
-    return apiSuccess({ status: finalStatus, externalYouTubeVideoId, externalYouTubeUrl })
-  } catch (error) {
-    const classified = classifyYouTubePublishError(error)
-    const message = classified.message
-    if (classified.type === 'auth') await markAccountTokenExpired(accountId, message).catch(() => {})
-
-    const batch = adminDb.batch()
-    batch.set(releaseRef, stripUndefinedDeep({
-      status: classified.retryable ? releasePlan.status : 'blocked',
-      lastPublishError: message,
-      publishAuditTrail: FieldValue.arrayUnion({
-        event: 'upload_failed',
-        message,
-        retryable: classified.retryable,
-        errorType: classified.type,
-        at: FieldValue.serverTimestamp(),
-        actorId: user.uid,
-        actorType: user.role === 'ai' ? 'agent' : 'user',
-      }),
-      ...updateActorFields(user),
-    }), { merge: true })
-    if (classified.type === 'quota') {
-      batch.set(channelRef, stripUndefinedDeep({
-        'publishingReadiness.apiProjectStatus': 'quota_limited',
-        'publishingReadiness.quotaUnitsRemaining': 0,
-        'publishingReadiness.lastCheckedAt': FieldValue.serverTimestamp(),
-        ...updateActorFields(user),
-      }), { merge: true })
-    }
-    await batch.commit()
-
-    const statusCode = classified.type === 'quota' ? 429 : classified.retryable ? 503 : 409
-    return apiError('YouTube publish failed', statusCode, { classification: classified })
+  if (outcome.kind === 'already_published') {
+    return apiSuccess({
+      status: releasePlan.status,
+      externalYouTubeVideoId: outcome.externalYouTubeVideoId,
+      externalYouTubeUrl: releasePlan.externalYouTubeUrl,
+    })
   }
+
+  if (outcome.kind === 'blocked') {
+    return apiError('YouTube publish readiness checks did not pass', 409, {
+      readiness: {
+        ready: false,
+        mode: releasePlan.mode,
+        blockers: outcome.blockers,
+        manualHandoffRequired: outcome.manualHandoffRequired,
+      },
+    })
+  }
+
+  if (outcome.kind === 'no_account') {
+    return apiError(outcome.message, 409)
+  }
+
+  if (outcome.kind === 'published') {
+    return apiSuccess({
+      status: outcome.status,
+      externalYouTubeVideoId: outcome.externalYouTubeVideoId,
+      externalYouTubeUrl: outcome.externalYouTubeUrl,
+    })
+  }
+
+  // outcome.kind === 'failed' — write the route's failure record (no attempt increment on the
+  // synchronous route; retry accounting lives in the cron executor) and surface an HTTP status.
+  if (outcome.type === 'auth') await markAccountTokenExpired(accountId, outcome.message).catch(() => {})
+
+  await releaseRef.set(stripUndefinedDeep({
+    status: outcome.retryable ? releasePlan.status : 'blocked',
+    lastPublishError: outcome.message,
+    publishAuditTrail: FieldValue.arrayUnion({
+      event: 'upload_failed',
+      message: outcome.message,
+      retryable: outcome.retryable,
+      errorType: outcome.type,
+      at: FieldValue.serverTimestamp(),
+      actorId: user.uid,
+      actorType: user.role === 'ai' ? 'agent' : 'user',
+    }),
+    ...updateActorFields(user),
+  }), { merge: true })
+
+  const statusCode = outcome.type === 'quota' ? 429 : outcome.retryable ? 503 : 409
+  return apiError('YouTube publish failed', statusCode, {
+    classification: { type: outcome.type, retryable: outcome.retryable, message: outcome.message },
+  })
 })

@@ -41,6 +41,12 @@ const PIB_AGENT_API_KEY = process.env.PIB_AGENT_API_KEY || ''
 const PIB_APP_URL = (process.env.PIB_APP_URL || 'https://partnersinbiz.online').replace(/\/$/, '')
 const HIGGSFIELD_BIN = process.env.HIGGSFIELD_BIN || 'higgsfield'
 const WAIT_TIMEOUT = process.env.WAIT_TIMEOUT || '20m'
+// Retry budget for the provider's async input-media IP check (image-to-video /
+// combine). Defaults ≈ 10 × 30s = 5 min of patient polling before giving up.
+const IP_CHECK_MAX_RETRIES = Number(process.env.IP_CHECK_MAX_RETRIES || 10)
+const IP_CHECK_RETRY_MS = Number(process.env.IP_CHECK_RETRY_MS || 30000)
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 if (!RUNTIME_API_KEY) { console.error('RUNTIME_API_KEY is required'); process.exit(1) }
 if (!PIB_AGENT_API_KEY) { console.error('PIB_AGENT_API_KEY is required'); process.exit(1) }
@@ -102,12 +108,13 @@ async function platformPut(base, path, body) {
   })
   const text = await response.text().catch(() => '')
   if (!response.ok) log('warn', 'platform PUT failed', { url, status: response.status, body: text.slice(0, 300) })
-  return response.ok
+  return { ok: response.ok, status: response.status, body: text }
 }
 
-function runCli(args, timeoutMs) {
+function runCli(args, timeoutMs, envOverrides) {
   return new Promise((resolve) => {
-    const child = spawn(HIGGSFIELD_BIN, args, { stdio: ['ignore', 'pipe', 'pipe'] })
+    const spawnEnv = envOverrides ? { ...process.env, ...envOverrides } : undefined
+    const child = spawn(HIGGSFIELD_BIN, args, { stdio: ['ignore', 'pipe', 'pipe'], ...(spawnEnv ? { env: spawnEnv } : {}) })
     let stdout = ''
     let stderr = ''
     const timer = setTimeout(() => { child.kill('SIGKILL') }, timeoutMs)
@@ -122,6 +129,48 @@ function runCli(args, timeoutMs) {
       resolve({ code: -1, stdout, stderr: String(error) })
     })
   })
+}
+
+const FFMPEG_BIN = process.env.FFMPEG_BIN || 'ffmpeg'
+
+/** Run ffmpeg, capturing stderr. Never rejects — resolves with the exit code. */
+function runFfmpeg(args, timeoutMs) {
+  return new Promise((resolve) => {
+    const child = spawn(FFMPEG_BIN, args, { stdio: ['ignore', 'ignore', 'pipe'] })
+    let stderr = ''
+    const timer = setTimeout(() => { child.kill('SIGKILL') }, timeoutMs)
+    child.stderr.on('data', (d) => { stderr += d })
+    child.on('close', (code) => { clearTimeout(timer); resolve({ code, stderr }) })
+    child.on('error', (error) => { clearTimeout(timer); resolve({ code: -1, stderr: String(error) }) })
+  })
+}
+
+/**
+ * Clip a local video to [start, end] seconds so the provider only processes the
+ * segment the user selected — Higgsfield/Shorts Studio charges per second of
+ * source footage it analyzes, so a 2-minute upload costs far more than a 4s
+ * clip. Best-effort: on any failure (bad window, ffmpeg missing/errored) fall
+ * back to the full file so a run never fails because of the optimization.
+ * `-ss` before `-i` seeks fast; `-t <duration>` after `-i` is unambiguous and
+ * we re-encode so the cut is frame-accurate at arbitrary points.
+ */
+async function clipVideoSegment(inputFile, startSeconds, endSeconds, dir, index) {
+  const start = Number(startSeconds)
+  const end = Number(endSeconds)
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return inputFile
+  const duration = Math.round((end - Math.max(0, start)) * 1000) / 1000
+  if (!(duration > 0)) return inputFile
+  const output = join(dir, `clip-${index}.mp4`)
+  const result = await runFfmpeg([
+    '-y', '-ss', String(Math.max(0, start)), '-i', inputFile, '-t', String(duration),
+    '-c:v', 'libx264', '-preset', 'veryfast', '-c:a', 'aac', '-movflags', '+faststart', output,
+  ], 5 * 60 * 1000)
+  if (result.code !== 0) {
+    log('warn', 'video clip failed — dispatching full source', { index, code: result.code, stderr: result.stderr.slice(-200) })
+    return inputFile
+  }
+  log('info', 'clipped video segment before dispatch', { index, start: Math.max(0, start), end, duration })
+  return output
 }
 
 /** The CLI prints one or more JSON documents; take the last parseable object. */
@@ -160,7 +209,8 @@ function extractOutputUrl(result) {
 const CONTENT_TYPE_EXTENSIONS = {
   'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif',
   'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'webm',
-  'audio/mpeg': 'mp3', 'audio/wav': 'wav', 'audio/x-wav': 'wav',
+  'audio/mpeg': 'mp3', 'audio/wav': 'wav', 'audio/x-wav': 'wav', 'audio/mp4': 'm4a',
+  'audio/x-m4a': 'm4a', 'audio/aac': 'aac', 'audio/ogg': 'ogg', 'audio/flac': 'flac',
 }
 
 function sniffExtension(buffer) {
@@ -170,6 +220,12 @@ function sniffExtension(buffer) {
   if (buffer.slice(0, 4).toString() === 'RIFF' && buffer.slice(8, 12).toString() === 'WEBP') return 'webp'
   if (buffer.slice(0, 3).toString() === 'GIF') return 'gif'
   if (buffer.slice(4, 8).toString() === 'ftyp') return 'mp4'
+  // Audio magic bytes: MP3 (ID3 tag or frame sync), WAV (RIFF....WAVE), FLAC, OGG.
+  if (buffer.slice(0, 3).toString() === 'ID3') return 'mp3'
+  if (buffer[0] === 0xff && (buffer[1] & 0xe0) === 0xe0) return 'mp3'
+  if (buffer.slice(0, 4).toString() === 'RIFF' && buffer.slice(8, 12).toString() === 'WAVE') return 'wav'
+  if (buffer.slice(0, 4).toString() === 'fLaC') return 'flac'
+  if (buffer.slice(0, 4).toString() === 'OggS') return 'ogg'
   return undefined
 }
 
@@ -224,14 +280,29 @@ async function executeRun(job, input) {
     const prompt = run.input?.promptSummary || 'Generate a reviewable internal creative asset.'
     workDir = await mkdtemp(join(tmpdir(), 'hfx-'))
 
+    // BYOK: if this run carries a per-connection Higgsfield key, scope it to the
+    // CLI child process's env only (never process.env, never disk, never logs).
+    const byokApiKey = typeof input.byokCredentials?.apiKey === 'string' ? input.byokCredentials.apiKey : undefined
+    const byokApiSecret = typeof input.byokCredentials?.apiSecret === 'string' ? input.byokCredentials.apiSecret : undefined
+    const cliEnvOverrides = byokApiKey
+      ? { HF_API_KEY: byokApiKey, ...(byokApiSecret ? { HF_API_SECRET: byokApiSecret } : {}) }
+      : undefined
+
     const mediaArgs = []
     const sourceMedia = Array.isArray(manifest.sourceMedia) ? manifest.sourceMedia : []
     for (let index = 0; index < sourceMedia.length; index += 1) {
       const media = sourceMedia[index]
       if (!media?.value || !media?.flag) continue
-      const value = /^https?:\/\//.test(media.value)
+      const isRemote = /^https?:\/\//.test(media.value)
+      let value = isRemote
         ? await downloadMedia(media.value, workDir, index)
         : media.value
+      // Canvas video-split segments carry a trim window on the manifest entry.
+      // Clip the downloaded file locally so the provider only bills the segment.
+      if (isRemote && media.flag === '--video'
+          && (media.trimStartSeconds !== undefined || media.trimEndSeconds !== undefined)) {
+        value = await clipVideoSegment(value, media.trimStartSeconds ?? 0, media.trimEndSeconds, workDir, index)
+      }
       mediaArgs.push(media.flag, value)
     }
 
@@ -248,14 +319,31 @@ async function executeRun(job, input) {
     if (run.input?.durationSeconds) extras.push('--duration', String(run.input.durationSeconds))
 
     const timeoutMs = 25 * 60 * 1000
-    let result = await runCli(buildArgs(extras), timeoutMs)
+    let result = await runCli(buildArgs(extras), timeoutMs, cliEnvOverrides)
     if (result.code !== 0 && extras.length && /param|unknown flag|invalid|not allowed|unexpected/i.test(result.stderr + result.stdout)) {
       log('warn', 'retrying without optional params', { runId: run.id })
-      result = await runCli(buildArgs([]), timeoutMs)
+      result = await runCli(buildArgs([]), timeoutMs, cliEnvOverrides)
+    }
+
+    // Higgsfield runs an async IP/rights check on input media (image-to-video,
+    // combines). When a run reuses media that was uploaded/generated moments
+    // earlier, the provider may reject with "IP check not finished for input
+    // media" before the check completes. That is transient — poll-retry the
+    // same generate with backoff so the run self-heals once the check clears,
+    // instead of failing a perfectly valid request. A prolonged provider-side
+    // stall still ends in a retryable failure (credits are refunded on fail).
+    const ipCheckPending = (r) => /IP check not finished/i.test(`${r.stderr}${r.stdout}`)
+    if (result.code !== 0 && mediaArgs.length && ipCheckPending(result)) {
+      for (let attempt = 1; attempt <= IP_CHECK_MAX_RETRIES && ipCheckPending(result); attempt += 1) {
+        log('warn', 'input media IP check not finished — waiting to retry', { runId: run.id, attempt, delayMs: IP_CHECK_RETRY_MS })
+        await sleep(IP_CHECK_RETRY_MS)
+        result = await runCli(buildArgs(extras), timeoutMs, cliEnvOverrides)
+      }
     }
 
     if (result.code !== 0) {
-      await fail(`Higgsfield CLI exited ${result.code}: ${(result.stderr || result.stdout).trim().slice(0, 400)}`)
+      const code = ipCheckPending(result) ? 'higgsfield_ip_check_pending' : 'higgsfield_cli_error'
+      await fail(`Higgsfield CLI exited ${result.code}: ${(result.stderr || result.stdout).trim().slice(0, 400)}`, code)
       return
     }
 
@@ -268,13 +356,20 @@ async function executeRun(job, input) {
     }
 
     const outputKind = run.input?.outputKind === 'video' || /\.(mp4|mov|webm)(\?|$)/i.test(outputUrl) ? 'video' : (run.input?.outputKind || 'image')
-    const completed = await platformPut(base, completePath, {
+    const completeResult = await platformPut(base, completePath, {
       outputNodeId: `${run.nodeId}-output`,
       output: { kind: outputKind, url: outputUrl, rawProviderJobId: providerJob },
       provenance: { providerJobId: providerJob || job.providerJobId, costLabel: 'higgsfield_executor' },
     })
-    if (!completed) {
-      await fail('Generation succeeded but the platform rejected run completion — see executor logs.', 'platform_complete_failed')
+    if (!completeResult.ok) {
+      // Surface the platform's actual rejection reason (status + body) instead of a
+      // generic message — platformPut already logs it as a warning, but that log line
+      // is easy to miss next to the "run failed" line a human/agent actually searches for.
+      const platformDetail = completeResult.body ? completeResult.body.slice(0, 300) : '(empty response body)'
+      await fail(
+        `Generation succeeded but the platform rejected run completion (HTTP ${completeResult.status}): ${platformDetail}`,
+        'platform_complete_failed',
+      )
       return
     }
 
