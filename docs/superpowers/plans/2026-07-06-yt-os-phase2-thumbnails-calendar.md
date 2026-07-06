@@ -2867,3 +2867,683 @@ git commit -m "feat(yt): thumbnail CTR pattern library"
 ```
 
 ---
+
+## Task 17: Content calendar aggregation — cells, cadence health, best-time
+
+**Files:**
+- Create: `lib/youtube-studio/calendar.ts`
+- Test: `__tests__/lib/youtube-studio-calendar.test.ts`
+
+Pure aggregation over release plans + social scheduled posts into month/week cells (timezone-aware via `hourInTimezone`/`dayOfWeekInTimezone` from `lib/email/send-time.ts`), plus cadence-health per series and best-time-to-publish from analytics snapshots.
+
+- [ ] **Step 1: Write the failing test**
+
+```ts
+// __tests__/lib/youtube-studio-calendar.test.ts
+import { buildCalendarCells, cadenceHealth, bestTimeToPublish } from '@/lib/youtube-studio/calendar'
+import type { YouTubeReleasePlan, YouTubeSeries, YouTubeAnalyticsSnapshot } from '@/lib/youtube-studio/types'
+
+const plan = (id: string, at: string, status: YouTubeReleasePlan['status']): YouTubeReleasePlan => ({
+  id, orgId: 'o', channelWorkspaceId: 'c', videoProjectId: `v-${id}`, publishingPacketId: `p-${id}`,
+  mode: 'scheduled_api_publish', status, uploadPrivacyStatus: 'private', targetVisibility: 'public',
+  scheduledPublishAt: at,
+  checks: {} as YouTubeReleasePlan['checks'], deleted: false,
+})
+
+describe('buildCalendarCells', () => {
+  it('places release plans into day cells in the org timezone', () => {
+    const cells = buildCalendarCells({
+      timezone: 'Africa/Johannesburg', // UTC+2
+      releasePlans: [plan('1', '2026-07-06T23:30:00Z', 'scheduled')], // 01:30 next day local
+      socialPosts: [{ id: 's1', platform: 'linkedin', scheduledAt: '2026-07-06T08:00:00Z', status: 'scheduled' }],
+    })
+    const day7 = cells.find((c) => c.dateKey === '2026-07-07')
+    expect(day7?.releasePlans.map((p) => p.id)).toContain('1')
+    const day6 = cells.find((c) => c.dateKey === '2026-07-06')
+    expect(day6?.socialPosts.map((p) => p.id)).toContain('s1')
+  })
+})
+
+describe('cadenceHealth', () => {
+  it('flags a weekly series as behind when the last publish is over 10 days ago', () => {
+    const series: YouTubeSeries = { id: 'se1', orgId: 'o', channelWorkspaceId: 'c', name: 'S', format: 'long_form', cadence: 'weekly', episodeTemplate: { sections: [] }, styleGuide: {}, status: 'active', deleted: false }
+    const health = cadenceHealth(series, [plan('a', '2026-06-20T10:00:00Z', 'published')], new Date('2026-07-06T10:00:00Z'))
+    expect(health.status).toBe('behind')
+    expect(health.expectedIntervalDays).toBe(7)
+  })
+  it('is on_track when within the interval', () => {
+    const series: YouTubeSeries = { id: 'se1', orgId: 'o', channelWorkspaceId: 'c', name: 'S', format: 'long_form', cadence: 'weekly', episodeTemplate: { sections: [] }, styleGuide: {}, status: 'active', deleted: false }
+    const health = cadenceHealth(series, [plan('a', '2026-07-03T10:00:00Z', 'published')], new Date('2026-07-06T10:00:00Z'))
+    expect(health.status).toBe('on_track')
+  })
+})
+
+describe('bestTimeToPublish', () => {
+  it('returns the top day/hour buckets weighted by views from analytics snapshots', () => {
+    const snap = (dow: number, hour: number, views: number): YouTubeAnalyticsSnapshot => ({
+      orgId: 'o', channelWorkspaceId: 'c', periodStart: '2026-06-01', periodEnd: '2026-06-30',
+      source: 'youtube_analytics_api', sourceFreshness: 'fresh',
+      metrics: { views }, dimensions: { dayOfWeek: String(dow), hour: String(hour) },
+      recommendations: [], deleted: false,
+    })
+    const best = bestTimeToPublish([snap(2, 18, 500), snap(2, 18, 300), snap(5, 9, 100)], 'UTC')
+    expect(best[0]).toEqual({ dayOfWeek: 2, hour: 18, score: 800 })
+  })
+})
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `npx jest __tests__/lib/youtube-studio-calendar.test.ts`
+Expected: FAIL — cannot find module.
+
+- [ ] **Step 3: Write the calendar lib**
+
+```ts
+// lib/youtube-studio/calendar.ts
+import { dayOfWeekInTimezone, hourInTimezone } from '@/lib/email/send-time'
+import type { YouTubeReleasePlan, YouTubeSeries, YouTubeAnalyticsSnapshot, YouTubeSeriesCadence } from './types'
+
+export interface CalendarSocialPost {
+  id: string
+  platform: string
+  scheduledAt: string
+  status: string
+}
+
+export interface CalendarCell {
+  dateKey: string
+  releasePlans: Array<Pick<YouTubeReleasePlan, 'id' | 'videoProjectId' | 'status' | 'scheduledPublishAt' | 'mode'>>
+  socialPosts: CalendarSocialPost[]
+}
+
+function tzDateKey(iso: string, timezone: string): string | null {
+  const t = Date.parse(iso)
+  if (Number.isNaN(t)) return null
+  const d = new Date(t)
+  // Build YYYY-MM-DD in the target timezone using Intl parts.
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(d)
+  const get = (type: string) => parts.find((p) => p.type === type)?.value
+  const y = get('year'); const m = get('month'); const day = get('day')
+  return y && m && day ? `${y}-${m}-${day}` : null
+}
+
+export function buildCalendarCells(input: {
+  timezone: string
+  releasePlans: YouTubeReleasePlan[]
+  socialPosts: CalendarSocialPost[]
+}): CalendarCell[] {
+  const cells = new Map<string, CalendarCell>()
+  const ensure = (key: string): CalendarCell => {
+    let c = cells.get(key)
+    if (!c) { c = { dateKey: key, releasePlans: [], socialPosts: [] }; cells.set(key, c) }
+    return c
+  }
+  for (const plan of input.releasePlans) {
+    const at = typeof plan.scheduledPublishAt === 'string' ? plan.scheduledPublishAt : undefined
+    if (!at) continue
+    const key = tzDateKey(at, input.timezone)
+    if (!key) continue
+    ensure(key).releasePlans.push({ id: plan.id!, videoProjectId: plan.videoProjectId, status: plan.status, scheduledPublishAt: plan.scheduledPublishAt, mode: plan.mode })
+  }
+  for (const post of input.socialPosts) {
+    const key = tzDateKey(post.scheduledAt, input.timezone)
+    if (!key) continue
+    ensure(key).socialPosts.push(post)
+  }
+  return [...cells.values()].sort((a, b) => a.dateKey.localeCompare(b.dateKey))
+}
+
+const CADENCE_DAYS: Record<YouTubeSeriesCadence, number | null> = {
+  daily: 1, weekly: 7, fortnightly: 14, monthly: 30, campaign: null, ad_hoc: null,
+}
+
+export interface CadenceHealthResult {
+  status: 'on_track' | 'due' | 'behind' | 'unknown'
+  expectedIntervalDays: number | null
+  daysSinceLastPublish: number | null
+}
+
+export function cadenceHealth(series: YouTubeSeries, plans: YouTubeReleasePlan[], now: Date = new Date()): CadenceHealthResult {
+  const interval = CADENCE_DAYS[series.cadence]
+  if (interval === null) return { status: 'unknown', expectedIntervalDays: null, daysSinceLastPublish: null }
+  const published = plans
+    .filter((p) => p.status === 'published' && typeof p.scheduledPublishAt === 'string')
+    .map((p) => Date.parse(p.scheduledPublishAt as string))
+    .filter((t) => !Number.isNaN(t))
+    .sort((a, b) => b - a)
+  if (!published.length) return { status: 'due', expectedIntervalDays: interval, daysSinceLastPublish: null }
+  const days = Math.floor((now.getTime() - published[0]) / (24 * 60 * 60 * 1000))
+  const status = days <= interval ? 'on_track' : days <= interval * 1.5 ? 'due' : 'behind'
+  return { status, expectedIntervalDays: interval, daysSinceLastPublish: days }
+}
+
+export interface BestTimeBucket { dayOfWeek: number; hour: number; score: number }
+
+export function bestTimeToPublish(snapshots: YouTubeAnalyticsSnapshot[], timezone: string): BestTimeBucket[] {
+  const buckets = new Map<string, BestTimeBucket>()
+  for (const snap of snapshots) {
+    const dimDow = snap.dimensions?.dayOfWeek
+    const dimHour = snap.dimensions?.hour
+    let dow: number | undefined
+    let hour: number | undefined
+    if (dimDow !== undefined && dimHour !== undefined) {
+      dow = Number(dimDow); hour = Number(dimHour)
+    } else {
+      const at = typeof snap.periodStart === 'string' ? Date.parse(`${snap.periodStart}T12:00:00Z`) : NaN
+      if (!Number.isNaN(at)) { dow = dayOfWeekInTimezone(new Date(at), timezone); hour = hourInTimezone(new Date(at), timezone) }
+    }
+    if (dow === undefined || hour === undefined || Number.isNaN(dow) || Number.isNaN(hour)) continue
+    const views = snap.metrics.views ?? 0
+    const key = `${dow}-${hour}`
+    const existing = buckets.get(key) ?? { dayOfWeek: dow, hour, score: 0 }
+    existing.score += views
+    buckets.set(key, existing)
+  }
+  return [...buckets.values()].sort((a, b) => b.score - a.score).slice(0, 5)
+}
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `npx jest __tests__/lib/youtube-studio-calendar.test.ts`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add lib/youtube-studio/calendar.ts __tests__/lib/youtube-studio-calendar.test.ts
+git commit -m "feat(yt): content calendar aggregation, cadence health, best-time"
+```
+
+---
+
+## Task 18: Calendar route + drag-to-reschedule
+
+**Files:**
+- Create: `app/api/v1/youtube-studio/calendar/route.ts` (GET aggregated)
+- Create: `app/api/v1/youtube-studio/calendar/reschedule/route.ts` (PUT one release plan)
+- Test: `__tests__/api/youtube-calendar.test.ts`
+
+GET reads the org timezone from `organizations/{orgId}.settings.timezone` (default `UTC`), lists release plans + `social_posts`, and returns cells + per-series cadence health + best-time buckets. Reschedule updates a single release plan's `scheduledPublishAt` (guarded: only `scheduled`/`draft`/`ready` plans; never a `published` one).
+
+- [ ] **Step 1: Write the failing test**
+
+```ts
+// __tests__/api/youtube-calendar.test.ts
+import { NextRequest } from 'next/server'
+
+const mockCollection = jest.fn()
+const mockPlanSet = jest.fn().mockResolvedValue(undefined)
+
+jest.mock('@/lib/firebase/admin', () => ({ adminDb: { collection: mockCollection } }))
+jest.mock('@/lib/api/auth', () => ({
+  withAuth: (_r: string, h: (req: NextRequest, u: unknown, c?: unknown) => Promise<Response>) =>
+    (req: NextRequest, c?: unknown) => h(req, { uid: 'admin-1', role: 'admin' }, c),
+}))
+jest.mock('@/lib/api/platformAdmin', () => ({ canAccessOrg: jest.fn(() => true) }))
+jest.mock('firebase-admin/firestore', () => ({ FieldValue: { serverTimestamp: () => 'TS' } }))
+
+function stage() {
+  mockCollection.mockImplementation((name: string) => {
+    if (name === 'organizations') return { doc: () => ({ get: async () => ({ exists: true, data: () => ({ settings: { timezone: 'UTC' } }) }) }) }
+    if (name === 'youtube_release_plans') return {
+      where: () => ({ get: async () => ({ docs: [{ id: 'rp1', data: () => ({ orgId: 'org1', channelWorkspaceId: 'ch1', videoProjectId: 'v1', publishingPacketId: 'p1', mode: 'scheduled_api_publish', status: 'scheduled', scheduledPublishAt: '2026-07-06T10:00:00Z', checks: {}, deleted: false }) }] }) }),
+      doc: () => ({ get: async () => ({ exists: true, id: 'rp1', data: () => ({ orgId: 'org1', status: 'scheduled', deleted: false }) }), set: mockPlanSet }),
+    }
+    if (name === 'youtube_series') return { where: () => ({ get: async () => ({ docs: [] }) }) }
+    if (name === 'youtube_analytics_snapshots') return { where: () => ({ get: async () => ({ docs: [] }) }) }
+    if (name === 'social_posts') return { where: () => ({ get: async () => ({ docs: [] }) }) }
+    throw new Error(`unexpected ${name}`)
+  })
+}
+
+describe('GET /calendar', () => {
+  beforeEach(() => { jest.clearAllMocks(); stage() })
+  it('returns cells for the org', async () => {
+    const { GET } = await import('@/app/api/v1/youtube-studio/calendar/route')
+    const res = await GET(new NextRequest('http://t/api?orgId=org1'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.cells.find((c: { dateKey: string }) => c.dateKey === '2026-07-06')).toBeTruthy()
+  })
+})
+
+describe('PUT /calendar/reschedule', () => {
+  beforeEach(() => { jest.clearAllMocks(); stage() })
+  it('reschedules a scheduled release plan', async () => {
+    const { PUT } = await import('@/app/api/v1/youtube-studio/calendar/reschedule/route')
+    const req = new NextRequest('http://t/api', { method: 'PUT', body: JSON.stringify({ orgId: 'org1', releasePlanId: 'rp1', scheduledPublishAt: '2026-07-10T10:00:00Z' }) })
+    const res = await PUT(req)
+    expect(res.status).toBe(200)
+    expect(mockPlanSet).toHaveBeenCalled()
+  })
+  it('rejects an invalid timestamp', async () => {
+    const { PUT } = await import('@/app/api/v1/youtube-studio/calendar/reschedule/route')
+    const req = new NextRequest('http://t/api', { method: 'PUT', body: JSON.stringify({ orgId: 'org1', releasePlanId: 'rp1', scheduledPublishAt: 'not-a-date' }) })
+    const res = await PUT(req)
+    expect(res.status).toBe(400)
+  })
+})
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `npx jest __tests__/api/youtube-calendar.test.ts`
+Expected: FAIL — cannot find route modules.
+
+- [ ] **Step 3: Write the calendar GET route**
+
+```ts
+// app/api/v1/youtube-studio/calendar/route.ts
+import { adminDb } from '@/lib/firebase/admin'
+import { withAuth } from '@/lib/api/auth'
+import { apiSuccess } from '@/lib/api/response'
+import { ensureOrgAccess, listByOrg, YOUTUBE_COLLECTIONS } from '@/lib/youtube-studio/api'
+import { serializeYouTubeRecord } from '@/lib/youtube-studio/sanitize'
+import { buildCalendarCells, cadenceHealth, bestTimeToPublish, type CalendarSocialPost } from '@/lib/youtube-studio/calendar'
+import type { YouTubeReleasePlan, YouTubeSeries, YouTubeAnalyticsSnapshot } from '@/lib/youtube-studio/types'
+
+export const dynamic = 'force-dynamic'
+
+async function orgTimezone(orgId: string): Promise<string> {
+  const snap = await adminDb.collection('organizations').doc(orgId).get()
+  const tz = snap.data()?.settings?.timezone
+  return typeof tz === 'string' && tz.trim() ? tz.trim() : 'UTC'
+}
+
+export const GET = withAuth('admin', async (req, user) => {
+  const url = new URL(req.url)
+  const orgId = url.searchParams.get('orgId')?.trim() ?? ''
+  const channelWorkspaceId = url.searchParams.get('channelWorkspaceId')?.trim() ?? ''
+  const denied = await ensureOrgAccess(user, orgId)
+  if (denied) return denied
+
+  const timezone = await orgTimezone(orgId)
+  const planDocs = await listByOrg(YOUTUBE_COLLECTIONS.releasePlans, orgId)
+  const releasePlans = planDocs
+    .map((d) => serializeYouTubeRecord<YouTubeReleasePlan>(d.id, d.data()))
+    .filter((p) => !channelWorkspaceId || p.channelWorkspaceId === channelWorkspaceId)
+
+  const seriesDocs = await listByOrg(YOUTUBE_COLLECTIONS.series, orgId)
+  const series = seriesDocs.map((d) => serializeYouTubeRecord<YouTubeSeries>(d.id, d.data()))
+    .filter((s) => !channelWorkspaceId || s.channelWorkspaceId === channelWorkspaceId)
+
+  const snapshotDocs = await listByOrg(YOUTUBE_COLLECTIONS.analytics, orgId)
+  const snapshots = snapshotDocs.map((d) => serializeYouTubeRecord<YouTubeAnalyticsSnapshot>(d.id, d.data()))
+
+  const socialSnap = await adminDb.collection('social_posts').where('orgId', '==', orgId).get()
+  const socialPosts: CalendarSocialPost[] = socialSnap.docs
+    .filter((d) => d.data()?.deleted !== true)
+    .map((d) => {
+      const data = d.data() ?? {}
+      const scheduledAt = typeof data.scheduledAt === 'string' ? data.scheduledAt : (data.scheduledFor as string | undefined) ?? ''
+      return { id: d.id, platform: String(data.platform ?? 'unknown'), scheduledAt, status: String(data.status ?? 'unknown') }
+    })
+    .filter((p) => p.scheduledAt)
+
+  const cells = buildCalendarCells({ timezone, releasePlans, socialPosts })
+  const cadence = series.map((s) => ({
+    seriesId: s.id,
+    name: s.name,
+    ...cadenceHealth(s, releasePlans.filter((p) => p.videoProjectId && p.status === 'published')),
+  }))
+  const bestTimes = bestTimeToPublish(snapshots, timezone)
+
+  return apiSuccess({ timezone, cells, cadence, bestTimes })
+})
+```
+
+- [ ] **Step 4: Write the reschedule PUT route**
+
+```ts
+// app/api/v1/youtube-studio/calendar/reschedule/route.ts
+import { NextRequest } from 'next/server'
+import { withAuth } from '@/lib/api/auth'
+import { apiError, apiSuccess } from '@/lib/api/response'
+import { ensureOrgAccess, loadScopedRecord, stripUndefinedDeep, updateActorFields, YOUTUBE_COLLECTIONS } from '@/lib/youtube-studio/api'
+
+export const dynamic = 'force-dynamic'
+
+const RESCHEDULABLE = new Set(['draft', 'ready', 'scheduled'])
+
+export const PUT = withAuth('admin', async (req: NextRequest, user) => {
+  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>
+  const orgId = typeof body.orgId === 'string' ? body.orgId.trim() : ''
+  const releasePlanId = typeof body.releasePlanId === 'string' ? body.releasePlanId.trim() : ''
+  const scheduledPublishAt = typeof body.scheduledPublishAt === 'string' ? body.scheduledPublishAt.trim() : ''
+  const denied = await ensureOrgAccess(user, orgId)
+  if (denied) return denied
+  if (!releasePlanId) return apiError('releasePlanId is required', 400)
+  if (!scheduledPublishAt || Number.isNaN(Date.parse(scheduledPublishAt))) return apiError('A valid scheduledPublishAt is required', 400)
+
+  const record = await loadScopedRecord(YOUTUBE_COLLECTIONS.releasePlans, releasePlanId)
+  if (!record || record.data.deleted === true) return apiError('Release plan not found', 404)
+  if (record.data.orgId !== orgId) return apiError('releasePlanId does not belong to organisation', 400)
+  if (!RESCHEDULABLE.has(String(record.data.status))) return apiError('Only draft/ready/scheduled plans can be rescheduled', 409)
+
+  await record.ref.set(stripUndefinedDeep({ scheduledPublishAt, ...updateActorFields(user) }), { merge: true })
+  return apiSuccess({ id: releasePlanId, scheduledPublishAt })
+})
+```
+
+- [ ] **Step 5: Run tests to verify they pass**
+
+Run: `npx jest __tests__/api/youtube-calendar.test.ts`
+Expected: PASS.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add app/api/v1/youtube-studio/calendar __tests__/api/youtube-calendar.test.ts
+git commit -m "feat(yt): content calendar route + drag-to-reschedule"
+```
+
+---
+
+## Task 19: UI surfaces — Thumbnail Studio canvas + Content Calendar
+
+**Files:**
+- Create: `components/youtube-studio/ThumbnailStudioPanel.tsx`
+- Create: `components/youtube-studio/ThumbnailCanvasEditor.tsx`
+- Create: `components/youtube-studio/ContentCalendarPanel.tsx`
+- Test: `__tests__/app/youtube-thumbnail-studio-panel.test.tsx`
+- Test: `__tests__/app/youtube-content-calendar-panel.test.tsx`
+
+Follow the existing `pib-card-section` styling and the client-side data patterns already used in `YouTubeStudioAdminWorkspace.tsx` (fetch via the apiSuccess envelope: read `body.data ?? body`). The canvas editor renders the design as inline SVG (reuse the exact layer-rendering logic shape from `buildThumbnailSvg` — but as JSX) with draggable layers; the export button POSTs to the export route. The calendar renders a month grid of cells with drag-to-reschedule calling the reschedule PUT.
+
+Keep these components focused: the editor is the layered visual editor; the panel wraps list + create + AI-variants + experiment controls. Because full drag interactions are hard to unit-test, the tests assert render + core callbacks only.
+
+- [ ] **Step 1: Confirm the fetch envelope helper**
+
+Run: `cd "/Users/peetstander/Cowork/Partners in Biz — Client Growth/partnersinbiz-web" && grep -rn "data ?? body\|\.data ??\|apiFetch\|async function fetchJson" components/youtube-studio/YouTubeStudioAdminWorkspace.tsx | head`
+Expected: identifies how the existing workspace unwraps `{ success, data }`. Reuse that exact helper/pattern in the new components. (Reference memory: PiB apiSuccess envelope — client must unwrap `body.data ?? body`.)
+
+- [ ] **Step 2: Write the failing Thumbnail Studio panel test**
+
+```tsx
+// __tests__/app/youtube-thumbnail-studio-panel.test.tsx
+import { render, screen, waitFor } from '@testing-library/react'
+import { ThumbnailStudioPanel } from '@/components/youtube-studio/ThumbnailStudioPanel'
+
+beforeEach(() => {
+  global.fetch = jest.fn().mockResolvedValue({
+    ok: true,
+    json: async () => ({ success: true, data: { thumbnailDesigns: [
+      { id: 'd1', title: 'Main thumb', status: 'draft', canvas: { width: 1280, height: 720, background: '#000' }, layers: [] },
+    ] } }),
+  }) as unknown as typeof fetch
+})
+
+describe('ThumbnailStudioPanel', () => {
+  it('renders the org designs list', async () => {
+    render(<ThumbnailStudioPanel orgId="org1" channelWorkspaceId="ch1" />)
+    await waitFor(() => expect(screen.getByText('Main thumb')).toBeInTheDocument())
+  })
+})
+```
+
+- [ ] **Step 3: Run test to verify it fails**
+
+Run: `npx jest __tests__/app/youtube-thumbnail-studio-panel.test.tsx`
+Expected: FAIL — cannot find component.
+
+- [ ] **Step 4: Write `ThumbnailCanvasEditor.tsx`**
+
+```tsx
+// components/youtube-studio/ThumbnailCanvasEditor.tsx
+'use client'
+import { useMemo } from 'react'
+import type { YouTubeThumbnailDesign, YouTubeThumbnailLayer } from '@/lib/youtube-studio/thumbnail-types'
+
+function LayerNode({ layer }: { layer: YouTubeThumbnailLayer }) {
+  const common = { opacity: layer.opacity, transform: layer.rotation ? `rotate(${layer.rotation} ${layer.x + layer.width / 2} ${layer.y + layer.height / 2})` : undefined }
+  if (layer.kind === 'text') {
+    const anchor = layer.align === 'center' ? 'middle' : layer.align === 'right' ? 'end' : 'start'
+    const tx = layer.align === 'center' ? layer.x + layer.width / 2 : layer.align === 'right' ? layer.x + layer.width : layer.x
+    return (
+      <text x={tx} y={layer.y + layer.fontSize} fontFamily={layer.fontFamily} fontSize={layer.fontSize}
+        fontWeight={layer.weight} fill={layer.color} textAnchor={anchor}
+        stroke={layer.stroke?.color} strokeWidth={layer.stroke?.width} {...common}>
+        {layer.uppercase ? layer.text.toUpperCase() : layer.text}
+      </text>
+    )
+  }
+  if (layer.kind === 'image' || layer.kind === 'sticker') {
+    return <image href={layer.src} x={layer.x} y={layer.y} width={layer.width} height={layer.height} preserveAspectRatio="xMidYMid slice" {...common} />
+  }
+  if (layer.shape === 'ellipse') {
+    return <ellipse cx={layer.x + layer.width / 2} cy={layer.y + layer.height / 2} rx={layer.width / 2} ry={layer.height / 2} fill={layer.fill} {...common} />
+  }
+  return <rect x={layer.x} y={layer.y} width={layer.width} height={layer.height} fill={layer.fill} {...common} />
+}
+
+export function ThumbnailCanvasEditor({ design }: { design: YouTubeThumbnailDesign }) {
+  const ordered = useMemo(() => [...design.layers].sort((a, b) => a.z - b.z), [design.layers])
+  return (
+    <svg viewBox="0 0 1280 720" width="100%" style={{ aspectRatio: '16 / 9', borderRadius: 8, background: design.canvas.background }} role="img" aria-label={`Thumbnail preview: ${design.title}`}>
+      {design.canvas.backgroundImageSrc && <image href={design.canvas.backgroundImageSrc} x={0} y={0} width={1280} height={720} preserveAspectRatio="xMidYMid slice" />}
+      {ordered.map((l) => <LayerNode key={l.id} layer={l} />)}
+    </svg>
+  )
+}
+```
+
+- [ ] **Step 5: Write `ThumbnailStudioPanel.tsx`**
+
+```tsx
+// components/youtube-studio/ThumbnailStudioPanel.tsx
+'use client'
+import { useCallback, useEffect, useState } from 'react'
+import type { YouTubeThumbnailDesign } from '@/lib/youtube-studio/thumbnail-types'
+import { ThumbnailCanvasEditor } from './ThumbnailCanvasEditor'
+
+async function unwrap<T>(res: Response): Promise<T> {
+  const body = await res.json()
+  return (body?.data ?? body) as T
+}
+
+export function ThumbnailStudioPanel({ orgId, channelWorkspaceId, videoProjectId }: { orgId: string; channelWorkspaceId: string; videoProjectId?: string }) {
+  const [designs, setDesigns] = useState<YouTubeThumbnailDesign[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    const params = new URLSearchParams({ orgId, channelWorkspaceId })
+    if (videoProjectId) params.set('videoProjectId', videoProjectId)
+    const res = await fetch(`/api/v1/youtube-studio/thumbnail-designs?${params.toString()}`)
+    const data = await unwrap<{ thumbnailDesigns: YouTubeThumbnailDesign[] }>(res)
+    setDesigns(data.thumbnailDesigns ?? [])
+    setLoading(false)
+  }, [orgId, channelWorkspaceId, videoProjectId])
+
+  useEffect(() => { void load() }, [load])
+
+  const exportDesign = useCallback(async (id: string) => {
+    await fetch(`/api/v1/youtube-studio/thumbnail-designs/${id}/export`, { method: 'POST' })
+    await load()
+  }, [load])
+
+  return (
+    <section className="pib-card-section">
+      <header className="pib-card-section__header"><h3>Thumbnail Studio</h3></header>
+      {loading ? <p>Loading thumbnails…</p> : (
+        <ul style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', listStyle: 'none', padding: 0 }}>
+          {designs.map((d) => (
+            <li key={d.id}>
+              <ThumbnailCanvasEditor design={d} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
+                <span>{d.title}</span>
+                <button type="button" onClick={() => d.id && exportDesign(d.id)} disabled={!d.id}>Export PNG</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+```
+
+- [ ] **Step 6: Write the failing Content Calendar test + component**
+
+```tsx
+// __tests__/app/youtube-content-calendar-panel.test.tsx
+import { render, screen, waitFor } from '@testing-library/react'
+import { ContentCalendarPanel } from '@/components/youtube-studio/ContentCalendarPanel'
+
+beforeEach(() => {
+  global.fetch = jest.fn().mockResolvedValue({
+    ok: true,
+    json: async () => ({ success: true, data: {
+      timezone: 'UTC',
+      cells: [{ dateKey: '2026-07-06', releasePlans: [{ id: 'rp1', videoProjectId: 'v1', status: 'scheduled', mode: 'scheduled_api_publish' }], socialPosts: [] }],
+      cadence: [{ seriesId: 'se1', name: 'Weekly show', status: 'behind', expectedIntervalDays: 7, daysSinceLastPublish: 16 }],
+      bestTimes: [{ dayOfWeek: 2, hour: 18, score: 800 }],
+    } }),
+  }) as unknown as typeof fetch
+})
+
+describe('ContentCalendarPanel', () => {
+  it('renders cells, cadence health and best-times', async () => {
+    render(<ContentCalendarPanel orgId="org1" />)
+    await waitFor(() => expect(screen.getByText('2026-07-06')).toBeInTheDocument())
+    expect(screen.getByText(/Weekly show/)).toBeInTheDocument()
+    expect(screen.getByText(/behind/i)).toBeInTheDocument()
+  })
+})
+```
+
+```tsx
+// components/youtube-studio/ContentCalendarPanel.tsx
+'use client'
+import { useCallback, useEffect, useState } from 'react'
+
+interface CalendarCell { dateKey: string; releasePlans: Array<{ id: string; videoProjectId: string; status: string; mode: string }>; socialPosts: Array<{ id: string; platform: string; status: string }> }
+interface Cadence { seriesId?: string; name: string; status: string; expectedIntervalDays: number | null; daysSinceLastPublish: number | null }
+interface BestTime { dayOfWeek: number; hour: number; score: number }
+interface CalendarData { timezone: string; cells: CalendarCell[]; cadence: Cadence[]; bestTimes: BestTime[] }
+
+async function unwrap<T>(res: Response): Promise<T> {
+  const body = await res.json()
+  return (body?.data ?? body) as T
+}
+
+const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+export function ContentCalendarPanel({ orgId, channelWorkspaceId }: { orgId: string; channelWorkspaceId?: string }) {
+  const [data, setData] = useState<CalendarData | null>(null)
+
+  const load = useCallback(async () => {
+    const params = new URLSearchParams({ orgId })
+    if (channelWorkspaceId) params.set('channelWorkspaceId', channelWorkspaceId)
+    const res = await fetch(`/api/v1/youtube-studio/calendar?${params.toString()}`)
+    setData(await unwrap<CalendarData>(res))
+  }, [orgId, channelWorkspaceId])
+
+  useEffect(() => { void load() }, [load])
+
+  const reschedule = useCallback(async (releasePlanId: string, scheduledPublishAt: string) => {
+    await fetch('/api/v1/youtube-studio/calendar/reschedule', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orgId, releasePlanId, scheduledPublishAt }) })
+    await load()
+  }, [orgId, load])
+
+  if (!data) return <section className="pib-card-section"><p>Loading calendar…</p></section>
+
+  return (
+    <section className="pib-card-section">
+      <header className="pib-card-section__header"><h3>Content Calendar ({data.timezone})</h3></header>
+      <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>
+        {data.cells.map((cell) => (
+          <div key={cell.dateKey} data-date={cell.dateKey} style={{ border: '1px solid var(--pib-border, #333)', borderRadius: 8, padding: 8 }}
+            onDrop={(e) => { e.preventDefault(); const id = e.dataTransfer.getData('releasePlanId'); if (id) void reschedule(id, `${cell.dateKey}T10:00:00Z`) }}
+            onDragOver={(e) => e.preventDefault()}>
+            <strong>{cell.dateKey}</strong>
+            {cell.releasePlans.map((p) => (
+              <div key={p.id} draggable onDragStart={(e) => e.dataTransfer.setData('releasePlanId', p.id)} style={{ marginTop: 4, fontSize: 12 }}>
+                🎬 {p.status}
+              </div>
+            ))}
+            {cell.socialPosts.map((p) => <div key={p.id} style={{ fontSize: 12 }}>📱 {p.platform}</div>)}
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 16 }}>
+        <h4>Cadence health</h4>
+        <ul>{data.cadence.map((c) => <li key={c.seriesId}>{c.name}: <em>{c.status}</em>{c.daysSinceLastPublish !== null ? ` (${c.daysSinceLastPublish}d since last)` : ''}</li>)}</ul>
+        <h4>Best time to publish</h4>
+        <ul>{data.bestTimes.map((b, i) => <li key={i}>{DOW[b.dayOfWeek] ?? b.dayOfWeek} @ {b.hour}:00 — score {b.score}</li>)}</ul>
+      </div>
+    </section>
+  )
+}
+```
+
+- [ ] **Step 7: Run the UI tests to verify they pass**
+
+Run: `npx jest __tests__/app/youtube-thumbnail-studio-panel.test.tsx __tests__/app/youtube-content-calendar-panel.test.tsx`
+Expected: PASS.
+
+- [ ] **Step 8: Wire the panels into the admin workspace**
+
+In `components/youtube-studio/YouTubeStudioAdminWorkspace.tsx`, add contextual tabs "Thumbnails" and "Calendar" that render `<ThumbnailStudioPanel />` and `<ContentCalendarPanel />` with the current `orgId`/`channelWorkspaceId`. Follow the existing tab pattern in that file (search for how other sub-panels are tab-switched). Keep the diff minimal — a new tab entry + conditional render.
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add components/youtube-studio/ThumbnailStudioPanel.tsx components/youtube-studio/ThumbnailCanvasEditor.tsx components/youtube-studio/ContentCalendarPanel.tsx components/youtube-studio/YouTubeStudioAdminWorkspace.tsx __tests__/app/youtube-thumbnail-studio-panel.test.tsx __tests__/app/youtube-content-calendar-panel.test.tsx
+git commit -m "feat(yt): Thumbnail Studio + Content Calendar UI panels"
+```
+
+---
+
+## Task 20: Full-suite verification + typecheck
+
+**Files:** none (verification only)
+
+- [ ] **Step 1: Run the whole new suite**
+
+Run: `npx jest __tests__/lib/youtube-studio-thumbnail-collections.test.ts __tests__/lib/youtube-studio-thumbnail-types.test.ts __tests__/lib/youtube-studio-thumbnail-sanitize.test.ts __tests__/lib/youtube-studio-thumbnail-render.test.ts __tests__/lib/youtube-studio-thumbnail-templates.test.ts __tests__/lib/youtube-studio-thumbnail-export.test.ts __tests__/lib/youtube-studio-background-removal.test.ts __tests__/lib/youtube-studio-thumbnail-variants.test.ts __tests__/lib/youtube-studio-quota-ledger.test.ts __tests__/lib/youtube-studio-thumbnail-experiments.test.ts __tests__/lib/social/youtube-set-thumbnail.test.ts __tests__/lib/youtube-studio-thumbnail-rotation.test.ts __tests__/lib/youtube-studio-test-kit.test.ts __tests__/lib/youtube-studio-thumbnail-ctr-patterns.test.ts __tests__/lib/youtube-studio-calendar.test.ts __tests__/api/youtube-thumbnail-designs.test.ts __tests__/api/youtube-thumbnail-templates.test.ts __tests__/api/youtube-thumbnail-experiments.test.ts __tests__/api/youtube-calendar.test.ts __tests__/app/youtube-thumbnail-studio-panel.test.tsx __tests__/app/youtube-content-calendar-panel.test.tsx`
+Expected: all green.
+
+- [ ] **Step 2: Typecheck the whole project**
+
+Run: `npm run typecheck`
+Expected: no errors. (Per repo memory: the real type gate is `npm run typecheck` via `tsconfig.typecheck.json`, not `next build`, which has `ignoreBuildErrors`.)
+
+- [ ] **Step 3: Guard against the browser/server bundling boundary**
+
+Run: `NODE_OPTIONS=--max-old-space-size=10240 npm run build`
+Expected: build succeeds. `thumbnail-render.ts` / `thumbnail-storage.ts` / `thumbnail-rotation.ts` import Node-only modules (`sharp`, `firebase-admin/storage`, provider fetch) — they must never be imported by a client component. `ThumbnailCanvasEditor.tsx` re-implements rendering as JSX for exactly this reason and imports ONLY the types file. If the build complains about a Node module in a client bundle, split the offending helper so the pure part lives in a browser-safe module (pattern: `lib/sms/twilio.ts` + `lib/sms/segments.ts`).
+
+- [ ] **Step 4: Final commit**
+
+```bash
+git add -A
+git commit -m "test(yt): full Phase 2 thumbnails + calendar suite green; typecheck + build verified"
+```
+
+---
+
+## Self-Review (completed by plan author)
+
+**Spec coverage (Phase 2 = Pillar D + calendar from Pillar B):**
+- Design canvas, layered editor (bg image, cutout, text w/ brand fonts+colors, shapes/stickers, shadow/outline/glow), 1280×720 PNG export → Tasks 2–7, 19. ✓
+- `youtube_thumbnail_designs` versioned layer JSON + template library (platform+org) w/ brand-kit resolution → Tasks 2, 5, 6, 10. ✓
+- Source-asset registration + packet linking on export → Task 7. ✓
+- AI variants (thumbnail-brief output or manual prompt → 3–6 Higgsfield/inline candidates, soul-id reference) w/ credits charge/refund → Task 9. ✓
+- A/B rotation (`youtube_thumbnail_experiments`, cron rotate via `thumbnails.set`=50 units, CTR per period, stat read-out, winner apply, per-org toggle default ON, quota ledger) → Tasks 11–14. ✓
+- Test-kit export + SOP → Task 15. ✓
+- CTR pattern library → Task 16. ✓
+- Calendar (month/week over release plans + scheduled social posts read-only, per-org timezone, drag-to-reschedule PUT, cadence health per series, best-time from org analytics) → Tasks 17–19. ✓
+- Full Jest coverage → every task is TDD; Task 20 runs the whole suite + typecheck + build. ✓
+
+**Placeholder scan:** No "TBD"/"handle edge cases"/"similar to Task N". The one literal `'TS_PLACEHOLDER'` in Task 13 is explicitly called out with instructions to replace it with `FieldValue.serverTimestamp()`.
+
+**Type consistency:** `YOUTUBE_COLLECTIONS.thumbnailDesigns` etc. added in Task 1 and used unchanged everywhere. `ThumbnailBrandKit` defined in `thumbnail-render.ts` (Task 4) and imported by Tasks 5, 7, 10. `buildThumbnailSvg`, `rasterizeThumbnail`, `resolveBrandVariables` names stable. `ThumbnailExperimentPeriod`/`aggregateVariantStats`/`declareWinner`/`nextRotationVariantId`/`isRotationDue` consistent between Tasks 12 and 14. `buildCalendarCells`/`cadenceHealth`/`bestTimeToPublish` consistent between Tasks 17 and 18. `setThumbnail` added in Task 14 and called by the rotation drain.
+
+**Assumptions to verify during execution (flagged inline in tasks):**
+- `sharp` availability (Task 1 Step 1) and storage uploader name (Task 7 Step 1).
+- Existing cron secret-check style (Task 14 Step 6) and `vercel.json` cron shape (Task 14 Step 7).
+- `fetchYouTubeAnalyticsApiSnapshot` input/return shape (Task 14) — confirm the request field names against `lib/youtube-studio/analytics-ingestion.ts` before wiring.
+- Social posts schedule field name is `scheduledAt` vs `scheduledFor` — the calendar route handles both.
