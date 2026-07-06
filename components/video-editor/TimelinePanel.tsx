@@ -21,6 +21,7 @@ interface TimelinePanelProps {
   onRemoveSelected: () => void
   onToggleTrackFlag: (trackId: string, flag: 'muted' | 'locked') => void
   onAddTrack: (kind: EditorTrackKind) => void
+  onAddTextClip: () => void
 }
 
 export function snapSeconds(target: number, candidates: number[], threshold = 0.2): number {
@@ -47,6 +48,7 @@ export function TimelinePanel({
   onRemoveSelected,
   onToggleTrackFlag,
   onAddTrack,
+  onAddTextClip,
 }: TimelinePanelProps) {
   const duration = Math.max(30, ...timeline.tracks.flatMap((track) => track.clips.map((clip) => clip.timelineStart + clip.duration)))
   const rulerTicks = Array.from({ length: Math.ceil(duration / 5) + 1 }, (_, index) => index * 5)
@@ -70,21 +72,22 @@ export function TimelinePanel({
           </button>
         </div>
         <label className="text-sm text-on-surface-variant">
-          Add track
+          Add to timeline
           <select
             className="ml-2 rounded-lg border border-[var(--color-pib-line)] bg-transparent px-2 py-1"
             defaultValue=""
             onChange={(event) => {
               if (!event.target.value) return
-              onAddTrack(event.target.value as EditorTrackKind)
+              if (event.target.value === 'text') onAddTextClip()
+              else onAddTrack(event.target.value as EditorTrackKind)
               event.target.value = ''
             }}
           >
             <option value="">Choose</option>
-            <option value="video">Video</option>
-            <option value="overlay">Overlay</option>
-            <option value="text">Text</option>
-            <option value="audio">Audio</option>
+            <option value="video">Video track</option>
+            <option value="overlay">Overlay track</option>
+            <option value="text">Text title clip</option>
+            <option value="audio">Audio track</option>
           </select>
         </label>
       </div>

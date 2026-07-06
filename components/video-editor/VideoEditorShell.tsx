@@ -2,17 +2,31 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { scopedApiPath } from '@/lib/portal/scoped-routing'
-import { addClip, addTrack, removeClip, splitClip } from '@/lib/video-editor/timeline-ops'
+import { addClip, addTrack, moveClip, removeClip, splitClip } from '@/lib/video-editor/timeline-ops'
 import { defaultVideoEditorSettings } from '@/lib/video-editor/types'
 import type { EditorClip, EditorTimeline, EditorTrackKind, VideoEditorProject, VideoEditorRenderJob } from '@/lib/video-editor/types'
 import { ExportDialog } from './ExportDialog'
 import { InspectorPanel } from './InspectorPanel'
-import { MediaLibraryPanel } from './MediaLibraryPanel'
+import { MediaLibraryPanel, type MediaLibrarySource } from './MediaLibraryPanel'
 import { PreviewPlayer } from './PreviewPlayer'
 import { TimelinePanel, type TimelineSelection } from './TimelinePanel'
 import { useTimelineHistory } from './useTimelineHistory'
 
 const emptyTimeline: EditorTimeline = { version: 1, tracks: [] }
+const DEFAULT_TEXT_CLIP_DURATION = 5
+
+function makeClipId(prefix: string): string {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
+}
+
+function trackHasRoom(track: EditorTimeline['tracks'][number], start: number, duration: number): boolean {
+  const end = start + duration
+  return !track.clips.some((clip) => start < clip.timelineStart + clip.duration && end > clip.timelineStart)
+}
+
+function trackEnd(track: EditorTimeline['tracks'][number]): number {
+  return Math.max(0, ...track.clips.map((clip) => clip.timelineStart + clip.duration))
+}
 
 export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgId?: string }) {
   const [project, setProject] = useState<(VideoEditorProject & { id: string }) | null>(null)
@@ -22,7 +36,7 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
   const [playing, setPlaying] = useState(false)
   const [pxPerSecond, setPxPerSecond] = useState(60)
   const [notice, setNotice] = useState('')
-  const [sources, setSources] = useState([])
+  const [sources, setSources] = useState<MediaLibrarySource[]>([])
   const [jobs, setJobs] = useState<Array<VideoEditorRenderJob & { id: string }>>([])
   const [busy, setBusy] = useState(false)
   const history = useTimelineHistory(timeline)
@@ -51,7 +65,7 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
     if (!orgId) return
     const res = await fetch(scopedApiPath('/api/v1/creative-canvas/sources', apiScope))
     const body = await res.json().catch(() => ({}))
-    if (res.ok) setSources(body.data?.sources ?? body.sources ?? [])
+    if (res.ok) setSources((body.data?.sources ?? body.sources ?? []) as MediaLibrarySource[])
   }
 
   async function loadJobs() {
@@ -100,14 +114,79 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
   }
 
   function addMediaClip(clip: EditorClip) {
-    const targetTrack = timeline.tracks.find((track) => track.kind === (clip.media?.mediaKind === 'audio' ? 'audio' : 'video')) ?? timeline.tracks[0]
-    if (!targetTrack) return
+    const targetKind: EditorTrackKind = clip.media?.mediaKind === 'audio' ? 'audio' : 'video'
+    let working = timeline
+    let targetTrack = working.tracks.find((track) => track.kind === targetKind && !track.locked)
+    if (!targetTrack) {
+      working = addTrack(working, { kind: targetKind, label: targetKind === 'audio' ? 'Audio' : 'Video' })
+      targetTrack = working.tracks.find((track) => track.kind === targetKind && !timeline.tracks.some((existing) => existing.id === track.id))
+    }
+    if (!targetTrack) {
+      setNotice(`Could not find or create a ${targetKind} track.`)
+      return
+    }
     try {
-      const next = addClip(timeline, targetTrack.id, { ...clip, timelineStart: playhead })
+      const next = addClip(working, targetTrack.id, { ...clip, timelineStart: playhead })
       void persist(next)
+      setSelection({ trackId: targetTrack.id, clipIds: [clip.id] })
+      setNotice('Clip added to the timeline.')
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Could not add clip')
     }
+  }
+
+  function addTextClip() {
+    let working = timeline
+    let timelineStart = playhead
+    let targetTrack = working.tracks.find((track) =>
+      track.kind === 'text' && !track.locked && trackHasRoom(track, timelineStart, DEFAULT_TEXT_CLIP_DURATION))
+
+    if (!targetTrack) {
+      const reusableTextTrack = working.tracks.find((track) => track.kind === 'text' && !track.locked)
+      if (reusableTextTrack) {
+        targetTrack = reusableTextTrack
+        timelineStart = Math.max(playhead, trackEnd(reusableTextTrack))
+      } else {
+        working = addTrack(working, { kind: 'text', label: 'Text', index: 0 })
+        targetTrack = working.tracks.find((track) => track.kind === 'text' && !timeline.tracks.some((existing) => existing.id === track.id))
+      }
+    }
+
+    if (!targetTrack) {
+      setNotice('Could not find or create a text track.')
+      return
+    }
+
+    const clip: EditorClip = {
+      id: makeClipId('title'),
+      timelineStart,
+      duration: DEFAULT_TEXT_CLIP_DURATION,
+      text: {
+        content: 'Title text',
+        fontSizePx: 72,
+        color: '#ffffff',
+        align: 'center',
+        animationPreset: 'none',
+      },
+      transform: { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 },
+    }
+
+    try {
+      const next = addClip(working, targetTrack.id, clip)
+      void persist(next)
+      setSelection({ trackId: targetTrack.id, clipIds: [clip.id] })
+      setPlayhead(timelineStart)
+      setNotice('Text title added. Edit the copy in the Inspector.')
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not add text')
+    }
+  }
+
+  function addUploadedSource(source: MediaLibrarySource) {
+    setSources((current) => [
+      source,
+      ...current.filter((item) => item.id !== source.id),
+    ])
   }
 
   async function renderProject() {
@@ -146,7 +225,7 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
       </div>
       {notice ? <div className="rounded-lg border border-[var(--color-pib-line)] p-3 text-sm text-on-surface-variant">{notice}</div> : null}
       <div className="grid gap-4 xl:grid-cols-[320px_1fr_320px]">
-        <MediaLibraryPanel orgId={orgId} sources={sources} onRefresh={loadSources} onAddClip={addMediaClip} />
+        <MediaLibraryPanel orgId={orgId} sources={sources} onRefresh={loadSources} onAddClip={addMediaClip} onSourceUploaded={addUploadedSource} />
         <div className="space-y-4">
           <PreviewPlayer timeline={timeline} settings={settings} playheadSeconds={playhead} playing={playing} onPlayToggle={() => setPlaying((value) => !value)} onSeek={setPlayhead} />
           <TimelinePanel
@@ -157,7 +236,9 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
             onSelectionChange={setSelection}
             onSeek={setPlayhead}
             onZoomChange={setPxPerSecond}
-            onMoveClip={() => undefined}
+            onMoveClip={(trackId, clipId, toStart) => {
+              try { void persist(moveClip(timeline, trackId, clipId, { toStart })) } catch (error) { setNotice(error instanceof Error ? error.message : 'Could not move clip') }
+            }}
             onTrimClip={() => undefined}
             onSplitAtPlayhead={() => {
               if (!selection?.clipIds[0]) return
@@ -171,6 +252,7 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
               void persist({ ...timeline, tracks: timeline.tracks.map((track) => track.id === trackId ? { ...track, [flag]: !track[flag] } : track) })
             }}
             onAddTrack={(kind: EditorTrackKind) => void persist(addTrack(timeline, { kind, label: kind }))}
+            onAddTextClip={addTextClip}
           />
         </div>
         <div className="space-y-4">
