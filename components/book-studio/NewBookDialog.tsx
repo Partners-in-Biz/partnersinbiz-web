@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { listBookFormats, type BookFormat, type BookFormatId } from '@/lib/book-studio/format-registry'
 import { BOOK_TEMPLATE_PRESETS, getBookTemplatePreset } from '@/lib/book-studio/templates'
 import { createBookStudioRecord, type BookStudioSurface } from '@/lib/book-studio/client'
@@ -32,6 +32,19 @@ export function NewBookDialog({ orgId, surface, open, onClose, onCreated }: NewB
   const [trimId, setTrimId] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+
+  // Reset any stale selections when the dialog reopens, so a parent that
+  // keeps the instance mounted never shows the previous draft.
+  useEffect(() => {
+    if (!open) return
+    setFormatId(null)
+    setTemplateId(null)
+    setTitle('')
+    setAudience('')
+    setTrimId('')
+    setBusy(false)
+    setError('')
+  }, [open])
 
   if (!open) return null
 
@@ -76,9 +89,23 @@ export function NewBookDialog({ orgId, surface, open, onClose, onCreated }: NewB
       }
       const projectId = projectResult.data.id
       const starters = preset?.starterChapters ?? []
-      for (const [order, chapter] of starters.entries()) {
-        await createBookStudioRecord('chapters', orgId, { projectId, title: chapter.title, order }, surface)
+      let chaptersFailed = false
+      try {
+        for (const [order, chapter] of starters.entries()) {
+          const chapterResult = await createBookStudioRecord('chapters', orgId, { projectId, title: chapter.title, order }, surface)
+          if (!chapterResult.ok) {
+            chaptersFailed = true
+            break
+          }
+        }
+      } catch {
+        chaptersFailed = true
       }
+      if (chaptersFailed) {
+        setError('Project created, but some starter chapters could not be added — open the book to add them manually.')
+      }
+      // The project exists either way — hand the user into the workspace
+      // rather than leaving them stuck in the dialog.
       onCreated(projectId)
     } finally {
       setBusy(false)
