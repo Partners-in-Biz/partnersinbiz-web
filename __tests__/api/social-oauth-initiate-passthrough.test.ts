@@ -3,6 +3,8 @@ import type { ApiUser } from '@/lib/api/types'
 
 const mockSet = jest.fn()
 const mockCollection = jest.fn(() => ({ doc: () => ({ set: mockSet }) }))
+let mockUser = { uid: 'user-1', role: 'client' } as ApiUser
+let mockOrgId = 'org-1'
 
 type MockAuthHandler = (req: NextRequest, user: ApiUser, orgId: string) => Promise<Response>
 
@@ -16,7 +18,7 @@ jest.mock('@/lib/api/auth', () => ({
 
 jest.mock('@/lib/api/tenant', () => ({
   withTenant: (handler: MockAuthHandler) => (req: NextRequest) =>
-    handler(req, { uid: 'user-1', role: 'client' } as ApiUser, 'org-1'),
+    handler(req, mockUser, mockOrgId),
 }))
 
 jest.mock('@/lib/social/oauth-config', () => ({
@@ -43,6 +45,8 @@ describe('OAuth initiation feature/prompt passthrough', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     jest.resetModules()
+    mockUser = { uid: 'user-1', role: 'client' } as ApiUser
+    mockOrgId = 'org-1'
     mockSet.mockResolvedValue(undefined)
   })
 
@@ -56,6 +60,22 @@ describe('OAuth initiation feature/prompt passthrough', () => {
     expect(mockSet).toHaveBeenCalledWith(expect.objectContaining({
       platform: 'youtube',
       orgId: 'org-1',
+      feature: 'youtube_studio',
+    }))
+  })
+
+  it('uses the active portal org for portal OAuth when no explicit orgId is supplied', async () => {
+    mockUser = { uid: 'admin-1', role: 'admin', activeOrgId: 'pib-platform-owner' } as ApiUser
+    mockOrgId = 'default'
+
+    const { GET } = await import('@/app/api/v1/social/oauth/[platform]/route')
+    await GET(new NextRequest(
+      'http://localhost/api/v1/social/oauth/youtube?redirectUrl=%2Fportal%2Fyoutube-studio&feature=youtube_studio',
+    ))
+
+    expect(mockSet).toHaveBeenCalledWith(expect.objectContaining({
+      platform: 'youtube',
+      orgId: 'pib-platform-owner',
       feature: 'youtube_studio',
     }))
   })

@@ -427,6 +427,7 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
     .sort((a, b) => b.periodEnd.localeCompare(a.periodEnd))
 
   return apiSuccess({
+    orgId,
     channels,
     series,
     videos,
