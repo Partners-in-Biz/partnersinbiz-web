@@ -12,8 +12,15 @@ type MockPortalRoleHandler = (
   ...args: any[]
 ) => Promise<Response> | Response
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockRunTransaction = jest.fn<Promise<void>, [(tx: any) => Promise<void>]>()
+
 jest.mock('@/lib/firebase/admin', () => ({
-  adminDb: { collection: mockCollection },
+  adminDb: {
+    collection: mockCollection,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    runTransaction: (fn: (tx: any) => Promise<void>) => mockRunTransaction(fn),
+  },
 }))
 
 jest.mock('@/lib/auth/portal-middleware', () => ({
@@ -25,11 +32,16 @@ jest.mock('@/lib/auth/portal-middleware', () => ({
 
 type DocRecord = { id: string; data: Record<string, unknown> }
 
+type MockRef = { id: string; __collection: string; get: () => Promise<unknown> }
+
 /**
  * Stages a fake Firestore for organizations + book_studio_projects + tasks +
- * book_studio_decision_logs. `tasksInStore` seeds the tasks collection so the
- * duplicate-request `where(orgId).where(requestKey).get()` query can be
- * exercised; `addSpy` records every `.add()` call across every collection.
+ * book_studio_draft_requests (dedupe locks) + book_studio_decision_logs.
+ * `tasksInStore` seeds a live tasks store that the dedupe transaction query
+ * reads and `tx.create` appends to, so concurrent-request races can be
+ * exercised. Like real Firestore server transactions (which take pessimistic
+ * locks on the dedupe doc read), `runTransaction` calls execute strictly one
+ * after another. `addSpy` records every write across every collection.
  */
 function stageFirestore(options: {
   settings: Record<string, unknown>
@@ -38,7 +50,9 @@ function stageFirestore(options: {
 }) {
   const { settings, project = null, tasksInStore = [] } = options
   const addSpy = jest.fn().mockResolvedValue({ id: 'new-id' })
-  let taskAddCount = 0
+  const tasksStore: DocRecord[] = [...tasksInStore]
+  const lockStore = new Map<string, Record<string, unknown>>()
+  let taskDocCount = 0
 
   mockOrgGet.mockResolvedValue({ exists: true, data: () => ({ settings }) })
 
@@ -60,16 +74,31 @@ function stageFirestore(options: {
       return {
         where: jest.fn().mockReturnValue({
           where: jest.fn().mockReturnValue({
-            get: jest.fn().mockResolvedValue({
-              docs: tasksInStore.map((d) => ({ id: d.id, data: () => d.data })),
-            }),
+            get: () =>
+              Promise.resolve({
+                docs: tasksStore.map((d) => ({ id: d.id, data: () => d.data })),
+              }),
           }),
         }),
-        add: (data: Record<string, unknown>) => {
-          taskAddCount += 1
-          addSpy(name, data)
-          return Promise.resolve({ id: `task-${taskAddCount}` })
+        doc: (): MockRef => {
+          taskDocCount += 1
+          const id = `task-${taskDocCount}`
+          return {
+            id,
+            __collection: name,
+            get: () => Promise.resolve({ exists: false, data: () => undefined }),
+          }
         },
+      }
+    }
+    if (name === 'book_studio_draft_requests') {
+      return {
+        doc: (id: string): MockRef => ({
+          id,
+          __collection: name,
+          get: () =>
+            Promise.resolve({ exists: lockStore.has(id), data: () => lockStore.get(id) }),
+        }),
       }
     }
     // book_studio_decision_logs and any other collection
@@ -79,6 +108,28 @@ function stageFirestore(options: {
         return Promise.resolve({ id: 'new-id' })
       },
     }
+  })
+
+  // Serialize transactions the way Firestore's pessimistic doc locks do: a
+  // second transaction touching the same lock doc waits for the first to
+  // commit before its reads run.
+  let txChain: Promise<unknown> = Promise.resolve()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  mockRunTransaction.mockImplementation((fn: (tx: any) => Promise<void>) => {
+    const tx = {
+      get: (refOrQuery: { get: () => Promise<unknown> }) => refOrQuery.get(),
+      set: (ref: MockRef, data: Record<string, unknown>) => {
+        lockStore.set(ref.id, data)
+        addSpy(ref.__collection, data)
+      },
+      create: (ref: MockRef, data: Record<string, unknown>) => {
+        tasksStore.push({ id: ref.id, data })
+        addSpy(ref.__collection, data)
+      },
+    }
+    const run = txChain.then(() => fn(tx))
+    txChain = run.catch(() => undefined)
+    return run
   })
 
   return { addSpy }

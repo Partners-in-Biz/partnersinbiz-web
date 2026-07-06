@@ -233,14 +233,15 @@ export function BookProjectWorkspace({
     }
   }
 
-  async function editChapterBody(chapterId: string, body: string) {
+  async function editChapterBody(chapterId: string, body: string): Promise<boolean> {
     // Server computes wordCount from body — never send it from the client.
     const result = await patchBookStudioRecord('chapters', chapterId, orgId, { body }, surface)
     if (!result.ok) {
       setNotice(result.error)
-      return
+      return false
     }
     await load()
+    return true
   }
 
   async function editChapterStatus(chapterId: string, status: BookChapter['status']) {

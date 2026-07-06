@@ -13,7 +13,12 @@ type Props = {
   chapterId: string
   initialMarkdown: string
   readOnly: boolean
-  onSave: (chapterId: string, markdown: string) => Promise<void> | void
+  /**
+   * Persist the chapter markdown. The editor ignores the resolved value —
+   * callers (the chapters panel) may return a success flag for their own
+   * post-save logic (e.g. status promotion).
+   */
+  onSave: (chapterId: string, markdown: string) => Promise<unknown> | unknown
 }
 
 const AUTOSAVE_DELAY_MS = 2000
@@ -28,7 +33,6 @@ export function ChapterEditor({ chapterId, initialMarkdown, readOnly, onSave }: 
   const [saveState, setSaveState] = useState<SaveState>('saved')
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingMarkdownRef = useRef<string | null>(null)
-  const chapterIdRef = useRef(chapterId)
 
   const editor = useEditor({
     extensions: [
@@ -79,15 +83,14 @@ export function ChapterEditor({ chapterId, initialMarkdown, readOnly, onSave }: 
     }
   }
 
-  async function flush(idOverride?: string) {
+  async function flush() {
     clearTimer()
     const markdown = pendingMarkdownRef.current
     if (markdown === null) return
     pendingMarkdownRef.current = null
-    const id = idOverride ?? chapterIdRef.current
     setSaveState('saving')
     try {
-      await onSave(id, markdown)
+      await onSave(chapterId, markdown)
       setSaveState('saved')
     } catch {
       // Leave as dirty-ish; surface via 'Unsaved changes' so the user can retry.
@@ -111,33 +114,20 @@ export function ChapterEditor({ chapterId, initialMarkdown, readOnly, onSave }: 
     }
   }
 
-  // Chapter switch: flush any pending save for the OLD chapter, then load the
-  // new chapter's content into the (same) editor instance and reset state.
-  useEffect(() => {
-    const previousId = chapterIdRef.current
-    if (previousId !== chapterId && pendingMarkdownRef.current !== null) {
-      void flush(previousId)
-    }
-    chapterIdRef.current = chapterId
-    if (editor) {
-      editor.commands.setContent(initialMarkdown, { emitUpdate: false })
-    }
-    pendingMarkdownRef.current = null
-    setSaveState('saved')
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chapterId])
-
   // Keep editable state in sync with the readOnly prop.
   useEffect(() => {
     if (editor) editor.setEditable(!readOnly)
   }, [editor, readOnly])
 
-  // Flush pending save on unmount (e.g. navigating away entirely).
+  // Flush any pending save on unmount. The panel renders this component with
+  // key={chapter.id}, so switching chapters unmounts the old instance — this
+  // cleanup is THE mechanism that persists in-flight edits on chapter switch
+  // (and on navigating away entirely).
   useEffect(() => {
     return () => {
       clearTimer()
       if (pendingMarkdownRef.current !== null) {
-        void onSave(chapterIdRef.current, pendingMarkdownRef.current)
+        void onSave(chapterId, pendingMarkdownRef.current)
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

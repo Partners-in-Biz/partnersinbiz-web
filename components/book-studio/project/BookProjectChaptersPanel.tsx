@@ -7,7 +7,8 @@ import { humanizeToken, type BookChapter } from './types'
 
 type BookProjectChaptersPanelProps = {
   chapters: BookChapter[]
-  onEditBody: (chapterId: string, body: string) => void | Promise<void>
+  /** Persist a chapter body. Must resolve `true` only when the save succeeded. */
+  onEditBody: (chapterId: string, body: string) => Promise<boolean> | boolean
   onEditStatus: (chapterId: string, status: BookChapter['status']) => void | Promise<void>
   onAddChapter: (title: string) => void | Promise<void>
   addingChapter: boolean
@@ -64,7 +65,11 @@ export function BookProjectChaptersPanel({
   }
 
   async function handleSave(chapterId: string, body: string) {
-    await onEditBody(chapterId, body)
+    const saved = await onEditBody(chapterId, body)
+    // Only promote after a CONFIRMED save — a failed body save must not flip
+    // a 'generated' chapter to 'edited' (that transition engages the
+    // canvas-sync anti-clobber guard, so it has to reflect a real edit).
+    if (saved !== true) return
     const chapter = ordered.find((entry) => entry.id === chapterId)
     if (chapter?.status === 'generated') {
       await onEditStatus(chapterId, 'edited')

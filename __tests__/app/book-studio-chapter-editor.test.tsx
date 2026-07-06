@@ -92,6 +92,8 @@ const chapters: BookChapter[] = [
 ]
 
 function noop() {}
+// onEditBody must resolve a success flag; the panel only promotes status on `true`.
+const noopSave = () => true
 
 describe('BookProjectChaptersPanel + ChapterEditor', () => {
   beforeEach(() => {
@@ -106,7 +108,7 @@ describe('BookProjectChaptersPanel + ChapterEditor', () => {
     render(
       <BookProjectChaptersPanel
         chapters={chapters}
-        onEditBody={noop}
+        onEditBody={noopSave}
         onEditStatus={noop}
         onAddChapter={noop}
         addingChapter={false}
@@ -123,7 +125,7 @@ describe('BookProjectChaptersPanel + ChapterEditor', () => {
   })
 
   it('debounced save triggers onEditBody and promotes a generated chapter to edited', async () => {
-    const onEditBody = jest.fn().mockResolvedValue(undefined)
+    const onEditBody = jest.fn().mockResolvedValue(true)
     const onEditStatus = jest.fn().mockResolvedValue(undefined)
 
     render(
@@ -149,11 +151,64 @@ describe('BookProjectChaptersPanel + ChapterEditor', () => {
     await waitFor(() => expect(onEditStatus).toHaveBeenCalledWith('c1', 'edited'))
   })
 
+  it('does NOT promote a generated chapter when the body save fails', async () => {
+    const onEditBody = jest.fn().mockResolvedValue(false)
+    const onEditStatus = jest.fn().mockResolvedValue(undefined)
+
+    render(
+      <BookProjectChaptersPanel
+        chapters={chapters}
+        onEditBody={onEditBody}
+        onEditStatus={onEditStatus}
+        onAddChapter={noop}
+        addingChapter={false}
+      />,
+    )
+
+    const textarea = screen.getByLabelText('chapter-body')
+    fireEvent.change(textarea, { target: { value: 'Hello world, edited' } })
+
+    await act(async () => {
+      jest.advanceTimersByTime(2000)
+    })
+
+    await waitFor(() => expect(onEditBody).toHaveBeenCalledWith('c1', 'Hello world, edited'))
+    expect(onEditStatus).not.toHaveBeenCalled()
+  })
+
+  it('flushes a pending edit for the outgoing chapter when switching chapters', async () => {
+    const onEditBody = jest.fn().mockResolvedValue(true)
+    const onEditStatus = jest.fn().mockResolvedValue(undefined)
+
+    render(
+      <BookProjectChaptersPanel
+        chapters={chapters}
+        onEditBody={onEditBody}
+        onEditStatus={onEditStatus}
+        onAddChapter={noop}
+        addingChapter={false}
+      />,
+    )
+
+    // Type into chapter A (c1) but do NOT advance the debounce timer.
+    const textarea = screen.getByLabelText('chapter-body')
+    fireEvent.change(textarea, { target: { value: 'Hello world, mid-edit' } })
+    expect(onEditBody).not.toHaveBeenCalled()
+
+    // Switch to chapter B — the keyed ChapterEditor for A unmounts, and its
+    // unmount cleanup must flush the pending edit for A.
+    await act(async () => {
+      fireEvent.click(screen.getByText('Chapter Two'))
+    })
+
+    await waitFor(() => expect(onEditBody).toHaveBeenCalledWith('c1', 'Hello world, mid-edit'))
+  })
+
   it('readOnly hides add-chapter form and disables the editor', () => {
     render(
       <BookProjectChaptersPanel
         chapters={chapters}
-        onEditBody={noop}
+        onEditBody={noopSave}
         onEditStatus={noop}
         onAddChapter={noop}
         addingChapter={false}
@@ -169,7 +224,7 @@ describe('BookProjectChaptersPanel + ChapterEditor', () => {
     render(
       <BookProjectChaptersPanel
         chapters={chapters}
-        onEditBody={noop}
+        onEditBody={noopSave}
         onEditStatus={noop}
         onAddChapter={noop}
         addingChapter={false}
@@ -187,7 +242,7 @@ describe('BookProjectChaptersPanel + ChapterEditor', () => {
     render(
       <BookProjectChaptersPanel
         chapters={chapters}
-        onEditBody={noop}
+        onEditBody={noopSave}
         onEditStatus={noop}
         onAddChapter={noop}
         addingChapter={false}

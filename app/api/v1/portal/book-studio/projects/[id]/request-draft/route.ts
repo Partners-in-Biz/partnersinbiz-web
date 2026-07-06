@@ -6,7 +6,6 @@
 // a governed platform TASK for the PiB team to action, plus a decision-log
 // entry recording the request. It never triggers generation itself.
 import { NextRequest } from 'next/server'
-import { FieldValue } from 'firebase-admin/firestore'
 import { withPortalAuthAndRole } from '@/lib/auth/portal-middleware'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { adminDb } from '@/lib/firebase/admin'
@@ -19,6 +18,10 @@ const UNIT_TYPES = new Set(['chapter', 'page', 'cover', 'research'])
 // Task statuses that count as an "open" request already in flight — see
 // lib/tasks/types.ts VALID_TASK_STATUSES ('todo' | 'in_progress' | 'done' | 'cancelled').
 const OPEN_TASK_STATUSES = ['todo', 'in_progress'] as const
+
+// Sentinel thrown inside the dedupe transaction to abort it; converted to the
+// 409 response by the caller.
+class DuplicateOpenRequestError extends Error {}
 
 type Ctx = { params: Promise<{ id: string }> }
 
@@ -59,19 +62,6 @@ export const POST = withPortalAuthAndRole('viewer', async (req: NextRequest, uid
 
   const requestKey = `book-draft:${projectId}:${unitType}:${unitId || 'project'}`
 
-  const existingSnap = await adminDb
-    .collection('tasks')
-    .where('orgId', '==', orgId)
-    .where('requestKey', '==', requestKey)
-    .get()
-  const hasOpenRequest = existingSnap.docs.some((doc) => {
-    const data = doc.data() as Record<string, unknown>
-    return data.deleted !== true && OPEN_TASK_STATUSES.includes(data.status as (typeof OPEN_TASK_STATUSES)[number])
-  })
-  if (hasOpenRequest) {
-    return apiError('An AI draft request for this item is already open', 409)
-  }
-
   const projectTitle = typeof project.title === 'string' && project.title.trim() ? project.title.trim() : 'Untitled book project'
   const unitLabel = `${unitType}${unitId ? ` ${unitId}` : ''}`
   const title = `AI draft requested: ${projectTitle} (${unitLabel})`
@@ -79,30 +69,63 @@ export const POST = withPortalAuthAndRole('viewer', async (req: NextRequest, uid
   if (note) descriptionParts.push(`Note from client: ${note}`)
   const description = descriptionParts.join('\n\n')
 
-  const taskRef = await adminDb.collection('tasks').add({
-    orgId,
-    title,
-    description,
-    status: 'todo',
-    priority: 'normal',
-    dueDate: null,
-    assignedTo: null,
-    projectId: null,
-    contactId: null,
-    dealId: null,
-    tags: ['book-studio', 'ai-draft-request'],
-    columnId: 'todo',
-    requestKey,
-    linkedResource: {
-      type: 'book_studio_project',
-      id: projectId,
-      unitType,
-      unitId: unitId ?? null,
-    },
-    ...portalActorFields(uid),
-    completedAt: null,
-    deleted: false,
-  })
+  // unitId is client-supplied and Firestore doc IDs cannot contain '/'.
+  const dedupeLockRef = adminDb.collection('book_studio_draft_requests').doc(encodeURIComponent(requestKey))
+  const taskRef = adminDb.collection('tasks').doc()
+
+  try {
+    await adminDb.runTransaction(async (tx) => {
+      // Reading the stable lock doc first makes concurrent requests for the
+      // same requestKey serialize on it, so the open-request check below
+      // cannot race a parallel create of the same task.
+      await tx.get(dedupeLockRef)
+      const existingSnap = await tx.get(
+        adminDb.collection('tasks').where('orgId', '==', orgId).where('requestKey', '==', requestKey)
+      )
+      const hasOpenRequest = existingSnap.docs.some((doc) => {
+        const data = doc.data() as Record<string, unknown>
+        return data.deleted !== true && OPEN_TASK_STATUSES.includes(data.status as (typeof OPEN_TASK_STATUSES)[number])
+      })
+      if (hasOpenRequest) throw new DuplicateOpenRequestError()
+
+      tx.set(dedupeLockRef, {
+        orgId,
+        projectId,
+        requestKey,
+        taskId: taskRef.id,
+        ...portalActorFields(uid),
+      })
+      tx.create(taskRef, {
+        orgId,
+        title,
+        description,
+        status: 'todo',
+        priority: 'normal',
+        dueDate: null,
+        assignedTo: null,
+        projectId: null,
+        contactId: null,
+        dealId: null,
+        tags: ['book-studio', 'ai-draft-request'],
+        columnId: 'todo',
+        requestKey,
+        linkedResource: {
+          type: 'book_studio_project',
+          id: projectId,
+          unitType,
+          unitId: unitId ?? null,
+        },
+        ...portalActorFields(uid),
+        completedAt: null,
+        deleted: false,
+      })
+    })
+  } catch (err) {
+    if (err instanceof DuplicateOpenRequestError) {
+      return apiError('An AI draft request for this item is already open', 409)
+    }
+    throw err
+  }
 
   const summary = `Client requested an AI draft (${unitLabel}). Task ${taskRef.id}.`
   await adminDb.collection('book_studio_decision_logs').add({
