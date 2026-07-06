@@ -162,20 +162,19 @@ describe('portal workspace channel actions', () => {
 
   it('offers Reconnect only on channels that need reauth', async () => {
     render(<YouTubeStudioPortalWorkspace orgId="lumen-org" />)
-
-    await screen.findByRole('heading', { name: 'Stale' })
-    expect(screen.getAllByRole('link', { name: 'Reconnect' })).toHaveLength(1)
+    const selector = await screen.findByLabelText('Channel')
+    fireEvent.change(selector, { target: { value: 'channel-2' } })
+    expect(screen.getByRole('link', { name: 'Reconnect' })).toBeInTheDocument()
+    fireEvent.change(selector, { target: { value: 'channel-1' } })
+    expect(screen.queryByRole('link', { name: 'Reconnect' })).not.toBeInTheDocument()
   })
 
   it('puts the client cockpit actions at the top of the portal workspace', async () => {
     render(<YouTubeStudioPortalWorkspace orgId="lumen-org" />)
 
     expect((await screen.findAllByRole('heading', { name: 'Request a PiB video' })).length).toBeGreaterThan(0)
-    expect(screen.getByRole('heading', { name: 'Create or edit a video' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Create video edit' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Review pending work' })).toBeInTheDocument()
-    expect(screen.getByText('Connected channels')).toBeInTheDocument()
-    expect(screen.getByText('Active video work')).toBeInTheDocument()
-    expect(screen.getByText('Waiting for review')).toBeInTheDocument()
   })
 
   it('requires channel, title, and objective before a PiB video request can be sent', async () => {
@@ -236,13 +235,13 @@ describe('portal workspace channel actions', () => {
   it('does not render empty internal production buckets on the portal overview', async () => {
     render(<YouTubeStudioPortalWorkspace orgId="lumen-org" />)
 
-    await screen.findByRole('heading', { name: 'Review queue' })
+    await screen.findByText(/No video work yet/)
     expect(screen.queryByRole('heading', { name: 'Source assets' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Clip candidates' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Production drafts' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Render jobs' })).not.toBeInTheDocument()
     expect(screen.queryByText(/No source assets are visible yet/i)).not.toBeInTheDocument()
-    expect(screen.getByText(/Production details will appear here/i)).toBeInTheDocument()
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument()
   })
 
   it('creates YouTube Studio editor projects against the selected channel', async () => {
@@ -382,7 +381,7 @@ describe('studio empty state and guide', () => {
 
     render(<YouTubeStudioPortalWorkspace orgId="lumen-org" />)
 
-    await screen.findByRole('heading', { name: 'Acme Films' })
+    await screen.findByLabelText('Channel')
     expect(screen.queryByText('How YouTube Studio works')).not.toBeInTheDocument()
   })
 })

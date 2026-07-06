@@ -13,12 +13,14 @@ import type {
   YouTubeSourceAsset,
   YouTubeVideoProject,
 } from '@/lib/youtube-studio/types'
-import { channelNeedsReconnect, YouTubeChannelCard, YouTubeVideoCard } from '@/components/youtube-studio/YouTubeStudioCards'
 import { YouTubeStudioGuide } from '@/components/youtube-studio/YouTubeStudioGuide'
 import { YouTubeStudioOAuthReturnHandler } from '@/components/youtube-studio/YouTubeStudioOAuthReturnHandler'
-import { YouTubeStudioPipelineBoard } from '@/components/youtube-studio/YouTubeStudioPipelineBoard'
 import { YouTubeStudioWorkspaceShell } from '@/components/youtube-studio/YouTubeStudioWorkspaceShell'
+import { YouTubeStudioChannelHeader } from '@/components/youtube-studio/YouTubeStudioChannelHeader'
+import { YouTubeStudioWorkQueue } from '@/components/youtube-studio/YouTubeStudioWorkQueue'
+import { YouTubeStudioDetailsTabs } from '@/components/youtube-studio/YouTubeStudioDetailsTabs'
 import { VideoEditorProjectList } from '@/components/video-editor/VideoEditorProjectList'
+import { buildWorkQueue, filterWorkQueueByChannel, type WorkQueueItem } from '@/lib/youtube-studio/work-queue'
 import { appendQueryParams, scopedApiPath } from '@/lib/portal/scoped-routing'
 
 interface YouTubeStudioPortalWorkspaceProps {
@@ -89,7 +91,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   const [moduleDisabled, setModuleDisabled] = useState(false)
   const [capabilities, setCapabilities] = useState<YouTubeStudioCapabilities>(defaultCapabilities)
   const [retryAccountId, setRetryAccountId] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'overview' | 'pipeline'>('overview')
+  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null)
   const submittingRequestRef = useRef(false)
   const reviewingIdRef = useRef<string | null>(null)
   const reviewingPacketIdRef = useRef<string | null>(null)
@@ -98,6 +100,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   const loadRequestIdRef = useRef(0)
   const requestFormRef = useRef<HTMLFormElement>(null)
   const editProjectsRef = useRef<HTMLDivElement>(null)
+  const workQueueRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setResolvedOrgId(orgId ?? '')
@@ -132,19 +135,17 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   )
   const pendingWorkCount =
     pendingVideoReviews.length + pendingPacketReviews.length + pendingDraftReviews.length + pendingRenderReviews.length
-  const activeVideoCount = videos.filter((video) => video.status !== 'live').length
   const requestCanSubmit = Boolean(
     capabilities.canCreate && request.channelWorkspaceId && request.title.trim() && request.objective.trim(),
   )
   const requestHelpText = buildRequestHelpText(request, submittingRequest)
-  const hasClientProductionWork =
-    sourceAssets.length > 0 ||
-    clipCandidates.length > 0 ||
-    productionDrafts.length > 0 ||
-    renderJobs.length > 0 ||
-    packets.length > 0 ||
-    releasePlans.length > 0 ||
-    analytics.length > 0
+  const workQueue = useMemo(
+    () => filterWorkQueueByChannel(
+      buildWorkQueue({ videos, packets, productionDrafts, renderJobs }),
+      selectedChannelId,
+    ),
+    [videos, packets, productionDrafts, renderJobs, selectedChannelId],
+  )
 
   const load = useCallback(async () => {
     if (apiPath !== activeApiPathRef.current) return
@@ -252,17 +253,11 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
     setRequest((prev) => ({ ...prev, [field]: value }))
   }
 
-  function showOverviewSection(target: 'request' | 'editor') {
-    setActiveTab('overview')
-    const scrollToSection = () => {
-      const element = target === 'request' ? requestFormRef.current : editProjectsRef.current
-      element?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
-    }
-    if (typeof window.requestAnimationFrame === 'function') {
-      window.requestAnimationFrame(scrollToSection)
-    } else {
-      scrollToSection()
-    }
+  function scrollToSection(target: 'request' | 'editor' | 'queue') {
+    const element = target === 'request' ? requestFormRef.current : target === 'editor' ? editProjectsRef.current : workQueueRef.current
+    const run = () => element?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+    if (typeof window.requestAnimationFrame === 'function') window.requestAnimationFrame(run)
+    else run()
   }
 
   async function submitRequest(event: React.FormEvent) {
@@ -482,6 +477,41 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
     }
   }
 
+  function renderWorkQueueActions(item: WorkQueueItem) {
+    if (item.kind === 'video' && item.video && capabilities.canReviewApprovals && isClientReviewOpen(item.video)) {
+      return (
+        <div className="w-full space-y-3">
+          <textarea
+            rows={3}
+            disabled={reviewingId === item.id}
+            value={reviewNotes[item.id] ?? ''}
+            onChange={(event) => setReviewNotes((prev) => ({ ...prev, [item.id]: event.target.value }))}
+            placeholder="Notes for PiB"
+            className="w-full rounded-xl border border-[var(--color-pib-line)] bg-transparent p-3 text-sm"
+          />
+          <div className="flex flex-wrap gap-2">
+            <button type="button" disabled={Boolean(reviewingId)} onClick={() => saveDecision(item.id, 'approved')} className="pib-btn-primary text-sm">Approve</button>
+            <button type="button" disabled={Boolean(reviewingId)} onClick={() => saveDecision(item.id, 'changes_requested')} className="pib-btn-ghost text-sm">Request changes</button>
+            <button type="button" disabled={Boolean(reviewingId)} onClick={() => saveDecision(item.id, 'rejected')} className="pib-btn-ghost text-sm">Reject</button>
+          </div>
+        </div>
+      )
+    }
+    if (item.kind === 'video' && item.video?.status === 'live') {
+      return <button type="button" onClick={() => void repurposeVideo(item.id)} className="pib-btn-ghost text-sm">Repurpose to social</button>
+    }
+    if (item.kind === 'packet' && item.packet?.status === 'client_review') {
+      return <a href="#youtube-studio-details" className="pib-btn-primary text-sm">Review packet below</a>
+    }
+    if (item.kind === 'production_draft') {
+      return <a href="#youtube-studio-details" className="pib-btn-primary text-sm">Review draft below</a>
+    }
+    if (item.kind === 'render_job' && item.renderJob?.status === 'qa_review') {
+      return <a href="#youtube-studio-details" className="pib-btn-primary text-sm">Review render below</a>
+    }
+    return null
+  }
+
   if (moduleDisabled) {
     return (
       <YouTubeStudioWorkspaceShell
@@ -513,7 +543,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       surface="portal"
       eyebrow="Video production"
       title="YouTube Studio"
-      description="Request videos, review drafts, approve changes, and see the YouTube work PiB is producing for your account."
+      description="Create or request videos, track the work PiB is producing, and approve what goes live on your channel."
       notice={notice}
       loading={loading}
       className="p-4 sm:p-6 lg:p-8"
@@ -521,25 +551,35 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       <Suspense fallback={null}>
         <YouTubeStudioOAuthReturnHandler onRefresh={load} onProvisionFailed={setRetryAccountId} />
       </Suspense>
+      <YouTubeStudioChannelHeader
+        channels={channels}
+        selectedChannelId={selectedChannelId}
+        onSelect={setSelectedChannelId}
+        oauthHref={youtubeOAuthHref}
+        linkAnotherChannelHref={linkAnotherChannelHref}
+      />
+
+      {channels.length === 0 && !loading ? <YouTubeStudioGuide oauthHref={youtubeOAuthHref} /> : null}
+
       <section className="grid gap-3 md:grid-cols-3">
+        <article className="pib-card-section flex min-w-0 flex-col gap-4 p-5">
+          <div className="min-w-0">
+            <p className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Create</p>
+            <h2 className="mt-1 font-headline text-xl font-semibold text-on-surface">Create video edit</h2>
+            <p className="mt-2 text-sm text-on-surface-variant">Start a channel-linked edit project in the Video Editor or open recent edits.</p>
+          </div>
+          <button type="button" onClick={() => scrollToSection('editor')} className="pib-btn-primary mt-auto justify-center text-sm">
+            Create video edit
+          </button>
+        </article>
         <article className="pib-card-section flex min-w-0 flex-col gap-4 p-5">
           <div className="min-w-0">
             <p className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Request</p>
             <h2 className="mt-1 font-headline text-xl font-semibold text-on-surface">Request a PiB video</h2>
             <p className="mt-2 text-sm text-on-surface-variant">{channels.length ? 'Send PiB a clear brief for the next video.' : 'Link a channel before requesting production work.'}</p>
           </div>
-          <button type="button" onClick={() => showOverviewSection('request')} className="pib-btn-primary mt-auto justify-center text-sm">
+          <button type="button" onClick={() => scrollToSection('request')} className="pib-btn-ghost mt-auto justify-center text-sm">
             Request a PiB video
-          </button>
-        </article>
-        <article className="pib-card-section flex min-w-0 flex-col gap-4 p-5">
-          <div className="min-w-0">
-            <p className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Editor</p>
-            <h2 className="mt-1 font-headline text-xl font-semibold text-on-surface">Create or edit a video</h2>
-            <p className="mt-2 text-sm text-on-surface-variant">Start a channel-linked edit project or open recent edits.</p>
-          </div>
-          <button type="button" onClick={() => showOverviewSection('editor')} className="pib-btn-ghost mt-auto justify-center text-sm">
-            Create/edit a video
           </button>
         </article>
         <article className="pib-card-section flex min-w-0 flex-col gap-4 p-5">
@@ -550,501 +590,46 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
               {pendingWorkCount ? `${pendingWorkCount} item${pendingWorkCount === 1 ? '' : 's'} waiting for a decision.` : 'No client decisions waiting right now.'}
             </p>
           </div>
-          <button type="button" onClick={() => setActiveTab('pipeline')} className="pib-btn-ghost mt-auto justify-center text-sm">
+          <button type="button" onClick={() => scrollToSection('queue')} className="pib-btn-ghost mt-auto justify-center text-sm">
             Review pending work
           </button>
         </article>
       </section>
-      <section className="grid gap-3 sm:grid-cols-3">
-        <div className="pib-card-section px-4 py-3">
-          <p className="text-xs text-on-surface-variant">Connected channels</p>
-          <p className="text-2xl font-bold text-on-surface">{channels.length}</p>
-        </div>
-        <div className="pib-card-section px-4 py-3">
-          <p className="text-xs text-on-surface-variant">Active video work</p>
-          <p className="text-2xl font-bold text-on-surface">{activeVideoCount}</p>
-        </div>
-        <div className="pib-card-section px-4 py-3">
-          <p className="text-xs text-on-surface-variant">Waiting for review</p>
-          <p className="text-2xl font-bold text-on-surface">{pendingWorkCount}</p>
-        </div>
-      </section>
-      <div className="flex gap-2">
-        {(['overview', 'pipeline'] as const).map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setActiveTab(tab)}
-            aria-pressed={activeTab === tab}
-            className={activeTab === tab ? 'pib-btn-primary text-sm' : 'pib-btn-ghost text-sm'}
-          >
-            {tab === 'overview' ? 'Overview' : 'Pipeline'}
-          </button>
-        ))}
-      </div>
-      {activeTab === 'pipeline' ? (
-        <YouTubeStudioPipelineBoard
-          videos={videos}
-          onReview={() => setActiveTab('overview')}
-          onRepurpose={(videoId) => void repurposeVideo(videoId)}
-        />
-      ) : (
+
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <section className="space-y-4">
-          {channels.length === 0 && !loading ? (
-            <YouTubeStudioGuide oauthHref={youtubeOAuthHref} />
-          ) : null}
-
-          <div className="space-y-3">
-            {channels.length > 0 ? (
-              <h2 className="font-headline text-xl font-semibold text-on-surface">Channels</h2>
-            ) : null}
-            {channels.map((channel) => (
-              <YouTubeChannelCard key={channel.id ?? channel.title} channel={channel}>
-                {channelNeedsReconnect(channel) ? (
-                  <a href={youtubeOAuthHref} className="pib-btn-primary text-sm">Reconnect</a>
-                ) : null}
-              </YouTubeChannelCard>
-            ))}
-            {channels.length > 0 ? (
-              <a href={linkAnotherChannelHref} className="pib-btn-ghost text-sm">Link another channel</a>
-            ) : null}
+        <section className="space-y-6">
+          <div ref={workQueueRef}>
+            <YouTubeStudioWorkQueue groups={workQueue} renderItemActions={renderWorkQueueActions} />
           </div>
 
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="font-headline text-xl font-semibold text-on-surface">Review queue</h2>
-              {videos.length ? (
-                <button type="button" onClick={() => setActiveTab('pipeline')} className="pib-btn-ghost text-sm">
-                  View full pipeline
-                </button>
-              ) : null}
-            </div>
-            {pendingVideoReviews.length === 0 ? (
-              <div className="pib-card-section p-5 text-sm text-on-surface-variant">
-                No video decisions are waiting. New requests and edits will appear in the pipeline as PiB works on them.
-              </div>
-            ) : (
-              pendingVideoReviews.map((video) => (
-                <YouTubeVideoCard key={video.id ?? video.title} video={video}>
-                  {capabilities.canReviewApprovals && video.id && isClientReviewOpen(video) ? (
-                    <div className="w-full space-y-3">
-                      <textarea
-                        rows={3}
-                        disabled={reviewingId === video.id}
-                        value={reviewNotes[video.id] ?? ''}
-                        onChange={(event) => setReviewNotes((prev) => ({ ...prev, [video.id!]: event.target.value }))}
-                        placeholder="Notes for PiB"
-                        className="w-full rounded-xl border border-[var(--color-pib-line)] bg-transparent p-3 text-sm"
-                      />
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          disabled={Boolean(reviewingId)}
-                          onClick={() => saveDecision(video.id!, 'approved')}
-                          className="pib-btn-primary text-sm"
-                        >
-                          Approve
-                        </button>
-                        <button
-                          type="button"
-                          disabled={Boolean(reviewingId)}
-                          onClick={() => saveDecision(video.id!, 'changes_requested')}
-                          className="pib-btn-ghost text-sm"
-                        >
-                          Request changes
-                        </button>
-                        <button
-                          type="button"
-                          disabled={Boolean(reviewingId)}
-                          onClick={() => saveDecision(video.id!, 'rejected')}
-                          className="pib-btn-ghost text-sm"
-                        >
-                          Reject
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
-                </YouTubeVideoCard>
-              ))
-            )}
+          <div id="youtube-studio-details">
+            <YouTubeStudioDetailsTabs
+              sourceAssets={sourceAssets}
+              clipCandidates={clipCandidates}
+              productionDrafts={productionDrafts}
+              renderJobs={renderJobs}
+              packets={packets}
+              releasePlans={releasePlans}
+              analytics={analytics}
+              canReviewApprovals={capabilities.canReviewApprovals}
+              draftNotes={draftNotes}
+              renderNotes={renderNotes}
+              packetNotes={packetNotes}
+              reviewingDraftId={reviewingDraftId}
+              reviewingRenderId={reviewingRenderId}
+              reviewingPacketId={reviewingPacketId}
+              onDraftNotesChange={(id, value) => setDraftNotes((prev) => ({ ...prev, [id]: value }))}
+              onRenderNotesChange={(id, value) => setRenderNotes((prev) => ({ ...prev, [id]: value }))}
+              onPacketNotesChange={(id, value) => setPacketNotes((prev) => ({ ...prev, [id]: value }))}
+              onDraftDecision={(id, decision) => void saveDraftDecision(id, decision)}
+              onRenderDecision={(id, decision) => void saveRenderDecision(id, decision)}
+              onPacketDecision={(id, decision) => void savePacketDecision(id, decision)}
+            />
           </div>
-
-          {sourceAssets.length > 0 ? (
-          <div className="space-y-3">
-            <h2 className="font-headline text-xl font-semibold text-on-surface">Source assets</h2>
-            {sourceAssets.map((asset) => (
-                <article key={asset.id ?? asset.title} className="pib-card-section space-y-3 p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="break-words font-semibold text-on-surface">{asset.title}</h3>
-                      <p className="mt-1 text-sm text-on-surface-variant">{sourceAssetMeta(asset)}</p>
-                    </div>
-                  </div>
-                  {asset.clientNotes ? <p className="break-words text-sm text-on-surface-variant">{asset.clientNotes}</p> : null}
-                  {asset.rights?.status ? (
-                    <p className="break-words text-xs text-on-surface-variant">rights: {formatToken(asset.rights.status)}</p>
-                  ) : null}
-                </article>
-              ))}
-          </div>
-          ) : null}
-
-          {clipCandidates.length > 0 ? (
-          <div className="space-y-3">
-            <h2 className="font-headline text-xl font-semibold text-on-surface">Clip candidates</h2>
-            {clipCandidates.map((clip) => (
-                <article key={clip.id ?? `${clip.sourceAssetId}-${clip.startSeconds}`} className="pib-card-section space-y-3 p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="break-words font-semibold text-on-surface">{clip.title}</h3>
-                      <p className="mt-1 text-sm text-on-surface-variant">{clipMeta(clip)}</p>
-                    </div>
-                  </div>
-                  {clip.summary ? <p className="break-words text-sm text-on-surface-variant">{clip.summary}</p> : null}
-                  {clip.hook ? <p className="break-words text-sm text-on-surface-variant">{clip.hook}</p> : null}
-                  {clip.transcriptExcerpt ? <p className="break-words text-xs text-on-surface-variant">{clip.transcriptExcerpt}</p> : null}
-                  <div className="grid gap-2 text-xs text-on-surface-variant sm:grid-cols-2">
-                    {clipGateEntries(clip).map(([key, check]) => (
-                      <span key={key} className="min-w-0 break-words">
-                        {formatToken(key)}: {formatToken(check?.status ?? 'not_applicable')}
-                      </span>
-                    ))}
-                  </div>
-                </article>
-              ))}
-          </div>
-          ) : null}
-
-          {productionDrafts.length > 0 ? (
-          <div className="space-y-3">
-            <h2 className="font-headline text-xl font-semibold text-on-surface">Production drafts</h2>
-            {productionDrafts.map((draft) => (
-                <article key={draft.id ?? `${draft.videoProjectId}-${draft.versionNumber}`} className="pib-card-section space-y-3 p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="break-words font-semibold text-on-surface">{draft.title}</h3>
-                      <p className="mt-1 text-sm text-on-surface-variant">{productionDraftMeta(draft)}</p>
-                    </div>
-                  </div>
-                  {draft.summary ? <p className="break-words text-sm text-on-surface-variant">{draft.summary}</p> : null}
-                  {draft.hook ? <p className="break-words text-sm text-on-surface-variant">{draft.hook}</p> : null}
-                  {draft.outline?.length ? (
-                    <div className="flex flex-wrap gap-2">
-                      {draft.outline.slice(0, 6).map((item) => (
-                        <span key={item} className="max-w-full break-words rounded-full bg-white/[0.04] px-2 py-1 text-xs text-on-surface-variant">
-                          {item}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                  {draft.scriptText ? <p className="break-words text-sm text-on-surface-variant">{draft.scriptText}</p> : null}
-                  {draft.scenes?.length ? (
-                    <div className="grid gap-2">
-                      {draft.scenes.slice(0, 3).map((scene, index) => (
-                        <div key={`${scene.label}-${index}`} className="rounded-lg border border-[var(--color-pib-line)] p-3 text-sm text-on-surface-variant">
-                          <p className="font-medium text-on-surface">{productionSceneMeta(scene)}</p>
-                          {scene.summary ? <p className="mt-1 break-words">{scene.summary}</p> : null}
-                          {scene.voiceover ? <p className="mt-1 break-words">{scene.voiceover}</p> : null}
-                          {scene.visualNotes ? <p className="mt-1 break-words">{scene.visualNotes}</p> : null}
-                          {scene.onScreenText ? <p className="mt-1 break-words">{scene.onScreenText}</p> : null}
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                  <div className="grid gap-2 text-xs text-on-surface-variant sm:grid-cols-2">
-                    {productionDraftGateEntries(draft).map(([key, check]) => (
-                      <span key={key} className="min-w-0 break-words">
-                        {formatToken(key)}: {formatToken(check?.status ?? 'not_applicable')}
-                      </span>
-                    ))}
-                  </div>
-                  {draft.clientNotes ? <p className="break-words text-sm text-on-surface-variant">{draft.clientNotes}</p> : null}
-                  {capabilities.canReviewApprovals && draft.id && draft.status === 'client_review' ? (
-                    <div className="space-y-3">
-                      <textarea
-                        rows={3}
-                        disabled={reviewingDraftId === draft.id}
-                        value={draftNotes[draft.id] ?? ''}
-                        onChange={(event) => setDraftNotes((prev) => ({ ...prev, [draft.id!]: event.target.value }))}
-                        placeholder="Draft notes for PiB"
-                        className="w-full rounded-xl border border-[var(--color-pib-line)] bg-transparent p-3 text-sm"
-                      />
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          disabled={Boolean(reviewingDraftId)}
-                          onClick={() => saveDraftDecision(draft.id!, 'approved')}
-                          className="pib-btn-primary text-sm"
-                        >
-                          Approve draft
-                        </button>
-                        <button
-                          type="button"
-                          disabled={Boolean(reviewingDraftId)}
-                          onClick={() => saveDraftDecision(draft.id!, 'changes_requested')}
-                          className="pib-btn-ghost text-sm"
-                        >
-                          Request draft changes
-                        </button>
-                        <button
-                          type="button"
-                          disabled={Boolean(reviewingDraftId)}
-                          onClick={() => saveDraftDecision(draft.id!, 'rejected')}
-                          className="pib-btn-ghost text-sm"
-                        >
-                          Reject draft
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
-                </article>
-              ))}
-          </div>
-          ) : null}
-
-          {renderJobs.length > 0 ? (
-          <div className="space-y-3">
-            <h2 className="font-headline text-xl font-semibold text-on-surface">Render jobs</h2>
-            {renderJobs.map((job) => (
-                <article key={job.id ?? `${job.videoProjectId}-${job.versionNumber}`} className="pib-card-section space-y-3 p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="break-words font-semibold text-on-surface">{job.title}</h3>
-                      <p className="mt-1 text-sm text-on-surface-variant">{renderJobMeta(job)}</p>
-                    </div>
-                  </div>
-                  {job.editBrief ? <p className="break-words text-sm text-on-surface-variant">{job.editBrief}</p> : null}
-                  {job.timeline?.length ? (
-                    <div className="grid gap-2">
-                      {job.timeline.slice(0, 3).map((scene, index) => (
-                        <div key={`${scene.label}-${index}`} className="rounded-lg border border-[var(--color-pib-line)] p-3 text-sm text-on-surface-variant">
-                          <p className="font-medium text-on-surface">{renderTimelineMeta(scene)}</p>
-                          {scene.summary ? <p className="mt-1 break-words">{scene.summary}</p> : null}
-                          {scene.voiceover ? <p className="mt-1 break-words">{scene.voiceover}</p> : null}
-                          {scene.onScreenText ? <p className="mt-1 break-words">{scene.onScreenText}</p> : null}
-                          {scene.editNotes ? <p className="mt-1 break-words">{scene.editNotes}</p> : null}
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                  <div className="grid gap-2 text-xs text-on-surface-variant sm:grid-cols-2">
-                    {renderJobGateEntries(job).map(([key, check]) => (
-                      <span key={key} className="min-w-0 break-words">
-                        {formatToken(key)}: {formatToken(check?.status ?? 'not_applicable')}
-                      </span>
-                    ))}
-                  </div>
-                  {job.output?.previewUrl || job.output?.downloadUrl ? (
-                    <p className="break-words text-sm text-on-surface-variant">
-                      {job.output.previewUrl ? 'preview ready' : 'download ready'}
-                      {typeof job.output.durationSeconds === 'number' ? ` / ${job.output.durationSeconds}s` : ''}
-                    </p>
-                  ) : null}
-                  {job.clientNotes ? <p className="break-words text-sm text-on-surface-variant">{job.clientNotes}</p> : null}
-                  {capabilities.canReviewApprovals && job.id && job.status === 'qa_review' ? (
-                    <div className="space-y-3">
-                      <textarea
-                        rows={3}
-                        disabled={reviewingRenderId === job.id}
-                        value={renderNotes[job.id] ?? ''}
-                        onChange={(event) => setRenderNotes((prev) => ({ ...prev, [job.id!]: event.target.value }))}
-                        placeholder="Render notes for PiB"
-                        className="w-full rounded-xl border border-[var(--color-pib-line)] bg-transparent p-3 text-sm"
-                      />
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          disabled={Boolean(reviewingRenderId)}
-                          onClick={() => saveRenderDecision(job.id!, 'approved')}
-                          className="pib-btn-primary text-sm"
-                        >
-                          Approve render
-                        </button>
-                        <button
-                          type="button"
-                          disabled={Boolean(reviewingRenderId)}
-                          onClick={() => saveRenderDecision(job.id!, 'changes_requested')}
-                          className="pib-btn-ghost text-sm"
-                        >
-                          Request render changes
-                        </button>
-                        <button
-                          type="button"
-                          disabled={Boolean(reviewingRenderId)}
-                          onClick={() => saveRenderDecision(job.id!, 'rejected')}
-                          className="pib-btn-ghost text-sm"
-                        >
-                          Reject render
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
-                </article>
-              ))}
-          </div>
-          ) : null}
 
           <div ref={editProjectsRef}>
             <VideoEditorProjectList orgId={activeOrgId} channelOptions={channels} compact />
           </div>
-
-          {packets.length > 0 ? (
-          <div className="space-y-3">
-            <h2 className="font-headline text-xl font-semibold text-on-surface">Publishing packets</h2>
-            {packets.map((packet) => (
-                <article key={packet.id ?? `${packet.videoProjectId}-${packet.versionNumber}`} className="pib-card-section space-y-3 p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="break-words font-semibold text-on-surface">{packetTitle(packet)}</h3>
-                      <p className="mt-1 text-sm text-on-surface-variant">
-                        Version {packet.versionNumber || 1} / {formatToken(packet.status)} / {formatToken(packet.visibility)}
-                      </p>
-                    </div>
-                    <span className="shrink-0 rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
-                      {packet.chapters?.length ?? 0} chapters
-                    </span>
-                  </div>
-                  {packet.description ? (
-                    <p className="break-words text-sm text-on-surface-variant">{packet.description}</p>
-                  ) : null}
-                  {packet.tags?.length ? (
-                    <div className="flex flex-wrap gap-2">
-                      {packet.tags.slice(0, 8).map((tag) => (
-                        <span key={tag} className="max-w-full break-words rounded-full bg-white/[0.04] px-2 py-1 text-xs text-on-surface-variant">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                  <div className="grid gap-2 text-xs text-on-surface-variant sm:grid-cols-2">
-                    {packetGateEntries(packet).map(([key, check]) => (
-                      <span key={key} className="min-w-0 break-words">
-                        {formatToken(key)}: {formatToken(check?.status ?? 'not_applicable')}
-                      </span>
-                    ))}
-                  </div>
-                  {capabilities.canReviewApprovals && packet.id && packet.status === 'client_review' ? (
-                    <div className="space-y-3">
-                      <textarea
-                        rows={3}
-                        disabled={reviewingPacketId === packet.id}
-                        value={packetNotes[packet.id] ?? ''}
-                        onChange={(event) => setPacketNotes((prev) => ({ ...prev, [packet.id!]: event.target.value }))}
-                        placeholder="Packet notes for PiB"
-                        className="w-full rounded-xl border border-[var(--color-pib-line)] bg-transparent p-3 text-sm"
-                      />
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          disabled={Boolean(reviewingPacketId)}
-                          onClick={() => savePacketDecision(packet.id!, 'approved')}
-                          className="pib-btn-primary text-sm"
-                        >
-                          Approve packet
-                        </button>
-                        <button
-                          type="button"
-                          disabled={Boolean(reviewingPacketId)}
-                          onClick={() => savePacketDecision(packet.id!, 'changes_requested')}
-                          className="pib-btn-ghost text-sm"
-                        >
-                          Request packet changes
-                        </button>
-                        <button
-                          type="button"
-                          disabled={Boolean(reviewingPacketId)}
-                          onClick={() => savePacketDecision(packet.id!, 'rejected')}
-                          className="pib-btn-ghost text-sm"
-                        >
-                          Reject packet
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
-                </article>
-              ))}
-          </div>
-          ) : null}
-
-          {releasePlans.length > 0 ? (
-          <div className="space-y-3">
-            <h2 className="font-headline text-xl font-semibold text-on-surface">Release plans</h2>
-            {releasePlans.map((plan) => (
-                <article key={plan.id ?? `${plan.videoProjectId}-${plan.publishingPacketId}`} className="pib-card-section space-y-3 p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="break-words font-semibold text-on-surface">{plan.publicSummary || 'YouTube release plan'}</h3>
-                      <p className="mt-1 text-sm text-on-surface-variant">
-                        {formatToken(plan.mode)} / {formatToken(plan.status)} / {formatToken(plan.targetVisibility)}
-                      </p>
-                    </div>
-                    {plan.scheduledPublishAt ? (
-                      <span className="shrink-0 rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
-                        scheduled
-                      </span>
-                    ) : null}
-                  </div>
-                  {plan.scheduledPublishAt ? (
-                    <p className="break-words text-sm text-on-surface-variant">scheduled for {String(plan.scheduledPublishAt)}</p>
-                  ) : null}
-                  <div className="grid gap-2 text-xs text-on-surface-variant sm:grid-cols-2">
-                    {releasePlanGateEntries(plan).map(([key, check]) => (
-                      <span key={key} className="min-w-0 break-words">
-                        {formatToken(key)}: {formatToken(check?.status ?? 'not_applicable')}
-                      </span>
-                    ))}
-                  </div>
-                </article>
-              ))}
-          </div>
-          ) : null}
-
-          {analytics.length > 0 ? (
-          <div className="space-y-3">
-            <h2 className="font-headline text-xl font-semibold text-on-surface">Analytics summaries</h2>
-            {analytics.slice(0, 4).map((snapshot) => (
-                <article key={snapshot.id ?? `${snapshot.channelWorkspaceId}-${snapshot.periodEnd}`} className="pib-card-section space-y-3 p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="break-words font-semibold text-on-surface">{snapshot.clientSummary || 'YouTube analytics update'}</h3>
-                      <p className="mt-1 text-sm text-on-surface-variant">
-                        {snapshot.periodStart} to {snapshot.periodEnd} / {formatToken(snapshot.sourceFreshness)}
-                      </p>
-                    </div>
-                    <span className="shrink-0 rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
-                      {formatToken(snapshot.source)}
-                    </span>
-                  </div>
-                  <div className="grid gap-2 text-sm text-on-surface-variant sm:grid-cols-4">
-                    <Metric label="Views" value={snapshot.metrics?.views} />
-                    <Metric label="Watch min" value={snapshot.metrics?.watchTimeMinutes} />
-                    <Metric label="Avg viewed" value={snapshot.metrics?.averageViewPercentage} suffix="%" />
-                    <Metric label="Retention" value={snapshot.metrics?.retentionPercentage} suffix="%" />
-                    <Metric label="CTR" value={snapshot.metrics?.impressionsCtr} suffix="%" />
-                    <Metric label="Traffic sources" value={snapshot.metrics?.trafficSources?.length} />
-                    <Metric label="Audience segments" value={snapshot.metrics?.audience?.length} />
-                    <Metric label="Compared videos" value={snapshot.metrics?.videoComparisons?.length} />
-                  </div>
-                  {snapshot.recommendations?.length ? (
-                    <div className="space-y-2">
-                      {snapshot.recommendations.slice(0, 2).map((recommendation, index) => (
-                        <p key={`${recommendation.type}-${index}`} className="break-words text-sm text-on-surface-variant">
-                          <span className="font-medium text-on-surface">{formatToken(recommendation.type)}:</span> {recommendation.summary}
-                        </p>
-                      ))}
-                    </div>
-                  ) : null}
-                </article>
-              ))}
-          </div>
-          ) : null}
-
-          {!hasClientProductionWork ? (
-            <div className="pib-card-section p-5 text-sm text-on-surface-variant">
-              Production details will appear here when PiB has drafts, renders, publishing plans, or analytics ready for you.
-            </div>
-          ) : null}
         </section>
 
         <aside className="h-fit space-y-4 lg:sticky lg:top-6">
@@ -1114,91 +699,8 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
           )}
         </aside>
       </div>
-      )}
     </YouTubeStudioWorkspaceShell>
   )
-}
-
-function Metric({ label, value, suffix = '' }: { label: string; value?: number; suffix?: string }) {
-  return (
-    <span className="min-w-0 break-words">
-      {label}: {value === undefined ? 'not set' : `${value}${suffix}`}
-    </span>
-  )
-}
-
-function sourceAssetMeta(asset: YouTubeSourceAsset) {
-  const parts = [formatToken(asset.assetType), formatToken(asset.status)]
-  if (typeof asset.durationSeconds === 'number') parts.push(`${asset.durationSeconds}s`)
-  return parts.join(' / ')
-}
-
-function clipMeta(clip: YouTubeClipCandidate) {
-  return `${clip.startSeconds}s-${clip.endSeconds}s / ${formatToken(clip.targetFormat)} / ${formatToken(clip.status)}`
-}
-
-function clipGateEntries(clip: YouTubeClipCandidate) {
-  return Object.entries(clip.checks ?? {}) as Array<[
-    keyof YouTubeClipCandidate['checks'],
-    YouTubeClipCandidate['checks'][keyof YouTubeClipCandidate['checks']],
-  ]>
-}
-
-function productionDraftMeta(draft: YouTubeProductionDraft) {
-  return `${formatToken(draft.draftType)} / ${formatToken(draft.status)} / v${draft.versionNumber || 1}`
-}
-
-function productionSceneMeta(scene: YouTubeProductionDraft['scenes'][number]) {
-  const parts = [scene.label]
-  if (typeof scene.targetSeconds === 'number') parts.push(`${scene.targetSeconds}s`)
-  return parts.join(' / ')
-}
-
-function productionDraftGateEntries(draft: YouTubeProductionDraft) {
-  return Object.entries(draft.checks ?? {}) as Array<[
-    keyof YouTubeProductionDraft['checks'],
-    YouTubeProductionDraft['checks'][keyof YouTubeProductionDraft['checks']],
-  ]>
-}
-
-function renderJobMeta(job: YouTubeRenderJob) {
-  return `${formatToken(job.renderType)} / ${formatToken(job.status)} / ${formatToken(job.targetFormat)}`
-}
-
-function renderTimelineMeta(scene: YouTubeRenderJob['timeline'][number]) {
-  const hasStart = typeof scene.startSeconds === 'number'
-  const hasEnd = typeof scene.endSeconds === 'number'
-  const range = hasStart && hasEnd ? `${scene.startSeconds}s-${scene.endSeconds}s` : null
-  return [scene.label, range].filter(Boolean).join(' / ')
-}
-
-function renderJobGateEntries(job: YouTubeRenderJob) {
-  return Object.entries(job.checks ?? {}) as Array<[
-    keyof YouTubeRenderJob['checks'],
-    YouTubeRenderJob['checks'][keyof YouTubeRenderJob['checks']],
-  ]>
-}
-
-function formatToken(value: string) {
-  return value.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[-_]/g, ' ').toLowerCase()
-}
-
-function packetTitle(packet: YouTubePublishingPacket) {
-  return packet.titleOptions?.find((option) => option.selected)?.text ?? packet.titleOptions?.[0]?.text ?? 'Publishing packet'
-}
-
-function packetGateEntries(packet: YouTubePublishingPacket) {
-  return Object.entries(packet.checks ?? {}) as Array<[
-    keyof YouTubePublishingPacket['checks'],
-    YouTubePublishingPacket['checks'][keyof YouTubePublishingPacket['checks']],
-  ]>
-}
-
-function releasePlanGateEntries(plan: YouTubeReleasePlan) {
-  return Object.entries(plan.checks ?? {}) as Array<[
-    keyof YouTubeReleasePlan['checks'],
-    YouTubeReleasePlan['checks'][keyof YouTubeReleasePlan['checks']],
-  ]>
 }
 
 function buildRequestHelpText(request: RequestForm, submitting: boolean) {

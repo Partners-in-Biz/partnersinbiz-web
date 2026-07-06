@@ -1,10 +1,17 @@
 import React from 'react'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { YouTubeStudioChannelHeader } from '@/components/youtube-studio/YouTubeStudioChannelHeader'
 import { YouTubeStudioWorkQueue } from '@/components/youtube-studio/YouTubeStudioWorkQueue'
 import { YouTubeStudioDetailsTabs } from '@/components/youtube-studio/YouTubeStudioDetailsTabs'
+import { YouTubeStudioPortalWorkspace } from '@/components/youtube-studio/YouTubeStudioPortalWorkspace'
 import { buildWorkQueue } from '@/lib/youtube-studio/work-queue'
 import type { YouTubeChannelWorkspace, YouTubeVideoProject } from '@/lib/youtube-studio/types'
+
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: jest.fn(), push: jest.fn() }),
+  usePathname: () => '/portal/youtube-studio',
+  useSearchParams: () => new URLSearchParams(''),
+}))
 
 function channel(id: string, title: string, extra: Partial<YouTubeChannelWorkspace> = {}): YouTubeChannelWorkspace {
   return {
@@ -218,5 +225,98 @@ describe('YouTubeStudioDetailsTabs', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: 'Approve render' }))
     expect(onRenderDecision).toHaveBeenCalledWith('r1', 'approved')
+  })
+})
+
+function cockpitPayload(overrides: Record<string, unknown> = {}) {
+  return {
+    success: true,
+    data: {
+      orgId: 'org-1',
+      channels: [channel('channel-1', 'Acme Films')],
+      series: [],
+      videos: [],
+      packets: [],
+      releasePlans: [],
+      sourceAssets: [],
+      clipCandidates: [],
+      productionDrafts: [],
+      renderJobs: [],
+      analytics: [],
+      ...overrides,
+    },
+  }
+}
+
+describe('YouTubeStudioPortalWorkspace cockpit', () => {
+  beforeEach(() => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, json: async () => cockpitPayload() } as Response) as jest.Mock
+  })
+
+  it('renders the channel header, three primary action cards, and the work queue', async () => {
+    render(<YouTubeStudioPortalWorkspace orgId="org-1" />)
+
+    expect(await screen.findByLabelText('Channel')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Create video edit' })).toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { name: 'Request a PiB video' }).length).toBeGreaterThan(0)
+    expect(screen.getByRole('heading', { name: 'Review pending work' })).toBeInTheDocument()
+    expect(screen.getByText(/No video work yet/)).toBeInTheDocument()
+  })
+
+  it('hides the details tabs entirely when technical collections are empty', async () => {
+    render(<YouTubeStudioPortalWorkspace orgId="org-1" />)
+    await screen.findByLabelText('Channel')
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Source assets' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Render jobs' })).not.toBeInTheDocument()
+  })
+
+  it('shows a decision form on needs-input video cards and saves the decision', async () => {
+    const fetchMock = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === 'PUT') return { ok: true, status: 200, json: async () => ({ success: true, data: { id: 'v1', updated: true } }) } as Response
+      return {
+        ok: true,
+        status: 200,
+        json: async () => cockpitPayload({
+          videos: [{
+            id: 'v1', orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Launch teaser',
+            objective: 'Announce launch', videoType: 'long_form', status: 'client_review',
+            visibility: { showInClientPortal: true }, deleted: false,
+          }],
+        }),
+      } as Response
+    })
+    global.fetch = fetchMock as jest.Mock
+
+    render(<YouTubeStudioPortalWorkspace orgId="org-1" />)
+    const approve = await screen.findByRole('button', { name: 'Approve' })
+    fireEvent.click(approve)
+    await waitFor(() => {
+      const putCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'PUT')
+      expect(putCall).toBeTruthy()
+      expect(JSON.parse(String(putCall?.[1]?.body))).toMatchObject({ id: 'v1', decision: 'approved' })
+    })
+  })
+
+  it('filters the work queue by the selected channel', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => cockpitPayload({
+        channels: [channel('channel-1', 'Acme Films'), channel('channel-2', 'Second')],
+        videos: [
+          { id: 'v1', orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Acme video', objective: 'x', videoType: 'long_form', status: 'production', visibility: { showInClientPortal: true }, deleted: false },
+          { id: 'v2', orgId: 'org-1', channelWorkspaceId: 'channel-2', title: 'Second video', objective: 'x', videoType: 'long_form', status: 'production', visibility: { showInClientPortal: true }, deleted: false },
+        ],
+      }),
+    } as Response) as jest.Mock
+
+    render(<YouTubeStudioPortalWorkspace orgId="org-1" />)
+    expect(await screen.findByText('Acme video')).toBeInTheDocument()
+    expect(screen.getByText('Second video')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Channel'), { target: { value: 'channel-1' } })
+    expect(screen.getByText('Acme video')).toBeInTheDocument()
+    expect(screen.queryByText('Second video')).not.toBeInTheDocument()
   })
 })
