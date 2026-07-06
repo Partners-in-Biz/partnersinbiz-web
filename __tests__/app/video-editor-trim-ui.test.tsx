@@ -1,6 +1,7 @@
 import React from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { TimelinePanel } from '@/components/video-editor/TimelinePanel'
+import { InspectorPanel } from '@/components/video-editor/InspectorPanel'
 import type { EditorTimeline } from '@/lib/video-editor/types'
 
 const timeline: EditorTimeline = {
@@ -103,5 +104,37 @@ describe('TimelinePanel trim handles', () => {
     )
     fireEvent.click(screen.getByTestId('timeline-clip-a'))
     expect(onSelectionChange).toHaveBeenCalledWith({ trackId: 't1', clipIds: ['a'] })
+  })
+})
+
+describe('InspectorPanel trim fields', () => {
+  const clip = {
+    id: 'a',
+    timelineStart: 2,
+    duration: 4,
+    media: { type: 'upload' as const, fileId: 'f-a', url: 'https://x.test/a.mp4', mediaKind: 'video' as const },
+  }
+
+  it('converts an in-point change into a start trim delta', () => {
+    const onTrim = jest.fn()
+    render(<InspectorPanel clip={clip} onPatch={jest.fn()} onTrim={onTrim} />)
+    const inPoint = screen.getByLabelText('In point (s)')
+    expect(inPoint).toHaveValue(2)
+    fireEvent.change(inPoint, { target: { value: '2.5' } })
+    expect(onTrim).toHaveBeenCalledWith('start', 0.5)
+  })
+
+  it('converts an out-point change into an end trim delta', () => {
+    const onTrim = jest.fn()
+    render(<InspectorPanel clip={clip} onPatch={jest.fn()} onTrim={onTrim} />)
+    const outPoint = screen.getByLabelText('Out point (s)')
+    expect(outPoint).toHaveValue(6)
+    fireEvent.change(outPoint, { target: { value: '5' } })
+    expect(onTrim).toHaveBeenCalledWith('end', -1)
+  })
+
+  it('hides trim fields when onTrim is not provided', () => {
+    render(<InspectorPanel clip={clip} onPatch={jest.fn()} />)
+    expect(screen.queryByLabelText('In point (s)')).not.toBeInTheDocument()
   })
 })
