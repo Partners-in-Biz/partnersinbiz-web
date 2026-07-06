@@ -76,11 +76,11 @@ export function BookProjectHeader({
               {assembling ? 'Assembling…' : 'Assemble book'}
             </button>
           </>
-        ) : (
+        ) : onRequestDraft ? (
           <button type="button" className="btn-primary" disabled={requestingDraft} onClick={onRequestDraft}>
             {requestingDraft ? 'Requesting…' : 'Request AI draft'}
           </button>
-        )
+        ) : null
       }
     />
   )

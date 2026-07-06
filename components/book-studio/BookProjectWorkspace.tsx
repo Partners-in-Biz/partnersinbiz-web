@@ -406,7 +406,7 @@ export function BookProjectWorkspace({
           onAssemble={assemble}
           assembling={assembling}
           showOperatorActions={capabilities.isOperator}
-          onRequestDraft={requestDraft}
+          onRequestDraft={capabilities.canEdit ? requestDraft : undefined}
           requestingDraft={requestingDraft}
         />
       }

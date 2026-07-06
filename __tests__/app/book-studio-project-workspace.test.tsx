@@ -590,6 +590,21 @@ describe('BookProjectWorkspace', () => {
     expect(screen.queryByPlaceholderText('New chapter title')).not.toBeInTheDocument()
   })
 
+  it('portal caps with canEdit:false hide the "Request AI draft" button', async () => {
+    installFetch({ projects: [storyProject], chapters: chaptersForStory, pages: [] })
+    render(
+      <BookProjectWorkspace
+        orgId="org-1"
+        projectId="project-story"
+        surface="portal"
+        capabilities={{ ...portalCapabilities, canEdit: false }}
+      />,
+    )
+
+    await screen.findByText('The Proof Chronicles')
+    expect(screen.queryByRole('button', { name: /Request AI draft/i })).not.toBeInTheDocument()
+  })
+
   it('portal surface with canApprovalGates:false excludes "approved" from status options', async () => {
     installFetch({ projects: [storyProject], chapters: chaptersForStory, pages: [] })
     render(
