@@ -5,7 +5,7 @@ import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
 import { Markdown } from 'tiptap-markdown'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 type SaveState = 'saved' | 'dirty' | 'saving'
 
@@ -71,8 +71,8 @@ export function ChapterEditor({ chapterId, initialMarkdown, readOnly, onSave }: 
   function getMarkdown(): string {
     if (!editor) return ''
     // tiptap-markdown attaches storage.markdown.getMarkdown() on the editor
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const md = (editor.storage as any).markdown?.getMarkdown?.() as string | undefined
+    const storage = editor.storage as { markdown?: { getMarkdown?: () => string } }
+    const md = storage.markdown?.getMarkdown?.()
     return (md ?? editor.getText()).trim()
   }
 
@@ -146,8 +146,7 @@ export function ChapterEditor({ chapterId, initialMarkdown, readOnly, onSave }: 
     onClick: () => void
     active?: boolean
     label: string
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    children: any
+    children: ReactNode
   }) => (
     <button
       type="button"
