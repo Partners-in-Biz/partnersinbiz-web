@@ -11,6 +11,7 @@ import {
   listBookStudioRecords,
   openBookStudioProjectInCanvas,
   patchBookStudioRecord,
+  requestBookStudioDraft,
   type BookStudioSurface,
   type GeneratePuzzlesPayload,
 } from '@/lib/book-studio/client'
@@ -56,6 +57,7 @@ export function BookProjectWorkspace({
   const [assembleError, setAssembleError] = useState('')
   const [missingOrders, setMissingOrders] = useState<number[] | undefined>(undefined)
   const [manifest, setManifest] = useState<BookProjectManifest | undefined>(undefined)
+  const [requestingDraft, setRequestingDraft] = useState(false)
 
   const loadRequestIdRef = useRef(0)
 
@@ -335,8 +337,23 @@ export function BookProjectWorkspace({
   const visibleTabs = capabilities.canPublishingPackets ? allTabs : allTabs.filter((entry) => entry.value !== 'assembly')
   const activeTab = visibleTabs.some((entry) => entry.value === tab) ? tab : visibleTabs[0]?.value ?? 'content'
 
-  function requestDraft() {
-    setNotice('AI draft requests will be available shortly.')
+  async function requestDraft() {
+    setRequestingDraft(true)
+    setNotice('')
+    try {
+      const result = await requestBookStudioDraft<{ taskId: string }>(projectId, { unitType: 'cover' })
+      if (!result.ok) {
+        setNotice(
+          result.status === 409
+            ? result.error
+            : result.error || 'Could not send the AI draft request.',
+        )
+        return
+      }
+      setNotice('AI draft request sent to your PiB team.')
+    } finally {
+      setRequestingDraft(false)
+    }
   }
 
   return (
@@ -351,6 +368,7 @@ export function BookProjectWorkspace({
           assembling={assembling}
           showOperatorActions={capabilities.isOperator}
           onRequestDraft={requestDraft}
+          requestingDraft={requestingDraft}
         />
       }
     >

@@ -12,6 +12,7 @@ type BookProjectHeaderProps = {
   assembling: boolean
   showOperatorActions?: boolean
   onRequestDraft?: () => void
+  requestingDraft?: boolean
 }
 
 function statusTone(status?: string): 'neutral' | 'accent' | 'success' | 'warn' | 'danger' | 'info' {
@@ -29,6 +30,7 @@ export function BookProjectHeader({
   assembling,
   showOperatorActions = true,
   onRequestDraft,
+  requestingDraft = false,
 }: BookProjectHeaderProps) {
   const format = project.format ? getBookFormat(project.format) : null
   const trimLabel = project.trim?.presetId ? project.trim.presetId : format?.defaultTrim
@@ -75,8 +77,8 @@ export function BookProjectHeader({
             </button>
           </>
         ) : (
-          <button type="button" className="btn-primary" onClick={onRequestDraft}>
-            Request AI draft
+          <button type="button" className="btn-primary" disabled={requestingDraft} onClick={onRequestDraft}>
+            {requestingDraft ? 'Requesting…' : 'Request AI draft'}
           </button>
         )
       }

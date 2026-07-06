@@ -124,3 +124,20 @@ export function assembleBookStudioProject<T>(projectId: string, orgId: string) {
     headers: { 'Content-Type': 'application/json' },
   })
 }
+
+export type RequestBookStudioDraftPayload = {
+  unitType: 'chapter' | 'page' | 'cover' | 'research'
+  unitId?: string
+  note?: string
+}
+
+// Portal-only: creates a governed platform task for the PiB team to produce
+// an AI draft. Never dispatches generation directly (Hermes runtime dispatch
+// is a locked-off V1 constraint).
+export function requestBookStudioDraft<T>(projectId: string, payload: RequestBookStudioDraftPayload) {
+  return request<T>(`/api/v1/portal/book-studio/projects/${encodeURIComponent(projectId)}/request-draft`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}

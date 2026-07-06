@@ -2,6 +2,7 @@ import React from 'react'
 import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
 import { BookProjectWorkspace } from '@/components/book-studio/BookProjectWorkspace'
 import type { BookStudioCapabilities } from '@/lib/book-studio/capabilities'
+import * as bookStudioClient from '@/lib/book-studio/client'
 
 const portalCapabilities: BookStudioCapabilities = {
   canView: true,
@@ -477,6 +478,95 @@ describe('BookProjectWorkspace', () => {
     expect(screen.queryByRole('button', { name: /Open in canvas/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Assemble/i })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Request AI draft/i })).toBeInTheDocument()
+  })
+
+  it('clicking "Request AI draft" calls requestBookStudioDraft and shows a success notice', async () => {
+    installFetch({ projects: [storyProject], chapters: chaptersForStory, pages: [] })
+    const requestSpy = jest
+      .spyOn(bookStudioClient, 'requestBookStudioDraft')
+      .mockResolvedValue({ ok: true, data: { taskId: 'task-1' } })
+
+    render(
+      <BookProjectWorkspace
+        orgId="org-1"
+        projectId="project-story"
+        surface="portal"
+        capabilities={portalCapabilities}
+      />,
+    )
+
+    await screen.findByText('The Proof Chronicles')
+    fireEvent.click(screen.getByRole('button', { name: /Request AI draft/i }))
+
+    await screen.findByText('AI draft request sent to your PiB team.')
+    expect(requestSpy).toHaveBeenCalledWith('project-story', { unitType: 'cover' })
+    requestSpy.mockRestore()
+  })
+
+  it('shows the returned error notice when requestBookStudioDraft 409s', async () => {
+    installFetch({ projects: [storyProject], chapters: chaptersForStory, pages: [] })
+    const requestSpy = jest.spyOn(bookStudioClient, 'requestBookStudioDraft').mockResolvedValue({
+      ok: false,
+      error: 'An AI draft request for this item is already open',
+      status: 409,
+    })
+
+    render(
+      <BookProjectWorkspace
+        orgId="org-1"
+        projectId="project-story"
+        surface="portal"
+        capabilities={portalCapabilities}
+      />,
+    )
+
+    await screen.findByText('The Proof Chronicles')
+    fireEvent.click(screen.getByRole('button', { name: /Request AI draft/i }))
+
+    await screen.findByText('An AI draft request for this item is already open')
+    requestSpy.mockRestore()
+  })
+
+  it('admin-surface render fetches the full admin projects prefix, pinning URL-per-surface routing', async () => {
+    const fetchMock = installFetch({ projects: [storyProject], chapters: chaptersForStory, pages: [] })
+    render(<BookProjectWorkspace orgId="org-1" projectId="project-story" />)
+
+    await screen.findByText('The Proof Chronicles')
+    const calledUrls = fetchMock.mock.calls.map((call) => String(call[0]))
+    expect(calledUrls.some((url) => url.includes('/api/v1/book-studio/projects?'))).toBe(true)
+    expect(calledUrls.some((url) => url.includes('/api/v1/portal/book-studio/projects'))).toBe(false)
+  })
+
+  it('portal caps with canPublishingPackets:false hide the Assembly tab', async () => {
+    installFetch({ projects: [storyProject], chapters: chaptersForStory, pages: [] })
+    render(
+      <BookProjectWorkspace
+        orgId="org-1"
+        projectId="project-story"
+        surface="portal"
+        capabilities={{ ...portalCapabilities, canPublishingPackets: false }}
+      />,
+    )
+
+    await screen.findByText('The Proof Chronicles')
+    expect(screen.queryByRole('tab', { name: 'Assembly' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Assembly')).not.toBeInTheDocument()
+  })
+
+  it('portal caps hide pages-panel operator tools (generate/regenerate puzzles) for the crossword puzzle format', async () => {
+    installFetch({ projects: [crosswordProject], pages: [crosswordPuzzlePage] })
+    render(
+      <BookProjectWorkspace
+        orgId="org-1"
+        projectId="project-crossword"
+        surface="portal"
+        capabilities={{ ...portalCapabilities, isOperator: false }}
+      />,
+    )
+
+    await screen.findByText('Crossword Capers')
+    expect(screen.queryByRole('button', { name: 'Generate puzzles' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Regenerate' })).not.toBeInTheDocument()
   })
 
   it('portal surface with canEdit:false hides the add-chapter affordance', async () => {
