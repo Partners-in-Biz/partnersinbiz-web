@@ -1,5 +1,9 @@
-import { render, screen } from '@testing-library/react'
-import { LifecyclePipelineBoard, type LifecyclePipelineProject } from '@/components/book-studio/AdminBookStudioGovernanceWorkspace'
+import { render, screen, waitFor } from '@testing-library/react'
+import {
+  AdminBookStudioGovernanceWorkspace,
+  LifecyclePipelineBoard,
+  type LifecyclePipelineProject,
+} from '@/components/book-studio/AdminBookStudioGovernanceWorkspace'
 
 describe('LifecyclePipelineBoard', () => {
   it('renders a column per lifecycle state with correct counts', () => {
@@ -36,5 +40,57 @@ describe('LifecyclePipelineBoard', () => {
     const projects: LifecyclePipelineProject[] = [{ id: 'p5', lifecycleState: 'live' }]
     render(<LifecyclePipelineBoard projects={projects} />)
     expect(screen.getByText('Untitled book project')).toBeInTheDocument()
+  })
+})
+
+describe('AdminBookStudioGovernanceWorkspace lifecycle pipeline data', () => {
+  function mockFetch() {
+    return jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/organizations') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [{ id: 'org-1', slug: 'partners-in-biz', name: 'Partners in Biz' }] }),
+        } as Response)
+      }
+      if (url === '/api/v1/organizations/org-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { settings: {} } }),
+        } as Response)
+      }
+      if (url.startsWith('/api/v1/book-studio/projects?')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              resource: 'projects',
+              records: [
+                { id: 'book-1', title: 'Proof-led growth handbook', lifecycleState: 'rights_cleared' },
+                { id: 'book-2', title: 'Untitled Draft Book', lifecycleState: 'draft' },
+              ],
+            },
+          }),
+        } as Response)
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) } as Response)
+    })
+  }
+
+  it('fetches book projects for the org and renders them in the matching lifecycle columns', async () => {
+    const fetchMock = mockFetch()
+    global.fetch = fetchMock as typeof fetch
+
+    render(<AdminBookStudioGovernanceWorkspace orgSlug="partners-in-biz" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Proof-led growth handbook')).toBeInTheDocument()
+    })
+
+    expect(screen.getByTestId('lifecycle-column-rights_cleared')).toHaveTextContent('Proof-led growth handbook')
+    expect(screen.getByTestId('lifecycle-column-draft')).toHaveTextContent('Untitled Draft Book')
+
+    const calledProjectsEndpoint = fetchMock.mock.calls.some(([url]) => String(url).startsWith('/api/v1/book-studio/projects?'))
+    expect(calledProjectsEndpoint).toBe(true)
   })
 })

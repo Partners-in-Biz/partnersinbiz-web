@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   OrganizationModulePolicyRoleGrid,
@@ -12,6 +12,7 @@ import {
   type OrganizationPolicyActionRow,
 } from '@/components/admin-governance/OrganizationModulePolicyControls'
 import { PageHeader, Surface } from '@/components/ui/AppFoundation'
+import { listBookStudioRecords } from '@/lib/book-studio/client'
 
 type BookStudioTemplate = {
   id: string
@@ -113,6 +114,46 @@ interface AdminBookStudioGovernanceWorkspaceProps {
 export function AdminBookStudioGovernanceWorkspace({ orgSlug }: AdminBookStudioGovernanceWorkspaceProps) {
   const policyControls = useOrganizationModulePolicy({ orgSlug, moduleKey: 'bookStudio' })
   const [newTemplateName, setNewTemplateName] = useState('')
+  const [pipelineProjects, setPipelineProjects] = useState<LifecyclePipelineProject[]>([])
+  const [pipelineLoading, setPipelineLoading] = useState(true)
+  const [pipelineError, setPipelineError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadProjects() {
+      if (typeof fetch !== 'function') {
+        setPipelineLoading(false)
+        return
+      }
+      setPipelineLoading(true)
+      setPipelineError('')
+      try {
+        const orgsRes = await fetch('/api/v1/organizations')
+        const orgsBody = await orgsRes.json().catch(() => ({}))
+        const orgs = Array.isArray(orgsBody.data) ? orgsBody.data as { id: string; slug: string }[] : []
+        const org = orgs.find((item) => item.slug === orgSlug)
+        if (!org?.id) throw new Error('Organisation not found')
+
+        const result = await listBookStudioRecords<LifecyclePipelineProject>('projects', org.id)
+        if (cancelled) return
+        if (!result.ok) throw new Error(result.error)
+        setPipelineProjects(result.data.records)
+      } catch (err) {
+        if (!cancelled) {
+          setPipelineError(err instanceof Error ? err.message : 'Could not load Book Studio projects')
+          setPipelineProjects([])
+        }
+      } finally {
+        if (!cancelled) setPipelineLoading(false)
+      }
+    }
+
+    loadProjects()
+    return () => {
+      cancelled = true
+    }
+  }, [orgSlug])
   const ownerRows = useMemo(() => ownerControlRows(BOOK_OWNER_ROWS), [])
   const templates = useMemo<BookStudioTemplate[]>(
     () => [
@@ -249,7 +290,18 @@ export function AdminBookStudioGovernanceWorkspace({ orgSlug }: AdminBookStudioG
         />
       </Surface>
 
-      <LifecyclePipelineBoard projects={[]} />
+      {pipelineError ? (
+        <Surface className="p-4">
+          <p className="text-sm text-red-300">{pipelineError}</p>
+        </Surface>
+      ) : null}
+      {pipelineLoading ? (
+        <Surface className="p-4">
+          <p className="text-sm text-on-surface-variant">Loading Book Studio pipeline…</p>
+        </Surface>
+      ) : (
+        <LifecyclePipelineBoard projects={pipelineProjects} />
+      )}
     </div>
   )
 }
