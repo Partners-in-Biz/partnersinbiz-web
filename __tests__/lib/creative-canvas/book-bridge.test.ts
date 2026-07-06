@@ -211,6 +211,32 @@ describe('syncCanvasRunOutputToBookStudio', () => {
     expect(page?.status).toBe('generated')
   })
 
+  it('never clobbers an approved page illustration', async () => {
+    stageProject()
+    stagePage('page-1', { status: 'approved', imageUrl: 'https://cdn.example.com/approved.png' })
+    const canvas = linkedCanvas({ nodes: [pageNode('page-1')] })
+    const result = await syncCanvasRunOutputToBookStudio(baseRun(), canvas)
+
+    expect(result).toBe('skipped')
+    const page = store.get(keyFor('book_studio_pages', 'page-1'))
+    expect(page?.imageUrl).toBe('https://cdn.example.com/approved.png')
+    expect(page?.status).toBe('approved')
+    expect(page?.canvasRunId).toBeUndefined()
+  })
+
+  it('never clobbers a page illustration already edited by a human', async () => {
+    stageProject()
+    stagePage('page-1', { status: 'edited', imageUrl: 'https://cdn.example.com/edited.png' })
+    const canvas = linkedCanvas({ nodes: [pageNode('page-1')] })
+    const result = await syncCanvasRunOutputToBookStudio(baseRun(), canvas)
+
+    expect(result).toBe('skipped')
+    const page = store.get(keyFor('book_studio_pages', 'page-1'))
+    expect(page?.imageUrl).toBe('https://cdn.example.com/edited.png')
+    expect(page?.status).toBe('edited')
+    expect(page?.canvasRunId).toBeUndefined()
+  })
+
   it('sets chapter text with a computed word count', async () => {
     stageProject()
     stageChapter('chapter-1')

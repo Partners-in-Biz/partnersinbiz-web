@@ -113,6 +113,10 @@ export async function syncCanvasRunOutputToBookStudio(
       return 'skipped'
     }
 
+    // Never clobber a page a human has already edited or approved.
+    const currentPageStatus = pageData.status
+    if (currentPageStatus === 'edited' || currentPageStatus === 'approved') return 'skipped'
+
     await adminDb.collection(BOOK_STUDIO_PAGES_COLLECTION).doc(bookPageId).update({
       imageUrl: url,
       canvasRunId: run.id,
