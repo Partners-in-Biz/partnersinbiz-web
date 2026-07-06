@@ -18,6 +18,7 @@ jest.mock('@/components/ui/Toast', () => ({
 
 import { YouTubeStudioOAuthReturnHandler } from '@/components/youtube-studio/YouTubeStudioOAuthReturnHandler'
 import { YouTubeChannelCard } from '@/components/youtube-studio/YouTubeStudioCards'
+import { YouTubeStudioPipelineBoard } from '@/components/youtube-studio/YouTubeStudioPipelineBoard'
 import { YouTubeStudioPortalWorkspace } from '@/components/youtube-studio/YouTubeStudioPortalWorkspace'
 
 function jsonResponse(body: unknown, ok = true): Response {
@@ -242,5 +243,44 @@ describe('studio empty state and guide', () => {
 
     await screen.findByRole('heading', { name: 'Acme Films' })
     expect(screen.queryByText('How YouTube Studio works')).not.toBeInTheDocument()
+  })
+})
+
+const boardVideos = [
+  { id: 'v1', orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Idea video', videoType: 'long_form' as const, status: 'intake' as const, objective: '', source: { intakeType: 'manual' as const }, linked: {}, approvalPolicy: {} as never, deleted: false },
+  { id: 'v2', orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'In production', videoType: 'long_form' as const, status: 'production' as const, objective: '', source: { intakeType: 'manual' as const }, linked: {}, approvalPolicy: {} as never, deleted: false },
+  { id: 'v3', orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Needs review', videoType: 'long_form' as const, status: 'client_review' as const, objective: '', source: { intakeType: 'manual' as const }, linked: {}, approvalPolicy: {} as never, deleted: false },
+  { id: 'v4', orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Ready to ship', videoType: 'long_form' as const, status: 'publish_ready' as const, objective: '', source: { intakeType: 'manual' as const }, linked: {}, approvalPolicy: {} as never, deleted: false },
+  { id: 'v5', orgId: 'org-1', channelWorkspaceId: 'channel-1', title: 'Already live', videoType: 'long_form' as const, status: 'live' as const, objective: '', source: { intakeType: 'manual' as const }, linked: {}, approvalPolicy: {} as never, deleted: false },
+]
+
+describe('YouTubeStudioPipelineBoard', () => {
+  it('groups videos into the five pipeline columns', () => {
+    render(<YouTubeStudioPipelineBoard videos={boardVideos} onReview={jest.fn()} onRepurpose={jest.fn()} />)
+
+    expect(screen.getByText('Idea & scripting')).toBeInTheDocument()
+    expect(screen.getByText('Production')).toBeInTheDocument()
+    expect(screen.getByText('Client review')).toBeInTheDocument()
+    expect(screen.getByText('Publish ready')).toBeInTheDocument()
+    expect(screen.getByText('Live')).toBeInTheDocument()
+    expect(screen.getByText('Idea video')).toBeInTheDocument()
+    expect(screen.getByText('Already live')).toBeInTheDocument()
+  })
+
+  it('shows next-action buttons per column and forwards clicks', () => {
+    const onReview = jest.fn()
+    const onRepurpose = jest.fn()
+    render(<YouTubeStudioPipelineBoard videos={boardVideos} onReview={onReview} onRepurpose={onRepurpose} />)
+
+    screen.getByRole('button', { name: 'Review & approve' }).click()
+    expect(onReview).toHaveBeenCalledWith('v3')
+
+    screen.getByRole('button', { name: 'Repurpose to social' }).click()
+    expect(onRepurpose).toHaveBeenCalledWith('v5')
+  })
+
+  it('renders an explanatory empty state per empty column', () => {
+    render(<YouTubeStudioPipelineBoard videos={[]} onReview={jest.fn()} onRepurpose={jest.fn()} />)
+    expect(screen.getAllByText(/Nothing here yet/).length).toBe(5)
   })
 })

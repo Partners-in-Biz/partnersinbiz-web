@@ -16,6 +16,7 @@ import type {
 import { channelNeedsReconnect, YouTubeChannelCard, YouTubeVideoCard } from '@/components/youtube-studio/YouTubeStudioCards'
 import { YouTubeStudioGuide } from '@/components/youtube-studio/YouTubeStudioGuide'
 import { YouTubeStudioOAuthReturnHandler } from '@/components/youtube-studio/YouTubeStudioOAuthReturnHandler'
+import { YouTubeStudioPipelineBoard } from '@/components/youtube-studio/YouTubeStudioPipelineBoard'
 import { YouTubeStudioWorkspaceShell } from '@/components/youtube-studio/YouTubeStudioWorkspaceShell'
 import { appendQueryParams, scopedApiPath } from '@/lib/portal/scoped-routing'
 
@@ -86,6 +87,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
   const [moduleDisabled, setModuleDisabled] = useState(false)
   const [capabilities, setCapabilities] = useState<YouTubeStudioCapabilities>(defaultCapabilities)
   const [retryAccountId, setRetryAccountId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'overview' | 'pipeline'>('overview')
   const submittingRequestRef = useRef(false)
   const reviewingIdRef = useRef<string | null>(null)
   const reviewingPacketIdRef = useRef<string | null>(null)
@@ -402,6 +404,28 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
     }
   }
 
+  async function repurposeVideo(videoId: string) {
+    setActionNotice('')
+    try {
+      const res = await fetch(
+        scopedApiPath(`/api/v1/youtube-studio/videos/${videoId}/repurpose`, { orgId }),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ platforms: ['linkedin', 'twitter', 'facebook'] }),
+        },
+      )
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setActionNotice(body.error ?? 'Could not create social drafts')
+        return
+      }
+      setActionNotice('Draft social posts created — review them in Social.')
+    } catch {
+      setActionNotice('Could not create social drafts')
+    }
+  }
+
   if (moduleDisabled) {
     return (
       <YouTubeStudioWorkspaceShell
@@ -441,6 +465,26 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       <Suspense fallback={null}>
         <YouTubeStudioOAuthReturnHandler onRefresh={load} onProvisionFailed={setRetryAccountId} />
       </Suspense>
+      <div className="flex gap-2">
+        {(['overview', 'pipeline'] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            aria-pressed={activeTab === tab}
+            className={activeTab === tab ? 'pib-btn-primary text-sm' : 'pib-btn-ghost text-sm'}
+          >
+            {tab === 'overview' ? 'Overview' : 'Pipeline'}
+          </button>
+        ))}
+      </div>
+      {activeTab === 'pipeline' ? (
+        <YouTubeStudioPipelineBoard
+          videos={videos}
+          onReview={() => setActiveTab('overview')}
+          onRepurpose={(videoId) => void repurposeVideo(videoId)}
+        />
+      ) : (
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <section className="space-y-4">
           {channels.length === 0 && !loading ? (
@@ -965,6 +1009,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
           )}
         </aside>
       </div>
+      )}
     </YouTubeStudioWorkspaceShell>
   )
 }
