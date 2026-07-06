@@ -167,6 +167,57 @@ describe('portal workspace channel actions', () => {
     expect(screen.getAllByRole('link', { name: 'Reconnect' })).toHaveLength(1)
   })
 
+  it('creates YouTube Studio editor projects against the selected channel', async () => {
+    const fetchMock = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/api/v1/portal/youtube-studio')) {
+        return jsonResponse({
+          success: true,
+          data: {
+            orgId: 'lumen-org',
+            channels: [
+              connectedChannel,
+              { ...connectedChannel, id: 'channel-2', title: 'Capital Gains', youtubeHandle: '@capitalgains' },
+            ],
+            series: [],
+            videos: [],
+            packets: [],
+            releasePlans: [],
+            sourceAssets: [],
+            clipCandidates: [],
+            productionDrafts: [],
+            renderJobs: [],
+            analytics: [],
+          },
+        })
+      }
+      if (url.includes('/api/v1/video-editor/projects') && init?.method === 'POST') {
+        return jsonResponse({ success: true, data: { id: 'edit-2' } })
+      }
+      if (url.includes('/api/v1/video-editor/projects')) {
+        return jsonResponse({ success: true, data: { projects: [] } })
+      }
+      throw new Error(`Unexpected fetch ${url}`)
+    })
+    global.fetch = fetchMock as jest.Mock
+
+    render(<YouTubeStudioPortalWorkspace orgId="lumen-org" />)
+
+    fireEvent.change(await screen.findByLabelText('YouTube channel'), { target: { value: 'channel-2' } })
+    fireEvent.change(screen.getByPlaceholderText('New edit title'), { target: { value: 'Short proof cut' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create edit' }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/video-editor/projects', expect.objectContaining({ method: 'POST' }))
+    })
+    const createCall = fetchMock.mock.calls.find(([url, init]) => String(url).includes('/api/v1/video-editor/projects') && init?.method === 'POST')
+    expect(JSON.parse(String(createCall?.[1]?.body))).toMatchObject({
+      orgId: 'lumen-org',
+      title: 'Short proof cut',
+      channelWorkspaceId: 'channel-2',
+    })
+  })
+
   it('retries channel setup through the adopt endpoint after OAuth provisioning failed', async () => {
     mockSearch = 'status=success&platform=youtube&account=acct-retry&provision=failed'
     const fetchMock = jest.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {

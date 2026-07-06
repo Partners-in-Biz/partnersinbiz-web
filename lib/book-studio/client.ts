@@ -35,30 +35,64 @@ function withOrg(path: string, orgId: string, extraParams?: Record<string, strin
   return `${path}?${params.toString()}`
 }
 
-export type BookStudioListResponse<T> = { resource: string; records: T[] }
+export type BookStudioSurface = 'admin' | 'portal'
+export type BookStudioResourcePath = 'projects' | 'chapters' | 'pages' | 'briefs' | 'series'
 
-export function listBookStudioRecords<T>(resource: 'projects' | 'chapters' | 'pages', orgId: string) {
-  return request<BookStudioListResponse<T>>(withOrg(`/api/v1/book-studio/${resource}`, orgId))
+export function bookStudioApiPath(
+  surface: BookStudioSurface,
+  resource: BookStudioResourcePath,
+  orgId: string,
+  id?: string,
+) {
+  const idPart = id === undefined ? '' : `/${encodeURIComponent(id)}`
+  if (surface === 'portal') return `/api/v1/portal/book-studio/${resource}${idPart}`
+  return `/api/v1/book-studio/${resource}${idPart}?${new URLSearchParams({ orgId }).toString()}`
 }
 
-export function createBookStudioRecord<T>(resource: 'projects' | 'chapters' | 'pages', orgId: string, payload: Record<string, unknown>) {
-  return request<T>(`/api/v1/book-studio/${resource}`, {
+export type BookStudioListResponse<T> = { resource: string; records: T[] }
+
+export function listBookStudioRecords<T>(
+  resource: BookStudioResourcePath,
+  orgId: string,
+  surface: BookStudioSurface = 'admin',
+) {
+  return request<BookStudioListResponse<T>>(bookStudioApiPath(surface, resource, orgId))
+}
+
+export function createBookStudioRecord<T>(
+  resource: BookStudioResourcePath,
+  orgId: string,
+  payload: Record<string, unknown>,
+  surface: BookStudioSurface = 'admin',
+) {
+  return request<T>(bookStudioApiPath(surface, resource, orgId), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...payload, orgId }),
+    body: JSON.stringify(surface === 'admin' ? { ...payload, orgId } : payload),
   })
 }
 
-export function patchBookStudioRecord<T>(resource: 'projects' | 'chapters' | 'pages', id: string, orgId: string, patch: Record<string, unknown>) {
-  return request<T>(withOrg(`/api/v1/book-studio/${resource}/${encodeURIComponent(id)}`, orgId), {
+export function patchBookStudioRecord<T>(
+  resource: BookStudioResourcePath,
+  id: string,
+  orgId: string,
+  patch: Record<string, unknown>,
+  surface: BookStudioSurface = 'admin',
+) {
+  return request<T>(bookStudioApiPath(surface, resource, orgId, id), {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(patch),
   })
 }
 
-export function deleteBookStudioRecord(resource: 'projects' | 'chapters' | 'pages', id: string, orgId: string) {
-  return patchBookStudioRecord(resource, id, orgId, { deleted: true })
+export function deleteBookStudioRecord(
+  resource: BookStudioResourcePath,
+  id: string,
+  orgId: string,
+  surface: BookStudioSurface = 'admin',
+) {
+  return patchBookStudioRecord(resource, id, orgId, { deleted: true }, surface)
 }
 
 export type GeneratePuzzlesPayload = {

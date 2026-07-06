@@ -46,6 +46,13 @@ export function buildMarketingHubProps(config: MarketingHubSurface): HubPageProp
             eyebrow: 'Content',
           },
           {
+            label: 'Video Editor',
+            href: scopedPortalPath('/portal/video-editor', config),
+            icon: 'movie_edit',
+            description: 'Assemble clips, add text, render MP4s, and send outputs into YouTube or Marketing Studio.',
+            eyebrow: 'Edit',
+          },
+          {
             label: 'Ads',
             href: scopedPortalPath('/portal/ads', config),
             icon: 'ads_click',
