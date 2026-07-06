@@ -790,7 +790,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
             )}
           </div>
 
-          <VideoEditorProjectList orgId={activeOrgId} compact />
+          <VideoEditorProjectList orgId={activeOrgId} channelOptions={channels} compact />
 
           <div className="space-y-3">
             <h2 className="font-headline text-xl font-semibold text-on-surface">Publishing packets</h2>
