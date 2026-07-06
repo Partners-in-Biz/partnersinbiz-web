@@ -792,14 +792,14 @@ describe('portal youtube studio API', () => {
     const productionDraft = body.data.productionDrafts[0]
     const renderJob = body.data.renderJobs[0]
     const snapshot = body.data.analytics[0]
-    expect(channel).not.toHaveProperty('connectedAccountId')
+    expect(channel.connectedAccountId).toBe('secret-account')
+    expect(channel.publishingReadiness).toEqual({ accountStatus: 'connected' })
     expect(channel).not.toHaveProperty('internalNotes')
     expect(channel).not.toHaveProperty('createdBy')
     expect(channel).not.toHaveProperty('updatedBy')
     expect(channel).not.toHaveProperty('strategyDocumentId')
     expect(channel).not.toHaveProperty('defaultApprovalPolicy')
     expect(channel).not.toHaveProperty('defaultPublishingPolicy')
-    expect(channel).not.toHaveProperty('publishingReadiness')
     expect(channel.contentPillars).toEqual(['Growth', 'Retention'])
     expect(JSON.stringify(channel)).not.toContain('policyNotes')
     expect(Object.keys(series).sort()).toEqual([

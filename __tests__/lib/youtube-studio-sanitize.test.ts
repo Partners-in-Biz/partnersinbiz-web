@@ -683,11 +683,12 @@ describe('youtube studio sanitizers', () => {
     expect(serialized).toMatchObject({ id: 'id-1', orgId: 'org-1', title: 'Acme' })
   })
 
-  it('hides internal channel access fields from portal clients', () => {
+  it('exposes safe connection fields but hides internal channel access fields from portal clients', () => {
     const channel = sanitizeYouTubeChannelWorkspaceInput({
       orgId: 'org-1',
       title: 'Client Channel',
       connectedAccountId: 'secret-oauth-id',
+      publishingReadiness: { accountStatus: 'connected', notes: 'internal readiness detail' },
       strategyDocumentId: 'strategy-secret',
       internalNotes: 'internal',
     })
@@ -698,7 +699,8 @@ describe('youtube studio sanitizers', () => {
       createdBy: 'admin-1',
       updatedBy: 'admin-2',
     })
-    expect(safe).not.toHaveProperty('connectedAccountId')
+    expect(safe.connectedAccountId).toBe('secret-oauth-id')
+    expect(safe.publishingReadiness).toEqual({ accountStatus: 'connected' })
     expect(safe).not.toHaveProperty('internalNotes')
     expect(safe).not.toHaveProperty('createdBy')
     expect(safe).not.toHaveProperty('updatedBy')
