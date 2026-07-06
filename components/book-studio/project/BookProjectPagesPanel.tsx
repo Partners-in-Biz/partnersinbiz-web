@@ -23,6 +23,10 @@ type BookProjectPagesPanelProps = {
   addingPage: boolean
   regeneratingPageId: string | null
   generatingPuzzles: boolean
+  readOnly?: boolean
+  canApprove?: boolean
+  canDelete?: boolean
+  showOperatorTools?: boolean
 }
 
 const pageKindIcons: Record<BookPageKind, string> = {
@@ -48,6 +52,9 @@ function PageRow({
   onDelete,
   onRegeneratePuzzle,
   regenerating,
+  readOnly,
+  canDelete,
+  showOperatorTools,
 }: {
   page: BookPage
   index: number
@@ -57,6 +64,9 @@ function PageRow({
   onDelete: () => void
   onRegeneratePuzzle: () => void
   regenerating: boolean
+  readOnly: boolean
+  canDelete: boolean
+  showOperatorTools: boolean
 }) {
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState(page.title ?? '')
@@ -90,29 +100,35 @@ function PageRow({
             ) : null}
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className="btn-secondary" disabled={index === 0} onClick={() => onMove('up')} aria-label={`Move ${page.title ?? 'page'} up`}>
-            Up
-          </button>
-          <button type="button" className="btn-secondary" disabled={index === total - 1} onClick={() => onMove('down')} aria-label={`Move ${page.title ?? 'page'} down`}>
-            Down
-          </button>
-          {isPuzzle ? (
-            <button type="button" className="btn-secondary" disabled={regenerating} onClick={onRegeneratePuzzle}>
-              {regenerating ? 'Regenerating…' : 'Regenerate'}
+        {readOnly ? null : (
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="btn-secondary" disabled={index === 0} onClick={() => onMove('up')} aria-label={`Move ${page.title ?? 'page'} up`}>
+              Up
             </button>
-          ) : (
-            <button type="button" className="btn-secondary" onClick={() => setEditing((prev) => !prev)}>
-              {editing ? 'Close' : 'Edit'}
+            <button type="button" className="btn-secondary" disabled={index === total - 1} onClick={() => onMove('down')} aria-label={`Move ${page.title ?? 'page'} down`}>
+              Down
             </button>
-          )}
-          <button type="button" className="btn-secondary" onClick={onDelete}>
-            Delete
-          </button>
-        </div>
+            {isPuzzle ? (
+              showOperatorTools ? (
+                <button type="button" className="btn-secondary" disabled={regenerating} onClick={onRegeneratePuzzle}>
+                  {regenerating ? 'Regenerating…' : 'Regenerate'}
+                </button>
+              ) : null
+            ) : (
+              <button type="button" className="btn-secondary" onClick={() => setEditing((prev) => !prev)}>
+                {editing ? 'Close' : 'Edit'}
+              </button>
+            )}
+            {canDelete ? (
+              <button type="button" className="btn-secondary" onClick={onDelete}>
+                Delete
+              </button>
+            ) : null}
+          </div>
+        )}
       </div>
 
-      {editing && !isPuzzle ? (
+      {editing && !isPuzzle && !readOnly ? (
         <form
           className="mt-4 space-y-3 border-t border-[var(--color-pib-border)] pt-4"
           onSubmit={(event) => {
@@ -304,16 +320,24 @@ export function BookProjectPagesPanel({
   addingPage,
   regeneratingPageId,
   generatingPuzzles,
+  readOnly = false,
+  canApprove = true,
+  canDelete = true,
+  showOperatorTools = true,
 }: BookProjectPagesPanelProps) {
   const [dialogOpen, setDialogOpen] = useState(false)
   const ordered = [...pages].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+  // canApprove has no page-level status select to filter yet; threaded
+  // through for parity with the chapters panel and future use.
+  void canApprove
+  const showGeneratePuzzles = Boolean(puzzleKind) && showOperatorTools && !readOnly
 
   return (
     <Surface
       header={
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold">Pages</h2>
-          {puzzleKind ? (
+          {showGeneratePuzzles ? (
             <button type="button" className="btn-secondary" onClick={() => setDialogOpen(true)}>
               Generate puzzles
             </button>
@@ -322,7 +346,7 @@ export function BookProjectPagesPanel({
       }
     >
       <div className="space-y-4">
-        <AddPageForm onAddPage={onAddPage} adding={addingPage} />
+        {readOnly ? null : <AddPageForm onAddPage={onAddPage} adding={addingPage} />}
 
         {ordered.length === 0 ? (
           <EmptyState icon="auto_stories" title="No pages yet" description="Add a page or generate puzzles to get started." />
@@ -339,13 +363,16 @@ export function BookProjectPagesPanel({
                 onDelete={() => onDelete(page.id)}
                 onRegeneratePuzzle={() => onRegeneratePuzzle(page)}
                 regenerating={regeneratingPageId === page.id}
+                readOnly={readOnly}
+                canDelete={canDelete}
+                showOperatorTools={showOperatorTools}
               />
             ))}
           </ul>
         )}
       </div>
 
-      {puzzleKind ? (
+      {showGeneratePuzzles && puzzleKind ? (
         <GeneratePuzzlesDialog
           open={dialogOpen}
           puzzleKind={puzzleKind}

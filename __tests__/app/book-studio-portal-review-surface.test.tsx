@@ -2,6 +2,19 @@ import { render, screen, waitFor } from '@testing-library/react'
 
 import { BookStudioPortalWorkspace } from '@/components/book-studio/BookStudioPortalWorkspace'
 
+jest.mock('next/navigation', () => ({ useRouter: () => ({ push: jest.fn() }) }))
+
+const baseCapabilities = {
+  canView: true,
+  canCreate: false,
+  canEdit: true,
+  canEvidenceRights: true,
+  canApprovalGates: false,
+  canPublishingPackets: false,
+  canArchiveDelete: false,
+  isOperator: false,
+}
+
 describe('BookStudioPortalWorkspace', () => {
   const originalFetch = global.fetch
 
@@ -13,7 +26,7 @@ describe('BookStudioPortalWorkspace', () => {
     global.fetch = originalFetch
   })
 
-  it('renders a safe disabled state and does not expose review or generation controls', async () => {
+  it('renders a safe disabled state when the module is disabled', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,
       json: async () => ({ success: false, moduleDisabled: true, module: 'bookStudio' }),
@@ -23,37 +36,31 @@ describe('BookStudioPortalWorkspace', () => {
 
     expect(await screen.findByText('Book Studio is not enabled for this portal.')).toBeInTheDocument()
     expect(screen.getByText('Your PiB team controls when a client-safe book review packet becomes available.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /generate book/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /publish to stores/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /connect marketplace credentials/i })).toBeDisabled()
-    expect(screen.queryByRole('button', { name: /approve packet/i })).not.toBeInTheDocument()
   })
 
-  it('shows only client-safe review material and locks generation and direct publishing', async () => {
+  it('renders project cards as links to /portal/book-studio/{id}', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
         success: true,
         data: {
-          portalModule: 'bookStudio',
-          projects: [
+          resource: 'projects',
+          orgId: 'client-org',
+          capabilities: baseCapabilities,
+          records: [
             {
               id: 'book-1',
               title: 'Ocean Growth Playbook',
               status: 'client_review',
               stage: 'publishing_packet',
-              reviewStatus: 'awaiting_client_review',
-              nextAction: 'Review the exact publishing packet and leave comments for PiB.',
-              safeSummary: 'Client-safe packet with cover proof, metadata summary, and launch checklist.',
+              format: 'nonfiction',
               reviewPackets: [
                 {
                   id: 'packet-1',
                   title: 'KDP paperback proof v1',
                   status: 'client_review',
                   summary: 'Review cover, interior PDF, metadata summary, and rights ledger extract.',
-                  artifacts: [
-                    { label: 'Cover proof', href: 'https://example.com/cover.pdf' },
-                  ],
+                  artifacts: [{ label: 'Cover proof', href: 'https://example.com/cover.pdf' }],
                 },
               ],
               gates: [
@@ -68,18 +75,69 @@ describe('BookStudioPortalWorkspace', () => {
 
     render(<BookStudioPortalWorkspace orgId="client-org" />)
 
-    expect(await screen.findByRole('heading', { name: 'Book Studio review' })).toBeInTheDocument()
     expect(await screen.findByText('Ocean Growth Playbook')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Ocean Growth Playbook/ })).toHaveAttribute('href', '/portal/book-studio/book-1')
     expect(screen.getByText('KDP paperback proof v1')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Cover proof' })).toHaveAttribute('href', 'https://example.com/cover.pdf')
-    expect(screen.getByRole('button', { name: 'Approve packet' })).toBeDisabled()
-    expect(screen.getByText('Approval opens only after PiB requests review for a client-safe packet.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /generate book/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /publish to stores/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /connect marketplace credentials/i })).toBeDisabled()
+    expect(screen.getByText('Rights ledger')).toBeInTheDocument()
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/book-studio?orgId=client-org')
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/portal/book-studio/projects?orgId=client-org')
     })
+  })
+
+  it('shows the "New book" button when capabilities.canCreate is true and hides it otherwise', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          resource: 'projects',
+          orgId: 'client-org',
+          capabilities: { ...baseCapabilities, canCreate: true },
+          records: [],
+        },
+      }),
+    }) as jest.Mock
+
+    render(<BookStudioPortalWorkspace orgId="client-org" />)
+    await screen.findByText(/No books yet/i)
+    expect(screen.getByRole('button', { name: /New book/i })).toBeInTheDocument()
+  })
+
+  it('hides the "New book" button when capabilities.canCreate is false', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          resource: 'projects',
+          orgId: 'client-org',
+          capabilities: baseCapabilities,
+          records: [],
+        },
+      }),
+    }) as jest.Mock
+
+    render(<BookStudioPortalWorkspace orgId="client-org" />)
+    await screen.findByText(/No books yet/i)
+    expect(screen.queryByRole('button', { name: /New book/i })).not.toBeInTheDocument()
+  })
+
+  it('keeps the manual release posture note visible', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          resource: 'projects',
+          orgId: 'client-org',
+          capabilities: baseCapabilities,
+          records: [],
+        },
+      }),
+    }) as jest.Mock
+
+    render(<BookStudioPortalWorkspace orgId="client-org" />)
+    expect(await screen.findByText(/Manual release posture/i)).toBeInTheDocument()
   })
 })

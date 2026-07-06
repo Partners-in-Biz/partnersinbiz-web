@@ -10,6 +10,8 @@ type BookProjectHeaderProps = {
   openingCanvas: boolean
   onAssemble: () => void
   assembling: boolean
+  showOperatorActions?: boolean
+  onRequestDraft?: () => void
 }
 
 function statusTone(status?: string): 'neutral' | 'accent' | 'success' | 'warn' | 'danger' | 'info' {
@@ -19,7 +21,15 @@ function statusTone(status?: string): 'neutral' | 'accent' | 'success' | 'warn' 
   return 'neutral'
 }
 
-export function BookProjectHeader({ project, onOpenInCanvas, openingCanvas, onAssemble, assembling }: BookProjectHeaderProps) {
+export function BookProjectHeader({
+  project,
+  onOpenInCanvas,
+  openingCanvas,
+  onAssemble,
+  assembling,
+  showOperatorActions = true,
+  onRequestDraft,
+}: BookProjectHeaderProps) {
   const format = project.format ? getBookFormat(project.format) : null
   const trimLabel = project.trim?.presetId ? project.trim.presetId : format?.defaultTrim
 
@@ -55,14 +65,20 @@ export function BookProjectHeader({ project, onOpenInCanvas, openingCanvas, onAs
         </div>
       }
       actions={
-        <>
-          <button type="button" className="btn-secondary" disabled={openingCanvas} onClick={onOpenInCanvas}>
-            {openingCanvas ? 'Opening…' : 'Open in canvas'}
+        showOperatorActions ? (
+          <>
+            <button type="button" className="btn-secondary" disabled={openingCanvas} onClick={onOpenInCanvas}>
+              {openingCanvas ? 'Opening…' : 'Open in canvas'}
+            </button>
+            <button type="button" className="btn-primary" disabled={assembling} onClick={onAssemble}>
+              {assembling ? 'Assembling…' : 'Assemble book'}
+            </button>
+          </>
+        ) : (
+          <button type="button" className="btn-primary" onClick={onRequestDraft}>
+            Request AI draft
           </button>
-          <button type="button" className="btn-primary" disabled={assembling} onClick={onAssemble}>
-            {assembling ? 'Assembling…' : 'Assemble book'}
-          </button>
-        </>
+        )
       }
     />
   )
