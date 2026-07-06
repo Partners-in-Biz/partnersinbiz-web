@@ -1,6 +1,6 @@
 'use client'
 
-// Thin typed fetch helpers for the Book Studio admin project workspace.
+// Thin typed fetch helpers for the Book Studio admin and portal workspaces.
 // Every endpoint responds with the platform envelope { success, data } (or
 // { success: false, error, ...extra } on failure) — these helpers unwrap
 // `body.data ?? body` and surface a consistent { ok, data, error, extra } shape
