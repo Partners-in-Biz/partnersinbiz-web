@@ -56,4 +56,22 @@ describe('CanvasTopBar', () => {
     renderBar()
     expect(screen.queryByRole('link', { name: /open linked youtube studio project/i })).toBeNull()
   })
+
+  it('renders a linked Book Studio project chip when a href is provided', () => {
+    renderBar({ linkedBookHref: '/admin/org/org-1/book-studio/project-1' })
+    const chip = screen.getByRole('link', { name: /open linked book studio project/i })
+    expect(chip).toHaveAttribute('href', '/admin/org/org-1/book-studio/project-1')
+    expect(chip).toHaveTextContent(/Book/i)
+  })
+
+  it('hides the Book Studio project chip without a linked href', () => {
+    renderBar()
+    expect(screen.queryByRole('link', { name: /open linked book studio project/i })).toBeNull()
+  })
+
+  it('renders both chips independently without one affecting the other', () => {
+    renderBar({ linkedYouTubeHref: '/admin/org/org-1/youtube-studio', linkedBookHref: '/admin/org/org-1/book-studio/project-1' })
+    expect(screen.getByRole('link', { name: /open linked youtube studio project/i })).toHaveAttribute('href', '/admin/org/org-1/youtube-studio')
+    expect(screen.getByRole('link', { name: /open linked book studio project/i })).toHaveAttribute('href', '/admin/org/org-1/book-studio/project-1')
+  })
 })

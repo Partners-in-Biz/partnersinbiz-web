@@ -4794,6 +4794,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         linkedYouTubeHref={mode === 'admin' && activeCanvas?.linked?.youtubeVideoProjectId && (resolvedOrgId || activeCanvas?.orgId)
           ? `/admin/org/${encodeURIComponent(resolvedOrgId || activeCanvas!.orgId)}/youtube-studio`
           : undefined}
+        linkedBookHref={mode === 'admin' && activeCanvas?.linked?.bookStudioProjectId && (resolvedOrgId || activeCanvas?.orgId)
+          ? `/admin/org/${encodeURIComponent(resolvedOrgId || activeCanvas!.orgId)}/book-studio/${encodeURIComponent(activeCanvas!.linked!.bookStudioProjectId!)}`
+          : undefined}
       />
 
       {splitVideoNodeId ? (() => {

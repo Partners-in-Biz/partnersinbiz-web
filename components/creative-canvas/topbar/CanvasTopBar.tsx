@@ -28,6 +28,8 @@ interface CanvasTopBarProps {
   onOpenSpend?: () => void
   /** When this canvas is linked to a YouTube Studio video project, a deep link to the studio page. */
   linkedYouTubeHref?: string
+  /** When this canvas is linked to a Book Studio project, a deep link to the book project page. */
+  linkedBookHref?: string
 }
 
 function barButton(active = false): React.CSSProperties {
@@ -71,6 +73,7 @@ export default function CanvasTopBar({
   creditsTitle,
   onOpenSpend,
   linkedYouTubeHref,
+  linkedBookHref,
 }: CanvasTopBarProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(title)
@@ -208,6 +211,30 @@ export default function CanvasTopBar({
             }}
           >
             ▶ YT project ↗
+          </a>
+        ) : null}
+        {linkedBookHref ? (
+          <a
+            href={linkedBookHref}
+            aria-label="Open linked Book Studio project"
+            title="Open the linked Book Studio project"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              height: 34,
+              padding: '0 10px',
+              borderRadius: 9,
+              border: `1px solid ${canvasTheme.border}`,
+              background: canvasTheme.surface,
+              color: canvasTheme.text,
+              fontSize: 13,
+              fontWeight: 600,
+              textDecoration: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            📖 Book ↗
           </a>
         ) : null}
         {creditsLabel ? (
