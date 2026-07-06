@@ -11,8 +11,9 @@ interface AgentMetrics {
   successRate: number | null
   avgResponseMs: number | null
   p95ResponseMs: number | null
-  tokens: { input: number; output: number; total: number; runsWithUsage: number }
-  cost: { usd: number | null; runsWithCost: number }
+  tokens: { input: number; output: number; total: number; runsWithUsage: number; source?: 'upstream' | 'unavailable' }
+  cost: { usd: number | null; runsWithCost: number; runsMissingCost?: number; source?: 'upstream' | 'mixed' | 'unavailable'; unavailableReason?: string | null }
+  providerModels?: Array<{ provider: string | null; model: string | null; runs: number }>
   lastRunAt: string | null
 }
 
@@ -26,6 +27,10 @@ interface Payload {
     successRate: number | null
     totalTokens: number
     totalCostUsd: number | null
+    costSource?: 'upstream' | 'mixed' | 'unavailable'
+    costUnavailableReason?: string | null
+    runsWithCost?: number
+    runsMissingCost?: number
     activeAgents: number
   }
   agents: AgentMetrics[]
@@ -59,6 +64,27 @@ function fmtNum(n: number): string {
 
 function fmtCost(usd: number | null): string {
   return usd == null ? '—' : `$${usd.toFixed(2)}`
+}
+
+function telemetryReason(reason?: string | null): string {
+  switch (reason) {
+    case 'cost_usd_unavailable_from_hermes':
+      return 'Cost unavailable from Hermes; token usage is present.'
+    case 'usage_unavailable_from_hermes':
+      return 'Usage unavailable from Hermes.'
+    case 'partial_cost_unavailable_from_hermes':
+      return 'Some runs lack Hermes cost.'
+    default:
+      return 'Cost unavailable.'
+  }
+}
+
+function modelSummary(agent: AgentMetrics): string {
+  const first = agent.providerModels?.[0]
+  if (!first) return 'Provider/model unknown'
+  const label = [first.provider, first.model].filter(Boolean).join(' / ')
+  const more = (agent.providerModels?.length ?? 0) > 1 ? ` +${(agent.providerModels?.length ?? 1) - 1} more` : ''
+  return `${label || 'Provider/model unknown'}${more}`
 }
 
 function relative(iso: string | null): string {
@@ -175,7 +201,14 @@ export function HermesMetrics() {
             <Metric label="Run volume" value={fmtNum(summary.runVolume)} helper={`${summary.activeAgents} active agents`} />
             <Metric label="Success rate" value={fmtPct(summary.successRate)} helper={`${fmtNum(summary.completed)} ok · ${fmtNum(summary.failed)} failed`} tone={summary.successRate != null && summary.successRate < 0.9 ? 'warn' : 'default'} />
             <Metric label="Total tokens" value={fmtNum(summary.totalTokens)} helper="Across runs reporting usage" />
-            <Metric label="Total cost" value={fmtCost(summary.totalCostUsd)} helper={summary.totalCostUsd == null ? 'Not reported by runtime' : 'Sum of run costs'} />
+            <Metric
+              label="Total cost"
+              value={fmtCost(summary.totalCostUsd)}
+              helper={summary.totalCostUsd == null
+                ? telemetryReason(summary.costUnavailableReason)
+                : `${summary.costSource === 'mixed' ? 'Partial' : 'Upstream'} Hermes cost · ${fmtNum(summary.runsWithCost ?? 0)} costed runs`}
+              tone={summary.totalCostUsd == null || summary.costSource === 'mixed' ? 'warn' : 'default'}
+            />
           </section>
 
           <section className="pib-card overflow-hidden">
@@ -200,13 +233,23 @@ export function HermesMetrics() {
                 <tbody>
                   {payload.agents.map((a) => (
                     <tr key={a.agentId} className="border-b border-[var(--color-pib-line)]/60 last:border-b-0">
-                      <td className="px-5 py-3 text-sm font-medium text-on-surface">{titleCase(a.agentId)}</td>
+                      <td className="px-5 py-3 text-sm font-medium text-on-surface">
+                        <div>{titleCase(a.agentId)}</div>
+                        <div className="mt-1 text-xs font-normal text-on-surface-variant">{modelSummary(a)}</div>
+                      </td>
                       <td className="px-5 py-3 text-right text-sm text-on-surface">{fmtNum(a.runVolume)}</td>
                       <td className={`px-5 py-3 text-right text-sm ${a.successRate != null && a.successRate < 0.9 ? 'text-amber-400' : 'text-on-surface'}`}>{fmtPct(a.successRate)}</td>
                       <td className="px-5 py-3 text-right text-sm text-on-surface">{fmtMs(a.avgResponseMs)}</td>
                       <td className="px-5 py-3 text-right text-sm text-on-surface">{fmtMs(a.p95ResponseMs)}</td>
                       <td className="px-5 py-3 text-right text-sm text-on-surface">{a.tokens.runsWithUsage > 0 ? fmtNum(a.tokens.total) : '—'}</td>
-                      <td className="px-5 py-3 text-right text-sm text-on-surface">{fmtCost(a.cost.usd)}</td>
+                      <td className="px-5 py-3 text-right text-sm text-on-surface">
+                        <div>{fmtCost(a.cost.usd)}</div>
+                        {a.cost.usd == null || a.cost.source === 'mixed' ? (
+                          <div className="mt-1 text-xs text-amber-300">{telemetryReason(a.cost.unavailableReason)}</div>
+                        ) : (
+                          <div className="mt-1 text-xs text-on-surface-variant">Upstream · {fmtNum(a.cost.runsWithCost)} runs</div>
+                        )}
+                      </td>
                       <td className="px-5 py-3 text-right text-sm text-on-surface-variant">{relative(a.lastRunAt)}</td>
                     </tr>
                   ))}
