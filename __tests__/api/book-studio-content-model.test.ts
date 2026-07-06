@@ -6,6 +6,7 @@ const mockGet = jest.fn()
 const mockAdd = jest.fn()
 const mockDoc = jest.fn()
 const mockSet = jest.fn()
+const mockUpdate = jest.fn()
 const mockOrgGet = jest.fn()
 const mockCanAccessOrg = jest.fn()
 let mockUser = { uid: 'agent-pip', role: 'ai', orgId: 'pib-platform-owner' } as { uid: string; role: string; orgId?: string }
@@ -43,6 +44,7 @@ function stageFirestore({
   mockGet.mockResolvedValue({ docs })
   mockAdd.mockResolvedValue({ id: 'new-record-1' })
   mockSet.mockResolvedValue(undefined)
+  mockUpdate.mockResolvedValue(undefined)
   mockWhere.mockReturnValue({ get: mockGet })
   mockDoc.mockImplementation((id: string) => {
     if (linkedDocs[id] !== undefined) {
@@ -50,9 +52,10 @@ function stageFirestore({
       return {
         get: jest.fn().mockResolvedValue({ exists: data !== null, data: () => data }),
         set: mockSet,
+        update: mockUpdate,
       }
     }
-    return { get: mockOrgGet, set: mockSet }
+    return { get: mockOrgGet, set: mockSet, update: mockUpdate }
   })
   mockCollection.mockImplementation((name: string) => {
     if (name === 'organizations') return { doc: mockDoc }
@@ -347,9 +350,9 @@ describe('Book Studio content model (chapters, pages, format/trim/series, PATCH)
 
     expect(res.status).toBe(200)
     expect(body.data).toMatchObject({ id: 'chap-1', resource: 'chapters', updated: true })
-    expect(mockSet).toHaveBeenCalledTimes(1)
-    const [patchPayload, options] = mockSet.mock.calls[0]
-    expect(options).toEqual({ merge: true })
+    expect(mockUpdate).toHaveBeenCalledTimes(1)
+    expect(mockSet).not.toHaveBeenCalled()
+    const [patchPayload] = mockUpdate.mock.calls[0]
     expect(patchPayload).toMatchObject({
       title: 'Chapter One (edited)',
       body: 'brand new body text',
@@ -377,7 +380,7 @@ describe('Book Studio content model (chapters, pages, format/trim/series, PATCH)
       caption: 'New caption',
     }), patchContext('pages', 'page-1'))
     expect(res.status).toBe(200)
-    const [patchPayload] = mockSet.mock.calls[0]
+    const [patchPayload] = mockUpdate.mock.calls[0]
     expect(patchPayload.caption).toBe('New caption')
     expect(patchPayload.status).toBeUndefined()
     expect(patchPayload.title).toBeUndefined()
@@ -396,7 +399,7 @@ describe('Book Studio content model (chapters, pages, format/trim/series, PATCH)
       deleted: true,
     }), patchContext('chapters', 'chap-1'))
     expect(res.status).toBe(200)
-    const [patchPayload] = mockSet.mock.calls[0]
+    const [patchPayload] = mockUpdate.mock.calls[0]
     expect(patchPayload.deleted).toBe(true)
     expect(patchPayload.updatedBy).toBe('agent-pip')
   })
@@ -424,6 +427,7 @@ describe('Book Studio content model (chapters, pages, format/trim/series, PATCH)
     expect(unknown.status).toBe(404)
 
     expect(mockSet).not.toHaveBeenCalled()
+    expect(mockUpdate).not.toHaveBeenCalled()
   })
 
   it('keeps runtime-dispatch and forbidden-key guards on the new resources', async () => {
@@ -449,6 +453,7 @@ describe('Book Studio content model (chapters, pages, format/trim/series, PATCH)
     }), patchContext('chapters', 'chap-1'))
     expect(patchDispatch.status).toBe(403)
     expect(mockSet).not.toHaveBeenCalled()
+    expect(mockUpdate).not.toHaveBeenCalled()
 
     const patched = await PATCH(jsonPatch('http://localhost/api/v1/book-studio/chapters/chap-1', {
       title: 'Safe title',
@@ -457,7 +462,7 @@ describe('Book Studio content model (chapters, pages, format/trim/series, PATCH)
       internalNotes: 'hide',
     }), patchContext('chapters', 'chap-1'))
     expect(patched.status).toBe(200)
-    const [patchPayload] = mockSet.mock.calls[0]
+    const [patchPayload] = mockUpdate.mock.calls[0]
     expect(JSON.stringify(patchPayload)).not.toContain('accessToken')
     expect(JSON.stringify(patchPayload)).not.toContain('publishNow')
     expect(JSON.stringify(patchPayload)).not.toContain('internalNotes')
@@ -476,5 +481,99 @@ describe('Book Studio content model (chapters, pages, format/trim/series, PATCH)
     }))
     expect(res.status).toBe(403)
     expect(mockAdd).not.toHaveBeenCalled()
+  })
+
+  it('rejects PATCH chapter with an invalid status enum value and leaves the stored status untouched', async () => {
+    stageFirestore({
+      linkedDocs: {
+        'chap-1': { orgId: 'pib-platform-owner', projectId: 'book-1', title: 'Chapter One', status: 'approved', deleted: false },
+      },
+    })
+    const { PATCH } = await import('@/app/api/v1/book-studio/[resource]/[id]/route')
+
+    const res = await PATCH(jsonPatch('http://localhost/api/v1/book-studio/chapters/chap-1', {
+      status: 'internal_review',
+    }), patchContext('chapters', 'chap-1'))
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.success).toBe(false)
+    expect(body.error).toContain('status')
+    expect(mockUpdate).not.toHaveBeenCalled()
+    expect(mockSet).not.toHaveBeenCalled()
+  })
+
+  it('rejects PATCH page with an invalid kind enum value', async () => {
+    stageFirestore({
+      linkedDocs: {
+        'page-1': { orgId: 'pib-platform-owner', projectId: 'book-1', title: 'Page', kind: 'illustration', deleted: false },
+      },
+    })
+    const { PATCH } = await import('@/app/api/v1/book-studio/[resource]/[id]/route')
+
+    const res = await PATCH(jsonPatch('http://localhost/api/v1/book-studio/pages/page-1', {
+      kind: 'bogus',
+    }), patchContext('pages', 'page-1'))
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.success).toBe(false)
+    expect(body.error).toContain('kind')
+    expect(mockUpdate).not.toHaveBeenCalled()
+  })
+
+  it('PATCH page puzzle replaces the whole object instead of deep-merging stale params/solutionRef', async () => {
+    stageFirestore({
+      linkedDocs: {
+        'page-1': {
+          orgId: 'pib-platform-owner',
+          projectId: 'book-1',
+          title: 'Page',
+          deleted: false,
+          puzzle: { kind: 'sudoku', seed: 1, difficulty: 'hard', params: { holes: 52 }, solutionRef: 'old-solution' },
+        },
+      },
+    })
+    const { PATCH } = await import('@/app/api/v1/book-studio/[resource]/[id]/route')
+
+    const res = await PATCH(jsonPatch('http://localhost/api/v1/book-studio/pages/page-1', {
+      puzzle: { kind: 'maze', seed: 5, difficulty: 'easy' },
+    }), patchContext('pages', 'page-1'))
+    expect(res.status).toBe(200)
+
+    // Defect 2 regression guard: update() must be used (not set with merge:true)
+    // so Firestore replaces the whole `puzzle` map instead of deep-merging it
+    // with the previously stored sudoku puzzle.
+    expect(mockUpdate).toHaveBeenCalledTimes(1)
+    expect(mockSet).not.toHaveBeenCalled()
+    const [patchPayload] = mockUpdate.mock.calls[0]
+    expect(patchPayload.puzzle).toEqual({ kind: 'maze', seed: 5, difficulty: 'easy' })
+    expect(patchPayload.puzzle.params).toBeUndefined()
+    expect(patchPayload.puzzle.solutionRef).toBeUndefined()
+  })
+
+  it('PATCH project packageManifest without checksum does not leave a stale checksum surviving via deep-merge', async () => {
+    stageFirestore({
+      linkedDocs: {
+        'book-1': {
+          orgId: 'pib-platform-owner',
+          title: 'Book A',
+          deleted: false,
+          packageManifest: { status: 'draft', version: '1', checksum: 'sha256:old-stale-checksum' },
+        },
+      },
+    })
+    const { PATCH } = await import('@/app/api/v1/book-studio/[resource]/[id]/route')
+
+    const res = await PATCH(jsonPatch('http://localhost/api/v1/book-studio/projects/book-1', {
+      packageManifest: { status: 'draft', version: '2' },
+    }), patchContext('projects', 'book-1'))
+    expect(res.status).toBe(200)
+
+    expect(mockUpdate).toHaveBeenCalledTimes(1)
+    expect(mockSet).not.toHaveBeenCalled()
+    const [patchPayload] = mockUpdate.mock.calls[0]
+    expect(patchPayload.packageManifest).toEqual({ status: 'draft', version: '2', qaStatus: 'missing_evidence' })
+    expect(patchPayload.packageManifest.checksum).toBeUndefined()
   })
 })

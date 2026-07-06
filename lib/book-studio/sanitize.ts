@@ -150,12 +150,34 @@ function cleanUrl(value: unknown): string | undefined {
   return url && isSafeUrl(url) ? url : undefined
 }
 
-function pick<T extends readonly string[]>(value: unknown, allowed: T, fallback: T[number]): T[number] {
-  return allowed.includes(value as T[number]) ? value as T[number] : fallback
+// Set for the duration of a sanitizeBookStudioRecordPatch() call so pick()/
+// pickOptional() know "this key was explicitly provided by the caller" vs
+// "this key is absent and we should use a create-time default." In patch
+// mode, a provided-but-invalid enum value must 400 instead of silently
+// falling back or being dropped — see BookStudioValidationError below.
+let patchMode = false
+
+/**
+ * Enum-ish whitelist helper. In create mode (patchMode === false), an
+ * unrecognised value silently falls back to `fallback` (unchanged behaviour).
+ * In patch mode, a value that is present (not undefined) but fails the
+ * whitelist check throws BookStudioValidationError naming `fieldLabel`
+ * instead of silently rewriting the record to the fallback.
+ */
+function pick<T extends readonly string[]>(value: unknown, allowed: T, fallback: T[number], fieldLabel?: string): T[number] {
+  if (allowed.includes(value as T[number])) return value as T[number]
+  if (patchMode && value !== undefined && fieldLabel) {
+    throw new BookStudioValidationError(`invalid value for ${fieldLabel}`)
+  }
+  return fallback
 }
 
-function pickOptional<T extends readonly string[]>(value: unknown, allowed: T): T[number] | undefined {
-  return allowed.includes(value as T[number]) ? value as T[number] : undefined
+function pickOptional<T extends readonly string[]>(value: unknown, allowed: T, fieldLabel?: string): T[number] | undefined {
+  if (allowed.includes(value as T[number])) return value as T[number]
+  if (patchMode && value !== undefined && fieldLabel) {
+    throw new BookStudioValidationError(`invalid value for ${fieldLabel}`)
+  }
+  return undefined
 }
 
 function cleanInt(value: unknown): number | undefined {
@@ -289,7 +311,7 @@ function cleanBridgeLinks(value: unknown) {
     if (!ref) return null
     return compact({
       id: cleanString(source.id),
-      type: pick(source.type ?? source.resourceType, BRIDGE_LINK_TYPES, 'artifact'),
+      type: pick(source.type ?? source.resourceType, BRIDGE_LINK_TYPES, 'artifact', 'bridgeLinks[].type'),
       label: cleanString(source.label) ?? cleanString(source.title) ?? 'Linked evidence',
       ref,
       href: cleanUrl(source.href ?? source.url),
@@ -309,7 +331,7 @@ function cleanGates(value: unknown) {
     return compact({
       id: cleanString(source.id) ?? `gate-${index + 1}`,
       label: cleanString(source.label) ?? 'Quality gate',
-      status: pick(source.status, GATE_STATUSES, 'missing_evidence'),
+      status: pick(source.status, GATE_STATUSES, 'missing_evidence', 'gates[].status'),
       ownerAgentId: cleanString(source.ownerAgentId),
       owner: cleanString(source.owner),
       evidenceIds: cleanStringArray(source.evidenceIds ?? source.evidence),
@@ -323,7 +345,7 @@ function cleanRightsLedger(value: unknown) {
   const source = cleanObject(value)
   if (!Object.keys(source).length) return undefined
   return compact({
-    status: pick(source.status, RIGHTS_STATUSES, 'needs_review'),
+    status: pick(source.status, RIGHTS_STATUSES, 'needs_review', 'rightsLedger.status'),
     owner: cleanString(source.owner),
     author: cleanString(source.author),
     contributorIds: cleanStringArray(source.contributorIds),
@@ -356,16 +378,16 @@ function cleanApprovalState(value: unknown) {
   const source = cleanObject(value)
   if (!Object.keys(source).length) return undefined
   return compact({
-    status: pick(source.status, APPROVAL_STATUSES, 'not_requested'),
+    status: pick(source.status, APPROVAL_STATUSES, 'not_requested', 'approvalState.status'),
     snapshotHash: cleanString(source.snapshotHash),
     evidenceId: cleanString(source.evidenceId),
     decidedAt: cleanString(source.decidedAt),
   })
 }
 
-function cleanPublishingReadinessStatus(value: unknown) {
+function cleanPublishingReadinessStatus(value: unknown, fieldLabel = 'publishingReadinessStatus') {
   if (value === undefined || value === null || value === '') return undefined
-  return pick(value, PUBLISHING_READINESS_STATUSES, 'draft')
+  return pick(value, PUBLISHING_READINESS_STATUSES, 'draft', fieldLabel)
 }
 
 function cleanManifestFiles(value: unknown) {
@@ -381,7 +403,7 @@ function cleanManifestFiles(value: unknown) {
       type: cleanString(source.type),
       checksum: cleanString(source.checksum),
       version: cleanString(source.version),
-      role: pickOptional(source.role, MANIFEST_FILE_ROLES),
+      role: pickOptional(source.role, MANIFEST_FILE_ROLES, 'packageManifest.files[].role'),
       storagePath: cleanString(source.storagePath),
       bytes: cleanNonNegativeInt(source.bytes),
       pageCount: cleanNonNegativeInt(source.pageCount),
@@ -394,11 +416,11 @@ function cleanPackageManifest(value: unknown) {
   const source = cleanObject(value)
   if (!Object.keys(source).length) return undefined
   return compact({
-    status: cleanPublishingReadinessStatus(source.status),
+    status: cleanPublishingReadinessStatus(source.status, 'packageManifest.status'),
     version: cleanString(source.version),
     checksum: cleanString(source.checksum),
     files: cleanManifestFiles(source.files),
-    qaStatus: pick(source.qaStatus, GATE_STATUSES, 'missing_evidence'),
+    qaStatus: pick(source.qaStatus, GATE_STATUSES, 'missing_evidence', 'packageManifest.qaStatus'),
     generatedAt: cleanString(source.generatedAt),
   })
 }
@@ -407,7 +429,7 @@ function cleanAnalyticsSnapshot(value: unknown) {
   const source = cleanObject(value)
   if (!Object.keys(source).length) return undefined
   return compact({
-    source: pick(source.source, ANALYTICS_SOURCES, 'manual_import'),
+    source: pick(source.source, ANALYTICS_SOURCES, 'manual_import', 'analyticsSnapshot.source'),
     importedAt: cleanString(source.importedAt),
     periodStart: cleanString(source.periodStart),
     periodEnd: cleanString(source.periodEnd),
@@ -446,7 +468,7 @@ function contentModelFields(resource: BookStudioResourceKey, source: PlainRecord
       // machinery does not apply, so suppress the generic defaults.
       stage: undefined,
       channel: undefined,
-      status: pick(source.status, CONTENT_STATUSES, 'draft'),
+      status: pick(source.status, CONTENT_STATUSES, 'draft', 'status'),
       order: cleanNonNegativeInt(source.order),
       canvasRunId: cleanString(source.canvasRunId),
     }
@@ -463,7 +485,7 @@ function contentModelFields(resource: BookStudioResourceKey, source: PlainRecord
 
     return {
       ...shared,
-      kind: pickOptional(source.kind, PAGE_KINDS),
+      kind: pickOptional(source.kind, PAGE_KINDS, 'kind'),
       imageUrl: cleanUrl(source.imageUrl),
       imageStoragePath: cleanString(source.imageStoragePath),
       caption: cleanString(source.caption),
@@ -478,6 +500,7 @@ function contentModelFields(resource: BookStudioResourceKey, source: PlainRecord
 export function sanitizeBookStudioRecordInput(resource: BookStudioResourceKey, input: PlainRecord, orgId: string): BookStudioRecord {
   const config = BOOK_STUDIO_RESOURCES[resource]
   const source = stripForbidden(cleanObject(input)) as PlainRecord
+  const isContentUnit = resource === 'chapters' || resource === 'pages'
   const titleFallback = resource === 'series' ? 'Untitled series' : `Untitled ${config.label}`
   const titleValue = cleanString(source[config.titleField]) ?? cleanString(source.title) ?? cleanString(source.name) ?? cleanString(source.label)
 
@@ -492,9 +515,16 @@ export function sanitizeBookStudioRecordInput(resource: BookStudioResourceKey, i
     label: config.titleField === 'label' ? titleValue ?? titleFallback : cleanString(source.label),
     importLabel: config.titleField === 'importLabel' ? titleValue ?? titleFallback : cleanString(source.importLabel),
     decision: config.titleField === 'decision' ? titleValue ?? titleFallback : cleanString(source.decision),
-    status: pick(source.status, STATUSES, config.defaultStatus),
-    stage: pick(source.stage, STAGES, 'intake'),
-    channel: pick(source.channel, CHANNELS, 'manual_handoff'),
+    // Chapters/pages are content-unit documents: their `status` is validated
+    // against CONTENT_STATUSES (and stage/channel are suppressed entirely)
+    // inside contentModelFields() below, which fully overrides these three
+    // keys. Passing a fieldLabel here for those two resources would make an
+    // out-of-range STATUSES/STAGES/CHANNELS value 400 before the correct,
+    // content-model-specific validation ever runs — so only enable the
+    // patch-mode throw for resources where these top-level fields are real.
+    status: pick(source.status, STATUSES, config.defaultStatus, isContentUnit ? undefined : 'status'),
+    stage: pick(source.stage, STAGES, 'intake', isContentUnit ? undefined : 'stage'),
+    channel: pick(source.channel, CHANNELS, 'manual_handoff', isContentUnit ? undefined : 'channel'),
     safeSummary: cleanString(source.safeSummary ?? source.summary),
     nextAction: cleanString(source.nextAction),
     description: cleanString(source.description),
@@ -545,14 +575,19 @@ const PATCH_SOURCE_KEYS: Record<string, string[]> = {
  * and orgId/projectId can never be changed through a patch.
  */
 export function sanitizeBookStudioRecordPatch(resource: BookStudioResourceKey, input: PlainRecord, orgId: string): PlainRecord {
-  const sanitized = sanitizeBookStudioRecordInput(resource, input, orgId) as PlainRecord
-  const source = stripForbidden(cleanObject(input)) as PlainRecord
+  patchMode = true
+  try {
+    const sanitized = sanitizeBookStudioRecordInput(resource, input, orgId) as PlainRecord
+    const source = stripForbidden(cleanObject(input)) as PlainRecord
 
-  return Object.fromEntries(Object.entries(sanitized).filter(([key]) => {
-    if (key === 'orgId' || key === 'projectId') return false
-    const sourceKeys = PATCH_SOURCE_KEYS[key] ?? [key]
-    return sourceKeys.some((sourceKey) => sourceKey in source)
-  }))
+    return Object.fromEntries(Object.entries(sanitized).filter(([key]) => {
+      if (key === 'orgId' || key === 'projectId') return false
+      const sourceKeys = PATCH_SOURCE_KEYS[key] ?? [key]
+      return sourceKeys.some((sourceKey) => sourceKey in source)
+    }))
+  } finally {
+    patchMode = false
+  }
 }
 
 export function serializeBookStudioRecord(id: string, data: FirebaseFirestore.DocumentData): BookStudioRecord {

@@ -118,10 +118,13 @@ export function createBookStudioRecordHandlers() {
 
     if (body.deleted === true) patch.deleted = true
 
-    await docRef.set({
+    // update() replaces each top-level key wholesale (no deep-merge of nested
+    // maps), so composite fields like puzzle/packageManifest never retain
+    // stale nested data from the previous value — unlike set(..., {merge:true}).
+    await docRef.update({
       ...patch,
       ...updateActorFields(user),
-    }, { merge: true })
+    })
 
     return apiSuccess({ id, resource, updated: true })
   })
