@@ -6,6 +6,7 @@ import { apiError, apiSuccess } from '@/lib/api/response'
 import { withTenant } from '@/lib/api/tenant'
 import { adminDb } from '@/lib/firebase/admin'
 import { hasActivePublishAccount, hasFinalApproval, upsertSocialQueueEntry } from '@/lib/social/scheduling'
+import { touchPortalDashboardSummary } from '@/lib/portal/dashboard-summary'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,6 +47,10 @@ export const POST = withAuth('client', withTenant(async (req: NextRequest, user,
   const queuedPost = { ...post, ...updates }
 
   await ref.update(updates)
+  await touchPortalDashboardSummary({
+    orgId,
+    staleReason: 'social_post.rescheduled',
+  })
   await upsertSocialQueueEntry({
     postId: id,
     orgId,

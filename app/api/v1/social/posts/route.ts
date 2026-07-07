@@ -20,6 +20,7 @@ import {
   RESOURCE_RELATIONSHIP_STRING_FIELDS,
   normalizeResourceRelationshipLinks,
 } from '@/lib/client-documents/linkedValidation'
+import { touchPortalDashboardSummary } from '@/lib/portal/dashboard-summary'
 
 export const dynamic = 'force-dynamic'
 
@@ -66,7 +67,12 @@ export const GET = withAuth('client', withTenant(async (req, user, orgId) => {
   const status = searchParams.get('status') as PostStatus | null
   const from = searchParams.get('from')
   const to = searchParams.get('to')
+  const limit = Math.min(200, Math.max(1, parseInt(searchParams.get('limit') ?? '50', 10) || 50))
   const personalScope = wantsPersonalScope(req)
+  const fromDate = from ? new Date(from) : null
+  const toDate = to ? new Date(to) : null
+  const hasValidFrom = Boolean(fromDate && !isNaN(fromDate.getTime()))
+  const hasValidTo = Boolean(toDate && !isNaN(toDate.getTime()))
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query: any = adminDb.collection('social_posts').where('orgId', '==', orgId)
@@ -79,40 +85,59 @@ export const GET = withAuth('client', withTenant(async (req, user, orgId) => {
     query = query.where('status', '==', status)
   }
 
-  const snapshot = await query.get()
+  const readLimit = personalScope ? Math.min(limit * 3, 500) : limit
+  const applyDateRange = (baseQuery: any, field: 'scheduledAt' | 'scheduledFor') => {
+    let dateQuery = baseQuery
+    if (hasValidFrom) {
+      dateQuery = dateQuery.where(field, '>=', Timestamp.fromDate(fromDate!))
+    }
+    if (hasValidTo) {
+      dateQuery = dateQuery.where(field, '<=', Timestamp.fromDate(toDate!))
+    }
+    return dateQuery.orderBy(field, 'asc')
+  }
+
+  const snapshots = hasValidFrom || hasValidTo
+    ? await Promise.all([
+        applyDateRange(query, 'scheduledAt').limit(readLimit).get(),
+        applyDateRange(query, 'scheduledFor').limit(readLimit).get(),
+      ])
+    : [await query.limit(readLimit).get()]
+  const totalPromise = !personalScope && !(hasValidFrom || hasValidTo) && typeof query.count === 'function'
+    ? query.count().get().then((aggregate: { data: () => { count?: number } }) => aggregate.data().count ?? 0)
+    : Promise.resolve(null)
+  const aggregateTotal = await totalPromise
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let posts = snapshot.docs.map((doc: any) => ({
-    id: doc.id,
-    ...doc.data(),
-  })).filter((post: Record<string, unknown>) => {
+  const byId = new Map<string, Record<string, unknown>>()
+  for (const snapshot of snapshots) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    snapshot.docs.forEach((doc: any) => {
+      byId.set(doc.id, { id: doc.id, ...doc.data() })
+    })
+  }
+  let posts = Array.from(byId.values()).filter((post: Record<string, unknown>) => {
     if (personalScope) return post.accountScope === PERSONAL_SCOPE && post.ownerUid === user.uid
     return post.accountScope !== PERSONAL_SCOPE
   })
 
-  // In-memory date range filtering
-  if (from) {
-    const fromDate = new Date(from)
-    if (!isNaN(fromDate.getTime())) {
-      const fromTs = Timestamp.fromDate(fromDate)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      posts = posts.filter((p: any) => {
-        const sf: Timestamp | undefined = p.scheduledFor ?? p.scheduledAt
-        return sf && sf.seconds >= fromTs.seconds
-      })
-    }
+  // Compatibility fallback for older rows that only have scheduledFor.
+  if (hasValidFrom) {
+    const fromTs = Timestamp.fromDate(fromDate!)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    posts = posts.filter((p: any) => {
+      const sf: Timestamp | undefined = p.scheduledFor ?? p.scheduledAt
+      return sf && sf.seconds >= fromTs.seconds
+    })
   }
 
-  if (to) {
-    const toDate = new Date(to)
-    if (!isNaN(toDate.getTime())) {
-      const toTs = Timestamp.fromDate(toDate)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      posts = posts.filter((p: any) => {
-        const sf: Timestamp | undefined = p.scheduledFor ?? p.scheduledAt
-        return sf && sf.seconds <= toTs.seconds
-      })
-    }
+  if (hasValidTo) {
+    const toTs = Timestamp.fromDate(toDate!)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    posts = posts.filter((p: any) => {
+      const sf: Timestamp | undefined = p.scheduledFor ?? p.scheduledAt
+      return sf && sf.seconds <= toTs.seconds
+    })
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -122,7 +147,7 @@ export const GET = withAuth('client', withTenant(async (req, user, orgId) => {
     return (aTs?.seconds ?? 0) - (bTs?.seconds ?? 0)
   })
 
-  return apiSuccess(posts, 200, { total: posts.length, page: 1, limit: posts.length })
+  return apiSuccess(posts.slice(0, limit), 200, { total: aggregateTotal ?? posts.length, page: 1, limit })
 }))
 
 export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
@@ -287,6 +312,15 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
   }
 
   const docRef = await adminDb.collection('social_posts').add(doc)
+  await touchPortalDashboardSummary({
+    orgId,
+    increments: {
+      'counts.posts': 1,
+      'social.total': 1,
+      'social.byStatus.draft': status === 'draft' ? 1 : 0,
+    },
+    staleReason: 'social_post.created',
+  })
 
   await logAudit({
     orgId,

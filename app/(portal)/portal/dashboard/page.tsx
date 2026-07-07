@@ -64,6 +64,39 @@ interface SocialStats {
   last30DaysSeries?: { label: string; value: number }[]
 }
 
+interface PortalDashboardSummary {
+  counts?: {
+    contacts?: number
+    projects?: number
+    activeProjects?: number
+    posts?: number
+    publishedPosts?: number
+    pendingApprovalPosts?: number
+    activeCampaigns?: number
+    captureSources?: number
+  }
+  projects?: {
+    total?: number
+    active?: number
+    recent?: Project[]
+  }
+  social?: SocialStats
+  scheduledPosts?: ScheduledContentPost[]
+  campaigns?: {
+    active?: number
+  }
+  crm?: {
+    contacts?: number
+  }
+  onboarding?: {
+    social: boolean
+    domain: boolean
+    contact: boolean
+    analytics: boolean
+    post: boolean
+  }
+}
+
 interface PortalConnection {
   id: string
   provider: string
@@ -88,6 +121,7 @@ interface DashboardData {
   properties: PortalProperty[]
   connections: PortalConnection[]
   reports: PortalReport[]
+  summary?: PortalDashboardSummary | null
 }
 
 interface CrmDashboardData {
@@ -175,6 +209,7 @@ function normalizeDashboardPayload(body: unknown): DashboardData | null {
     properties: Array.isArray(source.properties) ? source.properties : [],
     connections: Array.isArray(source.connections) ? source.connections : [],
     reports: Array.isArray(source.reports) ? source.reports : [],
+    summary: source.summary && typeof source.summary === 'object' ? source.summary as PortalDashboardSummary : null,
   }
 }
 
@@ -224,14 +259,6 @@ function getGreeting(): string {
   if (hour < 12) return 'Good morning'
   if (hour < 17) return 'Good afternoon'
   return 'Good evening'
-}
-
-function todayRange(): { from: string; to: string } {
-  const from = new Date()
-  from.setHours(0, 0, 0, 0)
-  const to = new Date(from)
-  to.setDate(to.getDate() + 1)
-  return { from: from.toISOString(), to: to.toISOString() }
 }
 
 function Skeleton({ className = '' }: { className?: string }) {
@@ -394,47 +421,41 @@ export default function PortalDashboard() {
 
   useEffect(() => {
     if (!portalOrgLoaded) return
-    if (!portalOrg?.id) {
-      const timer = window.setTimeout(() => {
-        setProjects([])
-        setProjectsLoading(false)
-      }, 0)
-      return () => window.clearTimeout(timer)
+    if (Array.isArray(data?.summary?.projects?.recent)) {
+      setProjects(data.summary.projects.recent)
+      setProjectsLoading(false)
+      return
     }
-
-    const timer = window.setTimeout(() => setProjectsLoading(true), 0)
-    fetch(`/api/v1/projects?view=received&orgId=${encodeURIComponent(portalOrg.id)}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((body) => setProjects(Array.isArray(body?.data) ? body.data : []))
-      .catch(() => setProjects([]))
-      .finally(() => setProjectsLoading(false))
-    return () => window.clearTimeout(timer)
-  }, [portalOrgLoaded, portalOrg?.id])
+    if (!loading) {
+      setProjects([])
+      setProjectsLoading(false)
+      return
+    }
+  }, [portalOrgLoaded, loading, data?.summary?.projects?.recent])
 
   useEffect(() => {
-    if (!portalOrg?.id) return
-
-    fetch(`/api/v1/social/stats?orgId=${encodeURIComponent(portalOrg.id)}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((body) => setSocialStats(body?.data ?? null))
-      .catch(() => setSocialStats(null))
-      .finally(() => setSocialLoading(false))
-  }, [portalOrg?.id])
+    if (data?.summary?.social) {
+      setSocialStats(data.summary.social)
+      setSocialLoading(false)
+      return
+    }
+    if (!loading) {
+      setSocialStats(null)
+      setSocialLoading(false)
+    }
+  }, [loading, data?.summary?.social])
 
   useEffect(() => {
-    if (!portalOrg?.id) return
-
-    const { from, to } = todayRange()
-    fetch(`/api/v1/social/posts?orgId=${encodeURIComponent(portalOrg.id)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&limit=50`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((body) => {
-        const posts = ((body?.data ?? []) as ScheduledContentPost[])
-          .filter((post) => ['scheduled', 'approved', 'pending_approval', 'client_review', 'qa_review'].includes(post.status ?? ''))
-        setScheduledPosts(posts)
-      })
-      .catch(() => setScheduledPosts([]))
-      .finally(() => setScheduledLoading(false))
-  }, [portalOrg?.id])
+    if (Array.isArray(data?.summary?.scheduledPosts)) {
+      setScheduledPosts(data.summary.scheduledPosts)
+      setScheduledLoading(false)
+      return
+    }
+    if (!loading) {
+      setScheduledPosts([])
+      setScheduledLoading(false)
+    }
+  }, [loading, data?.summary?.scheduledPosts])
 
   useEffect(() => {
     fetch(scopedApi('/api/v1/crm/dashboard'))
@@ -448,44 +469,23 @@ export default function PortalDashboard() {
   }, [scopedApi])
 
   useEffect(() => {
-    if (!portalOrg?.id) return
-
-    // Total contacts — read meta.total
-    fetch(scopedApi('/api/v1/crm/contacts?limit=1'))
-      .then((r) => (r.ok ? r.json() : null))
-      .then((b) => {
-        if (b) {
-          const total = b.meta?.total ?? (Array.isArray(b.data) ? b.data.length : 0)
-          setStats((s) => ({ ...s, contacts: total }))
-        }
+    if (data?.summary) {
+      setStats({
+        contacts: data.summary.counts?.contacts ?? data.summary.crm?.contacts ?? 0,
+        activeCampaigns: data.summary.counts?.activeCampaigns ?? data.summary.campaigns?.active ?? 0,
+        captureSources: data.summary.counts?.captureSources ?? 0,
       })
-      .catch(() => {})
-
-    // Active campaigns
-    fetch(`/api/v1/campaigns?status=active&orgId=${encodeURIComponent(portalOrg.id)}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((b) => {
-        if (b) {
-          const count = Array.isArray(b.data) ? b.data.length : (b.meta?.total ?? 0)
-          setStats((s) => ({ ...s, activeCampaigns: count }))
-        }
-      })
-      .catch(() => {})
-
-    // Capture sources
-    fetch(scopedApi('/api/v1/crm/capture-sources'))
-      .then((r) => (r.ok ? r.json() : null))
-      .then((b) => {
-        if (b) {
-          const count = Array.isArray(b.data) ? b.data.length : (b.meta?.total ?? 0)
-          setStats((s) => ({ ...s, captureSources: count }))
-        }
-      })
-      .catch(() => {})
-  }, [portalOrg?.id, scopedApi])
+      return
+    }
+    if (!loading) {
+      setStats({ contacts: 0, activeCampaigns: 0, captureSources: 0 })
+    }
+  }, [loading, data?.summary])
 
   const noData = !loading && (!data || (data?.connections?.length ?? 0) === 0)
   const activeProjects = projects.filter(p => ['active', 'in_progress', 'development', 'review', 'live', 'maintenance'].includes(p.status))
+  const projectTotal = data?.summary?.projects?.total ?? data?.summary?.counts?.projects ?? projects.length
+  const activeProjectTotal = data?.summary?.projects?.active ?? data?.summary?.counts?.activeProjects ?? activeProjects.length
   const workspaceLoading = !portalOrgLoaded || loading || projectsLoading || socialLoading
   const orgName = portalOrg?.name?.trim() || 'your workspace'
   const orgSlug = portalOrg?.slug?.trim() || 'workspace'
@@ -518,7 +518,11 @@ export default function PortalDashboard() {
         </p>
       </div>
 
-      <OnboardingChecklist scopedHref={scopedHref} scopedApi={scopedApi} />
+      <OnboardingChecklist
+        scopedHref={scopedHref}
+        scopedApi={scopedApi}
+        initialDone={data?.summary?.onboarding ?? undefined}
+      />
 
       <section className="space-y-6">
         <PageHeader
@@ -545,9 +549,9 @@ export default function PortalDashboard() {
             <>
               <StatCardWithChart
                 label="Projects"
-                value={projects.length}
-                sub={`${activeProjects.length} active`}
-                trend={activeProjects.length > 0 ? 'up' : undefined}
+                value={projectTotal}
+                sub={`${activeProjectTotal} active`}
+                trend={activeProjectTotal > 0 ? 'up' : undefined}
                 accent
               />
               <StatCardWithChart

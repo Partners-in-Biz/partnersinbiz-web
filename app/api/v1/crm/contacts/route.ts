@@ -33,6 +33,7 @@ import {
   crmRecordCompanyIds,
 } from '@/lib/crm/assignment-access'
 import { safeTouchCrmLiveUpdate } from '@/lib/crm/live-updates'
+import { touchPortalDashboardSummary } from '@/lib/portal/dashboard-summary'
 
 const VALID_STAGES: ContactStage[] = [
   'new', 'contacted', 'replied', 'demo', 'proposal', 'won', 'lost',
@@ -113,6 +114,22 @@ function timestampMillis(value: unknown): number {
   return 0
 }
 
+// Firestore aggregate counts are billed from index reads, not document reads,
+// so dashboard/meta probes must use count() instead of loading every contact.
+async function countFirestoreQuery(query: {
+  count?: () => { get: () => Promise<{ data?: () => { count?: number } }> }
+  get: () => Promise<{ docs?: unknown[] }>
+}): Promise<number> {
+  if (query && typeof query.count === 'function') {
+    const aggregate = await query.count().get()
+    const data = typeof aggregate.data === 'function' ? aggregate.data() : {}
+    const count = data?.count
+    return typeof count === 'number' && Number.isFinite(count) ? count : 0
+  }
+  const snap = await query.get()
+  return Array.isArray(snap.docs) ? snap.docs.length : 0
+}
+
 export const GET = withCrmAuth('viewer', async (req, ctx) => {
   const { searchParams } = new URL(req.url)
   const { orgId } = ctx
@@ -137,6 +154,33 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
     .filter(Boolean)
   if (tagList.length > 10) {
     return apiError('tags filter supports up to 10 values (array-contains-any limit)', 400)
+  }
+
+  const canUseIndexedMetaProbe =
+    isCrmPrivilegedActor(ctx) &&
+    limit === 1 &&
+    page === 1 &&
+    !stage &&
+    !type &&
+    !source &&
+    tagList.length === 0 &&
+    !capturedFromId &&
+    !search &&
+    !status &&
+    !utmSource &&
+    minScore === null &&
+    sort !== 'score'
+
+  if (canUseIndexedMetaProbe) {
+    const baseQuery = adminDb.collection('contacts')
+      .where('orgId', '==', orgId)
+      .where('deleted', '==', false)
+    const [total, pageSnap] = await Promise.all([
+      countFirestoreQuery(baseQuery),
+      baseQuery.orderBy('createdAt', 'desc').limit(1).get(),
+    ])
+    const contacts: Contact[] = pageSnap.docs.map((doc: { id: string; data: () => unknown }): Contact => ({ ...(doc.data() as Contact), id: doc.id }))
+    return apiSuccess(contacts, 200, { total, page, limit, orgId, utmSources: [] })
   }
 
   const snapshot = await adminDb
@@ -382,6 +426,15 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
   const docRef = adminDb.collection('contacts').doc()
   await docRef.set(sanitized)
   await safeTouchCrmLiveUpdate(orgId, 'contacts', 'contact.created')
+  await touchPortalDashboardSummary({
+    orgId,
+    increments: {
+      'counts.contacts': 1,
+      'crm.contacts': 1,
+    },
+    extra: { onboarding: { contact: true } },
+    staleReason: 'contact.created',
+  })
 
   try {
     await dispatchWebhook(orgId, 'contact.created', {

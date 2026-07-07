@@ -11,6 +11,7 @@ import { getProjectForUser } from '@/lib/projects/access'
 import { logActivity } from '@/lib/activity/log'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { normalizeProjectLinks, pickProjectLinkFields, type ProjectLinkSet } from '@/lib/client-documents/linkedValidation'
+import { touchPortalDashboardSummary } from '@/lib/portal/dashboard-summary'
 
 export const dynamic = 'force-dynamic'
 
@@ -149,6 +150,18 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   await adminDb.collection('projects').doc(projectId).update(updates)
 
   if (orgId) {
+    const projectData = access.doc.data() ?? {}
+    const summaryOrgIds = Array.from(new Set([
+      orgId,
+      projectData.recipientOrgId,
+      projectData.targetOrgId,
+      projectData.clientOrgId,
+    ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0)))
+    await Promise.all(summaryOrgIds.map((summaryOrgId) => touchPortalDashboardSummary({
+      orgId: summaryOrgId,
+      staleReason: 'project.updated',
+    })))
+
     logActivity({
       orgId,
       type: 'project_updated',

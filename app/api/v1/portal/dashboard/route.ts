@@ -11,6 +11,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { snapshotKpis, lastCompletedMonth, monthPeriod } from '@/lib/reports/snapshot'
 import { listConnectionsForOrg } from '@/lib/integrations/connections'
 import { listReports } from '@/lib/reports/generate'
+import { getPortalDashboardSummary } from '@/lib/portal/dashboard-summary'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,11 +43,12 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
   // Cap end at today.
   period.end = now.toISOString().slice(0, 10)
 
-  const [snapshot, properties, connections, reports] = await Promise.all([
+  const [snapshot, properties, connections, reports, summary] = await Promise.all([
     snapshotKpis({ orgId, period, previousPeriod: lastCompletedMonth(tz) }).catch(() => null),
     listProps(orgId).catch(() => []),
     listConnectionsForOrg(orgId).catch(() => []),
     listReports(orgId, 6).catch(() => []),
+    getPortalDashboardSummary(orgId).catch(() => null),
   ])
 
   // Strip ciphertext from connections shown in portal.
@@ -63,6 +65,15 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
     series: snapshot?.series ?? null,
     properties,
     connections: safeConnections,
+    summary: summary
+      ? {
+          ...summary,
+          onboarding: {
+            ...summary.onboarding,
+            analytics: safeConnections.length > 0,
+          },
+        }
+      : null,
     reports: reports.map((r) => ({
       id: r.id,
       type: r.type,

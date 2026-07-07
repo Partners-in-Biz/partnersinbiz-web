@@ -29,6 +29,7 @@ import { logActivity } from '@/lib/activity/log'
 import {
   normalizeResourceRelationshipLinks,
 } from '@/lib/client-documents/linkedValidation'
+import { touchPortalDashboardSummary } from '@/lib/portal/dashboard-summary'
 
 export const dynamic = 'force-dynamic'
 
@@ -71,6 +72,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query: any = adminDb.collection('campaigns')
     .where('orgId', '==', orgId)
+    .where('deleted', '==', false)
   // The collection holds two shapes — only the email-campaign shape has the
   // legacy email statuses. Filter loosely; we accept either status family.
   if (status && (VALID_EMAIL_STATUSES.includes(status as EmailCampaignStatus) ||
@@ -78,15 +80,16 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
     query = query.where('status', '==', status)
   }
 
-  const snap = await query.get()
+  const totalPromise = typeof query.count === 'function'
+    ? query.count().get().then((aggregate: { data: () => { count?: number } }) => aggregate.data().count ?? 0)
+    : Promise.resolve(null)
+  const snap = await query.limit(limit).get()
+  const total = await totalPromise
   const campaigns = snap.docs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .map((d: any) => ({ id: d.id, ...d.data() }))
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .filter((c: any) => c.deleted !== true)
-    .slice(0, limit)
 
-  return apiSuccess(campaigns)
+  return apiSuccess(campaigns, 200, { total: total ?? campaigns.length, page: 1, limit, orgId })
 })
 
 export const POST = withAuth(
@@ -146,6 +149,10 @@ async function createContentEngineCampaign(
     ...actorFrom(user),
     updatedBy: user.uid,
     updatedByType: user.role === 'ai' ? 'agent' : 'user',
+  })
+  await touchPortalDashboardSummary({
+    orgId,
+    staleReason: 'campaign.created',
   })
 
   logActivity({
@@ -223,6 +230,10 @@ async function createEmailCampaign(
     updatedAt: FieldValue.serverTimestamp(),
     createdBy: user.uid,
     deleted: false,
+  })
+  await touchPortalDashboardSummary({
+    orgId,
+    staleReason: 'campaign.created',
   })
 
   // Suppress unused-import warning when the typed value is consumed only at runtime.

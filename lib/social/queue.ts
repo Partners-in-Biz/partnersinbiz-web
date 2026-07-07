@@ -21,6 +21,7 @@ import { notifySocialPublishFailure } from '@/lib/social/publish-failure-alerts'
 import { getFirstComment, postFirstComment } from '@/lib/social/first-comment'
 import { buildProviderPublishOptions } from '@/lib/social/publish-options'
 import type { PublishOptions } from '@/lib/social/providers'
+import { touchPortalDashboardSummary } from '@/lib/portal/dashboard-summary'
 import crypto from 'crypto'
 
 /** Backoff schedule in seconds: 1min, 5min, 15min, 1hr */
@@ -221,6 +222,10 @@ export async function processQueue(): Promise<QueueProcessResult> {
       await adminDb.collection('social_posts').doc(entry.postId).update({
         status: 'published', publishedAt: FieldValue.serverTimestamp(), externalId, error: null, updatedAt: FieldValue.serverTimestamp(),
       })
+      await touchPortalDashboardSummary({
+        orgId,
+        staleReason: 'social_post.published',
+      })
 
       // First-comment automation — best-effort, never fails the publish.
       const firstComment = getFirstComment(post)
@@ -240,6 +245,10 @@ export async function processQueue(): Promise<QueueProcessResult> {
 
       if (attempts >= maxAttempts) {
         await adminDb.collection('social_posts').doc(entry.postId).update({ status: 'failed', error: message, updatedAt: FieldValue.serverTimestamp() })
+        await touchPortalDashboardSummary({
+          orgId: post.orgId ?? entry.orgId,
+          staleReason: 'social_post.failed',
+        })
         await lockRef.update({ status: 'failed', lockedBy: null, lockedAt: null, completedAt: FieldValue.serverTimestamp(), attempts, lastAttemptAt: FieldValue.serverTimestamp(), error: message })
         await notifySocialPublishFailure({
           orgId: post.orgId ?? entry.orgId,
@@ -265,6 +274,10 @@ async function failQueueEntry(lockRef: FirebaseFirestore.DocumentReference, entr
   const maxAttempts = entry.maxAttempts ?? 5
   if (attempts >= maxAttempts) {
     await adminDb.collection('social_posts').doc(entry.postId).update({ status: 'failed', error, updatedAt: FieldValue.serverTimestamp() })
+    await touchPortalDashboardSummary({
+      orgId: entry.orgId,
+      staleReason: 'social_post.failed',
+    })
     await lockRef.update({ status: 'failed', lockedBy: null, lockedAt: null, completedAt: FieldValue.serverTimestamp(), attempts, error })
     await notifySocialPublishFailure({
       orgId: entry.orgId,

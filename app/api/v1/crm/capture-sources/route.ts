@@ -15,6 +15,7 @@ import {
   type CaptureSource,
   type CaptureSourceType,
 } from '@/lib/crm/captureSources'
+import { touchPortalDashboardSummary } from '@/lib/portal/dashboard-summary'
 
 const VALID_TYPES: CaptureSourceType[] = ['form', 'api', 'csv', 'integration', 'manual']
 
@@ -26,33 +27,28 @@ function stringList(value: unknown): string[] {
     .filter(Boolean)
 }
 
-export const GET = withCrmAuth('viewer', async (_req: NextRequest, ctx) => {
+export const GET = withCrmAuth('viewer', async (req: NextRequest, ctx) => {
   const orgId = ctx.orgId
+  const { searchParams } = new URL(req.url)
+  const limit = Math.min(200, Math.max(1, parseInt(searchParams.get('limit') ?? '100', 10) || 100))
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const snap = await (adminDb.collection('capture_sources') as any)
+  const query = (adminDb.collection('capture_sources') as any)
     .where('orgId', '==', orgId)
-    .get()
+    .where('deleted', '==', false)
+    .orderBy('createdAt', 'desc')
+  const totalPromise = typeof query.count === 'function'
+    ? query.count().get().then((aggregate: { data: () => { count?: number } }) => aggregate.data().count ?? 0)
+    : Promise.resolve(null)
+  const limitedQuery = typeof query.limit === 'function' ? query.limit(limit) : query
+  const snap = await limitedQuery.get()
+  const total = await totalPromise
 
   const sources: CaptureSource[] = snap.docs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .map((d: any) => ({ id: d.id, ...d.data() }) as CaptureSource)
-    .filter((s: CaptureSource) => s.deleted !== true)
-    .sort((a: CaptureSource, b: CaptureSource) => {
-      const aMs = a.createdAt
-        ? (a.createdAt as { _seconds?: number; seconds?: number })._seconds ??
-          (a.createdAt as { _seconds?: number; seconds?: number }).seconds ??
-          0
-        : 0
-      const bMs = b.createdAt
-        ? (b.createdAt as { _seconds?: number; seconds?: number })._seconds ??
-          (b.createdAt as { _seconds?: number; seconds?: number }).seconds ??
-          0
-        : 0
-      return bMs - aMs
-    })
 
-  return apiSuccess(sources)
+  return apiSuccess(sources, 200, { total: total ?? sources.length, page: 1, limit, orgId })
 })
 
 export const POST = withCrmAuth('admin', async (req: NextRequest, ctx) => {
@@ -96,6 +92,13 @@ export const POST = withCrmAuth('admin', async (req: NextRequest, ctx) => {
   }
 
   const docRef = await adminDb.collection('capture_sources').add(doc)
+  await touchPortalDashboardSummary({
+    orgId,
+    increments: {
+      'counts.captureSources': 1,
+    },
+    staleReason: 'capture_source.created',
+  })
   const created = await docRef.get()
   return apiSuccess({ id: docRef.id, ...created.data() }, 201)
 })
