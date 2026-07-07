@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { scopedApiPath } from '@/lib/portal/scoped-routing'
 import { timelineBeatPositions } from '@/lib/video-editor/beat-snapping'
+import type { LayoutPatch } from '@/lib/video-editor/layout-presets'
 import {
   addClip, addTrack, clearClipGroup, moveClip, moveClipGroup, removeClip, removeClipGroup,
   rippleDeleteClip, rippleTrimClip, rollEdit, setClipGroup, slipClip, snapToBeats, splitClip, trimClip,
@@ -22,6 +23,7 @@ import { useTimelineHistory } from './useTimelineHistory'
 
 type RightPanelTab = 'inspector' | 'captions' | 'voiceover'
 type BeatCacheEntry = { status: 'pending' | 'ready' | 'failed'; beats: number[]; checkedAt: number }
+type SelectionEntry = { trackId: string; clipId: string }
 
 const emptyTimeline: EditorTimeline = { version: 1, tracks: [] }
 const DEFAULT_TEXT_CLIP_DURATION = 5
@@ -37,6 +39,20 @@ function trackHasRoom(track: EditorTimeline['tracks'][number], start: number, du
 
 function trackEnd(track: EditorTimeline['tracks'][number]): number {
   return Math.max(0, ...track.clips.map((clip) => clip.timelineStart + clip.duration))
+}
+
+function selectionKey(item: SelectionEntry): string {
+  return `${item.trackId}:${item.clipId}`
+}
+
+function isLayoutClip(clip: EditorClip): boolean {
+  return Boolean(clip.text || (clip.media && clip.media.mediaKind !== 'audio'))
+}
+
+function withoutTransformKeyframes(clip: EditorClip): EditorClip {
+  if (!clip.keyframes?.length) return clip
+  const keyframes = clip.keyframes.filter((keyframe) => !keyframe.property.startsWith('transform.'))
+  return { ...clip, keyframes: keyframes.length ? keyframes : undefined }
 }
 
 export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgId?: string }) {
@@ -131,6 +147,16 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
     const track = timeline.tracks.find((item) => item.id === first.trackId)
     return track?.clips.find((clip) => clip.id === first.clipId) ?? null
   }, [selection, timeline])
+
+  const layoutSelection = useMemo(() => selection.filter((item) => {
+    const track = timeline.tracks.find((entry) => entry.id === item.trackId)
+    const clip = track?.clips.find((entry) => entry.id === item.clipId)
+    return clip ? isLayoutClip(clip) : false
+  }), [selection, timeline])
+
+  const layoutDisabledReason = selection.length && layoutSelection.length !== selection.length
+    ? 'Layout presets require selected visual clips.'
+    : undefined
 
   useEffect(() => {
     if (!snapBeats || !orgId) return
@@ -337,6 +363,23 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
     void persist({
       ...timeline,
       tracks: timeline.tracks.map((track) => (track.id === trackId ? { ...track, ...patch } : track)),
+    })
+  }
+
+  function applyLayoutPatches(patches: LayoutPatch[]) {
+    if (!patches.length) return
+    const targets = layoutSelection.slice(0, patches.length)
+    const targetTransforms = new Map(targets.map((target, index) => [selectionKey(target), patches[index]?.transform]))
+    void persist({
+      ...timeline,
+      tracks: timeline.tracks.map((track) => ({
+        ...track,
+        clips: track.clips.map((clip) => {
+          const transform = targetTransforms.get(selectionKey({ trackId: track.id, clipId: clip.id }))
+          if (!transform) return clip
+          return { ...withoutTransformKeyframes(clip), transform }
+        }),
+      })),
     })
   }
 
@@ -554,7 +597,11 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
               clip={selectedClip}
               orgId={orgId}
               playheadSeconds={playhead}
+              settings={settings}
+              selectedClipIds={layoutSelection.map((item) => item.clipId)}
+              layoutDisabledReason={layoutDisabledReason}
               onPatch={patchSelected}
+              onApplyLayout={applyLayoutPatches}
               onTrim={(edge, deltaSeconds) => {
                 const first = selection[0]
                 if (!first) return

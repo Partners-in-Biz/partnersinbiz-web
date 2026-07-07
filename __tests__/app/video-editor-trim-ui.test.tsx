@@ -109,16 +109,26 @@ describe('TimelinePanel trim handles', () => {
 })
 
 describe('InspectorPanel trim fields', () => {
+  const settings = { width: 1920, height: 1080, fps: 30 as const, aspect: '16:9' as const, background: '#000000' }
   const clip = {
     id: 'a',
     timelineStart: 2,
     duration: 4,
     media: { type: 'upload' as const, fileId: 'f-a', url: 'https://x.test/a.mp4', mediaKind: 'video' as const },
   }
+  const renderInspector = (props: Partial<React.ComponentProps<typeof InspectorPanel>> = {}) => render(
+    <InspectorPanel
+      clip={clip}
+      settings={settings}
+      onPatch={jest.fn()}
+      onApplyLayout={jest.fn()}
+      {...props}
+    />,
+  )
 
   it('converts an in-point change into a start trim delta', () => {
     const onTrim = jest.fn()
-    render(<InspectorPanel clip={clip} onPatch={jest.fn()} onTrim={onTrim} />)
+    renderInspector({ onTrim })
     const inPoint = screen.getByLabelText('In point (s)')
     expect(inPoint).toHaveValue(2)
     fireEvent.change(inPoint, { target: { value: '2.5' } })
@@ -127,7 +137,7 @@ describe('InspectorPanel trim fields', () => {
 
   it('converts an out-point change into an end trim delta', () => {
     const onTrim = jest.fn()
-    render(<InspectorPanel clip={clip} onPatch={jest.fn()} onTrim={onTrim} />)
+    renderInspector({ onTrim })
     const outPoint = screen.getByLabelText('Out point (s)')
     expect(outPoint).toHaveValue(6)
     fireEvent.change(outPoint, { target: { value: '5' } })
@@ -135,7 +145,7 @@ describe('InspectorPanel trim fields', () => {
   })
 
   it('hides trim fields when onTrim is not provided', () => {
-    render(<InspectorPanel clip={clip} onPatch={jest.fn()} />)
+    renderInspector()
     expect(screen.queryByLabelText('In point (s)')).not.toBeInTheDocument()
   })
 })
@@ -187,6 +197,78 @@ describe('VideoEditorShell trim wiring', () => {
       expect(clip.timelineStart).toBe(1)
       expect(clip.duration).toBe(3)
       expect(clip.trimStart).toBe(1)
+    })
+  })
+
+  it('applies layout presets to exact selected clips and clears transform keyframes', async () => {
+    const layoutProject = {
+      ...project,
+      timeline: {
+        version: 1 as const,
+        tracks: [
+          {
+            id: 't1',
+            kind: 'video' as const,
+            label: 'V1',
+            clips: [{
+              id: 'same',
+              timelineStart: 0,
+              duration: 4,
+              media: { type: 'upload' as const, fileId: 'f-a', url: 'https://x.test/a.mp4', mediaKind: 'video' as const },
+              keyframes: [{ property: 'transform.x' as const, atSeconds: 1, value: 10 }],
+            }],
+          },
+          {
+            id: 't2',
+            kind: 'video' as const,
+            label: 'V2',
+            clips: [{
+              id: 'same',
+              timelineStart: 0,
+              duration: 4,
+              media: { type: 'upload' as const, fileId: 'f-b', url: 'https://x.test/b.mp4', mediaKind: 'video' as const },
+            }],
+          },
+          {
+            id: 't3',
+            kind: 'video' as const,
+            label: 'V3',
+            clips: [{
+              id: 'same',
+              timelineStart: 0,
+              duration: 4,
+              media: { type: 'upload' as const, fileId: 'f-c', url: 'https://x.test/c.mp4', mediaKind: 'video' as const },
+            }],
+          },
+        ],
+      },
+    }
+    ;(global.fetch as jest.Mock).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/api/v1/video-editor/projects/proj-1') && (!init?.method || init.method === 'GET')) {
+        return { ok: true, status: 200, json: async () => ({ success: true, data: { project: layoutProject } }) } as Response
+      }
+      if (url.includes('/api/v1/video-editor/render-jobs')) {
+        return { ok: true, status: 200, json: async () => ({ success: true, data: { jobs: [] } }) } as Response
+      }
+      return { ok: true, status: 200, json: async () => ({ success: true, data: {} }) } as Response
+    })
+
+    render(<VideoEditorShell projectId="proj-1" orgId="org-1" />)
+    const clips = await screen.findAllByTestId('timeline-clip-same')
+    fireEvent.click(clips[0])
+    fireEvent.click(clips[1], { shiftKey: true })
+    fireEvent.click(await screen.findByRole('button', { name: 'Side by side' }))
+
+    await waitFor(() => {
+      const putCall = (global.fetch as jest.Mock).mock.calls.find(([url, init]) =>
+        String(url).includes('/api/v1/video-editor/projects/proj-1') && init?.method === 'PUT')
+      expect(putCall).toBeTruthy()
+      const body = JSON.parse(String(putCall?.[1]?.body))
+      expect(body.timeline.tracks[0].clips[0].transform).toEqual({ x: -480, y: 0, scale: 0.5, rotation: 0, opacity: 1 })
+      expect(body.timeline.tracks[0].clips[0].keyframes).toBeUndefined()
+      expect(body.timeline.tracks[1].clips[0].transform).toEqual({ x: 480, y: 0, scale: 0.5, rotation: 0, opacity: 1 })
+      expect(body.timeline.tracks[2].clips[0].transform).toBeUndefined()
     })
   })
 })

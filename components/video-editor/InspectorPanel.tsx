@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { scopedApiPath } from '@/lib/portal/scoped-routing'
+import { applyLayoutPreset, LAYOUT_PRESETS } from '@/lib/video-editor/layout-presets'
 import { EDITOR_BLEND_MODES } from '@/lib/video-editor/types'
-import type { EditorBlendMode, EditorClip } from '@/lib/video-editor/types'
+import type { LayoutPatch } from '@/lib/video-editor/layout-presets'
+import type { EditorBlendMode, EditorClip, VideoEditorProjectSettings } from '@/lib/video-editor/types'
 import { EffectsSection, type EffectsSectionLut } from './EffectsSection'
 import { KeyframeEditor } from './KeyframeEditor'
 import { SpeedRampSection } from './SpeedRampSection'
@@ -18,13 +20,21 @@ export function InspectorPanel({
   clip,
   orgId,
   playheadSeconds = 0,
+  settings,
+  selectedClipIds = [],
+  layoutDisabledReason,
   onPatch,
+  onApplyLayout,
   onTrim,
 }: {
   clip: EditorClip | null
   orgId?: string
   playheadSeconds?: number
+  settings: VideoEditorProjectSettings
+  selectedClipIds?: string[]
+  layoutDisabledReason?: string
   onPatch: (patch: Partial<EditorClip>) => void
+  onApplyLayout: (patches: LayoutPatch[]) => void
   onTrim?: (edge: 'start' | 'end', deltaSeconds: number) => void
 }) {
   const [luts, setLuts] = useState<EffectsSectionLut[]>([])
@@ -153,6 +163,23 @@ export function InspectorPanel({
         target={effectTargetForClip(clip)}
         onChange={(effects) => onPatch({ effects: effects.length ? effects : undefined })}
       />
+      <div>
+        <h3 className="text-sm font-semibold text-on-surface">Layout presets</h3>
+        <div className="mt-1 flex flex-wrap gap-1">
+          {LAYOUT_PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              className="pib-btn-ghost text-xs"
+              disabled={Boolean(layoutDisabledReason) || selectedClipIds.length !== preset.clipCount}
+              title={layoutDisabledReason ?? (preset.clipCount === 2 ? 'Select two visual clips' : 'Applies to the selected visual clip')}
+              onClick={() => onApplyLayout(applyLayoutPreset(preset.id, settings, selectedClipIds))}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+      </div>
       {clip.media ? <SpeedRampSection clip={clip} onPatch={onPatch} /> : null}
       <KeyframeEditor clip={clip} playheadSeconds={playheadSeconds} onPatch={onPatch} />
     </section>
