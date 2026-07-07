@@ -39,6 +39,7 @@ import { assertAllowedMediaUrl, computePeaksFromPcm } from './lib/editor-media.m
 import { buildAssDocument, timelineHasCaptions } from './lib/editor-captions.mjs'
 import { audioExtractArgs, segmentsFromVerboseJson } from './lib/editor-transcribe.mjs'
 import { buildVidstabDetectArgs, buildVidstabTransformArgs, collectStabilizeClips, stableClipToken } from './lib/editor-stabilize.mjs'
+import { analyzeBeatsFromPcm, buildPcmDecodeArgs } from './lib/editor-beats.mjs'
 
 const PORT = Number(process.env.PORT || 8690)
 const RUNTIME_API_KEY = process.env.RUNTIME_API_KEY || ''
@@ -690,6 +691,48 @@ async function executeMediaPreview(job, manifest) {
   }
 }
 
+async function executeBeatAnalysis(job, manifest) {
+  const base = baseUrlFrom(manifest)
+  const reportPath = manifest.report?.path
+    || `/api/v1/video-editor/media/${manifest.uploadId}/beats?orgId=${encodeURIComponent(manifest.orgId)}`
+  const fail = async (message, code = 'beat_analysis_failed') => {
+    job.status = 'failed'
+    job.providerStatus = code
+    job.providerStatusMessage = message.slice(0, 1500)
+    log('error', 'beat analysis failed', { uploadId: manifest.uploadId, code, message: job.providerStatusMessage })
+    await platformPut(base, reportPath, { status: 'failed', error: { code, message: message.slice(0, 2000) } })
+  }
+
+  let workDir
+  try {
+    workDir = await mkdtemp(join(tmpdir(), 'vbeats-'))
+    const mediaPath = await downloadEditorMedia(manifest.media.url, workDir, 0)
+    const pcmPath = join(workDir, 'audio.pcm')
+    const decoded = await runFfmpeg(buildPcmDecodeArgs(mediaPath, pcmPath), 10 * 60 * 1000)
+    if (decoded.code !== 0) {
+      await fail(`pcm decode failed: ${decoded.stderr.trim().slice(-300)}`)
+      return
+    }
+    const pcm = await readFile(pcmPath)
+    const { beats, bpm } = analyzeBeatsFromPcm(pcm, 8000)
+    const report = await platformPut(base, reportPath, { status: 'analyzed', beats, bpm })
+    if (!report.ok) {
+      await fail(`platform rejected beat report (HTTP ${report.status}): ${(report.body || '').slice(0, 300)}`, 'platform_beat_report_failed')
+      return
+    }
+    job.status = 'completed'
+    job.providerStatus = 'completed'
+    job.providerStatusMessage = `Found ${beats.length} beats (${bpm} BPM).`
+    job.output = { kind: 'beats', beats: beats.length, bpm }
+    log('info', 'beat analysis completed', { uploadId: manifest.uploadId, beats: beats.length, bpm })
+  } catch (error) {
+    await fail(`Executor error: ${String(error?.message || error).slice(0, 800)}`, 'executor_error')
+  } finally {
+    if (workDir) rm(workDir, { recursive: true, force: true }).catch(() => {})
+    setTimeout(() => jobs.delete(job.providerJobId), JOB_TTL_MS).unref?.()
+  }
+}
+
 async function executeEditorTranscription(job, manifest) {
   const base = baseUrlFrom(manifest)
   const reportPath = manifest.report?.path
@@ -975,6 +1018,39 @@ const server = createServer(async (req, res) => {
       log('info', 'editor render accepted', { jobId: body.job.id, providerJobId, mediaCount: Array.isArray(body.media) ? body.media.length : 0 })
       executeEditorRender(job, body).catch((error) => log('error', 'executeEditorRender crashed', { jobId: body.job.id, error: String(error) }))
       return json(res, 200, { providerJobId, status: 'running', providerStatus: job.providerStatus, providerStatusMessage: job.providerStatusMessage })
+    }
+
+    if (req.method === 'POST' && url.pathname === '/video-editor/analyze-beats') {
+      const body = JSON.parse(await readBody(req) || 'null')
+      if (body?.kind !== 'video_editor_beats' || !body.uploadId || !body.orgId || !body.media?.url) {
+        return json(res, 400, { error: 'Valid video_editor_beats manifest is required' })
+      }
+      const providerJobId = `vbeat-${body.uploadId}-${randomUUID().slice(0, 8)}`
+      const job = {
+        providerJobId,
+        uploadId: body.uploadId,
+        status: 'running',
+        providerStatus: 'executor_accepted',
+        providerStatusMessage: 'Beat analysis accepted.',
+        createdAt: Date.now(),
+      }
+      jobs.set(providerJobId, job)
+      log('info', 'beat analysis accepted', { uploadId: body.uploadId, providerJobId })
+      executeBeatAnalysis(job, body).catch((error) => log('error', 'executeBeatAnalysis crashed', { uploadId: body.uploadId, error: String(error) }))
+      return json(res, 200, { providerJobId, status: 'running', providerStatus: job.providerStatus, providerStatusMessage: job.providerStatusMessage })
+    }
+
+    const beatStatusMatch = url.pathname.match(/^\/video-editor\/analyze-beats\/([A-Za-z0-9-]+)$/)
+    if (req.method === 'GET' && beatStatusMatch) {
+      const job = jobs.get(beatStatusMatch[1])
+      if (!job) return json(res, 404, { error: 'Job not found' })
+      return json(res, 200, {
+        providerJobId: job.providerJobId,
+        status: job.status,
+        providerStatus: job.providerStatus,
+        providerStatusMessage: job.providerStatusMessage,
+        ...(job.output ? { output: job.output } : {}),
+      })
     }
 
     if (req.method === 'POST' && url.pathname === '/video-editor/transcriptions') {
