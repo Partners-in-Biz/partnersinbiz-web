@@ -1,13 +1,17 @@
 'use client'
 
 import type { EditorClip } from '@/lib/video-editor/types'
+import { KeyframeEditor } from './KeyframeEditor'
+import { SpeedRampSection } from './SpeedRampSection'
 
 export function InspectorPanel({
   clip,
+  playheadSeconds = 0,
   onPatch,
   onTrim,
 }: {
   clip: EditorClip | null
+  playheadSeconds?: number
   onPatch: (patch: Partial<EditorClip>) => void
   onTrim?: (edge: 'start' | 'end', deltaSeconds: number) => void
 }) {
@@ -76,6 +80,8 @@ export function InspectorPanel({
         Speed
         <input className="mt-1 w-full" type="range" min={0.25} max={4} step={0.25} value={clip.speed ?? 1} onChange={(event) => onPatch({ speed: Number(event.target.value) })} />
       </label>
+      {clip.media ? <SpeedRampSection clip={clip} onPatch={onPatch} /> : null}
+      <KeyframeEditor clip={clip} playheadSeconds={playheadSeconds} onPatch={onPatch} />
     </section>
   )
 }

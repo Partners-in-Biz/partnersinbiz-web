@@ -310,6 +310,7 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
         <div className="space-y-4">
           <InspectorPanel
             clip={selectedClip}
+            playheadSeconds={playhead}
             onPatch={patchSelected}
             onTrim={(edge, deltaSeconds) => {
               const first = selection[0]
