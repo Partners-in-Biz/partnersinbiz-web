@@ -136,7 +136,7 @@ async function listProjects(db) {
 
 async function main() {
   const db = initDb()
-  const [contactsRaw, campaignsRaw, captureSourcesRaw, socialPostsRaw, socialAccountsRaw, projectsRaw, orgDoc, connectionsSnap] = await Promise.all([
+  const [contactsRaw, campaignsRaw, captureSourcesRaw, socialPostsRaw, socialAccountsRaw, projectsRaw, orgDoc] = await Promise.all([
     list(db, 'contacts'),
     list(db, 'campaigns'),
     list(db, 'capture_sources'),
@@ -144,7 +144,6 @@ async function main() {
     list(db, 'social_accounts'),
     listProjects(db),
     db.collection('organizations').doc(orgId).get(),
-    db.collectionGroup('connections').where('orgId', '==', orgId).get(),
   ])
 
   const contacts = contactsRaw.filter((row) => row.deleted !== true)
@@ -208,7 +207,7 @@ async function main() {
       social: activeAccounts > 0,
       domain: domainDone,
       contact: contacts.length > 0,
-      analytics: connectionsSnap.size > 0,
+      analytics: false,
       post: social.byStatus.published > 0,
     },
     stale: false,
