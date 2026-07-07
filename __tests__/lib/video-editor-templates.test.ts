@@ -166,6 +166,28 @@ describe('fragment extract/insert', () => {
     extracted.tracks[0].clips[0].text!.content = 'changed'
     expect(linkedTimeline.tracks[0].clips[0].text!.content).toBe('Hi')
   })
+
+  it('extracts multi-track selections with one shared group remap', () => {
+    const linkedTimeline: EditorTimeline = {
+      version: 1,
+      tracks: [
+        { id: 't-video', kind: 'video', clips: [{ id: 'c-v', groupId: 'group-1', timelineStart: 12, duration: 4, media: { type: 'upload', fileId: 'f-v', url: 'https://x.test/v.mp4', mediaKind: 'video' } }] },
+        { id: 't-audio', kind: 'audio', clips: [{ id: 'c-a', groupId: 'group-1', timelineStart: 10, duration: 6, media: { type: 'upload', fileId: 'f-a', url: 'https://x.test/a.mp3', mediaKind: 'audio' } }] },
+      ],
+    }
+    const extracted = extractSelectionFragment(linkedTimeline, [
+      { trackId: 't-video', clipId: 'c-v' },
+      { trackId: 't-audio', clipId: 'c-a' },
+    ])
+    const video = extracted.tracks.find((track) => track.kind === 'video')!.clips[0]
+    const audio = extracted.tracks.find((track) => track.kind === 'audio')!.clips[0]
+    expect(extracted.tracks).toHaveLength(2)
+    expect(audio.timelineStart).toBe(0)
+    expect(video.timelineStart).toBe(2)
+    expect(video.groupId).toBeTruthy()
+    expect(video.groupId).toBe(audio.groupId)
+    expect(video.groupId).not.toBe('group-1')
+  })
 })
 
 describe('sanitizeVideoEditorTemplateInput', () => {

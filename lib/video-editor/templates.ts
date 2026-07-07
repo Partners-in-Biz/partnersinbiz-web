@@ -32,6 +32,8 @@ export interface TemplateVariableContext {
   orgName?: string
 }
 
+export type TemplateSelectionEntry = { trackId: string; clipId: string }
+
 function variableMap(ctx: TemplateVariableContext): Record<string, string> {
   const colors = {
     primary: ctx.brand?.colors?.primary ?? ctx.brandColors?.primary,
@@ -82,15 +84,29 @@ function round3(value: number): number {
   return Math.round(value * 1000) / 1000
 }
 
-export function extractSelectionFragment(timeline: EditorTimeline, trackId: string, clipIds: string[]): EditorTimeline {
-  const track = timeline.tracks.find((entry) => entry.id === trackId)
-  const clips = (track?.clips ?? []).filter((clip) => clipIds.includes(clip.id))
-  if (!track || !clips.length) return { version: 1, tracks: [] }
-  const offset = Math.min(...clips.map((clip) => clip.timelineStart))
+export function extractSelectionFragment(timeline: EditorTimeline, trackId: string, clipIds: string[]): EditorTimeline
+export function extractSelectionFragment(timeline: EditorTimeline, selection: TemplateSelectionEntry[]): EditorTimeline
+export function extractSelectionFragment(
+  timeline: EditorTimeline,
+  trackIdOrSelection: string | TemplateSelectionEntry[],
+  clipIds: string[] = [],
+): EditorTimeline {
+  const selection = Array.isArray(trackIdOrSelection)
+    ? trackIdOrSelection
+    : clipIds.map((clipId) => ({ trackId: trackIdOrSelection, clipId }))
+  const selectedKeys = new Set(selection.map((entry) => `${entry.trackId}:${entry.clipId}`))
+  const selectedTracks = timeline.tracks
+    .map((track) => ({
+      track,
+      clips: track.clips.filter((clip) => selectedKeys.has(`${track.id}:${clip.id}`)),
+    }))
+    .filter((entry) => entry.clips.length)
+  if (!selectedTracks.length) return { version: 1, tracks: [] }
+  const offset = Math.min(...selectedTracks.flatMap((entry) => entry.clips.map((clip) => clip.timelineStart)))
   const groupIds = new Map<string, string>()
   return {
     version: 1,
-    tracks: [{
+    tracks: selectedTracks.map(({ track, clips }) => ({
       id: freshId('tpl-track'),
       kind: track.kind,
       ...(track.label ? { label: track.label } : {}),
@@ -100,7 +116,7 @@ export function extractSelectionFragment(timeline: EditorTimeline, trackId: stri
         groupId: clip.groupId ? (groupIds.get(clip.groupId) ?? groupIds.set(clip.groupId, freshId('tpl-group')).get(clip.groupId)) : undefined,
         timelineStart: round3(clip.timelineStart - offset),
       })),
-    }],
+    })),
   }
 }
 

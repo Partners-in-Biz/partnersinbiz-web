@@ -1,9 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { scopedApiPath } from '@/lib/portal/scoped-routing'
 import { timelineBeatPositions } from '@/lib/video-editor/beat-snapping'
 import type { LayoutPatch } from '@/lib/video-editor/layout-presets'
+import { extractSelectionFragment, insertFragment } from '@/lib/video-editor/templates'
 import {
   addClip, addTrack, clearClipGroup, moveClip, moveClipGroup, removeClip, removeClipGroup,
   rippleDeleteClip, rippleTrimClip, rollEdit, setClipGroup, slipClip, snapToBeats, splitClip, trimClip,
@@ -17,6 +18,7 @@ import { ExportDialog } from './ExportDialog'
 import { InspectorPanel } from './InspectorPanel'
 import { MediaLibraryPanel, type MediaLibrarySource } from './MediaLibraryPanel'
 import { PreviewPlayer } from './PreviewPlayer'
+import { TemplateBrowserPanel } from './TemplateBrowserPanel'
 import { TimelinePanel, type TimelineEditMode, type TimelineSelection } from './TimelinePanel'
 import { TtsPanel, type TtsGenerateRequest, type TtsVoiceOption } from './TtsPanel'
 import { useTimelineHistory } from './useTimelineHistory'
@@ -71,6 +73,8 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
   const [busy, setBusy] = useState(false)
   const history = useTimelineHistory(timeline)
   const apiScope = useMemo(() => ({ orgId }), [orgId])
+  const timelineRef = useRef(timeline)
+  const playheadRef = useRef(playhead)
 
   const [mediaPreviews, setMediaPreviews] = useState<Record<string, VideoEditorMediaPreview>>({})
 
@@ -78,6 +82,14 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
   const [transcripts, setTranscripts] = useState<CaptionsPanelTranscriptOption[]>([])
   const [voices, setVoices] = useState<TtsVoiceOption[]>([])
   const [captionsBusy, setCaptionsBusy] = useState(false)
+
+  useEffect(() => {
+    timelineRef.current = timeline
+  }, [timeline])
+
+  useEffect(() => {
+    playheadRef.current = playhead
+  }, [playhead])
 
   const timelineRefs = useMemo(() => {
     const refs: MediaRef[] = []
@@ -506,6 +518,55 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
     ])
   }
 
+  async function insertTemplateFragment(fragment: EditorTimeline) {
+    try {
+      await persist(insertFragment(timelineRef.current, fragment, playheadRef.current))
+      setNotice('Template inserted at the playhead.')
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not insert template')
+      throw error
+    }
+  }
+
+  async function saveSelectionAsTemplate() {
+    if (!orgId) {
+      setNotice('Choose an organisation before saving templates.')
+      return
+    }
+    const first = selection[0]
+    if (!first) {
+      setNotice('Select clips before saving a template.')
+      return
+    }
+    const fragment = extractSelectionFragment(timeline, selection)
+    if (!fragment.tracks.some((track) => track.clips.length)) {
+      setNotice('Select clips before saving a template.')
+      return
+    }
+    const title = window.prompt('Template name?')
+    if (!title?.trim()) {
+      setNotice('Template save cancelled.')
+      return
+    }
+    const res = await fetch(scopedApiPath('/api/v1/video-editor/templates', apiScope), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        orgId,
+        title: title.trim(),
+        category: 'lower_third',
+        fragment,
+      }),
+    })
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      const message = body.error ?? 'Could not save template'
+      setNotice(message)
+      throw new Error(message)
+    }
+    setNotice(fragment.tracks.length > 1 ? 'Multi-track template saved.' : 'Template saved.')
+  }
+
   async function renderProject() {
     setBusy(true)
     setNotice('')
@@ -543,7 +604,16 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
       </div>
       {notice ? <div className="rounded-lg border border-[var(--color-pib-line)] p-3 text-sm text-on-surface-variant">{notice}</div> : null}
       <div className="grid gap-4 xl:grid-cols-[320px_1fr_320px]">
-        <MediaLibraryPanel orgId={orgId} sources={sources} mediaPreviews={mediaPreviews} onRefresh={loadSources} onAddClip={addMediaClip} onSourceUploaded={addUploadedSource} />
+        <div className="space-y-4">
+          <MediaLibraryPanel orgId={orgId} sources={sources} mediaPreviews={mediaPreviews} onRefresh={loadSources} onAddClip={addMediaClip} onSourceUploaded={addUploadedSource} />
+          <TemplateBrowserPanel
+            orgId={orgId}
+            channelWorkspaceId={project.channelWorkspaceId}
+            canSaveSelection={selection.length > 0}
+            onInsert={insertTemplateFragment}
+            onSaveSelection={saveSelectionAsTemplate}
+          />
+        </div>
         <div className="space-y-4">
           <PreviewPlayer timeline={timeline} settings={settings} mediaPreviews={mediaPreviews} playheadSeconds={playhead} playing={playing} onPlayToggle={() => setPlaying((value) => !value)} onSeek={setPlayhead} />
           <TimelinePanel
