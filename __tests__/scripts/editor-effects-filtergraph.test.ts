@@ -123,8 +123,8 @@ describe('filter effect compilation', () => {
 
   it('fails fast for effect kinds owned by later phase tasks', () => {
     expect(compileError({
-      effects: [{ kind: 'voice_isolation', params: {} }],
-    })).toBe('unsupported video editor effect: voice_isolation')
+      effects: [{ kind: 'future_effect', params: {} }],
+    })).toBe('unsupported video editor effect: future_effect')
   })
 
   it('keeps legacy output byte-identical when no effects are present', () => {

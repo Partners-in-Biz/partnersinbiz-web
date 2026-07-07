@@ -21,10 +21,12 @@ const BLEND_MODES = {
   difference: 'difference',
 }
 
-const COMPILED_EFFECT_KINDS = new Set([
+const VIDEO_EFFECT_KINDS = new Set([
   'color_adjust', 'blur', 'sharpen', 'vignette', 'grain', 'glow',
   'lut', 'chroma_key', 'mask', 'stabilize',
 ])
+const AUDIO_EFFECT_KINDS = new Set(['noise_reduction', 'voice_isolation'])
+const COMPILED_EFFECT_KINDS = new Set([...VIDEO_EFFECT_KINDS, ...AUDIO_EFFECT_KINDS])
 
 export function fmt(value) {
   return String(Math.round(Number(value) * 1000) / 1000)
@@ -98,6 +100,15 @@ function sortedClips(track) {
   return [...(track.clips ?? [])].sort((a, b) => (a.timelineStart ?? 0) - (b.timelineStart ?? 0))
 }
 
+function clipContributesAudio(track, clip) {
+  if (!clip?.media) return false
+  const volume = typeof clip.volume === 'number' ? clip.volume : 1
+  if (volume <= 0) return false
+  if (track.kind === 'audio') return clip.media.mediaKind === 'audio' || clip.media.mediaKind === 'video'
+  if (track.kind === 'video') return clip.media.mediaKind === 'video' && typeof clip.volume === 'number'
+  return false
+}
+
 function assertSupportedEffects(timeline) {
   for (const track of timeline?.tracks ?? []) {
     for (const clip of track?.clips ?? []) {
@@ -105,6 +116,15 @@ function assertSupportedEffects(timeline) {
       for (const effect of clip.effects) {
         if (!COMPILED_EFFECT_KINDS.has(effect?.kind)) {
           throw new Error(`unsupported video editor effect: ${effect?.kind || 'unknown'}`)
+        }
+        if (AUDIO_EFFECT_KINDS.has(effect.kind) && !clipContributesAudio(track, clip)) {
+          throw new Error(`audio effect ${effect.kind} requires an audio source on clip ${clip.id}`)
+        }
+        if (VIDEO_EFFECT_KINDS.has(effect.kind) && (!clip.media || clip.media.mediaKind === 'audio')) {
+          throw new Error(`video effect ${effect.kind} requires visual media on clip ${clip.id}`)
+        }
+        if (effect.kind === 'stabilize' && clip.media?.mediaKind !== 'video') {
+          throw new Error(`video effect stabilize requires video media on clip ${clip.id}`)
         }
       }
     }
@@ -435,16 +455,18 @@ export function compileEditorFiltergraph({ timeline, settings, localMediaPaths, 
   }
   chains.push(`[${current}]format=yuv420p[vout]`)
 
+  const anySolo = tracks.some((track) => (track.kind === 'audio' || track.kind === 'video') && track.solo === true)
   const audioSources = []
   for (const track of tracks) {
     if (track.muted) continue
+    if (anySolo && track.solo !== true) continue
     for (const clip of sortedClips(track)) {
       if (!clip.media) continue
       if (track.kind === 'audio' && (clip.media.mediaKind === 'audio' || clip.media.mediaKind === 'video')) {
         const volume = typeof clip.volume === 'number' ? clip.volume : 1
-        if (volume > 0) audioSources.push({ clip, volume })
+        if (volume > 0) audioSources.push({ clip, volume, track })
       } else if (track.kind === 'video' && clip.media.mediaKind === 'video' && typeof clip.volume === 'number' && clip.volume > 0) {
-        audioSources.push({ clip, volume: clip.volume })
+        audioSources.push({ clip, volume: clip.volume, track })
       }
     }
   }
@@ -455,16 +477,32 @@ export function compileEditorFiltergraph({ timeline, settings, localMediaPaths, 
     chains.push(`[${anullIndex}:a]atrim=duration=${fmt(durationSeconds)}[aout]`)
   } else {
     const labels = []
-    audioSources.forEach(({ clip, volume }, index) => {
+    audioSources.forEach(({ clip, volume, track }, index) => {
       const volumeFrames = keyframesForProperty(clip.keyframes, 'volume')
       const label = audioSources.length === 1 ? 'aout' : `ac${index}`
       const trimStart = clip.trimStart ?? 0
       const tailParts = []
+      for (const effect of Array.isArray(clip.effects) ? clip.effects : []) {
+        if (effect?.kind === 'noise_reduction') {
+          const nr = clamp(effect.params?.amountDb, 0.01, 60, 12)
+          tailParts.push(`afftdn=nr=${fmt(nr)}`)
+        } else if (effect?.kind === 'voice_isolation') {
+          tailParts.push('highpass=f=100,lowpass=f=8000,afftdn=nr=20:nf=-30')
+        }
+      }
+      if (typeof clip.fadeInSeconds === 'number' && clip.fadeInSeconds > 0) {
+        tailParts.push(`afade=t=in:st=0:d=${fmt(clip.fadeInSeconds)}`)
+      }
+      if (typeof clip.fadeOutSeconds === 'number' && clip.fadeOutSeconds > 0) {
+        tailParts.push(`afade=t=out:st=${fmt(Math.max(0, clip.duration - clip.fadeOutSeconds))}:d=${fmt(clip.fadeOutSeconds)}`)
+      }
       if (volumeFrames.length) {
         tailParts.push(`volume=volume='(${keyframeExpr(volumeFrames, volume, 't')})':eval=frame`)
       } else if (volume !== 1) {
         tailParts.push(`volume=${fmt(volume)}`)
       }
+      if (typeof track.gainDb === 'number' && track.gainDb !== 0) tailParts.push(`volume=${fmt(track.gainDb)}dB`)
+      if (typeof track.pan === 'number' && track.pan !== 0) tailParts.push(`stereotools=balance_out=${fmt(track.pan)}`)
       if (clip.timelineStart > 0) tailParts.push(`adelay=${Math.round(clip.timelineStart * 1000)}:all=1`)
 
       if (hasSpeedRamp(clip)) {
