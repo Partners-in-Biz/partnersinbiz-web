@@ -261,6 +261,22 @@ export interface VideoEditorRenderJob {
   updatedAt?: unknown
 }
 
+export interface VideoEditorLut {
+  id?: string
+  orgId: string
+  title: string
+  url: string
+  storagePath: string
+  sizeBytes: number
+  deleted: boolean
+  createdBy?: string
+  createdByType?: ActorType
+  updatedBy?: string
+  updatedByType?: ActorType
+  createdAt?: unknown
+  updatedAt?: unknown
+}
+
 // ---------------------------------------------------------------------------
 // Phase 1a — speed ramp presets, media previews, proxy ledger
 // ---------------------------------------------------------------------------

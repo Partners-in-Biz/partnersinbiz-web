@@ -8,6 +8,7 @@ export const VIDEO_EDITOR_COLLECTIONS = {
   renderJobs: 'video_editor_render_jobs',
   transcripts: 'video_editor_transcripts',
   ttsJobs: 'video_editor_tts_jobs',
+  luts: 'video_editor_luts',
 } as const
 
 export const CREATIVE_CANVAS_COLLECTION = 'creative_canvases'
