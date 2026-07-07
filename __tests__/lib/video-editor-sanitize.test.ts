@@ -321,3 +321,87 @@ describe('phase 1a sanitizer additions', () => {
     expect(kfs.map((k) => [k.atSeconds, k.value])).toEqual([[0, 0.25], [3, 4]])
   })
 })
+
+describe('caption clip sanitize + validation', () => {
+  const rawCaptionTimeline = {
+    version: 1,
+    tracks: [{
+      id: 'track-caption-1',
+      kind: 'caption',
+      clips: [{
+        id: 'cue-1',
+        timelineStart: 1,
+        duration: 2.4,
+        caption: {
+          text: 'Hello world',
+          words: [
+            { text: 'Hello', offsetStart: 0, offsetEnd: 0.6 },
+            { text: 'world', offsetStart: 0.7, offsetEnd: 1.2 },
+            { text: '', offsetStart: 2, offsetEnd: 1 }, // dropped: empty + inverted
+          ],
+          stylePreset: 'karaoke_bar',
+          animationPreset: 'karaoke',
+          transcriptId: 't-1',
+          language: 'en',
+        },
+      }],
+    }],
+  }
+
+  it('sanitizes caption payloads and drops invalid words', () => {
+    const timeline = sanitizeEditorTimeline(rawCaptionTimeline)
+    const clip = timeline.tracks[0].clips[0]
+    expect(timeline.tracks[0].kind).toBe('caption')
+    expect(clip.caption).toEqual({
+      text: 'Hello world',
+      words: [
+        { text: 'Hello', offsetStart: 0, offsetEnd: 0.6 },
+        { text: 'world', offsetStart: 0.7, offsetEnd: 1.2 },
+      ],
+      stylePreset: 'karaoke_bar',
+      animationPreset: 'karaoke',
+      transcriptId: 't-1',
+      language: 'en',
+    })
+    expect(validateEditorTimeline(timeline)).toEqual([])
+  })
+
+  it('falls back to clean/none for unknown presets', () => {
+    const timeline = sanitizeEditorTimeline({
+      version: 1,
+      tracks: [{
+        id: 't', kind: 'caption',
+        clips: [{ id: 'c', timelineStart: 0, duration: 1, caption: { text: 'x', words: [], stylePreset: 'nope', animationPreset: 'nope' } }],
+      }],
+    })
+    expect(timeline.tracks[0].clips[0].caption).toMatchObject({ stylePreset: 'clean', animationPreset: 'none' })
+  })
+
+  it('flags caption clips without payloads and media on caption tracks', () => {
+    const issues = validateEditorTimeline({
+      version: 1,
+      tracks: [{
+        id: 't', kind: 'caption',
+        clips: [
+          { id: 'no-payload', timelineStart: 0, duration: 1 },
+          { id: 'has-media', timelineStart: 2, duration: 1, caption: { text: 'x', words: [], stylePreset: 'clean', animationPreset: 'none' }, media: { type: 'upload', fileId: 'f', url: 'https://x.test/a.mp4', mediaKind: 'video' } },
+        ],
+      }],
+    })
+    expect(issues).toEqual([
+      { trackId: 't', clipId: 'no-payload', message: 'Clip on a caption track requires a caption payload.' },
+      { trackId: 't', clipId: 'has-media', message: 'Media is not allowed on a caption track.' },
+    ])
+  })
+
+  it('flags caption payloads outside caption tracks', () => {
+    const issues = validateEditorTimeline({
+      version: 1,
+      tracks: [{
+        id: 't', kind: 'text',
+        clips: [{ id: 'c', timelineStart: 0, duration: 1, text: { content: 'x', fontSizePx: 48, color: '#fff', align: 'center', animationPreset: 'none' }, caption: { text: 'x', words: [], stylePreset: 'clean', animationPreset: 'none' } }],
+      }],
+    })
+    expect(issues).toEqual([{ trackId: 't', clipId: 'c', message: 'Caption payloads are only allowed on caption tracks.' }])
+  })
+})

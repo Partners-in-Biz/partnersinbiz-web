@@ -1,4 +1,6 @@
 import {
+  EDITOR_CAPTION_ANIMATION_PRESETS,
+  EDITOR_CAPTION_STYLE_PRESETS,
   EDITOR_MEDIA_KINDS,
   EDITOR_TEXT_ALIGNS,
   EDITOR_TEXT_ANIMATION_PRESETS,
@@ -13,6 +15,8 @@ import {
   emptyEditorTimeline,
 } from './types'
 import type {
+  EditorCaptionPayload,
+  EditorCaptionWord,
   EditorClip,
   EditorClipTransform,
   EditorEffectInstance,
@@ -132,6 +136,32 @@ function sanitizeTextPayload(value: unknown): EditorTextPayload | undefined {
   })
 }
 
+function sanitizeCaptionWords(value: unknown): EditorCaptionWord[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((entry) => {
+    const source = cleanObject(entry)
+    const text = cleanString(source.text)
+    const offsetStart = cleanNumber(source.offsetStart)
+    const offsetEnd = cleanNumber(source.offsetEnd)
+    if (!text || offsetStart === undefined || offsetEnd === undefined || offsetEnd < offsetStart) return []
+    return [{ text, offsetStart: Math.max(0, offsetStart), offsetEnd: Math.max(0, offsetEnd) }]
+  })
+}
+
+function sanitizeCaptionPayload(value: unknown): EditorCaptionPayload | undefined {
+  const source = cleanObject(value)
+  const text = cleanString(source.text)
+  if (!text) return undefined
+  return compact({
+    text,
+    words: sanitizeCaptionWords(source.words),
+    stylePreset: pickEnum(source.stylePreset, EDITOR_CAPTION_STYLE_PRESETS, 'clean'),
+    animationPreset: pickEnum(source.animationPreset, EDITOR_CAPTION_ANIMATION_PRESETS, 'none'),
+    transcriptId: cleanString(source.transcriptId),
+    language: cleanString(source.language),
+  }) as EditorCaptionPayload
+}
+
 function sanitizeTransform(value: unknown): EditorClipTransform | undefined {
   const source = cleanObject(value)
   if (!Object.keys(source).length) return undefined
@@ -224,6 +254,7 @@ function sanitizeClip(value: unknown): EditorClip | undefined {
     duration: clampNumber(source.duration, 0, 60 * 60 * 4, 0),
     media: sanitizeMediaRef(source.media),
     text: sanitizeTextPayload(source.text),
+    caption: sanitizeCaptionPayload(source.caption),
     trimStart: source.trimStart === undefined ? undefined : clampNumber(source.trimStart, 0, 60 * 60 * 24, 0),
     speed: source.speed === undefined ? undefined : clampNumber(source.speed, 0.25, 4, 1),
     volume: source.volume === undefined ? undefined : clampNumber(source.volume, 0, 2, 1),
@@ -314,6 +345,15 @@ export function validateEditorTimeline(timeline: EditorTimeline): TimelineValida
       }
       if (track.kind === 'text' && !clip.text) {
         issues.push({ trackId, clipId, message: 'Clip on a text track requires a text payload.' })
+      }
+      if (track.kind === 'caption' && !clip.caption) {
+        issues.push({ trackId, clipId, message: 'Clip on a caption track requires a caption payload.' })
+      }
+      if (track.kind === 'caption' && clip.media) {
+        issues.push({ trackId, clipId, message: 'Media is not allowed on a caption track.' })
+      }
+      if (track.kind !== 'caption' && clip.caption) {
+        issues.push({ trackId, clipId, message: 'Caption payloads are only allowed on caption tracks.' })
       }
       if (track.kind === 'audio' && clip.media && clip.media.mediaKind === 'image') {
         issues.push({ trackId, clipId, message: 'Image media is not allowed on an audio track.' })
