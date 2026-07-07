@@ -7,10 +7,10 @@ import { canvasTheme } from '@/components/creative-canvas/theme/tokens'
 import type { CanvasNodeData } from '@/components/creative-canvas/nodes/nodeData'
 import { nodeActionsFor } from '@/components/creative-canvas/nodes/NodeActionBar'
 
-function TextNodeComponent({ id, data, selected }: NodeProps) {
+function TextNodeComponent({ data, selected }: NodeProps) {
   const d = data as CanvasNodeData
   return (
-    <BaseNodeCard nodeId={id} type="text" title={d.title || 'Text'} selected={Boolean(selected)} actions={nodeActionsFor(d)}>
+    <BaseNodeCard type="text" title={d.title || 'Text'} selected={Boolean(selected)} actions={nodeActionsFor(d)}>
       <div style={{ padding: 10 }}>
         <textarea
           value={d.text ?? ''}

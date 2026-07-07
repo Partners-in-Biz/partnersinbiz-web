@@ -12,12 +12,12 @@ function formatTrimLabel(startSeconds: number, endSeconds: number) {
 }
 
 /** Reference/source node: shows the attached asset thumbnail + a single output port. */
-function SourceNodeComponent({ id, data, selected }: NodeProps) {
+function SourceNodeComponent({ data, selected }: NodeProps) {
   const d = data as CanvasNodeData
   const trim = d.canvasNode?.data?.trim as { startSeconds?: unknown; endSeconds?: unknown } | undefined
   const hasTrim = typeof trim?.startSeconds === 'number' && typeof trim?.endSeconds === 'number'
   return (
-    <BaseNodeCard nodeId={id} type="source" title={d.title || 'Source'} selected={Boolean(selected)} actions={nodeActionsFor(d)}>
+    <BaseNodeCard type="source" title={d.title || 'Source'} selected={Boolean(selected)} actions={nodeActionsFor(d)}>
       {hasTrim ? (
         <div style={{ padding: '6px 10px 0' }}>
           <span

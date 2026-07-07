@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect } from 'react'
+import { useCallback } from 'react'
 import { Handle, Position, useUpdateNodeInternals } from '@xyflow/react'
 import { canvasTheme } from '@/components/creative-canvas/theme/tokens'
 import { portsForNode, type CanvasNodeType } from '@/components/creative-canvas/nodes/ports'
@@ -45,10 +45,6 @@ function useRefreshNodeInternals(nodeId?: string) {
     if (!nodeId) return
     requestAnimationFrame(() => updateNodeInternals(nodeId))
   }, [nodeId, updateNodeInternals])
-
-  useEffect(() => {
-    refresh()
-  }, [refresh])
 
   return refresh
 }
@@ -326,7 +322,6 @@ export function GeneratorNodeCard(props: GeneratorNodeCardProps) {
 
 /** Minimal card chrome (handles + title bar + body) for non-generator nodes. */
 export function BaseNodeCard({
-  nodeId,
   type,
   title,
   selected = false,
@@ -336,7 +331,6 @@ export function BaseNodeCard({
   actions,
   children,
 }: {
-  nodeId?: string
   type: CanvasNodeType
   title: string
   selected?: boolean
@@ -347,8 +341,6 @@ export function BaseNodeCard({
   actions?: React.ReactNode
   children?: React.ReactNode
 }) {
-  useRefreshNodeInternals(nodeId)
-
   return (
     <div
       style={{

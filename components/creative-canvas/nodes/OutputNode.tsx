@@ -15,12 +15,11 @@ const reviewPillColor: Record<string, string> = {
 }
 
 /** Output node: rendered asset + a review-status pill (tucked enterprise affordance). */
-function OutputNodeComponent({ id, data, selected }: NodeProps) {
+function OutputNodeComponent({ data, selected }: NodeProps) {
   const d = data as CanvasNodeData
   const review = d.reviewStatus
   return (
     <BaseNodeCard
-      nodeId={id}
       type="output"
       title={d.title || 'Output'}
       selected={Boolean(selected)}

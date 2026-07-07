@@ -8,11 +8,11 @@ import type { CanvasNodeData } from '@/components/creative-canvas/nodes/nodeData
 import { nodeActionsFor } from '@/components/creative-canvas/nodes/NodeActionBar'
 
 /** Prompt / translate node: an editable text block with text in/out ports. */
-function PromptNodeComponent({ id, data, selected }: NodeProps) {
+function PromptNodeComponent({ data, selected }: NodeProps) {
   const d = data as CanvasNodeData
   const type = d.presentationType === 'translate' ? 'translate' : 'prompt'
   return (
-    <BaseNodeCard nodeId={id} type={type} title={d.title} selected={Boolean(selected)} actions={nodeActionsFor(d)}>
+    <BaseNodeCard type={type} title={d.title} selected={Boolean(selected)} actions={nodeActionsFor(d)}>
       <div style={{ padding: 10 }}>
         <textarea
           value={d.text ?? d.prompt ?? ''}

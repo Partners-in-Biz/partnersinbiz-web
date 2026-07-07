@@ -12,13 +12,13 @@ import { nodeActionsFor } from '@/components/creative-canvas/nodes/NodeActionBar
  * description and an optional mockup image. Sitemap-style structure is
  * expressed by drawing plain edges between screen nodes.
  */
-function ScreenNodeComponent({ id, data, selected }: NodeProps) {
+function ScreenNodeComponent({ data, selected }: NodeProps) {
   const d = data as CanvasNodeData
   const busy = d.status === 'running'
   const hasDescription = (d.text ?? '').trim().length > 0
   const onGenerateMockup = d.onGenerateMockup as (() => void) | undefined
   return (
-    <BaseNodeCard nodeId={id} type="screen" title={d.title || 'Screen'} selected={Boolean(selected)} actions={nodeActionsFor(d)}>
+    <BaseNodeCard type="screen" title={d.title || 'Screen'} selected={Boolean(selected)} actions={nodeActionsFor(d)}>
       {d.assetUrl ? (
         <div style={{ background: canvasTheme.bg }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
