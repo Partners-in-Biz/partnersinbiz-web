@@ -11,6 +11,8 @@ const XFADE_TRANSITIONS = {
   wipe: 'wipeleft',
 }
 
+const COMPILED_EFFECT_KINDS = new Set(['color_adjust', 'blur', 'sharpen', 'vignette', 'grain', 'glow'])
+
 export function fmt(value) {
   return String(Math.round(Number(value) * 1000) / 1000)
 }
@@ -58,8 +60,25 @@ function clipSpeed(clip) {
   return typeof clip.speed === 'number' && clip.speed > 0 ? clip.speed : 1
 }
 
+function num(value, fallback) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
 function sortedClips(track) {
   return [...(track.clips ?? [])].sort((a, b) => (a.timelineStart ?? 0) - (b.timelineStart ?? 0))
+}
+
+function assertSupportedEffects(timeline) {
+  for (const track of timeline?.tracks ?? []) {
+    for (const clip of track?.clips ?? []) {
+      if (!Array.isArray(clip.effects)) continue
+      for (const effect of clip.effects) {
+        if (!COMPILED_EFFECT_KINDS.has(effect?.kind)) {
+          throw new Error(`unsupported video editor effect: ${effect?.kind || 'unknown'}`)
+        }
+      }
+    }
+  }
 }
 
 function propertyFrames(clip, property) {
@@ -67,9 +86,10 @@ function propertyFrames(clip, property) {
   return frames.length ? frames : null
 }
 
-function buildVisualClipChain(clip, inputIndex, label, chains, clipOrdinal) {
+function buildVisualClipChain(clip, inputIndex, label, chains, clipOrdinal, ctx) {
   const transform = clip.transform ?? {}
   const transformParts = buildTransformParts(clip, transform, clipOrdinal)
+  const hasEffects = Array.isArray(clip.effects) && clip.effects.length > 0
 
   if (clip.media.mediaKind !== 'image' && hasSpeedRamp(clip)) {
     const segments = rampSegments(clip, 4)
@@ -83,9 +103,14 @@ function buildVisualClipChain(clip, inputIndex, label, chains, clipOrdinal) {
     })
     // concat the constant-speed slices straight into the final label when there
     // is no transform work; otherwise concat to an intermediate and transform.
-    const concatLabel = transformParts.length ? `vr${clipOrdinal}c` : label
+    const concatLabel = transformParts.length || hasEffects ? `vr${clipOrdinal}c` : label
     chains.push(`${segmentLabels.map((l) => `[${l}]`).join('')}concat=n=${segments.length}:v=1:a=0[${concatLabel}]`)
-    if (transformParts.length) chains.push(`[${concatLabel}]${transformParts.join(',')}[${label}]`)
+    if (hasEffects) {
+      const parts = []
+      let currentIn = applyVideoEffects({ clip, parts, chains, inLabel: concatLabel, ctx })
+      const finalParts = [...parts, ...transformParts]
+      chains.push(`[${currentIn}]${finalParts.length ? finalParts.join(',') : 'null'}[${label}]`)
+    } else if (transformParts.length) chains.push(`[${concatLabel}]${transformParts.join(',')}[${label}]`)
     return label
   }
 
@@ -98,8 +123,59 @@ function buildVisualClipChain(clip, inputIndex, label, chains, clipOrdinal) {
     leading.push(`trim=start=${fmt(trimStart)}:duration=${fmt(clip.duration * speed)}`)
     leading.push(speed === 1 ? 'setpts=PTS-STARTPTS' : `setpts=(PTS-STARTPTS)/${fmt(speed)}`)
   }
-  chains.push(`[${inputIndex}:v]${[...leading, ...transformParts].join(',')}[${label}]`)
+  if (!hasEffects) {
+    chains.push(`[${inputIndex}:v]${[...leading, ...transformParts].join(',')}[${label}]`)
+    return label
+  }
+
+  const parts = [...leading]
+  const currentIn = applyVideoEffects({ clip, parts, chains, inLabel: `${inputIndex}:v`, ctx })
+  const finalParts = [...parts, ...transformParts]
+  chains.push(`[${currentIn}]${finalParts.length ? finalParts.join(',') : 'null'}[${label}]`)
   return label
+}
+
+function applyVideoEffects({ clip, parts, chains, inLabel, ctx }) {
+  let currentIn = inLabel
+  const effects = Array.isArray(clip.effects) ? clip.effects : []
+  for (let index = 0; index < effects.length; index += 1) {
+    const effect = effects[index]
+    const p = effect?.params || {}
+    if (effect.kind === 'color_adjust') {
+      const brightness = num(p.brightness, 0)
+      const contrast = num(p.contrast, 1)
+      const saturation = num(p.saturation, 1)
+      if (brightness !== 0 || contrast !== 1 || saturation !== 1) {
+        parts.push(`eq=brightness=${fmt(brightness)}:contrast=${fmt(contrast)}:saturation=${fmt(saturation)}`)
+      }
+      const temperature = num(p.temperature, 6500)
+      if (temperature !== 6500) parts.push(`colortemperature=temperature=${Math.round(temperature)}`)
+      const hue = num(p.hue, 0)
+      if (hue !== 0) parts.push(`hue=h=${fmt(hue)}`)
+    } else if (effect.kind === 'blur') {
+      const sigma = num(p.sigma, 5)
+      if (sigma > 0) parts.push(`gblur=sigma=${fmt(sigma)}`)
+    } else if (effect.kind === 'sharpen') {
+      const amount = num(p.amount, 1)
+      if (amount > 0) parts.push(`unsharp=5:5:${fmt(amount)}`)
+    } else if (effect.kind === 'vignette') {
+      const intensity = num(p.intensity, 0.4)
+      if (intensity > 0) parts.push(`vignette=angle=${fmt((intensity * Math.PI) / 2)}`)
+    } else if (effect.kind === 'grain') {
+      const strength = Math.round(num(p.strength, 12))
+      if (strength > 0) parts.push(`noise=alls=${strength}:allf=t+u`)
+    } else if (effect.kind === 'glow') {
+      const fxIndex = ctx.fxCounter
+      ctx.fxCounter += 1
+      const fx = `fx${fxIndex}`
+      chains.push(`[${currentIn}]${[...parts, `split=2[${fx}a][${fx}b]`].join(',')}`)
+      chains.push(`[${fx}b]gblur=sigma=${fmt(num(p.sigma, 12))}[${fx}c]`)
+      chains.push(`[${fx}a][${fx}c]blend=all_mode=screen:all_opacity=${fmt(num(p.opacity, 0.5))}[${fx}d]`)
+      parts.length = 0
+      currentIn = `${fx}d`
+    }
+  }
+  return currentIn
 }
 
 /** Ordered transform filter parts (scale → rotate → opacity), keyframe-aware. */
@@ -165,6 +241,7 @@ function textYExpr(transform) {
 }
 
 export function compileEditorFiltergraph({ timeline, settings, localMediaPaths, fontFile, captionAssPath }) {
+  assertSupportedEffects(timeline)
   const font = fontFile || DEFAULT_EDITOR_FONT_FILE
   const durationSeconds = Math.max(timelineDurationSeconds(timeline), 0.04)
   const inputs = ['-f', 'lavfi', '-i', `color=c=${settings.background || '#000000'}:s=${settings.width}x${settings.height}:r=${settings.fps}:d=${fmt(durationSeconds)}`]
@@ -190,6 +267,7 @@ export function compileEditorFiltergraph({ timeline, settings, localMediaPaths, 
   let vsCounter = 0
   let ovCounter = 0
   let txCounter = 0
+  const ctx = { fxCounter: 0 }
 
   const visualTracks = tracks.filter((track) => track.kind === 'video' || track.kind === 'overlay')
   for (let trackIdx = visualTracks.length - 1; trackIdx >= 0; trackIdx -= 1) {
@@ -214,7 +292,7 @@ export function compileEditorFiltergraph({ timeline, settings, localMediaPaths, 
     for (const group of groups) {
       const labels = group.map((clip) => {
         const label = `vc${vcCounter}`
-        buildVisualClipChain(clip, clipInputIndex.get(clip.id), label, chains, vcCounter)
+        buildVisualClipChain(clip, clipInputIndex.get(clip.id), label, chains, vcCounter, ctx)
         vcCounter += 1
         return { clip, label }
       })
