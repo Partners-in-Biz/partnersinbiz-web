@@ -1,4 +1,6 @@
 import {
+  EDITOR_AUDIO_ROLES,
+  EDITOR_BLEND_MODES,
   EDITOR_CAPTION_ANIMATION_PRESETS,
   EDITOR_CAPTION_STYLE_PRESETS,
   EDITOR_MEDIA_KINDS,
@@ -14,7 +16,10 @@ import {
   defaultVideoEditorSettings,
   emptyEditorTimeline,
 } from './types'
+import { sanitizeEffectInstance } from './effects'
 import type {
+  EditorAudioRole,
+  EditorBlendMode,
   EditorCaptionPayload,
   EditorCaptionWord,
   EditorClip,
@@ -177,14 +182,8 @@ function sanitizeTransform(value: unknown): EditorClipTransform | undefined {
 function sanitizeEffects(value: unknown): EditorEffectInstance[] | undefined {
   if (!Array.isArray(value)) return undefined
   const effects = value.flatMap((entry) => {
-    const source = cleanObject(entry)
-    const kind = cleanString(source.kind)
-    if (!kind) return []
-    const params = Object.fromEntries(
-      Object.entries(cleanObject(source.params)).filter(([, v]) =>
-        typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean'),
-    ) as EditorEffectInstance['params']
-    return [{ kind, params }]
+    const effect = sanitizeEffectInstance(entry)
+    return effect ? [effect] : []
   })
   return effects.length ? effects : undefined
 }
@@ -266,6 +265,11 @@ function sanitizeClip(value: unknown): EditorClip | undefined {
         }
       : undefined,
     effects: sanitizeEffects(source.effects),
+    blendMode: EDITOR_BLEND_MODES.includes(source.blendMode as EditorBlendMode) && source.blendMode !== 'normal'
+      ? (source.blendMode as EditorBlendMode)
+      : undefined,
+    fadeInSeconds: source.fadeInSeconds === undefined ? undefined : clampNumber(source.fadeInSeconds, 0, 30, 0),
+    fadeOutSeconds: source.fadeOutSeconds === undefined ? undefined : clampNumber(source.fadeOutSeconds, 0, 30, 0),
     keyframes: sanitizeKeyframes(source.keyframes),
   })
 }
@@ -284,6 +288,13 @@ function sanitizeTrack(value: unknown): EditorTrack | undefined {
     label: cleanString(source.label),
     muted: typeof source.muted === 'boolean' ? source.muted : undefined,
     locked: typeof source.locked === 'boolean' ? source.locked : undefined,
+    gainDb: source.gainDb === undefined ? undefined : clampNumber(source.gainDb, -60, 12, 0),
+    pan: source.pan === undefined ? undefined : clampNumber(source.pan, -1, 1, 0),
+    solo: typeof source.solo === 'boolean' ? source.solo : undefined,
+    audioRole: EDITOR_AUDIO_ROLES.includes(source.audioRole as EditorAudioRole)
+      ? (source.audioRole as EditorAudioRole)
+      : undefined,
+    duckUnderVoice: typeof source.duckUnderVoice === 'boolean' ? source.duckUnderVoice : undefined,
     clips,
   })
 }

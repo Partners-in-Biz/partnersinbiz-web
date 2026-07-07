@@ -84,7 +84,7 @@ describe('sanitizeVideoEditorSettingsInput', () => {
 describe('sanitizeEditorTimeline', () => {
   it('round-trips a valid timeline losslessly including P2 fields', () => {
     const withP2: EditorTimeline = JSON.parse(JSON.stringify(validTimeline))
-    withP2.tracks[0].clips[0].effects = [{ kind: 'lut', params: { name: 'warm' } }]
+    withP2.tracks[0].clips[0].effects = [{ kind: 'blur', params: { sigma: 5 } }]
     withP2.tracks[0].clips[0].keyframes = [{ property: 'transform.opacity', atSeconds: 0, value: 0 }]
     const result = sanitizeEditorTimeline(withP2)
     expect(result).toEqual(withP2)
@@ -403,5 +403,54 @@ describe('caption clip sanitize + validation', () => {
       }],
     })
     expect(issues).toEqual([{ trackId: 't', clipId: 'c', message: 'Caption payloads are only allowed on caption tracks.' }])
+  })
+})
+
+describe('phase 1c fields', () => {
+  it('sanitizes effects via the registry, keeps order, drops unknown kinds', () => {
+    const timeline = sanitizeEditorTimeline({
+      version: 1,
+      tracks: [{
+        id: 't1', kind: 'video',
+        clips: [{
+          id: 'c1', timelineStart: 0, duration: 4,
+          media: { type: 'upload', fileId: 'f1', url: 'https://x.test/a.mp4', mediaKind: 'video' },
+          effects: [
+            { kind: 'blur', params: { sigma: 4 } },
+            { kind: 'nonsense', params: {} },
+            { kind: 'chroma_key', params: { color: '#112233' } },
+          ],
+          blendMode: 'screen',
+          fadeInSeconds: 0.5,
+          fadeOutSeconds: 99,
+        }],
+      }],
+    })
+    const clip = timeline.tracks[0].clips[0]
+    expect(clip.effects?.map((e) => e.kind)).toEqual(['blur', 'chroma_key'])
+    expect(clip.effects?.[0].params).toEqual({ sigma: 4 })
+    expect(clip.blendMode).toBe('screen')
+    expect(clip.fadeInSeconds).toBe(0.5)
+    expect(clip.fadeOutSeconds).toBe(30) // clamped
+  })
+
+  it('rejects invalid blend modes and sanitizes track mixer fields', () => {
+    const timeline = sanitizeEditorTimeline({
+      version: 1,
+      tracks: [{
+        id: 't-a', kind: 'audio', gainDb: -100, pan: 7, solo: true, audioRole: 'music', duckUnderVoice: true,
+        clips: [{
+          id: 'c1', timelineStart: 0, duration: 4, blendMode: 'hologram',
+          media: { type: 'upload', fileId: 'f1', url: 'https://x.test/a.mp3', mediaKind: 'audio' },
+        }],
+      }],
+    })
+    const track = timeline.tracks[0]
+    expect(track.gainDb).toBe(-60)  // clamped to [-60, 12]
+    expect(track.pan).toBe(1)       // clamped to [-1, 1]
+    expect(track.solo).toBe(true)
+    expect(track.audioRole).toBe('music')
+    expect(track.duckUnderVoice).toBe(true)
+    expect(timeline.tracks[0].clips[0].blendMode).toBeUndefined()
   })
 })
