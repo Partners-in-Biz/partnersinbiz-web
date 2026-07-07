@@ -477,6 +477,7 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
           {rightTab === 'inspector' ? (
             <InspectorPanel
               clip={selectedClip}
+              orgId={orgId}
               playheadSeconds={playhead}
               onPatch={patchSelected}
               onTrim={(edge, deltaSeconds) => {
