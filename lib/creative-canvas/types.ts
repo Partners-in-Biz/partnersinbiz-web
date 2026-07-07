@@ -56,6 +56,8 @@ export type CreativeCanvasProviderKey =
   | 'text_generation'
   | 'document_generation'
   | 'agent_task'
+  | 'openai_audio'
+  | 'elevenlabs'
 
 export type CreativeCanvasOutputKind =
   | 'image'

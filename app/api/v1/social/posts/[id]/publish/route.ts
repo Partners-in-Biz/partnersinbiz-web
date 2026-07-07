@@ -20,6 +20,7 @@ import { validatePublishReadyText } from '@/lib/social/publish-text'
 import { validateOutboundLinks } from '@/lib/social/outbound-link-validation'
 import { getFirstComment, postFirstComment } from '@/lib/social/first-comment'
 import { buildProviderPublishOptions } from '@/lib/social/publish-options'
+import { touchPortalDashboardSummary } from '@/lib/portal/dashboard-summary'
 
 export const dynamic = 'force-dynamic'
 
@@ -116,6 +117,10 @@ export const POST = withAuth('admin', withTenant(async (_req, user, orgId, conte
     await adminDb.collection('social_posts').doc(id).update({
       status: 'failed', error: message, updatedAt: FieldValue.serverTimestamp(),
     })
+    await touchPortalDashboardSummary({
+      orgId,
+      staleReason: 'social_post.failed',
+    })
     await logAudit({
       orgId, action: 'post.failed', entityType: 'post', entityId: id,
       performedBy: 'system', performedByRole: 'system',
@@ -126,6 +131,10 @@ export const POST = withAuth('admin', withTenant(async (_req, user, orgId, conte
 
   await adminDb.collection('social_posts').doc(id).update({
     status: 'published', publishedAt: FieldValue.serverTimestamp(), externalId, error: null, updatedAt: FieldValue.serverTimestamp(),
+  })
+  await touchPortalDashboardSummary({
+    orgId,
+    staleReason: 'social_post.published',
   })
 
   // First-comment automation — best-effort, never rolls back the publish.

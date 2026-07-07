@@ -25,6 +25,7 @@ import {
   hasFinalApproval,
   upsertSocialQueueEntry,
 } from '@/lib/social/scheduling'
+import { touchPortalDashboardSummary } from '@/lib/portal/dashboard-summary'
 
 export const dynamic = 'force-dynamic'
 
@@ -197,6 +198,10 @@ export const PUT = withAuth('admin', withTenant(async (req, user, orgId, context
   }
 
   await adminDb.collection('social_posts').doc(id).update(updates)
+  await touchPortalDashboardSummary({
+    orgId,
+    staleReason: 'social_post.updated',
+  })
 
   if (proposedStatus === 'scheduled' && proposedPost.scheduledAt) {
     await upsertSocialQueueEntry({
@@ -245,6 +250,10 @@ export const DELETE = withAuth('admin', withTenant(async (req, user, orgId, cont
   await adminDb.collection('social_posts').doc(id).update({
     status: 'cancelled',
     updatedAt: FieldValue.serverTimestamp(),
+  })
+  await touchPortalDashboardSummary({
+    orgId,
+    staleReason: 'social_post.cancelled',
   })
 
   // Cancel queue entry if exists

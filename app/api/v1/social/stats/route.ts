@@ -6,6 +6,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { withTenant } from '@/lib/api/tenant'
 import { apiSuccess } from '@/lib/api/response'
+import { getFreshPortalDashboardSummary } from '@/lib/portal/dashboard-summary'
 
 export const dynamic = 'force-dynamic'
 
@@ -90,7 +91,10 @@ function trendDateForPost(post: SocialPostData): Date | null {
   return null
 }
 
-export const GET = withAuth('client', withTenant(async (req, _user, orgId) => {
+export const GET = withAuth('client', withTenant(async (_req, _user, orgId) => {
+  const summary = await getFreshPortalDashboardSummary(orgId).catch(() => null)
+  if (summary) return apiSuccess(summary.social)
+
   const snapshot = await adminDb.collection('social_posts').where('orgId', '==', orgId).get()
 
   const posts: SocialPostData[] = snapshot.docs.map((doc) => ({

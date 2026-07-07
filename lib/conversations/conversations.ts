@@ -6,7 +6,8 @@
  *   conversations/{convId}/messages/  — ConversationMessage subcollection
  */
 import { FieldValue } from 'firebase-admin/firestore'
-import { adminDb } from '@/lib/firebase/admin'
+import { getStorage } from 'firebase-admin/storage'
+import { adminDb, getAdminApp } from '@/lib/firebase/admin'
 import { AGENT_IDS } from '@/lib/agents/types'
 import type { AgentId, Conversation, ConversationMessage, Participant } from './types'
 import type { ContextReference } from '@/lib/context-references/types'
@@ -52,8 +53,7 @@ export async function createConversation(input: {
     .filter((p): p is Extract<Participant, { kind: 'agent' }> => p.kind === 'agent')
     .map((p) => p.agentId)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const data: Record<string, any> = {
+  const data: Record<string, unknown> = {
     orgId: input.orgId,
     participants: input.participants,
     participantUids,
@@ -180,19 +180,72 @@ export async function patchConversation(
   convId: string,
   patch: { title?: string; archived?: boolean },
 ): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const updates: Record<string, any> = { updatedAt: FieldValue.serverTimestamp() }
+  const updates: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp() }
   if (patch.title !== undefined) updates.title = patch.title.trim()
   if (patch.archived !== undefined) updates.archived = patch.archived
   await convDoc(convId).update(updates)
 }
 
-/** Delete a conversation and its message subcollection. */
+function attachmentStoragePathsFromMessage(message: FirebaseFirestore.DocumentData): string[] {
+  if (!Array.isArray(message.attachments)) return []
+  return message.attachments
+    .map((attachment) => {
+      if (!attachment || typeof attachment !== 'object') return ''
+      const storagePath = (attachment as { storagePath?: unknown }).storagePath
+      return typeof storagePath === 'string' && storagePath.trim() ? storagePath.trim() : ''
+    })
+    .filter(Boolean)
+}
+
+async function deleteConversationStoragePaths(storagePaths: Iterable<string>): Promise<void> {
+  const uniquePaths = Array.from(new Set(storagePaths)).filter(Boolean)
+  if (uniquePaths.length === 0) return
+
+  const bucket = getStorage(getAdminApp()).bucket()
+  await Promise.all(
+    uniquePaths.map((path) =>
+      (bucket.file(path) as { delete: (options?: { ignoreNotFound?: boolean }) => Promise<unknown> })
+        .delete({ ignoreNotFound: true }),
+    ),
+  )
+}
+
+async function deleteConversationAttachmentDocs(convId: string): Promise<void> {
+  while (true) {
+    const attachmentsSnap = await adminDb.collection('conversation_attachments')
+      .where('conversationId', '==', convId)
+      .limit(500)
+      .get()
+    if (attachmentsSnap.empty) break
+
+    const storagePaths = attachmentsSnap.docs
+      .map((doc) => {
+        const storagePath = doc.data().storagePath
+        return typeof storagePath === 'string' && storagePath.trim() ? storagePath.trim() : ''
+      })
+      .filter(Boolean)
+
+    await deleteConversationStoragePaths(storagePaths)
+
+    const batch = adminDb.batch()
+    attachmentsSnap.docs.forEach((doc) => batch.delete(doc.ref))
+    await batch.commit()
+  }
+}
+
+/** Delete a conversation, its messages, attachment metadata, and attachment blobs. */
 export async function deleteConversation(convId: string): Promise<void> {
   const ref = convDoc(convId)
+  await deleteConversationAttachmentDocs(convId)
+
   while (true) {
     const messagesSnap = await messagesCollection(convId).limit(500).get()
     if (messagesSnap.empty) break
+    const messageAttachmentPaths = messagesSnap.docs.flatMap((doc) =>
+      attachmentStoragePathsFromMessage(doc.data()),
+    )
+    await deleteConversationStoragePaths(messageAttachmentPaths)
+
     const batch = adminDb.batch()
     messagesSnap.docs.forEach((doc) => batch.delete(doc.ref))
     await batch.commit()

@@ -13,33 +13,33 @@ interface PipelineColumn {
 const COLUMNS: PipelineColumn[] = [
   {
     key: 'idea',
-    label: 'Idea & scripting',
+    label: 'Requested',
     statuses: ['intake', 'briefing'],
-    emptyHint: 'Nothing here yet — request a video to start the pipeline.',
+    emptyHint: 'Requested videos appear here first.',
   },
   {
     key: 'production',
-    label: 'Production',
+    label: 'PiB producing',
     statuses: ['production', 'internal_review'],
-    emptyHint: 'Nothing here yet — approved briefs move into production automatically.',
+    emptyHint: 'PiB is not producing a video right now.',
   },
   {
     key: 'review',
-    label: 'Client review',
+    label: 'Your review',
     statuses: ['client_review', 'changes_requested'],
-    emptyHint: 'Nothing here yet — drafts appear here when they are ready for your review.',
+    emptyHint: 'Drafts waiting for your decision appear here.',
   },
   {
     key: 'ready',
-    label: 'Publish ready',
+    label: 'Ready to publish',
     statuses: ['publish_ready', 'scheduled'],
-    emptyHint: 'Nothing here yet — approved videos queue here before publishing.',
+    emptyHint: 'Approved videos queue here before publishing.',
   },
   {
     key: 'live',
     label: 'Live',
     statuses: ['live'],
-    emptyHint: 'Nothing here yet — published videos land here with repurpose actions.',
+    emptyHint: 'Published videos land here with repurpose actions.',
   },
 ]
 
@@ -70,22 +70,30 @@ function nextAction(video: YouTubeVideoProject, onReview: (id: string) => void, 
   if (video.status === 'publish_ready' || video.status === 'scheduled') {
     return <span className="text-xs text-on-surface-variant">Awaiting PiB publish</span>
   }
-  return <span className="text-xs text-on-surface-variant">PiB is working on this</span>
+  return <span className="text-xs text-on-surface-variant">PiB is preparing this</span>
 }
 
 export function YouTubeStudioPipelineBoard({ videos, onReview, onRepurpose }: YouTubeStudioPipelineBoardProps) {
+  if (videos.length === 0) {
+    return (
+      <div className="pib-card-section p-6 text-sm text-on-surface-variant">
+        No active video work yet. Request a PiB video or create an edit project to start the workflow.
+      </div>
+    )
+  }
+
   return (
-    <div className="grid gap-4 overflow-x-auto lg:grid-cols-5">
+    <div className="grid gap-4 overflow-x-auto xl:grid-cols-5">
       {COLUMNS.map((column) => {
         const columnVideos = videos.filter((video) => column.statuses.includes(video.status))
         return (
-          <section key={column.key} className="min-w-[240px] space-y-3">
-            <h3 className="flex items-center justify-between gap-2 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+          <section key={column.key} className="min-w-[280px] space-y-3">
+            <h3 className="flex items-center justify-between gap-3 text-xs font-label uppercase tracking-widest text-on-surface-variant">
               <span>{column.label}</span>
               <span aria-label={`${column.label} count`}>({columnVideos.length})</span>
             </h3>
             {columnVideos.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-[var(--color-pib-line)] p-4 text-xs text-on-surface-variant">
+              <div className="rounded-lg border border-dashed border-[var(--color-pib-line)] p-4 text-xs leading-relaxed text-on-surface-variant">
                 {column.emptyHint}
               </div>
             ) : (

@@ -1,4 +1,8 @@
 import {
+  EDITOR_AUDIO_ROLES,
+  EDITOR_BLEND_MODES,
+  EDITOR_CAPTION_ANIMATION_PRESETS,
+  EDITOR_CAPTION_STYLE_PRESETS,
   EDITOR_MEDIA_KINDS,
   EDITOR_TEXT_ALIGNS,
   EDITOR_TEXT_ANIMATION_PRESETS,
@@ -12,7 +16,12 @@ import {
   defaultVideoEditorSettings,
   emptyEditorTimeline,
 } from './types'
+import { sanitizeEffectInstance } from './effects'
 import type {
+  EditorAudioRole,
+  EditorBlendMode,
+  EditorCaptionPayload,
+  EditorCaptionWord,
   EditorClip,
   EditorClipTransform,
   EditorEffectInstance,
@@ -89,7 +98,7 @@ export function sanitizeVideoEditorSettingsInput(value: unknown): VideoEditorPro
   }
 }
 
-function sanitizeMediaRef(value: unknown): MediaRef | undefined {
+export function sanitizeMediaRef(value: unknown): MediaRef | undefined {
   const source = cleanObject(value)
   const type = source.type
   const url = cleanString(source.url)
@@ -132,6 +141,32 @@ function sanitizeTextPayload(value: unknown): EditorTextPayload | undefined {
   })
 }
 
+function sanitizeCaptionWords(value: unknown): EditorCaptionWord[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((entry) => {
+    const source = cleanObject(entry)
+    const text = cleanString(source.text)
+    const offsetStart = cleanNumber(source.offsetStart)
+    const offsetEnd = cleanNumber(source.offsetEnd)
+    if (!text || offsetStart === undefined || offsetEnd === undefined || offsetEnd < offsetStart) return []
+    return [{ text, offsetStart: Math.max(0, offsetStart), offsetEnd: Math.max(0, offsetEnd) }]
+  })
+}
+
+function sanitizeCaptionPayload(value: unknown): EditorCaptionPayload | undefined {
+  const source = cleanObject(value)
+  const text = cleanString(source.text)
+  if (!text) return undefined
+  return compact({
+    text,
+    words: sanitizeCaptionWords(source.words),
+    stylePreset: pickEnum(source.stylePreset, EDITOR_CAPTION_STYLE_PRESETS, 'clean'),
+    animationPreset: pickEnum(source.animationPreset, EDITOR_CAPTION_ANIMATION_PRESETS, 'none'),
+    transcriptId: cleanString(source.transcriptId),
+    language: cleanString(source.language),
+  }) as EditorCaptionPayload
+}
+
 function sanitizeTransform(value: unknown): EditorClipTransform | undefined {
   const source = cleanObject(value)
   if (!Object.keys(source).length) return undefined
@@ -147,14 +182,8 @@ function sanitizeTransform(value: unknown): EditorClipTransform | undefined {
 function sanitizeEffects(value: unknown): EditorEffectInstance[] | undefined {
   if (!Array.isArray(value)) return undefined
   const effects = value.flatMap((entry) => {
-    const source = cleanObject(entry)
-    const kind = cleanString(source.kind)
-    if (!kind) return []
-    const params = Object.fromEntries(
-      Object.entries(cleanObject(source.params)).filter(([, v]) =>
-        typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean'),
-    ) as EditorEffectInstance['params']
-    return [{ kind, params }]
+    const effect = sanitizeEffectInstance(entry)
+    return effect ? [effect] : []
   })
   return effects.length ? effects : undefined
 }
@@ -168,21 +197,46 @@ const KEYFRAME_PROPERTIES: EditorKeyframe['property'][] = [
   'volume',
   'speed',
 ]
-const KEYFRAME_EASINGS: NonNullable<EditorKeyframe['easing']>[] = ['linear', 'ease_in', 'ease_out', 'ease_in_out']
+const KEYFRAME_EASINGS: NonNullable<EditorKeyframe['easing']>[] = ['linear', 'ease_in', 'ease_out', 'ease_in_out', 'bezier']
+
+function sanitizeBezier(value: unknown): [number, number, number, number] | undefined {
+  if (!Array.isArray(value) || value.length !== 4) return undefined
+  const nums = value.map((entry) => cleanNumber(entry))
+  if (nums.some((entry) => entry === undefined)) return undefined
+  const [p1x, p1y, p2x, p2y] = nums as number[]
+  return [
+    Math.min(Math.max(p1x, 0), 1),
+    Math.min(Math.max(p1y, -10), 10),
+    Math.min(Math.max(p2x, 0), 1),
+    Math.min(Math.max(p2y, -10), 10),
+  ]
+}
 
 function sanitizeKeyframes(value: unknown): EditorKeyframe[] | undefined {
   if (!Array.isArray(value)) return undefined
-  const keyframes = value.flatMap((entry) => {
+  const keyframes = value.flatMap((entry): EditorKeyframe[] => {
     const source = cleanObject(entry)
     const property = source.property
     const atSeconds = cleanNumber(source.atSeconds)
-    const kfValue = cleanNumber(source.value)
-    if (!KEYFRAME_PROPERTIES.includes(property as never) || atSeconds === undefined || kfValue === undefined) return []
+    const rawValue = cleanNumber(source.value)
+    if (!KEYFRAME_PROPERTIES.includes(property as never) || atSeconds === undefined || rawValue === undefined) return []
+    const kfValue = property === 'speed' ? Math.min(Math.max(rawValue, 0.25), 4) : rawValue
+    const bezier = sanitizeBezier(source.bezier)
     const easing = KEYFRAME_EASINGS.includes(source.easing as never)
       ? (source.easing as EditorKeyframe['easing'])
       : undefined
-    return [compact({ property: property as EditorKeyframe['property'], atSeconds: Math.max(0, atSeconds), value: kfValue, easing })]
+    if (easing === 'bezier' && !bezier) {
+      return [compact({ property: property as EditorKeyframe['property'], atSeconds: Math.max(0, atSeconds), value: kfValue, easing: 'linear' as const })]
+    }
+    return [compact({
+      property: property as EditorKeyframe['property'],
+      atSeconds: Math.max(0, atSeconds),
+      value: kfValue,
+      easing,
+      ...(easing === 'bezier' && bezier ? { bezier } : {}),
+    }) as EditorKeyframe]
   })
+  keyframes.sort((a, b) => a.property.localeCompare(b.property) || a.atSeconds - b.atSeconds)
   return keyframes.length ? keyframes : undefined
 }
 
@@ -194,10 +248,12 @@ function sanitizeClip(value: unknown): EditorClip | undefined {
   const transitionKind = cleanString(transitionSource.kind)
   return compact({
     id,
+    groupId: cleanString(source.groupId),
     timelineStart: clampNumber(source.timelineStart, 0, 60 * 60 * 4, 0),
     duration: clampNumber(source.duration, 0, 60 * 60 * 4, 0),
     media: sanitizeMediaRef(source.media),
     text: sanitizeTextPayload(source.text),
+    caption: sanitizeCaptionPayload(source.caption),
     trimStart: source.trimStart === undefined ? undefined : clampNumber(source.trimStart, 0, 60 * 60 * 24, 0),
     speed: source.speed === undefined ? undefined : clampNumber(source.speed, 0.25, 4, 1),
     volume: source.volume === undefined ? undefined : clampNumber(source.volume, 0, 2, 1),
@@ -209,6 +265,11 @@ function sanitizeClip(value: unknown): EditorClip | undefined {
         }
       : undefined,
     effects: sanitizeEffects(source.effects),
+    blendMode: EDITOR_BLEND_MODES.includes(source.blendMode as EditorBlendMode) && source.blendMode !== 'normal'
+      ? (source.blendMode as EditorBlendMode)
+      : undefined,
+    fadeInSeconds: source.fadeInSeconds === undefined ? undefined : clampNumber(source.fadeInSeconds, 0, 30, 0),
+    fadeOutSeconds: source.fadeOutSeconds === undefined ? undefined : clampNumber(source.fadeOutSeconds, 0, 30, 0),
     keyframes: sanitizeKeyframes(source.keyframes),
   })
 }
@@ -227,6 +288,13 @@ function sanitizeTrack(value: unknown): EditorTrack | undefined {
     label: cleanString(source.label),
     muted: typeof source.muted === 'boolean' ? source.muted : undefined,
     locked: typeof source.locked === 'boolean' ? source.locked : undefined,
+    gainDb: source.gainDb === undefined ? undefined : clampNumber(source.gainDb, -60, 12, 0),
+    pan: source.pan === undefined ? undefined : clampNumber(source.pan, -1, 1, 0),
+    solo: typeof source.solo === 'boolean' ? source.solo : undefined,
+    audioRole: EDITOR_AUDIO_ROLES.includes(source.audioRole as EditorAudioRole)
+      ? (source.audioRole as EditorAudioRole)
+      : undefined,
+    duckUnderVoice: typeof source.duckUnderVoice === 'boolean' ? source.duckUnderVoice : undefined,
     clips,
   })
 }
@@ -288,6 +356,15 @@ export function validateEditorTimeline(timeline: EditorTimeline): TimelineValida
       }
       if (track.kind === 'text' && !clip.text) {
         issues.push({ trackId, clipId, message: 'Clip on a text track requires a text payload.' })
+      }
+      if (track.kind === 'caption' && !clip.caption) {
+        issues.push({ trackId, clipId, message: 'Clip on a caption track requires a caption payload.' })
+      }
+      if (track.kind === 'caption' && clip.media) {
+        issues.push({ trackId, clipId, message: 'Media is not allowed on a caption track.' })
+      }
+      if (track.kind !== 'caption' && clip.caption) {
+        issues.push({ trackId, clipId, message: 'Caption payloads are only allowed on caption tracks.' })
       }
       if (track.kind === 'audio' && clip.media && clip.media.mediaKind === 'image') {
         issues.push({ trackId, clipId, message: 'Image media is not allowed on an audio track.' })

@@ -21,6 +21,7 @@ import { canAccessProject } from '@/lib/projects/access'
 import { ensureProjectOwnerMembership } from '@/lib/projects/collaboration'
 import { normalizeProjectLinks, pickProjectLinkFields, type ProjectLinkSet } from '@/lib/client-documents/linkedValidation'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
+import { touchPortalDashboardSummary } from '@/lib/portal/dashboard-summary'
 
 const VALID_STATUSES = [
   'discovery',
@@ -203,12 +204,26 @@ function filterProjectByArchiveMode(project: ProjectListItem, mode: ProjectArchi
   return mode === 'only' ? historical : !historical
 }
 
-async function loadClientVisibleProjectsForOrg(orgId: string): Promise<ProjectListItem[]> {
+function dashboardActiveProjectStatus(status: unknown): boolean {
+  return ['active', 'in_progress', 'development', 'review', 'live', 'maintenance'].includes(projectStatus(status))
+}
+
+function parseOptionalListLimit(value: string | null): number | null {
+  if (!value) return null
+  const parsed = parseInt(value, 10)
+  return Number.isFinite(parsed) ? Math.max(1, Math.min(parsed, 200)) : null
+}
+
+function withOptionalLimit(query: FirebaseFirestore.Query, limit: number | null): FirebaseFirestore.Query {
+  return limit ? query.limit(limit) : query
+}
+
+async function loadClientVisibleProjectsForOrg(orgId: string, limit: number | null = null): Promise<ProjectListItem[]> {
   const [receivedSnap, targetSnap, clientSnap, legacySnap] = await Promise.all([
-    adminDb.collection('projects').where('recipientOrgId', '==', orgId).get(),
-    adminDb.collection('projects').where('targetOrgId', '==', orgId).get(),
-    adminDb.collection('projects').where('clientOrgId', '==', orgId).get(),
-    adminDb.collection('projects').where('orgId', '==', orgId).get(),
+    withOptionalLimit(adminDb.collection('projects').where('recipientOrgId', '==', orgId), limit).get(),
+    withOptionalLimit(adminDb.collection('projects').where('targetOrgId', '==', orgId), limit).get(),
+    withOptionalLimit(adminDb.collection('projects').where('clientOrgId', '==', orgId), limit).get(),
+    withOptionalLimit(adminDb.collection('projects').where('orgId', '==', orgId), limit).get(),
   ])
   const byId = new Map<string, ProjectListItem>()
   for (const snap of [receivedSnap, targetSnap, clientSnap, legacySnap]) {
@@ -219,10 +234,10 @@ async function loadClientVisibleProjectsForOrg(orgId: string): Promise<ProjectLi
   return Array.from(byId.values())
 }
 
-async function loadClientVisibleProjectsForOrgs(orgIds: string[]): Promise<ProjectListItem[]> {
+async function loadClientVisibleProjectsForOrgs(orgIds: string[], limit: number | null = null): Promise<ProjectListItem[]> {
   const byId = new Map<string, ProjectListItem>()
   const uniqueOrgIds = Array.from(new Set(orgIds.filter(Boolean)))
-  const results = await Promise.all(uniqueOrgIds.map((orgId) => loadClientVisibleProjectsForOrg(orgId)))
+  const results = await Promise.all(uniqueOrgIds.map((orgId) => loadClientVisibleProjectsForOrg(orgId, limit)))
   for (const projects of results) {
     for (const project of projects) byId.set(project.id, project)
   }
@@ -235,6 +250,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   const view = searchParams.get('view') ?? 'sent'
   const sharedOnly = view === 'shared'
   const archives = archiveMode(searchParams.get('archive'))
+  const listLimit = parseOptionalListLimit(searchParams.get('limit'))
 
   let query: FirebaseFirestore.Query = adminDb.collection('projects')
 
@@ -243,10 +259,11 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
     if (!scope.ok) return apiSuccess([])
     const orgId = scope.orgId
     if (view === 'received' || view === 'shared') {
-      const projects = (await loadClientVisibleProjectsForOrg(orgId))
+      const projects = (await loadClientVisibleProjectsForOrg(orgId, listLimit))
         .filter((project) => !sharedOnly || Boolean(project.claimableRelationshipId))
         .filter((project) => filterProjectByArchiveMode(project, archives))
         .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
+        .slice(0, listLimit ?? undefined)
       return apiSuccess(projects)
     }
     query = query.where(view === 'received' ? 'recipientOrgId' : 'orgId', '==', orgId)
@@ -269,10 +286,11 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
       return apiError('Forbidden', 403)
     }
     if (view === 'received' || view === 'shared') {
-      const projects = (await loadClientVisibleProjectsForOrg(orgId))
+      const projects = (await loadClientVisibleProjectsForOrg(orgId, listLimit))
         .filter((project) => !sharedOnly || Boolean(project.claimableRelationshipId))
         .filter((project) => filterProjectByArchiveMode(project, archives))
         .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
+        .slice(0, listLimit ?? undefined)
       return apiSuccess(projects)
     }
     query = query.where('orgId', '==', orgId)
@@ -281,10 +299,11 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
       ? explicitAdminOrgIds(user)
       : restrictedAdminOrgIds(user)
     if ((view === 'received' || view === 'shared') && allowedOrgIds.length > 0) {
-      const projects = (await loadClientVisibleProjectsForOrgs(allowedOrgIds.slice(0, 30)))
+      const projects = (await loadClientVisibleProjectsForOrgs(allowedOrgIds.slice(0, 30), listLimit))
         .filter((project) => !sharedOnly || Boolean(project.claimableRelationshipId))
         .filter((project) => filterProjectByArchiveMode(project, archives))
         .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
+        .slice(0, listLimit ?? undefined)
       return apiSuccess(projects)
     }
     if (allowedOrgIds.length > 0) {
@@ -292,13 +311,14 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
     }
   }
 
-  const snapshot = await query.get()
+  const snapshot = await withOptionalLimit(query, listLimit).get()
 
   const projects: ProjectListItem[] = snapshot.docs
     .map((doc): ProjectListItem => ({ id: doc.id, ...doc.data() }))
     .filter((project) => !sharedOnly || Boolean(project.claimableRelationshipId))
     .filter((project) => filterProjectByArchiveMode(project, archives))
     .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
+    .slice(0, listLimit ?? undefined)
 
   return apiSuccess(projects)
 })
@@ -440,6 +460,23 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   }))
+  const summaryOrgIds = Array.from(new Set([
+    sourceOrgId,
+    recipientOrgId,
+    cleanString(finalLinks.value.recipientOrgId),
+    cleanString(finalLinks.value.clientOrgId),
+  ].filter(Boolean)))
+  await Promise.all(summaryOrgIds.map((summaryOrgId) => touchPortalDashboardSummary({
+    orgId: summaryOrgId,
+    increments: {
+      'counts.projects': 1,
+      'projects.total': 1,
+      ...(dashboardActiveProjectStatus(body.status ?? 'discovery')
+        ? { 'counts.activeProjects': 1, 'projects.active': 1 }
+        : {}),
+    },
+    staleReason: 'project.created',
+  })))
   await ensureProjectOwnerMembership({
     projectId: docRef.id,
     ownerUid,
@@ -514,6 +551,16 @@ export const DELETE = withAuth('admin', async (req: NextRequest, user: ApiUser) 
     archivedBy: user.uid,
     updatedAt: FieldValue.serverTimestamp(),
   })
+  const summaryOrgIds = Array.from(new Set([
+    typeof orgId === 'string' ? orgId : String(orgId ?? ''),
+    typeof projectData.recipientOrgId === 'string' ? projectData.recipientOrgId : '',
+    typeof projectData.targetOrgId === 'string' ? projectData.targetOrgId : '',
+    typeof projectData.clientOrgId === 'string' ? projectData.clientOrgId : '',
+  ].filter(Boolean)))
+  await Promise.all(summaryOrgIds.map((summaryOrgId) => touchPortalDashboardSummary({
+    orgId: summaryOrgId,
+    staleReason: 'project.archived',
+  })))
 
   logActivity({
     orgId: typeof orgId === 'string' ? orgId : String(orgId ?? ''),

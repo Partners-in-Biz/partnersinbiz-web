@@ -84,7 +84,7 @@ describe('sanitizeVideoEditorSettingsInput', () => {
 describe('sanitizeEditorTimeline', () => {
   it('round-trips a valid timeline losslessly including P2 fields', () => {
     const withP2: EditorTimeline = JSON.parse(JSON.stringify(validTimeline))
-    withP2.tracks[0].clips[0].effects = [{ kind: 'lut', params: { name: 'warm' } }]
+    withP2.tracks[0].clips[0].effects = [{ kind: 'blur', params: { sigma: 5 } }]
     withP2.tracks[0].clips[0].keyframes = [{ property: 'transform.opacity', atSeconds: 0, value: 0 }]
     const result = sanitizeEditorTimeline(withP2)
     expect(result).toEqual(withP2)
@@ -278,5 +278,179 @@ describe('serializeVideoEditorRecord', () => {
   it('deep-serializes firestore data with the doc id', () => {
     const record = serializeVideoEditorRecord<{ title: string }>('abc', { title: 'x', nested: { a: 1 } })
     expect(record).toEqual({ id: 'abc', title: 'x', nested: { a: 1 } })
+  })
+})
+
+describe('phase 1a sanitizer additions', () => {
+  const track = (clips: unknown[]) => ({ version: 1, tracks: [{ id: 't1', kind: 'video', clips }] })
+
+  it('keeps groupId strings and drops junk groupIds', () => {
+    const timeline = sanitizeEditorTimeline(track([
+      { id: 'a', timelineStart: 0, duration: 2, groupId: ' grp-1 ' },
+      { id: 'b', timelineStart: 2, duration: 2, groupId: 42 },
+    ]))
+    expect(timeline.tracks[0].clips[0].groupId).toBe('grp-1')
+    expect(timeline.tracks[0].clips[1].groupId).toBeUndefined()
+  })
+
+  it('accepts bezier easing with clamped control-point x values and drops malformed tuples', () => {
+    const timeline = sanitizeEditorTimeline(track([{
+      id: 'a', timelineStart: 0, duration: 4,
+      keyframes: [
+        { property: 'transform.opacity', atSeconds: 1, value: 0.5, easing: 'bezier', bezier: [1.5, -2, -0.5, 3] },
+        { property: 'volume', atSeconds: 0, value: 1, easing: 'bezier', bezier: [0.1, 0.2] },
+        { property: 'volume', atSeconds: 2, value: 0, easing: 'ease_out', bezier: [0.1, 0.2, 0.3, 0.4] },
+      ],
+    }]))
+    const kfs = timeline.tracks[0].clips[0].keyframes ?? []
+    // sorted property-then-time: [transform.opacity@1, volume@0, volume@2]
+    expect(kfs[0]).toMatchObject({ property: 'transform.opacity', easing: 'bezier', bezier: [1, -2, 0, 3] })
+    expect(kfs.find((k) => k.atSeconds === 0 && k.property === 'volume')).toMatchObject({ easing: 'linear' })
+    expect(kfs.find((k) => k.atSeconds === 2)?.bezier).toBeUndefined()
+  })
+
+  it('sorts keyframes by property then atSeconds and clamps speed values to 0.25-4', () => {
+    const timeline = sanitizeEditorTimeline(track([{
+      id: 'a', timelineStart: 0, duration: 4,
+      keyframes: [
+        { property: 'speed', atSeconds: 3, value: 99 },
+        { property: 'speed', atSeconds: 0, value: 0.01 },
+      ],
+    }]))
+    const kfs = timeline.tracks[0].clips[0].keyframes ?? []
+    expect(kfs.map((k) => [k.atSeconds, k.value])).toEqual([[0, 0.25], [3, 4]])
+  })
+})
+
+describe('caption clip sanitize + validation', () => {
+  const rawCaptionTimeline = {
+    version: 1,
+    tracks: [{
+      id: 'track-caption-1',
+      kind: 'caption',
+      clips: [{
+        id: 'cue-1',
+        timelineStart: 1,
+        duration: 2.4,
+        caption: {
+          text: 'Hello world',
+          words: [
+            { text: 'Hello', offsetStart: 0, offsetEnd: 0.6 },
+            { text: 'world', offsetStart: 0.7, offsetEnd: 1.2 },
+            { text: '', offsetStart: 2, offsetEnd: 1 }, // dropped: empty + inverted
+          ],
+          stylePreset: 'karaoke_bar',
+          animationPreset: 'karaoke',
+          transcriptId: 't-1',
+          language: 'en',
+        },
+      }],
+    }],
+  }
+
+  it('sanitizes caption payloads and drops invalid words', () => {
+    const timeline = sanitizeEditorTimeline(rawCaptionTimeline)
+    const clip = timeline.tracks[0].clips[0]
+    expect(timeline.tracks[0].kind).toBe('caption')
+    expect(clip.caption).toEqual({
+      text: 'Hello world',
+      words: [
+        { text: 'Hello', offsetStart: 0, offsetEnd: 0.6 },
+        { text: 'world', offsetStart: 0.7, offsetEnd: 1.2 },
+      ],
+      stylePreset: 'karaoke_bar',
+      animationPreset: 'karaoke',
+      transcriptId: 't-1',
+      language: 'en',
+    })
+    expect(validateEditorTimeline(timeline)).toEqual([])
+  })
+
+  it('falls back to clean/none for unknown presets', () => {
+    const timeline = sanitizeEditorTimeline({
+      version: 1,
+      tracks: [{
+        id: 't', kind: 'caption',
+        clips: [{ id: 'c', timelineStart: 0, duration: 1, caption: { text: 'x', words: [], stylePreset: 'nope', animationPreset: 'nope' } }],
+      }],
+    })
+    expect(timeline.tracks[0].clips[0].caption).toMatchObject({ stylePreset: 'clean', animationPreset: 'none' })
+  })
+
+  it('flags caption clips without payloads and media on caption tracks', () => {
+    const issues = validateEditorTimeline({
+      version: 1,
+      tracks: [{
+        id: 't', kind: 'caption',
+        clips: [
+          { id: 'no-payload', timelineStart: 0, duration: 1 },
+          { id: 'has-media', timelineStart: 2, duration: 1, caption: { text: 'x', words: [], stylePreset: 'clean', animationPreset: 'none' }, media: { type: 'upload', fileId: 'f', url: 'https://x.test/a.mp4', mediaKind: 'video' } },
+        ],
+      }],
+    })
+    expect(issues).toEqual([
+      { trackId: 't', clipId: 'no-payload', message: 'Clip on a caption track requires a caption payload.' },
+      { trackId: 't', clipId: 'has-media', message: 'Media is not allowed on a caption track.' },
+    ])
+  })
+
+  it('flags caption payloads outside caption tracks', () => {
+    const issues = validateEditorTimeline({
+      version: 1,
+      tracks: [{
+        id: 't', kind: 'text',
+        clips: [{ id: 'c', timelineStart: 0, duration: 1, text: { content: 'x', fontSizePx: 48, color: '#fff', align: 'center', animationPreset: 'none' }, caption: { text: 'x', words: [], stylePreset: 'clean', animationPreset: 'none' } }],
+      }],
+    })
+    expect(issues).toEqual([{ trackId: 't', clipId: 'c', message: 'Caption payloads are only allowed on caption tracks.' }])
+  })
+})
+
+describe('phase 1c fields', () => {
+  it('sanitizes effects via the registry, keeps order, drops unknown kinds', () => {
+    const timeline = sanitizeEditorTimeline({
+      version: 1,
+      tracks: [{
+        id: 't1', kind: 'video',
+        clips: [{
+          id: 'c1', timelineStart: 0, duration: 4,
+          media: { type: 'upload', fileId: 'f1', url: 'https://x.test/a.mp4', mediaKind: 'video' },
+          effects: [
+            { kind: 'blur', params: { sigma: 4 } },
+            { kind: 'nonsense', params: {} },
+            { kind: 'chroma_key', params: { color: '#112233' } },
+          ],
+          blendMode: 'screen',
+          fadeInSeconds: 0.5,
+          fadeOutSeconds: 99,
+        }],
+      }],
+    })
+    const clip = timeline.tracks[0].clips[0]
+    expect(clip.effects?.map((e) => e.kind)).toEqual(['blur', 'chroma_key'])
+    expect(clip.effects?.[0].params).toEqual({ sigma: 4 })
+    expect(clip.blendMode).toBe('screen')
+    expect(clip.fadeInSeconds).toBe(0.5)
+    expect(clip.fadeOutSeconds).toBe(30) // clamped
+  })
+
+  it('rejects invalid blend modes and sanitizes track mixer fields', () => {
+    const timeline = sanitizeEditorTimeline({
+      version: 1,
+      tracks: [{
+        id: 't-a', kind: 'audio', gainDb: -100, pan: 7, solo: true, audioRole: 'music', duckUnderVoice: true,
+        clips: [{
+          id: 'c1', timelineStart: 0, duration: 4, blendMode: 'hologram',
+          media: { type: 'upload', fileId: 'f1', url: 'https://x.test/a.mp3', mediaKind: 'audio' },
+        }],
+      }],
+    })
+    const track = timeline.tracks[0]
+    expect(track.gainDb).toBe(-60)  // clamped to [-60, 12]
+    expect(track.pan).toBe(1)       // clamped to [-1, 1]
+    expect(track.solo).toBe(true)
+    expect(track.audioRole).toBe('music')
+    expect(track.duckUnderVoice).toBe(true)
+    expect(timeline.tracks[0].clips[0].blendMode).toBeUndefined()
   })
 })

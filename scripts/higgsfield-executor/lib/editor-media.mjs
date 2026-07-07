@@ -48,3 +48,25 @@ export function assertAllowedMediaUrl(url, options = {}) {
   if (DEFAULT_ALLOWED_MEDIA_HOST_SUFFIXES.some((suffix) => hostname.endsWith(suffix))) return parsed
   throw new Error(`media url host is not on the editor download allowlist: ${hostname}`)
 }
+
+export const MAX_WAVEFORM_PEAKS = 20000
+
+/**
+ * Max-abs peak per bucket from signed 16-bit little-endian mono PCM,
+ * normalized to 0..1 and rounded to 3 decimals.
+ */
+export function computePeaksFromPcm(buffer, samplesPerPeak) {
+  const totalSamples = Math.floor(buffer.length / 2)
+  const bucket = Math.max(1, Math.floor(samplesPerPeak))
+  const peaks = []
+  for (let start = 0; start < totalSamples && peaks.length < MAX_WAVEFORM_PEAKS; start += bucket) {
+    let max = 0
+    const end = Math.min(start + bucket, totalSamples)
+    for (let i = start; i < end; i += 1) {
+      const value = Math.abs(buffer.readInt16LE(i * 2))
+      if (value > max) max = value
+    }
+    peaks.push(Math.round((max / 32768) * 1000) / 1000)
+  }
+  return peaks
+}

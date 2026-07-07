@@ -8,6 +8,7 @@ import {
   resolveOrganizationModulePolicies,
 } from '@/lib/organizations/module-policies'
 import { isPortalModuleEnabled } from '@/lib/organizations/portal-modules'
+import { resolveBookStudioCapabilities } from '@/lib/book-studio/capabilities'
 
 export const dynamic = 'force-dynamic'
 
@@ -68,15 +69,6 @@ function safeGates(value: unknown) {
   })
 }
 
-function bookStudioCapabilities(settings: unknown, role: unknown) {
-  const policies = resolveOrganizationModulePolicies(settings)
-  return {
-    canViewApprovalGates: canRolePerformModuleAction(policies, 'bookStudio', 'approvalGates', role),
-    canViewPublishingPackets: canRolePerformModuleAction(policies, 'bookStudio', 'publishingPackets', role),
-    canViewEvidenceRights: canRolePerformModuleAction(policies, 'bookStudio', 'evidenceRights', role),
-  }
-}
-
 async function bookStudioModuleGuard(orgId: string, role: unknown) {
   const orgSnap = await adminDb.collection('organizations').doc(orgId).get()
   if (!orgSnap.exists) return apiError('Organisation not found', 404)
@@ -102,22 +94,24 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
   if (guard) return guard
 
   const orgSnap = await adminDb.collection('organizations').doc(orgId).get()
-  const capabilities = bookStudioCapabilities(orgSnap.data()?.settings, role)
+  const caps = resolveBookStudioCapabilities(orgSnap.data()?.settings, role, false)
   const snap = await adminDb.collection('book_studio_projects').where('orgId', '==', orgId).get()
-  const projects = snap.docs.map((doc: { id: string; data: () => Record<string, unknown> }) => {
-    const data = doc.data()
-    return {
-      id: doc.id,
-      title: safeString(data.title, 'Untitled book project'),
-      status: safeString(data.status, 'draft'),
-      stage: safeString(data.stage),
-      reviewStatus: safeString(data.reviewStatus),
-      nextAction: safeString(data.nextAction),
-      safeSummary: safeString(data.safeSummary),
-      reviewPackets: capabilities.canViewPublishingPackets ? safeReviewPackets(data.reviewPackets) : [],
-      gates: capabilities.canViewApprovalGates ? safeGates(data.gates) : [],
-    }
-  })
+  const projects = snap.docs
+    .map((doc: { id: string; data: () => Record<string, unknown> }) => ({ id: doc.id, data: doc.data() }))
+    .filter(({ data }) => data.deleted !== true && data.isFixture !== true)
+    .map(({ id, data }) => {
+      return {
+        id,
+        title: safeString(data.title, 'Untitled book project'),
+        status: safeString(data.status, 'draft'),
+        stage: safeString(data.stage),
+        reviewStatus: safeString(data.reviewStatus),
+        nextAction: safeString(data.nextAction),
+        safeSummary: safeString(data.safeSummary),
+        reviewPackets: caps.canPublishingPackets ? safeReviewPackets(data.reviewPackets) : [],
+        gates: caps.canApprovalGates ? safeGates(data.gates) : [],
+      }
+    })
 
-  return apiSuccess({ portalModule: 'bookStudio', projects, capabilities })
+  return apiSuccess({ portalModule: 'bookStudio', projects, capabilities: caps })
 })

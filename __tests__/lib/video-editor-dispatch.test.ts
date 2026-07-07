@@ -29,12 +29,17 @@ describe('videoEditorRuntimeConfigFromEnv', () => {
       NEXT_PUBLIC_APP_URL: 'https://partnersinbiz.online',
     } as NodeJS.ProcessEnv)).toEqual({
       submitUrl: 'https://vps.test/higgsfield-executor/video-editor/renders',
+      previewSubmitUrl: 'https://vps.test/higgsfield-executor/video-editor/media-previews',
+      beatSubmitUrl: 'https://vps.test/higgsfield-executor/video-editor/analyze-beats',
       apiKey: 'key-1',
       callbackBaseUrl: 'https://partnersinbiz.online',
     })
     expect(videoEditorRuntimeConfigFromEnv({
       VIDEO_EDITOR_RUNTIME_SUBMIT_URL: 'https://other.test/renders',
     } as NodeJS.ProcessEnv).submitUrl).toBe('https://other.test/renders')
+    expect(videoEditorRuntimeConfigFromEnv({
+      VIDEO_EDITOR_BEATS_SUBMIT_URL: 'https://other.test/beats',
+    } as NodeJS.ProcessEnv).beatSubmitUrl).toBe('https://other.test/beats')
     expect(videoEditorRuntimeConfigFromEnv({} as NodeJS.ProcessEnv).submitUrl).toBeUndefined()
   })
 })
@@ -56,6 +61,36 @@ describe('buildVideoEditorRenderManifest', () => {
     ])
     expect(manifest.report).toEqual({ method: 'PUT', path: '/api/v1/video-editor/render-jobs/job-1?orgId=org-1' })
     expect(manifest.upload).toEqual({ method: 'POST', path: '/api/v1/upload', folder: 'video-editor/org-1/proj-1', filename: 'job-1.mp4' })
+  })
+
+  it('collects lut urls keyed by clip and effect index', () => {
+    const manifest = buildVideoEditorRenderManifest({
+      jobId: 'job-1',
+      orgId: 'org-1',
+      projectId: 'proj-1',
+      settings: defaultVideoEditorSettings(),
+      timeline: {
+        version: 1,
+        tracks: [{
+          id: 't1',
+          kind: 'video',
+          clips: [{
+            id: 'c1',
+            timelineStart: 0,
+            duration: 4,
+            media: { type: 'upload', fileId: 'f1', url: 'https://x.test/a.mp4', mediaKind: 'video' },
+            effects: [
+              { kind: 'blur', params: { sigma: 3 } },
+              { kind: 'lut', params: { lutUrl: 'https://firebasestorage.googleapis.com/x.cube', intensity: 1 } },
+            ],
+          }],
+        }],
+      },
+    })
+
+    expect(manifest.effectAssets).toEqual([
+      { clipId: 'c1', effectIndex: 1, url: 'https://firebasestorage.googleapis.com/x.cube' },
+    ])
   })
 })
 
@@ -96,5 +131,18 @@ describe('dispatchVideoEditorRenderJob', () => {
     await expect(dispatchVideoEditorRenderJob(manifest, { submitUrl: 'https://vps.test/x' }))
       .rejects.toThrow('no providerJobId')
     await expect(dispatchVideoEditorRenderJob(manifest, {})).rejects.toThrow('not configured')
+  })
+})
+
+import { buildMediaPreviewManifest } from '@/lib/video-editor/dispatch'
+
+describe('buildMediaPreviewManifest', () => {
+  it('enables artifacts per media kind and carries the ledger endpoints', () => {
+    const video = buildMediaPreviewManifest({ previewId: 'pv1', orgId: 'org 1', mediaKey: 'upload:f1', url: 'https://x.test/a.mp4', mediaKind: 'video' })
+    expect(video.options).toEqual({ waveform: true, filmstrip: true, proxy: true })
+    expect(video.report.path).toBe('/api/v1/video-editor/media-previews/pv1?orgId=org%201')
+    expect(video.proxyLedger.deletePathTemplate).toBe('/api/v1/video-editor/proxy-ledger/{id}?orgId=org%201')
+    const audio = buildMediaPreviewManifest({ previewId: 'pv2', orgId: 'o', mediaKey: 'upload:f2', url: 'https://x.test/a.mp3', mediaKind: 'audio' })
+    expect(audio.options).toEqual({ waveform: true, filmstrip: false, proxy: false })
   })
 })

@@ -11,8 +11,11 @@ import {
   listBookStudioRecords,
   openBookStudioProjectInCanvas,
   patchBookStudioRecord,
+  requestBookStudioDraft,
+  type BookStudioSurface,
   type GeneratePuzzlesPayload,
 } from '@/lib/book-studio/client'
+import { resolveBookStudioCapabilities, type BookStudioCapabilities } from '@/lib/book-studio/capabilities'
 import { BookProjectHeader } from './project/BookProjectHeader'
 import { BookProjectMetadataPanel } from './project/BookProjectMetadataPanel'
 import { BookProjectPagesPanel } from './project/BookProjectPagesPanel'
@@ -23,11 +26,20 @@ import type { BookChapter, BookPage, BookPageKind, BookProject, BookProjectManif
 type BookProjectWorkspaceProps = {
   orgId: string
   projectId: string
+  surface?: BookStudioSurface
+  capabilities?: BookStudioCapabilities
 }
 
 type Tab = 'content' | 'metadata' | 'assembly'
 
-export function BookProjectWorkspace({ orgId, projectId }: BookProjectWorkspaceProps) {
+const DEFAULT_ADMIN_CAPABILITIES = resolveBookStudioCapabilities(undefined, 'owner', true)
+
+export function BookProjectWorkspace({
+  orgId,
+  projectId,
+  surface = 'admin',
+  capabilities = DEFAULT_ADMIN_CAPABILITIES,
+}: BookProjectWorkspaceProps) {
   const [project, setProject] = useState<BookProject | null>(null)
   const [chapters, setChapters] = useState<BookChapter[]>([])
   const [pages, setPages] = useState<BookPage[]>([])
@@ -45,6 +57,7 @@ export function BookProjectWorkspace({ orgId, projectId }: BookProjectWorkspaceP
   const [assembleError, setAssembleError] = useState('')
   const [missingOrders, setMissingOrders] = useState<number[] | undefined>(undefined)
   const [manifest, setManifest] = useState<BookProjectManifest | undefined>(undefined)
+  const [requestingDraft, setRequestingDraft] = useState(false)
 
   const loadRequestIdRef = useRef(0)
 
@@ -56,9 +69,9 @@ export function BookProjectWorkspace({ orgId, projectId }: BookProjectWorkspaceP
     setNotice('')
     try {
       const [projectsRes, chaptersRes, pagesRes] = await Promise.all([
-        listBookStudioRecords<BookProject>('projects', orgId),
-        listBookStudioRecords<BookChapter>('chapters', orgId),
-        listBookStudioRecords<BookPage>('pages', orgId),
+        listBookStudioRecords<BookProject>('projects', orgId, surface),
+        listBookStudioRecords<BookChapter>('chapters', orgId, surface),
+        listBookStudioRecords<BookPage>('pages', orgId, surface),
       ])
       if (!isCurrent()) return
 
@@ -85,7 +98,7 @@ export function BookProjectWorkspace({ orgId, projectId }: BookProjectWorkspaceP
     } finally {
       if (isCurrent()) setLoading(false)
     }
-  }, [orgId, projectId])
+  }, [orgId, projectId, surface])
 
   useEffect(() => {
     void load()
@@ -95,7 +108,7 @@ export function BookProjectWorkspace({ orgId, projectId }: BookProjectWorkspaceP
     setSavingMetadata(true)
     setNotice('')
     try {
-      const result = await patchBookStudioRecord('projects', projectId, orgId, { metadata })
+      const result = await patchBookStudioRecord('projects', projectId, orgId, { metadata }, surface)
       if (!result.ok) {
         setNotice(result.error)
         return
@@ -116,8 +129,8 @@ export function BookProjectWorkspace({ orgId, projectId }: BookProjectWorkspaceP
     const currentOrder = current.order ?? index
     const swapOrder = swap.order ?? swapIndex
     const [currentResult, swapResult] = await Promise.all([
-      patchBookStudioRecord('pages', current.id, orgId, { order: swapOrder }),
-      patchBookStudioRecord('pages', swap.id, orgId, { order: currentOrder }),
+      patchBookStudioRecord('pages', current.id, orgId, { order: swapOrder }, surface),
+      patchBookStudioRecord('pages', swap.id, orgId, { order: currentOrder }, surface),
     ])
     await load()
     if (!currentResult.ok || !swapResult.ok) {
@@ -126,7 +139,7 @@ export function BookProjectWorkspace({ orgId, projectId }: BookProjectWorkspaceP
   }
 
   async function editPage(pageId: string, patch: { title?: string; prompt?: string; caption?: string }) {
-    const result = await patchBookStudioRecord('pages', pageId, orgId, patch)
+    const result = await patchBookStudioRecord('pages', pageId, orgId, patch, surface)
     if (!result.ok) {
       setNotice(result.error)
       return
@@ -135,7 +148,7 @@ export function BookProjectWorkspace({ orgId, projectId }: BookProjectWorkspaceP
   }
 
   async function deletePage(pageId: string) {
-    const result = await deleteBookStudioRecord('pages', pageId, orgId)
+    const result = await deleteBookStudioRecord('pages', pageId, orgId, surface)
     if (!result.ok) {
       setNotice(result.error)
       return
@@ -154,7 +167,7 @@ export function BookProjectWorkspace({ orgId, projectId }: BookProjectWorkspaceP
         title: input.title,
         prompt: input.prompt,
         order: maxOrder + 1,
-      })
+      }, surface)
       if (!result.ok) {
         setNotice(result.error)
         return
@@ -190,7 +203,7 @@ export function BookProjectWorkspace({ orgId, projectId }: BookProjectWorkspaceP
         return
       }
 
-      const deleteResult = await deleteBookStudioRecord('pages', page.id, orgId)
+      const deleteResult = await deleteBookStudioRecord('pages', page.id, orgId, surface)
       await load()
       if (!deleteResult.ok) {
         setNotice(deleteResult.error)
@@ -220,8 +233,19 @@ export function BookProjectWorkspace({ orgId, projectId }: BookProjectWorkspaceP
     }
   }
 
-  async function editChapterBody(chapterId: string, body: string) {
-    const result = await patchBookStudioRecord('chapters', chapterId, orgId, { body })
+  async function editChapterBody(chapterId: string, body: string): Promise<boolean> {
+    // Server computes wordCount from body — never send it from the client.
+    const result = await patchBookStudioRecord('chapters', chapterId, orgId, { body }, surface)
+    if (!result.ok) {
+      setNotice(result.error)
+      return false
+    }
+    await load()
+    return true
+  }
+
+  async function editChapterStatus(chapterId: string, status: BookChapter['status']) {
+    const result = await patchBookStudioRecord('chapters', chapterId, orgId, { status }, surface)
     if (!result.ok) {
       setNotice(result.error)
       return
@@ -229,13 +253,41 @@ export function BookProjectWorkspace({ orgId, projectId }: BookProjectWorkspaceP
     await load()
   }
 
-  async function editChapterStatus(chapterId: string, status: BookChapter['status']) {
-    const result = await patchBookStudioRecord('chapters', chapterId, orgId, { status })
-    if (!result.ok) {
-      setNotice(result.error)
-      return
-    }
+  async function moveChapter(chapterId: string, direction: 'up' | 'down') {
+    const ordered = [...chapters].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    const index = ordered.findIndex((chapter) => chapter.id === chapterId)
+    const swapIndex = direction === 'up' ? index - 1 : index + 1
+    if (index < 0 || swapIndex < 0 || swapIndex >= ordered.length) return
+    const current = ordered[index]
+    const swap = ordered[swapIndex]
+    const currentOrder = current.order ?? index
+    const swapOrder = swap.order ?? swapIndex
+    const [currentResult, swapResult] = await Promise.all([
+      patchBookStudioRecord('chapters', current.id, orgId, { order: swapOrder }, surface),
+      patchBookStudioRecord('chapters', swap.id, orgId, { order: currentOrder }, surface),
+    ])
     await load()
+    if (!currentResult.ok || !swapResult.ok) {
+      setNotice(!currentResult.ok ? currentResult.error : (swapResult as { ok: false; error: string }).error)
+    }
+  }
+
+  async function requestChapterDraft(chapterId: string) {
+    setNotice('')
+    try {
+      const result = await requestBookStudioDraft<{ taskId: string }>(projectId, { unitType: 'chapter', unitId: chapterId })
+      if (!result.ok) {
+        setNotice(
+          result.status === 409
+            ? result.error
+            : result.error || 'Could not send the AI draft request.',
+        )
+        return
+      }
+      setNotice('AI draft request sent to your PiB team.')
+    } catch {
+      setNotice('Could not send the AI draft request.')
+    }
   }
 
   async function addChapter(title: string) {
@@ -243,7 +295,7 @@ export function BookProjectWorkspace({ orgId, projectId }: BookProjectWorkspaceP
     setNotice('')
     try {
       const maxOrder = chapters.reduce((max, chapter) => Math.max(max, chapter.order ?? -1), -1)
-      const result = await createBookStudioRecord('chapters', orgId, { projectId, title, order: maxOrder + 1 })
+      const result = await createBookStudioRecord('chapters', orgId, { projectId, title, order: maxOrder + 1 }, surface)
       if (!result.ok) {
         setNotice(result.error)
         return
@@ -316,16 +368,49 @@ export function BookProjectWorkspace({ orgId, projectId }: BookProjectWorkspaceP
 
   const format = project.format ? getBookFormat(project.format) : null
 
+  const allTabs: { label: string; value: Tab; icon: string }[] = [
+    { label: 'Content', value: 'content', icon: 'auto_stories' },
+    { label: 'Metadata', value: 'metadata', icon: 'edit_note' },
+    { label: 'Assembly', value: 'assembly', icon: 'inventory_2' },
+  ]
+  const visibleTabs = capabilities.canPublishingPackets ? allTabs : allTabs.filter((entry) => entry.value !== 'assembly')
+  const activeTab = visibleTabs.some((entry) => entry.value === tab) ? tab : visibleTabs[0]?.value ?? 'content'
+
+  async function requestDraft() {
+    setRequestingDraft(true)
+    setNotice('')
+    try {
+      const result = await requestBookStudioDraft<{ taskId: string }>(projectId, { unitType: 'cover' })
+      if (!result.ok) {
+        setNotice(
+          result.status === 409
+            ? result.error
+            : result.error || 'Could not send the AI draft request.',
+        )
+        return
+      }
+      setNotice('AI draft request sent to your PiB team.')
+    } finally {
+      setRequestingDraft(false)
+    }
+  }
+
   return (
     <AppShell
       contentClassName="bg-[var(--color-pib-bg)]"
       header={
         <BookProjectHeader
           project={project}
+          orgId={orgId}
+          surface={surface}
           onOpenInCanvas={openInCanvas}
           openingCanvas={openingCanvas}
           onAssemble={assemble}
           assembling={assembling}
+          showOperatorActions={capabilities.isOperator}
+          onRequestDraft={capabilities.canEdit ? requestDraft : undefined}
+          requestingDraft={requestingDraft}
+          onTransitioned={() => { void load() }}
         />
       }
     >
@@ -337,16 +422,12 @@ export function BookProjectWorkspace({ orgId, projectId }: BookProjectWorkspaceP
         ) : null}
 
         <PageTabs
-          value={tab}
+          value={activeTab}
           onValueChange={(value) => setTab(value as Tab)}
-          tabs={[
-            { label: 'Content', value: 'content', icon: 'auto_stories' },
-            { label: 'Metadata', value: 'metadata', icon: 'edit_note' },
-            { label: 'Assembly', value: 'assembly', icon: 'inventory_2' },
-          ]}
+          tabs={visibleTabs}
         />
 
-        {tab === 'content' ? (
+        {activeTab === 'content' ? (
           format?.contentUnits === 'chapters' ? (
             <BookProjectChaptersPanel
               chapters={chapters}
@@ -354,6 +435,11 @@ export function BookProjectWorkspace({ orgId, projectId }: BookProjectWorkspaceP
               onEditStatus={editChapterStatus}
               onAddChapter={addChapter}
               addingChapter={addingChapter}
+              readOnly={!capabilities.canEdit}
+              canApprove={capabilities.canApprovalGates}
+              canDelete={capabilities.canArchiveDelete}
+              onMoveChapter={moveChapter}
+              onRequestDraft={surface === 'portal' ? requestChapterDraft : undefined}
             />
           ) : (
             <BookProjectPagesPanel
@@ -368,15 +454,19 @@ export function BookProjectWorkspace({ orgId, projectId }: BookProjectWorkspaceP
               addingPage={addingPage}
               regeneratingPageId={regeneratingPageId}
               generatingPuzzles={generatingPuzzles}
+              readOnly={!capabilities.canEdit}
+              canApprove={capabilities.canApprovalGates}
+              canDelete={capabilities.canArchiveDelete}
+              showOperatorTools={capabilities.isOperator}
             />
           )
         ) : null}
 
-        {tab === 'metadata' ? (
+        {activeTab === 'metadata' ? (
           <BookProjectMetadataPanel metadata={project.metadata ?? {}} saving={savingMetadata} onSave={saveMetadata} />
         ) : null}
 
-        {tab === 'assembly' ? (
+        {activeTab === 'assembly' && capabilities.canPublishingPackets ? (
           <BookProjectAssemblyPanel
             manifest={manifest}
             assembling={assembling}

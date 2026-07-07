@@ -54,6 +54,15 @@ export interface AgentOutput {
   completedAt?: unknown
 }
 
+// Resource a task was created on behalf of (e.g. the portal Book Studio
+// request-draft route writes { type: 'book_studio_project', id, unitType, unitId }).
+export interface TaskLinkedResource {
+  type: string
+  id: string
+  unitType?: string | null
+  unitId?: string | null
+}
+
 export interface Task {
   id: string
   orgId: string
@@ -85,6 +94,13 @@ export interface Task {
   updatedAt: unknown
   completedAt: unknown | null
   deleted: boolean
+
+  // Dedupe key for request-style tasks (unique per open request; e.g.
+  // 'book-draft:<projectId>:<unitType>:<unitId>' from the portal Book Studio
+  // request-draft route)
+  requestKey?: string
+  // Resource this task was created on behalf of
+  linkedResource?: TaskLinkedResource | null
 
   // Agent dispatch fields (mirror project-nested tasks for the multi-agent orchestrator)
   assigneeAgentId?: AgentId | null

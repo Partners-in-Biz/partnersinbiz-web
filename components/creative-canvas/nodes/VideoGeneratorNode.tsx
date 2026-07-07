@@ -6,10 +6,11 @@ import { GeneratorNodeCard } from '@/components/creative-canvas/nodes/nodeFactor
 import type { CanvasNodeData } from '@/components/creative-canvas/nodes/nodeData'
 import { nodeActionsFor } from '@/components/creative-canvas/nodes/NodeActionBar'
 
-function VideoGeneratorNodeComponent({ data, selected }: NodeProps) {
+function VideoGeneratorNodeComponent({ id, data, selected }: NodeProps) {
   const d = data as CanvasNodeData
   return (
     <GeneratorNodeCard
+      nodeId={id}
       actions={nodeActionsFor(d)}
       type="video_generator"
       title={d.title}

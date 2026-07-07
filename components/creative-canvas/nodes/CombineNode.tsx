@@ -34,13 +34,15 @@ function CombineNodeComponent({ data, selected }: NodeProps) {
   return (
     <div
       style={{
+        position: 'relative',
+        boxSizing: 'border-box',
         width: 360,
         borderRadius: canvasTheme.radius,
         background: canvasTheme.surface,
         border: `1px solid ${selected ? canvasTheme.accent : canvasTheme.border}`,
         boxShadow: selected ? canvasTheme.accentGlow : canvasTheme.nodeShadow,
         color: canvasTheme.text,
-        overflow: 'hidden',
+        overflow: 'visible',
       }}
     >
       <NodeHandles type="combine" />
@@ -67,13 +69,12 @@ function CombineNodeComponent({ data, selected }: NodeProps) {
       </div>
 
       {d.assetUrl ? (
-        <div style={{ background: canvasTheme.bg }}>
+        <div style={{ background: canvasTheme.bg, height: 180, overflow: 'hidden' }}>
           {d.assetKind === 'video' ? (
-            // eslint-disable-next-line jsx-a11y/media-has-caption
-            <video src={d.assetUrl} style={{ display: 'block', width: '100%', maxHeight: 180, objectFit: 'cover' }} muted />
+            <video src={d.assetUrl} style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }} muted />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={d.assetUrl} alt={d.title} style={{ display: 'block', width: '100%', maxHeight: 180, objectFit: 'cover' }} />
+            <img src={d.assetUrl} alt={d.title} style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }} />
           )}
         </div>
       ) : null}

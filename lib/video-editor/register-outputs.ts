@@ -82,5 +82,16 @@ export async function registerVideoEditorRenderOutputs(
     registration.canvasUploadId = assetId
   }
 
+  // Kick off waveform/filmstrip/proxy generation for the fresh render so it is
+  // scrub-ready when re-imported into a timeline. Never blocks registration.
+  try {
+    const { ensureMediaPreviews } = await import('./media-previews-server')
+    await ensureMediaPreviews(project.orgId, [
+      { type: 'youtube_source_asset', sourceAssetId: `video-editor-${jobId}`, url: output.url, mediaKind: 'video' },
+    ], { uid: 'agent:pip', role: 'ai' })
+  } catch (error) {
+    console.error('[video-editor] media preview enqueue failed:', error)
+  }
+
   return registration
 }

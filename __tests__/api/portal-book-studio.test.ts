@@ -226,4 +226,52 @@ describe('GET /api/v1/portal/book-studio', () => {
       gates: [],
     })
   })
+
+  it('returns the full shared capability object under capabilities', async () => {
+    stageCollections({ portalModules: { bookStudio: true } })
+
+    const { GET } = await import('@/app/api/v1/portal/book-studio/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/portal/book-studio'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.capabilities).toMatchObject({
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canEvidenceRights: true,
+      canApprovalGates: true,
+      canPublishingPackets: true,
+      canArchiveDelete: true,
+      isOperator: false,
+    })
+  })
+
+  it('excludes soft-deleted and fixture project records from the portal summary', async () => {
+    stageCollections(
+      { portalModules: { bookStudio: true } },
+      [
+        {
+          id: 'book-live',
+          data: () => ({ title: 'Live project', status: 'draft' }),
+        },
+        {
+          id: 'book-deleted',
+          data: () => ({ title: 'Deleted project', status: 'draft', deleted: true }),
+        },
+        {
+          id: 'book-fixture',
+          data: () => ({ title: 'Fixture project', status: 'draft', isFixture: true }),
+        },
+      ],
+    )
+
+    const { GET } = await import('@/app/api/v1/portal/book-studio/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/portal/book-studio'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.projects).toHaveLength(1)
+    expect(body.data.projects[0].id).toBe('book-live')
+  })
 })

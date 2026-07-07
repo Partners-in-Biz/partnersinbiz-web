@@ -162,9 +162,86 @@ describe('portal workspace channel actions', () => {
 
   it('offers Reconnect only on channels that need reauth', async () => {
     render(<YouTubeStudioPortalWorkspace orgId="lumen-org" />)
+    const selector = await screen.findByLabelText('Channel')
+    fireEvent.change(selector, { target: { value: 'channel-2' } })
+    expect(screen.getByRole('link', { name: 'Reconnect' })).toBeInTheDocument()
+    fireEvent.change(selector, { target: { value: 'channel-1' } })
+    expect(screen.queryByRole('link', { name: 'Reconnect' })).not.toBeInTheDocument()
+  })
 
-    await screen.findByRole('heading', { name: 'Stale' })
-    expect(screen.getAllByRole('link', { name: 'Reconnect' })).toHaveLength(1)
+  it('puts the client cockpit actions at the top of the portal workspace', async () => {
+    render(<YouTubeStudioPortalWorkspace orgId="lumen-org" />)
+
+    expect((await screen.findAllByRole('heading', { name: 'Request a PiB video' })).length).toBeGreaterThan(0)
+    expect(screen.getByRole('heading', { name: 'Create video edit' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Review pending work' })).toBeInTheDocument()
+  })
+
+  it('requires channel, title, and objective before a PiB video request can be sent', async () => {
+    const fetchMock = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/api/v1/portal/youtube-studio') && init?.method === 'POST') {
+        return jsonResponse({ success: true, data: { id: 'video-request-1' } })
+      }
+      return jsonResponse({
+        success: true,
+        data: {
+          orgId: 'lumen-org',
+          channels: [connectedChannel],
+          series: [],
+          videos: [],
+          packets: [],
+          releasePlans: [],
+          sourceAssets: [],
+          clipCandidates: [],
+          productionDrafts: [],
+          renderJobs: [],
+          analytics: [],
+        },
+      })
+    })
+    global.fetch = fetchMock as jest.Mock
+
+    render(<YouTubeStudioPortalWorkspace orgId="lumen-org" />)
+
+    const sendButton = await screen.findByRole('button', { name: 'Send request' })
+    expect(sendButton).toBeDisabled()
+    expect(screen.getByText(/choose a channel, add a video title, and describe the objective/i)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByLabelText(/Acme Films/))
+    fireEvent.change(screen.getByLabelText('Video title'), { target: { value: 'Title only brief' } })
+    expect(sendButton).toBeDisabled()
+    expect(screen.getByText(/describe the objective/i)).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Objective'), { target: { value: 'Book qualified discovery calls' } })
+    expect(sendButton).not.toBeDisabled()
+    fireEvent.click(sendButton)
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/portal/youtube-studio'),
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
+    const requestCall = fetchMock.mock.calls.find(([url, init]) => String(url).includes('/api/v1/portal/youtube-studio') && init?.method === 'POST')
+    expect(JSON.parse(String(requestCall?.[1]?.body))).toMatchObject({
+      channelWorkspaceId: 'channel-1',
+      title: 'Title only brief',
+      objective: 'Book qualified discovery calls',
+    })
+    expect(await screen.findByText(/Next: PiB will shape the brief/i)).toBeInTheDocument()
+  })
+
+  it('does not render empty internal production buckets on the portal overview', async () => {
+    render(<YouTubeStudioPortalWorkspace orgId="lumen-org" />)
+
+    await screen.findByText(/No video work yet/)
+    expect(screen.queryByRole('heading', { name: 'Source assets' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Clip candidates' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Production drafts' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Render jobs' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/No source assets are visible yet/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument()
   })
 
   it('creates YouTube Studio editor projects against the selected channel', async () => {
@@ -304,7 +381,7 @@ describe('studio empty state and guide', () => {
 
     render(<YouTubeStudioPortalWorkspace orgId="lumen-org" />)
 
-    await screen.findByRole('heading', { name: 'Acme Films' })
+    await screen.findByLabelText('Channel')
     expect(screen.queryByText('How YouTube Studio works')).not.toBeInTheDocument()
   })
 })
@@ -321,11 +398,11 @@ describe('YouTubeStudioPipelineBoard', () => {
   it('groups videos into the five pipeline columns', () => {
     render(<YouTubeStudioPipelineBoard videos={boardVideos} onReview={jest.fn()} onRepurpose={jest.fn()} />)
 
-    expect(screen.getByText('Idea & scripting')).toBeInTheDocument()
-    expect(screen.getByText('Production')).toBeInTheDocument()
-    expect(screen.getByText('Client review')).toBeInTheDocument()
-    expect(screen.getByText('Publish ready')).toBeInTheDocument()
-    expect(screen.getByText('Live')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Requested/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /PiB producing/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Your review/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Ready to publish/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Live/ })).toBeInTheDocument()
     expect(screen.getByText('Idea video')).toBeInTheDocument()
     expect(screen.getByText('Already live')).toBeInTheDocument()
   })
@@ -342,9 +419,9 @@ describe('YouTubeStudioPipelineBoard', () => {
     expect(onRepurpose).toHaveBeenCalledWith('v5')
   })
 
-  it('renders an explanatory empty state per empty column', () => {
+  it('renders a single explanatory empty state when there is no active work', () => {
     render(<YouTubeStudioPipelineBoard videos={[]} onReview={jest.fn()} onRepurpose={jest.fn()} />)
-    expect(screen.getAllByText(/Nothing here yet/).length).toBe(5)
+    expect(screen.getByText(/No active video work yet/i)).toBeInTheDocument()
   })
 })
 

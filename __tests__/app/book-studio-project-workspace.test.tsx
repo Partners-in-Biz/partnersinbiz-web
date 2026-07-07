@@ -1,6 +1,24 @@
 import React from 'react'
 import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
+
+function headerRequestDraftButton(): HTMLElement {
+  const header = document.querySelector('[data-slot="app-shell-header"]') as HTMLElement
+  return within(header).getByRole('button', { name: /Request AI draft/i })
+}
 import { BookProjectWorkspace } from '@/components/book-studio/BookProjectWorkspace'
+import type { BookStudioCapabilities } from '@/lib/book-studio/capabilities'
+import * as bookStudioClient from '@/lib/book-studio/client'
+
+const portalCapabilities: BookStudioCapabilities = {
+  canView: true,
+  canCreate: true,
+  canEdit: true,
+  canEvidenceRights: true,
+  canApprovalGates: false,
+  canPublishingPackets: false,
+  canArchiveDelete: false,
+  isOperator: false,
+}
 
 function jsonResponse(body: unknown, ok = true, status = ok ? 200 : 500): Response {
   return {
@@ -114,19 +132,19 @@ function installFetch(overrides: FetchOverrides = {}) {
       }
       return jsonResponse(response.body, response.ok, response.status ?? (response.ok ? 200 : 422))
     }
-    if (url.includes('/api/v1/book-studio/projects') && method === 'GET') {
+    if (url.includes('/book-studio/projects') && method === 'GET') {
       return jsonResponse({ success: true, data: { resource: 'projects', records: projects } })
     }
-    if (url.includes('/api/v1/book-studio/chapters') && method === 'GET') {
+    if (url.includes('/book-studio/chapters') && method === 'GET') {
       return jsonResponse({ success: true, data: { resource: 'chapters', records: chapters } })
     }
-    if (url.includes('/api/v1/book-studio/pages') && method === 'GET') {
+    if (url.includes('/book-studio/pages') && method === 'GET') {
       return jsonResponse({ success: true, data: { resource: 'pages', records: pages } })
     }
-    if (url.includes('/api/v1/book-studio/pages') && method === 'POST') {
+    if (url.includes('/book-studio/pages') && method === 'POST') {
       return jsonResponse({ success: true, data: { id: 'page-new', resource: 'pages' } }, true, 201)
     }
-    if (url.includes('/api/v1/book-studio/chapters') && method === 'POST') {
+    if (url.includes('/book-studio/chapters') && method === 'POST') {
       return jsonResponse({ success: true, data: { id: 'chapter-new', resource: 'chapters' } }, true, 201)
     }
     if (method === 'PATCH') {
@@ -207,13 +225,13 @@ describe('BookProjectWorkspace', () => {
       if (url.includes('/pages/generate-puzzles')) {
         return jsonResponse({ success: false, error: 'count must be an integer between 1 and 100' }, false, 400)
       }
-      if (url.includes('/api/v1/book-studio/projects') && method === 'GET') {
+      if (url.includes('/book-studio/projects') && method === 'GET') {
         return jsonResponse({ success: true, data: { resource: 'projects', records: [puzzleProject] } })
       }
-      if (url.includes('/api/v1/book-studio/chapters') && method === 'GET') {
+      if (url.includes('/book-studio/chapters') && method === 'GET') {
         return jsonResponse({ success: true, data: { resource: 'chapters', records: [] } })
       }
-      if (url.includes('/api/v1/book-studio/pages') && method === 'GET') {
+      if (url.includes('/book-studio/pages') && method === 'GET') {
         return jsonResponse({ success: true, data: { resource: 'pages', records: [] } })
       }
       return jsonResponse({ success: true, data: {} })
@@ -350,18 +368,18 @@ describe('BookProjectWorkspace', () => {
         generatePayload = JSON.parse(String(init?.body ?? '{}'))
         return jsonResponse({ success: true, data: { pages: [{ id: 'page-crossword-2' }] } }, true, 201)
       }
-      if (url.includes('/api/v1/book-studio/pages/') && method === 'PATCH') {
+      if (url.includes('/book-studio/pages/') && method === 'PATCH') {
         callOrder.push('delete')
         deleteBody = JSON.parse(String(init?.body ?? '{}'))
         return jsonResponse({ success: true, data: { updated: true } })
       }
-      if (url.includes('/api/v1/book-studio/projects') && method === 'GET') {
+      if (url.includes('/book-studio/projects') && method === 'GET') {
         return jsonResponse({ success: true, data: { resource: 'projects', records: [crosswordProject] } })
       }
-      if (url.includes('/api/v1/book-studio/chapters') && method === 'GET') {
+      if (url.includes('/book-studio/chapters') && method === 'GET') {
         return jsonResponse({ success: true, data: { resource: 'chapters', records: [] } })
       }
-      if (url.includes('/api/v1/book-studio/pages') && method === 'GET') {
+      if (url.includes('/book-studio/pages') && method === 'GET') {
         return jsonResponse({ success: true, data: { resource: 'pages', records: [crosswordPuzzlePage] } })
       }
       return jsonResponse({ success: true, data: {} })
@@ -392,17 +410,17 @@ describe('BookProjectWorkspace', () => {
       if (url.includes('/pages/generate-puzzles') && method === 'POST') {
         return jsonResponse({ success: false, error: 'Crossword: no valid entries after sanitisation' }, false, 400)
       }
-      if (url.includes('/api/v1/book-studio/pages/') && method === 'PATCH') {
+      if (url.includes('/book-studio/pages/') && method === 'PATCH') {
         deleteCalled = true
         return jsonResponse({ success: true, data: { updated: true } })
       }
-      if (url.includes('/api/v1/book-studio/projects') && method === 'GET') {
+      if (url.includes('/book-studio/projects') && method === 'GET') {
         return jsonResponse({ success: true, data: { resource: 'projects', records: [crosswordProject] } })
       }
-      if (url.includes('/api/v1/book-studio/chapters') && method === 'GET') {
+      if (url.includes('/book-studio/chapters') && method === 'GET') {
         return jsonResponse({ success: true, data: { resource: 'chapters', records: [] } })
       }
-      if (url.includes('/api/v1/book-studio/pages') && method === 'GET') {
+      if (url.includes('/book-studio/pages') && method === 'GET') {
         return jsonResponse({ success: true, data: { resource: 'pages', records: [crosswordPuzzlePage] } })
       }
       return jsonResponse({ success: true, data: {} })
@@ -422,20 +440,20 @@ describe('BookProjectWorkspace', () => {
     global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       const method = init?.method ?? 'GET'
-      if (url.includes('/api/v1/book-studio/pages/') && method === 'PATCH') {
+      if (url.includes('/book-studio/pages/') && method === 'PATCH') {
         patchCount += 1
         if (patchCount === 2) {
           return jsonResponse({ success: false, error: 'order update rejected' }, false, 500)
         }
         return jsonResponse({ success: true, data: { updated: true } })
       }
-      if (url.includes('/api/v1/book-studio/projects') && method === 'GET') {
+      if (url.includes('/book-studio/projects') && method === 'GET') {
         return jsonResponse({ success: true, data: { resource: 'projects', records: [colouringProject] } })
       }
-      if (url.includes('/api/v1/book-studio/chapters') && method === 'GET') {
+      if (url.includes('/book-studio/chapters') && method === 'GET') {
         return jsonResponse({ success: true, data: { resource: 'chapters', records: [] } })
       }
-      if (url.includes('/api/v1/book-studio/pages') && method === 'GET') {
+      if (url.includes('/book-studio/pages') && method === 'GET') {
         return jsonResponse({ success: true, data: { resource: 'pages', records: pagesForColouring } })
       }
       return jsonResponse({ success: true, data: {} })
@@ -448,5 +466,159 @@ describe('BookProjectWorkspace', () => {
 
     await screen.findByText('order update rejected')
     expect(patchCount).toBe(2)
+  })
+
+  it('portal surface hides operator canvas/assemble actions and shows a request-draft button', async () => {
+    installFetch({ projects: [storyProject], chapters: chaptersForStory, pages: [] })
+    render(
+      <BookProjectWorkspace
+        orgId="org-1"
+        projectId="project-story"
+        surface="portal"
+        capabilities={portalCapabilities}
+      />,
+    )
+
+    await screen.findByText('The Proof Chronicles')
+    expect(screen.queryByRole('button', { name: /Open in canvas/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Assemble/i })).not.toBeInTheDocument()
+    expect(headerRequestDraftButton()).toBeInTheDocument()
+  })
+
+  it('clicking "Request AI draft" calls requestBookStudioDraft and shows a success notice', async () => {
+    installFetch({ projects: [storyProject], chapters: chaptersForStory, pages: [] })
+    const requestSpy = jest
+      .spyOn(bookStudioClient, 'requestBookStudioDraft')
+      .mockResolvedValue({ ok: true, data: { taskId: 'task-1' } })
+
+    render(
+      <BookProjectWorkspace
+        orgId="org-1"
+        projectId="project-story"
+        surface="portal"
+        capabilities={portalCapabilities}
+      />,
+    )
+
+    await screen.findByText('The Proof Chronicles')
+    fireEvent.click(headerRequestDraftButton())
+
+    await screen.findByText('AI draft request sent to your PiB team.')
+    expect(requestSpy).toHaveBeenCalledWith('project-story', { unitType: 'cover' })
+    requestSpy.mockRestore()
+  })
+
+  it('shows the returned error notice when requestBookStudioDraft 409s', async () => {
+    installFetch({ projects: [storyProject], chapters: chaptersForStory, pages: [] })
+    const requestSpy = jest.spyOn(bookStudioClient, 'requestBookStudioDraft').mockResolvedValue({
+      ok: false,
+      error: 'An AI draft request for this item is already open',
+      status: 409,
+    })
+
+    render(
+      <BookProjectWorkspace
+        orgId="org-1"
+        projectId="project-story"
+        surface="portal"
+        capabilities={portalCapabilities}
+      />,
+    )
+
+    await screen.findByText('The Proof Chronicles')
+    fireEvent.click(headerRequestDraftButton())
+
+    await screen.findByText('An AI draft request for this item is already open')
+    requestSpy.mockRestore()
+  })
+
+  it('admin-surface render fetches the full admin projects prefix, pinning URL-per-surface routing', async () => {
+    const fetchMock = installFetch({ projects: [storyProject], chapters: chaptersForStory, pages: [] })
+    render(<BookProjectWorkspace orgId="org-1" projectId="project-story" />)
+
+    await screen.findByText('The Proof Chronicles')
+    const calledUrls = fetchMock.mock.calls.map((call) => String(call[0]))
+    expect(calledUrls.some((url) => url.includes('/api/v1/book-studio/projects?'))).toBe(true)
+    expect(calledUrls.some((url) => url.includes('/api/v1/portal/book-studio/projects'))).toBe(false)
+  })
+
+  it('portal caps with canPublishingPackets:false hide the Assembly tab', async () => {
+    installFetch({ projects: [storyProject], chapters: chaptersForStory, pages: [] })
+    render(
+      <BookProjectWorkspace
+        orgId="org-1"
+        projectId="project-story"
+        surface="portal"
+        capabilities={{ ...portalCapabilities, canPublishingPackets: false }}
+      />,
+    )
+
+    await screen.findByText('The Proof Chronicles')
+    expect(screen.queryByRole('tab', { name: 'Assembly' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Assembly')).not.toBeInTheDocument()
+  })
+
+  it('portal caps hide pages-panel operator tools (generate/regenerate puzzles) for the crossword puzzle format', async () => {
+    installFetch({ projects: [crosswordProject], pages: [crosswordPuzzlePage] })
+    render(
+      <BookProjectWorkspace
+        orgId="org-1"
+        projectId="project-crossword"
+        surface="portal"
+        capabilities={{ ...portalCapabilities, isOperator: false }}
+      />,
+    )
+
+    await screen.findByText('Crossword Capers')
+    expect(screen.queryByRole('button', { name: 'Generate puzzles' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Regenerate' })).not.toBeInTheDocument()
+  })
+
+  it('portal surface with canEdit:false hides the add-chapter affordance', async () => {
+    installFetch({ projects: [storyProject], chapters: chaptersForStory, pages: [] })
+    render(
+      <BookProjectWorkspace
+        orgId="org-1"
+        projectId="project-story"
+        surface="portal"
+        capabilities={{ ...portalCapabilities, canEdit: false }}
+      />,
+    )
+
+    await screen.findByText('The Proof Chronicles')
+    expect(screen.queryByRole('button', { name: /Add chapter/i })).not.toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('New chapter title')).not.toBeInTheDocument()
+  })
+
+  it('portal caps with canEdit:false hide the "Request AI draft" button', async () => {
+    installFetch({ projects: [storyProject], chapters: chaptersForStory, pages: [] })
+    render(
+      <BookProjectWorkspace
+        orgId="org-1"
+        projectId="project-story"
+        surface="portal"
+        capabilities={{ ...portalCapabilities, canEdit: false }}
+      />,
+    )
+
+    await screen.findByText('The Proof Chronicles')
+    expect(screen.queryByRole('button', { name: /Request AI draft/i })).not.toBeInTheDocument()
+  })
+
+  it('portal surface with canApprovalGates:false excludes "approved" from status options', async () => {
+    installFetch({ projects: [storyProject], chapters: chaptersForStory, pages: [] })
+    render(
+      <BookProjectWorkspace
+        orgId="org-1"
+        projectId="project-story"
+        surface="portal"
+        capabilities={portalCapabilities}
+      />,
+    )
+
+    await screen.findByText('The Proof Chronicles')
+    const statusSelect = (await screen.findByLabelText('Status')) as HTMLSelectElement
+    const optionValues = Array.from(statusSelect.options).map((option) => option.value)
+    expect(optionValues).not.toContain('approved')
   })
 })

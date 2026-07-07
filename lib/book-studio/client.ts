@@ -1,6 +1,6 @@
 'use client'
 
-// Thin typed fetch helpers for the Book Studio admin project workspace.
+// Thin typed fetch helpers for the Book Studio admin and portal workspaces.
 // Every endpoint responds with the platform envelope { success, data } (or
 // { success: false, error, ...extra } on failure) — these helpers unwrap
 // `body.data ?? body` and surface a consistent { ok, data, error, extra } shape
@@ -122,5 +122,45 @@ export function assembleBookStudioProject<T>(projectId: string, orgId: string) {
   return request<T>(withOrg(`/api/v1/book-studio/projects/${encodeURIComponent(projectId)}/assemble`, orgId), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+export type TransitionBookStudioProjectResult = { from: string; to: string }
+
+// Calls the admin or portal lifecycle transition endpoint. Guard-check
+// failures come back as a 422 with `{ error, blockers: string[] }` — callers
+// should surface both `error` and `extra.blockers` verbatim, not reword them.
+export function transitionBookStudioProject<T = TransitionBookStudioProjectResult>(
+  projectId: string,
+  orgId: string,
+  toState: string,
+  reason?: string,
+  surface: BookStudioSurface = 'admin',
+) {
+  const path =
+    surface === 'portal'
+      ? `/api/v1/portal/book-studio/projects/${encodeURIComponent(projectId)}/transition`
+      : withOrg(`/api/v1/book-studio/projects/${encodeURIComponent(projectId)}/transition`, orgId)
+  return request<T>(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(reason ? { toState, reason } : { toState }),
+  })
+}
+
+export type RequestBookStudioDraftPayload = {
+  unitType: 'chapter' | 'page' | 'cover' | 'research'
+  unitId?: string
+  note?: string
+}
+
+// Portal-only: creates a governed platform task for the PiB team to produce
+// an AI draft. Never dispatches generation directly (Hermes runtime dispatch
+// is a locked-off V1 constraint).
+export function requestBookStudioDraft<T>(projectId: string, payload: RequestBookStudioDraftPayload) {
+  return request<T>(`/api/v1/portal/book-studio/projects/${encodeURIComponent(projectId)}/request-draft`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
   })
 }

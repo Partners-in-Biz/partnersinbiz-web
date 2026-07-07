@@ -52,6 +52,17 @@ export type BookStudioStatus =
   | 'approved_for_manual_next_step'
   | 'archived'
 
+export type BookLifecycleState =
+  | 'draft'
+  | 'content_complete'
+  | 'rights_cleared'
+  | 'assembled'
+  | 'qa_approved'
+  | 'submission_ready'
+  | 'submitted'
+  | 'live'
+  | 'archived'
+
 export type BookStudioGateStatus = 'pass' | 'warning' | 'block' | 'not_applicable' | 'missing_evidence'
 export type BookStudioChannel = 'kdp' | 'google_play_books' | 'apple_books' | 'kobo' | 'draft2digital' | 'ingram' | 'acx' | 'manual_handoff' | 'local_publisher'
 export type BookStudioBridgeLinkType = 'research' | 'client_document' | 'project_task' | 'artifact' | 'evidence' | 'approval'
@@ -82,6 +93,7 @@ export type BookStudioRecord = {
   nextAction?: string
   deleted?: boolean
   bridgeLinks?: BookStudioBridgeLink[]
+  lifecycleState?: BookLifecycleState
   [key: string]: unknown
 }
 

@@ -1244,8 +1244,9 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
       }
     }
     return {
-      // Keep the live React Flow node (measured size, selection, drag state) —
-      // rebuilding from scratch resets measurement and edges never render.
+      // Keep the live React Flow node (measured size, selection, drag state).
+      // Card media dimensions are deterministic now, and media load triggers
+      // node-internal refreshes, so preserved bounds stay renderable.
       ...node,
       type: flowNode.type,
       data: {
@@ -1476,10 +1477,8 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     })
     setActiveCanvasId(canvas.id ?? '')
     setSelectedFlowNodeId(canvas.nodes?.[0]?.id ?? '')
-    // Preserve React Flow runtime state (measured size, selection) for nodes
-    // that survive the snapshot — replacing a node object wipes its measured
-    // dimensions and React Flow will not re-measure without a DOM resize,
-    // which leaves every edge invisible.
+    // Preserve React Flow runtime geometry/selection for nodes that survive
+    // the snapshot so edges and cards remain renderable across refreshes.
     setNodes((currentNodes) => {
       const previousById = new Map(currentNodes.map((node) => [node.id, node]))
       return (canvas.nodes ?? []).map((node) => {
@@ -4732,8 +4731,21 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         <CanvasLanding
           orgId={resolvedOrgId || activeCanvas?.orgId || undefined}
           initialTab={landingInitialTab}
-          boards={canvases.map((canvas) => ({ id: canvas.id ?? '', title: canvas.title }))}
-          templates={templates.map((template) => ({ id: template.id, title: template.title, description: template.description, thumbnailUrl: template.thumbnailUrl }))}
+          boards={canvases.map((canvas) => ({
+            id: canvas.id ?? '',
+            title: canvas.title,
+            purpose: canvas.purpose,
+            nodes: canvas.nodes,
+            edges: canvas.edges,
+          }))}
+          templates={templates.map((template) => ({
+            id: template.id,
+            title: template.title,
+            description: template.description,
+            thumbnailUrl: template.thumbnailUrl,
+            nodes: template.nodes,
+            edges: template.edges,
+          }))}
           onCreate={() => { void createBlankCanvas() }}
           onRenameBoard={(id, nextTitle) => { void renameCanvasById(id, nextTitle) }}
           onDeleteBoard={(id) => { void deleteCanvasById(id) }}

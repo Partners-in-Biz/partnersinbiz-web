@@ -10,6 +10,7 @@ import {
 import { collectionFor, validateBookStudioReferences } from '@/lib/book-studio/api'
 import { isBookStudioResourceKey } from '@/lib/book-studio/routes'
 import { findBookStudioRuntimeDispatchFields } from '@/lib/book-studio/hermes'
+import { findLifecycleStateWriteAttempt } from '@/lib/book-studio/lifecycle'
 import {
   BOOK_STUDIO_RESOURCES,
   BookStudioValidationError,
@@ -43,6 +44,10 @@ export const PATCH = withPortalAuthAndRole('viewer', async (req: NextRequest, ui
 
   const dispatchFields = findBookStudioRuntimeDispatchFields(body)
   if (dispatchFields.length) return apiError('Book Studio Hermes runtime dispatch is not enabled in V1', 403)
+
+  if (findLifecycleStateWriteAttempt(body)) {
+    return apiError('lifecycleState can only be changed via the /transition endpoint', 403)
+  }
 
   const docRef = adminDb.collection(collectionFor(resource)).doc(id)
   const snap = await docRef.get()

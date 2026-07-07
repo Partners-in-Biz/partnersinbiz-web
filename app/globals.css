@@ -188,6 +188,25 @@
   }
 }
 
+@layer components {
+  .creative-canvas-flow .react-flow__node {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    outline: none !important;
+  }
+
+  .creative-canvas-flow .react-flow__node.selected,
+  .creative-canvas-flow .react-flow__node:focus,
+  .creative-canvas-flow .react-flow__node:focus-visible {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    outline: none !important;
+  }
+}
+
 @layer utilities {
   /* Tailwind v4 dropped the default pointer cursor on interactive elements — restore it
      in the utilities layer so it wins over component classes like .btn-pib-accent. */

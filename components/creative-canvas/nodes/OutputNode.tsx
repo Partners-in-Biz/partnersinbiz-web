@@ -43,10 +43,10 @@ function OutputNodeComponent({ data, selected }: NodeProps) {
     >
       {d.assetUrl ? (
         d.assetKind === 'video' ? (
-          <video src={d.assetUrl} style={{ display: 'block', width: '100%', maxHeight: 200, objectFit: 'cover' }} controls />
+          <video src={d.assetUrl} style={{ display: 'block', width: '100%', height: 200, objectFit: 'cover' }} controls />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={d.assetUrl} alt={d.title} style={{ display: 'block', width: '100%', maxHeight: 200, objectFit: 'cover' }} />
+          <img src={d.assetUrl} alt={d.title} style={{ display: 'block', width: '100%', height: 200, objectFit: 'cover' }} />
         )
       ) : d.textPreview || d.text ? (
         // Text results (copy edits, agent-llm generations) have no asset URL —

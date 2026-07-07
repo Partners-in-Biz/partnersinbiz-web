@@ -44,7 +44,7 @@ function CharacterNodeComponent({ data, selected }: NodeProps) {
       {d.assetUrl ? (
         <div style={{ background: canvasTheme.bg }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={d.assetUrl} alt={d.title} style={{ display: 'block', width: '100%', maxHeight: 160, objectFit: 'cover' }} />
+          <img src={d.assetUrl} alt={d.title} style={{ display: 'block', width: '100%', height: 160, objectFit: 'cover' }} />
         </div>
       ) : (
         <div style={{ padding: '10px 10px 0' }}>

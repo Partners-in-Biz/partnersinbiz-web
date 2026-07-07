@@ -61,3 +61,22 @@ describe('assertAllowedMediaUrl', () => {
     }
   })
 })
+
+describe('computePeaksFromPcm', () => {
+  it('computes normalized max-abs peaks per bucket from s16le PCM', () => {
+    // 8 samples, 4 per bucket: [0, 16384, -32768, 8192] → 1.0 ; [0, 0, 3277, -6554] → 0.2
+    const samples = [0, 16384, -32768, 8192, 0, 0, 3277, -6554]
+    const buffer = Buffer.alloc(samples.length * 2)
+    samples.forEach((sample, index) => buffer.writeInt16LE(sample, index * 2))
+    const peaks = runModule<number[]>(`return m.computePeaksFromPcm(Buffer.from(${JSON.stringify([...buffer])}), 4)`)
+    expect(peaks).toEqual([1, 0.2])
+  })
+
+  it('caps the number of peaks at 20000', () => {
+    const peaks = runModule<number>(`
+      const buffer = Buffer.alloc(2 * 50000);
+      return m.computePeaksFromPcm(buffer, 1).length;
+    `)
+    expect(peaks).toBe(20000)
+  })
+})

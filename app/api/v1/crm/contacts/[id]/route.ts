@@ -30,6 +30,7 @@ import {
   normalizeAllowedUserPatch,
 } from '@/lib/crm/assignment-access'
 import { safeTouchCrmLiveUpdate } from '@/lib/crm/live-updates'
+import { touchPortalDashboardSummary } from '@/lib/portal/dashboard-summary'
 
 type RouteCtx = { params: Promise<{ id: string }> }
 
@@ -205,6 +206,10 @@ async function handleUpdate(
 
   await docRef.update(sanitized)
   await safeTouchCrmLiveUpdate(ctx.orgId, 'contacts', 'contact.updated')
+  await touchPortalDashboardSummary({
+    orgId: ctx.orgId,
+    staleReason: 'contact.updated',
+  })
 
   try {
     await dispatchWebhook(ctx.orgId, 'contact.updated', { id, ...body, updatedByRef: actorRef })
@@ -293,6 +298,14 @@ export const DELETE = withCrmAuth<RouteCtx>(
     )
     await docRef.update(sanitized)
     await safeTouchCrmLiveUpdate(ctx.orgId, 'contacts', 'contact.deleted')
+    await touchPortalDashboardSummary({
+      orgId: ctx.orgId,
+      increments: {
+        'counts.contacts': -1,
+        'crm.contacts': -1,
+      },
+      staleReason: 'contact.deleted',
+    })
 
     logActivity({
       orgId: ctx.orgId,

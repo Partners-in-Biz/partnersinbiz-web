@@ -4,6 +4,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { FieldValue } from 'firebase-admin/firestore'
 import { actorFields, collectionFor, ensureBookStudioAccess, updateActorFields, validateBookStudioReferences } from './api'
 import { findBookStudioRuntimeDispatchFields } from './hermes'
+import { findLifecycleStateWriteAttempt } from './lifecycle'
 import { BOOK_STUDIO_RESOURCES, BookStudioValidationError, bookStudioPatchDeletes, sanitizeBookStudioRecordInput, sanitizeBookStudioRecordPatch, serializeBookStudioRecord } from './sanitize'
 import type { BookStudioResourceKey } from './types'
 
@@ -20,6 +21,14 @@ function runtimeDispatchBlocked(body: Record<string, unknown>) {
     module: 'bookStudio',
     runtimeDispatchAllowed: false,
     blockedFields: runtimeDispatchFields,
+  }, { status: 403 })
+}
+
+function lifecycleStateWriteBlocked(body: Record<string, unknown>) {
+  if (!findLifecycleStateWriteAttempt(body)) return null
+  return Response.json({
+    success: false,
+    error: 'lifecycleState can only be changed via the /transition endpoint',
   }, { status: 403 })
 }
 
@@ -95,6 +104,9 @@ export function createBookStudioRecordHandlers() {
 
     const dispatchBlocked = runtimeDispatchBlocked(body)
     if (dispatchBlocked) return dispatchBlocked
+
+    const lifecycleBlocked = lifecycleStateWriteBlocked(body)
+    if (lifecycleBlocked) return lifecycleBlocked
 
     const docRef = adminDb.collection(collectionFor(resource)).doc(id)
     const snap = await docRef.get()

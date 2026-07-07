@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 
 type StepKey = 'social' | 'domain' | 'contact' | 'analytics' | 'post'
+type ChecklistDone = Record<StepKey, boolean>
 
 interface ChecklistStep {
   key: StepKey
@@ -17,6 +18,8 @@ interface OnboardingChecklistProps {
   scopedHref: (path: string) => string
   /** Build an API path scoped to the active org. */
   scopedApi: (path: string) => string
+  /** Precomputed flags from /api/v1/portal/dashboard, used to avoid duplicate onboarding probes. */
+  initialDone?: ChecklistDone
 }
 
 const STORAGE_KEY = 'pib-onboarding-checklist-collapsed'
@@ -48,15 +51,15 @@ async function fetchJson(path: string): Promise<unknown | null> {
   }
 }
 
-export function OnboardingChecklist({ scopedHref, scopedApi }: OnboardingChecklistProps) {
-  const [done, setDone] = useState<Record<StepKey, boolean>>({
+export function OnboardingChecklist({ scopedHref, scopedApi, initialDone }: OnboardingChecklistProps) {
+  const [done, setDone] = useState<ChecklistDone>({
     social: false,
     domain: false,
     contact: false,
     analytics: false,
     post: false,
   })
-  const [loaded, setLoaded] = useState(false)
+  const [loaded, setLoaded] = useState(Boolean(initialDone))
   const [collapsed, setCollapsed] = useState(false)
 
   const steps = useMemo<ChecklistStep[]>(
@@ -104,6 +107,13 @@ export function OnboardingChecklist({ scopedHref, scopedApi }: OnboardingCheckli
   }, [])
 
   useEffect(() => {
+    if (!initialDone) return
+    setDone(initialDone)
+    setLoaded(true)
+  }, [initialDone])
+
+  useEffect(() => {
+    if (initialDone) return
     let cancelled = false
 
     async function run() {
@@ -151,7 +161,7 @@ export function OnboardingChecklist({ scopedHref, scopedApi }: OnboardingCheckli
     return () => {
       cancelled = true
     }
-  }, [scopedApi])
+  }, [scopedApi, initialDone])
 
   const completedCount = steps.filter((s) => done[s.key]).length
   const allDone = loaded && completedCount === steps.length

@@ -117,6 +117,45 @@ const PROVIDERS: CreativeCanvasProvider[] = [
     requiresApprovalBeforeClientVisibility: true,
     ownerAgentId: 'pip',
   },
+  {
+    key: 'openai_audio',
+    label: 'OpenAI-compatible audio (Whisper + TTS)',
+    capabilities: ['analyze_media'],
+    supportedInputKinds: ['upload', 'url'],
+    supportedOutputKinds: ['audio', 'caption'],
+    isAsync: true,
+    usesExternalCredits: true,
+    riskLevel: 'low',
+    requiresApprovalBeforeClientVisibility: false,
+    ownerAgentId: 'maya',
+    connection: {
+      authKind: 'api_key',
+      credentialFields: [
+        { key: 'apiKey', label: 'API key', secret: true, placeholder: 'sk-…' },
+        { key: 'baseUrl', label: 'Base URL (optional, OpenAI-compatible)', secret: false, placeholder: 'https://api.openai.com/v1' },
+      ],
+      consoleUrl: 'https://platform.openai.com/api-keys',
+      docsUrl: 'https://platform.openai.com/docs/guides/speech-to-text',
+    },
+  },
+  {
+    key: 'elevenlabs',
+    label: 'ElevenLabs (TTS)',
+    capabilities: ['analyze_media'],
+    supportedInputKinds: ['upload', 'url'],
+    supportedOutputKinds: ['audio', 'caption'],
+    isAsync: false,
+    usesExternalCredits: true,
+    riskLevel: 'low',
+    requiresApprovalBeforeClientVisibility: false,
+    ownerAgentId: 'maya',
+    connection: {
+      authKind: 'api_key',
+      credentialFields: [{ key: 'apiKey', label: 'API key', secret: true, placeholder: 'sk_…' }],
+      consoleUrl: 'https://elevenlabs.io/app/settings/api-keys',
+      docsUrl: 'https://elevenlabs.io/docs/api-reference/text-to-speech',
+    },
+  },
 ]
 
 export function listCreativeCanvasProviders(): CreativeCanvasProvider[] {

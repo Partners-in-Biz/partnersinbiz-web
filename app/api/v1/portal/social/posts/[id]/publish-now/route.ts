@@ -18,6 +18,7 @@ import { hasFinalApproval } from '@/lib/social/scheduling'
 import { buildProviderPublishOptions } from '@/lib/social/publish-options'
 import { validatePublishReadyText } from '@/lib/social/publish-text'
 import { validateOutboundLinks } from '@/lib/social/outbound-link-validation'
+import { touchPortalDashboardSummary } from '@/lib/portal/dashboard-summary'
 
 export const dynamic = 'force-dynamic'
 
@@ -105,6 +106,10 @@ export const POST = withAuth('client', withTenant(async (_req: NextRequest, user
       error: message,
       updatedAt: FieldValue.serverTimestamp(),
     })
+    await touchPortalDashboardSummary({
+      orgId,
+      staleReason: 'social_post.failed',
+    })
     await adminDb.collection('social_queue').doc(id).set({
       status: 'failed',
       error: message,
@@ -130,6 +135,10 @@ export const POST = withAuth('client', withTenant(async (_req: NextRequest, user
     externalId,
     error: null,
     updatedAt: FieldValue.serverTimestamp(),
+  })
+  await touchPortalDashboardSummary({
+    orgId,
+    staleReason: 'social_post.published',
   })
   await adminDb.collection('social_queue').doc(id).set({
     status: 'completed',

@@ -19,6 +19,12 @@ export function ExportDialog({
   onRender: () => void
 }) {
   const estimate = estimateEditorRenderCredits(timeline, settings)
+  const canRender = Boolean(projectId) && estimate.outputSeconds > 0
+  const renderBlocker = !projectId
+    ? 'Open a saved editor project before rendering.'
+    : estimate.outputSeconds <= 0
+      ? 'Add at least one media clip or text title clip before rendering.'
+      : ''
   return (
     <section className="pib-card-section space-y-3 p-4">
       <h2 className="font-headline text-lg font-semibold text-on-surface">Export</h2>
@@ -27,7 +33,8 @@ export function ExportDialog({
         <span className="rounded-lg bg-white/[0.04] p-2">{estimate.billedMinutes} min</span>
         <span className="rounded-lg bg-white/[0.04] p-2">{estimate.credits} credits</span>
       </div>
-      <button type="button" className="pib-btn-primary w-full justify-center" disabled={busy || !projectId || estimate.credits <= 0} onClick={onRender}>
+      {renderBlocker ? <p className="text-sm text-on-surface-variant">{renderBlocker}</p> : null}
+      <button type="button" className="pib-btn-primary w-full justify-center" disabled={busy || !canRender} onClick={onRender}>
         {busy ? 'Rendering...' : 'Render MP4'}
       </button>
       {latestJob ? (

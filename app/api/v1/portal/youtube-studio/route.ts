@@ -449,8 +449,10 @@ async function handlePortalYouTubeStudioPost(req: NextRequest, uid: string, orgI
   const body = cleanBody(await req.json().catch(() => ({})))
   const channelWorkspaceId = cleanString(body.channelWorkspaceId) ?? ''
   const title = cleanString(body.title)
+  const objective = cleanString(body.objective)
   if (!channelWorkspaceId) return apiError('channelWorkspaceId is required', 400)
   if (!title) return apiError('title is required', 400)
+  if (!objective) return apiError('objective is required', 400)
 
   const channelResult = await loadPortalVisibleChannel(channelWorkspaceId, orgId)
   if ('error' in channelResult) return channelResult.error
@@ -459,7 +461,7 @@ async function handlePortalYouTubeStudioPost(req: NextRequest, uid: string, orgI
     orgId,
     channelWorkspaceId,
     title,
-    objective: cleanString(body.objective) ?? '',
+    objective,
     videoType: body.videoType,
     targetAudience: body.targetAudience,
     source: {
