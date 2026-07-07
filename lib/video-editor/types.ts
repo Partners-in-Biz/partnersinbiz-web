@@ -32,6 +32,12 @@ export const EDITOR_MEDIA_KINDS: EditorMediaKind[] = ['video', 'audio', 'image']
 export const EDITOR_TEXT_ALIGNS: EditorTextAlign[] = ['left', 'center', 'right']
 export const EDITOR_TEXT_ANIMATION_PRESETS: EditorTextAnimationPreset[] = ['none', 'fade_in', 'slide_up']
 
+export type EditorBlendMode = 'normal' | 'multiply' | 'screen' | 'overlay' | 'lighten' | 'darken' | 'addition' | 'difference'
+export const EDITOR_BLEND_MODES: EditorBlendMode[] = ['normal', 'multiply', 'screen', 'overlay', 'lighten', 'darken', 'addition', 'difference']
+
+export type EditorAudioRole = 'voice' | 'music' | 'sfx'
+export const EDITOR_AUDIO_ROLES: EditorAudioRole[] = ['voice', 'music', 'sfx']
+
 export type EditorCaptionStylePreset = 'clean' | 'boxed' | 'outline' | 'lower_third' | 'karaoke_bar'
 export type EditorCaptionAnimationPreset = 'none' | 'pop' | 'fade' | 'slide_up' | 'bounce' | 'karaoke'
 
@@ -139,6 +145,9 @@ export interface EditorClip {
   transitionAfter?: EditorClipTransition
   effects?: EditorEffectInstance[]
   keyframes?: EditorKeyframe[]
+  blendMode?: EditorBlendMode
+  fadeInSeconds?: number
+  fadeOutSeconds?: number
 }
 
 export interface EditorTrack {
@@ -147,6 +156,11 @@ export interface EditorTrack {
   label?: string
   muted?: boolean
   locked?: boolean
+  gainDb?: number
+  pan?: number
+  solo?: boolean
+  audioRole?: EditorAudioRole
+  duckUnderVoice?: boolean
   clips: EditorClip[]
 }
 
