@@ -133,7 +133,7 @@ export function GeneratorNodeCard(props: GeneratorNodeCardProps) {
         border: `1px solid ${selected ? canvasTheme.accent : canvasTheme.border}`,
         boxShadow: selected ? canvasTheme.accentGlow : canvasTheme.nodeShadow,
         color: canvasTheme.text,
-        overflow: 'hidden',
+        overflow: 'visible',
       }}
     >
       <NodeHandles type={type} />
@@ -352,7 +352,7 @@ export function BaseNodeCard({
         border: `1px solid ${selected ? canvasTheme.accent : canvasTheme.border}`,
         boxShadow: selected ? canvasTheme.accentGlow : canvasTheme.nodeShadow,
         color: canvasTheme.text,
-        overflow: 'hidden',
+        overflow: 'visible',
       }}
     >
       <NodeHandles type={type} />

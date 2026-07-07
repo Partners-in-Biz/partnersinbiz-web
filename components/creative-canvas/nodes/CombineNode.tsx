@@ -42,7 +42,7 @@ function CombineNodeComponent({ data, selected }: NodeProps) {
         border: `1px solid ${selected ? canvasTheme.accent : canvasTheme.border}`,
         boxShadow: selected ? canvasTheme.accentGlow : canvasTheme.nodeShadow,
         color: canvasTheme.text,
-        overflow: 'hidden',
+        overflow: 'visible',
       }}
     >
       <NodeHandles type="combine" />

@@ -54,7 +54,8 @@ test('keeps generated media inside the measured node card', () => {
   })
 
   const image = screen.getByRole('img', { name: 'Generated image' })
+  const card = image.closest('div[style*="position: relative"]')
   expect(image).toHaveStyle({ height: '100%', objectFit: 'cover' })
   expect(image.parentElement).toHaveStyle({ height: '180px', overflow: 'hidden' })
-  expect(image.closest('div[style*="position: relative"]')).not.toBeNull()
+  expect(card).toHaveStyle({ overflow: 'visible' })
 })
