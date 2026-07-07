@@ -4,12 +4,16 @@ import { useEffect, useState } from 'react'
 import { canvasTheme } from '@/components/creative-canvas/theme/tokens'
 import { starterCanvasTemplates } from '@/lib/creative-canvas/starter-templates'
 import CreativeProviderConnections from '@/components/creative-canvas/connections/CreativeProviderConnections'
+import type { CreativeCanvasEdge, CreativeCanvasNode } from '@/lib/creative-canvas/types'
 
 export interface CanvasBoardSummary {
   id: string
   title: string
+  purpose?: string
   updatedLabel?: string
   thumbnailUrl?: string
+  nodes?: CreativeCanvasNode[]
+  edges?: CreativeCanvasEdge[]
 }
 
 export interface CanvasTemplateSummary {
@@ -47,6 +51,111 @@ const placeholderStyle: React.CSSProperties = {
   aspectRatio: '16 / 10',
   borderRadius: '10px',
   background: `linear-gradient(135deg, ${canvasTheme.surfaceRaised}, ${canvasTheme.surface})`,
+}
+
+const nodeTypeLabels: Record<CreativeCanvasNode['type'], string> = {
+  source: 'Source',
+  brief: 'Brief',
+  prompt: 'Prompt',
+  model: 'Model',
+  edit: 'Edit',
+  review: 'Review',
+  output: 'Output',
+}
+
+function isHttpUrl(value: unknown): value is string {
+  return typeof value === 'string' && /^https?:\/\//.test(value)
+}
+
+function deriveBoardThumbnail(board: CanvasBoardSummary): string | undefined {
+  if (isHttpUrl(board.thumbnailUrl)) return board.thumbnailUrl
+  return board.nodes
+    ?.map((node) => node.output?.thumbnailUrl ?? node.output?.url ?? node.source?.thumbnailUrl ?? node.source?.previewUrl ?? node.source?.url)
+    .find(isHttpUrl)
+}
+
+function buildTypeSummary(nodes: CreativeCanvasNode[] = []): string[] {
+  const ordered = nodes.reduce<CreativeCanvasNode['type'][]>((types, node) => {
+    if (!types.includes(node.type)) types.push(node.type)
+    return types
+  }, [])
+  return ordered.slice(0, 3).map((type) => nodeTypeLabels[type] ?? type)
+}
+
+function BoardGraphPreview({ board }: { board: CanvasBoardSummary }) {
+  const nodes = (board.nodes ?? []).slice(0, 7)
+  const nodeIds = new Set(nodes.map((node) => node.id))
+  const edges = (board.edges ?? []).filter((edge) => nodeIds.has(edge.sourceNodeId) && nodeIds.has(edge.targetNodeId)).slice(0, 8)
+
+  if (!nodes.length) return <div style={placeholderStyle} aria-label="Empty canvas preview" />
+
+  const minX = Math.min(...nodes.map((node) => node.position.x))
+  const maxX = Math.max(...nodes.map((node) => node.position.x))
+  const minY = Math.min(...nodes.map((node) => node.position.y))
+  const maxY = Math.max(...nodes.map((node) => node.position.y))
+  const spreadX = Math.max(maxX - minX, 1)
+  const spreadY = Math.max(maxY - minY, 1)
+  const points = new Map(nodes.map((node, index) => {
+    const x = 16 + ((node.position.x - minX) / spreadX) * 68
+    const y = 18 + ((node.position.y - minY) / spreadY) * 58
+    return [node.id, {
+      x: spreadX === 1 ? 20 + (index % 4) * 20 : x,
+      y: spreadY === 1 ? 24 + Math.floor(index / 4) * 30 : y,
+      node,
+    }]
+  }))
+
+  return (
+    <div
+      aria-label={`${nodes.length} node canvas preview`}
+      style={{
+        ...placeholderStyle,
+        position: 'relative',
+        overflow: 'hidden',
+        border: `1px solid ${canvasTheme.border}`,
+      }}
+    >
+      <svg aria-hidden="true" viewBox="0 0 100 72" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+        {edges.map((edge) => {
+          const source = points.get(edge.sourceNodeId)
+          const target = points.get(edge.targetNodeId)
+          if (!source || !target) return null
+          return (
+            <line
+              key={edge.id}
+              x1={source.x}
+              y1={source.y}
+              x2={target.x}
+              y2={target.y}
+              stroke="rgba(226,232,240,0.28)"
+              strokeWidth="1.2"
+            />
+          )
+        })}
+      </svg>
+      {[...points.entries()].map(([id, point]) => {
+        const hasMedia = Boolean(point.node.output?.url || point.node.output?.thumbnailUrl || point.node.source?.url || point.node.source?.thumbnailUrl)
+        return (
+          <span
+            key={id}
+            title={`${nodeTypeLabels[point.node.type] ?? point.node.type}: ${point.node.title}`}
+            style={{
+              position: 'absolute',
+              left: `${point.x}%`,
+              top: `${point.y}%`,
+              width: hasMedia ? 16 : 12,
+              height: hasMedia ? 16 : 12,
+              transform: 'translate(-50%, -50%)',
+              borderRadius: hasMedia ? 5 : 999,
+              background: hasMedia ? canvasTheme.accent : canvasTheme.surfaceRaised,
+              border: `1px solid ${hasMedia ? canvasTheme.accent : canvasTheme.border}`,
+              boxShadow: '0 8px 20px rgba(0,0,0,0.28)',
+            }}
+          />
+        )
+      })}
+    </div>
+  )
 }
 
 export default function CanvasLanding({
@@ -209,11 +318,11 @@ export default function CanvasLanding({
                     boxShadow: canvasTheme.nodeShadow,
                   }}
                 >
-                  {board.thumbnailUrl ? (
+                  {deriveBoardThumbnail(board) ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={board.thumbnailUrl} alt="" style={thumbStyle} />
+                    <img src={deriveBoardThumbnail(board)} alt="" style={thumbStyle} />
                   ) : (
-                    <div style={placeholderStyle} aria-hidden="true" />
+                    <BoardGraphPreview board={board} />
                   )}
                   <div>
                     {renamingId === board.id ? (
@@ -238,6 +347,33 @@ export default function CanvasLanding({
                         {board.updatedLabel}
                       </div>
                     )}
+                    {board.purpose && (
+                      <div style={{ fontSize: '13px', color: canvasTheme.textMuted, marginTop: '4px', lineHeight: 1.35 }}>
+                        {board.purpose}
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: '8px', alignItems: 'center' }}>
+                      <span style={{ fontSize: '12px', color: canvasTheme.textMuted }}>
+                        {(board.nodes?.length ?? 0) > 0
+                          ? `${board.nodes?.length ?? 0} nodes · ${board.edges?.length ?? 0} links`
+                          : 'Empty canvas'}
+                      </span>
+                      {buildTypeSummary(board.nodes).map((label) => (
+                        <span
+                          key={label}
+                          style={{
+                            fontSize: '11px',
+                            color: canvasTheme.text,
+                            border: `1px solid ${canvasTheme.border}`,
+                            background: canvasTheme.surfaceRaised,
+                            borderRadius: 999,
+                            padding: '2px 6px',
+                          }}
+                        >
+                          {label}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </button>
                 {(onRenameBoard || onDeleteBoard) && (

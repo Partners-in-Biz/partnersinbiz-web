@@ -4732,7 +4732,13 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         <CanvasLanding
           orgId={resolvedOrgId || activeCanvas?.orgId || undefined}
           initialTab={landingInitialTab}
-          boards={canvases.map((canvas) => ({ id: canvas.id ?? '', title: canvas.title }))}
+          boards={canvases.map((canvas) => ({
+            id: canvas.id ?? '',
+            title: canvas.title,
+            purpose: canvas.purpose,
+            nodes: canvas.nodes,
+            edges: canvas.edges,
+          }))}
           templates={templates.map((template) => ({ id: template.id, title: template.title, description: template.description, thumbnailUrl: template.thumbnailUrl }))}
           onCreate={() => { void createBlankCanvas() }}
           onRenameBoard={(id, nextTitle) => { void renameCanvasById(id, nextTitle) }}

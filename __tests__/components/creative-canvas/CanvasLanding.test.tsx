@@ -2,7 +2,36 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import CanvasLanding from '@/components/creative-canvas/landing/CanvasLanding'
 import { starterCanvasTemplates } from '@/lib/creative-canvas/starter-templates'
 
-const boards = [{ id: 'b1', title: 'My First Board', updatedLabel: 'Edited 2h ago' }]
+const boards = [{
+  id: 'b1',
+  title: 'My First Board',
+  purpose: 'Launch campaign ideas',
+  updatedLabel: 'Edited 2h ago',
+  nodes: [
+    {
+      id: 'n1',
+      orgId: 'org-1',
+      type: 'brief',
+      title: 'Campaign brief',
+      position: { x: 0, y: 0 },
+      data: {},
+    },
+    {
+      id: 'n2',
+      orgId: 'org-1',
+      type: 'output',
+      title: 'Hero visual',
+      position: { x: 280, y: 160 },
+      data: {},
+    },
+  ],
+  edges: [{
+    id: 'e1',
+    orgId: 'org-1',
+    sourceNodeId: 'n1',
+    targetNodeId: 'n2',
+  }],
+}]
 const templates = [{ id: 't1', title: 'Product Photoshoot', description: 'Studio-grade shots' }]
 
 test('All Canvases tab: tabs render, create control fires, board card opens', () => {
@@ -26,6 +55,24 @@ test('All Canvases tab: tabs render, create control fires, board card opens', ()
 
   fireEvent.click(screen.getByText('My First Board'))
   expect(onOpenBoard).toHaveBeenCalledWith('b1')
+})
+
+test('All Canvases tab: board cards show a graph preview and node summary', () => {
+  render(
+    <CanvasLanding
+      boards={boards}
+      templates={templates}
+      onCreate={jest.fn()}
+      onOpenBoard={jest.fn()}
+      onUseTemplate={jest.fn()}
+    />
+  )
+
+  expect(screen.getByLabelText('2 node canvas preview')).toBeInTheDocument()
+  expect(screen.getByText('Launch campaign ideas')).toBeInTheDocument()
+  expect(screen.getByText(/2 nodes .* 1 links/)).toBeInTheDocument()
+  expect(screen.getByText('Brief')).toBeInTheDocument()
+  expect(screen.getByText('Output')).toBeInTheDocument()
 })
 
 test('Templates tab: clicking tab shows template, clicking it uses template', () => {
