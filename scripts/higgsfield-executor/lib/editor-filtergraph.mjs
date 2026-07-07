@@ -536,7 +536,31 @@ export function compileEditorFiltergraph({ timeline, settings, localMediaPaths, 
       labels.push(label)
     })
     if (audioSources.length > 1) {
-      chains.push(`${labels.map((label) => `[${label}]`).join('')}amix=inputs=${labels.length}:duration=longest:normalize=0[aout]`)
+      const voiceLabels = []
+      const duckLabels = []
+      const otherLabels = []
+      audioSources.forEach(({ track }, index) => {
+        const label = `ac${index}`
+        const isVoice = track.audioRole === 'voice' || track.kind === 'video'
+        if (isVoice) voiceLabels.push(label)
+        else if (track.duckUnderVoice === true) duckLabels.push(label)
+        else otherLabels.push(label)
+      })
+      if (voiceLabels.length && duckLabels.length) {
+        const voiceMix = voiceLabels.length === 1
+          ? voiceLabels[0]
+          : (chains.push(`${voiceLabels.map((label) => `[${label}]`).join('')}amix=inputs=${voiceLabels.length}:duration=longest:normalize=0[duckvmix]`), 'duckvmix')
+        chains.push(`[${voiceMix}]asplit=2[duckvout][duckscraw]`)
+        chains.push(`[duckscraw]apad=whole_dur=${fmt(durationSeconds)}[ducksc]`)
+        const duckMix = duckLabels.length === 1
+          ? duckLabels[0]
+          : (chains.push(`${duckLabels.map((label) => `[${label}]`).join('')}amix=inputs=${duckLabels.length}:duration=longest:normalize=0[duckdmix]`), 'duckdmix')
+        chains.push(`[${duckMix}][ducksc]sidechaincompress=threshold=0.05:ratio=8:attack=20:release=400[ducked]`)
+        const finalInputs = ['duckvout', 'ducked', ...otherLabels]
+        chains.push(`${finalInputs.map((label) => `[${label}]`).join('')}amix=inputs=${finalInputs.length}:duration=longest:normalize=0[aout]`)
+      } else {
+        chains.push(`${labels.map((label) => `[${label}]`).join('')}amix=inputs=${labels.length}:duration=longest:normalize=0[aout]`)
+      }
     }
   }
 
