@@ -2,14 +2,17 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { scopedApiPath } from '@/lib/portal/scoped-routing'
-import { addClip, addTrack, moveClip, removeClip, splitClip, trimClip } from '@/lib/video-editor/timeline-ops'
+import {
+  addClip, addTrack, clearClipGroup, moveClip, moveClipGroup, removeClip, removeClipGroup,
+  rippleDeleteClip, rippleTrimClip, rollEdit, setClipGroup, slipClip, splitClip, trimClip,
+} from '@/lib/video-editor/timeline-ops'
 import { defaultVideoEditorSettings } from '@/lib/video-editor/types'
-import type { EditorClip, EditorTimeline, EditorTrackKind, VideoEditorProject, VideoEditorRenderJob } from '@/lib/video-editor/types'
+import type { EditorClip, EditorTimeline, EditorTrackKind, VideoEditorMediaPreview, VideoEditorProject, VideoEditorRenderJob } from '@/lib/video-editor/types'
 import { ExportDialog } from './ExportDialog'
 import { InspectorPanel } from './InspectorPanel'
 import { MediaLibraryPanel, type MediaLibrarySource } from './MediaLibraryPanel'
 import { PreviewPlayer } from './PreviewPlayer'
-import { TimelinePanel, type TimelineSelection } from './TimelinePanel'
+import { TimelinePanel, type TimelineEditMode, type TimelineSelection } from './TimelinePanel'
 import { useTimelineHistory } from './useTimelineHistory'
 
 const emptyTimeline: EditorTimeline = { version: 1, tracks: [] }
@@ -31,7 +34,8 @@ function trackEnd(track: EditorTimeline['tracks'][number]): number {
 export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgId?: string }) {
   const [project, setProject] = useState<(VideoEditorProject & { id: string }) | null>(null)
   const [timeline, setTimeline] = useState<EditorTimeline>(emptyTimeline)
-  const [selection, setSelection] = useState<TimelineSelection | null>(null)
+  const [selection, setSelection] = useState<TimelineSelection>([])
+  const [editMode, setEditMode] = useState<TimelineEditMode>('select')
   const [playhead, setPlayhead] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [pxPerSecond, setPxPerSecond] = useState(60)
@@ -42,10 +46,13 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
   const history = useTimelineHistory(timeline)
   const apiScope = useMemo(() => ({ orgId }), [orgId])
 
+  const mediaPreviews = useMemo<Record<string, VideoEditorMediaPreview>>(() => ({}), [])
+
   const selectedClip = useMemo(() => {
-    if (!selection) return null
-    const track = timeline.tracks.find((item) => item.id === selection.trackId)
-    return track?.clips.find((clip) => selection.clipIds.includes(clip.id)) ?? null
+    const first = selection[0]
+    if (!first) return null
+    const track = timeline.tracks.find((item) => item.id === first.trackId)
+    return track?.clips.find((clip) => clip.id === first.clipId) ?? null
   }, [selection, timeline])
 
   async function loadProject() {
@@ -103,22 +110,56 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
   }
 
   function patchSelected(patch: Partial<EditorClip>) {
-    if (!selection) return
+    if (!selection.length) return
     const next: EditorTimeline = {
       ...timeline,
-      tracks: timeline.tracks.map((track) => track.id === selection.trackId
-        ? { ...track, clips: track.clips.map((clip) => selection.clipIds.includes(clip.id) ? { ...clip, ...patch } : clip) }
-        : track),
+      tracks: timeline.tracks.map((track) => ({
+        ...track,
+        clips: track.clips.map((clip) =>
+          selection.some((item) => item.trackId === track.id && item.clipId === clip.id) ? { ...clip, ...patch } : clip),
+      })),
     }
     void persist(next)
   }
 
+  function runOp(op: () => EditorTimeline, failure: string) {
+    try { void persist(op()) } catch (error) { setNotice(error instanceof Error ? error.message : failure) }
+  }
+
   function handleTrimClip(trackId: string, clipId: string, edge: 'start' | 'end', deltaSeconds: number) {
-    try {
-      void persist(trimClip(timeline, trackId, clipId, { edge, deltaSeconds }))
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Could not trim clip')
-    }
+    if (editMode === 'ripple') runOp(() => rippleTrimClip(timeline, trackId, clipId, { edge, deltaSeconds }), 'Could not ripple trim')
+    else runOp(() => trimClip(timeline, trackId, clipId, { edge, deltaSeconds }), 'Could not trim clip')
+  }
+
+  function handleRemoveSelected() {
+    const first = selection[0]
+    if (!first) return
+    const track = timeline.tracks.find((item) => item.id === first.trackId)
+    const clip = track?.clips.find((item) => item.id === first.clipId)
+    if (!clip) return
+    if (editMode === 'ripple') runOp(() => rippleDeleteClip(timeline, first.trackId, first.clipId), 'Could not ripple delete')
+    else if (clip.groupId) runOp(() => removeClipGroup(timeline, clip.groupId!), 'Could not delete linked clips')
+    else runOp(() => removeClip(timeline, first.trackId, first.clipId), 'Could not remove clip')
+    setSelection([])
+  }
+
+  function handleMoveClip(trackId: string, clipId: string, toStart: number) {
+    const track = timeline.tracks.find((item) => item.id === trackId)
+    const clip = track?.clips.find((item) => item.id === clipId)
+    if (clip?.groupId) runOp(() => moveClipGroup(timeline, clip.groupId!, toStart - clip.timelineStart), 'Could not move linked clips')
+    else runOp(() => moveClip(timeline, trackId, clipId, { toStart }), 'Could not move clip')
+  }
+
+  function handleLinkSelection() {
+    if (selection.length < 2) return
+    runOp(() => setClipGroup(timeline, selection.map((item) => ({ trackId: item.trackId, clipId: item.clipId }))), 'Could not link clips')
+  }
+
+  function handleUnlinkSelection() {
+    const grouped = selection
+      .map((item) => timeline.tracks.find((t) => t.id === item.trackId)?.clips.find((c) => c.id === item.clipId)?.groupId)
+      .find(Boolean)
+    if (grouped) runOp(() => clearClipGroup(timeline, grouped), 'Could not unlink clips')
   }
 
   function addMediaClip(clip: EditorClip) {
@@ -136,7 +177,7 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
     try {
       const next = addClip(working, targetTrack.id, { ...clip, timelineStart: playhead })
       void persist(next)
-      setSelection({ trackId: targetTrack.id, clipIds: [clip.id] })
+      setSelection([{ trackId: targetTrack.id, clipId: clip.id }])
       setNotice('Clip added to the timeline.')
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Could not add clip')
@@ -182,7 +223,7 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
     try {
       const next = addClip(working, targetTrack.id, clip)
       void persist(next)
-      setSelection({ trackId: targetTrack.id, clipIds: [clip.id] })
+      setSelection([{ trackId: targetTrack.id, clipId: clip.id }])
       setPlayhead(timelineStart)
       setNotice('Text title added. Edit the copy in the Inspector.')
     } catch (error) {
@@ -241,21 +282,24 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
             selection={selection}
             playheadSeconds={playhead}
             pxPerSecond={pxPerSecond}
-            onSelectionChange={setSelection}
+            editMode={editMode}
+            mediaPreviews={mediaPreviews}
+            onEditModeChange={setEditMode}
+            onSelectionChange={(next) => setSelection(Array.isArray(next) ? next : [])}
             onSeek={setPlayhead}
             onZoomChange={setPxPerSecond}
-            onMoveClip={(trackId, clipId, toStart) => {
-              try { void persist(moveClip(timeline, trackId, clipId, { toStart })) } catch (error) { setNotice(error instanceof Error ? error.message : 'Could not move clip') }
-            }}
+            onMoveClip={handleMoveClip}
             onTrimClip={handleTrimClip}
+            onRollEdit={(trackId, leftId, rightId, delta) => runOp(() => rollEdit(timeline, trackId, leftId, rightId, delta), 'Could not roll edit')}
+            onSlipClip={(trackId, clipId, delta) => runOp(() => slipClip(timeline, trackId, clipId, delta), 'Could not slip clip')}
             onSplitAtPlayhead={() => {
-              if (!selection?.clipIds[0]) return
-              try { void persist(splitClip(timeline, selection.trackId, selection.clipIds[0], playhead)) } catch (error) { setNotice(error instanceof Error ? error.message : 'Could not split clip') }
+              const first = selection[0]
+              if (!first) return
+              runOp(() => splitClip(timeline, first.trackId, first.clipId, playhead), 'Could not split clip')
             }}
-            onRemoveSelected={() => {
-              if (!selection?.clipIds[0]) return
-              try { void persist(removeClip(timeline, selection.trackId, selection.clipIds[0])); setSelection(null) } catch (error) { setNotice(error instanceof Error ? error.message : 'Could not remove clip') }
-            }}
+            onRemoveSelected={handleRemoveSelected}
+            onLinkSelection={handleLinkSelection}
+            onUnlinkSelection={handleUnlinkSelection}
             onToggleTrackFlag={(trackId, flag) => {
               void persist({ ...timeline, tracks: timeline.tracks.map((track) => track.id === trackId ? { ...track, [flag]: !track[flag] } : track) })
             }}
@@ -268,8 +312,9 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
             clip={selectedClip}
             onPatch={patchSelected}
             onTrim={(edge, deltaSeconds) => {
-              if (!selection?.clipIds[0]) return
-              handleTrimClip(selection.trackId, selection.clipIds[0], edge, deltaSeconds)
+              const first = selection[0]
+              if (!first) return
+              handleTrimClip(first.trackId, first.clipId, edge, deltaSeconds)
             }}
           />
           <ExportDialog projectId={project.id} timeline={timeline} settings={settings} latestJob={jobs[0]} busy={busy} onRender={() => void renderProject()} />
