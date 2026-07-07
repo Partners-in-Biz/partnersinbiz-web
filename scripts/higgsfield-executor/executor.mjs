@@ -36,6 +36,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { compileEditorFiltergraph } from './lib/editor-filtergraph.mjs'
 import { assertAllowedMediaUrl, computePeaksFromPcm } from './lib/editor-media.mjs'
+import { buildAssDocument, timelineHasCaptions } from './lib/editor-captions.mjs'
+import { audioExtractArgs, segmentsFromVerboseJson } from './lib/editor-transcribe.mjs'
 
 const PORT = Number(process.env.PORT || 8690)
 const RUNTIME_API_KEY = process.env.RUNTIME_API_KEY || ''
@@ -139,6 +141,11 @@ const EDITOR_MEDIA_MAX_BYTES = Number(process.env.EDITOR_MEDIA_MAX_BYTES || 2_00
 const EDITOR_EXTRA_MEDIA_HOSTS = (process.env.EDITOR_EXTRA_MEDIA_HOSTS || '')
   .split(',').map((host) => host.trim().toLowerCase()).filter(Boolean)
 const EDITOR_FONT_FILE = process.env.EDITOR_FONT_FILE || undefined
+const TRANSCRIBE_BASE_URL = (process.env.TRANSCRIBE_BASE_URL || 'https://ai-gateway.vercel.sh/v1').replace(/\/$/, '')
+const TRANSCRIBE_API_KEY = process.env.TRANSCRIBE_API_KEY || ''
+const TRANSCRIBE_MODEL = process.env.TRANSCRIBE_MODEL || 'openai/whisper-1'
+const TRANSCRIBE_BYOK_DEFAULT_MODEL = 'whisper-1'
+const EDITOR_TRANSCRIBE_TIMEOUT_MS = Number(process.env.EDITOR_TRANSCRIBE_TIMEOUT_MS || 15 * 60 * 1000)
 const FFPROBE_BIN = process.env.FFPROBE_BIN || 'ffprobe'
 const PREVIEW_TIMEOUT_MS = Number(process.env.PREVIEW_TIMEOUT_MS || 15 * 60 * 1000)
 const PROXY_MIN_BYTES = Number(process.env.PROXY_MIN_BYTES || 25_000_000)
@@ -425,11 +432,18 @@ async function executeEditorRender(job, manifest) {
       }
     }
 
+    let captionAssPath
+    if (timelineHasCaptions(manifest.timeline)) {
+      captionAssPath = join(workDir, 'captions.ass')
+      await writeFile(captionAssPath, buildAssDocument({ timeline: manifest.timeline, settings: manifest.settings }), 'utf8')
+    }
+
     const compiled = compileEditorFiltergraph({
       timeline: manifest.timeline,
       settings: manifest.settings,
       localMediaPaths,
       ...(EDITOR_FONT_FILE ? { fontFile: EDITOR_FONT_FILE } : {}),
+      ...(captionAssPath ? { captionAssPath } : {}),
     })
 
     const outPath = join(workDir, 'out.mp4')
@@ -595,6 +609,101 @@ async function executeMediaPreview(job, manifest) {
       filmstrip: Boolean(report.filmstrip),
       proxy: Boolean(report.proxy),
     })
+  } catch (error) {
+    await fail(`Executor error: ${String(error?.message || error).slice(0, 800)}`, 'executor_error')
+  } finally {
+    if (workDir) rm(workDir, { recursive: true, force: true }).catch(() => {})
+    setTimeout(() => jobs.delete(job.providerJobId), JOB_TTL_MS).unref?.()
+  }
+}
+
+async function executeEditorTranscription(job, manifest) {
+  const base = baseUrlFrom(manifest)
+  const reportPath = manifest.report?.path
+    || `/api/v1/video-editor/transcripts/${manifest.job.id}?orgId=${encodeURIComponent(manifest.job.orgId)}`
+
+  const fail = async (message, code = 'transcription_error') => {
+    job.status = 'failed'
+    job.providerStatus = code
+    job.providerStatusMessage = message.slice(0, 1500)
+    log('error', 'transcription failed', { jobId: manifest.job.id, code, message: job.providerStatusMessage })
+    await platformPut(base, reportPath, { status: 'failed', error: { code, message: message.slice(0, 4000) } })
+  }
+
+  let workDir
+  try {
+    await platformPut(base, reportPath, { status: 'processing' })
+    workDir = await mkdtemp(join(tmpdir(), 'vtrans-'))
+
+    const mediaFile = await downloadEditorMedia(manifest.media.url, workDir, 0)
+    const audioFile = join(workDir, 'audio.mp3')
+    const extract = await runFfmpeg(audioExtractArgs(mediaFile, audioFile), 10 * 60 * 1000)
+    if (extract.code !== 0) {
+      await fail(`ffmpeg audio extraction exited ${extract.code}: ${extract.stderr.trim().slice(-800)}`, 'audio_extract_failed')
+      return
+    }
+
+    // BYOK (per-job, never persisted) beats the platform gateway defaults.
+    const byok = manifest.byok && typeof manifest.byok.apiKey === 'string' ? manifest.byok : null
+    const baseUrl = (byok?.baseUrl || (byok ? 'https://api.openai.com/v1' : TRANSCRIBE_BASE_URL)).replace(/\/$/, '')
+    const apiKey = byok ? byok.apiKey : TRANSCRIBE_API_KEY
+    const model = byok?.model || (byok ? TRANSCRIBE_BYOK_DEFAULT_MODEL : TRANSCRIBE_MODEL)
+    if (!apiKey) {
+      await fail('No transcription credential available (set TRANSCRIBE_API_KEY or supply BYOK)', 'transcription_not_configured')
+      return
+    }
+
+    const form = new FormData()
+    form.set('file', new Blob([await readFile(audioFile)], { type: 'audio/mpeg' }), 'audio.mp3')
+    form.set('model', model)
+    form.set('response_format', 'verbose_json')
+    form.append('timestamp_granularities[]', 'word')
+    form.append('timestamp_granularities[]', 'segment')
+    if (typeof manifest.language === 'string' && manifest.language && manifest.language !== 'auto') {
+      form.set('language', manifest.language)
+    }
+
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), EDITOR_TRANSCRIBE_TIMEOUT_MS)
+    let response
+    try {
+      response = await fetch(`${baseUrl}/audio/transcriptions`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}` },
+        body: form,
+        signal: controller.signal,
+      })
+    } finally {
+      clearTimeout(timer)
+    }
+    const text = await response.text().catch(() => '')
+    if (!response.ok) {
+      await fail(`Transcription provider rejected the request (${response.status}): ${text.slice(0, 500)}`, 'provider_rejected')
+      return
+    }
+    let payload = {}
+    try { payload = JSON.parse(text) } catch { payload = {} }
+    const mapped = segmentsFromVerboseJson(payload)
+    if (!mapped.segments.length) {
+      await fail('Provider returned no usable segments', 'empty_transcription')
+      return
+    }
+
+    const report = await platformPut(base, reportPath, {
+      status: 'completed',
+      segments: mapped.segments,
+      ...(mapped.language ? { language: mapped.language } : {}),
+      ...(mapped.durationSeconds !== undefined ? { durationSeconds: mapped.durationSeconds } : {}),
+    })
+    if (!report.ok) {
+      await fail(`Transcription succeeded but the platform rejected completion (HTTP ${report.status}): ${(report.body || '').slice(0, 300)}`, 'platform_complete_failed')
+      return
+    }
+
+    job.status = 'completed'
+    job.providerStatus = 'completed'
+    job.providerStatusMessage = 'Transcribed by higgsfield-executor.'
+    log('info', 'transcription completed', { jobId: manifest.job.id, segments: mapped.segments.length })
   } catch (error) {
     await fail(`Executor error: ${String(error?.message || error).slice(0, 800)}`, 'executor_error')
   } finally {
@@ -793,6 +902,39 @@ const server = createServer(async (req, res) => {
       log('info', 'editor render accepted', { jobId: body.job.id, providerJobId, mediaCount: Array.isArray(body.media) ? body.media.length : 0 })
       executeEditorRender(job, body).catch((error) => log('error', 'executeEditorRender crashed', { jobId: body.job.id, error: String(error) }))
       return json(res, 200, { providerJobId, status: 'running', providerStatus: job.providerStatus, providerStatusMessage: job.providerStatusMessage })
+    }
+
+    if (req.method === 'POST' && url.pathname === '/video-editor/transcriptions') {
+      const body = JSON.parse(await readBody(req) || 'null')
+      if (body?.kind !== 'video_editor_transcription' || !body.job?.id || !body.job?.orgId || !body.job?.projectId
+          || !body.media?.url) {
+        return json(res, 400, { error: 'Valid video_editor_transcription manifest is required' })
+      }
+      const providerJobId = `vtx-${body.job.id}-${randomUUID().slice(0, 8)}`
+      const job = {
+        providerJobId,
+        jobId: body.job.id,
+        status: 'running',
+        providerStatus: 'executor_accepted',
+        providerStatusMessage: 'Transcription accepted.',
+        createdAt: Date.now(),
+      }
+      jobs.set(providerJobId, job)
+      log('info', 'transcription accepted', { jobId: body.job.id, providerJobId, byok: Boolean(body.byok) })
+      executeEditorTranscription(job, body).catch((error) => log('error', 'executeEditorTranscription crashed', { jobId: body.job.id, error: String(error) }))
+      return json(res, 200, { providerJobId, status: 'running', providerStatus: job.providerStatus, providerStatusMessage: job.providerStatusMessage })
+    }
+
+    const transcriptionStatusMatch = url.pathname.match(/^\/video-editor\/transcriptions\/([A-Za-z0-9-]+)$/)
+    if (req.method === 'GET' && transcriptionStatusMatch) {
+      const job = jobs.get(transcriptionStatusMatch[1])
+      if (!job) return json(res, 404, { error: 'Job not found' })
+      return json(res, 200, {
+        providerJobId: job.providerJobId,
+        status: job.status,
+        providerStatus: job.providerStatus,
+        providerStatusMessage: job.providerStatusMessage,
+      })
     }
 
     if (req.method === 'POST' && url.pathname === '/video-editor/media-previews') {
