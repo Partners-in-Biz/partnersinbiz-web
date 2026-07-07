@@ -33,7 +33,11 @@ export interface TemplateVariableContext {
 }
 
 function variableMap(ctx: TemplateVariableContext): Record<string, string> {
-  const colors = ctx.brand?.colors ?? ctx.brandColors
+  const colors = {
+    primary: ctx.brand?.colors?.primary ?? ctx.brandColors?.primary,
+    secondary: ctx.brand?.colors?.secondary ?? ctx.brandColors?.secondary,
+    accent: ctx.brand?.colors?.accent ?? ctx.brandColors?.accent,
+  }
   return {
     '{{brand.primaryColor}}': colors?.primary ?? '#ffffff',
     '{{brand.secondaryColor}}': colors?.secondary ?? '#000000',

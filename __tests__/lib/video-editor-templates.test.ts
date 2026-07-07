@@ -60,6 +60,28 @@ describe('template variables', () => {
     expect(resolved.tracks[0].clips[0].text?.content).toBe('{{unknown.token}}')
     expect(resolved.tracks[0].clips[0].text?.color).toBe('#123456')
   })
+
+  it('merges brand profile colors with settings brandColors per key', () => {
+    const secondary: EditorTimeline = {
+      version: 1,
+      tracks: [{
+        id: 'tpl-text',
+        kind: 'text',
+        clips: [{
+          id: 'tpl-c',
+          timelineStart: 0,
+          duration: 3,
+          text: { content: 'Brand', fontSizePx: 64, color: '{{brand.secondaryColor}}', backgroundColor: '{{brand.accentColor}}', align: 'center', animationPreset: 'none' },
+        }],
+      }],
+    }
+    const resolved = resolveTemplateVariables(secondary, {
+      brand: { colors: { secondary: '#00ff00' } },
+      brandColors: { secondary: '#111111', accent: '#222222' },
+    })
+    expect(resolved.tracks[0].clips[0].text?.color).toBe('#00ff00')
+    expect(resolved.tracks[0].clips[0].text?.backgroundColor).toBe('#222222')
+  })
 })
 
 describe('fragment extract/insert', () => {
