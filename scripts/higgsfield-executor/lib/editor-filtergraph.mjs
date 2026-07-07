@@ -1,4 +1,5 @@
 import { hasSpeedRamp, keyframeExpr, keyframesForProperty, rampSegments, sendcmdOpacityCommands } from './editor-keyframes.mjs'
+import { escapeSubtitlesPath } from './editor-captions.mjs'
 
 export const DEFAULT_EDITOR_FONT_FILE = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
 
@@ -163,7 +164,7 @@ function textYExpr(transform) {
   return `(h-text_h)/2${offset}`
 }
 
-export function compileEditorFiltergraph({ timeline, settings, localMediaPaths, fontFile }) {
+export function compileEditorFiltergraph({ timeline, settings, localMediaPaths, fontFile, captionAssPath }) {
   const font = fontFile || DEFAULT_EDITOR_FONT_FILE
   const durationSeconds = Math.max(timelineDurationSeconds(timeline), 0.04)
   const inputs = ['-f', 'lavfi', '-i', `color=c=${settings.background || '#000000'}:s=${settings.width}x${settings.height}:r=${settings.fps}:d=${fmt(durationSeconds)}`]
@@ -267,6 +268,11 @@ export function compileEditorFiltergraph({ timeline, settings, localMediaPaths, 
       chains.push(`[${current}]drawtext=${options.join(':')}[${label}]`)
       current = label
     }
+  }
+  if (captionAssPath) {
+    const label = 'cap0'
+    chains.push(`[${current}]subtitles=filename=${escapeSubtitlesPath(captionAssPath)}[${label}]`)
+    current = label
   }
   chains.push(`[${current}]format=yuv420p[vout]`)
 

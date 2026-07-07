@@ -200,4 +200,30 @@ describe('editor filtergraph compiler', () => {
     expect(result.filterComplex).toContain('[ar0i0]atrim=start=1:duration=1.125,asetpts=PTS-STARTPTS,atempo=1.125[ar0s0]')
     expect(result.filterComplex).toContain('[ar0s0][ar0s1][ar0s2][ar0s3]concat=n=4:v=0:a=1[aout]')
   })
+
+  it('inserts the subtitles filter when captionAssPath is provided', () => {
+    const result = runModule<{ filterComplex: string }>(`return m.compileEditorFiltergraph(${JSON.stringify({
+      settings,
+      localMediaPaths: { c1: '/tmp/media/c1.mp4' },
+      captionAssPath: '/tmp/work/captions.ass',
+      timeline: {
+        version: 1,
+        tracks: [{
+          id: 't1', kind: 'video',
+          clips: [{ id: 'c1', timelineStart: 0, duration: 4, media: { type: 'upload', fileId: 'f1', url: 'https://x.test/a.mp4', mediaKind: 'video' } }],
+        }],
+      },
+    })})`)
+    expect(result.filterComplex).toContain("subtitles=filename='/tmp/work/captions.ass'[cap0]")
+    expect(result.filterComplex).toContain('[cap0]format=yuv420p[vout]')
+  })
+
+  it('does not add a subtitles filter without captionAssPath', () => {
+    const result = runModule<{ filterComplex: string }>(`return m.compileEditorFiltergraph(${JSON.stringify({
+      settings,
+      localMediaPaths: {},
+      timeline: { version: 1, tracks: [] },
+    })})`)
+    expect(result.filterComplex).not.toContain('subtitles=')
+  })
 })
