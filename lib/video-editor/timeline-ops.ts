@@ -355,3 +355,60 @@ export function rippleTrimClip(
   assertNoOverlap(track)
   return next
 }
+
+export function rollEdit(
+  timeline: EditorTimeline,
+  trackId: string,
+  leftClipId: string,
+  rightClipId: string,
+  deltaSeconds: number,
+): EditorTimeline {
+  const next = cloneTimeline(timeline)
+  const track = findTrack(next, trackId)
+  const left = findClip(track, leftClipId)
+  const right = findClip(track, rightClipId)
+  if (Math.abs((left.timelineStart + left.duration) - right.timelineStart) > EPSILON) {
+    throw new TimelineOpError('Roll edits need two adjacent clips.')
+  }
+  const leftSpeed = left.speed && left.speed > 0 ? left.speed : 1
+  const rightSpeed = right.speed && right.speed > 0 ? right.speed : 1
+  const leftDuration = left.duration + deltaSeconds
+  const rightDuration = right.duration - deltaSeconds
+  const rightTrimStart = (right.trimStart ?? 0) + deltaSeconds * rightSpeed
+  if (!(leftDuration > EPSILON) || !(rightDuration > EPSILON)) {
+    throw new TimelineOpError('Roll would remove one of the clips.')
+  }
+  if (rightTrimStart < -EPSILON) throw new TimelineOpError('Roll would rewind the right clip before its source start.')
+  const leftSourceDuration = left.media?.sourceDuration
+  if (typeof leftSourceDuration === 'number'
+    && (left.trimStart ?? 0) + leftDuration * leftSpeed > leftSourceDuration + EPSILON) {
+    throw new TimelineOpError('Roll would run past the end of the left clip\'s source media.')
+  }
+  left.duration = round3(leftDuration)
+  right.timelineStart = round3(right.timelineStart + deltaSeconds)
+  right.duration = round3(rightDuration)
+  right.trimStart = round3(Math.max(0, rightTrimStart))
+  assertNoOverlap(track)
+  return next
+}
+
+export function slipClip(
+  timeline: EditorTimeline,
+  trackId: string,
+  clipId: string,
+  deltaSeconds: number,
+): EditorTimeline {
+  const next = cloneTimeline(timeline)
+  const track = findTrack(next, trackId)
+  const clip = findClip(track, clipId)
+  if (!clip.media) throw new TimelineOpError('Only media clips can be slipped.')
+  const speed = clip.speed && clip.speed > 0 ? clip.speed : 1
+  const trimStart = (clip.trimStart ?? 0) + deltaSeconds * speed
+  if (trimStart < -EPSILON) throw new TimelineOpError('Slip would rewind before the source start.')
+  const sourceDuration = clip.media.sourceDuration
+  if (typeof sourceDuration === 'number' && trimStart + clip.duration * speed > sourceDuration + EPSILON) {
+    throw new TimelineOpError('Slip would run past the end of the source media.')
+  }
+  clip.trimStart = round3(Math.max(0, trimStart))
+  return next
+}

@@ -12,7 +12,9 @@ import {
   reorderTracks,
   rippleDeleteClip,
   rippleTrimClip,
+  rollEdit,
   setClipGroup,
+  slipClip,
   splitClip,
   trimClip,
 } from '@/lib/video-editor/timeline-ops'
@@ -284,5 +286,77 @@ describe('rippleTrimClip', () => {
   it('rejects trims that remove the clip or rewind the source', () => {
     expect(() => rippleTrimClip(rippleTimeline(), 'v1', 'a', { edge: 'end', deltaSeconds: -4 })).toThrow(TimelineOpError)
     expect(() => rippleTrimClip(rippleTimeline(), 'v1', 'a', { edge: 'start', deltaSeconds: -1 })).toThrow(TimelineOpError)
+  })
+})
+
+describe('rollEdit', () => {
+  const rollTimeline = (): EditorTimeline => ({
+    version: 1,
+    tracks: [{
+      id: 'v1',
+      kind: 'video',
+      clips: [
+        clip('a', 0, 4, { media: { type: 'upload', fileId: 'file-a', url: 'https://x.test/a.mp4', mediaKind: 'video', sourceDuration: 5 } }),
+        clip('b', 4, 3, { trimStart: 2, speed: 2 }),
+      ],
+    }],
+  })
+
+  it('moves the boundary keeping total duration constant', () => {
+    const next = rollEdit(rollTimeline(), 'v1', 'a', 'b', 1)
+    const [a, b] = next.tracks[0].clips
+    expect(a).toMatchObject({ id: 'a', timelineStart: 0, duration: 5 })
+    expect(b).toMatchObject({ id: 'b', timelineStart: 5, duration: 2, trimStart: 4 }) // 2 + 1*2
+  })
+
+  it('rolls left, rewinding the right clip into its source', () => {
+    const next = rollEdit(rollTimeline(), 'v1', 'a', 'b', -1)
+    const [a, b] = next.tracks[0].clips
+    expect(a.duration).toBe(3)
+    expect(b).toMatchObject({ timelineStart: 3, duration: 4, trimStart: 0 })
+  })
+
+  it('rejects non-adjacent pairs, source exhaustion and vanishing clips', () => {
+    const gap: EditorTimeline = { version: 1, tracks: [{ id: 'v1', kind: 'video', clips: [clip('a', 0, 2), clip('b', 5, 2)] }] }
+    expect(() => rollEdit(gap, 'v1', 'a', 'b', 1)).toThrow(TimelineOpError)
+    // left source has 5s total; trimStart 0, speed 1 → max duration 5; delta 2 needs 6
+    expect(() => rollEdit(rollTimeline(), 'v1', 'a', 'b', 2)).toThrow(TimelineOpError)
+    // right trimStart 2 with speed 2 → rolling left past -1s rewinds below source start
+    expect(() => rollEdit(rollTimeline(), 'v1', 'a', 'b', -1.5)).toThrow(TimelineOpError)
+    expect(() => rollEdit(rollTimeline(), 'v1', 'a', 'b', 3)).toThrow(TimelineOpError)
+    expect(() => rollEdit(rollTimeline(), 'v1', 'a', 'b', -4)).toThrow(TimelineOpError)
+  })
+})
+
+describe('slipClip', () => {
+  it('slips the source window without moving the clip', () => {
+    const timeline: EditorTimeline = {
+      version: 1,
+      tracks: [{
+        id: 'v1',
+        kind: 'video',
+        clips: [clip('a', 3, 4, { trimStart: 2, speed: 2, media: { type: 'upload', fileId: 'file-a', url: 'https://x.test/a.mp4', mediaKind: 'video', sourceDuration: 20 } })],
+      }],
+    }
+    const next = slipClip(timeline, 'v1', 'a', 1.5)
+    expect(next.tracks[0].clips[0]).toMatchObject({ timelineStart: 3, duration: 4, trimStart: 5 })
+  })
+
+  it('rejects slips past the source bounds and slips on text clips', () => {
+    const timeline: EditorTimeline = {
+      version: 1,
+      tracks: [{
+        id: 'v1',
+        kind: 'video',
+        clips: [clip('a', 0, 4, { trimStart: 1, media: { type: 'upload', fileId: 'file-a', url: 'https://x.test/a.mp4', mediaKind: 'video', sourceDuration: 6 } })],
+      }],
+    }
+    expect(() => slipClip(timeline, 'v1', 'a', -2)).toThrow(TimelineOpError)   // trimStart -1
+    expect(() => slipClip(timeline, 'v1', 'a', 2)).toThrow(TimelineOpError)    // 3 + 4 > 6
+    const text: EditorTimeline = {
+      version: 1,
+      tracks: [{ id: 't1', kind: 'text', clips: [{ id: 'x', timelineStart: 0, duration: 2, text: { content: 'Hi', fontSizePx: 48, color: '#fff', align: 'center', animationPreset: 'none' } }] }],
+    }
+    expect(() => slipClip(text, 't1', 'x', 1)).toThrow(TimelineOpError)
   })
 })
