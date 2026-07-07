@@ -10,6 +10,8 @@ import {
   removeClipGroup,
   removeTrack,
   reorderTracks,
+  rippleDeleteClip,
+  rippleTrimClip,
   setClipGroup,
   splitClip,
   trimClip,
@@ -212,5 +214,75 @@ describe('linked clip groups', () => {
     expect(removed.tracks[0].clips.map((c) => c.id)).toEqual(['b'])
     expect(removed.tracks[1].clips).toHaveLength(0)
     expect(() => removeClipGroup(groupedTimeline(), 'missing-group')).toThrow(TimelineOpError)
+  })
+})
+
+function rippleTimeline(): EditorTimeline {
+  return {
+    version: 1,
+    tracks: [
+      { id: 'v1', kind: 'video', clips: [clip('a', 0, 4), clip('b', 4, 3), clip('c', 9, 2)] },
+      { id: 'v2', kind: 'video', clips: [clip('x', 5, 2)] },
+      { id: 'a1', kind: 'audio', locked: true, clips: [clip('m', 4, 6, { media: { type: 'upload', fileId: 'file-m', url: 'https://x.test/m.mp3', mediaKind: 'audio' } })] },
+    ],
+  }
+}
+
+describe('rippleDeleteClip', () => {
+  it('removes the clip and closes the gap on every unlocked track', () => {
+    const next = rippleDeleteClip(rippleTimeline(), 'v1', 'a')
+    // downstream of removedEnd=4 shifts left by 4
+    expect(next.tracks[0].clips.map((c) => [c.id, c.timelineStart])).toEqual([['b', 0], ['c', 5]])
+    expect(next.tracks[1].clips[0].timelineStart).toBe(1) // x: 5 -> 1
+    expect(next.tracks[2].clips[0].timelineStart).toBe(4) // locked track untouched
+  })
+
+  it('leaves clips that overlap the removed span and throws on collisions', () => {
+    const timeline: EditorTimeline = {
+      version: 1,
+      tracks: [
+        { id: 'v1', kind: 'video', clips: [clip('a', 2, 4), clip('b', 6, 2)] },
+        { id: 'v2', kind: 'video', clips: [clip('spanning', 0, 8), clip('later', 8, 4)] },
+      ],
+    }
+    // deleting a (span 2-6, duration 4): 'later' would shift 8->4, colliding with 'spanning' (0-8)
+    expect(() => rippleDeleteClip(timeline, 'v1', 'a')).toThrow(TimelineOpError)
+  })
+
+  it('supports single-track mode', () => {
+    const next = rippleDeleteClip(rippleTimeline(), 'v1', 'a', { allTracks: false })
+    expect(next.tracks[0].clips.map((c) => [c.id, c.timelineStart])).toEqual([['b', 0], ['c', 5]])
+    expect(next.tracks[1].clips[0].timelineStart).toBe(5) // v2 untouched
+  })
+})
+
+describe('rippleTrimClip', () => {
+  it('end-trim shorter pulls downstream clips left on all unlocked tracks', () => {
+    const next = rippleTrimClip(rippleTimeline(), 'v1', 'a', { edge: 'end', deltaSeconds: -1 })
+    expect(next.tracks[0].clips.map((c) => [c.id, c.timelineStart, c.duration])).toEqual([['a', 0, 3], ['b', 3, 3], ['c', 8, 2]])
+    expect(next.tracks[1].clips[0].timelineStart).toBe(4)
+    expect(next.tracks[2].clips[0].timelineStart).toBe(4) // locked
+  })
+
+  it('end-trim longer pushes downstream clips right', () => {
+    const next = rippleTrimClip(rippleTimeline(), 'v1', 'b', { edge: 'end', deltaSeconds: 2 })
+    expect(next.tracks[0].clips.map((c) => [c.id, c.timelineStart])).toEqual([['a', 0], ['b', 4], ['c', 11]])
+    // x starts at 5 < oldEnd 7, so it stays
+    expect(next.tracks[1].clips[0].timelineStart).toBe(5)
+  })
+
+  it('start-trim keeps timelineStart, advances trimStart, and closes the gap downstream', () => {
+    const timeline: EditorTimeline = {
+      version: 1,
+      tracks: [{ id: 'v1', kind: 'video', clips: [clip('a', 0, 4, { trimStart: 1, speed: 2 }), clip('b', 4, 3)] }],
+    }
+    const next = rippleTrimClip(timeline, 'v1', 'a', { edge: 'start', deltaSeconds: 1 })
+    expect(next.tracks[0].clips[0]).toMatchObject({ id: 'a', timelineStart: 0, duration: 3, trimStart: 3 })
+    expect(next.tracks[0].clips[1].timelineStart).toBe(3)
+  })
+
+  it('rejects trims that remove the clip or rewind the source', () => {
+    expect(() => rippleTrimClip(rippleTimeline(), 'v1', 'a', { edge: 'end', deltaSeconds: -4 })).toThrow(TimelineOpError)
+    expect(() => rippleTrimClip(rippleTimeline(), 'v1', 'a', { edge: 'start', deltaSeconds: -1 })).toThrow(TimelineOpError)
   })
 })

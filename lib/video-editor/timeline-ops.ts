@@ -278,3 +278,80 @@ export function removeClipGroup(timeline: EditorTimeline, groupId: string): Edit
   }
   return next
 }
+
+/**
+ * Shift every clip starting at/after `fromSeconds` by `deltaSeconds` on every
+ * unlocked track (or only `onlyTrackId` when given). Throws atomically if any
+ * shifted clip would start below zero or overlap a stationary clip.
+ */
+function shiftDownstream(
+  timeline: EditorTimeline,
+  fromSeconds: number,
+  deltaSeconds: number,
+  options: { onlyTrackId?: string; excludeClipIds?: Set<string> } = {},
+): void {
+  if (Math.abs(deltaSeconds) < EPSILON) return
+  for (const track of timeline.tracks) {
+    if (track.locked) continue
+    if (options.onlyTrackId && track.id !== options.onlyTrackId) continue
+    for (const clip of track.clips) {
+      if (options.excludeClipIds?.has(clip.id)) continue
+      if (clip.timelineStart >= fromSeconds - EPSILON) {
+        const start = clip.timelineStart + deltaSeconds
+        if (start < -EPSILON) throw new TimelineOpError(`Ripple would push clip '${clip.id}' before the timeline start.`)
+        clip.timelineStart = round3(Math.max(0, start))
+      }
+    }
+    assertNoOverlap(track)
+  }
+}
+
+export function rippleDeleteClip(
+  timeline: EditorTimeline,
+  trackId: string,
+  clipId: string,
+  options: { allTracks?: boolean } = {},
+): EditorTimeline {
+  const allTracks = options.allTracks !== false
+  const next = cloneTimeline(timeline)
+  const track = findTrack(next, trackId)
+  const clip = findClip(track, clipId)
+  const removedEnd = clip.timelineStart + clip.duration
+  track.clips = track.clips.filter((item) => item.id !== clipId)
+  shiftDownstream(next, removedEnd, -clip.duration, allTracks ? {} : { onlyTrackId: trackId })
+  return next
+}
+
+export function rippleTrimClip(
+  timeline: EditorTimeline,
+  trackId: string,
+  clipId: string,
+  options: { edge: 'start' | 'end'; deltaSeconds: number; allTracks?: boolean },
+): EditorTimeline {
+  const allTracks = options.allTracks !== false
+  const next = cloneTimeline(timeline)
+  const track = findTrack(next, trackId)
+  const clip = findClip(track, clipId)
+  const speed = clip.speed && clip.speed > 0 ? clip.speed : 1
+  const oldEnd = clip.timelineStart + clip.duration
+  const sweep = allTracks ? {} : { onlyTrackId: trackId }
+
+  if (options.edge === 'end') {
+    const duration = clip.duration + options.deltaSeconds
+    if (!(duration > EPSILON)) throw new TimelineOpError('Trim would remove the whole clip.')
+    clip.duration = round3(duration)
+    shiftDownstream(next, oldEnd, options.deltaSeconds, { ...sweep, excludeClipIds: new Set([clipId]) })
+  } else {
+    // Ripple in-trim: the in-point advances, the clip stays anchored at its
+    // timelineStart, and everything downstream closes the gap.
+    const duration = clip.duration - options.deltaSeconds
+    const trimStart = (clip.trimStart ?? 0) + options.deltaSeconds * speed
+    if (!(duration > EPSILON)) throw new TimelineOpError('Trim would remove the whole clip.')
+    if (trimStart < -EPSILON) throw new TimelineOpError('Trim would rewind before the source start.')
+    clip.duration = round3(duration)
+    clip.trimStart = round3(Math.max(0, trimStart))
+    shiftDownstream(next, oldEnd, -options.deltaSeconds, { ...sweep, excludeClipIds: new Set([clipId]) })
+  }
+  assertNoOverlap(track)
+  return next
+}
