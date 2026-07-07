@@ -4739,7 +4739,14 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
             nodes: canvas.nodes,
             edges: canvas.edges,
           }))}
-          templates={templates.map((template) => ({ id: template.id, title: template.title, description: template.description, thumbnailUrl: template.thumbnailUrl }))}
+          templates={templates.map((template) => ({
+            id: template.id,
+            title: template.title,
+            description: template.description,
+            thumbnailUrl: template.thumbnailUrl,
+            nodes: template.nodes,
+            edges: template.edges,
+          }))}
           onCreate={() => { void createBlankCanvas() }}
           onRenameBoard={(id, nextTitle) => { void renameCanvasById(id, nextTitle) }}
           onDeleteBoard={(id) => { void deleteCanvasById(id) }}

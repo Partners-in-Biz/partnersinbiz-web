@@ -21,6 +21,8 @@ export interface CanvasTemplateSummary {
   title: string
   description?: string
   thumbnailUrl?: string
+  nodes?: CreativeCanvasNode[]
+  edges?: CreativeCanvasEdge[]
 }
 
 export interface CanvasLandingProps {
@@ -70,6 +72,13 @@ function isHttpUrl(value: unknown): value is string {
 function deriveBoardThumbnail(board: CanvasBoardSummary): string | undefined {
   if (isHttpUrl(board.thumbnailUrl)) return board.thumbnailUrl
   return board.nodes
+    ?.map((node) => node.output?.thumbnailUrl ?? node.output?.url ?? node.source?.thumbnailUrl ?? node.source?.previewUrl ?? node.source?.url)
+    .find(isHttpUrl)
+}
+
+function deriveTemplateThumbnail(template: CanvasTemplateSummary): string | undefined {
+  if (isHttpUrl(template.thumbnailUrl)) return template.thumbnailUrl
+  return template.nodes
     ?.map((node) => node.output?.thumbnailUrl ?? node.output?.url ?? node.source?.thumbnailUrl ?? node.source?.previewUrl ?? node.source?.url)
     .find(isHttpUrl)
 }
@@ -155,6 +164,19 @@ function BoardGraphPreview({ board }: { board: CanvasBoardSummary }) {
         )
       })}
     </div>
+  )
+}
+
+function TemplateGraphPreview({ template }: { template: CanvasTemplateSummary }) {
+  return (
+    <BoardGraphPreview
+      board={{
+        id: template.id,
+        title: template.title,
+        nodes: template.nodes,
+        edges: template.edges,
+      }}
+    />
   )
 }
 
@@ -444,6 +466,8 @@ export default function CanvasLanding({
                     id={template.id ?? ''}
                     title={template.title}
                     description={template.description}
+                    nodes={template.nodes}
+                    edges={template.edges}
                     isStarter
                     onUseTemplate={onUseTemplate}
                   />
@@ -479,6 +503,8 @@ export default function CanvasLanding({
                       title={template.title}
                       description={template.description}
                       thumbnailUrl={template.thumbnailUrl}
+                      nodes={template.nodes}
+                      edges={template.edges}
                       onUseTemplate={onUseTemplate}
                     />
                   ))}
@@ -521,11 +547,16 @@ interface TemplateCardProps {
   title: string
   description?: string
   thumbnailUrl?: string
+  nodes?: CreativeCanvasNode[]
+  edges?: CreativeCanvasEdge[]
   isStarter?: boolean
   onUseTemplate: (id: string) => void
 }
 
-function TemplateCard({ id, title, description, thumbnailUrl, isStarter, onUseTemplate }: TemplateCardProps) {
+function TemplateCard({ id, title, description, thumbnailUrl, nodes, edges, isStarter, onUseTemplate }: TemplateCardProps) {
+  const template = { id, title, description, thumbnailUrl, nodes, edges }
+  const derivedThumbnail = deriveTemplateThumbnail(template)
+
   return (
     <button
       type="button"
@@ -566,11 +597,11 @@ function TemplateCard({ id, title, description, thumbnailUrl, isStarter, onUseTe
           Starter
         </span>
       )}
-      {thumbnailUrl ? (
+      {derivedThumbnail ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={thumbnailUrl} alt="" style={thumbStyle} />
+        <img src={derivedThumbnail} alt="" style={thumbStyle} />
       ) : (
-        <div style={placeholderStyle} aria-hidden="true" />
+        <TemplateGraphPreview template={template} />
       )}
       <div>
         <div style={{ fontSize: '15px', fontWeight: 600 }}>{title}</div>
@@ -579,6 +610,28 @@ function TemplateCard({ id, title, description, thumbnailUrl, isStarter, onUseTe
             {description}
           </div>
         )}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: '8px', alignItems: 'center' }}>
+          <span style={{ fontSize: '12px', color: canvasTheme.textMuted }}>
+            {(nodes?.length ?? 0) > 0
+              ? `${nodes?.length ?? 0} nodes · ${edges?.length ?? 0} links`
+              : 'Empty template'}
+          </span>
+          {buildTypeSummary(nodes).map((label) => (
+            <span
+              key={label}
+              style={{
+                fontSize: '11px',
+                color: canvasTheme.text,
+                border: `1px solid ${canvasTheme.border}`,
+                background: canvasTheme.surfaceRaised,
+                borderRadius: 999,
+                padding: '2px 6px',
+              }}
+            >
+              {label}
+            </span>
+          ))}
+        </div>
       </div>
     </button>
   )

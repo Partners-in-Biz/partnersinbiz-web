@@ -32,7 +32,51 @@ const boards = [{
     targetNodeId: 'n2',
   }],
 }]
-const templates = [{ id: 't1', title: 'Product Photoshoot', description: 'Studio-grade shots' }]
+const templates = [{
+  id: 't1',
+  title: 'Product Photoshoot',
+  description: 'Studio-grade shots',
+  nodes: [
+    {
+      id: 'tn1',
+      orgId: 'org-1',
+      type: 'source',
+      title: 'Product source',
+      position: { x: 0, y: 0 },
+      data: {},
+    },
+    {
+      id: 'tn2',
+      orgId: 'org-1',
+      type: 'prompt',
+      title: 'Styling prompt',
+      position: { x: 260, y: 0 },
+      data: {},
+    },
+    {
+      id: 'tn3',
+      orgId: 'org-1',
+      type: 'model',
+      title: 'Hero render',
+      position: { x: 520, y: 0 },
+      data: {},
+    },
+  ],
+  edges: [
+    {
+      id: 'te1',
+      orgId: 'org-1',
+      sourceNodeId: 'tn1',
+      targetNodeId: 'tn2',
+    },
+    {
+      id: 'te2',
+      orgId: 'org-1',
+      sourceNodeId: 'tn2',
+      targetNodeId: 'tn3',
+    },
+  ],
+}]
 
 test('All Canvases tab: tabs render, create control fires, board card opens', () => {
   const onCreate = jest.fn()
@@ -92,6 +136,25 @@ test('Templates tab: clicking tab shows template, clicking it uses template', ()
 
   fireEvent.click(screen.getByText('Product Photoshoot'))
   expect(onUseTemplate).toHaveBeenCalledWith('t1')
+})
+
+test('Templates tab: saved templates show graph previews and node summaries', () => {
+  render(
+    <CanvasLanding
+      boards={boards}
+      templates={templates}
+      onCreate={jest.fn()}
+      onOpenBoard={jest.fn()}
+      onUseTemplate={jest.fn()}
+    />
+  )
+
+  fireEvent.click(screen.getByRole('button', { name: 'Templates' }))
+
+  expect(screen.getAllByText(/3 nodes .* 2 links/).length).toBeGreaterThan(0)
+  expect(screen.getAllByText('Source').length).toBeGreaterThan(0)
+  expect(screen.getAllByText('Prompt').length).toBeGreaterThan(0)
+  expect(screen.getAllByText('Model').length).toBeGreaterThan(0)
 })
 
 test('board rename action commits a new title', () => {
@@ -161,6 +224,8 @@ test('Templates tab: starter templates render above saved templates and are clic
   }
   const starterBadges = screen.getAllByText('Starter')
   expect(starterBadges.length).toBe(starterCanvasTemplates.length)
+  expect(screen.getAllByLabelText(/node canvas preview/).length).toBeGreaterThanOrEqual(starterCanvasTemplates.length)
+  expect(screen.getAllByText(/3 nodes .* 2 links/).length).toBeGreaterThan(0)
 
   const firstStarter = starterCanvasTemplates[0]
   fireEvent.click(screen.getByText(firstStarter.title))
