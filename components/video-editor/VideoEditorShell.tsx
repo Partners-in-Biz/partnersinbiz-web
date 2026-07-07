@@ -605,7 +605,16 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
       {notice ? <div className="rounded-lg border border-[var(--color-pib-line)] p-3 text-sm text-on-surface-variant">{notice}</div> : null}
       <div className="grid gap-4 xl:grid-cols-[320px_1fr_320px]">
         <div className="space-y-4">
-          <MediaLibraryPanel orgId={orgId} sources={sources} mediaPreviews={mediaPreviews} onRefresh={loadSources} onAddClip={addMediaClip} onSourceUploaded={addUploadedSource} />
+          <MediaLibraryPanel
+            orgId={orgId}
+            projectId={project.id}
+            canvasId={project.canvasId}
+            sources={sources}
+            mediaPreviews={mediaPreviews}
+            onRefresh={loadSources}
+            onAddClip={addMediaClip}
+            onSourceUploaded={addUploadedSource}
+          />
           <TemplateBrowserPanel
             orgId={orgId}
             channelWorkspaceId={project.channelWorkspaceId}
