@@ -21,7 +21,7 @@ describe('TtsPanel', () => {
     fireEvent.change(screen.getByLabelText(/voiceover script/i), {
       target: { value: 'First section.\n\nSecond section.' },
     })
-    fireEvent.change(screen.getByLabelText(/voice/i), { target: { value: 'el-rachel' } })
+    fireEvent.change(screen.getByLabelText('Voice'), { target: { value: 'el-rachel' } })
     fireEvent.click(screen.getByRole('button', { name: /generate voiceover/i }))
     await waitFor(() =>
       expect(onGenerate).toHaveBeenCalledWith({
