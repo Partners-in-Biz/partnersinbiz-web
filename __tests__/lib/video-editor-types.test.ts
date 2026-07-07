@@ -12,6 +12,13 @@ import {
   emptyEditorTimeline,
 } from '@/lib/video-editor/types'
 import type { EditorClip, EditorTimeline, VideoEditorProject, VideoEditorRenderJob } from '@/lib/video-editor/types'
+import {
+  EDITOR_KEYFRAME_EASINGS,
+  MEDIA_PREVIEW_STATUSES,
+  SPEED_RAMP_PRESET_IDS,
+  VIDEO_EDITOR_PREVIEW_COLLECTIONS,
+} from '@/lib/video-editor/types'
+import type { EditorKeyframe, VideoEditorMediaPreview, VideoEditorProxyLedgerEntry } from '@/lib/video-editor/types'
 
 describe('video editor types', () => {
   it('exposes the spec enums', () => {
@@ -68,5 +75,46 @@ describe('video editor types', () => {
     }
     expect(project.timeline?.tracks[0].clips[0].id).toBe('c1')
     expect(job.status).toBe('queued')
+  })
+})
+
+describe('phase 1a type surface', () => {
+  it('exposes bezier easing and ramp preset ids', () => {
+    expect(EDITOR_KEYFRAME_EASINGS).toEqual(['linear', 'ease_in', 'ease_out', 'ease_in_out', 'bezier'])
+    expect(SPEED_RAMP_PRESET_IDS).toEqual(['montage', 'hero_time', 'flash_in', 'flash_out', 'bullet'])
+    expect(MEDIA_PREVIEW_STATUSES).toEqual(['pending', 'processing', 'ready', 'failed', 'skipped'])
+    expect(VIDEO_EDITOR_PREVIEW_COLLECTIONS).toEqual({
+      mediaPreviews: 'video_editor_media_previews',
+      proxyLedger: 'video_editor_proxy_ledger',
+    })
+  })
+
+  it('type-checks a grouped clip with a bezier keyframe and preview records', () => {
+    const keyframe: EditorKeyframe = {
+      property: 'transform.opacity',
+      atSeconds: 1,
+      value: 0.5,
+      easing: 'bezier',
+      bezier: [0.3, 0, 0.7, 1],
+    }
+    const clip: EditorClip = { id: 'c', timelineStart: 0, duration: 2, groupId: 'grp-1', keyframes: [keyframe] }
+    expect(clip.groupId).toBe('grp-1')
+
+    const preview: VideoEditorMediaPreview = {
+      orgId: 'org1',
+      mediaKey: 'upload:f1',
+      sourceUrl: 'https://x.test/a.mp4',
+      mediaKind: 'video',
+      status: 'ready',
+      waveform: { url: 'https://x.test/w.json', storagePath: 'p/w.json', peaksPerSecond: 20, peakCount: 100 },
+      filmstrip: { url: 'https://x.test/f.jpg', storagePath: 'p/f.jpg', frameIntervalSeconds: 2, frameWidth: 160, frameHeight: 90, frameCount: 10 },
+      proxy: { url: 'https://x.test/p.mp4', storagePath: 'p/p.mp4', sizeBytes: 1000, width: 960, height: 540 },
+      deleted: false,
+    }
+    const ledger: VideoEditorProxyLedgerEntry = {
+      orgId: 'org1', mediaKey: 'upload:f1', previewId: 'pv1', storagePath: 'p/p.mp4', sizeBytes: 1000,
+    }
+    expect(preview.status).toBe('ready')
+    expect(ledger.sizeBytes).toBe(1000)
   })
 })
