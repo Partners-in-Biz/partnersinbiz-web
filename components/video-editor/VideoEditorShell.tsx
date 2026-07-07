@@ -8,7 +8,8 @@ import {
 } from '@/lib/video-editor/timeline-ops'
 import { defaultVideoEditorSettings } from '@/lib/video-editor/types'
 import { mediaKeyForRef } from '@/lib/video-editor/media-previews'
-import type { EditorClip, EditorTimeline, EditorTrackKind, MediaRef, VideoEditorMediaPreview, VideoEditorProject, VideoEditorRenderJob } from '@/lib/video-editor/types'
+import type { EditorClip, EditorTimeline, EditorTrack, EditorTrackKind, MediaRef, VideoEditorMediaPreview, VideoEditorProject, VideoEditorRenderJob } from '@/lib/video-editor/types'
+import { AudioMixerPanel } from './AudioMixerPanel'
 import { CaptionsPanel, type CaptionsPanelTranscriptOption } from './CaptionsPanel'
 import { ExportDialog } from './ExportDialog'
 import { InspectorPanel } from './InspectorPanel'
@@ -274,6 +275,13 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
     void persist(next)
   }
 
+  function patchTrack(trackId: string, patch: Partial<EditorTrack>) {
+    void persist({
+      ...timeline,
+      tracks: timeline.tracks.map((track) => (track.id === trackId ? { ...track, ...patch } : track)),
+    })
+  }
+
   function runOp(op: () => EditorTimeline, failure: string) {
     try { void persist(op()) } catch (error) { setNotice(error instanceof Error ? error.message : failure) }
   }
@@ -458,6 +466,7 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
             onAddTrack={(kind: EditorTrackKind) => void persist(addTrack(timeline, { kind, label: kind }))}
             onAddTextClip={addTextClip}
           />
+          <AudioMixerPanel timeline={timeline} onPatchTrack={patchTrack} />
         </div>
         <div className="space-y-4">
           <div role="tablist" aria-label="Right panel" className="flex gap-1 rounded-lg border border-[var(--color-pib-line)] p-1">
