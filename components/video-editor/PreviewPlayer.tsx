@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { clipTransformAt, clipVolumeAt } from '@/lib/video-editor/keyframes'
 import { mediaKeyForRef } from '@/lib/video-editor/media-previews'
+import { effectsToCssFilter } from '@/lib/video-editor/preview-filters'
 import { sourceOffsetAt, speedAt } from '@/lib/video-editor/speed-ramps'
 import type { EditorClip, EditorTimeline, EditorTrack, VideoEditorMediaPreview, VideoEditorProjectSettings } from '@/lib/video-editor/types'
 
@@ -84,6 +85,7 @@ export function PreviewPlayer({
         ) : null}
         {visible.map(({ track, clip, clipSeconds }) => {
           const transform = clipTransformAt(clip, clipSeconds)
+          const filter = effectsToCssFilter(clip.effects)
           const style: React.CSSProperties = {
             transform: [
               `translate(-50%, -50%)`,
@@ -92,6 +94,7 @@ export function PreviewPlayer({
               `rotate(${transform.rotation}deg)`,
             ].join(' '),
             opacity: transform.opacity,
+            filter: filter || undefined,
           }
           if (clip.media) {
             const key = mediaKeyForRef(clip.media)

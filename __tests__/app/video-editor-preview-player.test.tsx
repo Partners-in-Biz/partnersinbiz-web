@@ -14,6 +14,7 @@ const timeline: EditorTimeline = {
       clips: [{
         id: 'c1', timelineStart: 0, duration: 4, trimStart: 1,
         media: { type: 'upload', fileId: 'f1', url: 'https://x.test/original.mp4', mediaKind: 'video' },
+        effects: [{ kind: 'color_adjust', params: { brightness: 0.2, contrast: 1, saturation: 1, temperature: 6500, hue: 0 } }],
         keyframes: [
           { property: 'transform.opacity', atSeconds: 0, value: 1 },
           { property: 'transform.opacity', atSeconds: 4, value: 0 },
@@ -53,5 +54,11 @@ describe('PreviewPlayer', () => {
     render(<PreviewPlayer timeline={timeline} settings={settings} mediaPreviews={{}} playheadSeconds={1} playing={false} onPlayToggle={jest.fn()} onSeek={jest.fn()} />)
     expect((screen.getByTestId('preview-video-c1') as HTMLVideoElement).src).toBe('https://x.test/original.mp4')
     expect(screen.getByText('Hello')).toBeInTheDocument()
+  })
+
+  it('applies CSS preview filters only to the clip wrapper that owns the effect stack', () => {
+    render(<PreviewPlayer timeline={timeline} settings={settings} mediaPreviews={previews} playheadSeconds={1} playing={false} onPlayToggle={jest.fn()} onSeek={jest.fn()} />)
+    expect(screen.getByTestId('preview-video-c1').parentElement?.style.filter).toBe('brightness(1.2)')
+    expect(screen.getByText('Hello').parentElement?.style.filter).toBe('')
   })
 })

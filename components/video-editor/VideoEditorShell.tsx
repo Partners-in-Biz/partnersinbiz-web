@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { scopedApiPath } from '@/lib/portal/scoped-routing'
+import { timelineBeatPositions } from '@/lib/video-editor/beat-snapping'
 import {
   addClip, addTrack, clearClipGroup, moveClip, moveClipGroup, removeClip, removeClipGroup,
-  rippleDeleteClip, rippleTrimClip, rollEdit, setClipGroup, slipClip, splitClip, trimClip,
+  rippleDeleteClip, rippleTrimClip, rollEdit, setClipGroup, slipClip, snapToBeats, splitClip, trimClip,
 } from '@/lib/video-editor/timeline-ops'
 import { defaultVideoEditorSettings } from '@/lib/video-editor/types'
 import { mediaKeyForRef } from '@/lib/video-editor/media-previews'
@@ -20,6 +21,7 @@ import { TtsPanel, type TtsGenerateRequest, type TtsVoiceOption } from './TtsPan
 import { useTimelineHistory } from './useTimelineHistory'
 
 type RightPanelTab = 'inspector' | 'captions' | 'voiceover'
+type BeatCacheEntry = { status: 'pending' | 'ready' | 'failed'; beats: number[]; checkedAt: number }
 
 const emptyTimeline: EditorTimeline = { version: 1, tracks: [] }
 const DEFAULT_TEXT_CLIP_DURATION = 5
@@ -42,6 +44,8 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
   const [timeline, setTimeline] = useState<EditorTimeline>(emptyTimeline)
   const [selection, setSelection] = useState<TimelineSelection>([])
   const [editMode, setEditMode] = useState<TimelineEditMode>('select')
+  const [snapBeats, setSnapBeats] = useState(false)
+  const [beatsByUpload, setBeatsByUpload] = useState<Record<string, BeatCacheEntry>>({})
   const [playhead, setPlayhead] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [pxPerSecond, setPxPerSecond] = useState(60)
@@ -127,6 +131,60 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
     const track = timeline.tracks.find((item) => item.id === first.trackId)
     return track?.clips.find((clip) => clip.id === first.clipId) ?? null
   }, [selection, timeline])
+
+  useEffect(() => {
+    if (!snapBeats || !orgId) return
+    let cancelled = false
+
+    function uploadIdsForTimeline() {
+      const uploadIds = new Set<string>()
+      for (const track of timeline.tracks) {
+        for (const clip of track.clips) {
+          if (clip.media?.type === 'upload') uploadIds.add(clip.media.fileId)
+        }
+      }
+      return uploadIds
+    }
+
+    async function refreshBeatMarkers() {
+      const now = Date.now()
+      for (const uploadId of uploadIdsForTimeline()) {
+        const cached = beatsByUpload[uploadId]
+        if (cached?.status === 'ready') continue
+        if (cached && now - cached.checkedAt < 4500) continue
+        try {
+          const res = await fetch(scopedApiPath(`/api/v1/video-editor/media/${uploadId}/beats`, apiScope))
+          const body = await res.json().catch(() => ({}))
+          if (!res.ok || cancelled) continue
+          const status = typeof body.data?.status === 'string' ? body.data.status : 'none'
+          const beats = Array.isArray(body.data?.beats)
+            ? body.data.beats.filter((beat: unknown): beat is number => typeof beat === 'number' && Number.isFinite(beat))
+            : []
+          if (status === 'analyzed') {
+            setBeatsByUpload((current) => ({ ...current, [uploadId]: { status: 'ready', beats, checkedAt: now } }))
+          } else if (status === 'none') {
+            setBeatsByUpload((current) => ({ ...current, [uploadId]: { status: 'pending', beats: [], checkedAt: now } }))
+            const post = await fetch(scopedApiPath(`/api/v1/video-editor/media/${uploadId}/beats`, apiScope), { method: 'POST' })
+            if (!post.ok && !cancelled) {
+              setBeatsByUpload((current) => ({ ...current, [uploadId]: { status: 'failed', beats: [], checkedAt: Date.now() } }))
+            }
+          } else {
+            setBeatsByUpload((current) => ({ ...current, [uploadId]: { status: status === 'failed' ? 'failed' : 'pending', beats: [], checkedAt: now } }))
+          }
+        } catch {
+          if (!cancelled) setBeatsByUpload((current) => ({ ...current, [uploadId]: { status: 'failed', beats: [], checkedAt: Date.now() } }))
+        }
+      }
+    }
+
+    void refreshBeatMarkers()
+    const timer = window.setInterval(() => void refreshBeatMarkers(), 5000)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapBeats, timeline, orgId, beatsByUpload])
 
   async function loadProject() {
     const res = await fetch(scopedApiPath(`/api/v1/video-editor/projects/${projectId}`, apiScope))
@@ -306,8 +364,15 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
   function handleMoveClip(trackId: string, clipId: string, toStart: number) {
     const track = timeline.tracks.find((item) => item.id === trackId)
     const clip = track?.clips.find((item) => item.id === clipId)
-    if (clip?.groupId) runOp(() => moveClipGroup(timeline, clip.groupId!, toStart - clip.timelineStart), 'Could not move linked clips')
-    else runOp(() => moveClip(timeline, trackId, clipId, { toStart }), 'Could not move clip')
+    const readyBeats = Object.fromEntries(
+      Object.entries(beatsByUpload)
+        .filter(([, entry]) => entry.status === 'ready')
+        .map(([uploadId, entry]) => [uploadId, entry.beats]),
+    )
+    const allBeats = snapBeats ? timelineBeatPositions(timeline, readyBeats) : []
+    const snapped = allBeats.length ? snapToBeats(toStart, allBeats) : toStart
+    if (clip?.groupId) runOp(() => moveClipGroup(timeline, clip.groupId!, snapped - clip.timelineStart), 'Could not move linked clips')
+    else runOp(() => moveClip(timeline, trackId, clipId, { toStart: snapped }), 'Could not move clip')
   }
 
   function handleLinkSelection() {
@@ -430,6 +495,7 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
         <div className="flex gap-2">
           <button type="button" className="pib-btn-ghost text-sm" disabled={!history.canUndo} onClick={() => setTimeline(history.undo())}>Undo</button>
           <button type="button" className="pib-btn-ghost text-sm" disabled={!history.canRedo} onClick={() => setTimeline(history.redo())}>Redo</button>
+          <button type="button" className={snapBeats ? 'pib-btn-primary text-sm' : 'pib-btn-ghost text-sm'} onClick={() => setSnapBeats((value) => !value)}>Snap to beat</button>
         </div>
       </div>
       {notice ? <div className="rounded-lg border border-[var(--color-pib-line)] p-3 text-sm text-on-surface-variant">{notice}</div> : null}
