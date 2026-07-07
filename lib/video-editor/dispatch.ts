@@ -3,6 +3,7 @@ import type { EditorTimeline, VideoEditorProjectSettings } from './types'
 export interface VideoEditorRuntimeConfig {
   submitUrl?: string
   previewSubmitUrl?: string
+  beatSubmitUrl?: string
   apiKey?: string
   callbackBaseUrl?: string
 }
@@ -17,9 +18,12 @@ export function videoEditorRuntimeConfigFromEnv(env: NodeJS.ProcessEnv = process
   const submitUrl = cleanString(env.VIDEO_EDITOR_RUNTIME_SUBMIT_URL) ?? (baseUrl ? `${baseUrl}/video-editor/renders` : undefined)
   const previewSubmitUrl = cleanString(env.VIDEO_EDITOR_PREVIEW_SUBMIT_URL)
     ?? (baseUrl ? `${baseUrl}/video-editor/media-previews` : undefined)
+  const beatSubmitUrl = cleanString(env.VIDEO_EDITOR_BEATS_SUBMIT_URL)
+    ?? (baseUrl ? `${baseUrl}/video-editor/analyze-beats` : undefined)
   return {
     ...(submitUrl ? { submitUrl } : {}),
     ...(previewSubmitUrl ? { previewSubmitUrl } : {}),
+    ...(beatSubmitUrl ? { beatSubmitUrl } : {}),
     ...(cleanString(env.HIGGSFIELD_RUNTIME_API_KEY) ? { apiKey: cleanString(env.HIGGSFIELD_RUNTIME_API_KEY) } : {}),
     ...(appUrl ? { callbackBaseUrl: appUrl } : {}),
   }

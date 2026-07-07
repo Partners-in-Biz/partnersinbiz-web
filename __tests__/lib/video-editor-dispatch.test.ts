@@ -30,12 +30,16 @@ describe('videoEditorRuntimeConfigFromEnv', () => {
     } as NodeJS.ProcessEnv)).toEqual({
       submitUrl: 'https://vps.test/higgsfield-executor/video-editor/renders',
       previewSubmitUrl: 'https://vps.test/higgsfield-executor/video-editor/media-previews',
+      beatSubmitUrl: 'https://vps.test/higgsfield-executor/video-editor/analyze-beats',
       apiKey: 'key-1',
       callbackBaseUrl: 'https://partnersinbiz.online',
     })
     expect(videoEditorRuntimeConfigFromEnv({
       VIDEO_EDITOR_RUNTIME_SUBMIT_URL: 'https://other.test/renders',
     } as NodeJS.ProcessEnv).submitUrl).toBe('https://other.test/renders')
+    expect(videoEditorRuntimeConfigFromEnv({
+      VIDEO_EDITOR_BEATS_SUBMIT_URL: 'https://other.test/beats',
+    } as NodeJS.ProcessEnv).beatSubmitUrl).toBe('https://other.test/beats')
     expect(videoEditorRuntimeConfigFromEnv({} as NodeJS.ProcessEnv).submitUrl).toBeUndefined()
   })
 })

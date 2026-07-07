@@ -15,6 +15,7 @@ import {
   rollEdit,
   setClipGroup,
   slipClip,
+  snapToBeats,
   splitClip,
   trimClip,
 } from '@/lib/video-editor/timeline-ops'
@@ -358,5 +359,17 @@ describe('slipClip', () => {
       tracks: [{ id: 't1', kind: 'text', clips: [{ id: 'x', timelineStart: 0, duration: 2, text: { content: 'Hi', fontSizePx: 48, color: '#fff', align: 'center', animationPreset: 'none' } }] }],
     }
     expect(() => slipClip(text, 't1', 'x', 1)).toThrow(TimelineOpError)
+  })
+})
+
+describe('snapToBeats', () => {
+  it('snaps to the nearest beat inside the threshold, passes through otherwise', () => {
+    const beats = [0, 0.5, 1.0, 1.52]
+
+    expect(snapToBeats(0.48, beats)).toBe(0.5)
+    expect(snapToBeats(1.6, beats)).toBe(1.52)
+    expect(snapToBeats(2.4, beats)).toBe(2.4)
+    expect(snapToBeats(0.48, [])).toBe(0.48)
+    expect(snapToBeats(0.4, beats, 0.05)).toBe(0.4)
   })
 })

@@ -279,6 +279,20 @@ export function removeClipGroup(timeline: EditorTimeline, groupId: string): Edit
   return next
 }
 
+/** Snap a timeline position to the nearest beat marker within thresholdSeconds. */
+export function snapToBeats(seconds: number, beats: number[], thresholdSeconds = 0.25): number {
+  let best = seconds
+  let bestDistance = thresholdSeconds
+  for (const beat of beats) {
+    const distance = Math.abs(beat - seconds)
+    if (distance <= bestDistance) {
+      best = beat
+      bestDistance = distance
+    }
+  }
+  return best
+}
+
 /**
  * Shift every clip starting at/after `fromSeconds` by `deltaSeconds` on every
  * unlocked track (or only `onlyTrackId` when given). Throws atomically if any
