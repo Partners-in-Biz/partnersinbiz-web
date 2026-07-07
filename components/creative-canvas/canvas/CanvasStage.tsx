@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import {
   Background,
   BackgroundVariant,
@@ -92,6 +91,7 @@ function StageInner(props: CanvasStageProps) {
         onConnect={onConnect}
         onNodeClick={onNodeClick}
         nodeTypes={nodeTypes}
+        className="creative-canvas-flow"
         colorMode="dark"
         connectionLineType={'bezier' as ReactFlowProps['connectionLineType']}
         defaultEdgeOptions={{ type: 'default', animated: false }}
