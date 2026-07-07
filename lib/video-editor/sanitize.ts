@@ -168,21 +168,46 @@ const KEYFRAME_PROPERTIES: EditorKeyframe['property'][] = [
   'volume',
   'speed',
 ]
-const KEYFRAME_EASINGS: NonNullable<EditorKeyframe['easing']>[] = ['linear', 'ease_in', 'ease_out', 'ease_in_out']
+const KEYFRAME_EASINGS: NonNullable<EditorKeyframe['easing']>[] = ['linear', 'ease_in', 'ease_out', 'ease_in_out', 'bezier']
+
+function sanitizeBezier(value: unknown): [number, number, number, number] | undefined {
+  if (!Array.isArray(value) || value.length !== 4) return undefined
+  const nums = value.map((entry) => cleanNumber(entry))
+  if (nums.some((entry) => entry === undefined)) return undefined
+  const [p1x, p1y, p2x, p2y] = nums as number[]
+  return [
+    Math.min(Math.max(p1x, 0), 1),
+    Math.min(Math.max(p1y, -10), 10),
+    Math.min(Math.max(p2x, 0), 1),
+    Math.min(Math.max(p2y, -10), 10),
+  ]
+}
 
 function sanitizeKeyframes(value: unknown): EditorKeyframe[] | undefined {
   if (!Array.isArray(value)) return undefined
-  const keyframes = value.flatMap((entry) => {
+  const keyframes = value.flatMap((entry): EditorKeyframe[] => {
     const source = cleanObject(entry)
     const property = source.property
     const atSeconds = cleanNumber(source.atSeconds)
-    const kfValue = cleanNumber(source.value)
-    if (!KEYFRAME_PROPERTIES.includes(property as never) || atSeconds === undefined || kfValue === undefined) return []
+    const rawValue = cleanNumber(source.value)
+    if (!KEYFRAME_PROPERTIES.includes(property as never) || atSeconds === undefined || rawValue === undefined) return []
+    const kfValue = property === 'speed' ? Math.min(Math.max(rawValue, 0.25), 4) : rawValue
+    const bezier = sanitizeBezier(source.bezier)
     const easing = KEYFRAME_EASINGS.includes(source.easing as never)
       ? (source.easing as EditorKeyframe['easing'])
       : undefined
-    return [compact({ property: property as EditorKeyframe['property'], atSeconds: Math.max(0, atSeconds), value: kfValue, easing })]
+    if (easing === 'bezier' && !bezier) {
+      return [compact({ property: property as EditorKeyframe['property'], atSeconds: Math.max(0, atSeconds), value: kfValue, easing: 'linear' as const })]
+    }
+    return [compact({
+      property: property as EditorKeyframe['property'],
+      atSeconds: Math.max(0, atSeconds),
+      value: kfValue,
+      easing,
+      ...(easing === 'bezier' && bezier ? { bezier } : {}),
+    }) as EditorKeyframe]
   })
+  keyframes.sort((a, b) => a.property.localeCompare(b.property) || a.atSeconds - b.atSeconds)
   return keyframes.length ? keyframes : undefined
 }
 
@@ -194,6 +219,7 @@ function sanitizeClip(value: unknown): EditorClip | undefined {
   const transitionKind = cleanString(transitionSource.kind)
   return compact({
     id,
+    groupId: cleanString(source.groupId),
     timelineStart: clampNumber(source.timelineStart, 0, 60 * 60 * 4, 0),
     duration: clampNumber(source.duration, 0, 60 * 60 * 4, 0),
     media: sanitizeMediaRef(source.media),

@@ -280,3 +280,44 @@ describe('serializeVideoEditorRecord', () => {
     expect(record).toEqual({ id: 'abc', title: 'x', nested: { a: 1 } })
   })
 })
+
+describe('phase 1a sanitizer additions', () => {
+  const track = (clips: unknown[]) => ({ version: 1, tracks: [{ id: 't1', kind: 'video', clips }] })
+
+  it('keeps groupId strings and drops junk groupIds', () => {
+    const timeline = sanitizeEditorTimeline(track([
+      { id: 'a', timelineStart: 0, duration: 2, groupId: ' grp-1 ' },
+      { id: 'b', timelineStart: 2, duration: 2, groupId: 42 },
+    ]))
+    expect(timeline.tracks[0].clips[0].groupId).toBe('grp-1')
+    expect(timeline.tracks[0].clips[1].groupId).toBeUndefined()
+  })
+
+  it('accepts bezier easing with clamped control-point x values and drops malformed tuples', () => {
+    const timeline = sanitizeEditorTimeline(track([{
+      id: 'a', timelineStart: 0, duration: 4,
+      keyframes: [
+        { property: 'transform.opacity', atSeconds: 1, value: 0.5, easing: 'bezier', bezier: [1.5, -2, -0.5, 3] },
+        { property: 'volume', atSeconds: 0, value: 1, easing: 'bezier', bezier: [0.1, 0.2] },
+        { property: 'volume', atSeconds: 2, value: 0, easing: 'ease_out', bezier: [0.1, 0.2, 0.3, 0.4] },
+      ],
+    }]))
+    const kfs = timeline.tracks[0].clips[0].keyframes ?? []
+    // sorted property-then-time: [transform.opacity@1, volume@0, volume@2]
+    expect(kfs[0]).toMatchObject({ property: 'transform.opacity', easing: 'bezier', bezier: [1, -2, 0, 3] })
+    expect(kfs.find((k) => k.atSeconds === 0 && k.property === 'volume')).toMatchObject({ easing: 'linear' })
+    expect(kfs.find((k) => k.atSeconds === 2)?.bezier).toBeUndefined()
+  })
+
+  it('sorts keyframes by property then atSeconds and clamps speed values to 0.25-4', () => {
+    const timeline = sanitizeEditorTimeline(track([{
+      id: 'a', timelineStart: 0, duration: 4,
+      keyframes: [
+        { property: 'speed', atSeconds: 3, value: 99 },
+        { property: 'speed', atSeconds: 0, value: 0.01 },
+      ],
+    }]))
+    const kfs = timeline.tracks[0].clips[0].keyframes ?? []
+    expect(kfs.map((k) => [k.atSeconds, k.value])).toEqual([[0, 0.25], [3, 4]])
+  })
+})
