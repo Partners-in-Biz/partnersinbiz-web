@@ -2,10 +2,15 @@ import {
   TimelineOpError,
   addClip,
   addTrack,
+  clearClipGroup,
+  groupMembers,
   moveClip,
+  moveClipGroup,
   removeClip,
+  removeClipGroup,
   removeTrack,
   reorderTracks,
+  setClipGroup,
   splitClip,
   trimClip,
 } from '@/lib/video-editor/timeline-ops'
@@ -143,5 +148,69 @@ describe('splitClip', () => {
     const twice = splitClip(once, 't1', 'a', 1)
     const ids = twice.tracks[0].clips.map((item) => item.id)
     expect(new Set(ids).size).toBe(ids.length)
+  })
+})
+
+function groupedTimeline(): EditorTimeline {
+  return {
+    version: 1,
+    tracks: [
+      { id: 'v1', kind: 'video', clips: [clip('a', 0, 4), clip('b', 4, 3)] },
+      { id: 'a1', kind: 'audio', clips: [clip('m', 0, 4, { media: { type: 'upload', fileId: 'file-m', url: 'https://x.test/m.mp3', mediaKind: 'audio' } })] },
+    ],
+  }
+}
+
+describe('linked clip groups', () => {
+  it('links clips across tracks under one groupId and lists members', () => {
+    const linked = setClipGroup(groupedTimeline(), [
+      { trackId: 'v1', clipId: 'a' },
+      { trackId: 'a1', clipId: 'm' },
+    ])
+    const groupId = linked.tracks[0].clips[0].groupId
+    expect(groupId).toBeTruthy()
+    expect(linked.tracks[1].clips[0].groupId).toBe(groupId)
+    expect(groupMembers(linked, groupId!)).toEqual([
+      { trackId: 'v1', clipId: 'a' },
+      { trackId: 'a1', clipId: 'm' },
+    ])
+    const cleared = clearClipGroup(linked, groupId!)
+    expect(cleared.tracks[0].clips[0].groupId).toBeUndefined()
+    expect(cleared.tracks[1].clips[0].groupId).toBeUndefined()
+  })
+
+  it('rejects linking fewer than two clips or unknown clips', () => {
+    expect(() => setClipGroup(groupedTimeline(), [{ trackId: 'v1', clipId: 'a' }])).toThrow(TimelineOpError)
+    expect(() => setClipGroup(groupedTimeline(), [
+      { trackId: 'v1', clipId: 'a' },
+      { trackId: 'v1', clipId: 'nope' },
+    ])).toThrow(TimelineOpError)
+  })
+
+  it('moves every member by the same delta and rejects collisions atomically', () => {
+    const linked = setClipGroup(groupedTimeline(), [
+      { trackId: 'v1', clipId: 'a' },
+      { trackId: 'a1', clipId: 'm' },
+    ])
+    const groupId = linked.tracks[0].clips[0].groupId!
+    const moved = moveClipGroup(linked, groupId, 10)
+    expect(moved.tracks[0].clips.find((c) => c.id === 'a')?.timelineStart).toBe(10)
+    expect(moved.tracks[1].clips[0].timelineStart).toBe(10)
+    // moving left below zero clamps as a whole-group error, not per clip
+    expect(() => moveClipGroup(linked, groupId, -1)).toThrow(TimelineOpError)
+    // collision with clip b on v1 rejects the whole move
+    expect(() => moveClipGroup(linked, groupId, 1)).toThrow(TimelineOpError)
+  })
+
+  it('removes all group members at once', () => {
+    const linked = setClipGroup(groupedTimeline(), [
+      { trackId: 'v1', clipId: 'a' },
+      { trackId: 'a1', clipId: 'm' },
+    ])
+    const groupId = linked.tracks[0].clips[0].groupId!
+    const removed = removeClipGroup(linked, groupId)
+    expect(removed.tracks[0].clips.map((c) => c.id)).toEqual(['b'])
+    expect(removed.tracks[1].clips).toHaveLength(0)
+    expect(() => removeClipGroup(groupedTimeline(), 'missing-group')).toThrow(TimelineOpError)
   })
 })

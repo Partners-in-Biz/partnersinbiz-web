@@ -197,3 +197,84 @@ export function splitClip(
 function round3(value: number): number {
   return Math.round(value * 1000) / 1000
 }
+
+export interface ClipRef {
+  trackId: string
+  clipId: string
+}
+
+function uniqueGroupId(timeline: EditorTimeline): string {
+  const existing = new Set<string>()
+  for (const track of timeline.tracks) for (const clip of track.clips) if (clip.groupId) existing.add(clip.groupId)
+  let index = 1
+  let id = `group-${index}`
+  while (existing.has(id)) {
+    index += 1
+    id = `group-${index}`
+  }
+  return id
+}
+
+export function setClipGroup(timeline: EditorTimeline, members: ClipRef[], groupId?: string): EditorTimeline {
+  if (members.length < 2) throw new TimelineOpError('Linking needs at least two clips.')
+  const next = cloneTimeline(timeline)
+  const id = groupId ?? uniqueGroupId(next)
+  for (const member of members) {
+    const track = findTrack(next, member.trackId)
+    const clip = findClip(track, member.clipId)
+    clip.groupId = id
+  }
+  return next
+}
+
+export function clearClipGroup(timeline: EditorTimeline, groupId: string): EditorTimeline {
+  const next = cloneTimeline(timeline)
+  let found = false
+  for (const track of next.tracks) {
+    for (const clip of track.clips) {
+      if (clip.groupId === groupId) {
+        delete clip.groupId
+        found = true
+      }
+    }
+  }
+  if (!found) throw new TimelineOpError(`Group '${groupId}' not found.`)
+  return next
+}
+
+export function groupMembers(timeline: EditorTimeline, groupId: string): ClipRef[] {
+  const members: ClipRef[] = []
+  for (const track of timeline.tracks) {
+    for (const clip of track.clips) {
+      if (clip.groupId === groupId) members.push({ trackId: track.id, clipId: clip.id })
+    }
+  }
+  return members
+}
+
+export function moveClipGroup(timeline: EditorTimeline, groupId: string, deltaSeconds: number): EditorTimeline {
+  const next = cloneTimeline(timeline)
+  const members = groupMembers(next, groupId)
+  if (!members.length) throw new TimelineOpError(`Group '${groupId}' not found.`)
+  const touchedTracks = new Set<EditorTrack>()
+  for (const member of members) {
+    const track = findTrack(next, member.trackId)
+    const clip = findClip(track, member.clipId)
+    const start = clip.timelineStart + deltaSeconds
+    if (start < -EPSILON) throw new TimelineOpError('Group move would push a clip before the timeline start.')
+    clip.timelineStart = round3(Math.max(0, start))
+    touchedTracks.add(track)
+  }
+  for (const track of touchedTracks) assertNoOverlap(track)
+  return next
+}
+
+export function removeClipGroup(timeline: EditorTimeline, groupId: string): EditorTimeline {
+  const next = cloneTimeline(timeline)
+  const members = groupMembers(next, groupId)
+  if (!members.length) throw new TimelineOpError(`Group '${groupId}' not found.`)
+  for (const track of next.tracks) {
+    track.clips = track.clips.filter((clip) => clip.groupId !== groupId)
+  }
+  return next
+}
