@@ -6,6 +6,8 @@ import type { EditorTimeline, MediaRef } from './types'
 export const VIDEO_EDITOR_COLLECTIONS = {
   projects: 'video_editor_projects',
   renderJobs: 'video_editor_render_jobs',
+  transcripts: 'video_editor_transcripts',
+  ttsJobs: 'video_editor_tts_jobs',
 } as const
 
 export const CREATIVE_CANVAS_COLLECTION = 'creative_canvases'
