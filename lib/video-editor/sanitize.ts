@@ -89,7 +89,7 @@ export function sanitizeVideoEditorSettingsInput(value: unknown): VideoEditorPro
   }
 }
 
-function sanitizeMediaRef(value: unknown): MediaRef | undefined {
+export function sanitizeMediaRef(value: unknown): MediaRef | undefined {
   const source = cleanObject(value)
   const type = source.type
   const url = cleanString(source.url)

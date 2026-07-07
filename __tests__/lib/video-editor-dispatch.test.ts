@@ -29,6 +29,7 @@ describe('videoEditorRuntimeConfigFromEnv', () => {
       NEXT_PUBLIC_APP_URL: 'https://partnersinbiz.online',
     } as NodeJS.ProcessEnv)).toEqual({
       submitUrl: 'https://vps.test/higgsfield-executor/video-editor/renders',
+      previewSubmitUrl: 'https://vps.test/higgsfield-executor/video-editor/media-previews',
       apiKey: 'key-1',
       callbackBaseUrl: 'https://partnersinbiz.online',
     })
@@ -96,5 +97,18 @@ describe('dispatchVideoEditorRenderJob', () => {
     await expect(dispatchVideoEditorRenderJob(manifest, { submitUrl: 'https://vps.test/x' }))
       .rejects.toThrow('no providerJobId')
     await expect(dispatchVideoEditorRenderJob(manifest, {})).rejects.toThrow('not configured')
+  })
+})
+
+import { buildMediaPreviewManifest } from '@/lib/video-editor/dispatch'
+
+describe('buildMediaPreviewManifest', () => {
+  it('enables artifacts per media kind and carries the ledger endpoints', () => {
+    const video = buildMediaPreviewManifest({ previewId: 'pv1', orgId: 'org 1', mediaKey: 'upload:f1', url: 'https://x.test/a.mp4', mediaKind: 'video' })
+    expect(video.options).toEqual({ waveform: true, filmstrip: true, proxy: true })
+    expect(video.report.path).toBe('/api/v1/video-editor/media-previews/pv1?orgId=org%201')
+    expect(video.proxyLedger.deletePathTemplate).toBe('/api/v1/video-editor/proxy-ledger/{id}?orgId=org%201')
+    const audio = buildMediaPreviewManifest({ previewId: 'pv2', orgId: 'o', mediaKey: 'upload:f2', url: 'https://x.test/a.mp3', mediaKind: 'audio' })
+    expect(audio.options).toEqual({ waveform: true, filmstrip: false, proxy: false })
   })
 })

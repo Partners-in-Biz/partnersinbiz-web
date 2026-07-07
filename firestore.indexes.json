@@ -1,6 +1,14 @@
 {
   "indexes": [
     {
+      "collectionGroup": "video_editor_proxy_ledger",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "orgId", "order": "ASCENDING" },
+        { "fieldPath": "lastAccessAt", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "agent_memory_chunks",
       "queryScope": "COLLECTION",
       "fields": [
