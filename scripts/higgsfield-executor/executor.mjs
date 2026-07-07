@@ -35,7 +35,7 @@ import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { compileEditorFiltergraph } from './lib/editor-filtergraph.mjs'
-import { assertAllowedMediaUrl } from './lib/editor-media.mjs'
+import { assertAllowedMediaUrl, computePeaksFromPcm } from './lib/editor-media.mjs'
 
 const PORT = Number(process.env.PORT || 8690)
 const RUNTIME_API_KEY = process.env.RUNTIME_API_KEY || ''
@@ -139,6 +139,10 @@ const EDITOR_MEDIA_MAX_BYTES = Number(process.env.EDITOR_MEDIA_MAX_BYTES || 2_00
 const EDITOR_EXTRA_MEDIA_HOSTS = (process.env.EDITOR_EXTRA_MEDIA_HOSTS || '')
   .split(',').map((host) => host.trim().toLowerCase()).filter(Boolean)
 const EDITOR_FONT_FILE = process.env.EDITOR_FONT_FILE || undefined
+const FFPROBE_BIN = process.env.FFPROBE_BIN || 'ffprobe'
+const PREVIEW_TIMEOUT_MS = Number(process.env.PREVIEW_TIMEOUT_MS || 15 * 60 * 1000)
+const PROXY_MIN_BYTES = Number(process.env.PROXY_MIN_BYTES || 25_000_000)
+const WAVEFORM_PEAKS_PER_SECOND = 20
 
 /** Run ffmpeg, capturing stderr. Never rejects — resolves with the exit code. */
 function runFfmpeg(args, timeoutMs) {
@@ -150,6 +154,84 @@ function runFfmpeg(args, timeoutMs) {
     child.on('close', (code) => { clearTimeout(timer); resolve({ code, stderr }) })
     child.on('error', (error) => { clearTimeout(timer); resolve({ code: -1, stderr: String(error) }) })
   })
+}
+
+/** Run ffmpeg capturing stdout as a Buffer (for PCM decode). */
+function runFfmpegStdout(args, timeoutMs) {
+  return new Promise((resolve) => {
+    const child = spawn(FFMPEG_BIN, args, { stdio: ['ignore', 'pipe', 'pipe'] })
+    const chunks = []
+    let stderr = ''
+    const timer = setTimeout(() => { child.kill('SIGKILL') }, timeoutMs)
+    child.stdout.on('data', (d) => { chunks.push(d) })
+    child.stderr.on('data', (d) => { stderr += d })
+    child.on('close', (code) => { clearTimeout(timer); resolve({ code, stdout: Buffer.concat(chunks), stderr }) })
+    child.on('error', (error) => { clearTimeout(timer); resolve({ code: -1, stdout: Buffer.alloc(0), stderr: String(error) }) })
+  })
+}
+
+/** ffprobe → { durationSeconds, width, height } (zeros when a field is missing). */
+async function probeMedia(filePath) {
+  const result = await new Promise((resolve) => {
+    const child = spawn(FFPROBE_BIN, [
+      '-v', 'error', '-select_streams', 'v:0',
+      '-show_entries', 'stream=width,height', '-show_entries', 'format=duration',
+      '-of', 'json', filePath,
+    ], { stdio: ['ignore', 'pipe', 'pipe'] })
+    let stdout = ''
+    child.stdout.on('data', (d) => { stdout += d })
+    child.on('close', () => resolve(stdout))
+    child.on('error', () => resolve(''))
+  })
+  try {
+    const parsed = JSON.parse(result)
+    return {
+      durationSeconds: Number(parsed?.format?.duration) || 0,
+      width: Number(parsed?.streams?.[0]?.width) || 0,
+      height: Number(parsed?.streams?.[0]?.height) || 0,
+    }
+  } catch {
+    return { durationSeconds: 0, width: 0, height: 0 }
+  }
+}
+
+async function platformGet(base, path) {
+  const response = await fetch(`${base}${path}`, {
+    headers: { Authorization: `Bearer ${PIB_AGENT_API_KEY}` },
+  })
+  const text = await response.text().catch(() => '')
+  let body = {}
+  try { body = JSON.parse(text) } catch { /* keep empty */ }
+  return { ok: response.ok, status: response.status, body: body?.data ?? body }
+}
+
+async function platformDelete(base, path) {
+  const response = await fetch(`${base}${path}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${PIB_AGENT_API_KEY}` },
+  })
+  if (!response.ok) log('warn', 'platform DELETE failed', { path, status: response.status })
+  return response.ok
+}
+
+async function uploadPreviewArtifact(base, buffer, orgId, folder, filename, contentType) {
+  const form = new FormData()
+  form.set('file', new Blob([buffer], { type: contentType }), filename)
+  form.set('folder', folder)
+  form.set('filename', filename)
+  form.set('orgId', orgId)
+  const response = await fetch(`${base}/api/v1/upload`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${PIB_AGENT_API_KEY}` },
+    body: form,
+  })
+  const text = await response.text().catch(() => '')
+  if (!response.ok) throw new Error(`preview artifact upload failed (${response.status}): ${text.slice(0, 300)}`)
+  let body = {}
+  try { body = JSON.parse(text) } catch { /* keep empty */ }
+  const data = body?.data ?? body
+  if (!data?.url || !data?.storagePath) throw new Error('preview artifact upload returned no url/storagePath')
+  return { url: data.url, storagePath: data.storagePath }
 }
 
 /**
@@ -404,6 +486,127 @@ async function executeEditorRender(job, manifest) {
   }
 }
 
+async function executeMediaPreview(job, manifest) {
+  const base = baseUrlFrom(manifest)
+  const preview = manifest.preview
+  const reportPath = manifest.report?.path
+    || `/api/v1/video-editor/media-previews/${preview.id}?orgId=${encodeURIComponent(preview.orgId)}`
+  const folder = manifest.upload?.folder || `video-editor/${preview.orgId}/previews`
+  const safeKey = String(preview.mediaKey).replace(/[^A-Za-z0-9_-]/g, '_')
+
+  const fail = async (message, code = 'preview_failed') => {
+    job.status = 'failed'
+    job.providerStatus = code
+    job.providerStatusMessage = message.slice(0, 1500)
+    log('error', 'media preview failed', { previewId: preview.id, code, message: job.providerStatusMessage })
+    await platformPut(base, reportPath, { status: 'failed', error: { code, message: message.slice(0, 2000) } })
+  }
+
+  let workDir
+  try {
+    await platformPut(base, reportPath, { status: 'processing' })
+    workDir = await mkdtemp(join(tmpdir(), 'vprev-'))
+    const localFile = await downloadEditorMedia(preview.url, workDir, 0)
+    const stats = await stat(localFile)
+    const probe = await probeMedia(localFile)
+    const report = { status: 'ready' }
+
+    if (manifest.options?.waveform) {
+      const pcm = await runFfmpegStdout(['-i', localFile, '-vn', '-ac', '1', '-ar', '8000', '-f', 's16le', '-'], PREVIEW_TIMEOUT_MS)
+      if (pcm.code === 0 && pcm.stdout.length) {
+        const peaks = computePeaksFromPcm(pcm.stdout, Math.round(8000 / WAVEFORM_PEAKS_PER_SECOND))
+        const payload = Buffer.from(JSON.stringify({ version: 1, peaksPerSecond: WAVEFORM_PEAKS_PER_SECOND, peaks }))
+        const uploaded = await uploadPreviewArtifact(base, payload, preview.orgId, folder, `${safeKey}-waveform.json`, 'application/json')
+        report.waveform = { ...uploaded, peaksPerSecond: WAVEFORM_PEAKS_PER_SECOND, peakCount: peaks.length }
+      } else {
+        log('warn', 'waveform decode failed — continuing', { previewId: preview.id, stderr: pcm.stderr.slice(-200) })
+      }
+    }
+
+    if (manifest.options?.filmstrip && probe.durationSeconds > 0) {
+      const frameCount = Math.min(40, Math.max(5, Math.round(probe.durationSeconds / 2)))
+      const interval = probe.durationSeconds / frameCount
+      const stripPath = join(workDir, 'filmstrip.jpg')
+      const result = await runFfmpeg([
+        '-y', '-i', localFile,
+        '-vf', `fps=1/${fmtNumber(interval)},scale=160:-2,tile=${frameCount}x1`,
+        '-frames:v', '1', '-q:v', '5', stripPath,
+      ], PREVIEW_TIMEOUT_MS)
+      if (result.code === 0) {
+        const buffer = await readFile(stripPath)
+        const uploaded = await uploadPreviewArtifact(base, buffer, preview.orgId, folder, `${safeKey}-filmstrip.jpg`, 'image/jpeg')
+        const frameHeight = probe.width > 0 ? Math.round((160 / probe.width) * probe.height / 2) * 2 : 90
+        report.filmstrip = { ...uploaded, frameIntervalSeconds: Math.round(interval * 1000) / 1000, frameWidth: 160, frameHeight, frameCount }
+      } else {
+        log('warn', 'filmstrip render failed — continuing', { previewId: preview.id, stderr: result.stderr.slice(-200) })
+      }
+    }
+
+    if (manifest.options?.proxy && stats.size >= PROXY_MIN_BYTES) {
+      const proxyPath = join(workDir, 'proxy.mp4')
+      const scale = probe.height > 540 ? 'scale=-2:540' : 'scale=trunc(iw/2)*2:trunc(ih/2)*2'
+      const result = await runFfmpeg([
+        '-y', '-i', localFile, '-vf', scale,
+        '-c:v', 'libx264', '-crf', '28', '-preset', 'veryfast', '-pix_fmt', 'yuv420p',
+        '-c:a', 'aac', '-b:a', '96k', '-movflags', '+faststart', proxyPath,
+      ], PREVIEW_TIMEOUT_MS)
+      if (result.code === 0) {
+        const proxyStats = await stat(proxyPath)
+        // LRU eviction BEFORE uploading the new proxy so the org stays under cap.
+        const capBytes = Number(manifest.proxyLedger?.capBytes) || 20 * 1024 * 1024 * 1024
+        const listPath = manifest.proxyLedger?.listPath
+        const deleteTemplate = manifest.proxyLedger?.deletePathTemplate
+        if (listPath && deleteTemplate) {
+          const ledger = await platformGet(base, listPath)
+          if (ledger.ok) {
+            let totalBytes = Number(ledger.body?.totalBytes) || 0
+            const entries = Array.isArray(ledger.body?.entries) ? ledger.body.entries : []
+            for (const entry of entries) {
+              if (totalBytes + proxyStats.size <= capBytes) break
+              if (!entry?.id) continue
+              const evicted = await platformDelete(base, deleteTemplate.replace('{id}', encodeURIComponent(entry.id)))
+              if (evicted) {
+                totalBytes -= Number(entry.sizeBytes) || 0
+                log('info', 'evicted LRU proxy', { previewId: preview.id, evictedId: entry.id })
+              }
+            }
+          }
+        }
+        const buffer = await readFile(proxyPath)
+        const uploaded = await uploadPreviewArtifact(base, buffer, preview.orgId, folder, `${safeKey}-proxy540.mp4`, 'video/mp4')
+        const proxyProbe = await probeMedia(proxyPath)
+        report.proxy = { ...uploaded, sizeBytes: proxyStats.size, width: proxyProbe.width || 960, height: proxyProbe.height || 540 }
+      } else {
+        log('warn', 'proxy transcode failed — continuing', { previewId: preview.id, stderr: result.stderr.slice(-200) })
+      }
+    }
+
+    const put = await platformPut(base, reportPath, report)
+    if (!put.ok) {
+      await fail(`Preview generated but the platform rejected the report (HTTP ${put.status})`, 'platform_report_failed')
+      return
+    }
+    job.status = 'completed'
+    job.providerStatus = 'completed'
+    job.providerStatusMessage = 'Media preview generated.'
+    log('info', 'media preview completed', {
+      previewId: preview.id,
+      waveform: Boolean(report.waveform),
+      filmstrip: Boolean(report.filmstrip),
+      proxy: Boolean(report.proxy),
+    })
+  } catch (error) {
+    await fail(`Executor error: ${String(error?.message || error).slice(0, 800)}`, 'executor_error')
+  } finally {
+    if (workDir) rm(workDir, { recursive: true, force: true }).catch(() => {})
+    setTimeout(() => jobs.delete(job.providerJobId), JOB_TTL_MS).unref?.()
+  }
+}
+
+function fmtNumber(value) {
+  return String(Math.round(Number(value) * 1000) / 1000)
+}
+
 async function executeRun(job, input) {
   const run = input.run
   const manifest = input.manifest || {}
@@ -590,6 +793,38 @@ const server = createServer(async (req, res) => {
       log('info', 'editor render accepted', { jobId: body.job.id, providerJobId, mediaCount: Array.isArray(body.media) ? body.media.length : 0 })
       executeEditorRender(job, body).catch((error) => log('error', 'executeEditorRender crashed', { jobId: body.job.id, error: String(error) }))
       return json(res, 200, { providerJobId, status: 'running', providerStatus: job.providerStatus, providerStatusMessage: job.providerStatusMessage })
+    }
+
+    if (req.method === 'POST' && url.pathname === '/video-editor/media-previews') {
+      const body = JSON.parse(await readBody(req) || 'null')
+      if (body?.kind !== 'video_editor_media_preview' || !body.preview?.id || !body.preview?.orgId || !body.preview?.url) {
+        return json(res, 400, { error: 'Valid video_editor_media_preview manifest is required' })
+      }
+      const providerJobId = `vprev-${body.preview.id}-${randomUUID().slice(0, 8)}`
+      const job = {
+        providerJobId,
+        previewId: body.preview.id,
+        status: 'running',
+        providerStatus: 'executor_accepted',
+        providerStatusMessage: 'Media preview accepted.',
+        createdAt: Date.now(),
+      }
+      jobs.set(providerJobId, job)
+      log('info', 'media preview accepted', { previewId: body.preview.id, providerJobId, mediaKind: body.preview.mediaKind })
+      executeMediaPreview(job, body).catch((error) => log('error', 'executeMediaPreview crashed', { previewId: body.preview.id, error: String(error) }))
+      return json(res, 200, { providerJobId, status: 'running', providerStatus: job.providerStatus, providerStatusMessage: job.providerStatusMessage })
+    }
+
+    const previewStatusMatch = url.pathname.match(/^\/video-editor\/media-previews\/([A-Za-z0-9-]+)$/)
+    if (req.method === 'GET' && previewStatusMatch) {
+      const job = jobs.get(previewStatusMatch[1])
+      if (!job) return json(res, 404, { error: 'Job not found' })
+      return json(res, 200, {
+        providerJobId: job.providerJobId,
+        status: job.status,
+        providerStatus: job.providerStatus,
+        providerStatusMessage: job.providerStatusMessage,
+      })
     }
 
     const editorStatusMatch = url.pathname.match(/^\/video-editor\/renders\/([A-Za-z0-9-]+)$/)
