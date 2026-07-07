@@ -21,6 +21,11 @@ export type OrgStatus = 'active' | 'onboarding' | 'suspended' | 'churned'
 export interface BrandProfile {
   logoUrl?: string          // URL to logo (stored externally or Firebase Storage)
   logoMarkUrl?: string      // URL to icon/mark variant
+  colors?: {
+    primary?: string        // e.g. "#7c3aed"
+    secondary?: string
+    accent?: string
+  }
   tagline?: string          // e.g. "Build faster, grow smarter"
   toneOfVoice?: string      // e.g. "Professional but approachable, avoid jargon"
   targetAudience?: string   // e.g. "SMB founders in tech"
