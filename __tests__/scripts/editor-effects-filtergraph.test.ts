@@ -234,3 +234,43 @@ describe('lut, chroma key, masks', () => {
     expect(linear.filterComplex).toContain('(1-clip((X-(W*0.2))/120')
   })
 })
+
+describe('blend modes', () => {
+  it('composites a blendMode clip with pad + tpad + blend instead of overlay', () => {
+    const { filterComplex } = runModule<{ filterComplex: string }>(`return m.compileEditorFiltergraph(${JSON.stringify({
+      settings,
+      localMediaPaths: { c1: '/tmp/m/c1.mp4' },
+      timeline: {
+        version: 1,
+        tracks: [{
+          id: 't1', kind: 'overlay',
+          clips: [{
+            id: 'c1', timelineStart: 2, duration: 4, blendMode: 'screen',
+            transform: { x: 40, y: -20, scale: 1, rotation: 0, opacity: 1 },
+            media: { type: 'upload', fileId: 'f1', url: 'https://x.test/a.mp4', mediaKind: 'video' },
+          }],
+        }],
+      },
+    })})`)
+
+    expect(filterComplex).toContain('format=yuva420p,pad=w=1280:h=720:x=(ow-iw)/2+40:y=(oh-ih)/2+-20:color=black@0')
+    expect(filterComplex).toContain('tpad=start_duration=2:color=black@0')
+    expect(filterComplex).toContain('alphaextract')
+    expect(filterComplex).toContain('alphamerge')
+    expect(filterComplex).toContain("blend=all_mode=screen:enable='between(t,2,6)'")
+    expect(filterComplex).not.toContain('[base][vc0]overlay=')
+  })
+
+  it('masks non-neutral blend modes so padded black does not affect the whole canvas', () => {
+    const { filterComplex } = compile({
+      blendMode: 'multiply',
+      transform: { x: 40, y: -20 },
+    })
+
+    expect(filterComplex).toContain('format=yuva420p')
+    expect(filterComplex).toContain('alphaextract')
+    expect(filterComplex).toContain("blend=all_mode=multiply:enable='between(t,0,4)'")
+    expect(filterComplex).toContain('alphamerge')
+    expect(filterComplex).toContain('overlay=eof_action=pass')
+  })
+})

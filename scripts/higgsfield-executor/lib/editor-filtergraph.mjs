@@ -11,6 +11,16 @@ const XFADE_TRANSITIONS = {
   wipe: 'wipeleft',
 }
 
+const BLEND_MODES = {
+  multiply: 'multiply',
+  screen: 'screen',
+  overlay: 'overlay',
+  lighten: 'lighten',
+  darken: 'darken',
+  addition: 'addition',
+  difference: 'difference',
+}
+
 const COMPILED_EFFECT_KINDS = new Set([
   'color_adjust', 'blur', 'sharpen', 'vignette', 'grain', 'glow',
   'lut', 'chroma_key', 'mask', 'stabilize',
@@ -366,16 +376,29 @@ export function compileEditorFiltergraph({ timeline, settings, localMediaPaths, 
       }
       const start = group[0].timelineStart
       const end = start + segmentDuration
-      if (start > 0) {
-        const shifted = `vs${vsCounter}`
-        vsCounter += 1
-        chains.push(`[${segmentLabel}]setpts=PTS+${fmt(start)}/TB[${shifted}]`)
-        segmentLabel = shifted
-      }
-      const { x, y } = overlayPosition(group[0], group[0].timelineStart)
       const next = `ov${ovCounter}`
       ovCounter += 1
-      chains.push(`[${current}][${segmentLabel}]overlay=x=${x}:y=${y}:enable='between(t,${fmt(start)},${fmt(end)})':eof_action=pass[${next}]`)
+      const blendMode = group.length === 1 ? BLEND_MODES[group[0].blendMode] : undefined
+      if (blendMode) {
+        const tx = typeof group[0].transform?.x === 'number' ? group[0].transform.x : 0
+        const ty = typeof group[0].transform?.y === 'number' ? group[0].transform.y : 0
+        const blendLabel = `bl${ovCounter}`
+        chains.push(`[${segmentLabel}]format=yuva420p,pad=w=${settings.width}:h=${settings.height}:x=(ow-iw)/2+${fmt(tx)}:y=(oh-ih)/2+${fmt(ty)}:color=black@0${start > 0 ? `,tpad=start_duration=${fmt(start)}:color=black@0` : ''},tpad=stop=-1,split=2[${blendLabel}rgba][${blendLabel}masksrc]`)
+        chains.push(`[${blendLabel}masksrc]alphaextract[${blendLabel}mask]`)
+        chains.push(`[${blendLabel}rgba]format=yuv420p[${blendLabel}fg]`)
+        chains.push(`[${current}][${blendLabel}fg]blend=all_mode=${blendMode}:enable='between(t,${fmt(start)},${fmt(end)})'[${blendLabel}blend]`)
+        chains.push(`[${blendLabel}blend][${blendLabel}mask]alphamerge[${blendLabel}masked]`)
+        chains.push(`[${current}][${blendLabel}masked]overlay=eof_action=pass[${next}]`)
+      } else {
+        if (start > 0) {
+          const shifted = `vs${vsCounter}`
+          vsCounter += 1
+          chains.push(`[${segmentLabel}]setpts=PTS+${fmt(start)}/TB[${shifted}]`)
+          segmentLabel = shifted
+        }
+        const { x, y } = overlayPosition(group[0], group[0].timelineStart)
+        chains.push(`[${current}][${segmentLabel}]overlay=x=${x}:y=${y}:enable='between(t,${fmt(start)},${fmt(end)})':eof_action=pass[${next}]`)
+      }
       current = next
     }
   }
