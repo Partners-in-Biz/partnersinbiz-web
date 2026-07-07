@@ -111,6 +111,12 @@ describe('VideoEditorShell text title happy path', () => {
       if (url.includes('/api/v1/creative-canvas/sources')) {
         return jsonResponse({ success: true, data: { sources: [] } })
       }
+      if (url.includes('/api/v1/video-editor/tts/voices')) {
+        return jsonResponse({ success: true, data: { voices: [] } })
+      }
+      if (url.includes('/api/v1/video-editor/transcripts')) {
+        return jsonResponse({ success: true, data: { transcripts: [] } })
+      }
       if (url.includes('/api/v1/video-editor/projects/project-1') && init?.method === 'PUT') {
         const body = JSON.parse(String(init.body))
         savedTimelines.push(body.timeline)

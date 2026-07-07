@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { scopedApiPath } from '@/lib/portal/scoped-routing'
 import {
   addClip, addTrack, clearClipGroup, moveClip, moveClipGroup, removeClip, removeClipGroup,
@@ -9,12 +9,16 @@ import {
 import { defaultVideoEditorSettings } from '@/lib/video-editor/types'
 import { mediaKeyForRef } from '@/lib/video-editor/media-previews'
 import type { EditorClip, EditorTimeline, EditorTrackKind, MediaRef, VideoEditorMediaPreview, VideoEditorProject, VideoEditorRenderJob } from '@/lib/video-editor/types'
+import { CaptionsPanel, type CaptionsPanelTranscriptOption } from './CaptionsPanel'
 import { ExportDialog } from './ExportDialog'
 import { InspectorPanel } from './InspectorPanel'
 import { MediaLibraryPanel, type MediaLibrarySource } from './MediaLibraryPanel'
 import { PreviewPlayer } from './PreviewPlayer'
 import { TimelinePanel, type TimelineEditMode, type TimelineSelection } from './TimelinePanel'
+import { TtsPanel, type TtsGenerateRequest, type TtsVoiceOption } from './TtsPanel'
 import { useTimelineHistory } from './useTimelineHistory'
+
+type RightPanelTab = 'inspector' | 'captions' | 'voiceover'
 
 const emptyTimeline: EditorTimeline = { version: 1, tracks: [] }
 const DEFAULT_TEXT_CLIP_DURATION = 5
@@ -48,6 +52,11 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
   const apiScope = useMemo(() => ({ orgId }), [orgId])
 
   const [mediaPreviews, setMediaPreviews] = useState<Record<string, VideoEditorMediaPreview>>({})
+
+  const [rightTab, setRightTab] = useState<RightPanelTab>('inspector')
+  const [transcripts, setTranscripts] = useState<CaptionsPanelTranscriptOption[]>([])
+  const [voices, setVoices] = useState<TtsVoiceOption[]>([])
+  const [captionsBusy, setCaptionsBusy] = useState(false)
 
   const timelineRefs = useMemo(() => {
     const refs: MediaRef[] = []
@@ -150,6 +159,86 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
     void loadJobs()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, orgId])
+
+  const loadTranscripts = useCallback(async () => {
+    const res = await fetch(scopedApiPath(`/api/v1/video-editor/transcripts?projectId=${encodeURIComponent(projectId)}`, apiScope))
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok) return
+    const data = body.data ?? body
+    setTranscripts(
+      ((data.transcripts ?? []) as Array<{ id: string; status: string; source: string; language?: string }>).map((t) => ({
+        id: t.id,
+        status: t.status,
+        language: t.language,
+        label: t.source === 'tts' ? 'Voiceover transcript' : 'Audio transcript',
+      })),
+    )
+  }, [projectId, apiScope])
+
+  useEffect(() => {
+    void loadTranscripts()
+    void (async () => {
+      const res = await fetch(scopedApiPath('/api/v1/video-editor/tts/voices', apiScope))
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) return
+      setVoices(((body.data ?? body).voices ?? []) as TtsVoiceOption[])
+    })()
+  }, [loadTranscripts, apiScope])
+
+  // Poll transcripts while any are still queued/running (mirrors media-preview polling).
+  useEffect(() => {
+    const pending = transcripts.some((t) => t.status === 'queued' || t.status === 'running')
+    if (!pending) return
+    const timer = window.setInterval(() => void loadTranscripts(), 10000)
+    return () => window.clearInterval(timer)
+  }, [transcripts, loadTranscripts])
+
+  const handleTranscribe = useCallback(async () => {
+    setCaptionsBusy(true)
+    try {
+      await fetch(scopedApiPath('/api/v1/video-editor/transcripts', apiScope), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId }),
+      })
+      await loadTranscripts()
+    } finally {
+      setCaptionsBusy(false)
+    }
+  }, [projectId, apiScope, loadTranscripts])
+
+  const handleGenerateCaptions = useCallback(
+    async (transcriptId: string) => {
+      setCaptionsBusy(true)
+      try {
+        const res = await fetch(scopedApiPath(`/api/v1/video-editor/projects/${projectId}/captions/generate`, apiScope), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ transcriptId }),
+        })
+        const body = await res.json().catch(() => ({}))
+        const nextTimeline = (body.data ?? body).timeline as EditorTimeline | undefined
+        if (nextTimeline) void persist(nextTimeline)
+      } finally {
+        setCaptionsBusy(false)
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [projectId, apiScope],
+  )
+
+  const handleTtsGenerate = useCallback(
+    async (request: TtsGenerateRequest) => {
+      await fetch(scopedApiPath(`/api/v1/video-editor/projects/${projectId}/tts`, apiScope), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+      })
+      await Promise.all([loadProject(), loadTranscripts()])
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [projectId, apiScope, loadTranscripts],
+  )
 
   useEffect(() => {
     if (!playing) return
@@ -371,16 +460,46 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
           />
         </div>
         <div className="space-y-4">
-          <InspectorPanel
-            clip={selectedClip}
-            playheadSeconds={playhead}
-            onPatch={patchSelected}
-            onTrim={(edge, deltaSeconds) => {
-              const first = selection[0]
-              if (!first) return
-              handleTrimClip(first.trackId, first.clipId, edge, deltaSeconds)
-            }}
-          />
+          <div role="tablist" aria-label="Right panel" className="flex gap-1 rounded-lg border border-[var(--color-pib-line)] p-1">
+            {(['inspector', 'captions', 'voiceover'] as RightPanelTab[]).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                role="tab"
+                aria-selected={rightTab === tab}
+                className={`flex-1 rounded-md px-3 py-1.5 text-sm capitalize ${rightTab === tab ? 'bg-[var(--color-pib-line)] font-semibold text-on-surface' : 'text-on-surface-variant'}`}
+                onClick={() => setRightTab(tab)}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+          {rightTab === 'inspector' ? (
+            <InspectorPanel
+              clip={selectedClip}
+              playheadSeconds={playhead}
+              onPatch={patchSelected}
+              onTrim={(edge, deltaSeconds) => {
+                const first = selection[0]
+                if (!first) return
+                handleTrimClip(first.trackId, first.clipId, edge, deltaSeconds)
+              }}
+            />
+          ) : null}
+          {rightTab === 'captions' ? (
+            <CaptionsPanel
+              timeline={timeline}
+              transcripts={transcripts}
+              busy={captionsBusy}
+              onApplyTimeline={(next) => void persist(next)}
+              onTranscribe={() => void handleTranscribe()}
+              onGenerateCaptions={(transcriptId) => void handleGenerateCaptions(transcriptId)}
+              onSeek={setPlayhead}
+            />
+          ) : null}
+          {rightTab === 'voiceover' ? (
+            <TtsPanel voices={voices} busy={captionsBusy} onGenerate={handleTtsGenerate} />
+          ) : null}
           <ExportDialog projectId={project.id} timeline={timeline} settings={settings} latestJob={jobs[0]} busy={busy} onRender={() => void renderProject()} />
         </div>
       </div>
