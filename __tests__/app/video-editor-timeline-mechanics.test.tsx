@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { TimelinePanel, trimDeltaFromDrag } from '@/components/video-editor/TimelinePanel'
-import type { EditorTimeline } from '@/lib/video-editor/types'
+import { WaveformStrip } from '@/components/video-editor/WaveformStrip'
+import type { EditorTimeline, VideoEditorMediaPreview } from '@/lib/video-editor/types'
 
 const timeline: EditorTimeline = {
   version: 1,
@@ -107,5 +108,29 @@ describe('TimelinePanel mechanics', () => {
     render(<TimelinePanel {...makeProps()} />)
     expect(screen.getByTestId('keyframe-marker-a-0')).toBeInTheDocument()
     expect(screen.getByTestId('group-badge-a')).toBeInTheDocument()
+  })
+})
+
+describe('TimelinePanel media previews', () => {
+  const previews: Record<string, VideoEditorMediaPreview> = {
+    'upload:f': {
+      orgId: 'o', mediaKey: 'upload:f', sourceUrl: 'https://x.test/a.mp4', mediaKind: 'video', status: 'ready', deleted: false,
+      filmstrip: { url: 'https://x.test/strip.jpg', storagePath: 'p', frameIntervalSeconds: 1, frameWidth: 160, frameHeight: 90, frameCount: 4 },
+    },
+  }
+
+  it('paints the filmstrip as the clip background when available', () => {
+    render(<TimelinePanel {...makeProps({ mediaPreviews: previews })} />)
+    const clipEl = screen.getByTestId('timeline-clip-a')
+    expect(clipEl.style.backgroundImage).toContain('strip.jpg')
+  })
+})
+
+describe('WaveformStrip', () => {
+  it('fetches the peaks JSON and renders a canvas', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ peaks: [0.1, 0.9, 0.4] }) }) as jest.Mock
+    render(<WaveformStrip waveformUrl="https://x.test/w.json" />)
+    expect(await screen.findByTestId('waveform-canvas')).toBeInTheDocument()
+    expect(global.fetch).toHaveBeenCalledWith('https://x.test/w.json')
   })
 })

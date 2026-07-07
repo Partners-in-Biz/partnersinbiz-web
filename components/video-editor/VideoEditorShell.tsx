@@ -7,7 +7,8 @@ import {
   rippleDeleteClip, rippleTrimClip, rollEdit, setClipGroup, slipClip, splitClip, trimClip,
 } from '@/lib/video-editor/timeline-ops'
 import { defaultVideoEditorSettings } from '@/lib/video-editor/types'
-import type { EditorClip, EditorTimeline, EditorTrackKind, VideoEditorMediaPreview, VideoEditorProject, VideoEditorRenderJob } from '@/lib/video-editor/types'
+import { mediaKeyForRef } from '@/lib/video-editor/media-previews'
+import type { EditorClip, EditorTimeline, EditorTrackKind, MediaRef, VideoEditorMediaPreview, VideoEditorProject, VideoEditorRenderJob } from '@/lib/video-editor/types'
 import { ExportDialog } from './ExportDialog'
 import { InspectorPanel } from './InspectorPanel'
 import { MediaLibraryPanel, type MediaLibrarySource } from './MediaLibraryPanel'
@@ -46,7 +47,69 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
   const history = useTimelineHistory(timeline)
   const apiScope = useMemo(() => ({ orgId }), [orgId])
 
-  const mediaPreviews = useMemo<Record<string, VideoEditorMediaPreview>>(() => ({}), [])
+  const [mediaPreviews, setMediaPreviews] = useState<Record<string, VideoEditorMediaPreview>>({})
+
+  const timelineRefs = useMemo(() => {
+    const refs: MediaRef[] = []
+    const seen = new Set<string>()
+    for (const track of timeline.tracks) {
+      for (const clip of track.clips) {
+        if (!clip.media) continue
+        const key = mediaKeyForRef(clip.media)
+        if (seen.has(key)) continue
+        seen.add(key)
+        refs.push(clip.media)
+      }
+    }
+    return refs
+  }, [timeline])
+
+  async function ensurePreviews(refs: MediaRef[]) {
+    if (!orgId || !refs.length) return
+    const res = await fetch(scopedApiPath('/api/v1/video-editor/media-previews', apiScope), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orgId, refs }),
+    })
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok) return
+    const previews = (body.data?.previews ?? []) as Array<VideoEditorMediaPreview & { id: string }>
+    setMediaPreviews((current) => {
+      const next = { ...current }
+      for (const preview of previews) next[preview.mediaKey] = preview
+      return next
+    })
+  }
+
+  // Ensure previews whenever the set of referenced media changes; poll while pending.
+  useEffect(() => {
+    void ensurePreviews(timelineRefs)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timelineRefs.map((ref) => mediaKeyForRef(ref)).join(','), orgId])
+
+  useEffect(() => {
+    const pending = Object.values(mediaPreviews).some((preview) => preview.status === 'pending' || preview.status === 'processing')
+    if (!pending || !orgId) return
+    const timer = window.setInterval(() => {
+      const keys = Object.values(mediaPreviews)
+        .filter((preview) => preview.status === 'pending' || preview.status === 'processing')
+        .map((preview) => preview.mediaKey)
+      void fetch(scopedApiPath(`/api/v1/video-editor/media-previews?orgId=${encodeURIComponent(orgId)}&keys=${encodeURIComponent(keys.join(','))}`, apiScope))
+        .then((res) => res.json())
+        .then((body) => {
+          const previews = (body.data?.previews ?? []) as VideoEditorMediaPreview[]
+          if (previews.length) {
+            setMediaPreviews((current) => {
+              const next = { ...current }
+              for (const preview of previews) next[preview.mediaKey] = preview
+              return next
+            })
+          }
+        })
+        .catch(() => {})
+    }, 15000)
+    return () => window.clearInterval(timer)
+  }, [mediaPreviews, orgId, apiScope])
 
   const selectedClip = useMemo(() => {
     const first = selection[0]
@@ -274,7 +337,7 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
       </div>
       {notice ? <div className="rounded-lg border border-[var(--color-pib-line)] p-3 text-sm text-on-surface-variant">{notice}</div> : null}
       <div className="grid gap-4 xl:grid-cols-[320px_1fr_320px]">
-        <MediaLibraryPanel orgId={orgId} sources={sources} onRefresh={loadSources} onAddClip={addMediaClip} onSourceUploaded={addUploadedSource} />
+        <MediaLibraryPanel orgId={orgId} sources={sources} mediaPreviews={mediaPreviews} onRefresh={loadSources} onAddClip={addMediaClip} onSourceUploaded={addUploadedSource} />
         <div className="space-y-4">
           <PreviewPlayer timeline={timeline} settings={settings} mediaPreviews={mediaPreviews} playheadSeconds={playhead} playing={playing} onPlayToggle={() => setPlaying((value) => !value)} onSeek={setPlayhead} />
           <TimelinePanel

@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { scopedApiPath } from '@/lib/portal/scoped-routing'
-import type { EditorClip, EditorMediaKind, MediaRef } from '@/lib/video-editor/types'
+import { mediaKeyForRef } from '@/lib/video-editor/media-previews'
+import type { EditorClip, EditorMediaKind, MediaRef, VideoEditorMediaPreview } from '@/lib/video-editor/types'
 
 export type MediaLibrarySource = {
   id?: string
@@ -95,12 +96,14 @@ function toMediaRef(source: MediaLibrarySource, url: string, mediaKind: EditorMe
 export function MediaLibraryPanel({
   orgId,
   sources,
+  mediaPreviews,
   onRefresh,
   onAddClip,
   onSourceUploaded,
 }: {
   orgId?: string
   sources: MediaLibrarySource[]
+  mediaPreviews?: Record<string, VideoEditorMediaPreview>
   onRefresh: () => void | Promise<void>
   onAddClip: (clip: EditorClip) => void
   onSourceUploaded?: (source: MediaLibrarySource) => void
@@ -195,6 +198,21 @@ export function MediaLibraryPanel({
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium text-on-surface">{title}</span>
                   <span className="block truncate text-xs text-on-surface-variant">{sourceKindLabel(source)}</span>
+                  {(() => {
+                    if (!media || mediaKind === 'image') return null
+                    const preview = mediaPreviews?.[mediaKeyForRef(media)]
+                    if (!preview) return null
+                    const chip = preview.proxy
+                      ? { label: 'Proxy ready', className: 'text-emerald-300 border-emerald-300/40' }
+                      : preview.status === 'pending' || preview.status === 'processing'
+                        ? { label: 'Preparing preview…', className: 'text-amber-200 border-amber-200/40' }
+                        : { label: 'Original', className: 'text-on-surface-variant border-[var(--color-pib-line)]' }
+                    return (
+                      <span data-testid={`proxy-chip-${source.id ?? ''}`} className={`mt-1 inline-block rounded border px-1.5 py-0.5 text-[10px] ${chip.className}`}>
+                        {chip.label}
+                      </span>
+                    )
+                  })()}
                   {disabledReason ? <span className="mt-1 block text-xs text-amber-200">{disabledReason}</span> : null}
                 </span>
               </span>
