@@ -20,17 +20,39 @@ export function defaultVideoEditorSettings(): VideoEditorProjectSettings {
   return { width: 1920, height: 1080, fps: 30, aspect: '16:9', background: '#000000' }
 }
 
-export type EditorTrackKind = 'video' | 'audio' | 'text' | 'overlay'
+export type EditorTrackKind = 'video' | 'audio' | 'text' | 'overlay' | 'caption'
 export type EditorTransitionKind = 'cut' | 'crossfade' | 'fade_black' | 'slide_left' | 'slide_right' | 'wipe'
 export type EditorMediaKind = 'video' | 'audio' | 'image'
 export type EditorTextAlign = 'left' | 'center' | 'right'
 export type EditorTextAnimationPreset = 'none' | 'fade_in' | 'slide_up'
 
-export const EDITOR_TRACK_KINDS: EditorTrackKind[] = ['video', 'audio', 'text', 'overlay']
+export const EDITOR_TRACK_KINDS: EditorTrackKind[] = ['video', 'audio', 'text', 'overlay', 'caption']
 export const EDITOR_TRANSITION_KINDS: EditorTransitionKind[] = ['cut', 'crossfade', 'fade_black', 'slide_left', 'slide_right', 'wipe']
 export const EDITOR_MEDIA_KINDS: EditorMediaKind[] = ['video', 'audio', 'image']
 export const EDITOR_TEXT_ALIGNS: EditorTextAlign[] = ['left', 'center', 'right']
 export const EDITOR_TEXT_ANIMATION_PRESETS: EditorTextAnimationPreset[] = ['none', 'fade_in', 'slide_up']
+
+export type EditorCaptionStylePreset = 'clean' | 'boxed' | 'outline' | 'lower_third' | 'karaoke_bar'
+export type EditorCaptionAnimationPreset = 'none' | 'pop' | 'fade' | 'slide_up' | 'bounce' | 'karaoke'
+
+export const EDITOR_CAPTION_STYLE_PRESETS: EditorCaptionStylePreset[] = ['clean', 'boxed', 'outline', 'lower_third', 'karaoke_bar']
+export const EDITOR_CAPTION_ANIMATION_PRESETS: EditorCaptionAnimationPreset[] = ['none', 'pop', 'fade', 'slide_up', 'bounce', 'karaoke']
+
+export interface EditorCaptionWord {
+  text: string
+  /** Seconds relative to the clip's timelineStart (NOT absolute timeline seconds). */
+  offsetStart: number
+  offsetEnd: number
+}
+
+export interface EditorCaptionPayload {
+  text: string
+  words: EditorCaptionWord[]
+  stylePreset: EditorCaptionStylePreset
+  animationPreset: EditorCaptionAnimationPreset
+  transcriptId?: string
+  language?: string
+}
 
 export type MediaRef =
   | { type: 'upload'; fileId: string; url: string; mediaKind: EditorMediaKind; sourceDuration?: number }
@@ -109,6 +131,7 @@ export interface EditorClip {
   duration: number
   media?: MediaRef
   text?: EditorTextPayload
+  caption?: EditorCaptionPayload
   trimStart?: number
   speed?: number
   volume?: number
@@ -293,4 +316,60 @@ export interface VideoEditorProxyLedgerEntry {
   sizeBytes: number
   lastAccessAt?: unknown
   createdAt?: unknown
+}
+
+// ---------------------------------------------------------------------------
+// Phase 1b — captions, transcription & TTS voiceover
+// ---------------------------------------------------------------------------
+
+export type VideoEditorTranscriptStatus = 'queued' | 'dispatched' | 'processing' | 'completed' | 'failed'
+export type VideoEditorTranscriptSource = 'media' | 'timeline_render' | 'tts' | 'translation'
+
+export const VIDEO_EDITOR_TRANSCRIPT_STATUSES: VideoEditorTranscriptStatus[] = ['queued', 'dispatched', 'processing', 'completed', 'failed']
+export const VIDEO_EDITOR_TRANSCRIPT_SOURCES: VideoEditorTranscriptSource[] = ['media', 'timeline_render', 'tts', 'translation']
+
+export interface TranscriptWord {
+  text: string
+  /** Absolute seconds within the transcribed media. */
+  start: number
+  end: number
+}
+
+export interface TranscriptSegment {
+  id: string
+  start: number
+  end: number
+  text: string
+  words: TranscriptWord[]
+}
+
+export interface VideoEditorTranscript {
+  id?: string
+  orgId: string
+  projectId: string
+  /** Set when a single clip was transcribed; absent for timeline_render / tts scope. */
+  clipId?: string
+  source: VideoEditorTranscriptSource
+  status: VideoEditorTranscriptStatus
+  language: string
+  media?: { url: string; mediaKind: 'video' | 'audio' }
+  segments: TranscriptSegment[]
+  text: string
+  /** 'gateway' or 'byok:<provider>' — billing/audit provenance. */
+  provider: string
+  model?: string
+  /** 'provider' = exact word timestamps; 'estimated' = proportional distribution (Gateway TTS). */
+  alignment: 'provider' | 'estimated'
+  translationOf?: string
+  durationSeconds?: number
+  providerJobId?: string
+  credits: { estimated: number; charged: number; refunded: number }
+  error?: { code: string; message: string }
+  deleted: boolean
+  createdBy?: string
+  createdByType?: ActorType
+  updatedBy?: string
+  updatedByType?: ActorType
+  createdAt?: unknown
+  updatedAt?: unknown
 }

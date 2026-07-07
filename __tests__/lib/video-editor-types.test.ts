@@ -19,10 +19,16 @@ import {
   VIDEO_EDITOR_PREVIEW_COLLECTIONS,
 } from '@/lib/video-editor/types'
 import type { EditorKeyframe, VideoEditorMediaPreview, VideoEditorProxyLedgerEntry } from '@/lib/video-editor/types'
+import {
+  EDITOR_CAPTION_ANIMATION_PRESETS,
+  EDITOR_CAPTION_STYLE_PRESETS,
+  VIDEO_EDITOR_TRANSCRIPT_SOURCES,
+  VIDEO_EDITOR_TRANSCRIPT_STATUSES,
+} from '@/lib/video-editor/types'
 
 describe('video editor types', () => {
   it('exposes the spec enums', () => {
-    expect(EDITOR_TRACK_KINDS).toEqual(['video', 'audio', 'text', 'overlay'])
+    expect(EDITOR_TRACK_KINDS).toEqual(['video', 'audio', 'text', 'overlay', 'caption'])
     expect(EDITOR_TRANSITION_KINDS).toEqual(['cut', 'crossfade', 'fade_black', 'slide_left', 'slide_right', 'wipe'])
     expect(EDITOR_MEDIA_KINDS).toEqual(['video', 'audio', 'image'])
     expect(EDITOR_TEXT_ALIGNS).toEqual(['left', 'center', 'right'])
@@ -116,5 +122,19 @@ describe('phase 1a type surface', () => {
     }
     expect(preview.status).toBe('ready')
     expect(ledger.sizeBytes).toBe(1000)
+  })
+})
+
+describe('caption + transcript type registries', () => {
+  it('adds the caption track kind', () => {
+    expect(EDITOR_TRACK_KINDS).toContain('caption')
+  })
+  it('pins caption preset registries', () => {
+    expect(EDITOR_CAPTION_STYLE_PRESETS).toEqual(['clean', 'boxed', 'outline', 'lower_third', 'karaoke_bar'])
+    expect(EDITOR_CAPTION_ANIMATION_PRESETS).toEqual(['none', 'pop', 'fade', 'slide_up', 'bounce', 'karaoke'])
+  })
+  it('pins transcript statuses and sources', () => {
+    expect(VIDEO_EDITOR_TRANSCRIPT_STATUSES).toEqual(['queued', 'dispatched', 'processing', 'completed', 'failed'])
+    expect(VIDEO_EDITOR_TRANSCRIPT_SOURCES).toEqual(['media', 'timeline_render', 'tts', 'translation'])
   })
 })
