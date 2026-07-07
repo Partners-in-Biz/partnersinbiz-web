@@ -5,6 +5,14 @@ import {
   estimateEditorRenderCredits,
   timelineDurationSeconds,
 } from '@/lib/video-editor/credits'
+import {
+  VIDEO_EDITOR_TRANSCRIBE_COST_LABEL,
+  VIDEO_EDITOR_TTS_COST_LABEL,
+  VIDEO_EDITOR_TRANSLATE_COST_LABEL,
+  estimateTranscriptionCredits,
+  estimateTtsCredits,
+  estimateTranslationCredits,
+} from '@/lib/video-editor/credits'
 import { defaultVideoEditorSettings } from '@/lib/video-editor/types'
 import type { EditorTimeline } from '@/lib/video-editor/types'
 
@@ -54,5 +62,30 @@ describe('video editor credits', () => {
     expect(estimateEditorRenderCredits(timelineOf([[0, 0.5]]), defaultVideoEditorSettings()).billedMinutes).toBe(1)
     expect(estimateEditorRenderCredits({ version: 1, tracks: [] }, defaultVideoEditorSettings()))
       .toEqual({ outputSeconds: 0, billedMinutes: 0, credits: 0 })
+  })
+})
+
+describe('captions/tts credit estimators', () => {
+  it('pins cost labels', () => {
+    expect(VIDEO_EDITOR_TRANSCRIBE_COST_LABEL).toBe('video_editor_transcription')
+    expect(VIDEO_EDITOR_TTS_COST_LABEL).toBe('video_editor_tts')
+    expect(VIDEO_EDITOR_TRANSLATE_COST_LABEL).toBe('video_editor_translation')
+  })
+  it('transcription: 1 credit per started 10 minutes, min 1', () => {
+    expect(estimateTranscriptionCredits(0)).toBe(0)
+    expect(estimateTranscriptionCredits(30)).toBe(1)
+    expect(estimateTranscriptionCredits(600)).toBe(1)
+    expect(estimateTranscriptionCredits(601)).toBe(2)
+  })
+  it('tts: 1 credit per started 1000 chars, min 1', () => {
+    expect(estimateTtsCredits(0)).toBe(0)
+    expect(estimateTtsCredits(1)).toBe(1)
+    expect(estimateTtsCredits(1000)).toBe(1)
+    expect(estimateTtsCredits(1001)).toBe(2)
+  })
+  it('translation: 1 credit per started 5000 chars, min 1', () => {
+    expect(estimateTranslationCredits(0)).toBe(0)
+    expect(estimateTranslationCredits(4999)).toBe(1)
+    expect(estimateTranslationCredits(5001)).toBe(2)
   })
 })

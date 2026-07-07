@@ -36,3 +36,29 @@ export function estimateEditorRenderCredits(
     credits: billedMinutes * VIDEO_EDITOR_CREDIT_RATE_PER_OUTPUT_MINUTE * multiplier,
   }
 }
+
+export const VIDEO_EDITOR_TRANSCRIBE_COST_LABEL = 'video_editor_transcription'
+export const VIDEO_EDITOR_TTS_COST_LABEL = 'video_editor_tts'
+export const VIDEO_EDITOR_TRANSLATE_COST_LABEL = 'video_editor_translation'
+
+export const VIDEO_EDITOR_TRANSCRIBE_CREDITS_PER_10_MINUTES = 1
+export const VIDEO_EDITOR_TTS_CREDITS_PER_1000_CHARS = 1
+export const VIDEO_EDITOR_TRANSLATE_CREDITS_PER_5000_CHARS = 1
+
+/** 1 credit per started 10 minutes of source audio; 0 for empty input. */
+export function estimateTranscriptionCredits(sourceDurationSeconds: number): number {
+  if (!Number.isFinite(sourceDurationSeconds) || sourceDurationSeconds <= 0) return 0
+  return Math.max(1, Math.ceil(sourceDurationSeconds / 600)) * VIDEO_EDITOR_TRANSCRIBE_CREDITS_PER_10_MINUTES
+}
+
+/** 1 credit per started 1000 characters of input text; 0 for empty input. */
+export function estimateTtsCredits(charCount: number): number {
+  if (!Number.isFinite(charCount) || charCount <= 0) return 0
+  return Math.max(1, Math.ceil(charCount / 1000)) * VIDEO_EDITOR_TTS_CREDITS_PER_1000_CHARS
+}
+
+/** 1 credit per started 5000 characters of transcript text; 0 for empty input. */
+export function estimateTranslationCredits(charCount: number): number {
+  if (!Number.isFinite(charCount) || charCount <= 0) return 0
+  return Math.max(1, Math.ceil(charCount / 5000)) * VIDEO_EDITOR_TRANSLATE_CREDITS_PER_5000_CHARS
+}
