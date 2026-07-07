@@ -12,12 +12,12 @@ function formatTrimLabel(startSeconds: number, endSeconds: number) {
 }
 
 /** Reference/source node: shows the attached asset thumbnail + a single output port. */
-function SourceNodeComponent({ data, selected }: NodeProps) {
+function SourceNodeComponent({ id, data, selected }: NodeProps) {
   const d = data as CanvasNodeData
   const trim = d.canvasNode?.data?.trim as { startSeconds?: unknown; endSeconds?: unknown } | undefined
   const hasTrim = typeof trim?.startSeconds === 'number' && typeof trim?.endSeconds === 'number'
   return (
-    <BaseNodeCard type="source" title={d.title || 'Source'} selected={Boolean(selected)} actions={nodeActionsFor(d)}>
+    <BaseNodeCard nodeId={id} type="source" title={d.title || 'Source'} selected={Boolean(selected)} actions={nodeActionsFor(d)}>
       {hasTrim ? (
         <div style={{ padding: '6px 10px 0' }}>
           <span
@@ -42,11 +42,10 @@ function SourceNodeComponent({ data, selected }: NodeProps) {
       ) : null}
       {d.assetUrl ? (
         d.assetKind === 'video' ? (
-          // eslint-disable-next-line jsx-a11y/media-has-caption
-          <video src={d.assetUrl} style={{ display: 'block', width: '100%', maxHeight: 160, objectFit: 'cover' }} muted />
+          <video src={d.assetUrl} style={{ display: 'block', width: '100%', height: 160, objectFit: 'cover' }} muted />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={d.assetUrl} alt={d.title} style={{ display: 'block', width: '100%', maxHeight: 160, objectFit: 'cover' }} />
+          <img src={d.assetUrl} alt={d.title} style={{ display: 'block', width: '100%', height: 160, objectFit: 'cover' }} />
         )
       ) : (
         <div style={{ padding: 16, fontSize: 12, color: canvasTheme.textMuted, textAlign: 'center' }}>

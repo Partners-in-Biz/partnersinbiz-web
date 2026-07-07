@@ -12,11 +12,12 @@ import { nodeActionsFor } from '@/components/creative-canvas/nodes/NodeActionBar
  * identity slot), a "Soul" badge when the character is linked to a Soul ID
  * for identity-consistent generation, and an editable description.
  */
-function CharacterNodeComponent({ data, selected }: NodeProps) {
+function CharacterNodeComponent({ id, data, selected }: NodeProps) {
   const d = data as CanvasNodeData
   const soulId = typeof d.soulId === 'string' ? d.soulId : ''
   return (
     <BaseNodeCard
+      nodeId={id}
       type="character"
       title={d.title || 'Character'}
       selected={Boolean(selected)}
@@ -44,7 +45,7 @@ function CharacterNodeComponent({ data, selected }: NodeProps) {
       {d.assetUrl ? (
         <div style={{ background: canvasTheme.bg }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={d.assetUrl} alt={d.title} style={{ display: 'block', width: '100%', maxHeight: 160, objectFit: 'cover' }} />
+          <img src={d.assetUrl} alt={d.title} style={{ display: 'block', width: '100%', height: 160, objectFit: 'cover' }} />
         </div>
       ) : (
         <div style={{ padding: '10px 10px 0' }}>

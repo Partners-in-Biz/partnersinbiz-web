@@ -15,11 +15,12 @@ const reviewPillColor: Record<string, string> = {
 }
 
 /** Output node: rendered asset + a review-status pill (tucked enterprise affordance). */
-function OutputNodeComponent({ data, selected }: NodeProps) {
+function OutputNodeComponent({ id, data, selected }: NodeProps) {
   const d = data as CanvasNodeData
   const review = d.reviewStatus
   return (
     <BaseNodeCard
+      nodeId={id}
       type="output"
       title={d.title || 'Output'}
       selected={Boolean(selected)}
@@ -43,10 +44,10 @@ function OutputNodeComponent({ data, selected }: NodeProps) {
     >
       {d.assetUrl ? (
         d.assetKind === 'video' ? (
-          <video src={d.assetUrl} style={{ display: 'block', width: '100%', maxHeight: 200, objectFit: 'cover' }} controls />
+          <video src={d.assetUrl} style={{ display: 'block', width: '100%', height: 200, objectFit: 'cover' }} controls />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={d.assetUrl} alt={d.title} style={{ display: 'block', width: '100%', maxHeight: 200, objectFit: 'cover' }} />
+          <img src={d.assetUrl} alt={d.title} style={{ display: 'block', width: '100%', height: 200, objectFit: 'cover' }} />
         )
       ) : d.textPreview || d.text ? (
         // Text results (copy edits, agent-llm generations) have no asset URL —

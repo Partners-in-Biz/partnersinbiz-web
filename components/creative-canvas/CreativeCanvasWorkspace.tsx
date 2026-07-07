@@ -1243,10 +1243,19 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
         nodeErrorMessage = friendlyRunError(latestRun.error?.code, latestRun.error?.message)
       }
     }
+    const { measured: _measured, width: _width, height: _height, ...nodeWithoutStaleGeometry } = node as Node & {
+      measured?: unknown
+      width?: unknown
+      height?: unknown
+    }
+    void _measured
+    void _width
+    void _height
     return {
-      // Keep the live React Flow node (measured size, selection, drag state) —
-      // rebuilding from scratch resets measurement and edges never render.
-      ...node,
+      // Keep runtime selection/drag data, but let React Flow remeasure the
+      // rendered card. Reusing old measured geometry leaves handles and the
+      // selection frame floating through generated-media cards.
+      ...nodeWithoutStaleGeometry,
       type: flowNode.type,
       data: {
         ...flowNode.data,
@@ -1476,17 +1485,16 @@ export function CreativeCanvasWorkspace({ mode, orgId }: CreativeCanvasWorkspace
     })
     setActiveCanvasId(canvas.id ?? '')
     setSelectedFlowNodeId(canvas.nodes?.[0]?.id ?? '')
-    // Preserve React Flow runtime state (measured size, selection) for nodes
-    // that survive the snapshot — replacing a node object wipes its measured
-    // dimensions and React Flow will not re-measure without a DOM resize,
-    // which leaves every edge invisible.
+    // Preserve selection for nodes that survive the snapshot, but do not carry
+    // over measured dimensions. Node media can change card size after a run,
+    // and stale geometry makes handles/selection frames detach from the card.
     setNodes((currentNodes) => {
       const previousById = new Map(currentNodes.map((node) => [node.id, node]))
       return (canvas.nodes ?? []).map((node) => {
         const fresh = toFlowNode(node)
         const previous = previousById.get(node.id)
         return previous
-          ? { ...fresh, measured: previous.measured, width: previous.width, height: previous.height, selected: previous.selected }
+          ? { ...fresh, selected: previous.selected }
           : fresh
       })
     })

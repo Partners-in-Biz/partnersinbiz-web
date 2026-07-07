@@ -1,6 +1,7 @@
 'use client'
 
-import { Handle, Position } from '@xyflow/react'
+import { useCallback, useEffect } from 'react'
+import { Handle, Position, useUpdateNodeInternals } from '@xyflow/react'
 import { canvasTheme } from '@/components/creative-canvas/theme/tokens'
 import { portsForNode, type CanvasNodeType } from '@/components/creative-canvas/nodes/ports'
 import { getCanvasModel } from '@/lib/creative-canvas/model-registry'
@@ -8,6 +9,7 @@ import { getCanvasModel } from '@/lib/creative-canvas/model-registry'
 export type CanvasNodeStatus = 'idle' | 'queued' | 'running' | 'done' | 'error'
 
 export interface GeneratorNodeCardProps {
+  nodeId?: string
   type: CanvasNodeType
   title: string
   prompt?: string
@@ -32,6 +34,23 @@ export interface GeneratorNodeCardProps {
   /** Per-node action bar rendered in the header (delete/duplicate/AI edit…). */
   actions?: React.ReactNode
   children?: React.ReactNode
+}
+
+const generatorNodeWidth = 340
+const generatorMediaHeight = 180
+
+function useRefreshNodeInternals(nodeId?: string) {
+  const updateNodeInternals = useUpdateNodeInternals()
+  const refresh = useCallback(() => {
+    if (!nodeId) return
+    requestAnimationFrame(() => updateNodeInternals(nodeId))
+  }, [nodeId, updateNodeInternals])
+
+  useEffect(() => {
+    refresh()
+  }, [refresh])
+
+  return refresh
 }
 
 const statusLabel: Record<CanvasNodeStatus, string> = {
@@ -81,6 +100,7 @@ export function NodeHandles({ type }: { type: CanvasNodeType }) {
 /** Shared Higgsfield-style node card. Presentational: all state comes from props. */
 export function GeneratorNodeCard(props: GeneratorNodeCardProps) {
   const {
+    nodeId,
     type,
     title,
     prompt = '',
@@ -104,11 +124,14 @@ export function GeneratorNodeCard(props: GeneratorNodeCardProps) {
   } = props
 
   const busy = status === 'queued' || status === 'running'
+  const refreshNodeInternals = useRefreshNodeInternals(nodeId)
 
   return (
     <div
       style={{
-        width: 340,
+        position: 'relative',
+        boxSizing: 'border-box',
+        width: generatorNodeWidth,
         borderRadius: canvasTheme.radius,
         background: canvasTheme.surface,
         border: `1px solid ${selected ? canvasTheme.accent : canvasTheme.border}`,
@@ -141,13 +164,12 @@ export function GeneratorNodeCard(props: GeneratorNodeCardProps) {
       </div>
 
       {assetUrl ? (
-        <div style={{ background: canvasTheme.bg }}>
+        <div style={{ background: canvasTheme.bg, height: generatorMediaHeight, overflow: 'hidden' }}>
           {assetKind === 'video' ? (
-            // eslint-disable-next-line jsx-a11y/media-has-caption
-            <video src={assetUrl} style={{ display: 'block', width: '100%', maxHeight: 180, objectFit: 'cover' }} muted />
+            <video src={assetUrl} onLoadedMetadata={refreshNodeInternals} style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }} muted />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={assetUrl} alt={title} style={{ display: 'block', width: '100%', maxHeight: 180, objectFit: 'cover' }} />
+            <img src={assetUrl} alt={title} onLoad={refreshNodeInternals} style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }} />
           )}
         </div>
       ) : null}
@@ -304,6 +326,7 @@ export function GeneratorNodeCard(props: GeneratorNodeCardProps) {
 
 /** Minimal card chrome (handles + title bar + body) for non-generator nodes. */
 export function BaseNodeCard({
+  nodeId,
   type,
   title,
   selected = false,
@@ -313,6 +336,7 @@ export function BaseNodeCard({
   actions,
   children,
 }: {
+  nodeId?: string
   type: CanvasNodeType
   title: string
   selected?: boolean
@@ -323,9 +347,13 @@ export function BaseNodeCard({
   actions?: React.ReactNode
   children?: React.ReactNode
 }) {
+  useRefreshNodeInternals(nodeId)
+
   return (
     <div
       style={{
+        position: 'relative',
+        boxSizing: 'border-box',
         width,
         borderRadius: canvasTheme.radius,
         background: accent ?? canvasTheme.surface,

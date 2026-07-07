@@ -61,6 +61,7 @@ jest.mock('@xyflow/react', () => ({
     fitView: jest.fn(),
     screenToFlowPosition: (position: { x: number; y: number }) => position,
   }),
+  useUpdateNodeInternals: () => jest.fn(),
   BackgroundVariant: { Dots: 'dots', Lines: 'lines', Cross: 'cross' },
   SelectionMode: { Partial: 'partial', Full: 'full' },
   Background: () => <div data-testid="flow-background" />,

@@ -6,10 +6,11 @@ import { GeneratorNodeCard } from '@/components/creative-canvas/nodes/nodeFactor
 import type { CanvasNodeData } from '@/components/creative-canvas/nodes/nodeData'
 import { nodeActionsFor } from '@/components/creative-canvas/nodes/NodeActionBar'
 
-function ImageGeneratorNodeComponent({ data, selected }: NodeProps) {
+function ImageGeneratorNodeComponent({ id, data, selected }: NodeProps) {
   const d = data as CanvasNodeData
   return (
     <GeneratorNodeCard
+      nodeId={id}
       actions={nodeActionsFor(d)}
       type="image_generator"
       title={d.title}

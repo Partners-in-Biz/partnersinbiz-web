@@ -6,10 +6,11 @@ import { GeneratorNodeCard } from '@/components/creative-canvas/nodes/nodeFactor
 import type { CanvasNodeData } from '@/components/creative-canvas/nodes/nodeData'
 import { nodeActionsFor } from '@/components/creative-canvas/nodes/NodeActionBar'
 
-function LLMAssistantNodeComponent({ data, selected }: NodeProps) {
+function LLMAssistantNodeComponent({ id, data, selected }: NodeProps) {
   const d = data as CanvasNodeData
   return (
     <GeneratorNodeCard
+      nodeId={id}
       actions={nodeActionsFor(d)}
       type="llm_assistant"
       title={d.title}

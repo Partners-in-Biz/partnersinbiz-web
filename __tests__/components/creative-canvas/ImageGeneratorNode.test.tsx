@@ -43,3 +43,18 @@ test('renders prompt, model label and a Generate button with credit cost', () =>
   fireEvent.click(btn)
   expect(onGenerate).toHaveBeenCalled()
 })
+
+test('keeps generated media inside the measured node card', () => {
+  renderNode({
+    presentationType: 'image_generator',
+    title: 'Generated image',
+    assetUrl: 'https://example.com/output.png',
+    assetKind: 'image',
+    status: 'done',
+  })
+
+  const image = screen.getByRole('img', { name: 'Generated image' })
+  expect(image).toHaveStyle({ height: '100%', objectFit: 'cover' })
+  expect(image.parentElement).toHaveStyle({ height: '180px', overflow: 'hidden' })
+  expect(image.closest('div[style*="position: relative"]')).not.toBeNull()
+})
