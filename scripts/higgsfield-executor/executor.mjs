@@ -38,6 +38,7 @@ import { compileEditorFiltergraph } from './lib/editor-filtergraph.mjs'
 import { assertAllowedMediaUrl, computePeaksFromPcm } from './lib/editor-media.mjs'
 import { buildAssDocument, timelineHasCaptions } from './lib/editor-captions.mjs'
 import { audioExtractArgs, segmentsFromVerboseJson } from './lib/editor-transcribe.mjs'
+import { buildVidstabDetectArgs, buildVidstabTransformArgs, collectStabilizeClips, stableClipToken } from './lib/editor-stabilize.mjs'
 
 const PORT = Number(process.env.PORT || 8690)
 const RUNTIME_API_KEY = process.env.RUNTIME_API_KEY || ''
@@ -150,6 +151,7 @@ const FFPROBE_BIN = process.env.FFPROBE_BIN || 'ffprobe'
 const PREVIEW_TIMEOUT_MS = Number(process.env.PREVIEW_TIMEOUT_MS || 15 * 60 * 1000)
 const PROXY_MIN_BYTES = Number(process.env.PROXY_MIN_BYTES || 25_000_000)
 const WAVEFORM_PEAKS_PER_SECOND = 20
+const EDITOR_EFFECT_ASSET_MAX_BYTES = Number(process.env.EDITOR_EFFECT_ASSET_MAX_BYTES || 2_000_000)
 
 /** Run ffmpeg, capturing stderr. Never rejects — resolves with the exit code. */
 function runFfmpeg(args, timeoutMs) {
@@ -362,11 +364,48 @@ async function downloadEditorMedia(url, dir, index) {
   const buffer = Buffer.from(await response.arrayBuffer())
   if (buffer.length > EDITOR_MEDIA_MAX_BYTES) throw new Error(`media larger than ${EDITOR_MEDIA_MAX_BYTES} bytes: ${current.slice(0, 120)}`)
   const contentType = (response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()
-  const extension = CONTENT_TYPE_EXTENSIONS[contentType]
-    ?? (new URL(current).pathname.match(/\.(png|jpe?g|webp|gif|mp4|mov|webm|mp3|wav)$/i) || [])[1]?.toLowerCase()
+  let extension = CONTENT_TYPE_EXTENSIONS[contentType]
+    ?? (new URL(current).pathname.match(/\.(png|jpe?g|webp|gif|mp4|mov|webm|mp3|wav|cube)$/i) || [])[1]?.toLowerCase()
     ?? sniffExtension(buffer)
+  if (!extension && /\.cube(\?|$)/i.test(current)) extension = 'cube'
   if (!extension) throw new Error(`could not determine media type: ${current.slice(0, 120)}`)
   const file = join(dir, `media-${index}.${extension === 'jpeg' ? 'jpg' : extension}`)
+  await writeFile(file, buffer)
+  return file
+}
+
+function isCubeLut(buffer) {
+  const head = buffer.slice(0, 4096).toString('utf8')
+  return /\bLUT_3D_SIZE\b/.test(head)
+}
+
+async function downloadEditorEffectAsset(url, dir, index) {
+  let current = assertAllowedMediaUrl(url, { extraHosts: EDITOR_EXTRA_MEDIA_HOSTS }).href
+  let response
+  for (let hop = 0; hop < 5; hop += 1) {
+    response = await fetch(current, { redirect: 'manual' })
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location')
+      if (!location) throw new Error(`redirect without location: ${current.slice(0, 120)}`)
+      current = assertAllowedMediaUrl(new URL(location, current).href, { extraHosts: EDITOR_EXTRA_MEDIA_HOSTS }).href
+      continue
+    }
+    break
+  }
+  if (!response || !response.ok) {
+    throw new Error(`effect asset download failed (${response ? response.status : 'no response'}): ${current.slice(0, 120)}`)
+  }
+  const contentLength = Number(response.headers.get('content-length') || 0)
+  if (contentLength > EDITOR_EFFECT_ASSET_MAX_BYTES) throw new Error(`effect asset larger than ${EDITOR_EFFECT_ASSET_MAX_BYTES} bytes`)
+  const buffer = Buffer.from(await response.arrayBuffer())
+  if (buffer.length > EDITOR_EFFECT_ASSET_MAX_BYTES) throw new Error(`effect asset larger than ${EDITOR_EFFECT_ASSET_MAX_BYTES} bytes`)
+  const contentType = (response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()
+  const hasCubePath = /\.cube(\?|$)/i.test(current) || /\.cube$/i.test(new URL(current).pathname)
+  if (contentType && !['text/plain', 'application/octet-stream', 'application/x-cube'].includes(contentType) && !hasCubePath) {
+    throw new Error(`unsupported effect asset content type: ${contentType}`)
+  }
+  if (!isCubeLut(buffer)) throw new Error('effect asset is not a valid .cube LUT')
+  const file = join(dir, `effect-${index}.cube`)
   await writeFile(file, buffer)
   return file
 }
@@ -432,6 +471,39 @@ async function executeEditorRender(job, manifest) {
       }
     }
 
+    const localEffectAssetPaths = {}
+    const effectAssets = Array.isArray(manifest.effectAssets) ? manifest.effectAssets : []
+    for (let index = 0; index < effectAssets.length; index += 1) {
+      const entry = effectAssets[index]
+      if (!entry?.clipId || typeof entry.effectIndex !== 'number' || !entry?.url) continue
+      try {
+        localEffectAssetPaths[`${entry.clipId}:${entry.effectIndex}`] = await downloadEditorEffectAsset(entry.url, workDir, index)
+      } catch (error) {
+        await fail(`Effect asset download failed for clip ${entry.clipId}: ${String(error?.message || error)}`, 'editor_effect_asset_download_failed')
+        return
+      }
+    }
+
+    for (const stab of collectStabilizeClips(manifest.timeline)) {
+      const inputPath = localMediaPaths[stab.clipId]
+      if (!inputPath) continue
+      const token = stableClipToken(stab.clipId)
+      const trfPath = join(workDir, `stab-${token}.trf`)
+      const stabilizedPath = join(workDir, `stab-${token}.mp4`)
+      const detect = await runFfmpeg(buildVidstabDetectArgs(inputPath, trfPath, stab.params), EDITOR_RENDER_TIMEOUT_MS)
+      if (detect.code !== 0) {
+        log('warn', 'vidstabdetect failed - rendering unstabilized', { clipId: stab.clipId, stderr: detect.stderr.slice(-200) })
+        continue
+      }
+      const transform = await runFfmpeg(buildVidstabTransformArgs(inputPath, trfPath, stabilizedPath, stab.params), EDITOR_RENDER_TIMEOUT_MS)
+      if (transform.code !== 0) {
+        log('warn', 'vidstabtransform failed - rendering unstabilized', { clipId: stab.clipId, stderr: transform.stderr.slice(-200) })
+        continue
+      }
+      localMediaPaths[stab.clipId] = stabilizedPath
+      log('info', 'stabilized clip media', { clipId: stab.clipId })
+    }
+
     let captionAssPath
     if (timelineHasCaptions(manifest.timeline)) {
       captionAssPath = join(workDir, 'captions.ass')
@@ -442,6 +514,7 @@ async function executeEditorRender(job, manifest) {
       timeline: manifest.timeline,
       settings: manifest.settings,
       localMediaPaths,
+      localEffectAssetPaths,
       ...(EDITOR_FONT_FILE ? { fontFile: EDITOR_FONT_FILE } : {}),
       ...(captionAssPath ? { captionAssPath } : {}),
     })

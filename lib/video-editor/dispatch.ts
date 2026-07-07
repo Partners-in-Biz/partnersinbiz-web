@@ -31,6 +31,7 @@ export interface VideoEditorRenderManifest {
   settings: VideoEditorProjectSettings
   timeline: EditorTimeline
   media: Array<{ clipId: string; url: string; mediaKind: string }>
+  effectAssets: Array<{ clipId: string; effectIndex: number; url: string }>
   report: { method: 'PUT'; path: string }
   upload: { method: 'POST'; path: '/api/v1/upload'; folder: string; filename: string }
 }
@@ -43,9 +44,15 @@ export function buildVideoEditorRenderManifest(input: {
   settings: VideoEditorProjectSettings
 }): VideoEditorRenderManifest {
   const media: VideoEditorRenderManifest['media'] = []
+  const effectAssets: VideoEditorRenderManifest['effectAssets'] = []
   for (const track of input.timeline.tracks ?? []) {
     for (const clip of track.clips ?? []) {
       if (clip.media) media.push({ clipId: clip.id, url: clip.media.url, mediaKind: clip.media.mediaKind })
+      const effects = Array.isArray(clip.effects) ? clip.effects : []
+      effects.forEach((effect, effectIndex) => {
+        const lutUrl = effect.kind === 'lut' && typeof effect.params?.lutUrl === 'string' ? effect.params.lutUrl : ''
+        if (/^https:\/\//.test(lutUrl)) effectAssets.push({ clipId: clip.id, effectIndex, url: lutUrl })
+      })
     }
   }
   return {
@@ -54,6 +61,7 @@ export function buildVideoEditorRenderManifest(input: {
     settings: input.settings,
     timeline: input.timeline,
     media,
+    effectAssets,
     report: { method: 'PUT', path: `/api/v1/video-editor/render-jobs/${input.jobId}?orgId=${encodeURIComponent(input.orgId)}` },
     upload: {
       method: 'POST',

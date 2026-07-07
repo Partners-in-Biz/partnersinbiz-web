@@ -58,6 +58,36 @@ describe('buildVideoEditorRenderManifest', () => {
     expect(manifest.report).toEqual({ method: 'PUT', path: '/api/v1/video-editor/render-jobs/job-1?orgId=org-1' })
     expect(manifest.upload).toEqual({ method: 'POST', path: '/api/v1/upload', folder: 'video-editor/org-1/proj-1', filename: 'job-1.mp4' })
   })
+
+  it('collects lut urls keyed by clip and effect index', () => {
+    const manifest = buildVideoEditorRenderManifest({
+      jobId: 'job-1',
+      orgId: 'org-1',
+      projectId: 'proj-1',
+      settings: defaultVideoEditorSettings(),
+      timeline: {
+        version: 1,
+        tracks: [{
+          id: 't1',
+          kind: 'video',
+          clips: [{
+            id: 'c1',
+            timelineStart: 0,
+            duration: 4,
+            media: { type: 'upload', fileId: 'f1', url: 'https://x.test/a.mp4', mediaKind: 'video' },
+            effects: [
+              { kind: 'blur', params: { sigma: 3 } },
+              { kind: 'lut', params: { lutUrl: 'https://firebasestorage.googleapis.com/x.cube', intensity: 1 } },
+            ],
+          }],
+        }],
+      },
+    })
+
+    expect(manifest.effectAssets).toEqual([
+      { clipId: 'c1', effectIndex: 1, url: 'https://firebasestorage.googleapis.com/x.cube' },
+    ])
+  })
 })
 
 describe('dispatchVideoEditorRenderJob', () => {

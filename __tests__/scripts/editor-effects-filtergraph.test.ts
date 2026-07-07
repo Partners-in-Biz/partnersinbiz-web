@@ -33,11 +33,12 @@ function compile(clipExtras: Record<string, unknown>, compileExtras: Record<stri
   })})`)
 }
 
-function compileError(clipExtras: Record<string, unknown>) {
+function compileError(clipExtras: Record<string, unknown>, compileExtras: Record<string, unknown> = {}) {
   return runModule<string>(`try {
     m.compileEditorFiltergraph(${JSON.stringify({
       settings,
       localMediaPaths: { c1: '/tmp/m/c1.mp4' },
+      ...compileExtras,
       timeline: {
         version: 1,
         tracks: [{
@@ -122,8 +123,8 @@ describe('filter effect compilation', () => {
 
   it('fails fast for effect kinds owned by later phase tasks', () => {
     expect(compileError({
-      effects: [{ kind: 'chroma_key', params: { color: '#00ff00', similarity: 0.25, blend: 0.1 } }],
-    })).toBe('unsupported video editor effect: chroma_key')
+      effects: [{ kind: 'voice_isolation', params: {} }],
+    })).toBe('unsupported video editor effect: voice_isolation')
   })
 
   it('keeps legacy output byte-identical when no effects are present', () => {
@@ -155,5 +156,81 @@ describe('filter effect compilation', () => {
 
     expect(filterComplex).toContain('[vr0s0][vr0s1][vr0s2][vr0s3]concat=n=4:v=1:a=0[vr0c]')
     expect(filterComplex).toContain('[vr0c]gblur=sigma=4,scale=w=iw*1.2:h=ih*1.2[vc0]')
+  })
+})
+
+describe('lut, chroma key, masks', () => {
+  it('compiles lut3d from a downloaded local path, with intensity blend', () => {
+    const { filterComplex } = compile(
+      { effects: [{ kind: 'lut', params: { lutUrl: 'https://firebasestorage.googleapis.com/x.cube', intensity: 0.7 } }] },
+      { localEffectAssetPaths: { 'c1:0': '/tmp/m/lut0.cube' } },
+    )
+
+    expect(filterComplex).toContain('split=2[fx0a][fx0b]')
+    expect(filterComplex).toContain("[fx0b]lut3d=file='/tmp/m/lut0.cube'[fx0c]")
+    expect(filterComplex).toContain('[fx0a][fx0c]blend=all_mode=normal:all_opacity=0.7[fx0d]')
+  })
+
+  it('applies lut3d inline when intensity is 1', () => {
+    const { filterComplex } = compile(
+      { effects: [{ kind: 'lut', params: { lutUrl: 'https://firebasestorage.googleapis.com/x.cube', intensity: 1 } }] },
+      { localEffectAssetPaths: { 'c1:0': '/tmp/m/lut0.cube' } },
+    )
+
+    expect(filterComplex).toContain("lut3d=file='/tmp/m/lut0.cube'")
+    expect(filterComplex).not.toContain('all_opacity')
+  })
+
+  it('treats a blank lut effect as a no-op', () => {
+    const { filterComplex } = compile({
+      effects: [{ kind: 'lut', params: { lutUrl: '', intensity: 1 } }],
+    })
+
+    expect(filterComplex).not.toContain('lut3d')
+    expect(filterComplex).toContain('[base][vc0]overlay=')
+  })
+
+  it('throws when a lut effect has no downloaded asset', () => {
+    expect(compileError({
+      effects: [{ kind: 'lut', params: { lutUrl: 'https://x.test/a.cube', intensity: 1 } }],
+    })).toMatch(/no local effect asset for clip c1/)
+  })
+
+  it('compiles chroma key', () => {
+    const { filterComplex } = compile({
+      effects: [{ kind: 'chroma_key', params: { color: '#00ff00', similarity: 0.3, blend: 0.15 } }],
+    })
+
+    expect(filterComplex).toContain('chromakey=color=0x00ff00:similarity=0.3:blend=0.15')
+  })
+
+  it('falls back for unsafe chroma colors and rejects unsafe local lut paths', () => {
+    const chroma = compile({
+      effects: [{ kind: 'chroma_key', params: { color: '0x00ff00:blend=1', similarity: 99, blend: -4 } }],
+    })
+    expect(chroma.filterComplex).toContain('chromakey=color=0x00ff00:similarity=1:blend=0')
+
+    expect(compileError(
+      { effects: [{ kind: 'lut', params: { lutUrl: 'https://firebasestorage.googleapis.com/x.cube', intensity: 1 } }] },
+      { localEffectAssetPaths: { 'c1:0': "/tmp/m/bad'name.cube" } },
+    )).toMatch(/unsafe local effect asset path/)
+  })
+
+  it('compiles a feathered rectangle mask as a geq alpha ramp', () => {
+    const { filterComplex } = compile({
+      effects: [{ kind: 'mask', params: { shape: 'rectangle', x: 0.1, y: 0.1, width: 0.8, height: 0.8, feather: 40, invert: false } }],
+    })
+
+    expect(filterComplex).toContain('format=yuva444p')
+    expect(filterComplex).toContain("geq=lum='lum(X,Y)':cb='cb(X,Y)':cr='cr(X,Y)':a=")
+    expect(filterComplex).toContain('min(min(X-(W*0.1)')
+  })
+
+  it('compiles ellipse and inverted linear masks', () => {
+    const ellipse = compile({ effects: [{ kind: 'mask', params: { shape: 'ellipse', x: 0.1, y: 0.1, width: 0.8, height: 0.8, feather: 40, invert: false } }] })
+    expect(ellipse.filterComplex).toContain('hypot(')
+
+    const linear = compile({ effects: [{ kind: 'mask', params: { shape: 'linear', x: 0.2, y: 0, width: 1, height: 1, feather: 120, invert: true } }] })
+    expect(linear.filterComplex).toContain('(1-clip((X-(W*0.2))/120')
   })
 })

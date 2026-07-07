@@ -11,7 +11,10 @@ const XFADE_TRANSITIONS = {
   wipe: 'wipeleft',
 }
 
-const COMPILED_EFFECT_KINDS = new Set(['color_adjust', 'blur', 'sharpen', 'vignette', 'grain', 'glow'])
+const COMPILED_EFFECT_KINDS = new Set([
+  'color_adjust', 'blur', 'sharpen', 'vignette', 'grain', 'glow',
+  'lut', 'chroma_key', 'mask', 'stabilize',
+])
 
 export function fmt(value) {
   return String(Math.round(Number(value) * 1000) / 1000)
@@ -62,6 +65,23 @@ function clipSpeed(clip) {
 
 function num(value, fallback) {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function clamp(value, min, max, fallback) {
+  return Math.min(Math.max(num(value, fallback), min), max)
+}
+
+function hexFilterColor(value, fallback = '0x00ff00') {
+  if (typeof value !== 'string') return fallback
+  const trimmed = value.trim()
+  if (!/^#[0-9a-fA-F]{6}$/.test(trimmed)) return fallback
+  return `0x${trimmed.slice(1).toLowerCase()}`
+}
+
+function safeFilterFilePath(value) {
+  const path = String(value || '')
+  if (!path || /['\n\r]/.test(path)) throw new Error('unsafe local effect asset path')
+  return path.replace(/\\/g, '\\\\')
 }
 
 function sortedClips(track) {
@@ -173,6 +193,44 @@ function applyVideoEffects({ clip, parts, chains, inLabel, ctx }) {
       chains.push(`[${fx}a][${fx}c]blend=all_mode=screen:all_opacity=${fmt(num(p.opacity, 0.5))}[${fx}d]`)
       parts.length = 0
       currentIn = `${fx}d`
+    } else if (effect.kind === 'lut') {
+      const lutUrl = typeof p.lutUrl === 'string' ? p.lutUrl.trim() : ''
+      const intensity = clamp(p.intensity, 0, 1, 1)
+      if (!/^https:\/\//.test(lutUrl) || intensity <= 0) continue
+      const assetPath = ctx.localEffectAssetPaths[`${clip.id}:${index}`]
+      if (!assetPath) throw new Error(`no local effect asset for clip ${clip.id} effect ${index} (lut)`)
+      const escaped = safeFilterFilePath(assetPath)
+      if (intensity >= 1) {
+        parts.push(`lut3d=file='${escaped}'`)
+      } else {
+        const fxIndex = ctx.fxCounter
+        ctx.fxCounter += 1
+        const fx = `fx${fxIndex}`
+        chains.push(`[${currentIn}]${[...parts, `split=2[${fx}a][${fx}b]`].join(',')}`)
+        chains.push(`[${fx}b]lut3d=file='${escaped}'[${fx}c]`)
+        chains.push(`[${fx}a][${fx}c]blend=all_mode=normal:all_opacity=${fmt(intensity)}[${fx}d]`)
+        parts.length = 0
+        currentIn = `${fx}d`
+      }
+    } else if (effect.kind === 'chroma_key') {
+      const color = hexFilterColor(p.color)
+      parts.push(`chromakey=color=${color}:similarity=${fmt(clamp(p.similarity, 0.01, 1, 0.25))}:blend=${fmt(clamp(p.blend, 0, 1, 0.1))}`)
+    } else if (effect.kind === 'mask') {
+      const x = fmt(clamp(p.x, 0, 1, 0.1))
+      const y = fmt(clamp(p.y, 0, 1, 0.1))
+      const w = fmt(clamp(p.width, 0.01, 1, 0.8))
+      const h = fmt(clamp(p.height, 0.01, 1, 0.8))
+      const feather = fmt(clamp(p.feather, 1, 500, 40))
+      let expr
+      if (p.shape === 'ellipse') {
+        expr = `clip((1-hypot((X-(W*${x})-(W*${w})/2)/((W*${w})/2),(Y-(H*${y})-(H*${h})/2)/((H*${h})/2)))*((W*${w})/2)/${feather},0,1)`
+      } else if (p.shape === 'linear') {
+        expr = `clip((X-(W*${x}))/${feather},0,1)`
+      } else {
+        expr = `clip(min(min(X-(W*${x}),(W*${x})+(W*${w})-X),min(Y-(H*${y}),(H*${y})+(H*${h})-Y))/${feather},0,1)`
+      }
+      if (p.invert === true) expr = `(1-${expr})`
+      parts.push('format=yuva444p', `geq=lum='lum(X,Y)':cb='cb(X,Y)':cr='cr(X,Y)':a='alpha(X,Y)*${expr}'`)
     }
   }
   return currentIn
@@ -240,7 +298,7 @@ function textYExpr(transform) {
   return `(h-text_h)/2${offset}`
 }
 
-export function compileEditorFiltergraph({ timeline, settings, localMediaPaths, fontFile, captionAssPath }) {
+export function compileEditorFiltergraph({ timeline, settings, localMediaPaths, localEffectAssetPaths = {}, fontFile, captionAssPath }) {
   assertSupportedEffects(timeline)
   const font = fontFile || DEFAULT_EDITOR_FONT_FILE
   const durationSeconds = Math.max(timelineDurationSeconds(timeline), 0.04)
@@ -267,7 +325,7 @@ export function compileEditorFiltergraph({ timeline, settings, localMediaPaths, 
   let vsCounter = 0
   let ovCounter = 0
   let txCounter = 0
-  const ctx = { fxCounter: 0 }
+  const ctx = { fxCounter: 0, localEffectAssetPaths }
 
   const visualTracks = tracks.filter((track) => track.kind === 'video' || track.kind === 'overlay')
   for (let trackIdx = visualTracks.length - 1; trackIdx >= 0; trackIdx -= 1) {
