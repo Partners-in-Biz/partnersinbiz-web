@@ -276,7 +276,7 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
       <div className="grid gap-4 xl:grid-cols-[320px_1fr_320px]">
         <MediaLibraryPanel orgId={orgId} sources={sources} onRefresh={loadSources} onAddClip={addMediaClip} onSourceUploaded={addUploadedSource} />
         <div className="space-y-4">
-          <PreviewPlayer timeline={timeline} settings={settings} playheadSeconds={playhead} playing={playing} onPlayToggle={() => setPlaying((value) => !value)} onSeek={setPlayhead} />
+          <PreviewPlayer timeline={timeline} settings={settings} mediaPreviews={mediaPreviews} playheadSeconds={playhead} playing={playing} onPlayToggle={() => setPlaying((value) => !value)} onSeek={setPlayhead} />
           <TimelinePanel
             timeline={timeline}
             selection={selection}
