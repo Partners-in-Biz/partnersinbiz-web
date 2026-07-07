@@ -1,3 +1,5 @@
+import { hasSpeedRamp, keyframeExpr, keyframesForProperty, rampSegments, sendcmdOpacityCommands } from './editor-keyframes.mjs'
+
 export const DEFAULT_EDITOR_FONT_FILE = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
 
 const XFADE_TRANSITIONS = {
@@ -59,29 +61,93 @@ function sortedClips(track) {
   return [...(track.clips ?? [])].sort((a, b) => (a.timelineStart ?? 0) - (b.timelineStart ?? 0))
 }
 
-function buildVisualClipChain(clip, inputIndex, label) {
-  const speed = clipSpeed(clip)
-  const transform = clip.transform ?? {}
-  const parts = []
-  if (clip.media.mediaKind === 'image') {
-    parts.push('setpts=PTS-STARTPTS')
-  } else {
-    const trimStart = clip.trimStart ?? 0
-    parts.push(`trim=start=${fmt(trimStart)}:duration=${fmt(clip.duration * speed)}`)
-    parts.push(speed === 1 ? 'setpts=PTS-STARTPTS' : `setpts=(PTS-STARTPTS)/${fmt(speed)}`)
-  }
-  const scale = typeof transform.scale === 'number' ? transform.scale : 1
-  if (scale !== 1) parts.push(`scale=w=iw*${fmt(scale)}:h=ih*${fmt(scale)}`)
-  const rotation = typeof transform.rotation === 'number' ? transform.rotation : 0
-  if (rotation !== 0) parts.push(`rotate=${fmt((rotation * Math.PI) / 180)}:c=black@0`)
-  const opacity = typeof transform.opacity === 'number' ? transform.opacity : 1
-  if (opacity < 1) parts.push('format=yuva420p', `colorchannelmixer=aa=${fmt(opacity)}`)
-  return `[${inputIndex}:v]${parts.join(',')}[${label}]`
+function propertyFrames(clip, property) {
+  const frames = keyframesForProperty(clip.keyframes, property)
+  return frames.length ? frames : null
 }
 
-function overlayPosition(transform) {
-  const x = typeof transform?.x === 'number' && transform.x !== 0 ? `(W-w)/2+${fmt(transform.x)}` : '(W-w)/2'
-  const y = typeof transform?.y === 'number' && transform.y !== 0 ? `(H-h)/2+${fmt(transform.y)}` : '(H-h)/2'
+function buildVisualClipChain(clip, inputIndex, label, chains, clipOrdinal) {
+  const transform = clip.transform ?? {}
+  const transformParts = buildTransformParts(clip, transform, clipOrdinal)
+
+  if (clip.media.mediaKind !== 'image' && hasSpeedRamp(clip)) {
+    const segments = rampSegments(clip, 4)
+    const trimStart = clip.trimStart ?? 0
+    const inputLabels = segments.map((_, i) => `vr${clipOrdinal}i${i}`)
+    chains.push(`[${inputIndex}:v]split=${segments.length}${inputLabels.map((l) => `[${l}]`).join('')}`)
+    const segmentLabels = segments.map((segment, i) => {
+      const segLabel = `vr${clipOrdinal}s${i}`
+      chains.push(`[${inputLabels[i]}]trim=start=${fmt(trimStart + segment.sourceStart)}:duration=${fmt(segment.sourceDuration)},setpts=(PTS-STARTPTS)/${fmt(segment.speed)}[${segLabel}]`)
+      return segLabel
+    })
+    // concat the constant-speed slices straight into the final label when there
+    // is no transform work; otherwise concat to an intermediate and transform.
+    const concatLabel = transformParts.length ? `vr${clipOrdinal}c` : label
+    chains.push(`${segmentLabels.map((l) => `[${l}]`).join('')}concat=n=${segments.length}:v=1:a=0[${concatLabel}]`)
+    if (transformParts.length) chains.push(`[${concatLabel}]${transformParts.join(',')}[${label}]`)
+    return label
+  }
+
+  const leading = []
+  if (clip.media.mediaKind === 'image') {
+    leading.push('setpts=PTS-STARTPTS')
+  } else {
+    const speed = clipSpeed(clip)
+    const trimStart = clip.trimStart ?? 0
+    leading.push(`trim=start=${fmt(trimStart)}:duration=${fmt(clip.duration * speed)}`)
+    leading.push(speed === 1 ? 'setpts=PTS-STARTPTS' : `setpts=(PTS-STARTPTS)/${fmt(speed)}`)
+  }
+  chains.push(`[${inputIndex}:v]${[...leading, ...transformParts].join(',')}[${label}]`)
+  return label
+}
+
+/** Ordered transform filter parts (scale → rotate → opacity), keyframe-aware. */
+function buildTransformParts(clip, transform, clipOrdinal) {
+  const parts = []
+
+  const scaleFrames = propertyFrames(clip, 'transform.scale')
+  const staticScale = typeof transform.scale === 'number' ? transform.scale : 1
+  if (scaleFrames) {
+    const expr = keyframeExpr(scaleFrames, staticScale, 't')
+    parts.push(`scale=w='iw*(${expr})':h='ih*(${expr})':eval=frame`)
+  } else if (staticScale !== 1) {
+    parts.push(`scale=w=iw*${fmt(staticScale)}:h=ih*${fmt(staticScale)}`)
+  }
+
+  const rotationFrames = propertyFrames(clip, 'transform.rotation')
+  const staticRotation = typeof transform.rotation === 'number' ? transform.rotation : 0
+  if (rotationFrames) {
+    parts.push(`rotate=a='(${keyframeExpr(rotationFrames, staticRotation, 't')})*PI/180':c=black@0`)
+  } else if (staticRotation !== 0) {
+    parts.push(`rotate=${fmt((staticRotation * Math.PI) / 180)}:c=black@0`)
+  }
+
+  const opacityFrames = propertyFrames(clip, 'transform.opacity')
+  const staticOpacity = typeof transform.opacity === 'number' ? transform.opacity : 1
+  if (opacityFrames) {
+    const commands = sendcmdOpacityCommands(opacityFrames, staticOpacity, `op${clipOrdinal}`, clip.duration, 0.1)
+    const initial = Math.min(Math.max(opacityFrames[0].atSeconds <= 0 ? opacityFrames[0].value : staticOpacity, 0), 1)
+    parts.push('format=yuva420p', `sendcmd=c='${commands}'`, `colorchannelmixer@op${clipOrdinal}=aa=${fmt(initial)}`)
+  } else if (staticOpacity < 1) {
+    parts.push('format=yuva420p', `colorchannelmixer=aa=${fmt(staticOpacity)}`)
+  }
+
+  return parts
+}
+
+function overlayPosition(clip, startSeconds) {
+  const transform = clip.transform ?? {}
+  const timeExpr = startSeconds > 0 ? `(t-${fmt(startSeconds)})` : 't'
+  const xFrames = propertyFrames(clip, 'transform.x')
+  const yFrames = propertyFrames(clip, 'transform.y')
+  const staticX = typeof transform.x === 'number' ? transform.x : 0
+  const staticY = typeof transform.y === 'number' ? transform.y : 0
+  const x = xFrames
+    ? `'(W-w)/2+(${keyframeExpr(xFrames, staticX, timeExpr)})'`
+    : staticX !== 0 ? `(W-w)/2+${fmt(staticX)}` : '(W-w)/2'
+  const y = yFrames
+    ? `'(H-h)/2+(${keyframeExpr(yFrames, staticY, timeExpr)})'`
+    : staticY !== 0 ? `(H-h)/2+${fmt(staticY)}` : '(H-h)/2'
   return { x, y }
 }
 
@@ -147,8 +213,8 @@ export function compileEditorFiltergraph({ timeline, settings, localMediaPaths, 
     for (const group of groups) {
       const labels = group.map((clip) => {
         const label = `vc${vcCounter}`
+        buildVisualClipChain(clip, clipInputIndex.get(clip.id), label, chains, vcCounter)
         vcCounter += 1
-        chains.push(buildVisualClipChain(clip, clipInputIndex.get(clip.id), label))
         return { clip, label }
       })
       let segmentLabel = labels[0].label
@@ -169,7 +235,7 @@ export function compileEditorFiltergraph({ timeline, settings, localMediaPaths, 
         chains.push(`[${segmentLabel}]setpts=PTS+${fmt(start)}/TB[${shifted}]`)
         segmentLabel = shifted
       }
-      const { x, y } = overlayPosition(group[0].transform)
+      const { x, y } = overlayPosition(group[0], group[0].timelineStart)
       const next = `ov${ovCounter}`
       ovCounter += 1
       chains.push(`[${current}][${segmentLabel}]overlay=x=${x}:y=${y}:enable='between(t,${fmt(start)},${fmt(end)})':eof_action=pass[${next}]`)
@@ -225,16 +291,45 @@ export function compileEditorFiltergraph({ timeline, settings, localMediaPaths, 
   } else {
     const labels = []
     audioSources.forEach(({ clip, volume }, index) => {
-      const speed = clipSpeed(clip)
-      const parts = [
-        `atrim=start=${fmt(clip.trimStart ?? 0)}:duration=${fmt(clip.duration * speed)}`,
-        'asetpts=PTS-STARTPTS',
-        ...atempoFactors(speed).map((factor) => `atempo=${fmt(factor)}`),
-      ]
-      if (volume !== 1) parts.push(`volume=${fmt(volume)}`)
-      if (clip.timelineStart > 0) parts.push(`adelay=${Math.round(clip.timelineStart * 1000)}:all=1`)
+      const volumeFrames = keyframesForProperty(clip.keyframes, 'volume')
       const label = audioSources.length === 1 ? 'aout' : `ac${index}`
-      chains.push(`[${clipInputIndex.get(clip.id)}:a]${parts.join(',')}[${label}]`)
+      const trimStart = clip.trimStart ?? 0
+      const tailParts = []
+      if (volumeFrames.length) {
+        tailParts.push(`volume=volume='(${keyframeExpr(volumeFrames, volume, 't')})':eval=frame`)
+      } else if (volume !== 1) {
+        tailParts.push(`volume=${fmt(volume)}`)
+      }
+      if (clip.timelineStart > 0) tailParts.push(`adelay=${Math.round(clip.timelineStart * 1000)}:all=1`)
+
+      if (hasSpeedRamp(clip)) {
+        const segments = rampSegments(clip, 4)
+        const inputLabels = segments.map((_, i) => `ar${index}i${i}`)
+        chains.push(`[${clipInputIndex.get(clip.id)}:a]asplit=${segments.length}${inputLabels.map((l) => `[${l}]`).join('')}`)
+        const segmentLabels = segments.map((segment, i) => {
+          const segLabel = `ar${index}s${i}`
+          const atempo = atempoFactors(segment.speed).map((factor) => `atempo=${fmt(factor)}`)
+          const chain = [
+            `atrim=start=${fmt(trimStart + segment.sourceStart)}:duration=${fmt(segment.sourceDuration)}`,
+            'asetpts=PTS-STARTPTS',
+            ...(atempo.length ? atempo : []),
+          ]
+          chains.push(`[${inputLabels[i]}]${chain.join(',')}[${segLabel}]`)
+          return segLabel
+        })
+        const concatTarget = tailParts.length ? `ar${index}c` : label
+        chains.push(`${segmentLabels.map((l) => `[${l}]`).join('')}concat=n=${segments.length}:v=0:a=1[${concatTarget}]`)
+        if (tailParts.length) chains.push(`[${concatTarget}]${tailParts.join(',')}[${label}]`)
+      } else {
+        const speed = clipSpeed(clip)
+        const parts = [
+          `atrim=start=${fmt(trimStart)}:duration=${fmt(clip.duration * speed)}`,
+          'asetpts=PTS-STARTPTS',
+          ...atempoFactors(speed).map((factor) => `atempo=${fmt(factor)}`),
+          ...tailParts,
+        ]
+        chains.push(`[${clipInputIndex.get(clip.id)}:a]${parts.join(',')}[${label}]`)
+      }
       labels.push(label)
     })
     if (audioSources.length > 1) {
