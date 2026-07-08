@@ -10,6 +10,7 @@ const mockGet = jest.fn(async () => ({
     data: () => doc.data,
   })),
 }))
+const mockLimit = jest.fn(() => ({ get: mockGet }))
 const mockCollection = jest.fn((name: string) => ({
   add: mockAdd,
   doc: jest.fn(() => ({ get: mockDocGet })),
@@ -20,6 +21,7 @@ const mockCollection = jest.fn((name: string) => ({
 
 mockWhere.mockReturnValue({
   where: mockWhere,
+  limit: mockLimit,
   get: mockGet,
 })
 
@@ -70,6 +72,7 @@ describe('personal social account scope', () => {
     mockDocs.length = 0
     mockWhere.mockReturnValue({
       where: mockWhere,
+      limit: mockLimit,
       get: mockGet,
     })
     mockGet.mockImplementation(async () => ({
@@ -138,6 +141,7 @@ describe('personal social post scope', () => {
     mockDocs.length = 0
     mockWhere.mockReturnValue({
       where: mockWhere,
+      limit: mockLimit,
       get: mockGet,
     })
     mockGet.mockResolvedValue({ docs: [] })
@@ -213,6 +217,7 @@ describe('personal social vault scope', () => {
     mockDocs.length = 0
     mockWhere.mockReturnValue({
       where: mockWhere,
+      limit: mockLimit,
       get: mockGet,
     })
     mockGet.mockImplementation(async () => ({
