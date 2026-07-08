@@ -7,7 +7,11 @@ const repoRoot = process.cwd()
 
 const routeChecks = [
   'app/api/v1/crm/contacts/route.ts',
+  'app/api/v1/crm/companies/route.ts',
+  'app/api/v1/client-documents/route.ts',
   'app/api/v1/projects/route.ts',
+  'app/api/v1/projects/reporting/route.ts',
+  'app/api/v1/social/accounts/route.ts',
   'app/api/v1/social/posts/route.ts',
   'app/api/v1/campaigns/route.ts',
   'app/api/v1/crm/capture-sources/route.ts',

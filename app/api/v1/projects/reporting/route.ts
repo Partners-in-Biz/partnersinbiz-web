@@ -62,8 +62,9 @@ function suiteRows(snap: { docs?: FirestoreDoc[] } | null | undefined): SuiteRow
 }
 
 async function loadProjectsForOrg(orgId: string, limit: number): Promise<ProjectRow[]> {
+  const queryLimit = Math.min(Math.max(limit * 2, limit + 5), 100)
   const snaps = await Promise.all(
-    PROJECT_ORG_FIELDS.map((field) => adminDb.collection('projects').where(field, '==', orgId).get()),
+    PROJECT_ORG_FIELDS.map((field) => adminDb.collection('projects').where(field, '==', orgId).limit(queryLimit).get()),
   )
   const byId = new Map<string, ProjectRow>()
   for (const snap of snaps) {

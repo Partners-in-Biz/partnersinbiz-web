@@ -17,6 +17,17 @@ export const dynamic = 'force-dynamic'
 const VALID_STATUSES: AccountStatus[] = ['active', 'token_expired', 'disconnected', 'rate_limited']
 const PERSONAL_SCOPE = 'personal'
 
+type SocialAccountDoc = {
+  id: string
+  data: () => Record<string, unknown>
+}
+
+type SocialAccountQuery = {
+  where: (fieldPath: string, opStr: FirebaseFirestore.WhereFilterOp, value: unknown) => SocialAccountQuery
+  limit: (limit: number) => SocialAccountQuery
+  get: () => Promise<{ docs: SocialAccountDoc[] }>
+}
+
 function wantsPersonalScope(req: NextRequest): boolean {
   return new URL(req.url).searchParams.get('scope') === PERSONAL_SCOPE
 }
@@ -33,10 +44,10 @@ export const GET = withAuth('client', withTenant(async (req, user, orgId) => {
   const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') ?? '50', 10)))
   const personalScope = wantsPersonalScope(req)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query: any = adminDb.collection('social_accounts').where('orgId', '==', orgId)
+  let query = adminDb.collection('social_accounts')
+    .where('orgId', '==', orgId) as unknown as SocialAccountQuery
 
-  if (platform && ACTIVE_PLATFORMS.includes(platform as any)) {
+  if (platform && ACTIVE_PLATFORMS.includes(platform as (typeof ACTIVE_PLATFORMS)[number])) {
     query = query.where('platform', '==', platform)
   }
 
@@ -44,23 +55,29 @@ export const GET = withAuth('client', withTenant(async (req, user, orgId) => {
     query = query.where('status', '==', status)
   }
 
+  if (personalScope) {
+    query = query.where('accountScope', '==', PERSONAL_SCOPE).where('ownerUid', '==', user.uid)
+  }
+
+  query = query.limit((page * limit) + 1)
   const snapshot = await query.get()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const allAccounts = snapshot.docs.map((doc: any) => {
+  const allAccounts = snapshot.docs.map((doc) => {
     const data = doc.data()
-    const { encryptedTokens: _, ...safe } = data
+    const safe = { ...data }
+    delete safe.encryptedTokens
     return { id: doc.id, ...safe }
   }).filter((account: Record<string, unknown>) => {
     if (personalScope) return isPersonalAccountForUser(account, user.uid)
     return account.accountScope !== PERSONAL_SCOPE
   })
 
-  const total = allAccounts.length
   const start = (page - 1) * limit
   const accounts = allAccounts.slice(start, start + limit)
+  const hasMore = allAccounts.length > start + limit
+  const total = hasMore ? start + accounts.length + 1 : start + accounts.length
 
-  return apiSuccess(accounts, 200, { total, page, limit })
+  return apiSuccess(accounts, 200, { total, page, limit, hasMore })
 }))
 
 export const POST = withAuth('client', withTenant(async (req, user, orgId) => {

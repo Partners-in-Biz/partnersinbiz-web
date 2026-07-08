@@ -19,7 +19,7 @@ import {
   loadMemberRef,
   findDuplicateCompany,
 } from '@/lib/companies/store'
-import { applyPostFilterSearch } from '@/lib/companies/filters'
+import { applyPostFilterSearch, buildCompanyQuery } from '@/lib/companies/filters'
 import type { Company, CompanyInput, CompanyListParams } from '@/lib/companies/types'
 import { getDefinitionsForResource } from '@/lib/customFields/store'
 import { validateCustomFields } from '@/lib/customFields/validation'
@@ -35,6 +35,20 @@ import {
 import { safeTouchCrmLiveUpdate } from '@/lib/crm/live-updates'
 
 // ── GET ─────────────────────────────────────────────────────────────────────────
+
+async function countFirestoreQuery(query: {
+  count?: () => { get: () => Promise<{ data?: () => { count?: number } }> }
+  get: () => Promise<{ docs?: unknown[] }>
+}): Promise<number> {
+  if (typeof query.count === 'function') {
+    const aggregate = await query.count().get()
+    const data = typeof aggregate.data === 'function' ? aggregate.data() : {}
+    const count = data?.count
+    return typeof count === 'number' && Number.isFinite(count) ? count : 0
+  }
+  const snap = await query.get()
+  return Array.isArray(snap.docs) ? snap.docs.length : 0
+}
 
 export const GET = withCrmAuth('viewer', async (req, ctx) => {
   try {
@@ -61,6 +75,42 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
     }
 
     const limit = Math.min(params.limit ?? 50, 200)
+    const canUseIndexedPage =
+      isCrmPrivilegedActor(ctx) &&
+      !params.search &&
+      !params.hasOpenDeals
+
+    if (canUseIndexedPage) {
+      let query = buildCompanyQuery(ctx.orgId, params).limit(limit + 1)
+      let countQuery: FirebaseFirestore.Query = adminDb.collection('companies')
+        .where('orgId', '==', ctx.orgId)
+        .where('deleted', '==', false)
+
+      if (params.industry) countQuery = countQuery.where('industry', '==', params.industry)
+      if (params.size) countQuery = countQuery.where('size', '==', params.size)
+      if (params.tier) countQuery = countQuery.where('tier', '==', params.tier)
+      if (params.lifecycleStage) countQuery = countQuery.where('lifecycleStage', '==', params.lifecycleStage)
+      if (params.accountManagerUid) countQuery = countQuery.where('accountManagerUid', '==', params.accountManagerUid)
+      if (params.tags && params.tags.length > 0) {
+        countQuery = countQuery.where('tags', 'array-contains-any', params.tags.slice(0, 10))
+      }
+
+      if (params.cursor) {
+        const cursorDoc = await adminDb.collection('companies').doc(params.cursor).get()
+        if (cursorDoc.exists) query = query.startAfter(cursorDoc)
+      }
+
+      const [total, snapshot] = await Promise.all([
+        countFirestoreQuery(countQuery),
+        query.get(),
+      ])
+      const rows = snapshot.docs
+        .map((doc) => ({ ...(doc.data() as Company), id: doc.id }))
+        .filter((company) => company.deleted !== true)
+      const page = rows.slice(0, limit)
+      const nextCursor = rows.length > limit ? page[page.length - 1]?.id : undefined
+      return apiSuccess({ companies: page, nextCursor, orgId: ctx.orgId }, 200, { total, limit })
+    }
 
     // Keep the list route index-safe. Production workspaces can land before the
     // newest composite indexes are deployed, so query only by tenant and do the

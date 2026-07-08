@@ -110,6 +110,7 @@ beforeEach(() => {
   const documentRef = makeDocumentRef()
   const query = {
     where: mockWhere,
+    limit: jest.fn(() => query),
     get: mockQueryGet,
   }
 
@@ -492,6 +493,8 @@ describe('client documents API', () => {
 
     expect(res.status).toBe(200)
     expect(body.data.map((doc: { id: string }) => doc.id)).toEqual(['doc-direct-linked', 'doc-linked'])
+    expect(mockWhere).toHaveBeenCalledWith('linked.clientOrgId', '==', 'client-org')
+    expect(mockWhere).toHaveBeenCalledWith('linked.clientOrgIds', 'array-contains', 'client-org')
   })
 
   it('lists selected-client documents for admins together with platform-owned documents linked to that client org', async () => {
@@ -542,6 +545,8 @@ describe('client documents API', () => {
 
     expect(res.status).toBe(200)
     expect(body.data.map((doc: { id: string }) => doc.id)).toEqual(['doc-direct', 'doc-linked'])
+    expect(mockWhere).toHaveBeenCalledWith('linked.clientOrgId', '==', 'client-org')
+    expect(mockWhere).toHaveBeenCalledWith('linked.clientOrgIds', 'array-contains', 'client-org')
   })
 
   it('returns a scoped document when the actor has access', async () => {
