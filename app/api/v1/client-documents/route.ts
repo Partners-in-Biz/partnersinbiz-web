@@ -47,11 +47,28 @@ const VALID_STATUSES: ClientDocumentStatus[] = [
 ]
 const ASSUMPTION_CREATE_FIELDS = new Set(['text', 'severity', 'blockId'])
 const ASSUMPTION_SEVERITIES = new Set(['info', 'needs_review', 'blocks_publish'])
+const DEFAULT_LIST_LIMIT = 50
+const MAX_LIST_LIMIT = 100
 
 type CreateAssumptionInput = {
   text: string
   severity?: DocumentAssumption['severity']
   blockId?: string
+}
+
+type FirestoreListDoc = {
+  id: string
+  data: () => Record<string, unknown>
+}
+
+type FirestoreListSnap = {
+  docs: FirestoreListDoc[]
+}
+
+type FirestoreListQuery = {
+  where: (fieldPath: string, opStr: FirebaseFirestore.WhereFilterOp, value: unknown) => FirestoreListQuery
+  limit: (limit: number) => FirestoreListQuery
+  get: () => Promise<FirestoreListSnap>
 }
 
 function actorType(user: ApiUser) {
@@ -161,6 +178,8 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   const { searchParams } = new URL(req.url)
   const scope = resolveOrgScope(user, searchParams.get('orgId'))
   if (!scope.ok) return apiError(scope.error, scope.status)
+  const parsedLimit = Number.parseInt(searchParams.get('limit') ?? `${DEFAULT_LIST_LIMIT}`, 10)
+  const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), MAX_LIST_LIMIT) : DEFAULT_LIST_LIMIT
 
   const status = searchParams.get('status')
   if (status && !VALID_STATUSES.includes(status as ClientDocumentStatus)) {
@@ -173,19 +192,38 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   }
 
   async function listForOrg(orgId: string): Promise<Array<ClientDocument & { id: string }>> {
-    let query: any = adminDb.collection(CLIENT_DOCUMENTS_COLLECTION).where('orgId', '==', orgId)
+    let query = adminDb.collection(CLIENT_DOCUMENTS_COLLECTION)
+      .where('orgId', '==', orgId) as unknown as FirestoreListQuery
     if (status) query = query.where('status', '==', status)
     if (type) query = query.where('type', '==', type)
+    query = query.limit(limit + 1)
     const snap = await query.get()
     return snap.docs
-      .map((doc: any) => ({ id: doc.id, ...doc.data() } as ClientDocument & { id: string }))
+      .map((doc) => ({ id: doc.id, ...doc.data() } as ClientDocument & { id: string }))
       .filter((doc: ClientDocument & { id: string }) => doc.deleted !== true)
   }
 
   let documents = await listForOrg(scope.orgId)
   if (scope.orgId !== PIB_PLATFORM_ORG_ID) {
-    const platformDocuments = await listForOrg(PIB_PLATFORM_ORG_ID)
+    const platformQueries: FirestoreListQuery[] = [
+      adminDb.collection(CLIENT_DOCUMENTS_COLLECTION)
+        .where('orgId', '==', PIB_PLATFORM_ORG_ID)
+        .where('linked.clientOrgId', '==', scope.orgId) as unknown as FirestoreListQuery,
+      adminDb.collection(CLIENT_DOCUMENTS_COLLECTION)
+        .where('orgId', '==', PIB_PLATFORM_ORG_ID)
+        .where('linked.clientOrgIds', 'array-contains', scope.orgId) as unknown as FirestoreListQuery,
+    ]
+    const platformSnaps = await Promise.all(platformQueries.map((query) => {
+      let nextQuery = query
+      if (status) nextQuery = nextQuery.where('status', '==', status)
+      if (type) nextQuery = nextQuery.where('type', '==', type)
+      return nextQuery.limit(limit + 1).get()
+    }))
+    const platformDocuments = platformSnaps.flatMap((snap) =>
+      snap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as ClientDocument & { id: string })),
+    )
     const linkedPlatformDocuments = platformDocuments
+      .filter((doc) => doc.deleted !== true)
       .filter((doc) => {
         const linkedOrgIds = new Set([
           ...(doc.linked?.clientOrgId ? [doc.linked.clientOrgId] : []),
@@ -201,8 +239,11 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   if (user.role === 'client') {
     documents = documents.filter((doc) => isClientVisibleToOrg(doc, scope.orgId))
   }
+  const hasMore = documents.length > limit
+  const total = hasMore ? limit + 1 : documents.length
+  documents = documents.slice(0, limit)
 
-  return apiSuccess(documents)
+  return apiSuccess(documents, 200, { total, limit, hasMore })
 })
 
 export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) => {

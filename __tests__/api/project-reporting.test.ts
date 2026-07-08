@@ -126,7 +126,9 @@ beforeEach(() => {
     projectAccess: { role: 'manager', source: 'project_member', canViewInternal: true },
   })
   mockProjectWhere.mockImplementation((field: string, _op: string, value: string) => ({
-    get: jest.fn(async () => field === 'ownerOrgId' && value === 'owner-org' ? snap(projects) : snap([])),
+    limit: jest.fn(() => ({
+      get: jest.fn(async () => field === 'ownerOrgId' && value === 'owner-org' ? snap(projects) : snap([])),
+    })),
   }))
   mockOrganizationWhere.mockImplementation((field: string, _op: string, value: string) => ({
     limit: jest.fn(() => ({
@@ -161,6 +163,7 @@ describe('GET /api/v1/projects/reporting', () => {
 
     expect(res.status).toBe(200)
     expect(mockProjectWhere).toHaveBeenCalledWith('ownerOrgId', '==', 'owner-org')
+    expect(mockProjectWhere.mock.results[0].value.limit).toHaveBeenCalledWith(60)
     expect(body.data.summary).toEqual(expect.objectContaining({
       totalProjects: 2,
       totalTasks: 2,
@@ -217,5 +220,6 @@ describe('GET /api/v1/projects/reporting', () => {
     expect(mockCanAccessOrg).toHaveBeenCalledWith(mockUser, 'owner-org')
     expect(body.data.orgId).toBe('owner-org')
     expect(body.data.summary.totalProjects).toBe(2)
+    expect(mockProjectWhere.mock.results[0].value.limit).toHaveBeenCalledWith(60)
   })
 })
