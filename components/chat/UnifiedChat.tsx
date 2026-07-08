@@ -36,6 +36,8 @@ import ParticipantBar from './ParticipantBar'
 import ParticipantPicker, { type SelectedParticipant } from './ParticipantPicker'
 import ConversationListItem, { type Conversation } from './ConversationListItem'
 import VoiceInputButton from './VoiceInputButton'
+import ModelProviderPicker, { type MessageModelCatalog, type ModelRuntimeSelection } from '@/components/messages/hermes/ModelProviderPicker'
+import RuntimeInspectorRail from '@/components/messages/hermes/RuntimeInspectorRail'
 
 type AgentId = string
 
@@ -244,6 +246,9 @@ export default function UnifiedChat({
   const [contextSearchResults, setContextSearchResults] = useState<ContextReference[]>([])
   const [contextSearchLoading, setContextSearchLoading] = useState(false)
   const [agentEffort, setAgentEffort] = useState<AgentEffort | ''>('')
+  const [modelCatalog, setModelCatalog] = useState<MessageModelCatalog | null>(null)
+  const [modelCatalogLoading, setModelCatalogLoading] = useState(false)
+  const [selectedRuntime, setSelectedRuntime] = useState<ModelRuntimeSelection | null>(null)
 
   // Agent map for looking up colorKey / iconKey for bubbles
   const [agentMap, setAgentMap] = useState<Record<AgentId, AgentTeamDoc>>({} as Record<AgentId, AgentTeamDoc>)
@@ -310,6 +315,23 @@ export default function UnifiedChat({
     () => conversations.find((c) => c.id === activeId) ?? null,
     [conversations, activeId],
   )
+  const activeModelAgentId = useMemo<AgentId | null>(() => {
+    const agentIds = activeConversation?.participantAgentIds ?? []
+    if (agentIds.length === 0) return null
+    return agentIds.includes('pip') ? 'pip' : agentIds[0]
+  }, [activeConversation?.participantAgentIds])
+  const activeRuntimeMessage = useMemo(() => {
+    const sorted = messages.slice().sort((a, b) => tsSeconds(b.createdAt) - tsSeconds(a.createdAt))
+    return sorted.find((message) =>
+      message.role === 'assistant' && (
+        message.status === 'pending' ||
+        message.status === 'streaming' ||
+        message.status === 'waiting_approval' ||
+        Boolean(message.runId)
+      ),
+    ) ?? null
+  }, [messages])
+  const activeRuntimeEvents = activeRuntimeMessage ? (liveEvents[activeRuntimeMessage.id] ?? []) : []
   const canUseComposer = allowSendMessages && (Boolean(activeConversation) || allowStartConversations)
   const contextTypeOptions = useMemo(
     () => (contextTypePrompt ? filterContextReferenceMentionOptions(contextTypePrompt.query) : []),
@@ -354,6 +376,40 @@ export default function UnifiedChat({
       })
       .catch(() => {})
   }, [orgId])
+
+  const loadModelCatalog = useCallback(async () => {
+    if (!activeId || !activeModelAgentId) {
+      setModelCatalog(null)
+      setSelectedRuntime(null)
+      return
+    }
+    setModelCatalogLoading(true)
+    try {
+      const params = new URLSearchParams({ agentId: activeModelAgentId })
+      const res = await fetch(`/api/v1/conversations/${activeId}/models?${params.toString()}`)
+      const body = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(body?.error ?? `model catalogue: ${res.status}`)
+      const catalog = body.data as MessageModelCatalog
+      setModelCatalog(catalog)
+      setSelectedRuntime((previous) => {
+        if (previous && catalog.models.some((model) => model.model === previous.model && model.provider === previous.provider)) {
+          return previous
+        }
+        return catalog.currentModel
+          ? { model: catalog.currentModel, provider: catalog.currentProvider }
+          : null
+      })
+    } catch {
+      setModelCatalog(null)
+      setSelectedRuntime(null)
+    } finally {
+      setModelCatalogLoading(false)
+    }
+  }, [activeId, activeModelAgentId])
+
+  useEffect(() => {
+    void loadModelCatalog()
+  }, [loadModelCatalog])
 
   // ── Load conversations ────────────────────────────────────────────────────
   const loadConversations = useCallback(async () => {
@@ -1313,6 +1369,7 @@ export default function UnifiedChat({
         const shouldExpectAgentReply =
           createdWithAgent ||
           (activeConversation?.participantAgentIds?.length ?? 0) > 0
+        const runtimeForSend = modelCatalog?.canSelect && selectedRuntime?.model ? selectedRuntime : null
 
         // Optimistic messages
         const optimisticUser: ConversationMessage = {
@@ -1327,6 +1384,8 @@ export default function UnifiedChat({
           ...(refsForSend.length > 0 ? { contextRefs: refsForSend } : {}),
           ...(slashPayload ? { slashCommand: slashPayload } : {}),
           ...(agentEffort ? { agentEffort } : {}),
+          ...(runtimeForSend?.model ? { model: runtimeForSend.model } : {}),
+          ...(runtimeForSend?.provider ? { provider: runtimeForSend.provider } : {}),
           status: 'completed',
           createdAt: { seconds: nowSec },
         }
@@ -1339,6 +1398,8 @@ export default function UnifiedChat({
               authorKind: 'agent',
               authorId: 'pending',
               authorDisplayName: 'Agent',
+              ...(runtimeForSend?.model ? { model: runtimeForSend.model } : {}),
+              ...(runtimeForSend?.provider ? { provider: runtimeForSend.provider } : {}),
               status: 'pending',
               createdAt: { seconds: nowSec + 0.001 },
             }]
@@ -1354,6 +1415,8 @@ export default function UnifiedChat({
             contextRefs: refsForSend,
             ...(slashPayload ? { slashCommand: slashPayload } : {}),
             ...(agentEffort ? { agentEffort } : {}),
+            ...(runtimeForSend?.model ? { model: runtimeForSend.model } : {}),
+            ...(runtimeForSend?.provider ? { provider: runtimeForSend.provider } : {}),
           }),
         })
         const body = await res.json()
@@ -1389,6 +1452,8 @@ export default function UnifiedChat({
       input,
       attachments,
       agentEffort,
+      selectedRuntime,
+      modelCatalog?.canSelect,
       sending,
       contextRefs,
       pinCurrentPageContext,
@@ -1428,7 +1493,7 @@ export default function UnifiedChat({
       className={
         compact
           ? 'flex h-full min-h-0 min-w-0 flex-1 overflow-hidden'
-          : 'flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-4 lg:grid-cols-[280px_1fr]'
+          : 'flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-4 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_280px]'
       }
     >
       {/* ── Left: conversation list ─────────────────────────────────────── */}
@@ -1616,6 +1681,20 @@ export default function UnifiedChat({
                 </div>
               )}
             </div>
+
+            {activeModelAgentId && (
+              <div className="hidden min-w-0 shrink-0 lg:block">
+                <ModelProviderPicker
+                  catalog={modelCatalog}
+                  selected={selectedRuntime}
+                  loading={modelCatalogLoading}
+                  disabled={!activeConversation}
+                  compact
+                  onSelect={setSelectedRuntime}
+                  onRefresh={loadModelCatalog}
+                />
+              </div>
+            )}
 
             {/* ⋯ menu — mobile only (rename/archive) */}
             {activeConversation && (
@@ -1805,7 +1884,7 @@ export default function UnifiedChat({
             draggingAttachments ? 'bg-primary/10 ring-1 ring-primary/35' : '',
           ].join(' ')}
         >
-          {(currentPageContext || contextRefs.length > 0 || allowAgentParticipants) && (
+          {(currentPageContext || contextRefs.length > 0 || allowAgentParticipants || activeModelAgentId) && (
             <div data-testid="chat-context-toolbar" className="flex items-center justify-between gap-2">
               <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                 {currentPageContext && (
@@ -1846,8 +1925,22 @@ export default function UnifiedChat({
                 ))}
               </div>
 
+              {activeModelAgentId && (
+                <div className="ml-auto shrink-0 lg:hidden">
+                  <ModelProviderPicker
+                    catalog={modelCatalog}
+                    selected={selectedRuntime}
+                    loading={modelCatalogLoading}
+                    disabled={!activeConversation}
+                    compact
+                    onSelect={setSelectedRuntime}
+                    onRefresh={loadModelCatalog}
+                  />
+                </div>
+              )}
+
               {allowAgentParticipants && (
-                <label className="ml-auto shrink-0">
+                <label className={`${activeModelAgentId ? '' : 'ml-auto '}shrink-0`}>
                   <span className="sr-only">Thinking effort</span>
                   <select
                     value={agentEffort}
@@ -2079,6 +2172,28 @@ export default function UnifiedChat({
           </div>
         </form>
       </section>
+
+      {!compact && (
+        <RuntimeInspectorRail
+          activeMessage={activeRuntimeMessage}
+          events={activeRuntimeEvents}
+          selectedRuntime={selectedRuntime}
+          catalog={modelCatalog}
+          canStop={Boolean(
+            allowDeleteConversations &&
+            activeRuntimeMessage?.runId &&
+            activeId &&
+            (activeRuntimeMessage.status === 'pending' ||
+              activeRuntimeMessage.status === 'streaming' ||
+              activeRuntimeMessage.status === 'waiting_approval'),
+          )}
+          onStop={
+            activeRuntimeMessage?.id && activeId
+              ? () => stopAgentRun(activeId, activeRuntimeMessage.id)
+              : undefined
+          }
+        />
+      )}
 
       {/* ── New conversation modal ──────────────────────────────────────── */}
       {showNewModal && (

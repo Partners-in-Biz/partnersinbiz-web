@@ -304,6 +304,7 @@ export async function createHermesRun(link: HermesProfileLink, requestedBy: stri
     ...(dispatchAgentId ? { dispatchAgentId } : {}),
     ...(metadata ? { metadata } : {}),
     ...(request.model ? { model: request.model } : {}),
+    ...(request.provider ? { provider: request.provider } : {}),
     ...(request.reasoning_effort ? { reasoningEffort: request.reasoning_effort } : {}),
     status: payload.status ?? 'submitted',
     response: data,

@@ -99,6 +99,8 @@ export interface ConversationMessage {
   contextRefs?: ContextReference[]
   slashCommand?: SlashCommandPayload
   agentEffort?: AgentEffort | null
+  model?: string
+  provider?: string
   runId?: string
   runDocId?: string
   status?: 'pending' | 'streaming' | 'completed' | 'failed' | 'waiting_approval'

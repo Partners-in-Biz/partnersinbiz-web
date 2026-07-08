@@ -84,6 +84,8 @@ describe('GET /api/v1/admin/hermes/profiles/[orgId]/runs/[runId]', () => {
     }, 'user-1', {
       prompt: 'Hello',
       conversation_id: 'conv-1',
+      model: 'openai/gpt-5.5',
+      provider: 'openai',
       metadata: {
         source: 'pib-unified-chat',
         conversationId: 'conv-1',
@@ -97,6 +99,8 @@ describe('GET /api/v1/admin/hermes/profiles/[orgId]/runs/[runId]', () => {
       hermesRunId: 'run-1',
       status: 'started',
       conversationId: 'conv-1',
+      model: 'openai/gpt-5.5',
+      provider: 'openai',
       metadata: expect.objectContaining({
         source: 'pib-unified-chat',
         conversationId: 'conv-1',

@@ -42,6 +42,28 @@ const projectRef: ContextReference = {
   summary: 'status: development',
 }
 
+const modelCatalogResponse = {
+  data: {
+    agentId: 'pip',
+    canSelect: true,
+    currentModel: 'anthropic/claude-sonnet-4.6',
+    currentProvider: 'anthropic',
+    source: 'hermes',
+    providers: [{ id: 'anthropic', label: 'Anthropic', configured: true, active: true }],
+    models: [{
+      id: 'anthropic/claude-sonnet-4.6',
+      model: 'anthropic/claude-sonnet-4.6',
+      displayName: 'Claude Sonnet 4.6',
+      provider: 'anthropic',
+      providerLabel: 'Anthropic',
+      configured: true,
+      active: true,
+      available: true,
+      source: 'hermes',
+    }],
+  },
+}
+
 function jsonResponse(body: unknown, ok = true) {
   return {
     ok,
@@ -114,6 +136,7 @@ describe('UnifiedChat message scrolling', () => {
 
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
       if (url.includes('/visible-agents')) return jsonResponse({ data: [] })
       if (url.startsWith('/api/v1/conversations?')) {
         return jsonResponse({ data: { conversations: [baseConversation] } })
@@ -187,6 +210,7 @@ describe('UnifiedChat context references', () => {
     conversation = { ...baseConversation, contextRefs: [] }
     mockFetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
       if (url.includes('/visible-agents')) {
         return jsonResponse({
           data: [
@@ -520,6 +544,7 @@ describe('UnifiedChat context references', () => {
   it('allows attaching a file before an auto-created agent conversation exists', async () => {
     mockFetch.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
       if (url.includes('/visible-agents')) {
         return jsonResponse({ data: [] })
       }
@@ -662,6 +687,7 @@ describe('UnifiedChat context references', () => {
 
     mockFetch.mockImplementation(async (input: RequestInfo | URL) => {
       const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
       if (url.includes('/visible-agents')) {
         return jsonResponse({ data: [] })
       }
@@ -721,6 +747,7 @@ describe('UnifiedChat context references', () => {
   it('falls back to chat-feed when the focused conversation messages route returns 401', async () => {
     mockFetch.mockImplementation(async (input: RequestInfo | URL) => {
       const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
       if (url.includes('/visible-agents')) {
         return jsonResponse({ data: [] })
       }
@@ -778,6 +805,7 @@ describe('UnifiedChat context references', () => {
   it('falls back to thread-data when browser filters block messages and chat-feed routes', async () => {
     mockFetch.mockImplementation(async (input: RequestInfo | URL) => {
       const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
       if (url.includes('/visible-agents')) {
         return jsonResponse({ data: [] })
       }
@@ -838,6 +866,7 @@ describe('UnifiedChat context references', () => {
   it('loads a focused conversation directly when scoped conversation list does not include it', async () => {
     mockFetch.mockImplementation(async (input: RequestInfo | URL) => {
       const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
       if (url.includes('/visible-agents')) {
         return jsonResponse({ data: [] })
       }

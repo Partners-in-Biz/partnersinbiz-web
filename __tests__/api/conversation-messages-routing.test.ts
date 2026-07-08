@@ -14,6 +14,7 @@ const mockTouchConversation = jest.fn()
 const mockMessagesCollection = jest.fn()
 const mockCreateHermesRun = jest.fn()
 const mockGetAgentDecryptedKey = jest.fn()
+const mockCallAgentPath = jest.fn()
 
 let mockUser: MockUser = { uid: 'client-1', role: 'client' }
 let organizationSettings: Record<string, unknown> = {}
@@ -42,6 +43,7 @@ jest.mock('@/lib/hermes/server', () => ({
 
 jest.mock('@/lib/agents/team', () => ({
   getAgentDecryptedKey: mockGetAgentDecryptedKey,
+  callAgentPath: mockCallAgentPath,
 }))
 
 beforeEach(() => {
@@ -94,6 +96,7 @@ beforeEach(() => {
               agentId,
               enabled: true,
               name: agentId === 'maya' ? 'Maya' : 'Pip',
+              defaultModel: 'anthropic/claude-sonnet-4.6',
               baseUrl: 'https://hermes.example.com',
               skillPolicy: {
                 runtimeSkills: ['content-engine', 'social-media-manager'],
@@ -122,6 +125,15 @@ beforeEach(() => {
   mockTouchConversation.mockResolvedValue(undefined)
   mockListMessages.mockResolvedValue([])
   mockGetAgentDecryptedKey.mockResolvedValue('secret')
+  mockCallAgentPath.mockResolvedValue({
+    response: { ok: true, status: 200 },
+    data: {
+      data: [
+        { id: 'anthropic/claude-sonnet-4.6', provider: 'anthropic', display_name: 'Claude Sonnet 4.6' },
+        { id: 'openai/gpt-5.5', provider: 'openai', display_name: 'GPT-5.5' },
+      ],
+    },
+  })
   mockCreateHermesRun.mockResolvedValue({
     response: { ok: true },
     data: { run_id: 'run-1' },
@@ -151,6 +163,13 @@ function reqWithAttachments() {
         },
       ],
     }),
+  })
+}
+
+function reqWithModel(model = 'openai/gpt-5.5', provider = 'openai') {
+  return new NextRequest('http://localhost/api/v1/conversations/conv-1/messages', {
+    method: 'POST',
+    body: JSON.stringify({ content: 'Use the selected model', model, provider }),
   })
 }
 
@@ -430,5 +449,116 @@ describe('unified conversation message routing', () => {
         },
       ],
     }))
+  })
+
+  it('passes admin-selected model and provider overrides into the Hermes run', async () => {
+    mockUser = { uid: 'admin-1', role: 'admin' }
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'pib-platform-owner',
+      participantUids: ['client-1'],
+      participantAgentIds: ['pip'],
+      participants: [
+        { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
+        { kind: 'agent', agentId: 'pip', name: 'Pip' },
+      ],
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    const res = await POST(reqWithModel(), { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockCallAgentPath).toHaveBeenCalledWith('pip', '/v1/models', { method: 'GET' })
+    expect(mockCreateMessage).toHaveBeenCalledWith('conv-1', expect.objectContaining({
+      role: 'user',
+      model: 'openai/gpt-5.5',
+      provider: 'openai',
+    }))
+    expect(mockCreateMessage).toHaveBeenCalledWith('conv-1', expect.objectContaining({
+      role: 'assistant',
+      model: 'openai/gpt-5.5',
+      provider: 'openai',
+    }))
+    expect(mockCreateHermesRun).toHaveBeenCalledWith(
+      expect.any(Object),
+      'admin-1',
+      expect.objectContaining({
+        model: 'openai/gpt-5.5',
+        provider: 'openai',
+        metadata: expect.objectContaining({
+          model: 'openai/gpt-5.5',
+          provider: 'openai',
+        }),
+      }),
+    )
+  })
+
+  it('rejects client-supplied model overrides before storing messages', async () => {
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'pib-platform-owner',
+      participantUids: ['client-1'],
+      participantAgentIds: ['pip'],
+      participants: [
+        { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
+        { kind: 'agent', agentId: 'pip', name: 'Pip' },
+      ],
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    const res = await POST(reqWithModel(), { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(res.status).toBe(403)
+    expect(mockCreateMessage).not.toHaveBeenCalled()
+    expect(mockCreateHermesRun).not.toHaveBeenCalled()
+  })
+
+  it('rejects unavailable model overrides before storing messages', async () => {
+    mockUser = { uid: 'admin-1', role: 'admin' }
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'pib-platform-owner',
+      participantUids: ['client-1'],
+      participantAgentIds: ['pip'],
+      participants: [
+        { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
+        { kind: 'agent', agentId: 'pip', name: 'Pip' },
+      ],
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    const res = await POST(reqWithModel('anthropic/not-real', 'anthropic'), {
+      params: Promise.resolve({ convId: 'conv-1' }),
+    })
+
+    expect(res.status).toBe(400)
+    expect(mockCreateMessage).not.toHaveBeenCalled()
+    expect(mockCreateHermesRun).not.toHaveBeenCalled()
+  })
+
+  it('rejects malformed model overrides before storing messages', async () => {
+    mockUser = { uid: 'admin-1', role: 'admin' }
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'pib-platform-owner',
+      participantUids: ['client-1'],
+      participantAgentIds: ['pip'],
+      participants: [
+        { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
+        { kind: 'agent', agentId: 'pip', name: 'Pip' },
+      ],
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    const res = await POST(reqWithModel('bad model<script>', ''), {
+      params: Promise.resolve({ convId: 'conv-1' }),
+    })
+
+    expect(res.status).toBe(400)
+    const body = await readJson(res)
+    expect(body.error).toContain('Invalid model id')
+    expect(mockCallAgentPath).not.toHaveBeenCalled()
+    expect(mockCreateMessage).not.toHaveBeenCalled()
+    expect(mockCreateHermesRun).not.toHaveBeenCalled()
   })
 })

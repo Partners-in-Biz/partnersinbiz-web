@@ -32,6 +32,7 @@ import {
 import { councilModeGuidanceLines, getSlashCommandByToken, slashCommandInstruction, type SlashCommandPayload } from '@/lib/chat/slash-commands'
 import { buildAgentSkillsPromptBlock } from '@/lib/chat/agent-skills'
 import { CEO_APPROVAL_CARD_RULE_LINES, buildCeoDataDecisionOperatingRuleLines } from '@/lib/agent/ceo-operating-rule'
+import { validateMessageModelSelection } from '@/lib/messages/model-catalog'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import type { HermesProfileLink } from '@/lib/hermes/types'
 import type { ApiUser } from '@/lib/api/types'
@@ -291,6 +292,9 @@ export const POST = withAuth(
       return apiError(`Invalid agentEffort; expected one of ${VALID_AGENT_EFFORTS.join(' | ')}`, 400)
     }
     const agentEffort = reasoningDirective.agentEffort ?? requestedEffort
+    const requestedModel = (body as Record<string, unknown>).model
+    const requestedProvider = (body as Record<string, unknown>).provider
+    const hasModelSelection = requestedModel !== undefined || requestedProvider !== undefined
     const attachments = sanitizeAttachments((body as Record<string, unknown>).attachments)
     const slashCommand = sanitizeSlashCommand((body as Record<string, unknown>).slashCommand)
     if (!content && attachments.length === 0) return apiError('content or attachments are required', 400)
@@ -314,6 +318,24 @@ export const POST = withAuth(
         user.uid
     }
 
+    // Resolve dispatch target before storing the message so unauthorized or
+    // invalid model/provider overrides fail without creating a partial thread.
+    const dispatchAgentId = await resolveDispatchAgentId(conversation)
+    let modelSelection: { model: string; provider?: string } | undefined
+    if (hasModelSelection) {
+      const modelValidation = await validateMessageModelSelection({
+        conversation,
+        user,
+        agentId: dispatchAgentId,
+        model: requestedModel,
+        provider: requestedProvider,
+      })
+      if (!modelValidation.ok) {
+        return apiError(modelValidation.error ?? 'Invalid model selection', modelValidation.status ?? 400)
+      }
+      modelSelection = modelValidation.selection
+    }
+
     // Store the user message
     const message = await createMessage(convId, {
       conversationId: convId,
@@ -323,6 +345,8 @@ export const POST = withAuth(
       ...(resolvedContextRefs.length > 0 ? { contextRefs: resolvedContextRefs } : {}),
       ...(slashCommand ? { slashCommand } : {}),
       ...(agentEffort ? { agentEffort } : {}),
+      ...(modelSelection?.model ? { model: modelSelection.model } : {}),
+      ...(modelSelection?.provider ? { provider: modelSelection.provider } : {}),
       authorKind: 'user',
       authorId: user.uid,
       authorDisplayName,
@@ -337,7 +361,6 @@ export const POST = withAuth(
     const conversationHistory = buildConversationHistoryBlock(recentMessages, message.id)
 
     // Phase 2: dispatch a Hermes run. Multi-agent conversations route via Pip.
-    const dispatchAgentId = await resolveDispatchAgentId(conversation)
     if (dispatchAgentId) {
       const agentId = dispatchAgentId
 
@@ -360,6 +383,8 @@ export const POST = withAuth(
         authorDisplayName: agentData.name,
         dispatchAgentId: agentId,
         ...(agentEffort ? { agentEffort } : {}),
+        ...(modelSelection?.model ? { model: modelSelection.model } : {}),
+        ...(modelSelection?.provider ? { provider: modelSelection.provider } : {}),
         status: 'pending',
       })
 
@@ -413,12 +438,16 @@ export const POST = withAuth(
       const runResult = await createHermesRun(agentLink, user.uid, {
         prompt: hermesInput,
         conversation_id: convId,
+        ...(modelSelection?.model ? { model: modelSelection.model } : {}),
+        ...(modelSelection?.provider ? { provider: modelSelection.provider } : {}),
         ...(agentEffort ? { reasoning_effort: agentEffort } : {}),
         metadata: {
           conversationId: convId,
           messageId: assistantMessage.id,
           orgId: conversation.orgId,
           dispatchAgentId: agentId,
+          ...(modelSelection?.model ? { model: modelSelection.model } : {}),
+          ...(modelSelection?.provider ? { provider: modelSelection.provider } : {}),
           requestedAgentIds: conversation.orchestration?.requestedAgentIds ?? conversation.participantAgentIds,
           orchestrationMode: conversation.orchestration?.mode ?? (conversation.participantAgentIds.length > 1 ? 'pip-orchestrator' : 'direct'),
           source: 'pib-unified-chat',

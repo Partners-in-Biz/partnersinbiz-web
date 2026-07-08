@@ -23,6 +23,8 @@ export interface ConversationMessage {
   attachments?: ConversationAttachment[]
   contextRefs?: ContextReference[]
   slashCommand?: SlashCommandPayload
+  model?: string
+  provider?: string
   runId?: string
   status?: string
   error?: string
