@@ -271,7 +271,7 @@ export async function GET(req: NextRequest) {
       platformMeta: profile.meta ?? {},
       lastTokenRefresh: now,
       updatedAt: now,
-      ...(accountScope === 'personal' ? { accountScope, ownerUid } : {}),
+      ...(accountScope === 'personal' ? { accountScope, ownerUid } : { accountScope: 'org', ownerUid: null }),
     }
 
     let accountId: string
@@ -281,11 +281,7 @@ export async function GET(req: NextRequest) {
       await adminDb
         .collection('social_accounts')
         .doc(accountId)
-        .update(accountScope === 'personal' ? accountData : {
-          ...accountData,
-          accountScope: 'org',
-          ownerUid: null,
-        })
+        .update(accountData)
     } else {
       // Create new account
       const docRef = await adminDb

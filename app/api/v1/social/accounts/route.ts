@@ -16,6 +16,7 @@ export const dynamic = 'force-dynamic'
 
 const VALID_STATUSES: AccountStatus[] = ['active', 'token_expired', 'disconnected', 'rate_limited']
 const PERSONAL_SCOPE = 'personal'
+const ORG_SCOPE = 'org'
 
 type SocialAccountDoc = {
   id: string
@@ -112,7 +113,7 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
     },
     platformMeta: body.platformMeta ?? {},
     connectedBy: user.uid,
-    ...(personalScope ? { accountScope: PERSONAL_SCOPE, ownerUid: user.uid } : {}),
+    ...(personalScope ? { accountScope: PERSONAL_SCOPE, ownerUid: user.uid } : { accountScope: ORG_SCOPE, ownerUid: null }),
     connectedAt: FieldValue.serverTimestamp(),
     lastTokenRefresh: null,
     lastUsed: null,

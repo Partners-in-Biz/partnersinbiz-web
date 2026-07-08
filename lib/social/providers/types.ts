@@ -36,6 +36,7 @@ export const ACTIVE_PLATFORMS: SocialPlatformType[] = [
 
 export type AccountType = 'personal' | 'business' | 'page' | 'group'
 export type AccountStatus = 'active' | 'token_expired' | 'disconnected' | 'rate_limited'
+export type AccountScope = 'org' | 'personal'
 
 export interface SocialAccount {
   id?: string
@@ -47,6 +48,8 @@ export interface SocialAccount {
   avatarUrl: string
   profileUrl: string
   accountType: AccountType
+  accountScope?: AccountScope
+  ownerUid?: string | null
   status: AccountStatus
   scopes: string[]
   encryptedTokens: EncryptedTokenBlock

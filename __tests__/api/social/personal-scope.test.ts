@@ -133,6 +133,26 @@ describe('personal social account scope', () => {
       displayName: 'Peet Personal',
     }))
   })
+
+  it('writes explicit org scope fields when creating an organisation account', async () => {
+    const { POST } = await import('@/app/api/v1/social/accounts/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/social/accounts', {
+      method: 'POST',
+      body: JSON.stringify({
+        platform: 'linkedin',
+        displayName: 'Company Page',
+        username: 'company-page',
+      }),
+    }))
+
+    expect(res.status).toBe(201)
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      ownerUid: null,
+      accountScope: 'org',
+      displayName: 'Company Page',
+    }))
+  })
 })
 
 describe('personal social post scope', () => {

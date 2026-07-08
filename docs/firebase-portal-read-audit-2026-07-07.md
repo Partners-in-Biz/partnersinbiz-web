@@ -24,7 +24,7 @@ Purpose: keep portal page loads from reading whole Firestore collections just to
 | `GET /api/v1/campaigns` | `campaigns` | Yes. | Firestore `count()`. | Requires active docs to have `deleted: false`; dry-run normalization script added. |
 | `GET /api/v1/crm/capture-sources` | `capture_sources` | Yes. | Firestore `count()`. | Requires active docs to have `deleted: false`; dry-run normalization script added. |
 | `GET /api/v1/crm/companies` | `companies`, limited `contacts`/`deals` fallbacks | Indexed privileged list path applies `deleted == false`, filters, order, cursor, `limit + 1`, and `count()` before `.get()`. | Firestore `count()` on the indexed privileged path. | Search, open-deal, and assignment-restricted views keep the legacy bounded fallback because they need cross-record visibility/filter logic. |
-| `GET /api/v1/social/accounts` | `social_accounts` | Applies `limit(page * limit + 1)` before `.get()`. Personal account lists add indexed `accountScope == personal` and `ownerUid == user.uid`. | Bounded read estimate with `hasMore`. | Org-level rows still include legacy missing `accountScope`, so exact org count needs a schema migration; dashboard no longer calls it on the normal path. |
+| `GET /api/v1/social/accounts` | `social_accounts` | Applies `limit(page * limit + 1)` before `.get()`. Personal account lists add indexed `accountScope == personal` and `ownerUid == user.uid`. | Bounded read estimate with `hasMore`. | New org account writes now set `accountScope: 'org'` and `ownerUid: null`; legacy rows still need the dry-run migration below before exact org counts can switch to `accountScope == org` + `count()`. Dashboard no longer calls this route on the normal path. |
 | `GET /api/v1/client-documents` | `client_documents` | Applies `limit + 1` to direct org docs and uses linked-platform queries for `linked.clientOrgId` / `linked.clientOrgIds` instead of scanning all platform docs. | Bounded read estimate with `hasMore`. | Uses two linked-platform queries then de-dupes client-visible results in memory. |
 | `GET /api/v1/projects/reporting` | `projects` subcollections | Bounds each relationship-field project query before loading per-project suites. | N/A. | Explicit deep report stays lazy/user-triggered; selected projects still load subcollections by design. |
 
@@ -56,7 +56,11 @@ New composite indexes were added for common portal list patterns. Do not deploy 
 Dry-run scripts:
 - `node scripts/backfill-portal-summaries.mjs --orgId=<orgId>`
 - `node scripts/normalize-portal-soft-delete-fields.mjs --orgId=<orgId>`
+- `node scripts/backfill-social-account-scope.mjs --orgId=<orgId>`
 
 Apply mode is explicit:
 - `node scripts/backfill-portal-summaries.mjs --orgId=<orgId> --apply`
 - `node scripts/normalize-portal-soft-delete-fields.mjs --orgId=<orgId> --apply`
+- `node scripts/backfill-social-account-scope.mjs --orgId=<orgId> --apply`
+
+`backfill-social-account-scope` only patches `social_accounts` documents where `accountScope` is missing. It writes `accountScope: 'org'`, `ownerUid: null`, and `accountScopeBackfilledAt`; personal and already-explicit org rows are untouched. Run dry-run first in each environment and review the sample paths before applying.
