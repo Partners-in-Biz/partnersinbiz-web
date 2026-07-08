@@ -1,6 +1,26 @@
 {
   "extends": "./tsconfig.json",
+  "include": [
+    "*.ts",
+    "*.tsx",
+    "*.mts",
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "components/**/*.ts",
+    "components/**/*.tsx",
+    "config/**/*.ts",
+    "config/**/*.json",
+    "hooks/**/*.ts",
+    "hooks/**/*.tsx",
+    "lib/**/*.ts",
+    "lib/**/*.tsx",
+    "scripts/**/*.ts",
+    "scripts/**/*.mts",
+    "services/**/*.ts",
+    "types/**/*.ts"
+  ],
   "exclude": [
+    "next-env.d.ts",
     "node_modules",
     "functions",
     "__tests__",

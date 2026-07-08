@@ -121,8 +121,21 @@ async function main() {
       {
         agentId,
         baseUrl: profile.baseUrl,
+        endpoint: `${profile.baseUrl}/v1/runs`,
         apiKey: profile.apiKey,
         enabled: true,
+        defaultRuntimeTarget: 'vps',
+        runtimeTargets: {
+          vps: {
+            id: 'vps',
+            label: 'VPS Hermes',
+            baseUrl: profile.baseUrl,
+            apiKey: profile.apiKey,
+            enabled: true,
+            priority: 10,
+            capabilities: ['always-on', 'server-runtime'],
+          },
+        },
         updatedAt: FieldValue.serverTimestamp(),
         createdBy: 'scripts/seed-agent-dispatch-configs.ts',
         sourceProfileId: sourceId,

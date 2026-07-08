@@ -3,7 +3,7 @@ import type { AgentId } from '@/lib/agents/types'
 import { buildClientProvisioningPayload, type ClientProvisioningInput } from './provisioner'
 
 export type FullClientProvisioningResult = {
-  profile: unknown
+  profile: { skipped: true; reason: string }
   workspace: unknown
   warnings?: string[]
 }
@@ -17,7 +17,6 @@ function isConflict(response: Response, data: unknown) {
 
 export async function provisionFullClientOnVps(input: ClientProvisioningInput): Promise<FullClientProvisioningResult> {
   const payload = buildClientProvisioningPayload(input)
-  const warnings: string[] = []
 
   const workspaceResponse = await callAgentPath('pip' as AgentId, '/admin/client-workspaces', {
     method: 'POST',
@@ -29,35 +28,13 @@ export async function provisionFullClientOnVps(input: ClientProvisioningInput): 
     throw new Error(`VPS workspace provisioning failed: ${JSON.stringify(workspaceResponse.data).slice(0, 500)}`)
   }
 
-  const profileResponse = await callAgentPath('pip' as AgentId, '/admin/profiles', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      agentId: payload.domain,
-      name: payload.agentName,
-      role: 'Client Agent',
-      persona: `${payload.agentName} supports ${payload.clientName} client work in the Partners in Biz Cowork system.`,
-      defaultModel: 'gpt-5.5',
-      provider: 'openai-codex',
-      soul: payload.soul,
-    }),
-  })
-
-  const profileExists = isConflict(profileResponse.response, profileResponse.data)
-  const profileProvisioned = profileResponse.response.ok || profileExists
-  if (!profileProvisioned) {
-    warnings.push(`VPS profile provisioning warning: ${JSON.stringify(profileResponse.data).slice(0, 500)}`)
-  }
-
   return {
-    profile: profileResponse.response.ok
-      ? profileResponse.data
-      : profileExists
-        ? { existing: true, upstream: profileResponse.data }
-        : { skipped: true, upstream: profileResponse.data },
+    profile: {
+      skipped: true,
+      reason: 'Partners in Biz agents now work inside client spaces; no per-client Hermes profile is created.',
+    },
     workspace: workspaceResponse.response.ok
       ? workspaceResponse.data
       : { existing: true, upstream: workspaceResponse.data },
-    ...(warnings.length > 0 ? { warnings } : {}),
   }
 }

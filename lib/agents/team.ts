@@ -14,6 +14,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { mergeAgentRegistry, normalizeAgentRegistryInput } from './registry'
 import { buildAgentSkillPolicyState } from './skill-policy'
+import { buildRuntimeTargetMap, selectAgentRuntimeTarget, type AgentDispatchTarget } from './runtime-targets'
 import type { AgentId, AgentRegistryEntry, AgentTeamDoc, AgentTeamStoredDoc } from './types'
 
 // ---------------------------------------------------------------------------
@@ -83,6 +84,22 @@ function maskApiKey(plain: string): string {
 // Internal helpers
 // ---------------------------------------------------------------------------
 const COLLECTION = 'agent_team'
+const DISPATCH_COLLECTION = 'agent_dispatch_configs'
+
+export interface AgentRuntimeCallOptions {
+  runtimeTarget?: string | null
+}
+
+function preferredRuntimeTarget(options?: AgentRuntimeCallOptions): string | null {
+  return options?.runtimeTarget
+    ?? process.env.PIB_HERMES_RUNTIME_TARGET
+    ?? process.env.PIB_AGENT_RUNTIME_TARGET
+    ?? null
+}
+
+function preferLocalRuntime(): boolean {
+  return ['1', 'true', 'yes', 'local'].includes((process.env.PIB_PREFER_LOCAL_HERMES ?? '').toLowerCase())
+}
 
 function toPublicDoc(stored: AgentTeamStoredDoc & { id?: string }): AgentTeamDoc {
   let masked = '●●●●●●●●●●●● (re-enter key)'
@@ -105,6 +122,39 @@ async function getRaw(agentId: AgentId): Promise<AgentTeamStoredDoc | null> {
   const snap = await adminDb.collection(COLLECTION).doc(agentId).get()
   if (!snap.exists) return null
   return snap.data() as AgentTeamStoredDoc
+}
+
+async function resolveAgentDispatchTarget(
+  agentId: AgentId,
+  raw: AgentTeamStoredDoc | null,
+  options?: AgentRuntimeCallOptions,
+): Promise<AgentDispatchTarget | null> {
+  let legacyApiKey: string | null = null
+  try {
+    legacyApiKey = raw?.apiKey ? decryptAgentApiKey(raw.apiKey).trim() : null
+  } catch {
+    legacyApiKey = null
+  }
+
+  let dispatchData: Record<string, unknown> = {}
+  try {
+    const snap = await adminDb.collection(DISPATCH_COLLECTION).doc(agentId).get()
+    dispatchData = snap.exists ? snap.data() as Record<string, unknown> : {}
+  } catch {
+    dispatchData = {}
+  }
+
+  return selectAgentRuntimeTarget({
+    runtimeTargets: dispatchData.runtimeTargets,
+    defaultTargetId: typeof dispatchData.defaultRuntimeTarget === 'string' ? dispatchData.defaultRuntimeTarget : undefined,
+    preference: preferredRuntimeTarget(options),
+    preferLocal: preferLocalRuntime(),
+    legacy: {
+      baseUrl: typeof dispatchData.baseUrl === 'string' ? dispatchData.baseUrl : raw?.baseUrl,
+      apiKey: typeof dispatchData.apiKey === 'string' ? dispatchData.apiKey : legacyApiKey,
+      enabled: dispatchData.enabled === false ? false : raw?.enabled,
+    },
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -151,6 +201,8 @@ export async function updateAgent(agentId: AgentId, patch: UpdateableFields): Pr
   const existing = await ref.get()
   if (!existing.exists) throw new Error(`agent_team/${agentId} not found`)
 
+  const existingRaw = existing.data() as AgentTeamStoredDoc
+
   // Build the write payload
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const writePayload: Record<string, any> = { updatedAt: FieldValue.serverTimestamp() }
@@ -180,15 +232,39 @@ export async function updateAgent(agentId: AgentId, patch: UpdateableFields): Pr
     const baseUrl = patch.baseUrl.replace(/\/+$/, '')
     dispatchPatch.baseUrl = baseUrl
     dispatchPatch.endpoint = `${baseUrl}/v1/runs`
+    dispatchPatch.runtimeTargets = buildRuntimeTargetMap({
+      id: 'vps',
+      label: 'VPS Hermes',
+      baseUrl,
+      enabled: true,
+      priority: 10,
+      capabilities: ['always-on', 'server-runtime'],
+    })
+    dispatchPatch.defaultRuntimeTarget = 'vps'
   }
 
   if (plaintextKey !== null) {
     dispatchPatch.apiKey = plaintextKey
+    const existingTargets = dispatchPatch.runtimeTargets as Record<string, Record<string, unknown>> | undefined
+    if (existingTargets?.vps) {
+      existingTargets.vps.apiKey = plaintextKey
+    } else if (existingRaw.baseUrl) {
+      dispatchPatch.runtimeTargets = buildRuntimeTargetMap({
+        id: 'vps',
+        label: 'VPS Hermes',
+        baseUrl: existingRaw.baseUrl,
+        apiKey: plaintextKey,
+        enabled: true,
+        priority: 10,
+        capabilities: ['always-on', 'server-runtime'],
+      })
+      dispatchPatch.defaultRuntimeTarget = 'vps'
+    }
   }
 
   if (Object.keys(dispatchPatch).length > 1) {
     await adminDb
-      .collection('agent_dispatch_configs')
+      .collection(DISPATCH_COLLECTION)
       .doc(agentId)
       .set(dispatchPatch, { merge: true })
   }
@@ -225,12 +301,22 @@ export async function createAgent(input: CreateAgentInput): Promise<AgentTeamDoc
   })
 
   const baseUrl = input.baseUrl.replace(/\/+$/, '')
-  await adminDb.collection('agent_dispatch_configs').doc(input.agentId).set({
+  await adminDb.collection(DISPATCH_COLLECTION).doc(input.agentId).set({
     agentId: input.agentId,
     baseUrl,
     endpoint: `${baseUrl}/v1/runs`,
     apiKey: input.apiKey,
     enabled: input.enabled,
+    defaultRuntimeTarget: 'vps',
+    runtimeTargets: buildRuntimeTargetMap({
+      id: 'vps',
+      label: 'VPS Hermes',
+      baseUrl,
+      apiKey: input.apiKey,
+      enabled: input.enabled,
+      priority: 10,
+      capabilities: ['always-on', 'server-runtime'],
+    }),
     createdAt: now,
     updatedAt: now,
   }, { merge: true })
@@ -273,15 +359,9 @@ export async function pingAgentHealth(
   const raw = await getRaw(agentId)
   if (!raw) throw new Error(`agent_team/${agentId} not found`)
 
-  const baseUrl = raw.baseUrl.replace(/\/+$/, '')
-  const healthUrl = `${baseUrl}/v1/health`
-
-  let plainKey: string
-  try {
-    plainKey = decryptAgentApiKey(raw.apiKey)
-  } catch {
-    return { status: 'unreachable' }
-  }
+  const target = await resolveAgentDispatchTarget(agentId, raw)
+  if (!target) return { status: 'unreachable' }
+  const healthUrl = `${target.baseUrl}/v1/health`
 
   const t0 = Date.now()
   let status: 'ok' | 'degraded' | 'unreachable' = 'unreachable'
@@ -293,7 +373,7 @@ export async function pingAgentHealth(
     try {
       const res = await fetch(healthUrl, {
         method: 'GET',
-        headers: { Authorization: `Bearer ${plainKey}` },
+        headers: { Authorization: `Bearer ${target.apiKey}` },
         signal: controller.signal,
       })
       latencyMs = Date.now() - t0
@@ -326,12 +406,13 @@ export async function callAgentPath(
   agentId: AgentId,
   path: string,
   init: RequestInit = {},
+  options: AgentRuntimeCallOptions = {},
 ): Promise<{ response: Response; data: unknown }> {
   const raw = await getRaw(agentId)
   if (!raw) throw new Error(`agent_team/${agentId} not found`)
-  const apiKey = decryptAgentApiKey(raw.apiKey).trim()
-  const baseUrl = raw.baseUrl.replace(/\/+$/, '')
-  const url = `${baseUrl}${path.startsWith('/') ? path : `/${path}`}`
+  const target = await resolveAgentDispatchTarget(agentId, raw, options)
+  if (!target) throw new Error(`No reachable runtime target configured for agent_team/${agentId}`)
+  const url = `${target.baseUrl}${path.startsWith('/') ? path : `/${path}`}`
   const existingHeaders = init.headers
     ? (init.headers instanceof Headers
         ? Object.fromEntries((init.headers as unknown as { entries(): Iterable<[string, string]> }).entries())
@@ -339,7 +420,7 @@ export async function callAgentPath(
           ? Object.fromEntries(init.headers as [string, string][])
           : (init.headers as Record<string, string>))
     : {}
-  const headers: Record<string, string> = { Authorization: `Bearer ${apiKey}`, ...existingHeaders }
+  const headers: Record<string, string> = { Authorization: `Bearer ${target.apiKey}`, ...existingHeaders }
   const response = await fetch(url, { ...init, headers })
   const text = await response.text()
   let data: unknown = null
@@ -348,12 +429,16 @@ export async function callAgentPath(
 }
 
 /** Like callAgentPath but returns the raw Response for streaming (SSE). */
-export async function callAgentStream(agentId: AgentId, path: string): Promise<Response> {
+export async function callAgentStream(
+  agentId: AgentId,
+  path: string,
+  options: AgentRuntimeCallOptions = {},
+): Promise<Response> {
   const raw = await getRaw(agentId)
   if (!raw) throw new Error(`agent_team/${agentId} not found`)
-  const apiKey = decryptAgentApiKey(raw.apiKey).trim()
-  const baseUrl = raw.baseUrl.replace(/\/+$/, '')
-  const url = `${baseUrl}${path.startsWith('/') ? path : `/${path}`}`
-  const response = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}` } })
+  const target = await resolveAgentDispatchTarget(agentId, raw, options)
+  if (!target) throw new Error(`No reachable runtime target configured for agent_team/${agentId}`)
+  const url = `${target.baseUrl}${path.startsWith('/') ? path : `/${path}`}`
+  const response = await fetch(url, { headers: { Authorization: `Bearer ${target.apiKey}` } })
   return response
 }

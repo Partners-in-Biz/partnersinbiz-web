@@ -4,15 +4,21 @@
  * Doc shape (written by scripts/seed-agent-dispatch-configs.ts):
  *   {
  *     agentId: 'pip' | 'theo' | 'maya' | ...,
- *     baseUrl: string,          // e.g. https://hermes-api.partnersinbiz.online
- *     apiKey: string,           // bearer token Hermes will accept
+ *     baseUrl: string,          // legacy/default endpoint, usually VPS
+ *     apiKey: string,           // legacy/default bearer token
  *     enabled: boolean,
+ *     defaultRuntimeTarget?: 'vps' | 'local' | string,
+ *     runtimeTargets?: {
+ *       vps?: { baseUrl: string, apiKey: string, enabled: boolean, capabilities?: string[] },
+ *       local?: { baseUrl: string, apiKey: string, enabled: boolean, lastSeenAt?: Timestamp, capabilities?: string[] }
+ *     },
  *     updatedAt: Timestamp,
  *     createdBy?: string,
  *   }
  *
  * 60-second in-memory TTL cache keyed by agentId.
  */
+import { selectAgentRuntimeTarget } from './runtime-targets'
 import { db } from './firestore'
 import { logger } from './logger'
 
@@ -83,17 +89,29 @@ export async function getAgentConfig(agentId: string): Promise<AgentConfig | nul
       return null
     }
     const data = snap.data() ?? {}
-    const baseUrl = typeof data.baseUrl === 'string' ? data.baseUrl.trim().replace(/\/+$/, '') : ''
-    const apiKey = typeof data.apiKey === 'string' ? data.apiKey.trim() : ''
-    const enabled = data.enabled !== false
+    const preference = process.env.PIB_HERMES_RUNTIME_TARGET ?? process.env.PIB_AGENT_RUNTIME_TARGET ?? 'auto'
+    const preferLocal = ['1', 'true', 'yes', 'local'].includes((process.env.PIB_PREFER_LOCAL_HERMES ?? '').toLowerCase())
+    const selected = selectAgentRuntimeTarget({
+      runtimeTargets: data.runtimeTargets,
+      defaultTargetId: typeof data.defaultRuntimeTarget === 'string' ? data.defaultRuntimeTarget : undefined,
+      preference,
+      preferLocal,
+      legacy: {
+        baseUrl: typeof data.baseUrl === 'string' ? data.baseUrl : undefined,
+        apiKey: typeof data.apiKey === 'string' ? data.apiKey : undefined,
+        enabled: data.enabled !== false,
+      },
+    })
 
-    if (!baseUrl || !apiKey) {
-      logger.warn('agent_dispatch_config missing baseUrl/apiKey', { agentId })
+    if (!selected) {
+      logger.warn('agent_dispatch_config missing usable runtime target', { agentId })
       cache.set(agentId, { value: null, expiresAt: now + CACHE_TTL_MS })
       return null
     }
 
-    const value: AgentConfig = { baseUrl, apiKey, enabled }
+    const enabled = data.enabled !== false
+
+    const value: AgentConfig = { baseUrl: selected.baseUrl, apiKey: selected.apiKey, enabled }
     cache.set(agentId, { value, expiresAt: now + CACHE_TTL_MS })
     return value
   } catch (err) {

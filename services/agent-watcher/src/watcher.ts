@@ -17,7 +17,7 @@ import { logger } from './logger'
 import type { AgentRunTelemetry } from './run-telemetry'
 import { agentStatusUpdate } from './task-updates'
 import { getTaskDispatchBlocker, hasPendingApprovalGate, hasPendingScheduledRelease, isDependencyResolved, releaseMillis } from './eligibility'
-import { buildCeoDataDecisionOperatingRule as buildSharedCeoDataDecisionOperatingRule } from '../../../lib/agent/ceo-operating-rule'
+import { buildCeoDataDecisionOperatingRule as buildSharedCeoDataDecisionOperatingRule } from './ceo-operating-rule'
 
 const MAX_CONCURRENT_PER_AGENT = 5
 const READY_TASK_SWEEP_MS = 60_000

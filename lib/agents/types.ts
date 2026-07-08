@@ -39,6 +39,19 @@ export interface AgentSkillPolicyState {
   driftStatus?: 'unknown' | 'in_sync' | 'drifted' | 'not_applied'
 }
 
+export interface PublicAgentRuntimeTarget {
+  id: string
+  label?: string
+  baseUrl: string
+  enabled: boolean
+  priority?: number
+  capabilities?: string[]
+  hostId?: string
+  lastSeenAt?: Timestamp | Date | string | number
+  lastHealthStatus?: 'ok' | 'degraded' | 'unreachable' | string
+  hasApiKey?: boolean
+}
+
 export interface AgentTeamDoc extends AgentRegistryEntry {
   agentId: AgentId
   name: string
@@ -50,6 +63,8 @@ export interface AgentTeamDoc extends AgentRegistryEntry {
   enabled: boolean
   baseUrl: string
   apiKey: string        // stored AES-256-GCM encrypted; masked to last 6 chars in reads
+  runtimeTargets?: Record<string, PublicAgentRuntimeTarget>
+  defaultRuntimeTarget?: string
   lastHealthCheck?: Timestamp
   lastHealthStatus?: 'ok' | 'degraded' | 'unreachable'
   skillPolicy?: AgentSkillPolicyState
