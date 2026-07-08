@@ -78,6 +78,23 @@ npx tsx scripts/register-local-agent-runtime.ts
 
 The public URL must be reachable by `partnersinbiz.online`/the watcher. A loopback-only URL such as `http://127.0.0.1:8642` is useful for local testing but cannot be called by the production PiB server.
 
+Peet's Mac local runtime currently uses:
+
+```bash
+PIB_LOCAL_RUNTIME_URL_TEMPLATE="https://hermes-api.partnersinbiz.online/local-profiles/{agent}"
+PIB_LOCAL_RUNTIME_HOST_ID="peets-mac-mini"
+```
+
+The Mac launchd job `ai.hermes.local-runtime` starts all reusable platform profiles locally, opens reverse SSH tunnels to VPS loopback ports, and re-runs this registrar as a heartbeat every 5 minutes.
+
+Operational guardrails for that local runtime fleet:
+
+- It is API-only. The launcher exports `WHATSAPP_ENABLED=false` and starts each profile with `gateway run --replace --force --quiet` so the local API fleet does not also act as Peet's messaging gateway.
+- Local profile cron jobs should not run from this Mac API fleet. On 2026-07-08, existing local `pip`/`theo`/`maya` cron jobs were backed up under each profile's `cron.disabled-local-runtime/<timestamp>/` and active `cron/jobs.json` was emptied. Keep scheduled production work on the intended VPS/default runtime unless a job is deliberately local-only.
+- `cron/`, `skills/`, runtime sessions, locks, and secrets are intentionally outside the Mac↔VPS profile-definition sync surface.
+
+Firestore write pitfall: for nested heartbeats, write `runtimeTargets.local` through `update({ 'runtimeTargets.local': value })` or a real nested object. Do not use `set({ 'runtimeTargets.local': value }, { merge: true })`; that can create a literal dotted field named `"runtimeTargets.local"` and leave the actual nested heartbeat stale. If this happens, remove the literal dotted field with `new FieldPath('runtimeTargets.local'), FieldValue.delete()`.
+
 ## Client workspace provisioning
 
 `provisionFullClientOnVps()` now provisions only the Cowork/client workspace through Pip's `/admin/client-workspaces` endpoint. It intentionally skips `/admin/profiles` because client workspaces are not agents.
@@ -93,4 +110,4 @@ Returned `profile` shape:
 
 ## Operational note
 
-For Talent Hub or any other client: select the Talent Hub org/workspace in PiB, then route the work to Pip/Theo/Maya/etc. A local Mac runtime will only be used from PiB once it is registered with a reachable public runtime endpoint and fresh heartbeat.
+For Talent Hub or any other client: select the Talent Hub org/workspace in PiB, then route the work to Pip/Theo/Maya/etc. As of 2026-07-08, Peet's Mac local runtime is registered at the `/local-profiles/<agent>` routes with a fresh heartbeat; when `PIB_PREFER_LOCAL_HERMES=true`, the VPS watcher resolves fresh local targets before falling back to VPS. Post-fix verification returned HTTP 200 from all 12 local profile ports and all 12 public `/local-profiles/<agent>/v1/health` routes after restart/warm-up.

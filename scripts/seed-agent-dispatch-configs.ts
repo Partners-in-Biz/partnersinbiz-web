@@ -117,11 +117,13 @@ async function main() {
     const profile = sourceProfiles.get(sourceId)
     if (!profile) continue
 
+    const agentBaseUrl = profile.baseUrl.replace(/\/profiles\/[^/]+$/, `/profiles/${agentId}`)
+
     await adminDb.collection('agent_dispatch_configs').doc(agentId).set(
       {
         agentId,
-        baseUrl: profile.baseUrl,
-        endpoint: `${profile.baseUrl}/v1/runs`,
+        baseUrl: agentBaseUrl,
+        endpoint: `${agentBaseUrl}/v1/runs`,
         apiKey: profile.apiKey,
         enabled: true,
         defaultRuntimeTarget: 'vps',
@@ -129,7 +131,7 @@ async function main() {
           vps: {
             id: 'vps',
             label: 'VPS Hermes',
-            baseUrl: profile.baseUrl,
+            baseUrl: agentBaseUrl,
             apiKey: profile.apiKey,
             enabled: true,
             priority: 10,
@@ -143,7 +145,7 @@ async function main() {
       { merge: true },
     )
 
-    written.push({ agentId, baseUrl: profile.baseUrl })
+    written.push({ agentId, baseUrl: agentBaseUrl })
   }
 
   console.log('Wrote agent_dispatch_configs:')

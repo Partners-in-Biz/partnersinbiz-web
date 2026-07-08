@@ -88,50 +88,46 @@ async function main() {
   if (!apiKey) throw new Error('PIB_LOCAL_HERMES_API_KEY is required')
 
   const { adminDb } = await import('@/lib/firebase/admin')
-  const { FieldValue } = await import('firebase-admin/firestore')
+  const { FieldPath, FieldValue } = await import('firebase-admin/firestore')
   const agents = parseAgents()
   const hostId = process.env.PIB_LOCAL_RUNTIME_HOST_ID?.trim() || hostname() || 'local-hermes'
   const now = FieldValue.serverTimestamp()
 
   for (const agentId of agents) {
     const baseUrl = runtimeBaseUrl(agentId)
-    const dispatchRef = adminDb.collection('agent_dispatch_configs').doc(agentId)
-    await dispatchRef.set({
-      agentId,
-      runtimeTargets: {
-        local: {
-          id: 'local',
-          label: `Local Hermes (${hostId})`,
-          baseUrl,
-          apiKey,
-          enabled: true,
-          priority: 1,
-          hostId,
-          capabilities: ['local-files', 'computer-use', 'local-browser', 'terminal:mac'],
-          lastSeenAt: now,
-          lastHealthStatus: 'ok',
-        },
-      },
-      updatedAt: now,
-    }, { merge: true })
+    const dispatchRuntimeTarget = {
+      id: 'local',
+      label: `Local Hermes (${hostId})`,
+      baseUrl,
+      apiKey,
+      enabled: true,
+      priority: 1,
+      hostId,
+      capabilities: ['local-files', 'computer-use', 'local-browser', 'terminal:mac'],
+      lastSeenAt: now,
+      lastHealthStatus: 'ok',
+    }
+    const teamRuntimeTarget = {
+      ...dispatchRuntimeTarget,
+      hasApiKey: true,
+    }
+    delete (teamRuntimeTarget as { apiKey?: string }).apiKey
 
-    await adminDb.collection('agent_team').doc(agentId).set({
-      runtimeTargets: {
-        local: {
-          id: 'local',
-          label: `Local Hermes (${hostId})`,
-          baseUrl,
-          enabled: true,
-          priority: 1,
-          hostId,
-          capabilities: ['local-files', 'computer-use', 'local-browser', 'terminal:mac'],
-          lastSeenAt: now,
-          lastHealthStatus: 'ok',
-          hasApiKey: true,
-        },
-      },
+    const dispatchRef = adminDb.collection('agent_dispatch_configs').doc(agentId)
+    await dispatchRef.set({ agentId, updatedAt: now }, { merge: true })
+    await dispatchRef.update({
+      'runtimeTargets.local': dispatchRuntimeTarget,
       updatedAt: now,
-    }, { merge: true })
+    })
+    await dispatchRef.update(new FieldPath('runtimeTargets.local'), FieldValue.delete()).catch(() => undefined)
+
+    const teamRef = adminDb.collection('agent_team').doc(agentId)
+    await teamRef.set({ agentId, updatedAt: now }, { merge: true })
+    await teamRef.update({
+      'runtimeTargets.local': teamRuntimeTarget,
+      updatedAt: now,
+    })
+    await teamRef.update(new FieldPath('runtimeTargets.local'), FieldValue.delete()).catch(() => undefined)
 
     console.log(`registered local runtime for ${agentId} -> ${baseUrl}`)
   }
