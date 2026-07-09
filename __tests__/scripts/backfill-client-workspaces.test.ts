@@ -15,6 +15,7 @@ describe('backfill-client-workspaces helpers', () => {
     expect(classifyWorkspaceBackfill({
       org: { workspaceManifest: { workspaceId: 'acme' }, workspaceId: 'acme' },
       workspaceDocExists: true,
+      expectedWorkspaceId: 'acme',
     })).toEqual({
       action: 'skip',
       reason: 'workspace manifest and org_workspaces record already exist',
@@ -23,6 +24,7 @@ describe('backfill-client-workspaces helpers', () => {
     expect(classifyWorkspaceBackfill({
       org: { workspaceId: 'acme' },
       workspaceDocExists: false,
+      expectedWorkspaceId: 'acme',
     })).toEqual({
       action: 'repair',
       reason: 'partial workspace metadata exists; repair missing fields',
@@ -31,9 +33,21 @@ describe('backfill-client-workspaces helpers', () => {
     expect(classifyWorkspaceBackfill({
       org: {},
       workspaceDocExists: false,
+      expectedWorkspaceId: 'acme',
     })).toEqual({
       action: 'backfill',
       reason: 'missing workspace manifest and org_workspaces record',
+    })
+  })
+
+  it('requires review rather than repointing an existing workspace id', () => {
+    expect(classifyWorkspaceBackfill({
+      org: { workspaceManifest: { workspaceId: 'old-acme' }, workspaceId: 'old-acme' },
+      workspaceDocExists: false,
+      expectedWorkspaceId: 'new-acme',
+    })).toEqual({
+      action: 'review_required',
+      reason: 'existing workspaceId old-acme differs from derived new-acme',
     })
   })
 })

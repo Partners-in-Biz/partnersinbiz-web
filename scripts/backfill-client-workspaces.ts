@@ -68,9 +68,23 @@ export function parseFlags(argv: string[]): CliFlags {
 export function classifyWorkspaceBackfill(input: {
   org: Record<string, unknown>
   workspaceDocExists: boolean
+  expectedWorkspaceId?: string
 }): Pick<ClientWorkspaceBackfillRow, 'action' | 'reason'> {
+  const expectedWorkspaceId = cleanString(input.expectedWorkspaceId)
+  const orgWorkspaceId = cleanString(input.org.workspaceId)
+  const orgManifestWorkspaceId = cleanString(
+    input.org.workspaceManifest && typeof input.org.workspaceManifest === 'object'
+      ? (input.org.workspaceManifest as Record<string, unknown>).workspaceId
+      : undefined,
+  )
+  if (expectedWorkspaceId && orgWorkspaceId && orgWorkspaceId !== expectedWorkspaceId) {
+    return { action: 'review_required', reason: `existing workspaceId ${orgWorkspaceId} differs from derived ${expectedWorkspaceId}` }
+  }
+  if (expectedWorkspaceId && orgManifestWorkspaceId && orgManifestWorkspaceId !== expectedWorkspaceId) {
+    return { action: 'review_required', reason: `existing workspaceManifest.workspaceId ${orgManifestWorkspaceId} differs from derived ${expectedWorkspaceId}` }
+  }
   const hasOrgManifest = Boolean(input.org.workspaceManifest)
-  const hasOrgWorkspaceId = Boolean(cleanString(input.org.workspaceId))
+  const hasOrgWorkspaceId = Boolean(orgWorkspaceId)
   if (hasOrgManifest && hasOrgWorkspaceId && input.workspaceDocExists) {
     return { action: 'skip', reason: 'workspace manifest and org_workspaces record already exist' }
   }
@@ -183,8 +197,9 @@ async function loadCandidateOrgDocs(
     return doc.exists ? [doc as FirebaseFirestore.QueryDocumentSnapshot] : []
   }
 
-  const snap = await db.collection('organizations').get()
-  const docs = snap.docs
+  const platformOrgId = await resolvePlatformOrgId(db)
+  const snap = await db.collection('organizations').where('type', '==', 'client').get()
+  const docs = snap.docs.filter((doc) => isActiveClientOrg(doc.id, doc.data() ?? {}, platformOrgId))
   return typeof flags.limit === 'number' && Number.isFinite(flags.limit) && flags.limit > 0
     ? docs.slice(0, flags.limit)
     : docs
@@ -222,7 +237,7 @@ export async function run(flags: CliFlags): Promise<ClientWorkspaceBackfillRow[]
     }
 
     const workspaceDoc = await db.collection(ORG_WORKSPACES_COLLECTION).doc(orgSlug).get()
-    const classification = classifyWorkspaceBackfill({ org, workspaceDocExists: workspaceDoc.exists })
+    const classification = classifyWorkspaceBackfill({ org, workspaceDocExists: workspaceDoc.exists, expectedWorkspaceId: orgSlug })
     const links = await resolveCrmWorkspaceLinks(db, platformOrgId, orgId)
     const rowBase = {
       orgId,

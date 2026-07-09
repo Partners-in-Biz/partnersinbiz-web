@@ -384,9 +384,14 @@ async def upload_skill(profile: str, file: UploadFile = File(...), x_api_key: Op
         rel = member[len(strip):] if strip and member.startswith(strip) else member
         if not rel or rel.endswith("/"):
             continue
-        if ".." in Path(rel).parts:
+        rel_path = Path(rel)
+        if rel_path.is_absolute() or ".." in rel_path.parts:
             raise HTTPException(status_code=400, detail="zip contains path traversal")
-        dest = target / rel
+        dest = target / rel_path
+        try:
+            dest.resolve().relative_to(target.resolve())
+        except ValueError:
+            raise HTTPException(status_code=400, detail="zip contains path traversal")
         dest.parent.mkdir(parents=True, exist_ok=True)
         with zf.open(member) as src, open(dest, "wb") as out:
             out.write(src.read())

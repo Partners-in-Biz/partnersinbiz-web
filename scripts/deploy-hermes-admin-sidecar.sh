@@ -18,7 +18,7 @@ STAMP="$(date -u +%Y%m%d%H%M%S)"
 REMOTE_BACKUP="${TARGET_PATH}.bak-${STAMP}"
 
 echo "Deploying $SOURCE to ${TARGET_HOST}:${TARGET_PATH}"
-ssh "$TARGET_HOST" "cp '$TARGET_PATH' '$REMOTE_BACKUP'"
+ssh "$TARGET_HOST" "if [[ -f '$TARGET_PATH' ]]; then cp '$TARGET_PATH' '$REMOTE_BACKUP'; else echo 'No existing sidecar at $TARGET_PATH; skipping backup'; fi"
 scp "$SOURCE" "${TARGET_HOST}:${TARGET_PATH}"
 ssh "$TARGET_HOST" "python3 -m py_compile '$TARGET_PATH' && systemctl restart '$SERVICE' && systemctl is-active '$SERVICE'"
 
