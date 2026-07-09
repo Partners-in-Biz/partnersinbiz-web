@@ -87,6 +87,7 @@ const MAX_PENDING_ATTACHMENTS = 5
 const MAX_COMPOSER_HISTORY_ENTRIES = 30
 const MAX_QUEUED_COMPOSER_DRAFTS = 8
 const COMPOSER_HISTORY_STORAGE_PREFIX = 'pib.messages.composerHistory.v1'
+const PINNED_CONVERSATIONS_STORAGE_PREFIX = 'pib.messages.pinnedConversations.v1'
 const ALLOWED_ATTACHMENT_MIME = new Set([
   'image/jpeg',
   'image/png',
@@ -137,6 +138,62 @@ function writeComposerHistory(orgId: string, conversationId: string, entries: st
     void err
     // Best effort only: private browsing/storage failures should not break chat.
   }
+}
+
+function pinnedConversationsStorageKey(orgId: string): string {
+  return `${PINNED_CONVERSATIONS_STORAGE_PREFIX}:${orgId}`
+}
+
+function readPinnedConversationIds(orgId: string): string[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.localStorage.getItem(pinnedConversationsStorageKey(orgId))
+    const parsed = raw ? JSON.parse(raw) : null
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+  } catch {
+    return []
+  }
+}
+
+function writePinnedConversationIds(orgId: string, ids: string[]): void {
+  if (typeof window === 'undefined') return
+  try {
+    const uniqueIds = Array.from(new Set(ids.filter((id) => id.trim().length > 0)))
+    const key = pinnedConversationsStorageKey(orgId)
+    if (uniqueIds.length === 0) window.localStorage.removeItem(key)
+    else window.localStorage.setItem(key, JSON.stringify(uniqueIds))
+  } catch (err) {
+    void err
+    // Best effort only: pinning is a local UI preference.
+  }
+}
+
+function isProjectConversation(conversation: Conversation): boolean {
+  return conversation.scope === 'project' || conversation.contextRefs?.some((ref) => ref.type === 'project') === true
+}
+
+function isAgentConversation(conversation: Conversation): boolean {
+  return conversation.orchestration?.mode === 'pip-orchestrator' || conversation.participantAgentIds.length > 0
+}
+
+function buildHermesSessionSections(conversations: Conversation[], pinnedIds: string[]) {
+  const pinnedSet = new Set(pinnedIds)
+  const visible = conversations.filter((conversation) => !conversation.archived)
+  const pinned = visible.filter((conversation) => pinnedSet.has(conversation.id))
+  const unpinned = visible.filter((conversation) => !pinnedSet.has(conversation.id))
+  const projects = unpinned.filter(isProjectConversation)
+  const projectIds = new Set(projects.map((conversation) => conversation.id))
+  const agents = unpinned.filter((conversation) => !projectIds.has(conversation.id) && isAgentConversation(conversation))
+  const agentIds = new Set(agents.map((conversation) => conversation.id))
+  const recent = unpinned.filter((conversation) => !projectIds.has(conversation.id) && !agentIds.has(conversation.id))
+
+  return [
+    { id: 'pinned', label: 'Pinned', conversations: pinned },
+    { id: 'projects', label: 'Projects', conversations: projects },
+    { id: 'agents', label: 'Agents', conversations: agents },
+    { id: 'recent', label: 'Recent', conversations: recent },
+  ].filter((section) => section.conversations.length > 0)
 }
 
 function validateConversationAttachment(file: File): string | null {
@@ -296,6 +353,7 @@ export default function UnifiedChat({
   const [historyCursor, setHistoryCursor] = useState<number | null>(null)
   const [queuedDraftsByConversation, setQueuedDraftsByConversation] = useState<Record<string, QueuedComposerDraft[]>>({})
   const [runtimeInspectorOpen, setRuntimeInspectorOpen] = useState(false)
+  const [pinnedConversationIds, setPinnedConversationIds] = useState<string[]>(() => readPinnedConversationIds(orgId))
 
   // Agent map for looking up colorKey / iconKey for bubbles
   const [agentMap, setAgentMap] = useState<Record<AgentId, AgentTeamDoc>>({} as Record<AgentId, AgentTeamDoc>)
@@ -392,6 +450,19 @@ export default function UnifiedChat({
   )
   const canUseComposer = allowSendMessages && (Boolean(activeConversation) || allowStartConversations)
   const activeQueuedDrafts = activeId ? (queuedDraftsByConversation[activeId] ?? []) : []
+  const visibleConversations = useMemo(
+    () => conversations.filter((conversation) => !conversation.archived),
+    [conversations],
+  )
+  const pinnedConversationIdSet = useMemo(() => new Set(pinnedConversationIds), [pinnedConversationIds])
+  const hermesSessionSections = useMemo(
+    () => buildHermesSessionSections(conversations, pinnedConversationIds),
+    [conversations, pinnedConversationIds],
+  )
+  const menuConversation = useMemo(
+    () => conversations.find((conversation) => conversation.id === menuOpenId) ?? null,
+    [conversations, menuOpenId],
+  )
   const contextTypeOptions = useMemo(
     () => (contextTypePrompt ? filterContextReferenceMentionOptions(contextTypePrompt.query) : []),
     [contextTypePrompt],
@@ -434,6 +505,20 @@ export default function UnifiedChat({
         setAgentMap(map)
       })
       .catch(() => {})
+  }, [orgId])
+
+  useEffect(() => {
+    setPinnedConversationIds(readPinnedConversationIds(orgId))
+  }, [orgId])
+
+  const togglePinnedConversation = useCallback((conversationId: string) => {
+    setPinnedConversationIds((current) => {
+      const next = current.includes(conversationId)
+        ? current.filter((id) => id !== conversationId)
+        : [conversationId, ...current]
+      writePinnedConversationIds(orgId, next)
+      return next
+    })
   }, [orgId])
 
   const loadModelCatalog = useCallback(async () => {
@@ -1762,73 +1847,146 @@ export default function UnifiedChat({
           {hermesLayout ? 'Sessions' : 'Conversations'}
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
-          {conversations.length === 0 && (
+        <div className={hermesLayout ? 'flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-0.5' : 'flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto'}>
+          {visibleConversations.length === 0 && (
             <div className="text-xs text-on-surface-variant px-2 py-3">
               {allowStartConversations ? 'No conversations yet. Start one.' : 'No conversations yet.'}
             </div>
           )}
-          {conversations.filter((c) => !c.archived).map((c) => (
-            <div key={c.id} className="relative group/conv">
-              {renamingId === c.id ? (
-                <div className="flex items-center gap-1 rounded-lg px-2 py-1.5">
-                  <input
-                    autoFocus
-                    value={renameValue}
-                    onChange={(e) => setRenameValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') renameConversation(c.id, renameValue)
-                      if (e.key === 'Escape') {
-                        renameCancelledRef.current = true
-                        setRenamingId(null)
+          {hermesLayout
+            ? hermesSessionSections.map((section) => (
+              <div key={section.id} data-testid={`hermes-session-section-${section.id}`} className="min-w-0">
+                <div className="mb-1 flex items-center justify-between px-1 text-[9px] font-label uppercase tracking-[0.22em] text-on-surface-variant/75">
+                  <span>{section.label}</span>
+                  <span className="font-mono text-[9px] tracking-normal text-on-surface-variant/55">{section.conversations.length}</span>
+                </div>
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  {section.conversations.map((c) => (
+                    <div key={c.id} className="relative group/conv">
+                      {renamingId === c.id ? (
+                        <div className="flex items-center gap-1 rounded-lg px-2 py-1.5">
+                          <input
+                            autoFocus
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') renameConversation(c.id, renameValue)
+                              if (e.key === 'Escape') {
+                                renameCancelledRef.current = true
+                                setRenamingId(null)
+                              }
+                            }}
+                            onBlur={() => {
+                              if (!renameCancelledRef.current) renameConversation(c.id, renameValue)
+                              renameCancelledRef.current = false
+                            }}
+                            className="flex-1 min-w-0 bg-transparent border-b border-primary text-sm text-on-surface outline-none"
+                          />
+                        </div>
+                      ) : (
+                        <ConversationListItem
+                          conversation={c}
+                          active={c.id === activeId}
+                          onClick={() => {
+                            setActiveId(c.id)
+                            setMobilePane('conversation')
+                          }}
+                          currentUserUid={currentUserUid}
+                          density="compact"
+                          pinned={pinnedConversationIdSet.has(c.id)}
+                        />
+                      )}
+
+                      {/* ⋯ hover menu button */}
+                      {renamingId !== c.id && (
+                        <button
+                          type="button"
+                          data-conv-menu
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (menuOpenId === c.id) {
+                              setMenuOpenId(null)
+                              setMenuPosition(null)
+                            } else {
+                              const rect = e.currentTarget.getBoundingClientRect()
+                              setMenuPosition({ top: rect.bottom + 4, left: rect.right - 176 })
+                              setMenuOpenId(c.id)
+                            }
+                          }}
+                          className={`absolute right-1 top-1/2 hidden h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-[11px] text-on-surface-variant hover:bg-white/[0.08] hover:text-on-surface group-hover/conv:flex ${
+                            menuOpenId === c.id ? '!flex' : ''
+                          }`}
+                          aria-label={`Conversation options for ${c.title || 'Untitled'}`}
+                        >
+                          ⋯
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
+            : visibleConversations.map((c) => (
+              <div key={c.id} className="relative group/conv">
+                {renamingId === c.id ? (
+                  <div className="flex items-center gap-1 rounded-lg px-2 py-1.5">
+                    <input
+                      autoFocus
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') renameConversation(c.id, renameValue)
+                        if (e.key === 'Escape') {
+                          renameCancelledRef.current = true
+                          setRenamingId(null)
+                        }
+                      }}
+                      onBlur={() => {
+                        if (!renameCancelledRef.current) renameConversation(c.id, renameValue)
+                        renameCancelledRef.current = false
+                      }}
+                      className="flex-1 min-w-0 bg-transparent border-b border-primary text-sm text-on-surface outline-none"
+                    />
+                  </div>
+                ) : (
+                  <ConversationListItem
+                    conversation={c}
+                    active={c.id === activeId}
+                    onClick={() => {
+                      setActiveId(c.id)
+                      setMobilePane('conversation')
+                    }}
+                    currentUserUid={currentUserUid}
+                    density="comfortable"
+                  />
+                )}
+
+                {/* ⋯ hover menu button */}
+                {renamingId !== c.id && (
+                  <button
+                    type="button"
+                    data-conv-menu
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (menuOpenId === c.id) {
+                        setMenuOpenId(null)
+                        setMenuPosition(null)
+                      } else {
+                        const rect = e.currentTarget.getBoundingClientRect()
+                        setMenuPosition({ top: rect.bottom + 4, left: rect.right - 176 })
+                        setMenuOpenId(c.id)
                       }
                     }}
-                    onBlur={() => {
-                      if (!renameCancelledRef.current) renameConversation(c.id, renameValue)
-                      renameCancelledRef.current = false
-                    }}
-                    className="flex-1 min-w-0 bg-transparent border-b border-primary text-sm text-on-surface outline-none"
-                  />
-                </div>
-              ) : (
-                <ConversationListItem
-                  conversation={c}
-                  active={c.id === activeId}
-                  onClick={() => {
-                    setActiveId(c.id)
-                    setMobilePane('conversation')
-                  }}
-                  currentUserUid={currentUserUid}
-                  density={hermesLayout ? 'compact' : 'comfortable'}
-                />
-              )}
-
-              {/* ⋯ hover menu button */}
-              {renamingId !== c.id && (
-                <button
-                  type="button"
-                  data-conv-menu
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    if (menuOpenId === c.id) {
-                      setMenuOpenId(null)
-                      setMenuPosition(null)
-                    } else {
-                      const rect = e.currentTarget.getBoundingClientRect()
-                      setMenuPosition({ top: rect.bottom + 4, left: rect.right - 176 })
-                      setMenuOpenId(c.id)
-                    }
-                  }}
-                  className={`absolute right-1 top-1/2 -translate-y-1/2 hidden group-hover/conv:flex items-center justify-center w-6 h-6 rounded text-on-surface-variant hover:text-on-surface hover:bg-[var(--color-card-hover,rgba(255,255,255,0.08))] ${
-                    menuOpenId === c.id ? '!flex' : ''
-                  }`}
-                  aria-label="Conversation options"
-                >
-                  ⋯
-                </button>
-              )}
-            </div>
-          ))}
+                    className={`absolute right-1 top-1/2 -translate-y-1/2 hidden group-hover/conv:flex items-center justify-center w-6 h-6 rounded text-on-surface-variant hover:text-on-surface hover:bg-[var(--color-card-hover,rgba(255,255,255,0.08))] ${
+                      menuOpenId === c.id ? '!flex' : ''
+                    }`}
+                    aria-label="Conversation options"
+                  >
+                    ⋯
+                  </button>
+                )}
+              </div>
+            ))}
         </div>
       </aside>
 
@@ -1847,6 +2005,22 @@ export default function UnifiedChat({
             <span className="material-symbols-outlined text-[14px]">open_in_new</span>
             Open in new window
           </button>
+          {hermesLayout && menuConversation && (
+            <button
+              type="button"
+              className="w-full text-left px-3 py-2 text-xs text-on-surface hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
+              onClick={() => {
+                togglePinnedConversation(menuConversation.id)
+                setMenuOpenId(null)
+                setMenuPosition(null)
+              }}
+            >
+              <span className="material-symbols-outlined text-[14px]">
+                {pinnedConversationIdSet.has(menuConversation.id) ? 'keep_off' : 'keep'}
+              </span>
+              {pinnedConversationIdSet.has(menuConversation.id) ? 'Unpin session' : 'Pin session'}
+            </button>
+          )}
           <button
             type="button"
             className="w-full text-left px-3 py-2 text-xs text-on-surface hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"

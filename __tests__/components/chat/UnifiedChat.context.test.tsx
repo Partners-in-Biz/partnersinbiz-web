@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import UnifiedChat, {
   formatConversationAttachmentUploadError,
   shouldStopFinalizePollingForStatus,
@@ -227,6 +227,143 @@ describe('UnifiedChat message scrolling', () => {
     await screen.findByText('Latest message')
     expect(screen.getByTestId('unified-chat-root')).toHaveAttribute('data-layout-variant', 'hermes')
     expect(screen.getByText('Sessions')).toBeInTheDocument()
+  })
+
+  it('groups Hermes sessions into pinned, projects, agents, and recent without changing the classic rail', async () => {
+    window.localStorage.setItem('pib.messages.pinnedConversations.v1:org-1', JSON.stringify(['conv-pinned']))
+    const conversations = [
+      {
+        ...baseConversation,
+        id: 'conv-pinned',
+        title: 'Pinned launch',
+        lastMessagePreview: 'Keep this handy',
+        lastMessageAt: { seconds: 10 },
+        messageCount: 3,
+      },
+      {
+        ...baseConversation,
+        id: 'conv-project',
+        title: 'Website project',
+        scope: 'project',
+        contextRefs: [projectRef],
+        lastMessagePreview: 'Project thread',
+        lastMessageAt: { seconds: 9 },
+      },
+      {
+        ...baseConversation,
+        id: 'conv-agent',
+        title: 'Pip agent run',
+        orchestration: {
+          mode: 'pip-orchestrator' as const,
+          dispatcherAgentId: 'pip',
+          requestedAgentIds: ['pip'],
+        },
+        lastMessagePreview: 'Agent workstream',
+        lastMessageAt: { seconds: 8 },
+      },
+      {
+        ...baseConversation,
+        id: 'conv-recent',
+        title: 'General inbox',
+        participants: [{ kind: 'user' as const, uid: 'client-1', role: 'client' as const, displayName: 'Client One' }],
+        participantAgentIds: [],
+        lastMessagePreview: 'Recent thread',
+        lastMessageAt: { seconds: 7 },
+      },
+    ]
+
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations } })
+      if (url.includes('/messages')) return jsonResponse({ data: { messages: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    const { unmount } = render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        layoutVariant="hermes"
+      />,
+    )
+
+    expect(await screen.findByTestId('hermes-session-section-pinned')).toBeInTheDocument()
+    expect(within(screen.getByTestId('hermes-session-section-pinned')).getByText('Pinned launch')).toBeInTheDocument()
+    expect(within(screen.getByTestId('hermes-session-section-projects')).getByText('Website project')).toBeInTheDocument()
+    expect(within(screen.getByTestId('hermes-session-section-agents')).getByText('Pip agent run')).toBeInTheDocument()
+    expect(within(screen.getByTestId('hermes-session-section-recent')).getByText('General inbox')).toBeInTheDocument()
+    unmount()
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+      />,
+    )
+
+    await screen.findByText('Conversations')
+    expect(screen.queryByTestId('hermes-session-section-pinned')).not.toBeInTheDocument()
+    expect(screen.getByTestId('conversation-row-conv-pinned')).toBeInTheDocument()
+  })
+
+  it('pins and unpins Hermes sessions from the conversation menu as a local preference', async () => {
+    window.localStorage.removeItem('pib.messages.pinnedConversations.v1:org-1')
+    const conversations = [
+      {
+        ...baseConversation,
+        id: 'conv-project',
+        title: 'Website project',
+        scope: 'project',
+        contextRefs: [projectRef],
+        lastMessagePreview: 'Project thread',
+        lastMessageAt: { seconds: 9 },
+      },
+      {
+        ...baseConversation,
+        id: 'conv-recent',
+        title: 'General inbox',
+        participants: [{ kind: 'user' as const, uid: 'client-1', role: 'client' as const, displayName: 'Client One' }],
+        participantAgentIds: [],
+        lastMessagePreview: 'Recent thread',
+        lastMessageAt: { seconds: 7 },
+      },
+    ]
+
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations } })
+      if (url.includes('/messages')) return jsonResponse({ data: { messages: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        layoutVariant="hermes"
+      />,
+    )
+
+    await screen.findByTestId('hermes-session-section-recent')
+    fireEvent.click(screen.getByLabelText('Conversation options for General inbox'))
+    fireEvent.click(screen.getByText('Pin session'))
+
+    expect(await screen.findByTestId('hermes-session-section-pinned')).toHaveTextContent('General inbox')
+    expect(window.localStorage.getItem('pib.messages.pinnedConversations.v1:org-1')).toContain('conv-recent')
+
+    fireEvent.click(screen.getByLabelText('Conversation options for General inbox'))
+    fireEvent.click(screen.getByText('Unpin session'))
+
+    await waitFor(() => expect(screen.queryByTestId('hermes-session-section-pinned')).not.toBeInTheDocument())
+    expect(screen.getByTestId('hermes-session-section-recent')).toHaveTextContent('General inbox')
+    expect(window.localStorage.getItem('pib.messages.pinnedConversations.v1:org-1')).toBeNull()
   })
 
   it('shows the Hermes bottom runtime bar and collapsed inspector in the dense layout', async () => {

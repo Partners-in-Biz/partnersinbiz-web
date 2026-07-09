@@ -37,6 +37,7 @@ interface ConversationListItemProps {
   onClick: () => void
   currentUserUid: string
   density?: 'comfortable' | 'compact'
+  pinned?: boolean
 }
 
 const AGENT_COLORS: Record<string, string> = {
@@ -79,20 +80,74 @@ function initials(name: string): string {
     .join('')
 }
 
+function primaryAgent(conversation: Conversation): Participant | null {
+  return conversation.participants.find((participant) => participant.kind === 'agent') ?? null
+}
+
 export default function ConversationListItem({
   conversation: c,
   active,
   onClick,
   density = 'comfortable',
+  pinned = false,
 }: ConversationListItemProps) {
   const compact = density === 'compact'
   const preview = c.lastMessagePreview
     ? c.lastMessagePreview.slice(0, 60) + (c.lastMessagePreview.length > 60 ? '…' : '')
     : null
+  const leadAgent = primaryAgent(c)
+  const leadAgentDot = leadAgent?.kind === 'agent' ? (AGENT_COLORS[leadAgent.agentId] ?? 'bg-white/40') : 'bg-white/30'
+
+  if (compact) {
+    return (
+      <button
+        type="button"
+        data-testid={`conversation-row-${c.id}`}
+        onClick={onClick}
+        className={`group w-full rounded-md px-2 py-1.5 text-left transition-colors ${
+          active
+            ? 'bg-white/[0.08] text-on-surface ring-1 ring-white/[0.06]'
+            : 'text-on-surface-variant hover:bg-white/[0.045] hover:text-on-surface'
+        }`}
+      >
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${leadAgentDot}`} />
+          <span className="min-w-0 flex-1 truncate text-[12px] font-medium leading-4 text-on-surface">
+            {c.title || 'Untitled'}
+          </span>
+          {pinned && (
+            <span className="material-symbols-outlined shrink-0 text-[12px] text-primary" title="Pinned session">
+              keep
+            </span>
+          )}
+          {c.lastMessageAt && (
+            <span className="shrink-0 font-mono text-[9px] leading-4 text-on-surface-variant/80">
+              {relativeTime(c.lastMessageAt)}
+            </span>
+          )}
+        </div>
+
+        <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[10px] leading-3 text-on-surface-variant/85">
+          {leadAgent?.kind === 'agent' && (
+            <span className="shrink-0 truncate font-medium text-on-surface-variant/90">{leadAgent.name}</span>
+          )}
+          {leadAgent?.kind === 'agent' && preview && <span aria-hidden="true" className="shrink-0">·</span>}
+          {preview ? (
+            <span className="min-w-0 flex-1 truncate">{preview}</span>
+          ) : c.orchestration?.mode === 'pip-orchestrator' ? (
+            <span className="min-w-0 flex-1 truncate text-primary/90">Orchestrated session</span>
+          ) : (
+            <span className="min-w-0 flex-1 truncate">{c.messageCount} messages</span>
+          )}
+        </div>
+      </button>
+    )
+  }
 
   return (
     <button
       type="button"
+      data-testid={`conversation-row-${c.id}`}
       onClick={onClick}
       className={`w-full text-left transition-colors group ${compact ? 'rounded-md px-2 py-1.5' : 'rounded-lg px-3 py-2.5'} ${
         active
