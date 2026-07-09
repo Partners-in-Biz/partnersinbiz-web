@@ -131,7 +131,7 @@ export function PortalSubnav({ ariaLabel, items, pathname, className }: PortalSu
 
   return (
     <div className={cn('sticky top-14 z-40 shrink-0 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/95 backdrop-blur-md', className)}>
-      <nav aria-label={ariaLabel} className="mx-auto flex min-h-11 w-full max-w-[1400px] flex-nowrap items-center gap-1 overflow-x-auto overscroll-x-contain px-2 py-1 scrollbar-none sm:px-4 md:px-8">
+      <nav aria-label={ariaLabel} className="mx-auto flex min-h-11 w-full max-w-[1400px] flex-nowrap items-center gap-1 overflow-x-auto overscroll-x-contain px-2 py-1 scrollbar-none sm:overflow-visible sm:px-4 md:px-8">
         {items.map((item) => (
           item.children?.length
             ? <DropdownItem key={item.href} item={item} pathname={pathname} />
