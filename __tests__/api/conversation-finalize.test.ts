@@ -10,7 +10,7 @@ const mockMessageGet = jest.fn()
 const mockMessageUpdate = jest.fn()
 const mockTouchConversation = jest.fn()
 const mockCallHermesJson = jest.fn()
-const mockGetAgentDecryptedKey = jest.fn()
+const mockGetAgentDispatchHermesProfileLink = jest.fn()
 const mockRunDocSet = jest.fn()
 
 let mockUser: MockUser = { uid: 'client-1', role: 'client' }
@@ -36,7 +36,7 @@ jest.mock('@/lib/hermes/server', () => ({
 }))
 
 jest.mock('@/lib/agents/team', () => ({
-  getAgentDecryptedKey: (...args: unknown[]) => mockGetAgentDecryptedKey(...args),
+  getAgentDispatchHermesProfileLink: (...args: unknown[]) => mockGetAgentDispatchHermesProfileLink(...args),
 }))
 
 jest.mock('@/lib/api/response', () => ({
@@ -72,7 +72,15 @@ beforeEach(() => {
   mockMessageGet.mockResolvedValue({ exists: true, data: () => ({}) })
   mockMessageUpdate.mockResolvedValue(undefined)
   mockTouchConversation.mockResolvedValue(undefined)
-  mockGetAgentDecryptedKey.mockResolvedValue('secret')
+  mockGetAgentDispatchHermesProfileLink.mockResolvedValue({
+    orgId: 'org-1',
+    profile: 'pip',
+    baseUrl: 'https://hermes.example.com',
+    apiKey: 'secret',
+    enabled: true,
+    capabilities: { runs: true, dashboard: false, cron: false, models: false, tools: true, files: false, terminal: false },
+    permissions: { superAdmin: false, restrictedAdmin: false, client: true, allowedUserIds: [] },
+  })
   mockRunDocSet.mockResolvedValue(undefined)
   mockCollection.mockImplementation((name: string) => {
     if (name === 'agent_team') {

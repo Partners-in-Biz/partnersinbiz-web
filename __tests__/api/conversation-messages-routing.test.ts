@@ -13,7 +13,7 @@ const mockListMessages = jest.fn()
 const mockTouchConversation = jest.fn()
 const mockMessagesCollection = jest.fn()
 const mockCreateHermesRun = jest.fn()
-const mockGetAgentDecryptedKey = jest.fn()
+const mockGetAgentDispatchHermesProfileLink = jest.fn()
 const mockCallAgentPath = jest.fn()
 
 let mockUser: MockUser = { uid: 'client-1', role: 'client' }
@@ -42,7 +42,7 @@ jest.mock('@/lib/hermes/server', () => ({
 }))
 
 jest.mock('@/lib/agents/team', () => ({
-  getAgentDecryptedKey: mockGetAgentDecryptedKey,
+  getAgentDispatchHermesProfileLink: mockGetAgentDispatchHermesProfileLink,
   callAgentPath: mockCallAgentPath,
 }))
 
@@ -124,7 +124,15 @@ beforeEach(() => {
   })
   mockTouchConversation.mockResolvedValue(undefined)
   mockListMessages.mockResolvedValue([])
-  mockGetAgentDecryptedKey.mockResolvedValue('secret')
+  mockGetAgentDispatchHermesProfileLink.mockResolvedValue({
+    orgId: 'org-1',
+    profile: 'pip',
+    baseUrl: 'https://hermes.example.com',
+    apiKey: 'secret',
+    enabled: true,
+    capabilities: { runs: true, dashboard: false, cron: false, models: false, tools: true, files: false, terminal: false },
+    permissions: { superAdmin: false, restrictedAdmin: false, client: true, allowedUserIds: [] },
+  })
   mockCallAgentPath.mockResolvedValue({
     response: { ok: true, status: 200 },
     data: {
@@ -394,10 +402,10 @@ describe('unified conversation message routing', () => {
     }))
   })
 
-  it('returns a failed assistant message instead of a 500 when agent key decrypt fails', async () => {
+  it('returns a failed assistant message instead of a 500 when agent runtime resolution fails', async () => {
     const update = jest.fn().mockResolvedValue(undefined)
     mockMessagesCollection.mockReturnValue({ doc: () => ({ update }) })
-    mockGetAgentDecryptedKey.mockRejectedValue(new Error('Missing env var: SOCIAL_TOKEN_MASTER_KEY'))
+    mockGetAgentDispatchHermesProfileLink.mockRejectedValue(new Error('No reachable runtime target configured'))
     mockGetConversation.mockResolvedValue({
       id: 'conv-1',
       orgId: 'pib-platform-owner',

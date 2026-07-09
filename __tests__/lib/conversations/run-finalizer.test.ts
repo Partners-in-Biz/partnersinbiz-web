@@ -9,7 +9,7 @@ jest.mock('@/lib/firebase/admin', () => ({
 }))
 
 jest.mock('@/lib/agents/team', () => ({
-  getAgentDecryptedKey: jest.fn(),
+  getAgentDispatchHermesProfileLink: jest.fn(),
 }))
 
 jest.mock('@/lib/hermes/server', () => ({

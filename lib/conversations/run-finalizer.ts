@@ -1,7 +1,7 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
-import { getAgentDecryptedKey } from '@/lib/agents/team'
-import type { AgentId, AgentTeamDoc } from '@/lib/agents/types'
+import { getAgentDispatchHermesProfileLink } from '@/lib/agents/team'
+import type { AgentId } from '@/lib/agents/types'
 import { callHermesJson, HERMES_RUNS_COLLECTION } from '@/lib/hermes/server'
 import type { ChatEvent, ChatUiAction, HermesProfileLink, RichMessagePart } from '@/lib/hermes/types'
 import {
@@ -266,23 +266,9 @@ function runDocMessageId(data: JsonObject, metadata: JsonObject): string | null 
 }
 
 async function buildAgentLink(agentId: AgentId, orgId: string): Promise<HermesProfileLink> {
-  const agentSnap = await adminDb.collection('agent_team').doc(agentId).get()
-  if (!agentSnap.exists) {
-    throw new HermesConversationRunError('Agent not found', 404)
-  }
-
-  const agentData = agentSnap.data() as AgentTeamDoc
-  const decryptedKey = await getAgentDecryptedKey(agentId)
-
-  return {
-    orgId,
-    profile: agentId,
-    baseUrl: agentData.baseUrl,
-    ...(decryptedKey ? { apiKey: decryptedKey } : {}),
-    enabled: agentData.enabled,
-    capabilities: { runs: true, dashboard: false, cron: false, models: false, tools: true, files: false, terminal: false },
-    permissions: { superAdmin: false, restrictedAdmin: false, client: true, allowedUserIds: [] },
-  }
+  const agentLink = await getAgentDispatchHermesProfileLink(agentId, orgId)
+  if (!agentLink) throw new HermesConversationRunError('Agent not found', 404)
+  return agentLink
 }
 
 async function updateRunDoc(
