@@ -233,6 +233,76 @@ test('renders every registered block type without errors', () => {
   expect(() => render(<DocumentRenderer document={doc} version={version} />)).not.toThrow()
 })
 
+test('keeps the public document shell constrained on mobile-width content', () => {
+  const doc: ClientDocument = {
+    id: 'd',
+    orgId: 'o',
+    title: 'A very long public proposal title that should wrap instead of widening the mobile viewport',
+    type: 'sales_proposal',
+    templateId: 'sales-proposal-v1',
+    status: 'client_review',
+    linked: {},
+    currentVersionId: 'v1',
+    latestPublishedVersionId: 'v1',
+    approvalMode: 'formal_acceptance',
+    clientPermissions: { canComment: true, canSuggest: true, canDirectEdit: false, canApprove: true },
+    assumptions: [],
+    shareToken: 't',
+    shareEnabled: true,
+    editShareEnabled: false,
+    createdBy: 'u',
+    createdByType: 'agent',
+    updatedBy: 'u',
+    updatedByType: 'agent',
+    deleted: false,
+  }
+  const version: ClientDocumentVersion = {
+    id: 'v1',
+    documentId: 'd',
+    versionNumber: 1,
+    status: 'published',
+    blocks: [
+      {
+        id: 'roi-table',
+        type: 'table',
+        title: 'ROI table',
+        content: {
+          headers: ['Option', 'Below break-even on one R100K win', 'Approx. R17,700 profit; 172% ROI after cost'],
+          rows: [['Option 2', 'Below break-even on one R100K win', 'Approx. R17,700 profit; 172% ROI after cost']],
+        },
+        required: true,
+        display: {},
+      },
+      {
+        id: 'investment',
+        type: 'investment',
+        title: 'Investment options',
+        content: {
+          items: [{ label: 'Option 2: Company Profile & Capability Statement including a long description', amount: 31500 }],
+          total: 31500,
+          currency: 'ZAR',
+        },
+        required: true,
+        display: {},
+      },
+    ],
+    theme: {
+      palette: { bg: '#000', text: '#fff', accent: '#F5A623' },
+      typography: { heading: 'sans-serif', body: 'sans-serif' },
+    },
+    createdBy: 'u',
+    createdByType: 'agent',
+  }
+
+  const { container } = render(<DocumentRenderer document={doc} version={version} />)
+
+  expect(container.querySelector('article')).toHaveClass('max-w-full', 'overflow-x-hidden')
+  expect(container.querySelector('h1')).toHaveClass('break-words')
+  expect(container.querySelector('#block-roi-table')).toHaveClass('min-w-0', 'max-w-full')
+  expect(container.querySelector('#block-roi-table div')).toHaveClass('max-w-full', 'overflow-x-auto')
+  expect(container.querySelector('#block-investment table')).toHaveClass('table-fixed')
+})
+
 test('renders showcase blocks with native renderers, card surfaces, and semantic labels', () => {
   const doc: ClientDocument = {
     id: 'd',

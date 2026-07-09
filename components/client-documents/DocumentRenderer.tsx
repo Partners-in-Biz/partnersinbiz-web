@@ -271,13 +271,13 @@ export function DocumentRenderer({
         aria-hidden
       />
 
-      <article ref={articleRef} className="min-h-screen">
+      <article ref={articleRef} className="min-h-screen max-w-full overflow-x-hidden">
         <div className="mx-auto max-w-5xl px-5 py-12 md:px-10 md:py-16">
           <header className="flex min-h-[42vh] flex-col justify-end border-b border-[var(--doc-border)] pb-10">
             <p className="text-xs uppercase tracking-[0.2em] text-[var(--doc-muted)]">
               {readableType(clientDoc.type)}
             </p>
-            <h1 className="mt-4 max-w-4xl text-5xl font-semibold leading-none md:text-7xl">
+            <h1 className="mt-4 max-w-4xl break-words text-5xl font-semibold leading-none md:text-7xl">
               {clientDoc.title}
             </h1>
             <p className="mt-6 text-sm text-[var(--doc-muted)]">
@@ -285,12 +285,12 @@ export function DocumentRenderer({
             </p>
           </header>
 
-          <div className="grid gap-10 md:grid-cols-[1fr_180px]">
-            <div>
+          <div className="grid min-w-0 gap-10 md:grid-cols-[minmax(0,1fr)_180px]">
+            <div className="min-w-0">
               {visibleBlocks.map((block, index) => {
                 const Renderer = getRenderer(block.type)
                 return (
-                  <div key={block.id} className="relative">
+                  <div key={block.id} className="relative min-w-0">
                     {showInternalContextRefs && block.contextRefs && block.contextRefs.length > 0 ? (
                       <div className="mb-2 rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-2" data-testid={`block-context-${block.id}`}>
                         <p className="mb-1 text-[10px] uppercase tracking-[0.16em] text-amber-200/80">Internal context</p>

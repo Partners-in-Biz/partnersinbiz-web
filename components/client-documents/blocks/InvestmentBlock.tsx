@@ -46,7 +46,7 @@ export function InvestmentBlock({ block, index }: { block: DocumentBlock; index:
         </h2>
       )}
       <div
-        className="rounded-2xl border p-6 md:p-8"
+        className="max-w-full rounded-2xl border p-6 md:p-8"
         style={{ borderColor: 'var(--doc-border)', background: 'var(--doc-surface)' }}
       >
         <p className="text-xs uppercase tracking-[0.2em] text-[var(--doc-muted)]">
@@ -60,12 +60,12 @@ export function InvestmentBlock({ block, index }: { block: DocumentBlock; index:
           {formatMoney(total, currency)}
         </p>
 
-        <table className="mt-8 w-full text-sm">
+        <table className="mt-8 w-full table-fixed text-sm">
           <tbody>
             {items.map((item, i) => (
               <tr key={i} className="border-t" style={{ borderColor: 'var(--doc-border)' }}>
-                <td className="py-3 pr-4 text-[var(--doc-text)]">{item.label}</td>
-                <td className="py-3 text-right tabular-nums text-[var(--doc-text)] opacity-80">
+                <td className="py-3 pr-4 break-words text-[var(--doc-text)]">{item.label}</td>
+                <td className="w-28 py-3 text-right tabular-nums text-[var(--doc-text)] opacity-80 sm:w-36">
                   {formatMoney(item.amount, currency)}
                 </td>
               </tr>

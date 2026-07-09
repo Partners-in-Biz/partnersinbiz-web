@@ -20,7 +20,7 @@ export function BlockFrame({
       data-block-index={index}
       data-motion={block.display.motion ?? 'none'}
       className={[
-        'scroll-mt-24',
+        'min-w-0 max-w-full scroll-mt-24',
         noBorder ? '' : 'border-b border-[var(--doc-border)]',
         noPadding ? '' : 'py-12 md:py-16',
       ]
