@@ -113,6 +113,40 @@ beforeEach(() => {
         }),
       }
     }
+    if (name === 'org_workspaces') {
+      return {
+        doc: (id: string) => ({
+          get: async () => ({
+            exists: id === 'acme',
+            id,
+            data: () => ({
+              workspaceId: 'acme',
+              orgId: 'org-1',
+              orgSlug: 'acme',
+              orgName: 'Acme',
+              agentDomain: 'acme',
+              agentName: 'Ava',
+              vpsPath: '/var/lib/hermes/Cowork/Acme',
+              localPath: '~/Cowork/Acme',
+              agentDomainPath: '/var/lib/hermes/Cowork/Cowork/agents/acme',
+              localAgentDomainPath: '~/Cowork/Cowork/agents/acme',
+              sourceOfTruth: 'vps',
+              syncMode: 'hybrid',
+              defaultRuntimeTarget: 'vps',
+              status: 'active',
+              folderVersion: 1,
+              companyId: 'company-1',
+              contactIds: ['contact-1'],
+            }),
+          }),
+        }),
+        where: () => ({
+          where: () => ({
+            limit: () => ({ get: async () => ({ docs: [] }) }),
+          }),
+        }),
+      }
+    }
     throw new Error(`Unexpected collection: ${name}`)
   })
 })
@@ -140,6 +174,7 @@ describe('platform-scoped unified conversations', () => {
       startedBy: 'admin-1',
       title: 'Internal planning',
     }))
+    expect(mockCreateConversation.mock.calls[0][0]).not.toHaveProperty('workspaceContext')
     const body = await readJson(res)
     expect(body.data.conversation.id).toBe('conv-1')
   })
@@ -246,6 +281,57 @@ describe('platform-scoped unified conversations', () => {
         expect.objectContaining({ kind: 'agent', agentId: 'pip' }),
       ]),
     }))
+  })
+
+  it('binds a new conversation to a selected client workspace and runtime target', async () => {
+    mockUser = { uid: 'admin-1', role: 'admin', orgId: 'pib-platform-owner', allowedOrgIds: [] }
+    const { POST } = await import('@/app/api/v1/conversations/route')
+
+    const res = await POST(new NextRequest('http://localhost/api/v1/conversations', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        scope: 'workspace',
+        workspaceId: 'acme',
+        runtimeTarget: 'local',
+        participants: [{ kind: 'agent', agentId: 'pip' }],
+        title: 'Acme workspace chat',
+      }),
+    }))
+
+    expect(res.status).toBe(201)
+    expect(mockCreateConversation).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      scope: 'workspace',
+      scopeRefId: 'acme',
+      workspaceContext: expect.objectContaining({
+        workspaceId: 'acme',
+        runtimeTarget: 'local',
+        runtimeLabel: 'Local',
+        ownerUserId: 'admin-1',
+        shareMode: 'private',
+        companyId: 'company-1',
+        contactIds: ['contact-1'],
+      }),
+    }))
+  })
+
+  it('rejects workspace-scoped conversations without an explicit workspace id', async () => {
+    mockUser = { uid: 'admin-1', role: 'admin', orgId: 'pib-platform-owner', allowedOrgIds: [] }
+    const { POST } = await import('@/app/api/v1/conversations/route')
+
+    const res = await POST(new NextRequest('http://localhost/api/v1/conversations', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        scope: 'workspace',
+        participants: [{ kind: 'agent', agentId: 'pip' }],
+        title: 'Missing workspace id',
+      }),
+    }))
+
+    expect(res.status).toBe(400)
+    expect(mockCreateConversation).not.toHaveBeenCalled()
   })
 
   it('returns platform admins as people for the top-level participant picker', async () => {

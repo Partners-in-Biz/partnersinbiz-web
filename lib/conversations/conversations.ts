@@ -11,6 +11,7 @@ import { adminDb, getAdminApp } from '@/lib/firebase/admin'
 import { AGENT_IDS } from '@/lib/agents/types'
 import type { AgentId, Conversation, ConversationMessage, Participant } from './types'
 import type { ContextReference } from '@/lib/context-references/types'
+import type { ConversationWorkspaceContext } from '@/lib/client-provisioning/workspace-context'
 import {
   CONVERSATION_RUN_DISPATCH_GRACE_MS,
 } from './run-policy'
@@ -41,6 +42,7 @@ export async function createConversation(input: {
   title?: string
   scope?: Conversation['scope']
   scopeRefId?: string
+  workspaceContext?: ConversationWorkspaceContext | null
   contextRefs?: ContextReference[]
 }): Promise<Conversation> {
   const ref = adminDb.collection(CONVERSATIONS_COLLECTION).doc()
@@ -69,6 +71,7 @@ export async function createConversation(input: {
 
   if (input.scope) data.scope = input.scope
   if (input.scopeRefId) data.scopeRefId = input.scopeRefId
+  if (input.workspaceContext) data.workspaceContext = input.workspaceContext
   if (input.contextRefs?.length) data.contextRefs = input.contextRefs
 
   await ref.set(data)

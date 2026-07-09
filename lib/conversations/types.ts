@@ -12,6 +12,7 @@ import type { ContextReference } from '@/lib/context-references/types'
 import type { SlashCommandPayload } from '@/lib/chat/slash-commands'
 import type { AgentEffort } from '@/lib/agents/runRouting'
 import type { RichMessagePart } from '@/lib/hermes/types'
+import type { ConversationWorkspaceContext } from '@/lib/client-provisioning/workspace-context'
 export type { AgentId }
 
 export interface OrgChatConfig {
@@ -51,7 +52,7 @@ export interface AgentParticipant {
 
 export type Participant = HumanParticipant | AgentParticipant
 
-export type ConversationScope = 'general' | 'project' | 'task' | 'campaign' | 'company' | 'contact'
+export type ConversationScope = 'general' | 'project' | 'workspace' | 'task' | 'campaign' | 'company' | 'contact'
 
 export interface ConversationAttachment {
   id: string
@@ -77,6 +78,7 @@ export interface Conversation {
   title: string
   scope?: ConversationScope
   scopeRefId?: string
+  workspaceContext?: ConversationWorkspaceContext
   contextRefs?: ContextReference[]
   agentEffort?: AgentEffort | null
   lastMessageId?: string

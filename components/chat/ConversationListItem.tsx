@@ -23,6 +23,13 @@ export interface Conversation {
   title: string
   scope?: string
   scopeRefId?: string
+  workspaceContext?: {
+    workspaceId: string
+    orgName: string
+    runtimeTarget: string
+    runtimeLabel: string
+    shareMode?: string
+  }
   contextRefs?: ContextReference[]
   lastMessagePreview?: string
   lastMessageRole?: string
@@ -84,6 +91,15 @@ function primaryAgent(conversation: Conversation): Participant | null {
   return conversation.participants.find((participant) => participant.kind === 'agent') ?? null
 }
 
+function runtimeBadge(conversation: Conversation): string | null {
+  const workspace = conversation.workspaceContext
+  if (!workspace) return null
+  if (workspace.runtimeLabel?.trim()) return workspace.runtimeLabel.trim()
+  if (workspace.runtimeTarget === 'local') return 'Local'
+  if (workspace.runtimeTarget === 'vps') return 'VPS'
+  return workspace.runtimeTarget?.toUpperCase() ?? null
+}
+
 export default function ConversationListItem({
   conversation: c,
   active,
@@ -97,6 +113,7 @@ export default function ConversationListItem({
     : null
   const leadAgent = primaryAgent(c)
   const leadAgentDot = leadAgent?.kind === 'agent' ? (AGENT_COLORS[leadAgent.agentId] ?? 'bg-white/40') : 'bg-white/30'
+  const workspaceRuntime = runtimeBadge(c)
 
   if (compact) {
     return (
@@ -120,6 +137,11 @@ export default function ConversationListItem({
               keep
             </span>
           )}
+          {workspaceRuntime && (
+            <span className="shrink-0 rounded border border-primary/25 bg-primary/10 px-1 font-mono text-[8px] uppercase leading-3 text-primary" title={`Workspace runtime: ${workspaceRuntime}`}>
+              {workspaceRuntime}
+            </span>
+          )}
           {c.lastMessageAt && (
             <span className="shrink-0 font-mono text-[9px] leading-4 text-on-surface-variant/80">
               {relativeTime(c.lastMessageAt)}
@@ -132,6 +154,12 @@ export default function ConversationListItem({
             <span className="shrink-0 truncate font-medium text-on-surface-variant/90">{leadAgent.name}</span>
           )}
           {leadAgent?.kind === 'agent' && preview && <span aria-hidden="true" className="shrink-0">·</span>}
+          {c.workspaceContext?.orgName && (
+            <>
+              <span className="shrink-0 truncate text-primary/90">{c.workspaceContext.orgName}</span>
+              {preview && <span aria-hidden="true" className="shrink-0">·</span>}
+            </>
+          )}
           {preview ? (
             <span className="min-w-0 flex-1 truncate">{preview}</span>
           ) : c.orchestration?.mode === 'pip-orchestrator' ? (
@@ -194,6 +222,14 @@ export default function ConversationListItem({
             >
               <span className="material-symbols-outlined text-[12px]">hub</span>
               Orchestrated
+            </span>
+          )}
+          {workspaceRuntime && (
+            <span
+              className="inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-1.5 py-0.5 text-[10px] font-mono uppercase text-primary"
+              title={`Workspace runtime: ${workspaceRuntime}`}
+            >
+              {workspaceRuntime}
             </span>
           )}
         </div>

@@ -23,9 +23,34 @@ describe('client workspace provisioning', () => {
 
     expect(payload.workspacePath).toBe('/var/lib/hermes/Cowork/Acme Inc')
     expect(payload.agentDomainPath).toBe('/var/lib/hermes/Cowork/Cowork/agents/acme-inc')
+    expect(payload.localWorkspacePath).toBe('~/Cowork/Acme Inc')
+    expect(payload.workspaceFolders).toEqual(expect.arrayContaining(['docs', 'marketing', 'operations/admin', 'archive']))
+    expect(payload.manifest).toMatchObject({
+      workspaceId: 'acme-inc',
+      orgId: 'org_123',
+      sourceOfTruth: 'vps',
+      defaultRuntimeTarget: 'vps',
+      linked: { companyId: null, contactIds: [] },
+    })
+    expect(payload.workspaceInstructions).toContain('VPS-canonical')
     expect(payload.soul).toContain('PiB org_id: `org_123`')
     expect(payload.soul).toContain('Project folder: `/var/lib/hermes/Cowork/Acme Inc`')
     expect(payload.soul).toContain('Never say you are Codex')
+  })
+
+  it('links workspace manifests to CRM company and contact ids when supplied', () => {
+    const payload = buildClientProvisioningPayload({
+      clientName: 'Acme Inc',
+      domain: 'acme-inc',
+      orgId: 'org_123',
+      companyId: 'company-1',
+      contactIds: ['contact-1', 'contact-1', ' contact-2 '],
+    })
+
+    expect(payload.manifest.linked).toEqual({
+      companyId: 'company-1',
+      contactIds: ['contact-1', 'contact-2'],
+    })
   })
 
   it('infers the agent name from the first display word', () => {
