@@ -539,9 +539,7 @@ export default function UnifiedChat({
         if (previous && catalog.models.some((model) => model.model === previous.model && model.provider === previous.provider)) {
           return previous
         }
-        return catalog.currentModel
-          ? { model: catalog.currentModel, provider: catalog.currentProvider }
-          : null
+        return null
       })
     } catch {
       setModelCatalog(null)

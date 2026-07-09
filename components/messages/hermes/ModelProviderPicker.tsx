@@ -91,10 +91,9 @@ export function ModelProviderPicker({
   const resolvedSelectedModel = selected?.model ?? selectedModel
   const resolvedSelectedProvider = selected?.provider ?? selectedProvider
   const activeModel = useMemo(() => {
+    if (!resolvedSelectedModel) return undefined
     if (!models.length) return undefined
     return models.find((model) => model.id === resolvedSelectedModel && (!resolvedSelectedProvider || model.provider === resolvedSelectedProvider))
-      ?? models.find((model) => model.active)
-      ?? models[0]
   }, [models, resolvedSelectedModel, resolvedSelectedProvider])
 
   const filteredModels = useMemo(() => {
@@ -136,7 +135,7 @@ export function ModelProviderPicker({
     ? 'Loading models…'
     : activeModel
       ? `${activeModel.providerLabel} · ${activeModel.displayName}`
-      : labelForModel(resolvedSelectedModel ?? catalog?.currentModel, resolvedSelectedProvider ?? catalog?.currentProvider)
+      : labelForModel(resolvedSelectedModel, resolvedSelectedProvider)
 
   function togglePin(model: MessageModelOption) {
     const key = modelKey(model)
@@ -209,6 +208,28 @@ export function ModelProviderPicker({
           </div>
 
           <div className="max-h-[360px] overflow-y-auto p-1.5">
+            <button
+              type="button"
+              disabled={!canSelect}
+              onClick={() => {
+                onSelect(null)
+                setOpen(false)
+              }}
+              className="mb-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs text-on-surface hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-[15px]">auto_awesome</span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium">Auto model</span>
+                <span className="block truncate text-[10px] text-on-surface-variant">
+                  Use the agent runtime default without a per-run override
+                </span>
+              </span>
+              {!activeModel && (
+                <span className="material-symbols-outlined text-[16px] text-primary" aria-label="Selected model">
+                  check
+                </span>
+              )}
+            </button>
             {filteredModels.length === 0 && (
               <div className="px-3 py-8 text-center text-xs text-on-surface-variant">No matching models</div>
             )}
