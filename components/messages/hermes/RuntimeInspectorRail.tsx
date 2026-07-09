@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import type { ChatEvent } from '@/lib/hermes/types'
 import type { ConversationMessage } from '@/components/chat/MessageBubble'
 import type { MessageModelCatalog, ModelRuntimeSelection } from './ModelProviderPicker'
@@ -52,6 +53,14 @@ export function RuntimeInspectorRail({
   const runtimeModel = activeMessage?.model ?? selectedRuntime?.model ?? catalog?.currentModel
   const runtimeProvider = activeMessage?.provider ?? selectedRuntime?.provider ?? catalog?.currentProvider
   const status = activeMessage?.status ?? 'idle'
+  const [copiedRunId, setCopiedRunId] = useState(false)
+
+  const copyRunId = async () => {
+    if (!activeMessage?.runId) return
+    await navigator.clipboard?.writeText(activeMessage.runId).catch(() => undefined)
+    setCopiedRunId(true)
+    window.setTimeout(() => setCopiedRunId(false), 1200)
+  }
 
   return (
     <aside data-testid="runtime-inspector-rail" className="hidden xl:flex min-h-0 w-[280px] flex-col overflow-hidden rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card)]/70">
@@ -85,8 +94,20 @@ export function RuntimeInspectorRail({
                 <span className="truncate text-on-surface">{activeMessage.authorDisplayName}</span>
                 <span className="rounded-full bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-on-surface-variant">{status}</span>
               </div>
-              <div className="truncate font-mono text-[10px] text-on-surface-variant" title={activeMessage.runId}>
-                {shortRunId(activeMessage.runId)}
+              <div className="flex items-center gap-2">
+                <div className="min-w-0 flex-1 truncate font-mono text-[10px] text-on-surface-variant" title={activeMessage.runId}>
+                  {shortRunId(activeMessage.runId)}
+                </div>
+                {activeMessage.runId && (
+                  <button
+                    type="button"
+                    onClick={copyRunId}
+                    aria-label="Copy run ID"
+                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-on-surface-variant hover:border-primary/40 hover:text-on-surface"
+                  >
+                    <span className="material-symbols-outlined text-[13px]">{copiedRunId ? 'check' : 'content_copy'}</span>
+                  </button>
+                )}
               </div>
               {canStop && onStop && (
                 <button

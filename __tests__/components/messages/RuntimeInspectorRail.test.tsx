@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import RuntimeInspectorRail from '@/components/messages/hermes/RuntimeInspectorRail'
 
 describe('RuntimeInspectorRail', () => {
@@ -56,5 +56,37 @@ describe('RuntimeInspectorRail', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Stop run/i }))
     expect(onStop).toHaveBeenCalledTimes(1)
+  })
+
+  it('copies the active run id from the inspector', async () => {
+    const writeText = jest.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+
+    render(
+      <RuntimeInspectorRail
+        activeMessage={{
+          id: 'msg-1',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: '',
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'streaming',
+          runId: 'run-copy-me',
+        }}
+        events={[]}
+        selectedRuntime={null}
+        catalog={null}
+      />,
+    )
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Copy run ID/i }))
+    })
+    expect(writeText).toHaveBeenCalledWith('run-copy-me')
   })
 })

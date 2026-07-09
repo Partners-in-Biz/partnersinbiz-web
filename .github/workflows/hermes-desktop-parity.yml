@@ -1,0 +1,49 @@
+name: Hermes Desktop parity monitor
+
+on:
+  schedule:
+    # Weekly guardrail: upstream Hermes Desktop docs are the contract we track.
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+  pull_request:
+    branches: [development]
+    paths:
+      - 'app/api/v1/admin/agents/**'
+      - 'app/api/v1/conversations/**'
+      - 'components/chat/**'
+      - 'components/messages/hermes/**'
+      - 'config/hermes-desktop-parity-baseline.json'
+      - 'docs/specs/hermes-desktop-messages-parity.md'
+      - 'lib/hermes/**'
+      - 'lib/messages/**'
+      - 'scripts/check-hermes-desktop-parity.mjs'
+      - '.github/workflows/hermes-desktop-parity.yml'
+
+concurrency:
+  group: hermes-desktop-parity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check Hermes Desktop docs and PiB parity markers
+        env:
+          HERMES_PARITY_REPORT_PATH: hermes-desktop-parity-report.md
+        run: npm run check:hermes-desktop-parity
+
+      - name: Upload parity report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hermes-desktop-parity-report
+          path: hermes-desktop-parity-report.md
+          if-no-files-found: ignore

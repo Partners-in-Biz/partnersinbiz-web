@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "docs": {
+    "url": "https://hermes-agent.nousresearch.com/docs/user-guide/desktop",
+    "section": "What's in the app through How it works / remote backend",
+    "contentHash": "165480b45144639e33d693030e02badd2a9f8eb25f9b0e641c8abde2accffb7d",
+    "extractedChars": 19472,
+    "updatedAt": "2026-07-08T20:39:15.678Z"
+  },
+  "requiredUpstreamPhrases": [
+    "Streaming responses with live tool activity",
+    "The same conversation history as every other Hermes surface",
+    "Drag-and-drop files anywhere in the chat area",
+    "A right-hand preview rail",
+    "Composer history and queue editing",
+    "Per-session YOLO toggle",
+    "The model picker lives in the composer",
+    "switch the model, reasoning effort, and fast mode",
+    "Per-model effort/fast presets",
+    "Talk to Hermes and hear it back",
+    "Providers settings pane",
+    "Every provider and model in the menus",
+    "Tool-backend installs from the GUI",
+    "Auxiliary-model warning",
+    "Skills",
+    "Cron",
+    "Profiles",
+    "Messaging",
+    "Command palette",
+    "Rebindable shortcuts",
+    "Session-list overhaul",
+    "Search sessions by id",
+    "Concurrent multi-profile sessions",
+    "hermes serve",
+    "tui_gateway JSON-RPC/WebSocket API"
+  ],
+  "pibMarkerCount": 12
+}
