@@ -7,6 +7,7 @@ import { withAuth } from '@/lib/api/auth'
 import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { ORG_WORKSPACES_COLLECTION, type OrgWorkspaceRecord } from '@/lib/client-provisioning/workspace-context'
+import { publicRuntimeTargetPresence } from '@/lib/agents/runtime-targets'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,10 +16,13 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
   const orgScope = resolveOrgScope(user, searchParams.get('orgId'))
   if (!orgScope.ok) return apiError(orgScope.error, orgScope.status)
 
-  const snap = await adminDb.collection(ORG_WORKSPACES_COLLECTION)
-    .where('orgId', '==', orgScope.orgId)
-    .where('status', '==', 'active')
-    .get()
+  const [snap, runtimeDoc] = await Promise.all([
+    adminDb.collection(ORG_WORKSPACES_COLLECTION)
+      .where('orgId', '==', orgScope.orgId)
+      .where('status', '==', 'active')
+      .get(),
+    adminDb.collection('agent_dispatch_configs').doc('pip').get(),
+  ])
 
   const workspaces = snap.docs
     .map((doc) => ({ id: doc.id, ...doc.data() }) as OrgWorkspaceRecord)
@@ -42,5 +46,7 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
       contactIds: workspace.contactIds ?? [],
     }))
 
-  return apiSuccess({ workspaces })
+  const runtimeTargets = publicRuntimeTargetPresence(runtimeDoc.data()?.runtimeTargets)
+
+  return apiSuccess({ workspaces, runtimeTargets })
 })

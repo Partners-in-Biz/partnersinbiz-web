@@ -147,6 +147,36 @@ beforeEach(() => {
         }),
       }
     }
+    if (name === 'agent_dispatch_configs') {
+      return {
+        doc: () => ({
+          get: async () => ({
+            exists: true,
+            data: () => ({
+              runtimeTargets: {
+                vps: {
+                  id: 'vps',
+                  label: 'VPS',
+                  baseUrl: 'https://hermes.example/profiles/pip',
+                  apiKey: 'test-key',
+                  enabled: true,
+                },
+                local: {
+                  id: 'local',
+                  label: "Local: Peet's Mac",
+                  hostId: 'peets-mac-mini',
+                  baseUrl: 'https://local-hermes.example/profiles/pip',
+                  apiKey: 'local-test-key',
+                  enabled: true,
+                  capabilities: ['local-files'],
+                  lastSeenAt: new Date().toISOString(),
+                },
+              },
+            }),
+          }),
+        }),
+      }
+    }
     throw new Error(`Unexpected collection: ${name}`)
   })
 })
@@ -185,7 +215,7 @@ describe('platform-scoped unified conversations', () => {
     const res = await GET(new NextRequest('http://localhost/api/v1/conversations?orgId=pib-platform-owner'))
 
     expect(res.status).toBe(200)
-    expect(mockListConversations).toHaveBeenCalledWith('pib-platform-owner', 'admin-1', 30, expect.any(Object))
+    expect(mockListConversations).toHaveBeenCalledWith('pib-platform-owner', expect.objectContaining({ uid: 'admin-1' }), 30, expect.any(Object))
   })
 
   it('lets a client start a platform-workspace conversation with listed org members', async () => {
@@ -306,8 +336,7 @@ describe('platform-scoped unified conversations', () => {
       scopeRefId: 'acme',
       workspaceContext: expect.objectContaining({
         workspaceId: 'acme',
-        runtimeTarget: 'local',
-        runtimeLabel: 'Local',
+        runtimeLabel: "Local: Peet's Mac",
         ownerUserId: 'admin-1',
         shareMode: 'private',
         companyId: 'company-1',
@@ -330,6 +359,42 @@ describe('platform-scoped unified conversations', () => {
       }),
     }))
 
+    expect(res.status).toBe(400)
+    expect(mockCreateConversation).not.toHaveBeenCalled()
+  })
+
+  it('rejects an unknown Workspace runtime instead of silently falling back', async () => {
+    const { POST } = await import('@/app/api/v1/conversations/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/conversations', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        scope: 'workspace',
+        workspaceId: 'acme',
+        runtimeTarget: 'unknown-runtime',
+        participants: [{ kind: 'agent', agentId: 'pip' }],
+      }),
+    }))
+    expect(res.status).toBe(400)
+    expect(mockCreateConversation).not.toHaveBeenCalled()
+  })
+
+  it('keeps private Workspace conversations separated from other human participants', async () => {
+    const { POST } = await import('@/app/api/v1/conversations/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/conversations', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        scope: 'workspace',
+        workspaceId: 'acme',
+        runtimeTarget: 'vps',
+        shareMode: 'private',
+        participants: [
+          { kind: 'agent', agentId: 'pip' },
+          { kind: 'user', uid: 'admin-2' },
+        ],
+      }),
+    }))
     expect(res.status).toBe(400)
     expect(mockCreateConversation).not.toHaveBeenCalled()
   })

@@ -146,6 +146,7 @@ export async function resolveConversationWorkspaceContext(input: {
   workspaceId?: string | null
   ownerUserId: string
   runtimeTarget?: WorkspaceRuntimeTarget | null
+  runtimeLabel?: string | null
   shareMode?: ConversationWorkspaceContext['shareMode'] | null
 }): Promise<ConversationWorkspaceContext | null> {
   const workspace = input.workspaceId
@@ -165,7 +166,7 @@ export async function resolveConversationWorkspaceContext(input: {
     localAgentDomainPath: workspace.localAgentDomainPath,
     sourceOfTruth: 'vps',
     runtimeTarget,
-    runtimeLabel: workspaceRuntimeLabel(runtimeTarget),
+    runtimeLabel: input.runtimeLabel?.trim() || workspaceRuntimeLabel(runtimeTarget),
     shareMode: input.shareMode || 'private',
     ownerUserId: input.ownerUserId,
     companyId: workspace.companyId ?? null,

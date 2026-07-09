@@ -22,6 +22,7 @@ import { sanitizeContextReferenceSeeds } from '@/lib/context-references/types'
 import { isSuperAdmin } from '@/lib/api/platformAdmin'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import { resolveConversationWorkspaceContext } from '@/lib/client-provisioning/workspace-context'
+import { publicRuntimeTargetPresence } from '@/lib/agents/runtime-targets'
 import type { AgentId, Participant, Conversation, ConversationScope } from '@/lib/conversations/types'
 import type { ApiUser } from '@/lib/api/types'
 
@@ -215,16 +216,30 @@ export const POST = withAuth(
     const shareMode = body.shareMode === 'shared' || body.shareMode === 'org' || body.shareMode === 'private'
       ? body.shareMode
       : 'private'
+    if (convScope === 'workspace' && shareMode === 'private') {
+      const additionalHuman = participants.find((participant) => participant.kind === 'user' && participant.uid !== user.uid)
+      if (additionalHuman) return apiError('Private Workspace conversations cannot include other human participants', 400)
+    }
     if (convScope === 'workspace' && !requestedWorkspaceId) {
       return apiError('workspaceId is required for workspace conversations', 400)
     }
     const shouldBindWorkspace = convScope === 'workspace' || Boolean(requestedWorkspaceId)
+    let runtimeLabel: string | undefined
+    if (shouldBindWorkspace && runtimeTarget) {
+      const dispatchDoc = await adminDb.collection('agent_dispatch_configs').doc('pip').get()
+      const target = publicRuntimeTargetPresence(dispatchDoc.data()?.runtimeTargets)
+        .find((candidate) => candidate.id === runtimeTarget)
+      if (!target) return apiError(`Runtime target ${runtimeTarget} is not configured`, 400)
+      if (!target.selectable) return apiError(`Runtime target ${target.label} is currently unavailable`, 409)
+      runtimeLabel = target.label
+    }
     const workspaceContext = shouldBindWorkspace
       ? await resolveConversationWorkspaceContext({
           orgId: scope.orgId,
           workspaceId: requestedWorkspaceId,
           ownerUserId: user.uid,
           runtimeTarget,
+          runtimeLabel,
           shareMode,
         })
       : null
@@ -267,7 +282,7 @@ export const GET = withAuth(
     if (!orgScope.ok) return apiError(orgScope.error, orgScope.status)
 
     const limit = Math.min(parseInt(searchParams.get('limit') ?? '30'), 100)
-    const conversations = await listConversations(orgScope.orgId, user.uid, limit, {
+    const conversations = await listConversations(orgScope.orgId, user, limit, {
       scope: convScope,
       scopeRefId,
       projectId,

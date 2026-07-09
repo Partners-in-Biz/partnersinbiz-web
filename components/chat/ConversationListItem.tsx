@@ -100,6 +100,14 @@ function runtimeBadge(conversation: Conversation): string | null {
   return workspace.runtimeTarget?.toUpperCase() ?? null
 }
 
+function visibilityBadge(conversation: Conversation): string | null {
+  const mode = conversation.workspaceContext?.shareMode
+  if (!mode) return null
+  if (mode === 'org') return 'Organisation'
+  if (mode === 'shared') return 'Shared'
+  return 'Private'
+}
+
 export default function ConversationListItem({
   conversation: c,
   active,
@@ -114,6 +122,7 @@ export default function ConversationListItem({
   const leadAgent = primaryAgent(c)
   const leadAgentDot = leadAgent?.kind === 'agent' ? (AGENT_COLORS[leadAgent.agentId] ?? 'bg-white/40') : 'bg-white/30'
   const workspaceRuntime = runtimeBadge(c)
+  const workspaceVisibility = visibilityBadge(c)
 
   if (compact) {
     return (
@@ -140,6 +149,11 @@ export default function ConversationListItem({
           {workspaceRuntime && (
             <span className="shrink-0 rounded border border-primary/25 bg-primary/10 px-1 font-mono text-[8px] uppercase leading-3 text-primary" title={`Workspace runtime: ${workspaceRuntime}`}>
               {workspaceRuntime}
+            </span>
+          )}
+          {workspaceVisibility && (
+            <span className="shrink-0 font-mono text-[8px] uppercase leading-3 text-on-surface-variant" title={`Workspace visibility: ${workspaceVisibility}`}>
+              {workspaceVisibility}
             </span>
           )}
           {c.lastMessageAt && (
@@ -230,6 +244,14 @@ export default function ConversationListItem({
               title={`Workspace runtime: ${workspaceRuntime}`}
             >
               {workspaceRuntime}
+            </span>
+          )}
+          {workspaceVisibility && (
+            <span
+              className="inline-flex items-center rounded-full border border-[var(--color-card-border)] px-1.5 py-0.5 text-[10px] text-on-surface-variant"
+              title={`Workspace visibility: ${workspaceVisibility}`}
+            >
+              {workspaceVisibility}
             </span>
           )}
         </div>

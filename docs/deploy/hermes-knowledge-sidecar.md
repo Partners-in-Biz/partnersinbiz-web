@@ -45,6 +45,34 @@ scripts/deploy-hermes-admin-sidecar.sh
 
 The deploy script compiles locally, backs up the live file on the VPS, copies `infra/hermes/admin_sidecar.py`, compiles remotely, restarts `hermes-admin-sidecar.service`, and checks that the service is active. Override target values with `HERMES_SIDECAR_HOST`, `HERMES_SIDECAR_PATH`, or `HERMES_SIDECAR_SERVICE` if needed.
 
+## Local Workspace pull
+
+The VPS remains canonical. Preview a pull without changing local files:
+
+```bash
+npm run workspace:pull -- --workspace "Vikings Wrestling" --dry-run
+```
+
+Pull the Workspace and its Obsidian agent domain to this Mac:
+
+```bash
+npm run workspace:pull -- --workspace "Vikings Wrestling" --apply
+```
+
+The command validates folder/domain/host input, never uses `--delete`, never pushes local files to the VPS, excludes nested Git metadata and keeps replacement backups under `.pib-pull-backups/<timestamp>`. Use `--plan` to print the exact argument-safe rsync plan without connecting.
+
+## Workspace integrity and cleanup audit
+
+Run the read-only Firestore/local/VPS audit before moving or deleting any legacy directories:
+
+```bash
+npm run workspace:audit -- --check-vps
+```
+
+Reports are generated under `scripts/workspace-audit-reports/` and classify missing local pulls separately from canonical VPS failures. Directories containing `.git`, `AGENTS.md`, or `CLAUDE.md` are reported as recognised non-Workspace projects. Known shared agent domains are reserved. Any remaining unmapped entries are manual-review candidates only; the audit never deletes or moves them.
+
+Latest verified run (2026-07-10): 28 active Workspaces, 28 `ok`, 0 not pulled, 0 review required, 5 recognised project directories, 0 unmapped top-level directories, and 0 unmapped agent domains.
+
 ## Endpoint Contract
 
 List notes:

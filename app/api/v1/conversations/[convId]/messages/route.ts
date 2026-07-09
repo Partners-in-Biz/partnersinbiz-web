@@ -35,17 +35,13 @@ import { CEO_APPROVAL_CARD_RULE_LINES, buildCeoDataDecisionOperatingRuleLines } 
 import { validateMessageModelSelection } from '@/lib/messages/model-catalog'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import type { ApiUser } from '@/lib/api/types'
+import { canAccessConversation } from '@/lib/conversations/access'
 import type { AgentTeamDoc } from '@/lib/agents/types'
 import type { AgentId, Conversation, ConversationAttachment, ConversationMessage } from '@/lib/conversations/types'
 
 export const dynamic = 'force-dynamic'
 
 type Params = { params: Promise<{ convId: string }> }
-
-function canAccess(user: ApiUser, participantUids: string[]): boolean {
-  if (user.role === 'admin' || user.role === 'ai') return true
-  return participantUids.includes(user.uid)
-}
 
 function sanitizeAttachments(value: unknown): ConversationAttachment[] {
   if (!Array.isArray(value)) return []
@@ -294,7 +290,7 @@ export const POST = withAuth(
     const conversation = await getConversation(convId)
     if (!conversation) return apiError('Conversation not found', 404)
 
-    if (!canAccess(user, conversation.participantUids)) {
+    if (!canAccessConversation(user, conversation)) {
       return apiError('Forbidden', 403)
     }
     const replyAccess = await assertUserCanPerformOrganizationModuleAction(
@@ -563,7 +559,7 @@ export const GET = withAuth(
     const conversation = await getConversation(convId)
     if (!conversation) return apiError('Conversation not found', 404)
 
-    if (!canAccess(user, conversation.participantUids)) {
+    if (!canAccessConversation(user, conversation)) {
       return apiError('Forbidden', 403)
     }
 

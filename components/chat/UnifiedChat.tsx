@@ -123,6 +123,20 @@ interface OrgWorkspaceSummary {
   defaultRuntimeTarget: string
 }
 
+interface WorkspaceRuntimePresence {
+  id: string
+  label: string
+  hostId?: string
+  enabled: boolean
+  isLocal: boolean
+  isFresh: boolean
+  isHealthy: boolean
+  selectable: boolean
+  lastSeenAt: string | null
+  ageSeconds: number | null
+  lastHealthStatus: string | null
+}
+
 type ConversationScope = 'general' | 'project' | 'workspace' | 'task' | 'campaign' | 'company' | 'contact'
 
 function composerHistoryStorageKey(orgId: string, conversationId: string): string {
@@ -400,9 +414,11 @@ export default function UnifiedChat({
     scope ?? (projectId ? 'project' : 'general'),
   )
   const [workspaces, setWorkspaces] = useState<OrgWorkspaceSummary[]>([])
+  const [workspaceRuntimeTargets, setWorkspaceRuntimeTargets] = useState<WorkspaceRuntimePresence[]>([])
   const [workspacesLoading, setWorkspacesLoading] = useState(false)
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('')
   const [selectedWorkspaceRuntime, setSelectedWorkspaceRuntime] = useState<'vps' | 'local'>('vps')
+  const [selectedWorkspaceShareMode, setSelectedWorkspaceShareMode] = useState<'private' | 'shared' | 'org'>('private')
   const [creatingConv, setCreatingConv] = useState(false)
 
   // Attachment state
@@ -547,11 +563,23 @@ export default function UnifiedChat({
         const next = Array.isArray(body?.data?.workspaces)
           ? (body.data.workspaces as OrgWorkspaceSummary[])
           : []
+        const runtimes = Array.isArray(body?.data?.runtimeTargets)
+          ? (body.data.runtimeTargets as WorkspaceRuntimePresence[])
+          : []
         setWorkspaces(next)
+        setWorkspaceRuntimeTargets(runtimes)
         setSelectedWorkspaceId((current) => current || next[0]?.workspaceId || '')
+        setSelectedWorkspaceRuntime((current) => {
+          const currentTarget = runtimes.find((runtime) => runtime.id === current)
+          if (currentTarget?.selectable) return current
+          return runtimes.some((runtime) => runtime.id === 'vps' && runtime.selectable) ? 'vps' : current
+        })
       })
       .catch(() => {
-        if (!cancelled) setWorkspaces([])
+        if (!cancelled) {
+          setWorkspaces([])
+          setWorkspaceRuntimeTargets([])
+        }
       })
       .finally(() => {
         if (!cancelled) setWorkspacesLoading(false)
@@ -1586,7 +1614,7 @@ export default function UnifiedChat({
         if (!selectedWorkspaceId) throw new Error('Select a Workspace before starting a Workspace chat.')
         payload.workspaceId = selectedWorkspaceId
         payload.runtimeTarget = selectedWorkspaceRuntime
-        payload.shareMode = 'private'
+        payload.shareMode = selectedWorkspaceShareMode
       }
       if (newScope === scope && scopeRefId) payload.scopeRefId = scopeRefId
       if (newScope === 'project' && projectId) payload.scopeRefId = projectId
@@ -1615,7 +1643,7 @@ export default function UnifiedChat({
     } finally {
       setCreatingConv(false)
     }
-  }, [allowStartConversations, creatingConv, newParticipants, newTitle, newScope, orgId, projectId, scope, scopeRefId, contextRefs, selectedWorkspaceId, selectedWorkspaceRuntime])
+  }, [allowStartConversations, creatingConv, newParticipants, newTitle, newScope, orgId, projectId, scope, scopeRefId, contextRefs, selectedWorkspaceId, selectedWorkspaceRuntime, selectedWorkspaceShareMode])
 
   const send = useCallback(
     async (e: FormEvent) => {
@@ -2910,11 +2938,43 @@ export default function UnifiedChat({
                       onChange={(e) => setSelectedWorkspaceRuntime(e.target.value as 'vps' | 'local')}
                       className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface outline-none focus:border-primary/60"
                     >
-                      <option value="vps">VPS</option>
-                      <option value="local">Local</option>
+                      {(workspaceRuntimeTargets.length > 0
+                        ? workspaceRuntimeTargets
+                        : [{ id: 'vps', label: 'VPS', selectable: true, isLocal: false, isFresh: true, isHealthy: true, enabled: true, lastSeenAt: null, ageSeconds: null, lastHealthStatus: null }]
+                      ).map((runtime) => {
+                        const status = runtime.isLocal
+                          ? runtime.isFresh && runtime.isHealthy
+                            ? runtime.ageSeconds != null
+                              ? ` · online ${runtime.ageSeconds < 60 ? 'now' : `${Math.floor(runtime.ageSeconds / 60)}m ago`}`
+                              : ' · online'
+                            : ' · offline'
+                          : ''
+                        return (
+                          <option key={runtime.id} value={runtime.id} disabled={!runtime.selectable}>
+                            {runtime.label}{status}
+                          </option>
+                        )
+                      })}
                     </select>
                     <div className="mt-1 text-[11px] text-on-surface-variant">
-                      Chats stay private unless shared.
+                      Stale local runtimes are unavailable; VPS remains the canonical fallback.
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                      Visibility
+                    </label>
+                    <select
+                      value={selectedWorkspaceShareMode}
+                      onChange={(e) => setSelectedWorkspaceShareMode(e.target.value as 'private' | 'shared' | 'org')}
+                      className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface outline-none focus:border-primary/60"
+                    >
+                      <option value="private">Private · only me</option>
+                      <option value="shared">Shared · selected participants</option>
+                      <option value="org">Organisation · all Workspace members</option>
+                    </select>
+                    <div className="mt-1 text-[11px] text-on-surface-variant">
+                      Private is the default. Organisation conversations are visible to every member with Workspace access.
                     </div>
                   </div>
                 </div>

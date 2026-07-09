@@ -21,16 +21,12 @@ import {
 } from '@/lib/conversations/run-finalizer'
 import type { ChatEvent } from '@/lib/hermes/types'
 import type { ApiUser } from '@/lib/api/types'
+import { canAccessConversation } from '@/lib/conversations/access'
 import type { AgentId } from '@/lib/agents/types'
 
 export const dynamic = 'force-dynamic'
 
 type Ctx = { params: Promise<{ convId: string; msgId: string }> }
-
-function canAccess(user: ApiUser, participantUids: string[]): boolean {
-  if (user.role === 'admin' || user.role === 'ai') return true
-  return participantUids.includes(user.uid)
-}
 
 export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, ctx?: unknown) => {
   const { convId, msgId } = await (ctx as Ctx).params
@@ -38,7 +34,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   // Verify conversation exists and caller is a participant
   const conversation = await getConversation(convId)
   if (!conversation) return apiError('Conversation not found', 404)
-  if (!canAccess(user, conversation.participantUids)) return apiError('Forbidden', 403)
+  if (!canAccessConversation(user, conversation)) return apiError('Forbidden', 403)
 
   // Verify message exists
   const msgDoc = await messagesCollection(convId).doc(msgId).get()
