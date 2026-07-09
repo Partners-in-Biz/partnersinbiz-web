@@ -89,4 +89,33 @@ describe('RuntimeInspectorRail', () => {
     })
     expect(writeText).toHaveBeenCalledWith('run-copy-me')
   })
+
+  it('renders a compact collapsed inspector rail and expands on request', () => {
+    const onCollapsedChange = jest.fn()
+    render(
+      <RuntimeInspectorRail
+        activeMessage={{
+          id: 'msg-1',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: '',
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'streaming',
+          runId: 'run-1',
+        }}
+        events={[{ event: 'message.delta', preview: 'Thinking' }]}
+        selectedRuntime={null}
+        catalog={null}
+        collapsed
+        onCollapsedChange={onCollapsedChange}
+        variant="hermes"
+      />,
+    )
+
+    expect(screen.getByTestId('runtime-inspector-rail')).toHaveAttribute('data-collapsed', 'true')
+    fireEvent.click(screen.getByRole('button', { name: /Expand runtime inspector/i }))
+    expect(onCollapsedChange).toHaveBeenCalledWith(false)
+  })
 })

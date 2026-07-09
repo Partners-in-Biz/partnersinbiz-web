@@ -70,4 +70,47 @@ describe('NotificationBell', () => {
     const item = await screen.findByRole('link', { name: /new task comment/i })
     expect(item).toHaveAttribute('href', '/admin/org/partners-in-biz/projects/project-1?taskId=task-1')
   })
+
+  it('clears visible notifications after marking them read', async () => {
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: {
+            notifications: [
+              {
+                id: 'notification-1',
+                orgId: 'pib-platform-owner',
+                userId: 'user-1',
+                agentId: null,
+                type: 'task.assigned',
+                title: 'Task assigned to you',
+                body: 'Follow up with a client',
+                link: null,
+                data: null,
+                priority: 'normal',
+                status: 'unread',
+                snoozedUntil: null,
+                readAt: null,
+                createdAt: '2026-07-09T08:00:00.000Z',
+              },
+            ],
+            unreadCount: 1,
+          },
+        }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true }) }) as jest.Mock
+
+    render(<NotificationBell />)
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/notifications?limit=20'))
+    fireEvent.click(screen.getByRole('button', { name: 'Open notifications' }))
+    expect(await screen.findByText('Task assigned to you')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /clear/i }))
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/crm/notifications/mark-read', { method: 'POST' }))
+    expect(screen.queryByText('Task assigned to you')).not.toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'No CRM alerts need action' })).toBeInTheDocument()
+  })
 })

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import UnifiedChat, {
   formatConversationAttachmentUploadError,
   shouldStopFinalizePollingForStatus,
@@ -200,6 +200,194 @@ describe('UnifiedChat message scrolling', () => {
     await waitFor(() => expect(window.requestAnimationFrame).toHaveBeenCalled())
     expect(log.scrollTop).toBe(1200)
   })
+
+  it('keeps the classic layout by default and exposes the Hermes dense layout variant when requested', async () => {
+    const { unmount } = render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+      />,
+    )
+
+    await screen.findByText('Latest message')
+    expect(screen.getByTestId('unified-chat-root')).toHaveAttribute('data-layout-variant', 'classic')
+    expect(screen.getByText('Conversations')).toBeInTheDocument()
+    unmount()
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        layoutVariant="hermes"
+      />,
+    )
+
+    await screen.findByText('Latest message')
+    expect(screen.getByTestId('unified-chat-root')).toHaveAttribute('data-layout-variant', 'hermes')
+    expect(screen.getByText('Sessions')).toBeInTheDocument()
+  })
+
+  it('groups Hermes sessions into pinned, projects, agents, and recent without changing the classic rail', async () => {
+    window.localStorage.setItem('pib.messages.pinnedConversations.v1:org-1', JSON.stringify(['conv-pinned']))
+    const conversations = [
+      {
+        ...baseConversation,
+        id: 'conv-pinned',
+        title: 'Pinned launch',
+        lastMessagePreview: 'Keep this handy',
+        lastMessageAt: { seconds: 10 },
+        messageCount: 3,
+      },
+      {
+        ...baseConversation,
+        id: 'conv-project',
+        title: 'Website project',
+        scope: 'project',
+        contextRefs: [projectRef],
+        lastMessagePreview: 'Project thread',
+        lastMessageAt: { seconds: 9 },
+      },
+      {
+        ...baseConversation,
+        id: 'conv-agent',
+        title: 'Pip agent run',
+        orchestration: {
+          mode: 'pip-orchestrator' as const,
+          dispatcherAgentId: 'pip',
+          requestedAgentIds: ['pip'],
+        },
+        lastMessagePreview: 'Agent workstream',
+        lastMessageAt: { seconds: 8 },
+      },
+      {
+        ...baseConversation,
+        id: 'conv-recent',
+        title: 'General inbox',
+        participants: [{ kind: 'user' as const, uid: 'client-1', role: 'client' as const, displayName: 'Client One' }],
+        participantAgentIds: [],
+        lastMessagePreview: 'Recent thread',
+        lastMessageAt: { seconds: 7 },
+      },
+    ]
+
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations } })
+      if (url.includes('/messages')) return jsonResponse({ data: { messages: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    const { unmount } = render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        layoutVariant="hermes"
+      />,
+    )
+
+    expect(await screen.findByTestId('hermes-session-section-pinned')).toBeInTheDocument()
+    expect(within(screen.getByTestId('hermes-session-section-pinned')).getByText('Pinned launch')).toBeInTheDocument()
+    expect(within(screen.getByTestId('hermes-session-section-projects')).getByText('Website project')).toBeInTheDocument()
+    expect(within(screen.getByTestId('hermes-session-section-agents')).getByText('Pip agent run')).toBeInTheDocument()
+    expect(within(screen.getByTestId('hermes-session-section-recent')).getByText('General inbox')).toBeInTheDocument()
+    unmount()
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+      />,
+    )
+
+    await screen.findByText('Conversations')
+    expect(screen.queryByTestId('hermes-session-section-pinned')).not.toBeInTheDocument()
+    expect(screen.getByTestId('conversation-row-conv-pinned')).toBeInTheDocument()
+  })
+
+  it('pins and unpins Hermes sessions from the conversation menu as a local preference', async () => {
+    window.localStorage.removeItem('pib.messages.pinnedConversations.v1:org-1')
+    const conversations = [
+      {
+        ...baseConversation,
+        id: 'conv-project',
+        title: 'Website project',
+        scope: 'project',
+        contextRefs: [projectRef],
+        lastMessagePreview: 'Project thread',
+        lastMessageAt: { seconds: 9 },
+      },
+      {
+        ...baseConversation,
+        id: 'conv-recent',
+        title: 'General inbox',
+        participants: [{ kind: 'user' as const, uid: 'client-1', role: 'client' as const, displayName: 'Client One' }],
+        participantAgentIds: [],
+        lastMessagePreview: 'Recent thread',
+        lastMessageAt: { seconds: 7 },
+      },
+    ]
+
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations } })
+      if (url.includes('/messages')) return jsonResponse({ data: { messages: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        layoutVariant="hermes"
+      />,
+    )
+
+    await screen.findByTestId('hermes-session-section-recent')
+    fireEvent.click(screen.getByLabelText('Conversation options for General inbox'))
+    fireEvent.click(screen.getByText('Pin session'))
+
+    expect(await screen.findByTestId('hermes-session-section-pinned')).toHaveTextContent('General inbox')
+    expect(window.localStorage.getItem('pib.messages.pinnedConversations.v1:org-1')).toContain('conv-recent')
+
+    fireEvent.click(screen.getByLabelText('Conversation options for General inbox'))
+    fireEvent.click(screen.getByText('Unpin session'))
+
+    await waitFor(() => expect(screen.queryByTestId('hermes-session-section-pinned')).not.toBeInTheDocument())
+    expect(screen.getByTestId('hermes-session-section-recent')).toHaveTextContent('General inbox')
+    expect(window.localStorage.getItem('pib.messages.pinnedConversations.v1:org-1')).toBeNull()
+  })
+
+  it('shows the Hermes bottom runtime bar and collapsed inspector in the dense layout', async () => {
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        layoutVariant="hermes"
+      />,
+    )
+
+    await screen.findByText('Latest message')
+
+    expect(screen.getByTestId('hermes-runtime-control-bar')).toHaveTextContent('0 queued')
+    expect(screen.getByLabelText('Runtime thinking effort')).toBeInTheDocument()
+    expect(screen.getByTestId('runtime-inspector-rail')).toHaveAttribute('data-collapsed', 'true')
+
+    const toggle = screen.getByTestId('hermes-runtime-inspector-toggle')
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByTestId('runtime-inspector-rail')).toHaveAttribute('data-collapsed', 'false')
+  })
 })
 
 describe('UnifiedChat context references', () => {
@@ -369,7 +557,12 @@ describe('UnifiedChat context references', () => {
     )
 
     const input = await screen.findByPlaceholderText('Send a message')
-    fireEvent.change(input, { target: { value: 'Compare @projects:launch' } })
+    await act(async () => {
+      fireEvent.change(input, { target: { value: 'Compare @projects:launch' } })
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
 
     fireEvent.click(await screen.findByText('Launch Project'))
 
@@ -403,7 +596,12 @@ describe('UnifiedChat context references', () => {
     expect(screen.getByRole('button', { name: 'Use @businesses:' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Use @products:' })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Use @products:' }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Use @products:' }))
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
 
     expect(input).toHaveValue('@products:')
   })
@@ -539,6 +737,89 @@ describe('UnifiedChat context references', () => {
       String(url) === '/api/v1/conversations/conv-1/messages' && init?.method === 'POST',
     )
     expect(messagePosts).toHaveLength(0)
+  })
+
+  it('queues follow-up prompts instead of dispatching while an agent run is active', async () => {
+    mockFetch.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [conversation] } })
+      if (url === '/api/v1/conversations/conv-1/messages') {
+        if (init?.method === 'POST') {
+          throw new Error('Queued prompts must not dispatch while a run is active')
+        }
+        return jsonResponse({
+          data: {
+            messages: [{
+              id: 'msg-waiting',
+              conversationId: 'conv-1',
+              role: 'assistant',
+              content: 'Waiting for approval',
+              authorKind: 'agent',
+              authorId: 'pip',
+              authorDisplayName: 'Pip',
+              status: 'waiting_approval',
+              createdAt: { seconds: 2 },
+            }],
+          },
+        })
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        initialConvId="conv-1"
+      />,
+    )
+
+    const input = await screen.findByPlaceholderText('Queue a follow-up while Pip is running')
+    fireEvent.change(input, { target: { value: 'Please continue after approval' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }))
+
+    expect(await screen.findByTestId('queued-composer-drafts')).toHaveTextContent('1 queued follow-up')
+    expect(screen.getByText('Please continue after approval')).toBeInTheDocument()
+    expect(input).toHaveValue('')
+    expect(mockFetch.mock.calls.some(([url, init]) =>
+      String(url) === '/api/v1/conversations/conv-1/messages' && init?.method === 'POST',
+    )).toBe(false)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Load' }))
+    expect(input).toHaveValue('Please continue after approval')
+    expect(screen.queryByTestId('queued-composer-drafts')).not.toBeInTheDocument()
+  })
+
+  it('recalls local composer history with ArrowUp and ArrowDown', async () => {
+    window.localStorage.setItem(
+      'pib.messages.composerHistory.v1:org-1:conv-1',
+      JSON.stringify(['First saved prompt', 'Second saved prompt']),
+    )
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        initialConvId="conv-1"
+      />,
+    )
+
+    const input = await screen.findByPlaceholderText('Send a message')
+    fireEvent.keyDown(input, { key: 'ArrowUp' })
+    expect(input).toHaveValue('Second saved prompt')
+
+    fireEvent.keyDown(input, { key: 'ArrowUp' })
+    expect(input).toHaveValue('First saved prompt')
+
+    fireEvent.keyDown(input, { key: 'ArrowDown' })
+    expect(input).toHaveValue('Second saved prompt')
+
+    fireEvent.keyDown(input, { key: 'ArrowDown' })
+    expect(input).toHaveValue('')
   })
 
   it('allows attaching a file before an auto-created agent conversation exists', async () => {

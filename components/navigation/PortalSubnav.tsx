@@ -79,7 +79,7 @@ function DropdownItem({ item, pathname }: { item: PortalSubnavItem; pathname: st
       {open ? (
         <div
           role="menu"
-          className="absolute left-0 top-full z-50 mt-1 min-w-[220px] overflow-hidden rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] py-1 shadow-2xl"
+          className="fixed left-3 right-3 top-[6.25rem] z-50 mt-0 max-h-[min(60vh,24rem)] overflow-y-auto rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] py-1 shadow-2xl sm:absolute sm:left-0 sm:right-auto sm:top-full sm:mt-1 sm:min-w-[220px]"
         >
           {item.children?.map((child) => {
             const childActive = linkIsActive(child, pathname)
@@ -131,7 +131,7 @@ export function PortalSubnav({ ariaLabel, items, pathname, className }: PortalSu
 
   return (
     <div className={cn('sticky top-14 z-40 shrink-0 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/95 backdrop-blur-md', className)}>
-      <nav aria-label={ariaLabel} className="mx-auto flex min-h-12 w-full max-w-[1400px] flex-wrap items-center gap-1 px-4 py-1.5 md:px-8">
+      <nav aria-label={ariaLabel} className="mx-auto flex min-h-11 w-full max-w-[1400px] flex-nowrap items-center gap-1 overflow-x-auto overscroll-x-contain px-2 py-1 scrollbar-none sm:px-4 md:px-8">
         {items.map((item) => (
           item.children?.length
             ? <DropdownItem key={item.href} item={item} pathname={pathname} />
