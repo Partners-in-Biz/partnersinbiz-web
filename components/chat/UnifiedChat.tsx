@@ -83,6 +83,9 @@ const MAX_RUN_POLL_ATTEMPTS = Math.ceil((90 * 60 * 1000) / POLL_INTERVAL)
 const HUMAN_CHAT_REFRESH_INTERVAL = 3000
 const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
 const MAX_PENDING_ATTACHMENTS = 5
+const MAX_COMPOSER_HISTORY_ENTRIES = 30
+const MAX_QUEUED_COMPOSER_DRAFTS = 8
+const COMPOSER_HISTORY_STORAGE_PREFIX = 'pib.messages.composerHistory.v1'
 const ALLOWED_ATTACHMENT_MIME = new Set([
   'image/jpeg',
   'image/png',
@@ -96,6 +99,43 @@ const ALLOWED_ATTACHMENT_MIME = new Set([
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 ])
+
+interface QueuedComposerDraft {
+  id: string
+  conversationId: string
+  text: string
+  attachments: File[]
+  queuedAt: number
+}
+
+function composerHistoryStorageKey(orgId: string, conversationId: string): string {
+  return `${COMPOSER_HISTORY_STORAGE_PREFIX}:${orgId}:${conversationId}`
+}
+
+function readComposerHistory(orgId: string, conversationId: string): string[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.localStorage.getItem(composerHistoryStorageKey(orgId, conversationId))
+    const parsed = raw ? JSON.parse(raw) : null
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+      .slice(-MAX_COMPOSER_HISTORY_ENTRIES)
+  } catch {
+    return []
+  }
+}
+
+function writeComposerHistory(orgId: string, conversationId: string, entries: string[]): void {
+  if (typeof window === 'undefined') return
+  try {
+    const key = composerHistoryStorageKey(orgId, conversationId)
+    if (entries.length === 0) window.localStorage.removeItem(key)
+    else window.localStorage.setItem(key, JSON.stringify(entries.slice(-MAX_COMPOSER_HISTORY_ENTRIES)))
+  } catch {
+    // Best effort only: private browsing/storage failures should not break chat.
+  }
+}
 
 function validateConversationAttachment(file: File): string | null {
   const type = (file.type || 'application/octet-stream').toLowerCase()
@@ -249,6 +289,9 @@ export default function UnifiedChat({
   const [modelCatalog, setModelCatalog] = useState<MessageModelCatalog | null>(null)
   const [modelCatalogLoading, setModelCatalogLoading] = useState(false)
   const [selectedRuntime, setSelectedRuntime] = useState<ModelRuntimeSelection | null>(null)
+  const [composerHistory, setComposerHistory] = useState<string[]>([])
+  const [historyCursor, setHistoryCursor] = useState<number | null>(null)
+  const [queuedDraftsByConversation, setQueuedDraftsByConversation] = useState<Record<string, QueuedComposerDraft[]>>({})
 
   // Agent map for looking up colorKey / iconKey for bubbles
   const [agentMap, setAgentMap] = useState<Record<AgentId, AgentTeamDoc>>({} as Record<AgentId, AgentTeamDoc>)
@@ -306,6 +349,7 @@ export default function UnifiedChat({
   const eventSourcesRef = useRef<Record<string, EventSource>>({})
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
   const composerRef = useRef<HTMLTextAreaElement | null>(null)
+  const historyDraftRef = useRef('')
   // Tracks which assistant message IDs we've already started polling for (prevents duplicates)
   const resumedRunsRef = useRef<Set<string>>(new Set())
   const autoCreateRef = useRef(false)
@@ -332,7 +376,18 @@ export default function UnifiedChat({
     ) ?? null
   }, [messages])
   const activeRuntimeEvents = activeRuntimeMessage ? (liveEvents[activeRuntimeMessage.id] ?? []) : []
+  const hasInFlightAgentRun = useMemo(
+    () => messages.some((message) =>
+      message.role === 'assistant' && (
+        message.status === 'pending' ||
+        message.status === 'streaming' ||
+        message.status === 'waiting_approval'
+      ),
+    ),
+    [messages],
+  )
   const canUseComposer = allowSendMessages && (Boolean(activeConversation) || allowStartConversations)
+  const activeQueuedDrafts = activeId ? (queuedDraftsByConversation[activeId] ?? []) : []
   const contextTypeOptions = useMemo(
     () => (contextTypePrompt ? filterContextReferenceMentionOptions(contextTypePrompt.query) : []),
     [contextTypePrompt],
@@ -530,6 +585,16 @@ export default function UnifiedChat({
   useEffect(() => {
     setContextRefs((activeConversation?.contextRefs ?? []).map(coerceContextRef))
   }, [activeConversation?.id, activeConversation?.contextRefs, coerceContextRef])
+
+  useEffect(() => {
+    setHistoryCursor(null)
+    historyDraftRef.current = ''
+    if (!activeId) {
+      setComposerHistory([])
+      return
+    }
+    setComposerHistory(readComposerHistory(orgId, activeId))
+  }, [activeId, orgId])
 
   useEffect(() => {
     if (!contextMention) {
@@ -978,6 +1043,137 @@ export default function UnifiedChat({
     }
   }, [selectedSlashCommand])
 
+  const focusComposerToEnd = useCallback((value: string) => {
+    requestAnimationFrame(() => {
+      composerRef.current?.focus()
+      composerRef.current?.setSelectionRange(value.length, value.length)
+    })
+  }, [])
+
+  const rememberComposerPrompt = useCallback((conversationId: string, rawPrompt: string) => {
+    const trimmed = rawPrompt.trim()
+    if (!trimmed) return
+
+    setHistoryCursor(null)
+    historyDraftRef.current = ''
+    setComposerHistory((previous) => {
+      const next = [...previous.filter((entry) => entry !== trimmed), trimmed]
+        .slice(-MAX_COMPOSER_HISTORY_ENTRIES)
+      writeComposerHistory(orgId, conversationId, next)
+      return conversationId === activeId ? next : previous
+    })
+  }, [activeId, orgId])
+
+  const queueCurrentComposerDraft = useCallback(() => {
+    if (!activeId) {
+      setError('Select or start a conversation before queuing a follow-up.')
+      return false
+    }
+    if (!allowSendMessages) {
+      setError('Replies are disabled for your organisation role.')
+      return false
+    }
+    if (!input.trim() && attachments.length === 0) return false
+    if (activeQueuedDrafts.length >= MAX_QUEUED_COMPOSER_DRAFTS) {
+      setError(`You can queue up to ${MAX_QUEUED_COMPOSER_DRAFTS} follow-ups for this conversation.`)
+      return false
+    }
+
+    const nextDraft: QueuedComposerDraft = {
+      id: `queued-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      conversationId: activeId,
+      text: input,
+      attachments: [...attachments],
+      queuedAt: Date.now(),
+    }
+
+    setQueuedDraftsByConversation((previous) => {
+      const current = previous[activeId] ?? []
+      return { ...previous, [activeId]: [...current, nextDraft] }
+    })
+
+    rememberComposerPrompt(activeId, input)
+    setInput('')
+    setAttachments([])
+    setContextMention(null)
+    setContextTypePrompt(null)
+    setSlashPrompt(null)
+    setSelectedSlashCommand(null)
+    setContextSearchResults([])
+    setError(null)
+    focusComposerToEnd('')
+    return true
+  }, [activeId, activeQueuedDrafts.length, allowSendMessages, attachments, focusComposerToEnd, input, rememberComposerPrompt])
+
+  const removeQueuedDraft = useCallback((draftId: string) => {
+    if (!activeId) return
+    setQueuedDraftsByConversation((previous) => {
+      const current = previous[activeId] ?? []
+      const next = current.filter((draft) => draft.id !== draftId)
+      if (next.length === current.length) return previous
+      if (next.length === 0) {
+        const { [activeId]: _removed, ...rest } = previous
+        void _removed
+        return rest
+      }
+      return { ...previous, [activeId]: next }
+    })
+  }, [activeId])
+
+  const loadQueuedDraftIntoComposer = useCallback((draft: QueuedComposerDraft) => {
+    if (!activeId || draft.conversationId !== activeId) return
+    setInput(draft.text)
+    setAttachments(draft.attachments)
+    setHistoryCursor(null)
+    historyDraftRef.current = ''
+    updateMentionFromComposer(draft.text, draft.text.length)
+    removeQueuedDraft(draft.id)
+    focusComposerToEnd(draft.text)
+  }, [activeId, focusComposerToEnd, removeQueuedDraft, updateMentionFromComposer])
+
+  const navigateComposerHistory = useCallback((event: KeyboardEvent<HTMLTextAreaElement>, direction: -1 | 1) => {
+    if (contextMention || contextTypePrompt || slashPrompt || composerHistory.length === 0) return false
+
+    const target = event.currentTarget
+    const selectionStart = target.selectionStart ?? target.value.length
+    const selectionEnd = target.selectionEnd ?? target.value.length
+    const hasSelection = selectionStart !== selectionEnd
+    const atStart = selectionStart === 0 && selectionEnd === 0
+    const atEnd = selectionStart === target.value.length && selectionEnd === target.value.length
+    if (hasSelection) return false
+    if (direction < 0 && target.value.includes('\n') && !atStart) return false
+    if (direction > 0 && historyCursor === null) return false
+    if (direction > 0 && target.value.includes('\n') && !atEnd) return false
+
+    event.preventDefault()
+
+    let nextCursor: number | null
+    let nextInput: string
+    if (direction < 0) {
+      if (historyCursor === null) {
+        historyDraftRef.current = input
+        nextCursor = composerHistory.length - 1
+      } else {
+        nextCursor = Math.max(0, historyCursor - 1)
+      }
+      nextInput = composerHistory[nextCursor] ?? ''
+    } else if (historyCursor === null) {
+      return true
+    } else if (historyCursor >= composerHistory.length - 1) {
+      nextCursor = null
+      nextInput = historyDraftRef.current
+    } else {
+      nextCursor = historyCursor + 1
+      nextInput = composerHistory[nextCursor] ?? ''
+    }
+
+    setHistoryCursor(nextCursor)
+    setInput(nextInput)
+    updateMentionFromComposer(nextInput, nextInput.length)
+    focusComposerToEnd(nextInput)
+    return true
+  }, [composerHistory, contextMention, contextTypePrompt, focusComposerToEnd, historyCursor, input, slashPrompt, updateMentionFromComposer])
+
   const patchContextRefs = useCallback(async (
     action: 'add' | 'remove' | 'clear',
     refs: Array<ContextReference | ContextReferenceSeed> = [],
@@ -1272,13 +1468,18 @@ export default function UnifiedChat({
     }
   }, [allowStartConversations, creatingConv, newParticipants, newTitle, newScope, orgId, projectId, scope, scopeRefId, contextRefs])
 
-  // ── Send message ──────────────────────────────────────────────────────────
   const send = useCallback(
     async (e: FormEvent) => {
+
 	      e.preventDefault()
-	      if ((!input.trim() && attachments.length === 0) || sending) return
+	      if (!input.trim() && attachments.length === 0) return
+	      if (sending) return
 	      if (!allowSendMessages) {
 	        setError('Replies are disabled for your organisation role.')
+	        return
+	      }
+	      if (hasInFlightAgentRun) {
+	        queueCurrentComposerDraft()
 	        return
 	      }
 	      setError(null)
@@ -1358,6 +1559,7 @@ export default function UnifiedChat({
             .join('\n')
           content = content.trim() ? `${content}\n\n${attNote}` : attNote
         }
+        rememberComposerPrompt(convId!, input)
         setInput('')
         setContextMention(null)
         setContextTypePrompt(null)
@@ -1455,6 +1657,9 @@ export default function UnifiedChat({
       selectedRuntime,
       modelCatalog?.canSelect,
       sending,
+      hasInFlightAgentRun,
+      queueCurrentComposerDraft,
+      rememberComposerPrompt,
       contextRefs,
       pinCurrentPageContext,
 	      allowAgentParticipants,
@@ -2044,6 +2249,53 @@ export default function UnifiedChat({
             </div>
           )}
 
+          {activeQueuedDrafts.length > 0 && (
+            <div
+              data-testid="queued-composer-drafts"
+              className="rounded-lg border border-primary/20 bg-primary/10 p-2 text-xs text-on-surface"
+            >
+              <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px] font-medium uppercase tracking-wide text-on-surface-variant">
+                <span>{activeQueuedDrafts.length} queued follow-up{activeQueuedDrafts.length === 1 ? '' : 's'}</span>
+                {hasInFlightAgentRun && <span>Will wait for this run</span>}
+              </div>
+              <div className="space-y-1">
+                {activeQueuedDrafts.map((draft) => (
+                  <div
+                    key={draft.id}
+                    className="flex min-w-0 items-center gap-2 rounded-md border border-white/10 bg-black/10 px-2 py-1.5"
+                  >
+                    <span className="material-symbols-outlined text-[15px] text-on-surface-variant">playlist_add</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[12px]">
+                        {draft.text.trim() || `${draft.attachments.length} attachment${draft.attachments.length === 1 ? '' : 's'}`}
+                      </div>
+                      {draft.attachments.length > 0 && (
+                        <div className="truncate text-[10px] text-on-surface-variant">
+                          {draft.attachments.map((file) => file.name).join(', ')}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => loadQueuedDraftIntoComposer(draft)}
+                      className="rounded-full px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/10"
+                    >
+                      Load
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeQueuedDraft(draft.id)}
+                      aria-label="Remove queued follow-up"
+                      className="grid h-6 w-6 place-items-center rounded-full text-on-surface-variant hover:bg-white/[0.08] hover:text-on-surface"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">close</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Attachment chips */}
           {attachments.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
@@ -2122,6 +2374,8 @@ export default function UnifiedChat({
               value={input}
               onChange={(e) => {
                 setInput(e.target.value)
+                setHistoryCursor(null)
+                historyDraftRef.current = ''
                 updateMentionFromComposer(e.target.value, e.target.selectionStart ?? e.target.value.length)
               }}
               onClick={(e) => updateMentionFromComposer(input, e.currentTarget.selectionStart ?? input.length)}
