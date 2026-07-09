@@ -100,6 +100,7 @@ export function HermesMessagesShell({
           allowStartConversations={capabilities.allowStartConversations}
           allowSendMessages={capabilities.allowSendMessages}
           allowArchiveConversations={capabilities.allowArchiveConversations}
+          layoutVariant="hermes"
         />
       </section>
     </div>

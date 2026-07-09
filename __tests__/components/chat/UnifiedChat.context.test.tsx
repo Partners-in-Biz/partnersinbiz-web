@@ -200,6 +200,34 @@ describe('UnifiedChat message scrolling', () => {
     await waitFor(() => expect(window.requestAnimationFrame).toHaveBeenCalled())
     expect(log.scrollTop).toBe(1200)
   })
+
+  it('keeps the classic layout by default and exposes the Hermes dense layout variant when requested', async () => {
+    const { unmount } = render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+      />,
+    )
+
+    await screen.findByText('Latest message')
+    expect(screen.getByTestId('unified-chat-root')).toHaveAttribute('data-layout-variant', 'classic')
+    expect(screen.getByText('Conversations')).toBeInTheDocument()
+    unmount()
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        layoutVariant="hermes"
+      />,
+    )
+
+    await screen.findByText('Latest message')
+    expect(screen.getByTestId('unified-chat-root')).toHaveAttribute('data-layout-variant', 'hermes')
+    expect(screen.getByText('Sessions')).toBeInTheDocument()
+  })
 })
 
 describe('UnifiedChat context references', () => {

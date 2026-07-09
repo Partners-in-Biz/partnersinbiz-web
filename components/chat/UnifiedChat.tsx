@@ -76,6 +76,7 @@ export interface UnifiedChatProps {
   allowArchiveConversations?: boolean
   currentPageContext?: ContextReferenceSeed | null
   compact?: boolean
+  layoutVariant?: 'classic' | 'hermes'
 }
 
 const POLL_INTERVAL = 1500
@@ -270,6 +271,7 @@ export default function UnifiedChat({
   allowArchiveConversations = true,
   currentPageContext,
   compact = false,
+  layoutVariant = 'classic',
 }: UnifiedChatProps) {
   // ── State ─────────────────────────────────────────────────────────────────
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -1697,19 +1699,26 @@ export default function UnifiedChat({
       : []),
   ]
   const showListOnMobile = mobilePane === 'list'
+  const hermesLayout = layoutVariant === 'hermes' && !compact
 
   return (
     <div
+      data-testid="unified-chat-root"
+      data-layout-variant={layoutVariant}
       className={
         compact
           ? 'flex h-full min-h-0 min-w-0 flex-1 overflow-hidden'
-          : 'flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-4 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_280px]'
+          : hermesLayout
+            ? 'flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-2 lg:grid-cols-[236px_minmax(0,1fr)] xl:grid-cols-[236px_minmax(0,1fr)_260px]'
+            : 'flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-4 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_280px]'
       }
     >
       {/* ── Left: conversation list ─────────────────────────────────────── */}
       <aside
         className={[
-          'pib-card min-h-0 min-w-0 flex-col gap-2 overflow-hidden flex-1 p-3',
+          hermesLayout
+            ? 'min-h-0 min-w-0 flex-col gap-2 overflow-hidden flex-1 rounded-xl border border-[var(--color-card-border)] bg-black/[0.08] p-2'
+            : 'pib-card min-h-0 min-w-0 flex-col gap-2 overflow-hidden flex-1 p-3',
           compact ? '!rounded-none !border-0 !bg-transparent' : 'lg:flex max-lg:!rounded-none max-lg:!border-0 max-lg:!bg-transparent',
           showListOnMobile ? 'flex' : 'hidden',
         ].join(' ')}
@@ -1724,13 +1733,17 @@ export default function UnifiedChat({
             setShowNewModal(true)
           }}
           disabled={!allowStartConversations}
-          className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-on-primary hover:opacity-90 flex items-center justify-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-45"
+          className={hermesLayout
+            ? 'flex h-8 items-center justify-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-white/[0.05] px-2 text-xs font-medium text-on-surface hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-45'
+            : 'rounded-lg bg-primary px-3 py-2 text-sm font-medium text-on-primary hover:opacity-90 flex items-center justify-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-45'}
         >
-          <span className="material-symbols-outlined text-[16px]">add</span>
+          <span className={`material-symbols-outlined ${hermesLayout ? 'text-[14px]' : 'text-[16px]'}`}>add</span>
           New conversation
         </button>
 
-        <div className="text-xs text-on-surface-variant mt-2 px-1">Conversations</div>
+        <div className={hermesLayout ? 'mt-1.5 px-1 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant' : 'text-xs text-on-surface-variant mt-2 px-1'}>
+          {hermesLayout ? 'Sessions' : 'Conversations'}
+        </div>
 
         <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
           {conversations.length === 0 && (
@@ -1769,6 +1782,7 @@ export default function UnifiedChat({
                     setMobilePane('conversation')
                   }}
                   currentUserUid={currentUserUid}
+                  density={hermesLayout ? 'compact' : 'comfortable'}
                 />
               )}
 

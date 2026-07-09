@@ -8,6 +8,7 @@ const mockUnifiedChat = jest.fn((props: Record<string, unknown>) => (
     data-org-id={String(props.orgId)}
     data-allow-agent-participants={String(props.allowAgentParticipants)}
     data-allow-delete={String(props.allowDeleteConversations)}
+    data-layout-variant={String(props.layoutVariant)}
   />
 ))
 
@@ -55,6 +56,7 @@ describe('HermesMessagesShell', () => {
     expect(screen.getByTestId('hermes-messages-shell-topbar')).toHaveTextContent('Agents enabled')
     expect(screen.getByTestId('hermes-messages-shell-topbar')).toHaveTextContent('Safe /v1 runs')
     expect(screen.getByTestId('mock-unified-chat')).toHaveAttribute('data-org-id', 'org-1')
+    expect(screen.getByTestId('mock-unified-chat')).toHaveAttribute('data-layout-variant', 'hermes')
     expect(mockUnifiedChat).toHaveBeenCalledWith(expect.objectContaining({
       orgId: 'org-1',
       orgName: 'Peet Co',
@@ -66,6 +68,7 @@ describe('HermesMessagesShell', () => {
       allowStartConversations: true,
       allowSendMessages: true,
       allowArchiveConversations: false,
+      layoutVariant: 'hermes',
     }))
   })
 

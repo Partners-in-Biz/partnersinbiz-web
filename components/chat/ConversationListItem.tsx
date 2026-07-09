@@ -36,6 +36,7 @@ interface ConversationListItemProps {
   active: boolean
   onClick: () => void
   currentUserUid: string
+  density?: 'comfortable' | 'compact'
 }
 
 const AGENT_COLORS: Record<string, string> = {
@@ -82,7 +83,9 @@ export default function ConversationListItem({
   conversation: c,
   active,
   onClick,
+  density = 'comfortable',
 }: ConversationListItemProps) {
+  const compact = density === 'compact'
   const preview = c.lastMessagePreview
     ? c.lastMessagePreview.slice(0, 60) + (c.lastMessagePreview.length > 60 ? '…' : '')
     : null
@@ -91,7 +94,7 @@ export default function ConversationListItem({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full text-left rounded-lg px-3 py-2.5 transition-colors group ${
+      className={`w-full text-left transition-colors group ${compact ? 'rounded-md px-2 py-1.5' : 'rounded-lg px-3 py-2.5'} ${
         active
           ? 'bg-[var(--color-card-active,rgba(255,255,255,0.08))] text-on-surface'
           : 'text-on-surface-variant hover:bg-[var(--color-card-hover,rgba(255,255,255,0.04))]'
@@ -99,17 +102,17 @@ export default function ConversationListItem({
     >
       {/* Participant chips */}
       {c.participants.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-1.5">
+        <div className={compact ? 'mb-1 flex min-w-0 items-center gap-1 overflow-hidden' : 'flex flex-wrap gap-1 mb-1.5'}>
           {c.participants.slice(0, 4).map((p) => {
             if (p.kind === 'agent') {
               const dotColor = AGENT_COLORS[p.agentId] ?? 'bg-white/40'
               return (
                 <span
                   key={`agent-${p.agentId}`}
-                  className="inline-flex items-center gap-1 text-[10px]"
+                  className="inline-flex min-w-0 items-center gap-1 text-[10px]"
                 >
                   <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotColor}`} />
-                  <span className="text-on-surface-variant font-medium">{p.name}</span>
+                  <span className="truncate text-on-surface-variant font-medium">{p.name}</span>
                 </span>
               )
             }
@@ -117,12 +120,12 @@ export default function ConversationListItem({
             return (
               <span
                 key={`user-${p.uid}`}
-                className="inline-flex items-center gap-1 text-[10px] text-on-surface-variant"
+                className="inline-flex min-w-0 items-center gap-1 text-[10px] text-on-surface-variant"
               >
-                <span className="w-5 h-5 rounded-full bg-white/10 text-[9px] font-bold flex items-center justify-center">
+                <span className={`${compact ? 'h-4 w-4 text-[8px]' : 'w-5 h-5 text-[9px]'} rounded-full bg-white/10 font-bold flex items-center justify-center shrink-0`}>
                   {initials(name)}
                 </span>
-                <span>{name}</span>
+                <span className="truncate">{name}</span>
               </span>
             )
           })}
@@ -142,14 +145,14 @@ export default function ConversationListItem({
       )}
 
       {/* Title */}
-      <div className="line-clamp-1 text-sm font-medium text-on-surface">
+      <div className={`line-clamp-1 font-medium text-on-surface ${compact ? 'text-[13px]' : 'text-sm'}`}>
         {c.title || 'Untitled'}
       </div>
 
       {/* Preview + time */}
       <div className="flex items-center justify-between gap-2 mt-0.5">
         {preview ? (
-          <div className="line-clamp-1 text-xs text-on-surface-variant flex-1 min-w-0">{preview}</div>
+          <div className={`line-clamp-1 text-on-surface-variant flex-1 min-w-0 ${compact ? 'text-[11px]' : 'text-xs'}`}>{preview}</div>
         ) : (
           <div className="flex-1" />
         )}
