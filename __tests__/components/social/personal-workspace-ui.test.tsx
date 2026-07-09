@@ -24,7 +24,7 @@ describe('personal workspace social UI', () => {
           json: async () => ({ activeOrgId: 'org-1', orgs: [{ id: 'org-1', name: 'Acme', logoUrl: '' }] }),
         } as Response)
       }
-      if (url === '/api/v1/social/accounts?scope=personal' && !init) {
+      if (url === '/api/v1/social/accounts?scope=personal&orgId=org-1' && !init) {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -34,13 +34,13 @@ describe('personal workspace social UI', () => {
           }),
         } as Response)
       }
-      if (url === '/api/v1/social/accounts/acct-1' && init?.method === 'DELETE') {
+      if (url === '/api/v1/social/accounts/acct-1?orgId=org-1' && init?.method === 'DELETE') {
         return Promise.resolve({ ok: true, json: async () => ({ success: true }) } as Response)
       }
-      if (url === '/api/v1/social/posts?scope=personal' && init?.method === 'POST') {
+      if (url === '/api/v1/social/posts?scope=personal&orgId=org-1' && init?.method === 'POST') {
         return Promise.resolve({ ok: true, json: async () => ({ data: { id: 'post-1' } }) } as Response)
       }
-      if (url === '/api/v1/social/posts/post-1?scope=personal' && !init) {
+      if (url === '/api/v1/social/posts/post-1?scope=personal&orgId=org-1' && !init) {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -80,13 +80,13 @@ describe('personal workspace social UI', () => {
     )
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith('/api/v1/social/accounts?scope=personal')
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/social/accounts?scope=personal&orgId=org-1')
     })
 
     const connectTwitter = screen.getByRole('link', { name: /connect x/i })
     expect(connectTwitter).toHaveAttribute(
       'href',
-      '/api/v1/social/oauth/twitter?redirectUrl=%2Fportal%2Fpersonal%2Fsocial%2Faccounts&scope=personal',
+      '/api/v1/social/oauth/twitter?redirectUrl=%2Fportal%2Fpersonal%2Fsocial%2Faccounts&scope=personal&orgId=org-1',
     )
   })
 
@@ -108,7 +108,7 @@ describe('personal workspace social UI', () => {
     fireEvent.click(disconnectButton)
 
     expect(confirmSpy).not.toHaveBeenCalled()
-    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/social/accounts/acct-1', { method: 'DELETE' })
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/social/accounts/acct-1?orgId=org-1', { method: 'DELETE' })
     expect(
       screen.getByRole('alertdialog', { name: 'Disconnect LinkedIn account "Peet Stander"?' }),
     ).toBeInTheDocument()
@@ -121,7 +121,7 @@ describe('personal workspace social UI', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirm disconnect LinkedIn account Peet Stander' }))
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith('/api/v1/social/accounts/acct-1', { method: 'DELETE' })
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/social/accounts/acct-1?orgId=org-1', { method: 'DELETE' })
     })
     expect(await screen.findByText('Account disconnected.')).toBeInTheDocument()
 
@@ -146,7 +146,7 @@ describe('personal workspace social UI', () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        '/api/v1/social/posts?scope=personal',
+        '/api/v1/social/posts?scope=personal&orgId=org-1',
         expect.objectContaining({
           method: 'POST',
           body: expect.stringContaining('"accountIds":["acct-1"]'),
@@ -195,7 +195,7 @@ describe('personal workspace social UI', () => {
     fireEvent.click(screen.getByRole('button', { name: /save draft/i }))
 
     expect(await screen.findByText('Draft saved and verified: post-1')).toBeInTheDocument()
-    expect(global.fetch).toHaveBeenCalledWith('/api/v1/social/posts/post-1?scope=personal')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/social/posts/post-1?scope=personal&orgId=org-1')
     expect(push).not.toHaveBeenCalled()
   })
 
