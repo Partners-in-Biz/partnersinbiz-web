@@ -22,17 +22,17 @@ export function ComparisonBlock({
         </h2>
       )}
       <div
-        className="overflow-x-auto rounded-lg border"
+        className="max-w-full overflow-x-auto rounded-lg border"
         style={{ borderColor: 'var(--doc-border)' }}
       >
-        <table className="w-full text-sm">
+        <table className="min-w-full text-sm">
           <thead>
             <tr style={{ background: 'var(--doc-surface)' }}>
               <th className="px-4 py-3 text-left" />
               {content.headers.map((h, i) => (
                 <th
                   key={i}
-                  className="px-4 py-3 text-center font-semibold"
+                  className="px-4 py-3 text-center font-semibold break-words"
                   style={{
                     background: i === highlight ? 'var(--doc-accent-soft)' : undefined,
                     color: i === highlight ? 'var(--doc-accent)' : 'var(--doc-text)',
@@ -46,11 +46,11 @@ export function ComparisonBlock({
           <tbody>
             {content.rows.map((row, ri) => (
               <tr key={ri} className="border-t" style={{ borderColor: 'var(--doc-border)' }}>
-                <td className="px-4 py-3 text-[var(--doc-text)]">{row.label}</td>
+                <td className="px-4 py-3 break-words text-[var(--doc-text)]">{row.label}</td>
                 {row.values.map((v, ci) => (
                   <td
                     key={ci}
-                    className="px-4 py-3 text-center text-[var(--doc-text)]"
+                    className="px-4 py-3 text-center break-words text-[var(--doc-text)]"
                     style={{
                       background: ci === highlight ? 'var(--doc-accent-soft)' : undefined,
                     }}

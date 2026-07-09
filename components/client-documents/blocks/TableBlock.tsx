@@ -15,16 +15,16 @@ export function TableBlock({ block, index }: { block: DocumentBlock; index: numb
         </h2>
       )}
       <div
-        className="overflow-x-auto rounded border"
+        className="max-w-full overflow-x-auto rounded border"
         style={{ borderColor: 'var(--doc-border)' }}
       >
-        <table className="w-full text-sm">
+        <table className="min-w-full text-sm">
           <thead>
             <tr style={{ background: 'var(--doc-accent-soft)' }}>
               {headers.map((h, i) => (
                 <th
                   key={i}
-                  className="px-4 py-3 text-left font-semibold text-[var(--doc-accent)]"
+                  className="px-4 py-3 text-left font-semibold break-words text-[var(--doc-accent)]"
                 >
                   {h}
                 </th>
@@ -38,7 +38,7 @@ export function TableBlock({ block, index }: { block: DocumentBlock; index: numb
                 style={{ background: ri % 2 ? 'var(--doc-surface)' : 'transparent' }}
               >
                 {row.map((cell, ci) => (
-                  <td key={ci} className="px-4 py-3 text-[var(--doc-text)]">
+                  <td key={ci} className="px-4 py-3 break-words text-[var(--doc-text)]">
                     {cell}
                   </td>
                 ))}
