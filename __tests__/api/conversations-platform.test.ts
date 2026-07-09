@@ -113,6 +113,70 @@ beforeEach(() => {
         }),
       }
     }
+    if (name === 'org_workspaces') {
+      return {
+        doc: (id: string) => ({
+          get: async () => ({
+            exists: id === 'acme',
+            id,
+            data: () => ({
+              workspaceId: 'acme',
+              orgId: 'org-1',
+              orgSlug: 'acme',
+              orgName: 'Acme',
+              agentDomain: 'acme',
+              agentName: 'Ava',
+              vpsPath: '/var/lib/hermes/Cowork/Acme',
+              localPath: '~/Cowork/Acme',
+              agentDomainPath: '/var/lib/hermes/Cowork/Cowork/agents/acme',
+              localAgentDomainPath: '~/Cowork/Cowork/agents/acme',
+              sourceOfTruth: 'vps',
+              syncMode: 'hybrid',
+              defaultRuntimeTarget: 'vps',
+              status: 'active',
+              folderVersion: 1,
+              companyId: 'company-1',
+              contactIds: ['contact-1'],
+            }),
+          }),
+        }),
+        where: () => ({
+          where: () => ({
+            limit: () => ({ get: async () => ({ docs: [] }) }),
+          }),
+        }),
+      }
+    }
+    if (name === 'agent_dispatch_configs') {
+      return {
+        doc: () => ({
+          get: async () => ({
+            exists: true,
+            data: () => ({
+              runtimeTargets: {
+                vps: {
+                  id: 'vps',
+                  label: 'VPS',
+                  baseUrl: 'https://hermes.example/profiles/pip',
+                  apiKey: 'test-key',
+                  enabled: true,
+                },
+                local: {
+                  id: 'local',
+                  label: "Local: Peet's Mac",
+                  hostId: 'peets-mac-mini',
+                  baseUrl: 'https://local-hermes.example/profiles/pip',
+                  apiKey: 'local-test-key',
+                  enabled: true,
+                  capabilities: ['local-files'],
+                  lastSeenAt: new Date().toISOString(),
+                },
+              },
+            }),
+          }),
+        }),
+      }
+    }
     throw new Error(`Unexpected collection: ${name}`)
   })
 })
@@ -140,6 +204,7 @@ describe('platform-scoped unified conversations', () => {
       startedBy: 'admin-1',
       title: 'Internal planning',
     }))
+    expect(mockCreateConversation.mock.calls[0][0]).not.toHaveProperty('workspaceContext')
     const body = await readJson(res)
     expect(body.data.conversation.id).toBe('conv-1')
   })
@@ -150,7 +215,7 @@ describe('platform-scoped unified conversations', () => {
     const res = await GET(new NextRequest('http://localhost/api/v1/conversations?orgId=pib-platform-owner'))
 
     expect(res.status).toBe(200)
-    expect(mockListConversations).toHaveBeenCalledWith('pib-platform-owner', 'admin-1', 30, expect.any(Object))
+    expect(mockListConversations).toHaveBeenCalledWith('pib-platform-owner', expect.objectContaining({ uid: 'admin-1' }), 30, expect.any(Object))
   })
 
   it('lets a client start a platform-workspace conversation with listed org members', async () => {
@@ -246,6 +311,92 @@ describe('platform-scoped unified conversations', () => {
         expect.objectContaining({ kind: 'agent', agentId: 'pip' }),
       ]),
     }))
+  })
+
+  it('binds a new conversation to a selected client workspace and runtime target', async () => {
+    mockUser = { uid: 'admin-1', role: 'admin', orgId: 'pib-platform-owner', allowedOrgIds: [] }
+    const { POST } = await import('@/app/api/v1/conversations/route')
+
+    const res = await POST(new NextRequest('http://localhost/api/v1/conversations', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        scope: 'workspace',
+        workspaceId: 'acme',
+        runtimeTarget: 'local',
+        participants: [{ kind: 'agent', agentId: 'pip' }],
+        title: 'Acme workspace chat',
+      }),
+    }))
+
+    expect(res.status).toBe(201)
+    expect(mockCreateConversation).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      scope: 'workspace',
+      scopeRefId: 'acme',
+      workspaceContext: expect.objectContaining({
+        workspaceId: 'acme',
+        runtimeLabel: "Local: Peet's Mac",
+        ownerUserId: 'admin-1',
+        shareMode: 'private',
+        companyId: 'company-1',
+        contactIds: ['contact-1'],
+      }),
+    }))
+  })
+
+  it('rejects workspace-scoped conversations without an explicit workspace id', async () => {
+    mockUser = { uid: 'admin-1', role: 'admin', orgId: 'pib-platform-owner', allowedOrgIds: [] }
+    const { POST } = await import('@/app/api/v1/conversations/route')
+
+    const res = await POST(new NextRequest('http://localhost/api/v1/conversations', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        scope: 'workspace',
+        participants: [{ kind: 'agent', agentId: 'pip' }],
+        title: 'Missing workspace id',
+      }),
+    }))
+
+    expect(res.status).toBe(400)
+    expect(mockCreateConversation).not.toHaveBeenCalled()
+  })
+
+  it('rejects an unknown Workspace runtime instead of silently falling back', async () => {
+    const { POST } = await import('@/app/api/v1/conversations/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/conversations', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        scope: 'workspace',
+        workspaceId: 'acme',
+        runtimeTarget: 'unknown-runtime',
+        participants: [{ kind: 'agent', agentId: 'pip' }],
+      }),
+    }))
+    expect(res.status).toBe(400)
+    expect(mockCreateConversation).not.toHaveBeenCalled()
+  })
+
+  it('keeps private Workspace conversations separated from other human participants', async () => {
+    const { POST } = await import('@/app/api/v1/conversations/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/conversations', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        scope: 'workspace',
+        workspaceId: 'acme',
+        runtimeTarget: 'vps',
+        shareMode: 'private',
+        participants: [
+          { kind: 'agent', agentId: 'pip' },
+          { kind: 'user', uid: 'admin-2' },
+        ],
+      }),
+    }))
+    expect(res.status).toBe(400)
+    expect(mockCreateConversation).not.toHaveBeenCalled()
   })
 
   it('returns platform admins as people for the top-level participant picker', async () => {

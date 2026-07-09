@@ -11,6 +11,9 @@ import { adminDb, getAdminApp } from '@/lib/firebase/admin'
 import { AGENT_IDS } from '@/lib/agents/types'
 import type { AgentId, Conversation, ConversationMessage, Participant } from './types'
 import type { ContextReference } from '@/lib/context-references/types'
+import type { ConversationWorkspaceContext } from '@/lib/client-provisioning/workspace-context'
+import type { ApiUser } from '@/lib/api/types'
+import { canAccessConversation } from './access'
 import {
   CONVERSATION_RUN_DISPATCH_GRACE_MS,
 } from './run-policy'
@@ -41,6 +44,7 @@ export async function createConversation(input: {
   title?: string
   scope?: Conversation['scope']
   scopeRefId?: string
+  workspaceContext?: ConversationWorkspaceContext | null
   contextRefs?: ContextReference[]
 }): Promise<Conversation> {
   const ref = adminDb.collection(CONVERSATIONS_COLLECTION).doc()
@@ -69,6 +73,7 @@ export async function createConversation(input: {
 
   if (input.scope) data.scope = input.scope
   if (input.scopeRefId) data.scopeRefId = input.scopeRefId
+  if (input.workspaceContext) data.workspaceContext = input.workspaceContext
   if (input.contextRefs?.length) data.contextRefs = input.contextRefs
 
   await ref.set(data)
@@ -82,12 +87,12 @@ export async function getConversation(convId: string): Promise<Conversation | nu
 }
 
 /**
- * List conversations for a user within an org, ordered by most-recently-updated.
- * Requires a composite index on: orgId ASC + participantUids ARRAY_CONTAINS + updatedAt DESC.
+ * List conversations visible to a user within an org, ordered by most-recently-updated.
+ * Participant-only private/shared chats and org-visible Workspace chats are filtered server-side.
  */
 export async function listConversations(
   orgId: string,
-  uid: string,
+  user: ApiUser,
   limit = 30,
   filters?: {
     scope?: Conversation['scope']
@@ -95,13 +100,10 @@ export async function listConversations(
     projectId?: string
   },
 ): Promise<Conversation[]> {
-  const readLimit = filters?.scope || filters?.scopeRefId || filters?.projectId
-    ? Math.max(limit, 100)
-    : limit
+  const readLimit = Math.max(limit * 4, filters?.scope || filters?.scopeRefId || filters?.projectId ? 100 : limit)
   const snap = await adminDb
     .collection(CONVERSATIONS_COLLECTION)
     .where('orgId', '==', orgId)
-    .where('participantUids', 'array-contains', uid)
     .orderBy('updatedAt', 'desc')
     .limit(readLimit)
     .get()
@@ -109,6 +111,7 @@ export async function listConversations(
   return snap.docs
     .map((d) => ({ id: d.id, ...d.data() }) as Conversation)
     .filter((conversation) => {
+      if (!canAccessConversation(user, conversation)) return false
       if (filters?.scope && conversation.scope !== filters.scope) return false
       if (filters?.scopeRefId && conversation.scopeRefId !== filters.scopeRefId) return false
       if (filters?.projectId && conversation.scopeRefId !== filters.projectId) return false

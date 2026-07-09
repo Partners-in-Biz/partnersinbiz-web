@@ -9,6 +9,7 @@ import { DELETE as removeMember } from '@/app/api/v1/organizations/[id]/members/
 import { POST as linkClient } from '@/app/api/v1/organizations/[id]/link-client/route'
 import { GET as getOrgAccounts } from '@/app/api/v1/organizations/[id]/accounts/route'
 import { provisionFullClientOnVps } from '@/lib/client-provisioning/vps'
+import { upsertOrgWorkspace } from '@/lib/client-provisioning/workspace-context'
 import { adminAuth } from '@/lib/firebase/admin'
 
 jest.mock('firebase-admin/firestore', () => ({
@@ -34,6 +35,10 @@ const mockCollection = jest.fn()
 
 jest.mock('@/lib/client-provisioning/vps', () => ({
   provisionFullClientOnVps: jest.fn(),
+}))
+
+jest.mock('@/lib/client-provisioning/workspace-context', () => ({
+  upsertOrgWorkspace: jest.fn(),
 }))
 
 jest.mock('@/lib/platform-owner/relationships', () => ({
@@ -106,6 +111,7 @@ describe('POST /api/v1/organizations', () => {
       profile: { agentId: 'velox' },
       workspace: { directoriesCreated: [] },
     })
+    ;(upsertOrgWorkspace as jest.Mock).mockResolvedValue({ workspaceId: 'velox' })
   })
 
   it('creates an org and returns 201 without seeding AI/API-key users into the team', async () => {
@@ -131,13 +137,18 @@ describe('POST /api/v1/organizations', () => {
       domain: 'velox',
       orgId: 'new-org-id',
       agentName: 'Vee',
+      companyId: null,
+      contactIds: [],
     })
     expect(mockSet).toHaveBeenCalledWith(
       expect.objectContaining({
-        provisioning: expect.objectContaining({ status: 'complete', domain: 'velox', agentName: 'Vee' }),
+        workspaceId: 'velox',
+        workspaceManifest: expect.objectContaining({ workspaceId: 'velox', sourceOfTruth: 'vps' }),
+        provisioning: expect.objectContaining({ status: 'complete', domain: 'velox', agentName: 'Vee', workspaceId: 'velox' }),
       }),
       { merge: true },
     )
+    expect(upsertOrgWorkspace).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 'velox' }))
   })
 
   it('can skip workspace provisioning for Firebase-only org creation', async () => {

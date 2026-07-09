@@ -35,17 +35,13 @@ import { CEO_APPROVAL_CARD_RULE_LINES, buildCeoDataDecisionOperatingRuleLines } 
 import { validateMessageModelSelection } from '@/lib/messages/model-catalog'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import type { ApiUser } from '@/lib/api/types'
+import { canAccessConversation } from '@/lib/conversations/access'
 import type { AgentTeamDoc } from '@/lib/agents/types'
 import type { AgentId, Conversation, ConversationAttachment, ConversationMessage } from '@/lib/conversations/types'
 
 export const dynamic = 'force-dynamic'
 
 type Params = { params: Promise<{ convId: string }> }
-
-function canAccess(user: ApiUser, participantUids: string[]): boolean {
-  if (user.role === 'admin' || user.role === 'ai') return true
-  return participantUids.includes(user.uid)
-}
 
 function sanitizeAttachments(value: unknown): ConversationAttachment[] {
   if (!Array.isArray(value)) return []
@@ -172,6 +168,33 @@ function buildConversationContext(conversation: Conversation, callerDisplayName:
   return `[Conversation — convId: ${conversation.id}, participants: ${participants}, initiated by: ${callerDisplayName}]\n\n`
 }
 
+function buildWorkspaceContext(conversation: Conversation): string {
+  const workspace = conversation.workspaceContext
+  if (!workspace) return ''
+  return [
+    '[Workspace context — this chat is bound to a Partners in Biz Workspace]',
+    `workspaceId: ${workspace.workspaceId}`,
+    `workspaceName: ${workspace.orgName}`,
+    `orgId: ${workspace.orgId}`,
+    `orgSlug: ${workspace.orgSlug}`,
+    `sourceOfTruth: ${workspace.sourceOfTruth}`,
+    `runtimeTarget: ${workspace.runtimeTarget}`,
+    `runtimeLabel: ${workspace.runtimeLabel}`,
+    `vpsPath: ${workspace.vpsPath}`,
+    `localPath: ${workspace.localPath}`,
+    `agentDomain: ${workspace.agentDomain}`,
+    `agentDomainPath: ${workspace.agentDomainPath}`,
+    `localAgentDomainPath: ${workspace.localAgentDomainPath}`,
+    workspace.companyId ? `crmCompanyId: ${workspace.companyId}` : '',
+    workspace.contactIds.length ? `crmContactIds: ${workspace.contactIds.join(', ')}` : '',
+    `shareMode: ${workspace.shareMode}`,
+    `ownerUserId: ${workspace.ownerUserId}`,
+    'Read the workspace AGENTS.md/CLAUDE.md and .pib-workspace.json when file access is available. Keep user chat threads separate unless the shareMode or user request says otherwise.',
+    '---',
+    '',
+  ].filter(Boolean).join('\n')
+}
+
 function messageAuthorLabel(message: ConversationMessage): string {
   if (message.authorDisplayName?.trim()) return message.authorDisplayName.trim()
   if (message.authorId?.trim()) return message.authorId.trim()
@@ -267,7 +290,7 @@ export const POST = withAuth(
     const conversation = await getConversation(convId)
     if (!conversation) return apiError('Conversation not found', 404)
 
-    if (!canAccess(user, conversation.participantUids)) {
+    if (!canAccessConversation(user, conversation)) {
       return apiError('Forbidden', 403)
     }
     const replyAccess = await assertUserCanPerformOrganizationModuleAction(
@@ -389,7 +412,9 @@ export const POST = withAuth(
 
       let agentLink: Awaited<ReturnType<typeof getAgentDispatchHermesProfileLink>>
       try {
-        agentLink = await getAgentDispatchHermesProfileLink(agentId, conversation.orgId)
+        agentLink = await getAgentDispatchHermesProfileLink(agentId, conversation.orgId, {
+          runtimeTarget: conversation.workspaceContext?.runtimeTarget ?? null,
+        })
         if (!agentLink) throw new Error(`No reachable runtime target configured for agent_team/${agentId}`)
       } catch (err) {
         console.error('[conversation-agent-dispatch-failed]', {
@@ -412,6 +437,7 @@ export const POST = withAuth(
       // Build context string (org + conversation participants)
       const orgContext = await buildOrgContext(conversation.orgId)
       const convContext = buildConversationContext(conversation, authorDisplayName)
+      const workspaceContext = buildWorkspaceContext(conversation)
       const orchestrationContext = buildOrchestrationContext(conversation, agentId)
       const agentSkillsContext = buildAgentSkillsPromptBlock(agentData, agentId)
       const decisionDataRuleContext = buildDecisionDataOperatingRuleContext()
@@ -420,7 +446,7 @@ export const POST = withAuth(
       const attachmentContext = attachments.length > 0
         ? `\n\n[Attachments]\n${attachments.map((attachment) => `- ${attachment.name}: ${attachment.url} (${attachment.contentType}, ${attachment.sizeBytes} bytes)`).join('\n')}`
         : ''
-      const hermesInput = orgContext + convContext + orchestrationContext + agentSkillsContext + decisionDataRuleContext + attachedContext + conversationHistory + commandContext + content + attachmentContext
+      const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + agentSkillsContext + decisionDataRuleContext + attachedContext + conversationHistory + commandContext + content + attachmentContext
 
       // Dispatch Hermes run
       const runResult = await createHermesRun(agentLink, user.uid, {
@@ -433,6 +459,9 @@ export const POST = withAuth(
           conversationId: convId,
           messageId: assistantMessage.id,
           orgId: conversation.orgId,
+          ...(conversation.workspaceContext ? { workspaceContext: conversation.workspaceContext } : {}),
+          ...(conversation.workspaceContext?.workspaceId ? { workspaceId: conversation.workspaceContext.workspaceId } : {}),
+          ...(conversation.workspaceContext?.runtimeTarget ? { runtimeTarget: conversation.workspaceContext.runtimeTarget } : {}),
           dispatchAgentId: agentId,
           ...(modelSelection?.model ? { model: modelSelection.model } : {}),
           ...(modelSelection?.provider ? { provider: modelSelection.provider } : {}),
@@ -530,7 +559,7 @@ export const GET = withAuth(
     const conversation = await getConversation(convId)
     if (!conversation) return apiError('Conversation not found', 404)
 
-    if (!canAccess(user, conversation.participantUids)) {
+    if (!canAccessConversation(user, conversation)) {
       return apiError('Forbidden', 403)
     }
 

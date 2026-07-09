@@ -16,17 +16,12 @@ import {
   patchConversation,
 } from '@/lib/conversations/conversations'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
+import { canAccessConversation } from '@/lib/conversations/access'
 import type { ApiUser } from '@/lib/api/types'
 
 export const dynamic = 'force-dynamic'
 
 type Params = { params: Promise<{ convId: string }> }
-
-/** Verify the caller is a participant or has admin/ai role. */
-function canAccess(user: ApiUser, participantUids: string[]): boolean {
-  if (user.role === 'admin' || user.role === 'ai') return true
-  return participantUids.includes(user.uid)
-}
 
 export const GET = withAuth(
   'client',
@@ -35,7 +30,7 @@ export const GET = withAuth(
     const conversation = await getConversation(convId)
     if (!conversation) return apiError('Conversation not found', 404)
 
-    if (!canAccess(user, conversation.participantUids)) {
+    if (!canAccessConversation(user, conversation)) {
       return apiError('Forbidden', 403)
     }
 
@@ -50,7 +45,7 @@ export const PATCH = withAuth(
     const conversation = await getConversation(convId)
     if (!conversation) return apiError('Conversation not found', 404)
 
-    if (!canAccess(user, conversation.participantUids)) {
+    if (!canAccessConversation(user, conversation)) {
       return apiError('Forbidden', 403)
     }
 
@@ -96,7 +91,7 @@ export const DELETE = withAuth(
     const conversation = await getConversation(convId)
     if (!conversation) return apiError('Conversation not found', 404)
 
-    if (!canAccess(user, conversation.participantUids) || !canAccessOrg(user, conversation.orgId)) {
+    if (!canAccessConversation(user, conversation) || !canAccessOrg(user, conversation.orgId)) {
       return apiError('Forbidden', 403)
     }
 

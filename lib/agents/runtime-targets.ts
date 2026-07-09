@@ -36,7 +36,21 @@ export interface AgentDispatchTarget {
   source: 'runtimeTargets' | 'legacy'
 }
 
-const DEFAULT_STALE_AFTER_MS = 10 * 60 * 1000
+export const DEFAULT_RUNTIME_STALE_AFTER_MS = 10 * 60 * 1000
+
+export interface PublicRuntimeTargetPresence {
+  id: string
+  label: string
+  hostId?: string
+  enabled: boolean
+  isLocal: boolean
+  isFresh: boolean
+  isHealthy: boolean
+  selectable: boolean
+  lastSeenAt: string | null
+  ageSeconds: number | null
+  lastHealthStatus: string | null
+}
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null
@@ -113,13 +127,13 @@ export function normalizeRuntimeTargets(value: unknown): AgentRuntimeTarget[] {
     .filter(Boolean) as AgentRuntimeTarget[]
 }
 
-function isLocalish(target: AgentRuntimeTarget): boolean {
+export function isLocalRuntimeTarget(target: AgentRuntimeTarget): boolean {
   const id = target.id.toLowerCase()
   return id === 'local' || id.includes('mac') || target.capabilities.some((cap) => cap.toLowerCase().includes('local'))
 }
 
-function isFreshEnough(target: AgentRuntimeTarget, nowMs: number, staleAfterMs: number): boolean {
-  if (!isLocalish(target)) return true
+export function isRuntimeTargetFresh(target: AgentRuntimeTarget, nowMs: number, staleAfterMs: number): boolean {
+  if (!isLocalRuntimeTarget(target)) return true
   const seenMs = timestampToMs(target.lastSeenAt)
   if (seenMs == null) return false
   return nowMs - seenMs <= staleAfterMs
@@ -127,7 +141,53 @@ function isFreshEnough(target: AgentRuntimeTarget, nowMs: number, staleAfterMs: 
 
 function usableTarget(target: AgentRuntimeTarget, nowMs: number, staleAfterMs: number, requireFreshLocal: boolean): boolean {
   if (!target.enabled || !target.baseUrl || !target.apiKey) return false
-  return !requireFreshLocal || isFreshEnough(target, nowMs, staleAfterMs)
+  return !requireFreshLocal || isRuntimeTargetFresh(target, nowMs, staleAfterMs)
+}
+
+function humanizeHostId(hostId: string): string {
+  const normalized = hostId.trim().toLowerCase()
+  if (normalized.includes('peet')) return "Peet's Mac"
+  return hostId
+    .replace(/[-_.]+/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+export function publicRuntimeTargetPresence(
+  value: unknown,
+  options: { nowMs?: number; staleAfterMs?: number } = {},
+): PublicRuntimeTargetPresence[] {
+  const nowMs = options.nowMs ?? Date.now()
+  const staleAfterMs = options.staleAfterMs ?? DEFAULT_RUNTIME_STALE_AFTER_MS
+  return normalizeRuntimeTargets(value)
+    .map((target) => {
+      const isLocal = isLocalRuntimeTarget(target)
+      const seenMs = timestampToMs(target.lastSeenAt)
+      const isFresh = isRuntimeTargetFresh(target, nowMs, staleAfterMs)
+      const healthStatus = target.lastHealthStatus?.trim().toLowerCase()
+      const isHealthy = !healthStatus || !['unreachable', 'offline', 'error', 'failed'].includes(healthStatus)
+      const hostLabel = target.hostId ? humanizeHostId(target.hostId) : undefined
+      const label = isLocal
+        ? `Local${hostLabel ? `: ${hostLabel}` : ''}`
+        : target.label?.trim() || target.id.toUpperCase()
+      return {
+        id: target.id,
+        label,
+        ...(target.hostId ? { hostId: target.hostId } : {}),
+        enabled: target.enabled,
+        isLocal,
+        isFresh,
+        isHealthy,
+        selectable: target.enabled && Boolean(target.apiKey) && isHealthy && (!isLocal || isFresh),
+        lastSeenAt: seenMs == null ? null : new Date(seenMs).toISOString(),
+        ageSeconds: seenMs == null ? null : Math.max(0, Math.floor((nowMs - seenMs) / 1000)),
+        lastHealthStatus: target.lastHealthStatus ?? null,
+      }
+    })
+    .sort((a, b) => {
+      if (a.id === 'vps') return -1
+      if (b.id === 'vps') return 1
+      return a.label.localeCompare(b.label)
+    })
 }
 
 function toDispatchTarget(target: AgentRuntimeTarget): AgentDispatchTarget {
@@ -169,7 +229,7 @@ export function buildRuntimeTargetMap(target: {
 
 export function selectAgentRuntimeTarget(input: RuntimeTargetSelectionInput): AgentDispatchTarget | null {
   const nowMs = input.nowMs ?? Date.now()
-  const staleAfterMs = input.staleAfterMs ?? DEFAULT_STALE_AFTER_MS
+  const staleAfterMs = input.staleAfterMs ?? DEFAULT_RUNTIME_STALE_AFTER_MS
   const preference = cleanString(input.preference)?.toLowerCase() ?? 'auto'
   const targets = normalizeRuntimeTargets(input.runtimeTargets)
 
@@ -181,7 +241,7 @@ export function selectAgentRuntimeTarget(input: RuntimeTargetSelectionInput): Ag
   const freshTargets = targets.filter((target) => usableTarget(target, nowMs, staleAfterMs, true))
 
   if (input.preferLocal) {
-    const local = freshTargets.find(isLocalish)
+    const local = freshTargets.find(isLocalRuntimeTarget)
     if (local) return toDispatchTarget(local)
   }
 

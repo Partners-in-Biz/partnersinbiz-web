@@ -99,23 +99,16 @@ describe('Portal messages page layout', () => {
     jest.restoreAllMocks()
   })
 
-  it('bounds the chat to the viewport and fades the intro chrome away', async () => {
+  it('bounds the Hermes message shell to the viewport without legacy intro chrome', async () => {
     render(<PortalMessagesPage />)
 
     const chat = await screen.findByTestId('unified-chat')
-    const workspace = chat.closest('[data-testid="portal-messages-workspace"]')
-    const intro = screen.getByTestId('portal-messages-intro')
+    const workspace = chat.closest('[data-testid="hermes-messages-shell"]')
 
     expect(workspace).toHaveClass('overflow-hidden')
-    expect(workspace).toHaveClass('h-[calc(100dvh-120px)]')
-    expect(intro).toHaveClass('max-h-28')
-    expect(intro).toHaveClass('opacity-100')
-
-    await waitFor(() => {
-      expect(intro).toHaveClass('max-h-0')
-      expect(intro).toHaveClass('opacity-0')
-    }, { timeout: 4000 })
-  }, 8000)
+    expect(workspace).toHaveClass('h-[calc(100dvh-88px)]')
+    expect(screen.queryByTestId('portal-messages-intro')).not.toBeInTheDocument()
+  })
 
   it('keeps portal messages scoped to the CRM company workspace organisation', async () => {
     mockSearchParams = new URLSearchParams({

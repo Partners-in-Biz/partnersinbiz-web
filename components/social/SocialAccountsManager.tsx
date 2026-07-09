@@ -8,6 +8,7 @@ import {
 } from 'react-icons/fa6'
 import { SiThreads, SiBluesky } from 'react-icons/si'
 import { appendQueryParams } from '@/lib/portal/scoped-routing'
+import { useResolvedPortalOrgId } from '@/components/portal/useResolvedPortalOrgId'
 
 type AccountStatus = 'active' | 'token_expired' | 'disconnected' | 'rate_limited'
 type SubAccountType = 'personal' | 'business' | 'page' | 'group'
@@ -598,6 +599,7 @@ export default function SocialAccountsManager({
 }: SocialAccountsManagerProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { orgId: resolvedOrgId, resolving: resolvingOrgId } = useResolvedPortalOrgId(orgId)
   const [accounts, setAccounts] = useState<SocialAccount[]>([])
   const [loading, setLoading] = useState(true)
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null)
@@ -610,11 +612,12 @@ export default function SocialAccountsManager({
   const pickerPlatform = searchParams.get('platform') ?? ''
   const socialApiPath = useCallback((path: string) => appendQueryParams(path, {
     scope: scope === 'personal' ? 'personal' : undefined,
-    orgId,
-  }), [orgId, scope])
-  const tenantApiPath = useCallback((path: string) => appendQueryParams(path, { orgId }), [orgId])
+    orgId: resolvedOrgId,
+  }), [resolvedOrgId, scope])
+  const tenantApiPath = useCallback((path: string) => appendQueryParams(path, { orgId: resolvedOrgId }), [resolvedOrgId])
 
   const fetchAccounts = useCallback(async () => {
+    if (resolvingOrgId) return
     setLoading(true)
     try {
       const res = await fetch(socialApiPath('/api/v1/social/accounts'))
@@ -626,7 +629,7 @@ export default function SocialAccountsManager({
     } finally {
       setLoading(false)
     }
-  }, [socialApiPath])
+  }, [resolvingOrgId, socialApiPath])
 
   useEffect(() => {
     fetchAccounts()
@@ -638,7 +641,7 @@ export default function SocialAccountsManager({
       return
     }
     let cancelled = false
-    fetch(appendQueryParams('/api/v1/youtube-studio/channels/links', { orgId }))
+    fetch(appendQueryParams('/api/v1/youtube-studio/channels/links', { orgId: resolvedOrgId }))
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error('links failed'))))
       .then((body) => {
         if (cancelled) return
@@ -652,7 +655,7 @@ export default function SocialAccountsManager({
     return () => {
       cancelled = true
     }
-  }, [orgId, scope])
+  }, [resolvedOrgId, scope])
 
   useEffect(() => {
     const status = searchParams.get('status')
@@ -707,7 +710,7 @@ export default function SocialAccountsManager({
   }
 
   async function adoptIntoYouTubeStudio(accountId: string) {
-    const res = await fetch(appendQueryParams('/api/v1/youtube-studio/channels/adopt', { orgId }), {
+    const res = await fetch(appendQueryParams('/api/v1/youtube-studio/channels/adopt', { orgId: resolvedOrgId }), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ accountId }),
@@ -765,14 +768,14 @@ export default function SocialAccountsManager({
         title: 'Personal account scope',
         body: 'These accounts belong to your user profile. They are used for your own posts and do not appear in organisation publishing queues or company account pickers.',
         icon: 'person',
-        href: '/portal/social/accounts',
+        href: appendQueryParams('/portal/social/accounts', { orgId: resolvedOrgId }),
         hrefLabel: 'Open company accounts',
       }
     : {
         title: 'Company / organisation scope',
         body: 'These accounts are shared by the active company workspace for brand publishing, approvals, calendars, and inbox sync. They are not your private bookmarks or personal X account.',
         icon: 'business',
-        href: '/portal/personal/social/accounts',
+        href: appendQueryParams('/portal/personal/social/accounts', { orgId: resolvedOrgId }),
         hrefLabel: 'Open personal accounts',
       }
 
@@ -784,7 +787,7 @@ export default function SocialAccountsManager({
           platform={pickerPlatform}
           onConfirm={handlePickerConfirm}
           onSkip={dismissPicker}
-          orgId={orgId}
+          orgId={resolvedOrgId}
         />
       )}
 
@@ -928,7 +931,7 @@ export default function SocialAccountsManager({
                 disconnectingId={disconnectingId}
                 scope={scope}
                 redirectPath={basePath}
-                orgId={orgId}
+                orgId={resolvedOrgId}
                 youtubeStudioLinks={youtubeStudioLinks}
                 onAdoptIntoYouTubeStudio={scope === 'personal' ? undefined : adoptIntoYouTubeStudio}
               />
@@ -957,7 +960,7 @@ export default function SocialAccountsManager({
                 href={appendQueryParams(`/api/v1/social/oauth/${platform}`, {
                   redirectUrl: basePath,
                   scope: scope === 'personal' ? 'personal' : undefined,
-                  orgId,
+                  orgId: resolvedOrgId,
                   linkedinMode: platform === 'linkedin' ? 'personal' : undefined,
                 })}
                 className="pib-card pib-card-hover flex items-center gap-3 p-4"
@@ -977,7 +980,7 @@ export default function SocialAccountsManager({
         )}
 
         {!connectedPlatformIds.has('bluesky') && (
-          <BlueskyForm onSuccess={fetchAccounts} disabled={loading} scope={scope} orgId={orgId} />
+          <BlueskyForm onSuccess={fetchAccounts} disabled={loading} scope={scope} orgId={resolvedOrgId} />
         )}
       </section>
     </div>

@@ -7,6 +7,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { buildClientProvisioningPayload, inferAgentName } from '@/lib/client-provisioning/provisioner'
+import { upsertOrgWorkspace } from '@/lib/client-provisioning/workspace-context'
 import { provisionFullClientOnVps } from '@/lib/client-provisioning/vps'
 import { slugify, isMember } from '@/lib/organizations/helpers'
 import type { Organization, OrgMember, OrganizationSummary } from '@/lib/organizations/types'
@@ -136,11 +137,19 @@ export const POST = withAuth('admin', async (req, user) => {
   const agentName = typeof body.agentName === 'string' && body.agentName.trim()
     ? body.agentName.trim()
     : inferAgentName(name)
+  const contactIds = Array.isArray(body.contactIds)
+    ? body.contactIds.filter((id: unknown): id is string => typeof id === 'string' && id.trim().length > 0)
+    : []
+  const companyId = typeof body.companyId === 'string' && body.companyId.trim()
+    ? body.companyId.trim()
+    : null
   const provisioningPayload = buildClientProvisioningPayload({
     clientName: name,
     domain: slug,
     orgId: docRef.id,
     agentName,
+    companyId,
+    contactIds,
   })
 
   try {
@@ -149,14 +158,21 @@ export const POST = withAuth('admin', async (req, user) => {
       domain: slug,
       orgId: docRef.id,
       agentName,
+      companyId,
+      contactIds,
     })
+
+    const workspace = await upsertOrgWorkspace(provisioningPayload.manifest)
 
     await docRef.set({
       folderRegistry: provisioningPayload.folderRegistry,
+      workspaceId: provisioningPayload.manifest.workspaceId,
+      workspaceManifest: provisioningPayload.manifest,
       provisioning: {
         status: 'complete',
         domain: slug,
         agentName,
+        workspaceId: workspace.workspaceId,
         updatedAt: FieldValue.serverTimestamp(),
         result: provisioning,
       },
@@ -168,6 +184,8 @@ export const POST = withAuth('admin', async (req, user) => {
     const message = err instanceof Error ? err.message : 'Client workspace provisioning failed'
     await docRef.set({
       folderRegistry: provisioningPayload.folderRegistry,
+      workspaceId: provisioningPayload.manifest.workspaceId,
+      workspaceManifest: provisioningPayload.manifest,
       provisioning: {
         status: 'failed',
         domain: slug,

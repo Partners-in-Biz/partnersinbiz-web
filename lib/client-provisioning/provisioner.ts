@@ -1,8 +1,12 @@
+import type { OrgWorkspaceManifest } from './workspace-context'
+
 export type ClientProvisioningInput = {
   clientName: string
   domain: string
   orgId: string
   agentName?: string
+  companyId?: string | null
+  contactIds?: string[]
 }
 
 export type ClientFolderVisibility = 'admin_only' | 'admin_agents' | 'admin_agents_clients'
@@ -48,14 +52,33 @@ export type ClientProvisioningPayload = {
   agentName: string
   workspacePath: string
   agentDomainPath: string
+  localWorkspacePath: string
+  localAgentDomainPath: string
+  workspaceFolders: string[]
+  manifest: OrgWorkspaceManifest
   folderRegistry: ClientFolderRegistryRecord[]
   soul: string
+  workspaceInstructions: string
 }
 
 const VPS_COWORK_ROOT = '/var/lib/hermes/Cowork'
 const VPS_OBSIDIAN_ROOT = `${VPS_COWORK_ROOT}/Cowork`
 const LOCAL_COWORK_ROOT = '~/Cowork'
 const LOCAL_OBSIDIAN_ROOT = `${LOCAL_COWORK_ROOT}/Cowork`
+const WORKSPACE_FOLDER_VERSION = 1
+const DEFAULT_WORKSPACE_FOLDERS = [
+  'docs',
+  'briefs',
+  'assets',
+  'assets/private',
+  'marketing',
+  'research',
+  'operations',
+  'operations/admin',
+  'deliverables',
+  'inbox',
+  'archive',
+]
 
 export function inferAgentName(clientName: string): string {
   return clientName.trim().split(/\s+/)[0] || 'Client'
@@ -68,7 +91,35 @@ export function buildClientProvisioningPayload(input: ClientProvisioningInput): 
   const agentName = (input.agentName?.trim() || inferAgentName(clientName)).trim()
   const workspacePath = `${VPS_COWORK_ROOT}/${clientName}`
   const agentDomainPath = `${VPS_OBSIDIAN_ROOT}/agents/${domain}`
+  const localWorkspacePath = `${LOCAL_COWORK_ROOT}/${clientName}`
+  const localAgentDomainPath = `${LOCAL_OBSIDIAN_ROOT}/agents/${domain}`
   const folderRegistry = buildDefaultFolderRegistry({ clientName, domain, orgId, workspacePath, agentDomainPath })
+  const manifest: OrgWorkspaceManifest = {
+    schemaVersion: 1,
+    workspaceId: domain,
+    orgId,
+    orgSlug: domain,
+    orgName: clientName,
+    agentDomain: domain,
+    agentName,
+    vpsPath: workspacePath,
+    localPath: localWorkspacePath,
+    agentDomainPath,
+    localAgentDomainPath,
+    sourceOfTruth: 'vps',
+    syncMode: 'hybrid',
+    defaultRuntimeTarget: 'vps',
+    folderVersion: WORKSPACE_FOLDER_VERSION,
+    folders: DEFAULT_WORKSPACE_FOLDERS,
+    linked: {
+      companyId: input.companyId?.trim() || null,
+      contactIds: Array.isArray(input.contactIds)
+        ? Array.from(new Set(input.contactIds.map((id) => id.trim()).filter(Boolean)))
+        : [],
+    },
+    createdBy: 'client_provisioning',
+  }
+  const workspaceInstructions = renderWorkspaceInstructions({ clientName, domain, orgId, agentName, workspacePath, agentDomainPath })
 
   return {
     clientName,
@@ -77,8 +128,13 @@ export function buildClientProvisioningPayload(input: ClientProvisioningInput): 
     agentName,
     workspacePath,
     agentDomainPath,
+    localWorkspacePath,
+    localAgentDomainPath,
+    workspaceFolders: DEFAULT_WORKSPACE_FOLDERS,
+    manifest,
     folderRegistry,
     soul: renderSoul({ clientName, domain, orgId, agentName, workspacePath, agentDomainPath }),
+    workspaceInstructions,
   }
 }
 
@@ -375,5 +431,62 @@ Everything created for this project must live under \`${workspacePath}\`.
 - Be direct and action-oriented.
 - Do not guess project context when CLAUDE.md, SOUL.md, or Obsidian files can be read.
 - Persist useful knowledge to the ${clientName} Obsidian domain.
+`
+}
+
+export function renderWorkspaceInstructions({
+  clientName,
+  domain,
+  orgId,
+  agentName,
+  workspacePath,
+  agentDomainPath,
+}: {
+  clientName: string
+  domain: string
+  orgId: string
+  agentName: string
+  workspacePath: string
+  agentDomainPath: string
+}) {
+  return `# ${clientName} — Workspace Instructions
+
+You are **${agentName}**, the active AI teammate working inside the **${clientName}** workspace for Partners in Biz. Never say you are Codex, Claude, or another generic model — you are ${agentName} when this workspace is selected.
+
+This workspace is VPS-canonical. The source of truth lives at \`${workspacePath}\`; local machines pull selected workspaces from the canonical VPS/Git state.
+
+## Workspace Identity
+
+- org_id: \`${orgId}\`
+- slug: \`${domain}\`
+- workspace_id: \`${domain}\`
+- VPS workspace: \`${workspacePath}\`
+- Obsidian domain: \`${agentDomainPath}\`
+- Manifest: \`${workspacePath}/.pib-workspace.json\`
+
+## Startup Routine
+
+1. Read this file first.
+2. Read \`${workspacePath}/.pib-workspace.json\` for org/company/contact/runtime links.
+3. Read \`${agentDomainPath}/wiki/hot.md\` if it exists, then \`${agentDomainPath}/index.md\`.
+4. Scope all PiB API calls to orgId \`${orgId}\` unless the user explicitly asks for cross-org work.
+
+## Folder Contract
+
+- docs/ — documentation, strategy notes, specs, and durable references
+- briefs/ — task briefs, campaign briefs, requirements, stakeholder instructions
+- assets/ — binary/source assets; large client files belong in linked Drive/storage, not Obsidian
+- marketing/ — content plans, copy, social/email/web campaigns, calendars
+- research/ — market/person/background research and source synthesis
+- operations/ — admin, SOPs, checklists, setup notes
+- deliverables/ — final outputs to send, publish, or hand over
+- inbox/ — unsorted incoming material to triage
+- archive/ — stale/superseded material retained for reference
+
+## Collaboration Rules
+
+- Multiple people may work in this workspace. Keep chat sessions separate per user unless explicitly shared.
+- Persist durable knowledge to \`${agentDomainPath}/wiki/<topic>.md\` and update \`${agentDomainPath}/index.md\`.
+- Use the selected runtime target (VPS or registered local runtime) shown by the chat UI; do not assume local files exist unless the workspace was pulled locally.
 `
 }

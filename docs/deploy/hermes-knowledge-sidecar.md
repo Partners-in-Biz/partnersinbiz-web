@@ -1,6 +1,6 @@
 # Hermes Knowledge Sidecar
 
-**Last updated:** 2026-05-18
+**Last updated:** 2026-07-09
 
 Partners exposes Obsidian-style Markdown knowledge in the web app through Pip's Hermes admin sidecar.
 
@@ -11,10 +11,67 @@ Partners exposes Obsidian-style Markdown knowledge in the web app through Pip's 
 - Client knowledge root pattern: `/var/lib/hermes/cowork-wiki/agents/<client-slug>`
 - Allowed sections: `index`, `wiki`, `raw`, `logs`
 - Sidecar service: `hermes-admin-sidecar.service`
-- Sidecar source: `/var/lib/hermes/admin_sidecar.py`
+- Live sidecar source: `/var/lib/hermes/admin_sidecar.py`
+- Repo-tracked sidecar source: `infra/hermes/admin_sidecar.py`
 - Public route shape: `https://hermes-api.partnersinbiz.online/profiles/pip/admin/knowledge`
 
 The sidecar endpoint is authenticated with the profile API key. The Next.js app does not store or expose that key in the browser; it calls `/api/v1/admin/knowledge`, which uses the existing encrypted `agent_team/pip` key via `callAgentPath`.
+
+## Client Workspace provisioning route
+
+The same sidecar also owns Pip's Workspace provisioning endpoint:
+
+```http
+POST /profiles/pip/admin/client-workspaces
+```
+
+`partnersinbiz-web` sends the rich payload built by `lib/client-provisioning/provisioner.ts`. The route must preserve existing files by default and consume:
+
+- `clientName`, `domain`, `orgId`, `agentName`
+- `workspacePath` under `/var/lib/hermes/Cowork`
+- `agentDomainPath` under `/var/lib/hermes/cowork-wiki/agents`
+- `workspaceFolders`, including nested folders such as `assets/private` and `operations/admin`
+- `manifest`, written to `<workspace>/.pib-workspace.json`
+- `workspaceInstructions`, used for `AGENTS.md` and `CLAUDE.md`
+- `folderRegistry`, accepted for response/audit metadata
+
+Legacy per-client Hermes profile configuration is disabled by default for this route. Only reusable PiB profiles (`pip`, `theo`, `maya`, etc.) run agent work; selected client context comes from `orgId` + `workspaceContext`.
+
+Deploy the repo-tracked sidecar after reviewing the diff:
+
+```bash
+scripts/deploy-hermes-admin-sidecar.sh
+```
+
+The deploy script compiles locally, backs up the live file on the VPS, copies `infra/hermes/admin_sidecar.py`, compiles remotely, restarts `hermes-admin-sidecar.service`, and checks that the service is active. Override target values with `HERMES_SIDECAR_HOST`, `HERMES_SIDECAR_PATH`, or `HERMES_SIDECAR_SERVICE` if needed.
+
+## Local Workspace pull
+
+The VPS remains canonical. Preview a pull without changing local files:
+
+```bash
+npm run workspace:pull -- --workspace "Vikings Wrestling" --dry-run
+```
+
+Pull the Workspace and its Obsidian agent domain to this Mac:
+
+```bash
+npm run workspace:pull -- --workspace "Vikings Wrestling" --apply
+```
+
+The command validates folder/domain/host input, never uses `--delete`, never pushes local files to the VPS, excludes nested Git metadata and keeps replacement backups under `.pib-pull-backups/<timestamp>`. Use `--plan` to print the exact argument-safe rsync plan without connecting.
+
+## Workspace integrity and cleanup audit
+
+Run the read-only Firestore/local/VPS audit before moving or deleting any legacy directories:
+
+```bash
+npm run workspace:audit -- --check-vps
+```
+
+Reports are generated under `scripts/workspace-audit-reports/` and classify missing local pulls separately from canonical VPS failures. Directories containing `.git`, `AGENTS.md`, or `CLAUDE.md` are reported as recognised non-Workspace projects. Known shared agent domains are reserved. Any remaining unmapped entries are manual-review candidates only; the audit never deletes or moves them.
+
+Latest verified run (2026-07-10): 28 active Workspaces, 28 `ok`, 0 not pulled, 0 review required, 5 recognised project directories, 0 unmapped top-level directories, and 0 unmapped agent domains.
 
 ## Endpoint Contract
 

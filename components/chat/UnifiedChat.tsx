@@ -63,7 +63,7 @@ export interface UnifiedChatProps {
   currentUserDisplayName: string
   orgName?: string
   projectId?: string
-  scope?: 'general' | 'project' | 'task' | 'campaign' | 'company' | 'contact'
+  scope?: ConversationScope
   scopeRefId?: string
   initialConvId?: string
   initialAgentId?: AgentId
@@ -109,6 +109,35 @@ interface QueuedComposerDraft {
   attachments: File[]
   queuedAt: number
 }
+
+interface OrgWorkspaceSummary {
+  workspaceId: string
+  orgId: string
+  orgSlug: string
+  orgName: string
+  agentDomain: string
+  vpsPath: string
+  localPath: string
+  sourceOfTruth: 'vps'
+  syncMode: string
+  defaultRuntimeTarget: string
+}
+
+interface WorkspaceRuntimePresence {
+  id: string
+  label: string
+  hostId?: string
+  enabled: boolean
+  isLocal: boolean
+  isFresh: boolean
+  isHealthy: boolean
+  selectable: boolean
+  lastSeenAt: string | null
+  ageSeconds: number | null
+  lastHealthStatus: string | null
+}
+
+type ConversationScope = 'general' | 'project' | 'workspace' | 'task' | 'campaign' | 'company' | 'contact'
 
 function composerHistoryStorageKey(orgId: string, conversationId: string): string {
   return `${COMPOSER_HISTORY_STORAGE_PREFIX}:${orgId}:${conversationId}`
@@ -170,7 +199,7 @@ function writePinnedConversationIds(orgId: string, ids: string[]): void {
 }
 
 function isProjectConversation(conversation: Conversation): boolean {
-  return conversation.scope === 'project' || conversation.contextRefs?.some((ref) => ref.type === 'project') === true
+  return conversation.scope === 'project' || conversation.scope === 'workspace' || conversation.contextRefs?.some((ref) => ref.type === 'project') === true
 }
 
 function isAgentConversation(conversation: Conversation): boolean {
@@ -190,7 +219,7 @@ function buildHermesSessionSections(conversations: Conversation[], pinnedIds: st
 
   return [
     { id: 'pinned', label: 'Pinned', conversations: pinned },
-    { id: 'projects', label: 'Projects', conversations: projects },
+    { id: 'projects', label: 'Workspaces', conversations: projects },
     { id: 'agents', label: 'Agents', conversations: agents },
     { id: 'recent', label: 'Recent', conversations: recent },
   ].filter((section) => section.conversations.length > 0)
@@ -381,9 +410,15 @@ export default function UnifiedChat({
   const [showNewModal, setShowNewModal] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newParticipants, setNewParticipants] = useState<SelectedParticipant[]>([])
-  const [newScope, setNewScope] = useState<'general' | 'project' | 'task' | 'campaign' | 'company' | 'contact'>(
+  const [newScope, setNewScope] = useState<ConversationScope>(
     scope ?? (projectId ? 'project' : 'general'),
   )
+  const [workspaces, setWorkspaces] = useState<OrgWorkspaceSummary[]>([])
+  const [workspaceRuntimeTargets, setWorkspaceRuntimeTargets] = useState<WorkspaceRuntimePresence[]>([])
+  const [workspacesLoading, setWorkspacesLoading] = useState(false)
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('')
+  const [selectedWorkspaceRuntime, setSelectedWorkspaceRuntime] = useState<'vps' | 'local'>('vps')
+  const [selectedWorkspaceShareMode, setSelectedWorkspaceShareMode] = useState<'private' | 'shared' | 'org'>('private')
   const [creatingConv, setCreatingConv] = useState(false)
 
   // Attachment state
@@ -450,6 +485,17 @@ export default function UnifiedChat({
   )
   const canUseComposer = allowSendMessages && (Boolean(activeConversation) || allowStartConversations)
   const activeQueuedDrafts = activeId ? (queuedDraftsByConversation[activeId] ?? []) : []
+  const selectedWorkspace = useMemo(
+    () => workspaces.find((workspace) => workspace.workspaceId === selectedWorkspaceId) ?? null,
+    [workspaces, selectedWorkspaceId],
+  )
+  const activeWorkspaceContext = activeConversation?.workspaceContext
+  const activeRuntimeLabel = activeWorkspaceContext?.runtimeLabel
+    ?? (activeWorkspaceContext?.runtimeTarget === 'local'
+      ? 'Local'
+      : activeWorkspaceContext?.runtimeTarget === 'vps'
+        ? 'VPS'
+        : activeWorkspaceContext?.runtimeTarget)
   const visibleConversations = useMemo(
     () => conversations.filter((conversation) => !conversation.archived),
     [conversations],
@@ -505,6 +551,40 @@ export default function UnifiedChat({
         setAgentMap(map)
       })
       .catch(() => {})
+  }, [orgId])
+
+  useEffect(() => {
+    let cancelled = false
+    setWorkspacesLoading(true)
+    fetch(`/api/v1/workspaces?${new URLSearchParams({ orgId }).toString()}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => {
+        if (cancelled) return
+        const next = Array.isArray(body?.data?.workspaces)
+          ? (body.data.workspaces as OrgWorkspaceSummary[])
+          : []
+        const runtimes = Array.isArray(body?.data?.runtimeTargets)
+          ? (body.data.runtimeTargets as WorkspaceRuntimePresence[])
+          : []
+        setWorkspaces(next)
+        setWorkspaceRuntimeTargets(runtimes)
+        setSelectedWorkspaceId((current) => current || next[0]?.workspaceId || '')
+        setSelectedWorkspaceRuntime((current) => {
+          const currentTarget = runtimes.find((runtime) => runtime.id === current)
+          if (currentTarget?.selectable) return current
+          return runtimes.some((runtime) => runtime.id === 'vps' && runtime.selectable) ? 'vps' : current
+        })
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setWorkspaces([])
+          setWorkspaceRuntimeTargets([])
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setWorkspacesLoading(false)
+      })
+    return () => { cancelled = true }
   }, [orgId])
 
   useEffect(() => {
@@ -1530,6 +1610,12 @@ export default function UnifiedChat({
       }
       if (newTitle.trim()) payload.title = newTitle.trim()
       if (newScope !== 'general') payload.scope = newScope
+      if (newScope === 'workspace') {
+        if (!selectedWorkspaceId) throw new Error('Select a Workspace before starting a Workspace chat.')
+        payload.workspaceId = selectedWorkspaceId
+        payload.runtimeTarget = selectedWorkspaceRuntime
+        payload.shareMode = selectedWorkspaceShareMode
+      }
       if (newScope === scope && scopeRefId) payload.scopeRefId = scopeRefId
       if (newScope === 'project' && projectId) payload.scopeRefId = projectId
       if (contextRefs.length > 0) payload.contextRefs = contextRefs
@@ -1557,7 +1643,7 @@ export default function UnifiedChat({
     } finally {
       setCreatingConv(false)
     }
-  }, [allowStartConversations, creatingConv, newParticipants, newTitle, newScope, orgId, projectId, scope, scopeRefId, contextRefs])
+  }, [allowStartConversations, creatingConv, newParticipants, newTitle, newScope, orgId, projectId, scope, scopeRefId, contextRefs, selectedWorkspaceId, selectedWorkspaceRuntime, selectedWorkspaceShareMode])
 
   const send = useCallback(
     async (e: FormEvent) => {
@@ -1777,8 +1863,9 @@ export default function UnifiedChat({
   const subtitle = [orgName, scopeLabel].filter(Boolean).join(' · ')
   const availableConversationContexts = [
     { value: 'general' as const, label: `Workspace-wide${orgName ? `: ${orgName}` : ''}` },
+    ...(workspaces.length > 0 ? [{ value: 'workspace' as const, label: 'Workspace' }] : []),
     ...(projectId ? [{ value: 'project' as const, label: `Current project: ${projectId}` }] : []),
-    ...(scope && scope !== 'general' && scope !== 'project'
+    ...(scope && scope !== 'general' && scope !== 'project' && scope !== 'workspace'
       ? [{ value: scope, label: `Current ${scope}: ${scopeRefId ?? 'selected item'}` }]
       : []),
   ]
@@ -2096,6 +2183,16 @@ export default function UnifiedChat({
                 </div>
               )}
             </div>
+
+            {activeWorkspaceContext && activeRuntimeLabel && (
+              <div
+                className="hidden shrink-0 items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2 py-1 text-[10px] font-mono uppercase tracking-wide text-primary lg:flex"
+                title={`${activeWorkspaceContext.orgName} · ${activeRuntimeLabel}`}
+              >
+                <span className="material-symbols-outlined text-[13px]">folder_managed</span>
+                {activeRuntimeLabel}
+              </div>
+            )}
 
             {activeModelAgentId && !hermesLayout && (
               <div className="hidden min-w-0 shrink-0 lg:block">
@@ -2795,7 +2892,7 @@ export default function UnifiedChat({
                 </label>
                 <select
                   value={newScope}
-                  onChange={(e) => setNewScope(e.target.value as 'general' | 'project' | 'task' | 'campaign' | 'company' | 'contact')}
+                  onChange={(e) => setNewScope(e.target.value as ConversationScope)}
                   className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface outline-none focus:border-primary/60"
                 >
                   {availableConversationContexts.map((option) => (
@@ -2805,6 +2902,83 @@ export default function UnifiedChat({
                   ))}
                 </select>
               </div>
+
+              {newScope === 'workspace' && (
+                <div className="grid gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3 sm:grid-cols-[minmax(0,1fr)_160px]">
+                  <div>
+                    <label className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                      Workspace
+                    </label>
+                    <select
+                      value={selectedWorkspaceId}
+                      onChange={(e) => setSelectedWorkspaceId(e.target.value)}
+                      disabled={workspacesLoading || workspaces.length === 0}
+                      className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface outline-none focus:border-primary/60 disabled:opacity-60"
+                    >
+                      {workspaces.length === 0 ? (
+                        <option value="">{workspacesLoading ? 'Loading Workspaces…' : 'No Workspaces available'}</option>
+                      ) : workspaces.map((workspace) => (
+                        <option key={workspace.workspaceId} value={workspace.workspaceId}>
+                          {workspace.orgName}
+                        </option>
+                      ))}
+                    </select>
+                    {selectedWorkspace && (
+                      <div className="mt-1 truncate text-[11px] text-on-surface-variant">
+                        VPS truth · {selectedWorkspace.vpsPath}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                      Runtime
+                    </label>
+                    <select
+                      value={selectedWorkspaceRuntime}
+                      onChange={(e) => setSelectedWorkspaceRuntime(e.target.value as 'vps' | 'local')}
+                      className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface outline-none focus:border-primary/60"
+                    >
+                      {(workspaceRuntimeTargets.length > 0
+                        ? workspaceRuntimeTargets
+                        : [{ id: 'vps', label: 'VPS', selectable: true, isLocal: false, isFresh: true, isHealthy: true, enabled: true, lastSeenAt: null, ageSeconds: null, lastHealthStatus: null }]
+                      ).map((runtime) => {
+                        const status = runtime.isLocal
+                          ? runtime.isFresh && runtime.isHealthy
+                            ? runtime.ageSeconds != null
+                              ? ` · online ${runtime.ageSeconds < 60 ? 'now' : `${Math.floor(runtime.ageSeconds / 60)}m ago`}`
+                              : ' · online'
+                            : ' · offline'
+                          : ''
+                        return (
+                          <option key={runtime.id} value={runtime.id} disabled={!runtime.selectable}>
+                            {runtime.label}{status}
+                          </option>
+                        )
+                      })}
+                    </select>
+                    <div className="mt-1 text-[11px] text-on-surface-variant">
+                      Stale local runtimes are unavailable; VPS remains the canonical fallback.
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                      Visibility
+                    </label>
+                    <select
+                      value={selectedWorkspaceShareMode}
+                      onChange={(e) => setSelectedWorkspaceShareMode(e.target.value as 'private' | 'shared' | 'org')}
+                      className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface outline-none focus:border-primary/60"
+                    >
+                      <option value="private">Private · only me</option>
+                      <option value="shared">Shared · selected participants</option>
+                      <option value="org">Organisation · all Workspace members</option>
+                    </select>
+                    <div className="mt-1 text-[11px] text-on-surface-variant">
+                      Private is the default. Organisation conversations are visible to every member with Workspace access.
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {error && (
                 <div className="rounded-lg border border-red-400/25 bg-red-500/10 px-3 py-2 text-xs text-red-200">
@@ -2825,7 +2999,7 @@ export default function UnifiedChat({
               <button
                 type="button"
                 onClick={handleCreateConversation}
-                disabled={!allowStartConversations || creatingConv || newParticipants.length === 0}
+                disabled={!allowStartConversations || creatingConv || newParticipants.length === 0 || (newScope === 'workspace' && !selectedWorkspaceId)}
                 className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary disabled:opacity-50 hover:opacity-90"
               >
                 {creatingConv ? 'Creating…' : 'Start conversation'}

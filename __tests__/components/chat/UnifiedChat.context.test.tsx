@@ -138,6 +138,7 @@ describe('UnifiedChat message scrolling', () => {
       const url = String(input)
       if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
       if (url.includes('/visible-agents')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [] } })
       if (url.startsWith('/api/v1/conversations?')) {
         return jsonResponse({ data: { conversations: [baseConversation] } })
       }
@@ -276,6 +277,7 @@ describe('UnifiedChat message scrolling', () => {
       const url = String(input)
       if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
       if (url.includes('/visible-agents')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [] } })
       if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations } })
       if (url.includes('/messages')) return jsonResponse({ data: { messages: [] } })
       throw new Error(`Unhandled fetch: ${url}`)
@@ -337,6 +339,7 @@ describe('UnifiedChat message scrolling', () => {
       const url = String(input)
       if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
       if (url.includes('/visible-agents')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [] } })
       if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations } })
       if (url.includes('/messages')) return jsonResponse({ data: { messages: [] } })
       throw new Error(`Unhandled fetch: ${url}`)
@@ -424,6 +427,7 @@ describe('UnifiedChat context references', () => {
           ],
         })
       }
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [] } })
       if (url.startsWith('/api/v1/conversations?')) {
         return jsonResponse({ data: { conversations: [conversation] } })
       }
@@ -744,6 +748,7 @@ describe('UnifiedChat context references', () => {
       const url = String(input)
       if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
       if (url.includes('/visible-agents')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [] } })
       if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [conversation] } })
       if (url === '/api/v1/conversations/conv-1/messages') {
         if (init?.method === 'POST') {
@@ -829,6 +834,7 @@ describe('UnifiedChat context references', () => {
       if (url.includes('/visible-agents')) {
         return jsonResponse({ data: [] })
       }
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [] } })
       if (url.startsWith('/api/v1/conversations?')) {
         return jsonResponse({ data: { conversations: [] } })
       }
@@ -972,6 +978,7 @@ describe('UnifiedChat context references', () => {
       if (url.includes('/visible-agents')) {
         return jsonResponse({ data: [] })
       }
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [] } })
       if (url.startsWith('/api/v1/conversations?')) {
         return jsonResponse({ data: { conversations: [conversation] } })
       }
@@ -1032,6 +1039,7 @@ describe('UnifiedChat context references', () => {
       if (url.includes('/visible-agents')) {
         return jsonResponse({ data: [] })
       }
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [] } })
       if (url.startsWith('/api/v1/conversations?')) {
         return jsonResponse({ data: { conversations: [conversation] } })
       }
@@ -1090,6 +1098,7 @@ describe('UnifiedChat context references', () => {
       if (url.includes('/visible-agents')) {
         return jsonResponse({ data: [] })
       }
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [] } })
       if (url.startsWith('/api/v1/conversations?')) {
         return jsonResponse({ data: { conversations: [conversation] } })
       }
@@ -1151,6 +1160,7 @@ describe('UnifiedChat context references', () => {
       if (url.includes('/visible-agents')) {
         return jsonResponse({ data: [] })
       }
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [] } })
       if (url.startsWith('/api/v1/conversations?')) {
         return jsonResponse({ data: { conversations: [] } })
       }

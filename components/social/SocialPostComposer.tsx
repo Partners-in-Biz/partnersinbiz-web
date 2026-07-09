@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import PlatformPreview from '@/components/social/PlatformPreview'
 import { appendQueryParams } from '@/lib/portal/scoped-routing'
+import { useResolvedPortalOrgId } from '@/components/portal/useResolvedPortalOrgId'
 
 type SocialScope = 'org' | 'personal'
 type ComposeMode = 'single' | 'thread'
@@ -148,6 +149,7 @@ export default function SocialPostComposer({
 }: SocialPostComposerProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { orgId: resolvedOrgId, resolving: resolvingOrgId } = useResolvedPortalOrgId(orgId)
 
   const [accounts, setAccounts] = useState<Account[]>([])
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([])
@@ -209,10 +211,11 @@ export default function SocialPostComposer({
 
   const socialApiPath = useCallback((path: string) => appendQueryParams(path, {
     scope: scope === 'personal' ? 'personal' : undefined,
-    orgId,
-  }), [orgId, scope])
+    orgId: resolvedOrgId,
+  }), [resolvedOrgId, scope])
 
   useEffect(() => {
+    if (resolvingOrgId) return
     fetch(socialApiPath('/api/v1/social/accounts'))
       .then((response) => response.json())
       .then((body) => {
@@ -223,7 +226,7 @@ export default function SocialPostComposer({
         }))
       })
       .catch(() => setAccounts([]))
-  }, [accountFilter, socialApiPath])
+  }, [accountFilter, resolvingOrgId, socialApiPath])
 
   useEffect(() => {
     if (!advanced) return

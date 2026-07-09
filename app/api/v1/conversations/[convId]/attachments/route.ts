@@ -8,6 +8,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { actorFrom } from '@/lib/api/actor'
 import { getConversation } from '@/lib/conversations/conversations'
 import type { ApiUser } from '@/lib/api/types'
+import { canAccessConversation } from '@/lib/conversations/access'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,11 +29,6 @@ const ALLOWED_MIME = new Set([
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 ])
 
-function canAccess(user: ApiUser, participantUids: string[]): boolean {
-  if (user.role === 'admin' || user.role === 'ai') return true
-  return participantUids.includes(user.uid)
-}
-
 function extensionFor(file: File): string {
   const ext = file.name.split('.').pop()?.trim().toLowerCase()
   if (ext && /^[a-z0-9]{1,12}$/.test(ext)) return ext
@@ -50,7 +46,7 @@ export const POST = withAuth(
     const { convId } = await (context as Params).params
     const conversation = await getConversation(convId)
     if (!conversation) return apiError('Conversation not found', 404)
-    if (!canAccess(user, conversation.participantUids)) return apiError('Forbidden', 403)
+    if (!canAccessConversation(user, conversation)) return apiError('Forbidden', 403)
 
     const contentLengthHeader = req.headers.get('content-length')
     if (contentLengthHeader) {

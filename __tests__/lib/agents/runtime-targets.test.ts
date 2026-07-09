@@ -1,4 +1,4 @@
-import { selectAgentRuntimeTarget } from '@/lib/agents/runtime-targets'
+import { publicRuntimeTargetPresence, selectAgentRuntimeTarget } from '@/lib/agents/runtime-targets'
 
 describe('agent runtime targets', () => {
   const now = Date.parse('2026-07-08T10:00:00Z')
@@ -84,5 +84,81 @@ describe('agent runtime targets', () => {
         },
       },
     })).toMatchObject({ targetId: 'local' })
+  })
+
+  it('returns sanitized, presence-aware runtime targets for the Workspace UI', () => {
+    expect(publicRuntimeTargetPresence({
+      vps: {
+        baseUrl: 'https://hermes-api.example/profiles/pip',
+        apiKey: 'secret-vps-key',
+        enabled: true,
+        label: 'VPS Hermes',
+      },
+      local: {
+        baseUrl: 'https://mac-tunnel.example/profiles/pip',
+        apiKey: 'secret-local-key',
+        enabled: true,
+        hostId: 'peets-mac-mini',
+        capabilities: ['local-files'],
+        lastSeenAt: '2026-07-08T09:59:00Z',
+        lastHealthStatus: 'ok',
+      },
+    }, { nowMs: now })).toEqual([
+      {
+        id: 'vps',
+        label: 'VPS Hermes',
+        enabled: true,
+        isLocal: false,
+        isFresh: true,
+        isHealthy: true,
+        selectable: true,
+        lastSeenAt: null,
+        ageSeconds: null,
+        lastHealthStatus: null,
+      },
+      {
+        id: 'local',
+        label: "Local: Peet's Mac",
+        hostId: 'peets-mac-mini',
+        enabled: true,
+        isLocal: true,
+        isFresh: true,
+        isHealthy: true,
+        selectable: true,
+        lastSeenAt: '2026-07-08T09:59:00.000Z',
+        ageSeconds: 60,
+        lastHealthStatus: 'ok',
+      },
+    ])
+  })
+
+  it('marks stale local runtimes unavailable without exposing connection details', () => {
+    const [local] = publicRuntimeTargetPresence({
+      local: {
+        baseUrl: 'https://mac-tunnel.example/profiles/pip',
+        apiKey: 'secret-local-key',
+        enabled: true,
+        hostId: 'peets-mac-mini',
+        capabilities: ['local-files'],
+        lastSeenAt: '2026-07-08T09:00:00Z',
+      },
+    }, { nowMs: now })
+    expect(local).toMatchObject({ id: 'local', isFresh: false, selectable: false, ageSeconds: 3600 })
+    expect(local).not.toHaveProperty('baseUrl')
+    expect(local).not.toHaveProperty('apiKey')
+  })
+
+  it('marks a fresh but unreachable runtime unavailable', () => {
+    const [local] = publicRuntimeTargetPresence({
+      local: {
+        baseUrl: 'https://mac-tunnel.example/profiles/pip',
+        apiKey: 'secret-local-key',
+        enabled: true,
+        capabilities: ['local-files'],
+        lastSeenAt: '2026-07-08T09:59:00Z',
+        lastHealthStatus: 'unreachable',
+      },
+    }, { nowMs: now })
+    expect(local).toMatchObject({ isFresh: true, isHealthy: false, selectable: false })
   })
 })
