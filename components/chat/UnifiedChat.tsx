@@ -132,7 +132,8 @@ function writeComposerHistory(orgId: string, conversationId: string, entries: st
     const key = composerHistoryStorageKey(orgId, conversationId)
     if (entries.length === 0) window.localStorage.removeItem(key)
     else window.localStorage.setItem(key, JSON.stringify(entries.slice(-MAX_COMPOSER_HISTORY_ENTRIES)))
-  } catch {
+  } catch (err) {
+    void err
     // Best effort only: private browsing/storage failures should not break chat.
   }
 }
@@ -1132,7 +1133,11 @@ export default function UnifiedChat({
   }, [activeId, focusComposerToEnd, removeQueuedDraft, updateMentionFromComposer])
 
   const navigateComposerHistory = useCallback((event: KeyboardEvent<HTMLTextAreaElement>, direction: -1 | 1) => {
-    if (contextMention || contextTypePrompt || slashPrompt || composerHistory.length === 0) return false
+    const historyEntries = composerHistory.length > 0 || !activeId
+      ? composerHistory
+      : readComposerHistory(orgId, activeId)
+    if (contextMention || contextTypePrompt || slashPrompt || historyEntries.length === 0) return false
+    if (historyEntries !== composerHistory) setComposerHistory(historyEntries)
 
     const target = event.currentTarget
     const selectionStart = target.selectionStart ?? target.value.length
@@ -1152,19 +1157,19 @@ export default function UnifiedChat({
     if (direction < 0) {
       if (historyCursor === null) {
         historyDraftRef.current = input
-        nextCursor = composerHistory.length - 1
+        nextCursor = historyEntries.length - 1
       } else {
         nextCursor = Math.max(0, historyCursor - 1)
       }
-      nextInput = composerHistory[nextCursor] ?? ''
+      nextInput = historyEntries[nextCursor] ?? ''
     } else if (historyCursor === null) {
       return true
-    } else if (historyCursor >= composerHistory.length - 1) {
+    } else if (historyCursor >= historyEntries.length - 1) {
       nextCursor = null
       nextInput = historyDraftRef.current
     } else {
       nextCursor = historyCursor + 1
-      nextInput = composerHistory[nextCursor] ?? ''
+      nextInput = historyEntries[nextCursor] ?? ''
     }
 
     setHistoryCursor(nextCursor)
@@ -1172,7 +1177,7 @@ export default function UnifiedChat({
     updateMentionFromComposer(nextInput, nextInput.length)
     focusComposerToEnd(nextInput)
     return true
-  }, [composerHistory, contextMention, contextTypePrompt, focusComposerToEnd, historyCursor, input, slashPrompt, updateMentionFromComposer])
+  }, [activeId, composerHistory, contextMention, contextTypePrompt, focusComposerToEnd, historyCursor, input, orgId, slashPrompt, updateMentionFromComposer])
 
   const patchContextRefs = useCallback(async (
     action: 'add' | 'remove' | 'clear',
@@ -2388,6 +2393,8 @@ export default function UnifiedChat({
                   setContextSearchResults([])
                   return
                 }
+                if (e.key === 'ArrowUp' && navigateComposerHistory(e, -1)) return
+                if (e.key === 'ArrowDown' && navigateComposerHistory(e, 1)) return
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
                   send(e as unknown as FormEvent)
@@ -2396,6 +2403,8 @@ export default function UnifiedChat({
               placeholder={
                 !allowSendMessages
                   ? 'Replies disabled for your role'
+                  : hasInFlightAgentRun
+                    ? 'Queue a follow-up while Pip is running'
                   : activeConversation
                     ? 'Send a message'
                     : allowStartConversations
@@ -2419,9 +2428,9 @@ export default function UnifiedChat({
               ].join(' ')}
             >
               <span className={['material-symbols-outlined text-[20px]', compact ? '' : 'lg:hidden'].join(' ')}>
-                {sending ? 'hourglass_empty' : 'arrow_upward'}
+                {sending ? 'hourglass_empty' : hasInFlightAgentRun ? 'playlist_add' : 'arrow_upward'}
               </span>
-              {!compact && <span className="hidden lg:inline">{sending ? 'Sending…' : 'Send'}</span>}
+              {!compact && <span className="hidden lg:inline">{sending ? 'Sending…' : hasInFlightAgentRun ? 'Queue' : 'Send'}</span>}
             </button>
           </div>
         </form>

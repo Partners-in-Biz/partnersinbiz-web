@@ -1,10 +1,6 @@
 import { ImageResponse } from 'next/og'
 import { SITE } from '@/lib/seo/site'
 
-export const runtime = 'edge'
-
-export const dynamic = 'force-static'
-
 const size = { width: 1200, height: 630 }
 
 export function GET() {
