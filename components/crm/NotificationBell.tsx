@@ -87,11 +87,11 @@ export function NotificationBell({ mode = 'crm', orgId, userId }: NotificationBe
     setOpen(prev => !prev)
   }
 
-  async function markAllRead() {
-    if (markingRead || unreadCount === 0) return
+  async function clearNotifications() {
+    if (markingRead || notifications.length === 0) return
     setMarkingRead(true)
-    // Optimistic
-    setNotifications(prev => prev.map(n => ({ ...n, status: 'read' as const })))
+    // Optimistic: clearing means the notifications are read and no longer take UI space.
+    setNotifications([])
     setUnreadCount(0)
     try {
       if (mode === 'admin') {
@@ -138,13 +138,14 @@ export function NotificationBell({ mode = 'crm', orgId, userId }: NotificationBe
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-pib-line)] bg-white/[0.02]">
             <p className="eyebrow !text-[10px]">Notifications</p>
-            {unreadCount > 0 && (
+            {notifications.length > 0 && (
               <button
-                onClick={() => void markAllRead()}
+                onClick={() => void clearNotifications()}
                 disabled={markingRead}
-                className="text-[10px] text-[var(--color-pib-accent)] hover:underline disabled:opacity-50 cursor-pointer"
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium text-[var(--color-pib-accent)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Mark all read
+                <span className="material-symbols-outlined text-[13px]" aria-hidden="true">done_all</span>
+                Clear
               </button>
             )}
           </div>
