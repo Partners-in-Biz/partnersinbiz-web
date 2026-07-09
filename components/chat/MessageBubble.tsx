@@ -1304,12 +1304,14 @@ export default function MessageBubble({
   const renderedMessage = resolvedMessage(m)
   const [previewAttachment, setPreviewAttachment] = useState<ConversationAttachment | null>(null)
   const [copied, setCopied] = useState(false)
+  const [speaking, setSpeaking] = useState(false)
   const [selectionAction, setSelectionAction] = useState<{
     text: string
     left: number
     top: number
   } | null>(null)
   const contentRef = useRef<HTMLDivElement | null>(null)
+  const readAloudUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null)
   const isMine = m.authorId === currentUserUid
   const isTool = m.role === 'tool'
   const isPending = m.status === 'pending' || m.status === 'streaming'
@@ -1324,6 +1326,29 @@ export default function MessageBubble({
     setCopied(true)
     window.setTimeout(() => setCopied(false), 1200)
   }
+
+  const readMessageAloud = () => {
+    const text = textToCopy.trim()
+    if (!text || typeof window === 'undefined' || !('speechSynthesis' in window)) return
+    if (speaking) {
+      window.speechSynthesis.cancel()
+      setSpeaking(false)
+      return
+    }
+    const utterance = new SpeechSynthesisUtterance(text)
+    readAloudUtteranceRef.current = utterance
+    utterance.onend = () => setSpeaking(false)
+    utterance.onerror = () => setSpeaking(false)
+    setSpeaking(true)
+    window.speechSynthesis.cancel()
+    window.speechSynthesis.speak(utterance)
+  }
+
+  useEffect(() => () => {
+    if (readAloudUtteranceRef.current && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel()
+    }
+  }, [])
 
   useEffect(() => {
     if (!selectionAction) return
@@ -1376,23 +1401,35 @@ export default function MessageBubble({
     window.getSelection()?.removeAllRanges()
   }
 
-  const copyAction = textToCopy.trim() ? (
-    <button
-      type="button"
-      onClick={copyMessage}
-      className={[
-        'mt-1 inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-1 text-[11px]',
-        'text-on-surface-variant opacity-0 shadow-sm backdrop-blur transition group-hover/message:opacity-100',
-        'hover:border-primary/50 hover:text-on-surface focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary/50',
-      ].join(' ')}
-      aria-label="Copy message"
-      title="Copy message"
-    >
-      <span className="material-symbols-outlined text-[13px]">
-        {copied ? 'check' : 'content_copy'}
-      </span>
-      <span>{copied ? 'Copied' : 'Copy'}</span>
-    </button>
+  const messageActions = textToCopy.trim() ? (
+    <div className="mt-1 inline-flex flex-wrap items-center gap-1 opacity-0 transition group-hover/message:opacity-100 focus-within:opacity-100">
+      <button
+        type="button"
+        onClick={copyMessage}
+        className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-1 text-[11px] text-on-surface-variant shadow-sm backdrop-blur hover:border-primary/50 hover:text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
+        aria-label="Copy message"
+        title="Copy message"
+      >
+        <span className="material-symbols-outlined text-[13px]">
+          {copied ? 'check' : 'content_copy'}
+        </span>
+        <span>{copied ? 'Copied' : 'Copy'}</span>
+      </button>
+      {!isMine && (
+        <button
+          type="button"
+          onClick={readMessageAloud}
+          className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-1 text-[11px] text-on-surface-variant shadow-sm backdrop-blur hover:border-primary/50 hover:text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
+          aria-label={speaking ? 'Stop read aloud' : 'Read aloud'}
+          title={speaking ? 'Stop read aloud' : 'Read aloud'}
+        >
+          <span className="material-symbols-outlined text-[13px]">
+            {speaking ? 'stop_circle' : 'volume_up'}
+          </span>
+          <span>{speaking ? 'Stop' : 'Read aloud'}</span>
+        </button>
+      )}
+    </div>
   ) : null
 
   const selectionPopover = selectionAction ? (
@@ -1529,7 +1566,7 @@ export default function MessageBubble({
               <RichActionBar actions={renderedMessage.uiActions} message={renderedMessage} onUiAction={onUiAction} />
               </div>
             </div>
-            <div className="flex justify-end">{copyAction}</div>
+            <div className="flex justify-end">{messageActions}</div>
           </div>
         </div>
         {previewDialog}
@@ -1750,7 +1787,7 @@ export default function MessageBubble({
             <RichActionBar actions={renderedMessage.uiActions} message={renderedMessage} onUiAction={onUiAction} />
           </div>
         </div>
-        {copyAction}
+        {messageActions}
       </div>
       {previewDialog}
     </div>

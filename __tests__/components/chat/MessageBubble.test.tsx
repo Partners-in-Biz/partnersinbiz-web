@@ -59,6 +59,56 @@ describe('MessageBubble', () => {
     expect(closestMessageGroup(messageText)).toHaveClass('min-w-0')
   })
 
+  it('offers read-aloud controls for assistant messages', () => {
+    const speak = jest.fn()
+    const cancel = jest.fn()
+    class FakeSpeechSynthesisUtterance {
+      text: string
+      onend: (() => void) | null = null
+      onerror: (() => void) | null = null
+      constructor(text: string) {
+        this.text = text
+      }
+    }
+    Object.defineProperty(window, 'speechSynthesis', {
+      configurable: true,
+      value: { speak, cancel },
+    })
+    Object.defineProperty(window, 'SpeechSynthesisUtterance', {
+      configurable: true,
+      value: FakeSpeechSynthesisUtterance,
+    })
+    Object.defineProperty(globalThis, 'SpeechSynthesisUtterance', {
+      configurable: true,
+      value: FakeSpeechSynthesisUtterance,
+    })
+
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'msg-1',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: 'Read this response back to me.',
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'completed',
+        }}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /Read aloud/i }))
+
+    expect(cancel).toHaveBeenCalledTimes(1)
+    expect(speak).toHaveBeenCalledTimes(1)
+    expect(speak.mock.calls[0][0]).toMatchObject({ text: 'Read this response back to me.' })
+
+    fireEvent.click(screen.getByRole('button', { name: /Stop read aloud/i }))
+    expect(cancel).toHaveBeenCalledTimes(2)
+  })
+
   it('renders image attachments as clickable previews', () => {
     render(
       <MessageBubble
