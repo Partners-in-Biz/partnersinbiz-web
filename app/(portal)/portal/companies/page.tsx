@@ -325,7 +325,7 @@ export default function CompaniesPage() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-6 p-6">
+    <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:gap-6 sm:p-6">
       {/* ── Page header ── */}
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div className="max-w-3xl">
@@ -358,7 +358,7 @@ export default function CompaniesPage() {
       </div>
 
       {!loading && !error && (
-        <section className="flex flex-wrap gap-3">
+        <section className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
           <AccountMetric icon="domain" label="Accounts" value={String(companies.length)} sub={hasActiveFilters ? 'Matching current view' : 'Visible in workspace'} />
           <AccountMetric icon="handshake" label="Customers" value={String(metrics.customers)} sub={`${metrics.prospects} leads/prospects`} />
           <AccountMetric icon="hub" label="Client links" value={String(metrics.linkedOrgs)} sub="Linked portal organisations" />
@@ -379,7 +379,7 @@ export default function CompaniesPage() {
             type="button"
             onClick={() => setManagerLens(managerLens === 'unmanaged' ? 'all' : 'unmanaged')}
             className={[
-              'rounded-[var(--radius-card)] border p-4 text-left transition-colors',
+              'rounded-[var(--radius-card)] border p-3 text-left transition-colors sm:p-4',
               managerLens === 'unmanaged'
                 ? 'border-amber-400/40 bg-amber-400/10'
                 : 'border-[var(--color-pib-line)] bg-white/[0.03] hover:bg-white/[0.05]',
@@ -396,7 +396,7 @@ export default function CompaniesPage() {
                 : 'Every visible company has an account manager.'}
             </p>
           </button>
-          <div className="rounded-[var(--radius-card)] border border-[var(--color-pib-line)] bg-white/[0.03] p-4">
+          <div className="rounded-[var(--radius-card)] border border-[var(--color-pib-line)] bg-white/[0.03] p-3 sm:p-4">
             <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">assignment_ind</span>
             <p className="mt-3 text-sm font-semibold text-[var(--color-pib-text)]">Account responsibility</p>
             <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
@@ -407,7 +407,7 @@ export default function CompaniesPage() {
       )}
 
       {/* ── Filters bar ── */}
-      <div className="pib-card p-4">
+      <div className="pib-card p-3 sm:p-4">
         <CompanyFiltersBar value={filters} onChange={updateFilters} />
       </div>
 
