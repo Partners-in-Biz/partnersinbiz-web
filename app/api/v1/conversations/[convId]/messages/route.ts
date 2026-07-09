@@ -20,7 +20,7 @@ import {
   messagesCollection,
 } from '@/lib/conversations/conversations'
 import { createHermesRun } from '@/lib/hermes/server'
-import { getAgentDecryptedKey } from '@/lib/agents/team'
+import { getAgentDispatchHermesProfileLink } from '@/lib/agents/team'
 import { cleanAgentEffort, VALID_AGENT_EFFORTS, type AgentEffort } from '@/lib/agents/runRouting'
 import { buildAttachedContextBlock, resolveContextReferences } from '@/lib/context-references/registry'
 import {
@@ -34,7 +34,6 @@ import { buildAgentSkillsPromptBlock } from '@/lib/chat/agent-skills'
 import { CEO_APPROVAL_CARD_RULE_LINES, buildCeoDataDecisionOperatingRuleLines } from '@/lib/agent/ceo-operating-rule'
 import { validateMessageModelSelection } from '@/lib/messages/model-catalog'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
-import type { HermesProfileLink } from '@/lib/hermes/types'
 import type { ApiUser } from '@/lib/api/types'
 import type { AgentTeamDoc } from '@/lib/agents/types'
 import type { AgentId, Conversation, ConversationAttachment, ConversationMessage } from '@/lib/conversations/types'
@@ -388,10 +387,10 @@ export const POST = withAuth(
         status: 'pending',
       })
 
-      let decryptedKey: string | null
+      let agentLink: Awaited<ReturnType<typeof getAgentDispatchHermesProfileLink>>
       try {
-        // Decrypt API key
-        decryptedKey = await getAgentDecryptedKey(agentId)
+        agentLink = await getAgentDispatchHermesProfileLink(agentId, conversation.orgId)
+        if (!agentLink) throw new Error(`No reachable runtime target configured for agent_team/${agentId}`)
       } catch (err) {
         console.error('[conversation-agent-dispatch-failed]', {
           convId,
@@ -408,17 +407,6 @@ export const POST = withAuth(
           message,
           assistantMessage: { ...assistantMessage, status: 'failed', error },
         }, 201)
-      }
-
-      // Build a HermesProfileLink from agent_team data
-      const agentLink: HermesProfileLink = {
-        orgId: conversation.orgId,
-        profile: agentId,
-        baseUrl: agentData.baseUrl,
-        ...(decryptedKey ? { apiKey: decryptedKey } : {}),
-        enabled: agentData.enabled,
-        capabilities: { runs: true, dashboard: false, cron: false, models: false, tools: true, files: false, terminal: false },
-        permissions: { superAdmin: false, restrictedAdmin: false, client: true, allowedUserIds: [] },
       }
 
       // Build context string (org + conversation participants)

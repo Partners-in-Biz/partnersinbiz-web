@@ -16,6 +16,7 @@ import { mergeAgentRegistry, normalizeAgentRegistryInput } from './registry'
 import { buildAgentSkillPolicyState } from './skill-policy'
 import { buildRuntimeTargetMap, selectAgentRuntimeTarget, type AgentDispatchTarget } from './runtime-targets'
 import type { AgentId, AgentRegistryEntry, AgentTeamDoc, AgentTeamStoredDoc } from './types'
+import type { HermesProfileLink } from '@/lib/hermes/types'
 
 // ---------------------------------------------------------------------------
 // Encryption — AES-256-GCM, same algorithm as lib/social/encryption.ts.
@@ -179,6 +180,32 @@ export async function getAgentDecryptedKey(agentId: AgentId): Promise<string | n
   const raw = await getRaw(agentId)
   if (!raw) return null
   return decryptAgentApiKey(raw.apiKey)
+}
+
+/**
+ * Build the Hermes link used by chat/finalizer dispatch through the same
+ * runtime-target resolver as admin health/control calls. This keeps unified
+ * chat aligned with `agent_dispatch_configs` (including local-vs-VPS routing)
+ * instead of relying only on the legacy encrypted `agent_team.apiKey` fields.
+ */
+export async function getAgentDispatchHermesProfileLink(
+  agentId: AgentId,
+  orgId: string,
+  options: AgentRuntimeCallOptions = {},
+): Promise<HermesProfileLink | null> {
+  const raw = await getRaw(agentId)
+  if (!raw) return null
+  const target = await resolveAgentDispatchTarget(agentId, raw, options)
+  if (!target) return null
+  return {
+    orgId,
+    profile: agentId,
+    baseUrl: target.baseUrl,
+    apiKey: target.apiKey,
+    enabled: raw.enabled,
+    capabilities: { runs: true, dashboard: false, cron: false, models: false, tools: true, files: false, terminal: false },
+    permissions: { superAdmin: false, restrictedAdmin: false, client: true, allowedUserIds: [] },
+  }
 }
 
 type UpdateableFields = Partial<

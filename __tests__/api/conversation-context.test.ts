@@ -13,7 +13,7 @@ const mockListMessages = jest.fn()
 const mockTouchConversation = jest.fn()
 const mockMessagesCollection = jest.fn()
 const mockCreateHermesRun = jest.fn()
-const mockGetAgentDecryptedKey = jest.fn()
+const mockGetAgentDispatchHermesProfileLink = jest.fn()
 const mockResolveContextReferences = jest.fn()
 const mockBuildAttachedContextBlock = jest.fn()
 
@@ -41,7 +41,7 @@ jest.mock('@/lib/hermes/server', () => ({
 }))
 
 jest.mock('@/lib/agents/team', () => ({
-  getAgentDecryptedKey: mockGetAgentDecryptedKey,
+  getAgentDispatchHermesProfileLink: mockGetAgentDispatchHermesProfileLink,
 }))
 
 jest.mock('@/lib/context-references/registry', () => ({
@@ -96,7 +96,15 @@ beforeEach(() => {
   })
   mockTouchConversation.mockResolvedValue(undefined)
   mockListMessages.mockResolvedValue([])
-  mockGetAgentDecryptedKey.mockResolvedValue('secret')
+  mockGetAgentDispatchHermesProfileLink.mockResolvedValue({
+    orgId: 'org-1',
+    profile: 'pip',
+    baseUrl: 'https://hermes.example.com',
+    apiKey: 'secret',
+    enabled: true,
+    capabilities: { runs: true, dashboard: false, cron: false, models: false, tools: true, files: false, terminal: false },
+    permissions: { superAdmin: false, restrictedAdmin: false, client: true, allowedUserIds: [] },
+  })
   mockCreateHermesRun.mockResolvedValue({
     response: { ok: true },
     data: { run_id: 'run-1' },

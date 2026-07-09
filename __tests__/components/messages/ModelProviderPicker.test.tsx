@@ -54,7 +54,7 @@ describe('ModelProviderPicker', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /Claude Sonnet 4.6/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Auto model/i }))
     fireEvent.change(screen.getByPlaceholderText('Search models or providers'), { target: { value: 'gpt' } })
     fireEvent.click(screen.getByText('GPT-5.5').closest('button') as HTMLButtonElement)
 
@@ -70,7 +70,7 @@ describe('ModelProviderPicker', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /Claude Sonnet 4.6/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Auto model/i }))
     fireEvent.click(screen.getByRole('button', { name: /Pin GPT-5.5/i }))
 
     expect(window.localStorage.getItem('pib.messages.pinnedModels.v1')).toContain('openai:openai/gpt-5.5')
@@ -86,6 +86,22 @@ describe('ModelProviderPicker', () => {
       />,
     )
 
-    expect(screen.getByRole('button', { name: /Claude Sonnet 4.6/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Auto model/i })).toBeDisabled()
+  })
+
+  it('clears explicit model overrides when Auto model is selected', () => {
+    const onSelect = jest.fn()
+    render(
+      <ModelProviderPicker
+        catalog={catalog}
+        selected={{ model: 'openai/gpt-5.5', provider: 'openai' }}
+        onSelect={onSelect}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /GPT-5.5/i }))
+    fireEvent.click(screen.getByText('Auto model').closest('button') as HTMLButtonElement)
+
+    expect(onSelect).toHaveBeenCalledWith(null)
   })
 })
