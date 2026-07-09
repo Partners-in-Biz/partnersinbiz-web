@@ -12,6 +12,9 @@ interface RuntimeInspectorRailProps {
   catalog: MessageModelCatalog | null
   canStop?: boolean
   onStop?: () => void
+  collapsed?: boolean
+  onCollapsedChange?: (collapsed: boolean) => void
+  variant?: 'classic' | 'hermes'
 }
 
 function eventLabel(event: ChatEvent): string {
@@ -49,6 +52,9 @@ export function RuntimeInspectorRail({
   catalog,
   canStop = false,
   onStop,
+  collapsed = false,
+  onCollapsedChange,
+  variant = 'classic',
 }: RuntimeInspectorRailProps) {
   const runtimeModel = activeMessage?.model ?? selectedRuntime?.model ?? catalog?.currentModel
   const runtimeProvider = activeMessage?.provider ?? selectedRuntime?.provider ?? catalog?.currentProvider
@@ -62,12 +68,70 @@ export function RuntimeInspectorRail({
     window.setTimeout(() => setCopiedRunId(false), 1200)
   }
 
+  if (collapsed) {
+    return (
+      <aside
+        data-testid="runtime-inspector-rail"
+        data-collapsed="true"
+        className="hidden min-h-0 w-11 flex-col items-center gap-2 overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-black/[0.08] py-2 xl:flex"
+      >
+        <button
+          type="button"
+          onClick={() => onCollapsedChange?.(false)}
+          className="grid h-8 w-8 place-items-center rounded-lg text-on-surface-variant hover:bg-white/[0.08] hover:text-on-surface"
+          aria-label="Expand runtime inspector"
+          title="Expand runtime inspector"
+        >
+          <span className="material-symbols-outlined text-[17px]">developer_board</span>
+        </button>
+        <span
+          className={[
+            'h-2 w-2 rounded-full',
+            status === 'pending' || status === 'streaming' || status === 'waiting_approval'
+              ? 'bg-primary'
+              : activeMessage?.runId
+                ? 'bg-emerald-400'
+                : 'bg-white/25',
+          ].join(' ')}
+          title={`Runtime status: ${status}`}
+        />
+        {events.length > 0 && (
+          <span className="rounded-full bg-white/[0.06] px-1 text-[10px] text-on-surface-variant" title="Live runtime events">
+            {events.length}
+          </span>
+        )}
+      </aside>
+    )
+  }
+
   return (
-    <aside data-testid="runtime-inspector-rail" className="hidden xl:flex min-h-0 w-[280px] flex-col overflow-hidden rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card)]/70">
+    <aside
+      data-testid="runtime-inspector-rail"
+      data-collapsed="false"
+      className={[
+        'hidden min-h-0 flex-col overflow-hidden border border-[var(--color-card-border)] xl:flex',
+        variant === 'hermes'
+          ? 'w-[260px] rounded-xl bg-black/[0.08]'
+          : 'w-[280px] rounded-2xl bg-[var(--color-card)]/70',
+      ].join(' ')}
+    >
       <div className="border-b border-[var(--color-card-border)] px-3 py-3">
-        <div className="flex items-center gap-2 text-xs font-semibold text-on-surface">
-          <span className="material-symbols-outlined text-[16px]">developer_board</span>
-          Runtime inspector
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-xs font-semibold text-on-surface">
+            <span className="material-symbols-outlined text-[16px]">developer_board</span>
+            Runtime inspector
+          </div>
+          {onCollapsedChange && (
+            <button
+              type="button"
+              onClick={() => onCollapsedChange(true)}
+              className="grid h-7 w-7 place-items-center rounded-full text-on-surface-variant hover:bg-white/[0.08] hover:text-on-surface"
+              aria-label="Collapse runtime inspector"
+              title="Collapse runtime inspector"
+            >
+              <span className="material-symbols-outlined text-[15px]">right_panel_close</span>
+            </button>
+          )}
         </div>
         <div className="mt-1 truncate text-[11px] text-on-surface-variant">
           Hermes run, model, provider and live event status

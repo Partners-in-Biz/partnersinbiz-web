@@ -295,6 +295,7 @@ export default function UnifiedChat({
   const [composerHistory, setComposerHistory] = useState<string[]>([])
   const [historyCursor, setHistoryCursor] = useState<number | null>(null)
   const [queuedDraftsByConversation, setQueuedDraftsByConversation] = useState<Record<string, QueuedComposerDraft[]>>({})
+  const [runtimeInspectorOpen, setRuntimeInspectorOpen] = useState(false)
 
   // Agent map for looking up colorKey / iconKey for bubbles
   const [agentMap, setAgentMap] = useState<Record<AgentId, AgentTeamDoc>>({} as Record<AgentId, AgentTeamDoc>)
@@ -1700,6 +1701,20 @@ export default function UnifiedChat({
   ]
   const showListOnMobile = mobilePane === 'list'
   const hermesLayout = layoutVariant === 'hermes' && !compact
+  const canStopActiveRun = Boolean(
+    allowDeleteConversations &&
+    activeRuntimeMessage?.runId &&
+    activeId &&
+    (activeRuntimeMessage?.status === 'pending' ||
+      activeRuntimeMessage?.status === 'streaming' ||
+      activeRuntimeMessage?.status === 'waiting_approval'),
+  )
+  const showRuntimeInspectorRail = !compact
+  const showComposerContextToolbar = Boolean(
+    currentPageContext ||
+    contextRefs.length > 0 ||
+    (!hermesLayout && (allowAgentParticipants || activeModelAgentId)),
+  )
 
   return (
     <div
@@ -1709,7 +1724,9 @@ export default function UnifiedChat({
         compact
           ? 'flex h-full min-h-0 min-w-0 flex-1 overflow-hidden'
           : hermesLayout
-            ? 'flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-2 lg:grid-cols-[236px_minmax(0,1fr)] xl:grid-cols-[236px_minmax(0,1fr)_260px]'
+            ? runtimeInspectorOpen
+              ? 'flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-2 lg:grid-cols-[236px_minmax(0,1fr)] xl:grid-cols-[236px_minmax(0,1fr)_260px]'
+              : 'flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-2 lg:grid-cols-[236px_minmax(0,1fr)] xl:grid-cols-[236px_minmax(0,1fr)_44px]'
             : 'flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-4 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_280px]'
       }
     >
@@ -1872,7 +1889,9 @@ export default function UnifiedChat({
       {/* ── Right: active conversation ──────────────────────────────────── */}
       <section
         className={[
-          'pib-card flex-col overflow-hidden min-h-0 min-w-0 flex-1',
+          hermesLayout
+            ? 'flex-col overflow-hidden min-h-0 min-w-0 flex-1 rounded-xl border border-[var(--color-card-border)] bg-black/[0.06]'
+            : 'pib-card flex-col overflow-hidden min-h-0 min-w-0 flex-1',
           compact ? '!p-0 !rounded-none !border-0 !bg-transparent' : 'lg:flex max-lg:!p-0 max-lg:!rounded-none max-lg:!border-0 max-lg:!bg-transparent',
           showListOnMobile ? 'hidden' : 'flex',
         ].join(' ')}
@@ -1906,7 +1925,7 @@ export default function UnifiedChat({
               )}
             </div>
 
-            {activeModelAgentId && (
+            {activeModelAgentId && !hermesLayout && (
               <div className="hidden min-w-0 shrink-0 lg:block">
                 <ModelProviderPicker
                   catalog={modelCatalog}
@@ -2104,11 +2123,13 @@ export default function UnifiedChat({
           onDragLeave={handleAttachmentDragLeave}
           data-testid="chat-input-drop-zone"
           className={[
-            'shrink-0 min-w-0 flex flex-col gap-2 border-t border-[var(--color-card-border)] p-3 transition-colors',
+            hermesLayout
+              ? 'shrink-0 min-w-0 flex flex-col gap-1.5 border-t border-[var(--color-card-border)] p-2 transition-colors'
+              : 'shrink-0 min-w-0 flex flex-col gap-2 border-t border-[var(--color-card-border)] p-3 transition-colors',
             draggingAttachments ? 'bg-primary/10 ring-1 ring-primary/35' : '',
           ].join(' ')}
         >
-          {(currentPageContext || contextRefs.length > 0 || allowAgentParticipants || activeModelAgentId) && (
+          {showComposerContextToolbar && (
             <div data-testid="chat-context-toolbar" className="flex items-center justify-between gap-2">
               <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                 {currentPageContext && (
@@ -2163,7 +2184,7 @@ export default function UnifiedChat({
                 </div>
               )}
 
-              {allowAgentParticipants && (
+              {allowAgentParticipants && !hermesLayout && (
                 <label className={`${activeModelAgentId ? '' : 'ml-auto '}shrink-0`}>
                   <span className="sr-only">Thinking effort</span>
                   <select
@@ -2346,7 +2367,9 @@ export default function UnifiedChat({
             data-testid="chat-input-pill"
             className={[
               'flex min-w-0 items-end gap-2 rounded-3xl border border-[var(--color-card-border)] bg-[var(--color-card)] px-2 py-1.5',
-              compact ? '' : 'lg:rounded-lg lg:border-0 lg:bg-transparent lg:px-0 lg:py-0',
+              hermesLayout
+                ? 'lg:rounded-xl lg:bg-black/[0.08] lg:px-2 lg:py-1'
+                : compact ? '' : 'lg:rounded-lg lg:border-0 lg:bg-transparent lg:px-0 lg:py-0',
             ].join(' ')}
           >
             <input
@@ -2429,7 +2452,7 @@ export default function UnifiedChat({
               rows={1}
               className={[
                 'min-h-[40px] max-h-[160px] min-w-0 flex-1 resize-none bg-transparent px-1 py-2 text-[15px] placeholder:text-on-surface-variant disabled:opacity-60 focus:outline-none',
-                compact ? '' : 'lg:text-sm lg:rounded-lg lg:border lg:border-[var(--color-card-border)] lg:bg-[var(--color-card)] lg:px-3 lg:py-2 lg:min-h-0',
+                compact ? '' : hermesLayout ? 'lg:min-h-0 lg:px-2 lg:py-2 lg:text-sm' : 'lg:text-sm lg:rounded-lg lg:border lg:border-[var(--color-card-border)] lg:bg-[var(--color-card)] lg:px-3 lg:py-2 lg:min-h-0',
               ].join(' ')}
             />
             <button
@@ -2447,28 +2470,98 @@ export default function UnifiedChat({
               {!compact && <span className="hidden lg:inline">{sending ? 'Sending…' : hasInFlightAgentRun ? 'Queue' : 'Send'}</span>}
             </button>
           </div>
+
+          {hermesLayout && (
+            <div
+              data-testid="hermes-runtime-control-bar"
+              className="flex min-h-8 flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--color-card-border)] bg-black/[0.08] px-2 py-1.5 text-[11px] text-on-surface-variant"
+            >
+              <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                <span className="inline-flex h-6 items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2">
+                  <span className={`h-1.5 w-1.5 rounded-full ${hasInFlightAgentRun ? 'bg-amber-300' : 'bg-emerald-300'}`} />
+                  {activeRuntimeMessage?.status?.replace('_', ' ') ?? (hasInFlightAgentRun ? 'running' : 'idle')}
+                </span>
+                <span className="inline-flex h-6 items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2">
+                  <span className="material-symbols-outlined text-[13px]">playlist_add</span>
+                  {activeQueuedDrafts.length} queued
+                </span>
+                <span className="hidden h-6 items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2 sm:inline-flex">
+                  <span className="material-symbols-outlined text-[13px]">shield_lock</span>
+                  Ask approvals
+                </span>
+              </div>
+
+              <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1.5">
+                {activeModelAgentId && (
+                  <ModelProviderPicker
+                    catalog={modelCatalog}
+                    selected={selectedRuntime}
+                    loading={modelCatalogLoading}
+                    disabled={!activeConversation}
+                    compact
+                    onSelect={setSelectedRuntime}
+                    onRefresh={loadModelCatalog}
+                  />
+                )}
+                {allowAgentParticipants && (
+                  <label className="shrink-0">
+                    <span className="sr-only">Runtime thinking effort</span>
+                    <select
+                      value={agentEffort}
+                      onChange={(event) => setAgentEffort(event.target.value as AgentEffort | '')}
+                      disabled={!canUseComposer || sending}
+                      title="Thinking effort"
+                      aria-label="Runtime thinking effort"
+                      className="h-7 rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-2 text-[11px] font-medium text-on-surface-variant outline-none transition-colors hover:bg-white/[0.08] hover:text-on-surface focus:border-primary disabled:opacity-40"
+                    >
+                      <option value="">Auto effort</option>
+                      {AGENT_EFFORT_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                {canStopActiveRun && activeRuntimeMessage?.id && activeId && (
+                  <button
+                    type="button"
+                    onClick={() => stopAgentRun(activeId, activeRuntimeMessage.id)}
+                    className="inline-flex h-7 items-center gap-1 rounded-full border border-red-400/25 bg-red-500/10 px-2 text-[11px] font-medium text-red-200 hover:bg-red-500/15"
+                  >
+                    <span className="material-symbols-outlined text-[13px]">stop_circle</span>
+                    Stop
+                  </button>
+                )}
+                <button
+                  type="button"
+                  data-testid="hermes-runtime-inspector-toggle"
+                  aria-expanded={runtimeInspectorOpen}
+                  onClick={() => setRuntimeInspectorOpen((value) => !value)}
+                  className="inline-flex h-7 items-center gap-1 rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-2 text-[11px] font-medium text-on-surface-variant hover:bg-white/[0.08] hover:text-on-surface"
+                >
+                  <span className="material-symbols-outlined text-[13px]">developer_board</span>
+                  Inspector
+                </button>
+              </div>
+            </div>
+          )}
         </form>
       </section>
 
-      {!compact && (
+      {showRuntimeInspectorRail && (
         <RuntimeInspectorRail
           activeMessage={activeRuntimeMessage}
           events={activeRuntimeEvents}
           selectedRuntime={selectedRuntime}
           catalog={modelCatalog}
-          canStop={Boolean(
-            allowDeleteConversations &&
-            activeRuntimeMessage?.runId &&
-            activeId &&
-            (activeRuntimeMessage.status === 'pending' ||
-              activeRuntimeMessage.status === 'streaming' ||
-              activeRuntimeMessage.status === 'waiting_approval'),
-          )}
+          canStop={canStopActiveRun}
           onStop={
             activeRuntimeMessage?.id && activeId
               ? () => stopAgentRun(activeId, activeRuntimeMessage.id)
               : undefined
           }
+          collapsed={hermesLayout && !runtimeInspectorOpen}
+          onCollapsedChange={hermesLayout ? (collapsed) => setRuntimeInspectorOpen(!collapsed) : undefined}
+          variant={hermesLayout ? 'hermes' : 'classic'}
         />
       )}
 

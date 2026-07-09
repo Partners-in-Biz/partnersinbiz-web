@@ -228,6 +228,29 @@ describe('UnifiedChat message scrolling', () => {
     expect(screen.getByTestId('unified-chat-root')).toHaveAttribute('data-layout-variant', 'hermes')
     expect(screen.getByText('Sessions')).toBeInTheDocument()
   })
+
+  it('shows the Hermes bottom runtime bar and collapsed inspector in the dense layout', async () => {
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        layoutVariant="hermes"
+      />,
+    )
+
+    await screen.findByText('Latest message')
+
+    expect(screen.getByTestId('hermes-runtime-control-bar')).toHaveTextContent('0 queued')
+    expect(screen.getByLabelText('Runtime thinking effort')).toBeInTheDocument()
+    expect(screen.getByTestId('runtime-inspector-rail')).toHaveAttribute('data-collapsed', 'true')
+
+    const toggle = screen.getByTestId('hermes-runtime-inspector-toggle')
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByTestId('runtime-inspector-rail')).toHaveAttribute('data-collapsed', 'false')
+  })
 })
 
 describe('UnifiedChat context references', () => {

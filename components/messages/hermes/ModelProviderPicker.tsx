@@ -115,6 +115,22 @@ export function ModelProviderPicker({
     )
   }, [models, pinned, query])
 
+  const groupedModels = useMemo(() => {
+    const groups: Array<{ provider: string; providerLabel: string; models: MessageModelOption[] }> = []
+    const byProvider = new Map<string, { provider: string; providerLabel: string; models: MessageModelOption[] }>()
+    for (const model of filteredModels) {
+      const key = model.provider
+      let group = byProvider.get(key)
+      if (!group) {
+        group = { provider: model.provider, providerLabel: model.providerLabel, models: [] }
+        byProvider.set(key, group)
+        groups.push(group)
+      }
+      group.models.push(model)
+    }
+    return groups
+  }, [filteredModels])
+
   const canSelect = Boolean(catalog?.canSelect) && !disabled
   const activeLabel = loading
     ? 'Loading models…'
@@ -196,46 +212,78 @@ export function ModelProviderPicker({
             {filteredModels.length === 0 && (
               <div className="px-3 py-8 text-center text-xs text-on-surface-variant">No matching models</div>
             )}
-            {filteredModels.map((model) => {
-              const key = modelKey(model)
-              const selected = activeModel?.id === model.id && activeModel?.provider === model.provider
-              const isPinned = pinned.includes(key)
-              return (
-                <div key={key} className="group/model flex items-center gap-1 rounded-xl px-1.5 py-1 hover:bg-white/[0.05]">
-                  <button
-                    type="button"
-                    onClick={() => togglePin(model)}
-                    className="grid h-8 w-8 place-items-center rounded-full text-on-surface-variant hover:bg-white/[0.08] hover:text-on-surface"
-                    aria-label={isPinned ? `Unpin ${model.displayName}` : `Pin ${model.displayName}`}
-                  >
-                    <span className="material-symbols-outlined text-[16px]">{isPinned ? 'star' : 'star_outline'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!canSelect || !model.available}
-                    onClick={() => {
-                      onSelect({ model: model.id, provider: model.provider })
-                      setOpen(false)
-                    }}
-                    className="min-w-0 flex-1 rounded-lg px-2 py-2 text-left disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className="truncate text-xs font-medium text-on-surface">{model.displayName}</span>
-                      {selected && <span className="rounded-full bg-primary/20 px-1.5 py-0.5 text-[10px] text-primary">Active</span>}
-                      {!model.available && <span className="rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] text-red-200">Unavailable</span>}
-                    </div>
-                    <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] text-on-surface-variant">
-                      <span className="truncate">{model.providerLabel}</span>
-                      <span>·</span>
-                      <span className="truncate font-mono">{model.id}</span>
-                    </div>
-                    {model.reasonUnavailable && (
-                      <div className="mt-0.5 text-[10px] text-red-200">{model.reasonUnavailable}</div>
-                    )}
-                  </button>
+            {groupedModels.map((group) => (
+              <section key={group.provider} className="py-1">
+                <div className="px-2 pb-1 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">
+                  {group.providerLabel}
                 </div>
-              )
-            })}
+                <div className="space-y-0.5">
+                  {group.models.map((model) => {
+                    const key = modelKey(model)
+                    const selected = activeModel?.id === model.id && activeModel?.provider === model.provider
+                    const isPinned = pinned.includes(key)
+                    return (
+                      <div key={key} className="group/model flex items-center gap-1 rounded-lg px-1.5 py-0.5 hover:bg-white/[0.05]">
+                        <button
+                          type="button"
+                          onClick={() => togglePin(model)}
+                          className="grid h-7 w-7 place-items-center rounded-full text-on-surface-variant hover:bg-white/[0.08] hover:text-on-surface"
+                          aria-label={isPinned ? `Unpin ${model.displayName}` : `Pin ${model.displayName}`}
+                        >
+                          <span className="material-symbols-outlined text-[15px]">{isPinned ? 'star' : 'star_outline'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!canSelect || !model.available}
+                          onClick={() => {
+                            onSelect({ model: model.id, provider: model.provider })
+                            setOpen(false)
+                          }}
+                          className="min-w-0 flex-1 rounded-md px-2 py-1.5 text-left disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span className="truncate text-xs font-medium text-on-surface">{model.displayName}</span>
+                            {!model.available && <span className="rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] text-red-200">Unavailable</span>}
+                          </div>
+                          <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[10px] text-on-surface-variant">
+                            <span className="truncate font-mono">{model.id}</span>
+                          </div>
+                          {model.reasonUnavailable && (
+                            <div className="mt-0.5 text-[10px] text-red-200">{model.reasonUnavailable}</div>
+                          )}
+                        </button>
+                        {selected && (
+                          <span className="material-symbols-outlined pr-1 text-[16px] text-primary" aria-label="Selected model">
+                            check
+                          </span>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-between gap-2 border-t border-[var(--color-card-border)] px-3 py-2 text-[11px]">
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={!onRefresh}
+              className="inline-flex h-7 items-center gap-1.5 rounded-full px-2 font-medium text-on-surface-variant hover:bg-white/[0.08] hover:text-on-surface disabled:opacity-40"
+            >
+              <span className="material-symbols-outlined text-[14px]">refresh</span>
+              Refresh Models
+            </button>
+            <button
+              type="button"
+              disabled
+              title="Model editing stays in the admin control plane"
+              className="inline-flex h-7 items-center gap-1.5 rounded-full px-2 text-on-surface-variant opacity-45"
+            >
+              <span className="material-symbols-outlined text-[14px]">tune</span>
+              Edit Models…
+            </button>
           </div>
         </div>
       )}
