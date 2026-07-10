@@ -161,7 +161,7 @@ describe('POST /api/v1/conversations/[convId]/messages/[msgId]/finalize', () => 
     }), { merge: true })
   })
 
-  it('treats interrupted agent runs as terminal and preserves streamed events', async () => {
+  it('treats interrupted agent runs as terminal without trusting client events', async () => {
     const events: ChatEvent[] = [{ event: 'run.interrupted', timestamp: 1000 }]
     mockCallHermesJson.mockResolvedValue({
       response: { ok: true },
@@ -178,8 +178,8 @@ describe('POST /api/v1/conversations/[convId]/messages/[msgId]/finalize', () => 
       status: 'failed',
       error: 'gateway restarted while run was active',
       runId: 'run-1',
-      events,
     }))
+    expect(mockMessageUpdate.mock.calls[0]?.[0]).not.toHaveProperty('events')
     expect(mockTouchConversation).toHaveBeenCalledWith(
       'conv-1',
       '[run interrupted] gateway restarted while run was active',
@@ -204,9 +204,9 @@ describe('POST /api/v1/conversations/[convId]/messages/[msgId]/finalize', () => 
     expect(mockMessageUpdate).toHaveBeenCalledWith(expect.objectContaining({
       status: 'failed',
       runId: 'run-missing',
-      events,
       error: expect.stringContaining('agent gateway lost this run'),
     }))
+    expect(mockMessageUpdate.mock.calls[0]?.[0]).not.toHaveProperty('events')
   })
 
   it('persists completed Hermes rich parts and UI actions alongside fallback text', async () => {

@@ -167,6 +167,10 @@ export const PATCH = withAuth(
       return apiError('Nothing to update — supply title, archived, shareMode, and/or participantUids', 400)
     }
 
+    if (!canManageConversationAccess(user, conversation)) {
+      return apiError('Only the conversation owner or an authorised administrator can update conversation metadata', 403)
+    }
+
     await patchConversation(convId, patch)
     const updatedConversation = await getConversation(convId)
     return apiSuccess({ conversation: updatedConversation ? publicConversationView(updatedConversation) : null })

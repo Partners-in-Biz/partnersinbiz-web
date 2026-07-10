@@ -68,7 +68,7 @@ Expected behaviour:
 - Operators must be able to see last successful sync, pending/manual sync request, errors, and conflict state.
 - Failed sync must not silently overwrite local, VPS, or Drive content.
 
-The admin **Create sync plan** action now persists an auditable `workspace_folder_sync_requests` record and copies its request id/status onto the folder's `syncState`. It does not claim a transfer occurred. Requests with open conflicts are recorded as `blocked_conflict`; all requests explicitly record `destructiveDeletes: false`. A Drive transfer executor remains a separate, approval-gated operational component.
+The admin **Create sync plan** action persists an auditable `workspace_folder_sync_requests` record and copies its request id/status onto the folder's `syncState`. Despite the UI label, this is a **Drive folder resync request record**, not an immutable local/VPS Workspace sync plan. It does not contain the local and VPS inventories, cannot be supplied to the Workspace sync CLI, and does not claim that a transfer occurred. Requests with open conflicts are recorded as `blocked_conflict`; all requests explicitly record `destructiveDeletes: false`. A Drive transfer executor remains a separate, approval-gated operational component.
 
 Recommended v1 statuses:
 
@@ -162,44 +162,99 @@ If a skill instructs agents to read or write client assets, that skill should me
 
 ## 7. Conflict-aware VPS/local Workspace sync
 
-Generated markdown Workspaces and their Obsidian agent domains use a separate operator CLI. The VPS remains canonical by default, but an operator can explicitly plan approved local write-back.
+Generated Markdown Workspaces and their Obsidian agent domains use the `workspace:sync` operator CLI. This is a separate system from Drive folder resync requests: a `workspace_folder_sync_requests` id is **not** a Workspace sync plan id and must never be passed to `--plan`.
 
-Plan the default pull direction (no files change):
+The VPS is canonical by default. Running the command without `--apply` inventories both sides, compares raw-file SHA-256 hashes with the last common baseline, and writes an immutable plan; it does not change mirrored content.
+
+### 7.1 Plan storage, identity, and expiry
+
+The default operator-state root is `<local-root>/.pib-workspace-sync` (normally `~/Cowork/.pib-workspace-sync`) and may be overridden with `--state-root`. Keep this directory outside both mirrored trees. Its relevant layout is:
+
+```text
+.pib-workspace-sync/
+  plans/<plan-id>.json
+  journals/<journal-id>.json
+  states/<identity-hash>.json
+  backups/<journal-id>/local/workspace|agent/...
+```
+
+A plan id is the lowercase, 64-character SHA-256 digest of the canonical persisted plan body. The body binds the exact local and VPS inventories, baseline, direction, creation/expiry times, and target identity. Plans expire 30 minutes after creation. Editing a plan changes its digest and invalidates it; expiry, a digest mismatch, or a target-identity mismatch requires a new plan.
+
+The target identity must be bound to the authoritative remote `.pib-workspace.json` manifest, including its `workspaceId`, `orgId`, `agentDomain`, canonical Workspace/agent roots, VPS source-of-truth declaration, and manifest hash, in addition to host, SSH user, and local root. Apply must re-read the manifest and reject a missing, malformed, changed, or mismatched manifest before any transfer. It must also reject a requested Workspace/agent domain whose names or canonical paths do not match that manifest. Do not operate `--apply` with a CLI build that only trusts a display name or path.
+
+Push-capable applies also require `--confirm-workspace <workspaceId>`, tied to the authoritative manifest identity. This confirmation is additional to `--allow-push`, the immutable plan id, and path approvals.
+
+### 7.2 Create and review a plan
+
+Plan the default pull direction:
 
 ```bash
 npm run workspace:sync -- --workspace "Vikings Wrestling" --agent-domain vikings-wrestling
 ```
 
-Apply only safe VPS-to-local operations:
-
-```bash
-npm run workspace:sync -- --workspace "Vikings Wrestling" --agent-domain vikings-wrestling --direction pull --apply
-```
-
-Plan both directions:
+Plan both pull candidates and possible local write-back:
 
 ```bash
 npm run workspace:sync -- --workspace "Vikings Wrestling" --agent-domain vikings-wrestling --direction both
 ```
 
-An apply that could write to the VPS requires both an explicit direction and `--allow-push`:
+The output includes the plan id, expiry, classifications, exact operations, and unresolved blockers. Review the stored `plans/<plan-id>.json`; do not approve paths from memory. Conflict choices, when required, are recorded while creating a new plan with repeated exact values such as `--resolve workspace/brief.md=remote` or `--resolve agent/wiki/note.md=local`. Applying a plan cannot add or alter its conflict resolutions.
+
+Only regular Markdown files are inventoried or transferable. Every operation path is scope-qualified as `workspace/<relative-path>.md` or `agent/<relative-path>.md`. Binary assets, secrets, `.env*`, `.git`, sync metadata, symlinks, special files, and non-Markdown files are outside this sync contract.
+
+### 7.3 Apply an immutable plan
+
+Apply requires all three elements: `--apply`, the exact `--plan <id>`, and at least one repeated exact `--approve-path`. There is no approve-all flag.
 
 ```bash
-npm run workspace:sync -- --workspace "Vikings Wrestling" --agent-domain vikings-wrestling --direction both --apply --allow-push
+npm run workspace:sync -- \
+  --workspace "Vikings Wrestling" \
+  --agent-domain vikings-wrestling \
+  --apply \
+  --plan <64-character-plan-id> \
+  --approve-path workspace/README.md \
+  --approve-path agent/wiki/hot.md
 ```
 
-Safety contract:
+Only approved paths that are operations in that immutable plan are selected. Unapproved operations remain untouched. Before the first write, apply re-inventories both complete trees and re-reads the authoritative manifest. Any local inventory, VPS inventory, or manifest drift since planning rejects the entire stale plan. Immediately before each selected operation, apply checks that path's source and destination hashes again; drift stops the run rather than overwriting newer content.
 
-- Plan-only is the default.
-- Pushes never happen without `--apply --allow-push`.
-- SHA-256 inventories are compared with the last common baseline.
-- One-sided remote changes pull; one-sided local changes are only push candidates.
-- Competing changes are reported as conflicts and never overwritten.
-- Local deletion is restored from the canonical VPS; remote deletion never deletes the local copy automatically.
-- Replaced local files are backed up under `.pib-workspace-sync/backups`.
-- Replaced VPS files are backed up under `/var/lib/hermes/.pib-sync-backups`.
-- No operation uses destructive delete semantics.
-- State manifests are local operator state with mode `0600`; they are not stored in a client Workspace or Obsidian agent domain.
+A push is a distinct, higher-risk action. It must have been created by a `push`/`both` plan and requires the normal apply gates **plus** `--allow-push`:
+
+```bash
+npm run workspace:sync -- \
+  --workspace "Vikings Wrestling" \
+  --agent-domain vikings-wrestling \
+  --apply \
+  --plan <64-character-plan-id> \
+  --approve-path workspace/approved-local-change.md \
+  --allow-push \
+  --confirm-workspace <manifest-workspace-id>
+```
+
+`--allow-push` is not path approval and does not approve every local change. `--confirm-workspace` must equal the exact `workspaceId` read from the authoritative manifest; a display name or agent-domain slug is not accepted as a substitute.
+
+### 7.4 Journals, state, backups, and recovery
+
+Each apply creates an atomic `journals/<journal-id>.json`. Every selected path moves independently through `pending`, `running`, and `completed` or `failed`, recording expected hashes, verified hash, backup path/hash, and error evidence. After each successful transfer, both sides must hash to the planned source hash before that operation is marked complete and its common-baseline state advances. Failed, conflicted, blocked, and unselected paths retain their previous baseline. A partial failure must not claim full success or roll state forward for an unverified path.
+
+Before replacing local content, apply copies the previous file to `<state-root>/backups/<journal-id>/local/<scope>/<relative-path>`. Before replacing VPS content, it copies the previous file to `/var/lib/hermes/.pib-sync-backups/<agent-domain>/<journal-id>/<scope>/<relative-path>`. Missing destinations naturally have no backup.
+
+Recovery procedure:
+
+1. Stop after any failed/stale check; do not rerun the old plan blindly.
+2. Read the journal to identify completed, failed, and still-pending paths and their backup hashes.
+3. Verify the relevant backup hash before restoring a prior destination version manually.
+4. Re-inventory by running plan mode again. Review and apply a new plan only for the remaining or recovery operations.
+5. Never edit baseline state or a persisted plan to force acceptance.
+
+### 7.5 Conflict and deletion rules
+
+- One-sided VPS changes are safe pull candidates; one-sided local changes are push candidates only.
+- If both sides changed differently, or different files appeared without a common baseline, classification is `conflict`; neither version is overwritten without a new plan containing an explicit resolution.
+- `local_deleted` may restore the missing local Markdown file from the canonical VPS.
+- `remote_deleted` is an unresolved blocker. It never deletes the local copy and is not silently converted into a push. Preserve the local version, investigate the VPS deletion, then use an explicitly reviewed recovery/new plan path.
+- No transfer command uses delete propagation. The CLI never mirrors a deletion from either side.
+- Planning, conflicts, stale-plan rejection, and failed applies must leave both existing versions intact.
 
 ## 8. Safe future path for Drive two-way sync
 

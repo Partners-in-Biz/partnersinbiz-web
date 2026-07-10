@@ -1,13 +1,13 @@
 import { NextRequest } from 'next/server'
 
-type MockUser = { uid: string; role: 'admin' | 'client' | 'ai' }
+type MockUser = { uid: string; role: 'admin' | 'client' | 'ai'; orgId: string }
 type MockHandler = (req: NextRequest, user: MockUser, ctx?: unknown) => Promise<Response>
 
 const mockGetConversation = jest.fn()
 const mockCollection = jest.fn()
 const mockCallAgentPath = jest.fn()
 
-let mockUser: MockUser = { uid: 'admin-1', role: 'admin' }
+let mockUser: MockUser = { uid: 'admin-1', role: 'admin', orgId: 'org-1' }
 
 jest.mock('@/lib/api/auth', () => ({
   withAuth: (_role: string, handler: MockHandler) => async (req: NextRequest, ctx?: unknown) =>
@@ -29,7 +29,7 @@ jest.mock('@/lib/agents/team', () => ({
 beforeEach(() => {
   jest.resetModules()
   jest.clearAllMocks()
-  mockUser = { uid: 'admin-1', role: 'admin' }
+  mockUser = { uid: 'admin-1', role: 'admin', orgId: 'org-1' }
   mockGetConversation.mockResolvedValue({
     id: 'conv-1',
     orgId: 'org-1',
@@ -108,7 +108,7 @@ describe('conversation model catalogue API', () => {
   })
 
   it('lets participants inspect safe model status without granting selection rights', async () => {
-    mockUser = { uid: 'client-1', role: 'client' }
+    mockUser = { uid: 'client-1', role: 'client', orgId: 'org-1' }
     const { GET } = await import('@/app/api/v1/conversations/[convId]/models/route')
 
     const res = await GET(
@@ -123,7 +123,7 @@ describe('conversation model catalogue API', () => {
   })
 
   it('rejects non-participants', async () => {
-    mockUser = { uid: 'client-2', role: 'client' }
+    mockUser = { uid: 'client-2', role: 'client', orgId: 'org-1' }
     const { GET } = await import('@/app/api/v1/conversations/[convId]/models/route')
 
     const res = await GET(

@@ -84,7 +84,9 @@ export function canAccessHermesProfile(
     return { allowed: false, status: 403, error: `Hermes ${capability} capability is disabled for this profile` }
   }
 
-  if (user.role === 'ai') return { allowed: true }
+  if (user.role === 'ai') {
+    return { allowed: false, status: 403, error: 'AI credentials cannot access legacy Hermes profile routes' }
+  }
 
   const explicitUser = link.permissions.allowedUserIds.includes(user.uid)
   if (explicitUser) return { allowed: true }

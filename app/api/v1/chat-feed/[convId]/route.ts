@@ -11,7 +11,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { getConversation, listMessages } from '@/lib/conversations/conversations'
-import { canAccessConversation } from '@/lib/conversations/access'
+import { canAccessConversation, publicConversationMessageView } from '@/lib/conversations/access'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,6 +30,6 @@ export const GET = withAuth(
     }
 
     const messages = await listMessages(convId, 200)
-    return apiSuccess({ messages })
+    return apiSuccess({ messages: messages.map(publicConversationMessageView) })
   },
 )

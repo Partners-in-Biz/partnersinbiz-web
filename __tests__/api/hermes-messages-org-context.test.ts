@@ -7,6 +7,7 @@ const mockCreateHermesRun = jest.fn()
 const mockRequireAccess = jest.fn()
 const mockGetConversation = jest.fn()
 const mockAppendMessage = jest.fn()
+const mockUpdateMessage = jest.fn()
 const mockTouchConversation = jest.fn()
 const mockListMessages = jest.fn()
 const mockOrgDocGet = jest.fn()
@@ -28,6 +29,7 @@ jest.mock('@/lib/hermes/server', () => ({
 jest.mock('@/lib/hermes/conversations', () => ({
   getConversation: (...args: unknown[]) => mockGetConversation(...args),
   appendMessage: (...args: unknown[]) => mockAppendMessage(...args),
+  updateMessage: (...args: unknown[]) => mockUpdateMessage(...args),
   touchConversation: (...args: unknown[]) => mockTouchConversation(...args),
   listMessages: (...args: unknown[]) => mockListMessages(...args),
 }))
@@ -59,6 +61,7 @@ const baseLink = { orgId: 'org1', profile: 'pip', baseUrl: 'http://vps', enabled
 const baseConv = {
   id: 'conv1',
   orgId: 'org1',
+  profile: 'pip',
   participantUids: ['u1'],
   messageCount: 0,
   projectId: undefined as string | undefined,

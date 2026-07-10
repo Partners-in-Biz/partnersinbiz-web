@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 type MockUser = {
   uid: string
   role: 'admin' | 'client' | 'ai'
+  orgId?: string
 }
 type MockHandler = (req: NextRequest, user: MockUser, ctx?: unknown) => Promise<Response>
 
@@ -16,7 +17,7 @@ const mockCreateHermesRun = jest.fn()
 const mockGetAgentDispatchHermesProfileLink = jest.fn()
 const mockCallAgentPath = jest.fn()
 
-let mockUser: MockUser = { uid: 'client-1', role: 'client' }
+let mockUser: MockUser = { uid: 'client-1', role: 'client', orgId: 'pib-platform-owner' }
 let organizationSettings: Record<string, unknown> = {}
 let organizationMembers: Array<{ userId: string; role: string }> = []
 
@@ -49,7 +50,7 @@ jest.mock('@/lib/agents/team', () => ({
 beforeEach(() => {
   jest.resetModules()
   jest.clearAllMocks()
-  mockUser = { uid: 'client-1', role: 'client' }
+  mockUser = { uid: 'client-1', role: 'client', orgId: 'pib-platform-owner' }
   organizationSettings = {}
   organizationMembers = [{ userId: 'client-1', role: 'member' }]
 
@@ -106,6 +107,23 @@ beforeEach(() => {
                 approvalGates: ['publish'],
                 primaryOwnerOf: ['content-engine'],
               },
+            }),
+          }),
+        }),
+      }
+    }
+    if (name === 'conversation_attachments') {
+      return {
+        doc: (id: string) => ({
+          get: async () => ({
+            exists: id === 'upload-1',
+            data: () => ({
+              conversationId: 'conv-1',
+              orgId: 'pib-platform-owner',
+              name: 'Screenshot.png',
+              contentType: 'image/png',
+              sizeBytes: 1234,
+              storagePath: 'conversation-attachments/private/screenshot.png',
             }),
           }),
         }),
@@ -451,7 +469,7 @@ describe('unified conversation message routing', () => {
         {
           id: 'upload-1',
           name: 'Screenshot.png',
-          url: 'https://cdn.example.com/screenshot.png',
+          url: '/api/v1/conversations/conv-1/attachments/upload-1',
           contentType: 'image/png',
           sizeBytes: 1234,
         },
@@ -464,7 +482,7 @@ describe('unified conversation message routing', () => {
     mockGetConversation.mockResolvedValue({
       id: 'conv-1',
       orgId: 'pib-platform-owner',
-      participantUids: ['client-1'],
+      participantUids: ['client-1', 'admin-1'],
       participantAgentIds: ['pip'],
       participants: [
         { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
@@ -526,7 +544,7 @@ describe('unified conversation message routing', () => {
     mockGetConversation.mockResolvedValue({
       id: 'conv-1',
       orgId: 'pib-platform-owner',
-      participantUids: ['client-1'],
+      participantUids: ['client-1', 'admin-1'],
       participantAgentIds: ['pip'],
       participants: [
         { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
@@ -549,7 +567,7 @@ describe('unified conversation message routing', () => {
     mockGetConversation.mockResolvedValue({
       id: 'conv-1',
       orgId: 'pib-platform-owner',
-      participantUids: ['client-1'],
+      participantUids: ['client-1', 'admin-1'],
       participantAgentIds: ['pip'],
       participants: [
         { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },

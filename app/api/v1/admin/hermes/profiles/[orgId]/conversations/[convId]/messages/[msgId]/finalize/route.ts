@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
-import { callHermesJson, requireHermesProfileAccess } from '@/lib/hermes/server'
+import { adminDb } from '@/lib/firebase/admin'
+import { callHermesJson, HERMES_RUNS_COLLECTION, requireHermesProfileAccess } from '@/lib/hermes/server'
 import { getConversation, messagesCollection, touchConversation, updateMessage } from '@/lib/hermes/conversations'
-import type { ChatEvent } from '@/lib/hermes/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,17 +14,33 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   const access = await requireHermesProfileAccess(user, orgId, 'runs')
   if (access instanceof Response) return access
   const conv = await getConversation(convId)
-  if (!conv || conv.orgId !== orgId) return apiError('Conversation not found', 404)
+  if (!conv || conv.orgId !== orgId || conv.profile !== access.link.profile) return apiError('Conversation not found', 404)
   if (!conv.participantUids.includes(user.uid)) return apiError('Forbidden', 403)
 
   const msgDoc = await messagesCollection(convId).doc(msgId).get()
   if (!msgDoc.exists) return apiError('Message not found', 404)
+  const message = msgDoc.data() ?? {}
+  if (message.role !== 'assistant' || typeof message.runId !== 'string' || !message.runId.trim()) {
+    return apiError('Message is not bound to an assistant run', 409)
+  }
 
   const body = await req.json().catch(() => ({}))
   const runId = typeof body.runId === 'string' ? body.runId : ''
   if (!runId) return apiError('runId is required', 400)
+  if (runId !== message.runId) return apiError('runId does not match this message', 409)
 
-  const events: ChatEvent[] = Array.isArray(body.events) ? body.events : []
+  const runSnap = await adminDb.collection(HERMES_RUNS_COLLECTION)
+    .where('hermesRunId', '==', runId)
+    .limit(10)
+    .get()
+  const boundRun = runSnap.docs.find((doc) => {
+    const run = doc.data() as Record<string, unknown>
+    return run.orgId === orgId
+      && run.profile === access.link.profile
+      && run.conversationId === convId
+      && run.messageId === msgId
+  })
+  if (!boundRun) return apiError('Run is not bound to this conversation message', 409)
 
   const { response, data } = await callHermesJson(access.link, `/v1/runs/${encodeURIComponent(runId)}`)
   if (!response.ok) {
@@ -35,7 +51,6 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
         status: 'failed',
         error: lostRunMessage,
         runId,
-        ...(events.length > 0 ? { events } : {}),
       })
       await touchConversation(convId, {
         lastMessagePreview: `[run interrupted] ${lostRunMessage}`.slice(0, 200),
@@ -56,7 +71,6 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
       content: output,
       status: 'completed',
       runId,
-      ...(events.length > 0 ? { events } : {}),
     })
     await touchConversation(convId, {
       lastMessagePreview: output,
@@ -68,7 +82,6 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
       status: 'failed',
       error,
       runId,
-      ...(events.length > 0 ? { events } : {}),
     })
     await touchConversation(convId, {
       lastMessagePreview: `[run ${status}] ${error || ''}`.slice(0, 200),

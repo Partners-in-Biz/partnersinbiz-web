@@ -35,7 +35,7 @@ import { CEO_APPROVAL_CARD_RULE_LINES, buildCeoDataDecisionOperatingRuleLines } 
 import { validateMessageModelSelection } from '@/lib/messages/model-catalog'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import type { ApiUser } from '@/lib/api/types'
-import { canAccessConversation, canReplyConversation } from '@/lib/conversations/access'
+import { canAccessConversation, canReplyConversation, publicConversationMessageView } from '@/lib/conversations/access'
 import type { AgentTeamDoc } from '@/lib/agents/types'
 import type { AgentId, Conversation, ConversationAttachment, ConversationMessage } from '@/lib/conversations/types'
 
@@ -558,6 +558,6 @@ export const GET = withAuth(
     }
 
     const messages = await listMessages(convId, 200)
-    return apiSuccess({ messages })
+    return apiSuccess({ messages: messages.map(publicConversationMessageView) })
   },
 )

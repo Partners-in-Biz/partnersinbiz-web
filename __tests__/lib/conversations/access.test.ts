@@ -1,7 +1,9 @@
 import {
   canAccessConversation,
   canManageConversationAccess,
+  canReplyConversation,
   conversationVisibilityLabel,
+  publicConversationMessageView,
   publicConversationView,
 } from '@/lib/conversations/access'
 import type { ApiUser } from '@/lib/api/types'
@@ -78,12 +80,40 @@ describe('Workspace conversation access', () => {
   })
 
   it('redacts server and local filesystem paths from public conversation views', () => {
-    const publicView = publicConversationView(conversation('private'))
+    const privateConversation = conversation('private')
+    privateConversation.participants = [{ kind: 'user', uid: 'owner-1', role: 'client', email: 'owner@example.com' }]
+    const publicView = publicConversationView(privateConversation)
     expect(publicView.workspaceContext).toEqual(expect.objectContaining({ workspaceId: 'acme', runtimeLabel: 'VPS' }))
     expect(publicView.workspaceContext).not.toHaveProperty('vpsPath')
     expect(publicView.workspaceContext).not.toHaveProperty('localPath')
     expect(publicView.workspaceContext).not.toHaveProperty('agentDomainPath')
     expect(publicView.workspaceContext).not.toHaveProperty('localAgentDomainPath')
+    expect(publicView.participants[0]).not.toHaveProperty('email')
+  })
+
+  it('replaces persisted attachment bearer URLs and storage paths in public message views', () => {
+    const publicMessage = publicConversationMessageView({
+      id: 'msg-1',
+      conversationId: 'conv-1',
+      role: 'user',
+      content: '',
+      authorKind: 'user',
+      authorId: 'owner-1',
+      authorDisplayName: 'Owner',
+      attachments: [{
+        id: 'attachment-1',
+        name: 'brief.pdf',
+        contentType: 'application/pdf',
+        sizeBytes: 123,
+        url: 'https://storage.example/token-secret',
+        storagePath: 'conversation-attachments/org-1/conv-1/private.pdf',
+      }],
+    })
+    expect(publicMessage.attachments).toEqual([expect.objectContaining({
+      id: 'attachment-1',
+      url: '/api/v1/conversations/conv-1/attachments/attachment-1',
+    })])
+    expect(publicMessage.attachments?.[0]).not.toHaveProperty('storagePath')
   })
 
   it('limits access management to the canonical owner or a scoped administrator', () => {
@@ -93,6 +123,15 @@ describe('Workspace conversation access', () => {
     expect(canManageConversationAccess(member, conversation('shared'))).toBe(false)
     expect(canManageConversationAccess(scopedAdmin, conversation('private'))).toBe(true)
     expect(canManageConversationAccess(restrictedAdmin, conversation('private'))).toBe(false)
+  })
+
+  it('requires explicit participation for replies even when an administrator can read', () => {
+    const scopedAdmin = { uid: 'admin-2', role: 'admin', allowedOrgIds: ['org-1'] } as ApiUser
+    const participatingAdmin = { uid: 'admin-3', role: 'admin', allowedOrgIds: ['org-1'] } as ApiUser
+    const privateConversation = conversation('private')
+    privateConversation.participantUids.push('admin-3')
+    expect(canReplyConversation(scopedAdmin, privateConversation)).toBe(false)
+    expect(canReplyConversation(participatingAdmin, privateConversation)).toBe(true)
   })
 
   it('provides stable visibility labels', () => {

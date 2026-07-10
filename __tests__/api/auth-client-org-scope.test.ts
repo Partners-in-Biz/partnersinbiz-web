@@ -39,17 +39,18 @@ function makeReq(opts: { query?: string; headers?: Record<string, string> } = {}
   })
 }
 
-/** Stub the Firestore users/{uid} doc (and any orgMembers lookups) for the caller. */
-function mockUserDoc(data: Record<string, unknown>) {
+/** Stub the Firestore users/{uid} doc and canonical orgMembers memberships for the caller. */
+function mockUserDoc(data: Record<string, unknown>, memberOrgIds: string[] = []) {
   ;(adminAuth.verifyIdToken as jest.Mock).mockResolvedValue({ uid: 'caller-1' })
+  const memberDocIds = new Set(memberOrgIds.map((orgId) => `${orgId}_caller-1`))
   ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => ({
-    doc: jest.fn().mockReturnValue({
+    doc: jest.fn((docId: string) => ({
       get: jest.fn().mockResolvedValue(
         name === 'users'
           ? { exists: true, data: () => data }
-          : { exists: false, data: () => ({}) },
+          : { exists: name === 'orgMembers' && memberDocIds.has(docId), data: () => ({}) },
       ),
-    }),
+    })),
     where: jest.fn().mockReturnValue({
       limit: jest.fn().mockReturnValue({ get: jest.fn().mockResolvedValue({ empty: true, docs: [] }) }),
     }),
@@ -82,19 +83,19 @@ describe('withAuth — client scoped-orgId enforcement', () => {
   })
 
   it('allows a client scoping to their own orgId', async () => {
-    mockUserDoc({ role: 'client', orgId: 'org-a' })
+    mockUserDoc({ role: 'client', orgId: 'org-a' }, ['org-a'])
     const res = await handler(makeReq({ query: '?orgId=org-a' }))
     expect(res.status).toBe(200)
   })
 
   it('allows a client scoping to an org in their orgIds list', async () => {
-    mockUserDoc({ role: 'client', orgId: 'org-a', orgIds: ['org-a', 'org-b'] })
+    mockUserDoc({ role: 'client', orgId: 'org-a', orgIds: ['org-a', 'org-b'] }, ['org-a', 'org-b'])
     const res = await handler(makeReq({ headers: { 'x-org-id': 'org-b' } }))
     expect(res.status).toBe(200)
   })
 
   it('allows a client scoping to their activeOrgId', async () => {
-    mockUserDoc({ role: 'client', orgId: 'org-a', activeOrgId: 'org-c' })
+    mockUserDoc({ role: 'client', orgId: 'org-a', activeOrgId: 'org-c' }, ['org-a', 'org-c'])
     const res = await handler(makeReq({ query: '?orgId=org-c' }))
     expect(res.status).toBe(200)
   })

@@ -57,6 +57,19 @@ describe('canAccessHermesProfile', () => {
     ).toEqual({ allowed: true })
   })
 
+  it('denies legacy and per-agent AI credentials on legacy profile aliases', () => {
+    const legacy: ApiUser = { uid: 'ai-agent', role: 'ai', authKind: 'legacy_ai_key' }
+    const scoped: ApiUser = {
+      uid: 'agent-api-key:key-1',
+      role: 'ai',
+      authKind: 'agent_api_key',
+      agentId: 'pip',
+      orgId: 'org-a',
+    }
+    expect(canAccessHermesProfile(legacy, baseLink, 'runs')).toMatchObject({ allowed: false, status: 403 })
+    expect(canAccessHermesProfile(scoped, baseLink, 'runs')).toMatchObject({ allowed: false, status: 403 })
+  })
+
   it('blocks disabled profiles and disabled capabilities', () => {
     const user: ApiUser = { uid: 'super-1', role: 'admin' }
     expect(canAccessHermesProfile(user, { ...baseLink, enabled: false }, 'runs')).toMatchObject({ allowed: false, status: 409 })

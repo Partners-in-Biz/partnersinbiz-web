@@ -1,7 +1,7 @@
 #!/usr/bin/env npx tsx
 
 import { createHash, randomUUID } from 'node:crypto'
-import { existsSync } from 'node:fs'
+import { existsSync, realpathSync } from 'node:fs'
 import { copyFile, lstat, mkdir, readFile, readdir, realpath, rename, stat, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
 import { spawnSync } from 'node:child_process'
@@ -32,6 +32,7 @@ export interface SyncOptions {
   direction: SyncDirection
   apply: boolean
   allowPush: boolean
+  pushWorkspaceId?: string
   json: boolean
   planId?: string
   approvedPaths: string[]
@@ -39,7 +40,7 @@ export interface SyncOptions {
   remoteIdentity?: RemoteWorkspaceIdentity
 }
 
-interface RemoteWorkspaceIdentity {
+export interface RemoteWorkspaceIdentity {
   schemaVersion: number
   workspaceId: string
   orgId: string
@@ -50,6 +51,11 @@ interface RemoteWorkspaceIdentity {
   manifestHash: string
   canonicalWorkspaceRoot: string
   canonicalAgentRoot: string
+}
+
+interface RemoteSnapshot {
+  identity: RemoteWorkspaceIdentity
+  inventory: FileInventory
 }
 
 interface SyncIdentity {
@@ -182,6 +188,9 @@ export function parseSyncArgs(argv: string[]): SyncOptions {
   if (!['pull', 'push', 'both'].includes(direction)) throw new Error('direction must be pull, push, or both')
   const apply = argv.includes('--apply')
   const allowPush = argv.includes('--allow-push')
+  const pushWorkspaceId = read('--confirm-workspace')
+  if (allowPush && !pushWorkspaceId) throw new Error('--allow-push requires --confirm-workspace <manifest workspaceId>')
+  if (!allowPush && pushWorkspaceId) throw new Error('--confirm-workspace is only valid with --allow-push')
   const planId = read('--plan')
   if (apply && (!planId || !/^[a-f0-9]{64}$/.test(planId))) {
     throw new Error('Apply requires --plan with the immutable 64-character plan id')
@@ -223,6 +232,7 @@ export function parseSyncArgs(argv: string[]): SyncOptions {
     direction,
     apply,
     allowPush,
+    pushWorkspaceId,
     json: argv.includes('--json'),
     planId,
     approvedPaths: Array.from(new Set(approvedPaths)),
@@ -396,15 +406,44 @@ function remoteRoots(options: SyncOptions) {
 }
 
 export function remoteInventoryScript(options: SyncOptions): string {
-  const encodedRoots = Buffer.from(JSON.stringify(remoteRoots(options)), 'utf8').toString('base64')
+  const encodedConfig = Buffer.from(JSON.stringify({
+    requestedAgentDomain: options.agentDomain,
+    expected: remoteRoots(options),
+    approvedParents: {
+      workspace: '/var/lib/hermes/Cowork',
+      agent: '/var/lib/hermes/cowork-wiki/agents',
+    },
+  }), 'utf8').toString('base64')
   return [
     'import base64,hashlib,json,os,stat,sys',
-    `roots=json.loads(base64.b64decode("${encodedRoots}").decode("utf-8"))`,
+    `config=json.loads(base64.b64decode("${encodedConfig}").decode("utf-8"))`,
+    'expected=config["expected"]; approved=config["approvedParents"]',
+    'manifest_path=os.path.join(expected["workspace"],".pib-workspace.json")',
+    'if os.path.islink(manifest_path) or not os.path.isfile(manifest_path): raise RuntimeError("missing or unsafe remote Workspace manifest")',
+    'with open(manifest_path,"rb") as f: manifest_bytes=f.read()',
+    'manifest_hash=hashlib.sha256(manifest_bytes).hexdigest()',
+    'try: manifest=json.loads(manifest_bytes.decode("utf-8"))',
+    'except Exception as error: raise RuntimeError("invalid remote Workspace manifest JSON") from error',
+    'if not isinstance(manifest,dict): raise RuntimeError("remote Workspace manifest must be an object")',
+    'required=("workspaceId","orgId","agentDomain","vpsPath","agentDomainPath","sourceOfTruth")',
+    'if type(manifest.get("schemaVersion")) is not int or manifest["schemaVersion"] != 1: raise RuntimeError("unsupported remote Workspace manifest schemaVersion")',
+    'for field in required:',
+    '  value=manifest.get(field)',
+    '  if not isinstance(value,str) or not value.strip() or value != value.strip() or any(c in value for c in ("\\x00","\\n","\\r")): raise RuntimeError("invalid remote Workspace manifest field: "+field)',
+    'if manifest["agentDomain"] != config["requestedAgentDomain"]: raise RuntimeError("remote Workspace manifest agentDomain mismatch")',
+    'if manifest["sourceOfTruth"] != "vps": raise RuntimeError("remote Workspace manifest sourceOfTruth must be vps")',
+    'canonical={"workspace":os.path.realpath(manifest["vpsPath"]),"agent":os.path.realpath(manifest["agentDomainPath"])}',
+    'expected_canonical={key:os.path.realpath(value) for key,value in expected.items()}',
+    'approved_canonical={key:os.path.realpath(value) for key,value in approved.items()}',
+    'for key in ("workspace","agent"):',
+    '  root=canonical[key]; parent=approved_canonical[key]',
+    '  if root != expected_canonical[key]: raise RuntimeError("remote Workspace manifest canonical "+key+" root mismatch")',
+    '  if root == parent or not root.startswith(parent+os.sep): raise RuntimeError("remote Workspace manifest "+key+" root escapes approved parent")',
+    '  if not os.path.isdir(root): raise RuntimeError("missing remote Workspace "+key+" root")',
+    'roots=canonical',
     'out={}',
     'ignored={".git",".DS_Store","node_modules"}',
     'for prefix,root in roots.items():',
-    '  if not os.path.exists(root): continue',
-    '  if os.path.islink(root) or not os.path.isdir(root): raise RuntimeError("unsafe sync root: "+root)',
     '  for base,dirs,files in os.walk(root,followlinks=False):',
     '    for d in list(dirs):',
     '      p=os.path.join(base,d)',
@@ -419,7 +458,8 @@ export function remoteInventoryScript(options: SyncOptions): string {
     '      with open(path,"rb") as f:',
     '        for chunk in iter(lambda:f.read(1024*1024),b""): h.update(chunk)',
     '      out[prefix+"/"+rel]=h.hexdigest()',
-    'print(json.dumps(out,sort_keys=True))',
+    'identity={"schemaVersion":manifest["schemaVersion"],"workspaceId":manifest["workspaceId"],"orgId":manifest["orgId"],"agentDomain":manifest["agentDomain"],"vpsPath":manifest["vpsPath"],"agentDomainPath":manifest["agentDomainPath"],"sourceOfTruth":manifest["sourceOfTruth"],"manifestHash":manifest_hash,"canonicalWorkspaceRoot":canonical["workspace"],"canonicalAgentRoot":canonical["agent"]}',
+    'print(json.dumps({"identity":identity,"inventory":out},sort_keys=True))',
   ].join('\n')
 }
 
@@ -427,8 +467,36 @@ export function remoteInventoryCommand(options: SyncOptions): string[] {
   return [...SSH_ARGS, `${options.user}@${options.host}`, 'python3', '-']
 }
 
+function validateRemoteSnapshot(value: unknown): RemoteSnapshot {
+  if (!value || typeof value !== 'object') throw new Error('Remote Workspace snapshot must be an object')
+  const snapshot = value as { identity?: Record<string, unknown>; inventory?: unknown }
+  const identity = snapshot.identity
+  if (!identity || typeof identity !== 'object') throw new Error('Remote Workspace snapshot is missing authoritative identity')
+  const requiredStrings = ['workspaceId', 'orgId', 'agentDomain', 'vpsPath', 'agentDomainPath', 'manifestHash', 'canonicalWorkspaceRoot', 'canonicalAgentRoot'] as const
+  if (identity.schemaVersion !== 1) throw new Error('Remote Workspace manifest schemaVersion must be 1')
+  for (const field of requiredStrings) {
+    if (typeof identity[field] !== 'string' || !(identity[field] as string).trim() || identity[field] !== (identity[field] as string).trim()) {
+      throw new Error(`Remote Workspace identity has invalid ${field}`)
+    }
+  }
+  if (identity.sourceOfTruth !== 'vps') throw new Error('Remote Workspace manifest sourceOfTruth must be vps')
+  if (!/^[a-f0-9]{64}$/.test(identity.manifestHash as string)) throw new Error('Remote Workspace manifest hash is invalid')
+  if (!snapshot.inventory || typeof snapshot.inventory !== 'object' || Array.isArray(snapshot.inventory)) {
+    throw new Error('Remote Workspace inventory is invalid')
+  }
+  for (const [path, hash] of Object.entries(snapshot.inventory as Record<string, unknown>)) {
+    splitInventoryPath(path)
+    if (typeof hash !== 'string' || !/^[a-f0-9]{64}$/.test(hash)) throw new Error(`Remote inventory hash is invalid: ${path}`)
+  }
+  return { identity: identity as unknown as RemoteWorkspaceIdentity, inventory: stableInventory(snapshot.inventory as FileInventory) }
+}
+
+export function buildRemoteSnapshot(options: SyncOptions): RemoteSnapshot {
+  return validateRemoteSnapshot(JSON.parse(run('ssh', remoteInventoryCommand(options), true, remoteInventoryScript(options))))
+}
+
 export function buildRemoteInventory(options: SyncOptions): FileInventory {
-  return stableInventory(JSON.parse(run('ssh', remoteInventoryCommand(options), true, remoteInventoryScript(options))) as FileInventory)
+  return buildRemoteSnapshot(options).inventory
 }
 
 function localPathFor(options: SyncOptions, inventoryPath: string): string {
@@ -475,30 +543,43 @@ async function atomicWrite(path: string, value: unknown): Promise<void> {
   await rename(temporary, path)
 }
 
-function identityFor(options: SyncOptions): SyncIdentity {
+function identityFor(options: SyncOptions, remote: RemoteWorkspaceIdentity): SyncIdentity {
   return {
     workspaceName: options.workspaceName,
     agentDomain: options.agentDomain,
     host: options.host,
     user: options.user,
-    localRoot: options.localRoot,
+    localRoot: realpathSync(options.localRoot),
+    remote,
   }
+}
+
+function requestedIdentityMatches(options: SyncOptions, identity: SyncIdentity): boolean {
+  return identity.workspaceName === options.workspaceName
+    && identity.agentDomain === options.agentDomain
+    && identity.host === options.host
+    && identity.user === options.user
+    && identity.localRoot === realpathSync(options.localRoot)
+}
+
+function identitiesEqual(left: SyncIdentity | RemoteWorkspaceIdentity, right: SyncIdentity | RemoteWorkspaceIdentity): boolean {
+  return JSON.stringify(left) === JSON.stringify(right)
 }
 
 function identityKey(identity: SyncIdentity): string {
   return sha256Text(JSON.stringify(identity))
 }
 
-function statePathFor(options: SyncOptions): string {
-  return join(options.stateRoot, 'states', `${identityKey(identityFor(options))}.json`)
+function statePathFor(options: SyncOptions, identity: SyncIdentity): string {
+  return join(options.stateRoot, 'states', `${identityKey(identity)}.json`)
 }
 
-async function loadBaseline(options: SyncOptions): Promise<SyncBaseline> {
-  const path = statePathFor(options)
+async function loadBaseline(options: SyncOptions, identity: SyncIdentity): Promise<SyncBaseline> {
+  const path = statePathFor(options, identity)
   if (!existsSync(path)) return {}
   const parsed = JSON.parse(await readFile(path, 'utf8')) as { identity?: SyncIdentity; baseline?: SyncBaseline }
-  if (JSON.stringify(parsed.identity) !== JSON.stringify(identityFor(options))) {
-    throw new Error('Sync-state identity does not match this Workspace, agent domain, host, user, and local root')
+  if (!parsed.identity || !identitiesEqual(parsed.identity, identity)) {
+    throw new Error('Sync-state identity does not match this authoritative Workspace target')
   }
   return parsed.baseline ?? {}
 }
@@ -507,13 +588,13 @@ function planDigest(plan: Omit<PersistedPlan, 'id' | 'digest'>): string {
   return sha256Text(JSON.stringify(plan))
 }
 
-async function persistPlan(options: SyncOptions, localInventory: FileInventory, remoteInventory: FileInventory, baseline: SyncBaseline, plan: SyncPlanEntry[]): Promise<PersistedPlan> {
+async function persistPlan(options: SyncOptions, identity: SyncIdentity, localInventory: FileInventory, remoteInventory: FileInventory, baseline: SyncBaseline, plan: SyncPlanEntry[]): Promise<PersistedPlan> {
   const createdAt = new Date()
   const body: Omit<PersistedPlan, 'id' | 'digest'> = {
     version: 2,
     createdAt: createdAt.toISOString(),
     expiresAt: new Date(createdAt.getTime() + PLAN_TTL_MS).toISOString(),
-    identity: identityFor(options),
+    identity,
     direction: options.direction,
     localInventory,
     remoteInventory,
@@ -537,7 +618,7 @@ async function loadPlan(options: SyncOptions): Promise<PersistedPlan> {
     throw new Error('Immutable plan digest verification failed')
   }
   if (Date.parse(persisted.expiresAt) <= Date.now()) throw new Error('Immutable plan has expired; create and review a new plan')
-  if (JSON.stringify(persisted.identity) !== JSON.stringify(identityFor(options))) {
+  if (!requestedIdentityMatches(options, persisted.identity)) {
     throw new Error('Immutable plan identity does not match the requested Workspace target')
   }
   return persisted
@@ -593,8 +674,11 @@ async function applyPull(options: SyncOptions, entry: SyncPlanEntry, journalId: 
   return backup
 }
 
-async function applyPush(options: SyncOptions, entry: SyncPlanEntry, journalId: string): Promise<{ backupPath?: string; backupHash?: string }> {
+async function applyPush(options: SyncOptions, entry: SyncPlanEntry, journalId: string, workspaceId: string): Promise<{ backupPath?: string; backupHash?: string }> {
   if (!options.allowPush) throw new Error('Push operation blocked without --allow-push')
+  if (options.pushWorkspaceId !== workspaceId) {
+    throw new Error(`Push confirmation must match manifest workspaceId: ${workspaceId}`)
+  }
   const source = localPathFor(options, entry.path)
   const { scope } = splitInventoryPath(entry.path)
   await assertNoSymlinkAncestors(source, localRoots(options)[scope])
@@ -612,20 +696,40 @@ function summary(plan: SyncPlanEntry[]) {
 }
 
 async function createPlan(options: SyncOptions) {
-  const [local, baseline] = await Promise.all([buildLocalInventory(options), loadBaseline(options)])
-  const remote = buildRemoteInventory(options)
+  const remoteSnapshot = buildRemoteSnapshot(options)
+  const identity = identityFor(options, remoteSnapshot.identity)
+  const [local, baseline] = await Promise.all([buildLocalInventory(options), loadBaseline(options, identity)])
+  const remote = remoteSnapshot.inventory
   const plan = applyConflictResolutions(buildSyncPlan(local, remote, baseline, options.direction), options.resolutions)
-  const persisted = await persistPlan(options, local, remote, baseline, plan)
+  const persisted = await persistPlan(options, identity, local, remote, baseline, plan)
   return {
     mode: 'plan' as const,
     planId: persisted.id,
     expiresAt: persisted.expiresAt,
-    statePath: statePathFor(options),
+    workspaceId: identity.remote.workspaceId,
+    statePath: statePathFor(options, identity),
     summary: summary(plan),
     operations: plan.filter((entry) => entry.action !== 'none'),
     unresolved: plan.filter((entry) => (entry.classification === 'conflict' && !entry.resolution) || entry.classification === 'remote_deleted'),
     plan,
   }
+}
+
+function assertAuthoritativeRemoteIdentity(actual: RemoteWorkspaceIdentity, expected: RemoteWorkspaceIdentity): void {
+  if (!identitiesEqual(actual, expected)) {
+    throw new Error('Authoritative remote Workspace manifest identity changed after planning')
+  }
+}
+
+async function writeBaselineState(options: SyncOptions, persisted: PersistedPlan, baseline: SyncBaseline, journalPath: string): Promise<void> {
+  await atomicWrite(statePathFor(options, persisted.identity), {
+    version: 2,
+    identity: persisted.identity,
+    updatedAt: new Date().toISOString(),
+    baseline,
+    lastPlanId: persisted.id,
+    lastJournalPath: journalPath,
+  })
 }
 
 async function applyPersistedPlan(options: SyncOptions) {
@@ -636,12 +740,17 @@ async function applyPersistedPlan(options: SyncOptions) {
     if (!operations.some((entry) => entry.path === path)) throw new Error(`Approved path is not an operation in the immutable plan: ${path}`)
   }
   const selected = operations.filter((entry) => approved.has(entry.path))
-  if (selected.some((entry) => entry.action === 'push') && !options.allowPush) {
-    throw new Error('Applying approved push paths requires --allow-push')
+  if (selected.some((entry) => entry.action === 'push')) {
+    if (!options.allowPush) throw new Error('Applying approved push paths requires --allow-push')
+    if (options.pushWorkspaceId !== persisted.identity.remote.workspaceId) {
+      throw new Error(`Push confirmation must match manifest workspaceId: ${persisted.identity.remote.workspaceId}`)
+    }
   }
 
-  const [localNow, remoteNow] = await Promise.all([buildLocalInventory(options), Promise.resolve(buildRemoteInventory(options))])
-  if (!inventoriesEqual(localNow, persisted.localInventory) || !inventoriesEqual(remoteNow, persisted.remoteInventory)) {
+  const initialRemote = buildRemoteSnapshot(options)
+  assertAuthoritativeRemoteIdentity(initialRemote.identity, persisted.identity.remote)
+  const localNow = await buildLocalInventory(options)
+  if (!inventoriesEqual(localNow, persisted.localInventory) || !inventoriesEqual(initialRemote.inventory, persisted.remoteInventory)) {
     throw new Error('Immutable plan is stale: local or VPS inventory changed after planning')
   }
 
@@ -664,6 +773,7 @@ async function applyPersistedPlan(options: SyncOptions) {
     })),
   }
   await atomicWrite(journalPath, journal)
+  const advancedBaseline: SyncBaseline = { ...persisted.baseline }
 
   try {
     for (let index = 0; index < selected.length; index += 1) {
@@ -673,38 +783,33 @@ async function applyPersistedPlan(options: SyncOptions) {
       journal.updatedAt = new Date().toISOString()
       await atomicWrite(journalPath, journal)
 
+      const beforeRemote = buildRemoteSnapshot(options)
+      assertAuthoritativeRemoteIdentity(beforeRemote.identity, persisted.identity.remote)
       const beforeLocal = await buildLocalInventory(options)
-      const beforeRemote = buildRemoteInventory(options)
-      if ((beforeLocal[entry.path] ?? null) !== entry.localHash || (beforeRemote[entry.path] ?? null) !== entry.remoteHash) {
+      if ((beforeLocal[entry.path] ?? null) !== entry.localHash || (beforeRemote.inventory[entry.path] ?? null) !== entry.remoteHash) {
         throw new Error(`Source or destination changed before approved operation: ${entry.path}`)
       }
 
       const backup = entry.action === 'pull'
         ? await applyPull(options, entry, journalId)
-        : await applyPush(options, entry, journalId)
+        : await applyPush(options, entry, journalId, persisted.identity.remote.workspaceId)
       Object.assign(result, backup)
 
+      const afterRemote = buildRemoteSnapshot(options)
+      assertAuthoritativeRemoteIdentity(afterRemote.identity, persisted.identity.remote)
       const afterLocal = await buildLocalInventory(options)
-      const afterRemote = buildRemoteInventory(options)
       const expected = entry.action === 'pull' ? entry.remoteHash : entry.localHash
-      if (!expected || afterLocal[entry.path] !== expected || afterRemote[entry.path] !== expected) {
+      if (!expected || afterLocal[entry.path] !== expected || afterRemote.inventory[entry.path] !== expected) {
         throw new Error(`Checksum verification failed after ${entry.action}: ${entry.path}`)
       }
+
       result.verifiedHash = expected
+      advancedBaseline[entry.path] = expected
+      await writeBaselineState(options, persisted, advancedBaseline, journalPath)
       result.status = 'completed'
       journal.updatedAt = new Date().toISOString()
       await atomicWrite(journalPath, journal)
     }
-    const finalLocal = await buildLocalInventory(options)
-    const finalRemote = buildRemoteInventory(options)
-    await atomicWrite(statePathFor(options), {
-      version: 2,
-      identity: identityFor(options),
-      updatedAt: new Date().toISOString(),
-      baseline: commonBaseline(finalLocal, finalRemote),
-      lastPlanId: persisted.id,
-      lastJournalPath: journalPath,
-    })
     journal.status = 'completed'
     journal.updatedAt = new Date().toISOString()
     await atomicWrite(journalPath, journal)

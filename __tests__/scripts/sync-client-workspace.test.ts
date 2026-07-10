@@ -77,8 +77,15 @@ describe('conflict-aware Workspace sync', () => {
       '--workspace', 'Acme', '--apply', '--plan', PLAN_ID, '--approve-path', 'workspace/secret.env',
     ])).toThrow('Only Markdown')
     expect(parseSyncArgs([
-      '--workspace', 'Acme', '--apply', '--plan', PLAN_ID, '--approve-path', 'workspace/readme.md', '--allow-push',
-    ])).toMatchObject({ apply: true, planId: PLAN_ID, approvedPaths: ['workspace/readme.md'], allowPush: true })
+      '--workspace', 'Acme', '--apply', '--plan', PLAN_ID, '--approve-path', 'workspace/readme.md',
+      '--allow-push', '--confirm-workspace', 'workspace-123',
+    ])).toMatchObject({
+      apply: true,
+      planId: PLAN_ID,
+      approvedPaths: ['workspace/readme.md'],
+      allowPush: true,
+      pushWorkspaceId: 'workspace-123',
+    })
   })
 
   it('validates target and resolution input', () => {

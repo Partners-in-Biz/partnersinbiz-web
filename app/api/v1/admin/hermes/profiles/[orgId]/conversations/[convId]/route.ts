@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { FieldValue } from 'firebase-admin/firestore'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
+import { isSuperAdmin } from '@/lib/api/platformAdmin'
 import { requireHermesProfileAccess } from '@/lib/hermes/server'
 import { conversationDoc, getConversation, listMessages } from '@/lib/hermes/conversations'
 
@@ -14,7 +15,9 @@ export const GET = withAuth('client', async (_req: NextRequest, user, ctx) => {
   const access = await requireHermesProfileAccess(user, orgId, 'runs')
   if (access instanceof Response) return access
   const conv = await getConversation(convId)
-  if (!conv || conv.orgId !== orgId) return apiError('Conversation not found', 404)
+  if (!conv || conv.orgId !== orgId || conv.profile !== access.link.profile) {
+    return apiError('Conversation not found', 404)
+  }
   if (!conv.participantUids.includes(user.uid)) return apiError('Forbidden', 403)
   const messages = await listMessages(convId)
   return apiSuccess({ conversation: conv, messages })
@@ -25,8 +28,11 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const access = await requireHermesProfileAccess(user, orgId, 'runs')
   if (access instanceof Response) return access
   const conv = await getConversation(convId)
-  if (!conv || conv.orgId !== orgId) return apiError('Conversation not found', 404)
+  if (!conv || conv.orgId !== orgId || conv.profile !== access.link.profile) {
+    return apiError('Conversation not found', 404)
+  }
   if (!conv.participantUids.includes(user.uid)) return apiError('Forbidden', 403)
+  if (conv.ownerUid !== user.uid && !isSuperAdmin(user)) return apiError('Only the conversation owner can update it', 403)
   const body = await req.json().catch(() => ({}))
   const patch: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp() }
   if (typeof body.title === 'string' && body.title.trim()) patch.title = body.title.trim().slice(0, 200)
@@ -40,7 +46,12 @@ export const DELETE = withAuth('admin', async (_req: NextRequest, user, ctx) => 
   const access = await requireHermesProfileAccess(user, orgId, 'runs')
   if (access instanceof Response) return access
   const conv = await getConversation(convId)
-  if (!conv || conv.orgId !== orgId) return apiError('Conversation not found', 404)
+  if (!conv || conv.orgId !== orgId || conv.profile !== access.link.profile) {
+    return apiError('Conversation not found', 404)
+  }
+  if (conv.ownerUid !== user.uid && !isSuperAdmin(user)) {
+    return apiError('Only the conversation owner or a super administrator can delete it', 403)
+  }
   await conversationDoc(convId).delete()
   return apiSuccess({ ok: true })
 })

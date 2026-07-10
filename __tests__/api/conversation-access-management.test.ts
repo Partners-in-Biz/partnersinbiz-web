@@ -109,6 +109,15 @@ describe('PATCH conversation Workspace access', () => {
     expect(mockUpdateConversationAccess).not.toHaveBeenCalled()
   })
 
+  it('rejects metadata changes from an organisation-wide reader who is not a manager', async () => {
+    mockUser = { uid: 'member-3', role: 'client', orgId: 'org-1' }
+    mockCanManage.mockReturnValueOnce(false)
+    const { PATCH } = await import('@/app/api/v1/conversations/[convId]/route')
+    const response = await PATCH(request({ title: 'Unauthorised rename' }), context())
+    expect(response.status).toBe(403)
+    expect(mockPatchConversation).not.toHaveBeenCalled()
+  })
+
   it('does not permit selected-people mode with only the owner', async () => {
     mockResolveHumans.mockResolvedValue([{ kind: 'user', uid: 'owner-1', role: 'client' }])
     const { PATCH } = await import('@/app/api/v1/conversations/[convId]/route')
