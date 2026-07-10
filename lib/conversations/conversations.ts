@@ -178,14 +178,23 @@ export async function listMessages(convId: string, limit = 200): Promise<Convers
 // Conversation mutation helpers
 // ---------------------------------------------------------------------------
 
-/** Update conversation metadata (title, archived) and bump updatedAt. */
+/** Update conversation metadata and bump updatedAt. */
 export async function patchConversation(
   convId: string,
-  patch: { title?: string; archived?: boolean },
+  patch: {
+    title?: string
+    archived?: boolean
+    participants?: Conversation['participants']
+    participantUids?: string[]
+    workspaceContext?: Conversation['workspaceContext']
+  },
 ): Promise<void> {
   const updates: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp() }
   if (patch.title !== undefined) updates.title = patch.title.trim()
   if (patch.archived !== undefined) updates.archived = patch.archived
+  if (patch.participants !== undefined) updates.participants = patch.participants
+  if (patch.participantUids !== undefined) updates.participantUids = patch.participantUids
+  if (patch.workspaceContext !== undefined) updates.workspaceContext = patch.workspaceContext
   await convDoc(convId).update(updates)
 }
 

@@ -35,6 +35,7 @@ import MessageBubble, { type ConversationAttachment, type ConversationMessage } 
 import ParticipantBar from './ParticipantBar'
 import ParticipantPicker, { type SelectedParticipant } from './ParticipantPicker'
 import ConversationListItem, { type Conversation } from './ConversationListItem'
+import ConversationAccessDialog from './ConversationAccessDialog'
 import VoiceInputButton from './VoiceInputButton'
 import ModelProviderPicker, { type MessageModelCatalog, type ModelRuntimeSelection } from '@/components/messages/hermes/ModelProviderPicker'
 import RuntimeInspectorRail from '@/components/messages/hermes/RuntimeInspectorRail'
@@ -400,6 +401,7 @@ export default function UnifiedChat({
   // Conversation context menu
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null)
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null)
+  const [accessConversation, setAccessConversation] = useState<Conversation | null>(null)
 
   // Rename state
   const [renamingId, setRenamingId] = useState<string | null>(null)
