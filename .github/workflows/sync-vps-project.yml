@@ -1,13 +1,17 @@
 name: Mirror partnersinbiz-web to Hermes VPS
 #
 # Rsyncs the development source tree to a clean mirror at
-# /var/lib/hermes/projects/partnersinbiz-web-mirror/ on hermes-vps-01.
+# /srv/hermes-projects/partnersinbiz-web-mirror/ on hermes-vps-01.
+# The mirror lives outside HERMES_HOME because Hermes intentionally reapplies
+# mode 0700 to /var/lib/hermes; that security boundary must not be weakened for
+# a deployment account. A compatibility symlink inside the Hermes projects
+# directory keeps the historical read path available to the hermes user.
 # The active writable agent checkout remains
 # /var/lib/hermes/projects/partnersinbiz-web-development/.
 #
 # Scaling to other projects:
 #   Copy this file into any other repo, update MIRROR_DIR to match
-#   /var/lib/hermes/projects/<repo-name>-mirror, and ensure the same
+#   /srv/hermes-projects/<repo-name>-mirror, and ensure the same
 #   VPS_DEPLOY_KEY / VPS_HOST / VPS_USER secrets are set on that repo (or
 #   fork them to a new team's org secrets). The hermes-deploy user must be
 #   able to write the mirror directory.
@@ -26,7 +30,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  MIRROR_DIR: /var/lib/hermes/projects/partnersinbiz-web-mirror
+  MIRROR_DIR: /srv/hermes-projects/partnersinbiz-web-mirror
 
 jobs:
   sync:
