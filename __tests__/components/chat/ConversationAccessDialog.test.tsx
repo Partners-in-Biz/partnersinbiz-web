@@ -29,6 +29,7 @@ function response(body: unknown, ok = true): Response {
 
 describe('ConversationAccessDialog', () => {
   beforeEach(() => {
+    jest.spyOn(window, 'confirm').mockReturnValue(true)
     global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       if (String(input) === '/api/v1/orgs/org-1/contacts') {
         return response({ data: [
@@ -73,7 +74,7 @@ describe('ConversationAccessDialog', () => {
     expect(onClose).toHaveBeenCalled()
     expect(global.fetch).toHaveBeenLastCalledWith('/api/v1/conversations/conv-1', expect.objectContaining({
       method: 'PATCH',
-      body: JSON.stringify({ shareMode: 'shared', participantUids: ['owner-1', 'member-2'] }),
+      body: JSON.stringify({ shareMode: 'shared', participantUids: ['owner-1', 'member-2'], expectedAccessVersion: 0 }),
     }))
   })
 })

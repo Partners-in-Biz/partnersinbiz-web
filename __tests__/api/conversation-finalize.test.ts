@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import type { ChatEvent } from '@/lib/hermes/types'
 
-type MockUser = { uid: string; role: 'admin' | 'client' | 'ai' }
+type MockUser = { uid: string; role: 'admin' | 'client' | 'ai'; orgIds?: string[] }
 type MockHandler = (req: NextRequest, user: MockUser, ctx?: unknown) => Promise<Response>
 
 const mockCollection = jest.fn()
@@ -13,7 +13,7 @@ const mockCallHermesJson = jest.fn()
 const mockGetAgentDispatchHermesProfileLink = jest.fn()
 const mockRunDocSet = jest.fn()
 
-let mockUser: MockUser = { uid: 'client-1', role: 'client' }
+let mockUser: MockUser = { uid: 'client-1', role: 'client', orgIds: ['org-1'] }
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
@@ -57,6 +57,21 @@ function makeRequest(body: Record<string, unknown>) {
 }
 
 async function callFinalize(body: Record<string, unknown>) {
+  const existingGet = mockMessageGet.getMockImplementation()
+  mockMessageGet.mockImplementation(async () => {
+    const snapshot = await existingGet?.()
+    const existingData = snapshot?.data?.() ?? {}
+    return {
+      ...snapshot,
+      exists: snapshot?.exists !== false,
+      data: () => ({
+        ...existingData,
+        role: existingData.role ?? 'assistant',
+        runId: existingData.runId ?? body.runId,
+        dispatchAgentId: existingData.dispatchAgentId ?? body.agentId,
+      }),
+    }
+  })
   const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/[msgId]/finalize/route')
   return POST(
     makeRequest(body),
@@ -67,7 +82,7 @@ async function callFinalize(body: Record<string, unknown>) {
 beforeEach(() => {
   jest.resetModules()
   jest.clearAllMocks()
-  mockUser = { uid: 'client-1', role: 'client' }
+  mockUser = { uid: 'client-1', role: 'client', orgIds: ['org-1'] }
   mockGetConversation.mockResolvedValue(baseConv)
   mockMessageGet.mockResolvedValue({ exists: true, data: () => ({}) })
   mockMessageUpdate.mockResolvedValue(undefined)
@@ -237,7 +252,6 @@ describe('POST /api/v1/conversations/[convId]/messages/[msgId]/finalize', () => 
       content: 'Ready for review.',
       status: 'completed',
       runId: 'run-rich',
-      events,
       richParts: [
         { type: 'markdown', content: '### Ready\n- Preview deployed' },
         {
@@ -245,11 +259,9 @@ describe('POST /api/v1/conversations/[convId]/messages/[msgId]/finalize', () => 
           columns: ['Check', 'Result'],
           rows: [{ Check: 'Build', Result: 'Passed' }],
         },
-        { type: 'status', title: 'Live checks passed', status: 'completed', body: 'Preview is ready.' },
       ],
       uiActions: [
         { id: 'copy-summary', type: 'copy', label: 'Copy summary', value: 'Ready for review.' },
-        { id: 'open-preview', type: 'open', label: 'Open preview', url: 'https://preview.example.com' },
       ],
     }))
   })
@@ -352,7 +364,7 @@ describe('POST /api/v1/conversations/[convId]/messages/[msgId]/finalize', () => 
     )
   })
 
-  it('extracts rich parts from streamed JSON deltas when the run has no output field', async () => {
+  it('does not trust client-supplied streamed JSON deltas as authoritative run output', async () => {
     const richJsonText = JSON.stringify({
       rich_parts: [
         { type: 'markdown', content: '### Streamed rich payload\nThis should be stored as rich content.' },
@@ -382,21 +394,9 @@ describe('POST /api/v1/conversations/[convId]/messages/[msgId]/finalize', () => 
     expect(res.status).toBe(200)
     expect(body.data.status).toBe('completed')
     expect(mockMessageUpdate).toHaveBeenCalledWith(expect.objectContaining({
-      content: '',
+      content: 'Agent completed but returned no text output.',
       status: 'completed',
       runId: 'run-streamed-json-rich',
-      events,
-      richParts: [
-        { type: 'markdown', content: '### Streamed rich payload\nThis should be stored as rich content.' },
-        {
-          type: 'table',
-          columns: ['Check', 'Status'],
-          rows: [{ Check: 'Stream parser', Status: 'Ready' }],
-        },
-      ],
-      uiActions: [
-        { id: 'copy-stream', type: 'copy', label: 'Copy streamed summary', value: 'Streamed rich payload' },
-      ],
     }))
   })
 })

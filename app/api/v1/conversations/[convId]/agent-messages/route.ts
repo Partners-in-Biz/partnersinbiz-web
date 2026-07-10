@@ -8,9 +8,9 @@
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
-import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { AGENT_IDS, type AgentId } from '@/lib/agents/types'
 import { getConversation, createMessage, touchConversation } from '@/lib/conversations/conversations'
+import { canAccessConversation } from '@/lib/conversations/access'
 import { normalizeRichParts, normalizeUiActions } from '@/lib/hermes/rich-messages'
 import type { ApiUser } from '@/lib/api/types'
 
@@ -39,16 +39,18 @@ function canAppendForAgent(user: ApiUser, agentId: AgentId): boolean {
   if (user.role === 'admin') return true
   if (user.role !== 'ai') return false
   const apiAgentId = typeof user.agentId === 'string' ? user.agentId : null
-  if (!apiAgentId) return user.uid === 'ai-agent'
+  if (!apiAgentId) return false
   return apiAgentId === agentId || apiAgentId === 'pip'
 }
 
-function isPipRelay(user: ApiUser, agentId: AgentId): boolean {
-  return user.role === 'ai' && user.agentId === 'pip' && agentId !== 'pip'
-}
-
-function canRelaySpecialistOutput(user: ApiUser, agentId: AgentId): boolean {
-  return user.role === 'admin' || isPipRelay(user, agentId)
+function canRelaySpecialistOutput(
+  user: ApiUser,
+  agentId: AgentId,
+  conversation: NonNullable<Awaited<ReturnType<typeof getConversation>>>,
+): boolean {
+  if (user.role !== 'ai' || user.agentId !== 'pip' || agentId === 'pip') return false
+  if (!conversation.participantAgentIds.includes('pip')) return false
+  return conversation.orchestration?.requestedAgentIds?.includes(agentId) === true
 }
 
 export const POST = withAuth(
@@ -59,7 +61,7 @@ export const POST = withAuth(
     const { convId } = await (context as Params).params
     const conversation = await getConversation(convId)
     if (!conversation) return apiError('Conversation not found', 404)
-    if (!canAccessOrg(user, conversation.orgId)) return apiError('Forbidden', 403)
+    if (!canAccessConversation(user, conversation)) return apiError('Forbidden', 403)
 
     const body = await req.json().catch(() => null)
     if (!body || typeof body !== 'object') return apiError('Invalid JSON body', 400)
@@ -72,7 +74,7 @@ export const POST = withAuth(
     const participantAgentIds = Array.isArray(conversation.participantAgentIds)
       ? conversation.participantAgentIds
       : []
-    if (!participantAgentIds.includes(agentId) && agentId !== 'pip' && !canRelaySpecialistOutput(user, agentId)) {
+    if (!participantAgentIds.includes(agentId) && !canRelaySpecialistOutput(user, agentId, conversation)) {
       return apiError('Agent is not a participant in this conversation', 403)
     }
 

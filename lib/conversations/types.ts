@@ -69,6 +69,8 @@ export interface Conversation {
   participants: Participant[]
   participantUids: string[]
   participantAgentIds: AgentId[]
+  /** Monotonic version used to prevent stale access-management writes. */
+  accessVersion?: number
   orchestration?: {
     mode: 'pip-orchestrator'
     dispatcherAgentId: AgentId

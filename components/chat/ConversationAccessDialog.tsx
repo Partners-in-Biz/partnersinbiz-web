@@ -20,7 +20,8 @@ interface AccessConversation {
     | { kind: 'agent'; agentId?: string; name?: string }
   >
   participantUids: string[]
-  workspaceContext?: { shareMode?: string }
+  accessVersion?: number
+  workspaceContext?: { shareMode?: string; ownerUserId?: string }
 }
 
 interface ConversationAccessDialogProps<T extends AccessConversation> {
@@ -33,7 +34,7 @@ const OPTIONS: Array<{ value: ShareMode; label: string; description: string; ico
   {
     value: 'private',
     label: 'Private',
-    description: 'Only the conversation owner can open this Workspace conversation.',
+    description: 'Only the owner and participating agents can open it. Authorised platform operators retain operational access.',
     icon: 'lock',
   },
   {
@@ -59,7 +60,7 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
   onClose,
   onUpdated,
 }: ConversationAccessDialogProps<T>) {
-  const ownerUid = conversation.startedBy
+  const ownerUid = conversation.workspaceContext?.ownerUserId ?? conversation.startedBy
   const initialShareMode = conversation.workspaceContext?.shareMode
   const [shareMode, setShareMode] = useState<ShareMode>(
     initialShareMode === 'shared' || initialShareMode === 'org' ? initialShareMode : 'private',
@@ -133,6 +134,13 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
       setError('Select at least one additional person for selected-people access.')
       return
     }
+    const currentMode = initialShareMode === 'shared' || initialShareMode === 'org' ? initialShareMode : 'private'
+    const rank: Record<ShareMode, number> = { private: 0, shared: 1, org: 2 }
+    const currentHumans = new Set(conversation.participantUids)
+    const addedPeople = selectedUids.some((uid) => !currentHumans.has(uid))
+    if ((rank[shareMode] > rank[currentMode] || addedPeople) && !window.confirm(
+      'This will give additional people access to the full conversation history. Continue?',
+    )) return
     setSaving(true)
     setError(null)
     try {
@@ -142,6 +150,7 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
         body: JSON.stringify({
           shareMode,
           participantUids: shareMode === 'private' ? [ownerUid] : selectedUids,
+          expectedAccessVersion: conversation.accessVersion ?? 0,
         }),
       })
       const body = await response.json().catch(() => null)
@@ -194,7 +203,7 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
           {shareMode !== 'private' && (
             <fieldset>
               <legend className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Collaborators</legend>
-              <p className="mt-1 text-xs text-on-surface-variant">The owner is always retained. Selected-people access requires at least one other person.</p>
+              <p className="mt-1 text-xs text-on-surface-variant">{shareMode === 'shared' ? 'The owner is always retained. Select at least one other person.' : 'The owner is always retained. Selected people are shown as collaborators.'}</p>
               <div className="mt-3 space-y-1.5">
                 {loading && <div className="pib-skeleton h-10 w-full" />}
                 {!loading && people.map((person) => {

@@ -19,9 +19,8 @@ import {
   finalizeConversationRun,
   HermesConversationRunError,
 } from '@/lib/conversations/run-finalizer'
-import type { ChatEvent } from '@/lib/hermes/types'
 import type { ApiUser } from '@/lib/api/types'
-import { canAccessConversation } from '@/lib/conversations/access'
+import { canReplyConversation } from '@/lib/conversations/access'
 import type { AgentId } from '@/lib/agents/types'
 
 export const dynamic = 'force-dynamic'
@@ -34,27 +33,30 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   // Verify conversation exists and caller is a participant
   const conversation = await getConversation(convId)
   if (!conversation) return apiError('Conversation not found', 404)
-  if (!canAccessConversation(user, conversation)) return apiError('Forbidden', 403)
+  if (!canReplyConversation(user, conversation)) return apiError('Forbidden', 403)
 
   // Verify message exists
   const msgDoc = await messagesCollection(convId).doc(msgId).get()
   if (!msgDoc.exists) return apiError('Message not found', 404)
+  const message = msgDoc.data() ?? {}
+  if (message.role !== 'assistant' || typeof message.runId !== 'string' || !message.runId.trim()) {
+    return apiError('Message is not bound to an assistant run', 409)
+  }
+  const storedAgentId = typeof message.dispatchAgentId === 'string'
+    ? message.dispatchAgentId.trim() as AgentId
+    : ''
+  if (!storedAgentId) return apiError('Message is not bound to a dispatch agent', 409)
 
   const body = await req.json().catch(() => ({})) as Record<string, unknown>
   const runId = typeof body.runId === 'string' ? body.runId.trim() : ''
   if (!runId) return apiError('runId is required', 400)
-
-  const agentId = typeof body.agentId === 'string' ? body.agentId as AgentId : ''
-  if (!agentId) return apiError('agentId is required', 400)
-
-  const events: ChatEvent[] = Array.isArray(body.events) ? body.events as ChatEvent[] : []
+  if (runId !== message.runId.trim()) return apiError('runId does not match this message', 409)
   try {
     const result = await finalizeConversationRun({
       convId,
       msgId,
       runId,
-      agentId,
-      events,
+      agentId: storedAgentId,
     })
     return apiSuccess(result)
   } catch (err) {

@@ -23,6 +23,8 @@ import { isSuperAdmin } from '@/lib/api/platformAdmin'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import { resolveConversationWorkspaceContext } from '@/lib/client-provisioning/workspace-context'
 import { publicRuntimeTargetPresence } from '@/lib/agents/runtime-targets'
+import { publicConversationView } from '@/lib/conversations/access'
+import { organizationMemberUids } from '@/lib/conversations/participant-access'
 import type { AgentId, Participant, Conversation, ConversationScope } from '@/lib/conversations/types'
 import type { ApiUser } from '@/lib/api/types'
 
@@ -44,6 +46,9 @@ export const POST = withAuth(
     // admin/AI callers remain explicit through resolveOrgScope.
     const scope = resolveOrgScope(user, requestedOrgId)
     if (!scope.ok) return apiError(scope.error, scope.status)
+    if (user.role === 'ai' && (!user.orgId || user.orgId !== scope.orgId)) {
+      return apiError('AI credentials are not authorised for this organisation', 403)
+    }
     const startAccess = await assertUserCanPerformOrganizationModuleAction(
       user,
       scope.orgId,
@@ -69,10 +74,8 @@ export const POST = withAuth(
     const allowedAgentIds = new Set<AgentId>(resolveVisibleAgents(config, callerRole))
     const orgMemberUids = new Set<string>()
     if (callerRole === 'client' || !isPlatformWorkspace(scope.orgId)) {
-      const orgDoc = await adminDb.collection('organizations').doc(scope.orgId).get()
-      if (!orgDoc.exists) return apiError('Organisation not found', 404)
-      const orgData = orgDoc.data() as { members?: Array<{ userId: string }> }
-      ;(orgData.members ?? []).forEach((member) => orgMemberUids.add(member.userId))
+      const canonicalMemberUids = await organizationMemberUids(scope.orgId)
+      canonicalMemberUids.forEach((uid) => orgMemberUids.add(uid))
     }
     const platformAdminUids = new Set<string>()
     if (callerRole === 'client') {
@@ -262,7 +265,7 @@ export const POST = withAuth(
       contextRefs,
     })
 
-    return apiSuccess({ conversation }, 201)
+    return apiSuccess({ conversation: publicConversationView(conversation) }, 201)
   },
 )
 
@@ -280,6 +283,9 @@ export const GET = withAuth(
 
     const orgScope = resolveOrgScope(user, orgIdParam)
     if (!orgScope.ok) return apiError(orgScope.error, orgScope.status)
+    if (user.role === 'ai' && (!user.orgId || user.orgId !== orgScope.orgId)) {
+      return apiError('AI credentials are not authorised for this organisation', 403)
+    }
 
     const limit = Math.min(parseInt(searchParams.get('limit') ?? '30'), 100)
     const conversations = await listConversations(orgScope.orgId, user, limit, {
@@ -288,6 +294,6 @@ export const GET = withAuth(
       projectId,
     })
 
-    return apiSuccess({ conversations })
+    return apiSuccess({ conversations: conversations.map(publicConversationView) })
   },
 )

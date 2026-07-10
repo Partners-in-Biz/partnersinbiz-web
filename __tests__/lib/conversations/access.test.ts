@@ -1,4 +1,9 @@
-import { canAccessConversation, conversationVisibilityLabel } from '@/lib/conversations/access'
+import {
+  canAccessConversation,
+  canManageConversationAccess,
+  conversationVisibilityLabel,
+  publicConversationView,
+} from '@/lib/conversations/access'
 import type { ApiUser } from '@/lib/api/types'
 import type { Conversation } from '@/lib/conversations/types'
 
@@ -57,6 +62,37 @@ describe('Workspace conversation access', () => {
   it('allows authenticated organisation members into org-visible conversations', () => {
     expect(canAccessConversation(member, conversation('org'))).toBe(true)
     expect(canAccessConversation(outsider, conversation('org'))).toBe(false)
+  })
+
+  it('scopes administrators and requires AI callers to be participating agents', () => {
+    const restrictedAdmin = { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-2'] } as ApiUser
+    const scopedAdmin = { uid: 'admin-2', role: 'admin', allowedOrgIds: ['org-1'] } as ApiUser
+    const pip = { uid: 'agent-user', role: 'ai', agentId: 'pip', orgId: 'org-1' } as ApiUser
+    const crossOrgPip = { uid: 'agent-user', role: 'ai', agentId: 'pip', orgId: 'org-2' } as ApiUser
+    const maya = { uid: 'agent-user-2', role: 'ai', agentId: 'maya', orgId: 'org-1' } as ApiUser
+    expect(canAccessConversation(restrictedAdmin, conversation('private'))).toBe(false)
+    expect(canAccessConversation(scopedAdmin, conversation('private'))).toBe(true)
+    expect(canAccessConversation(pip, conversation('private'))).toBe(true)
+    expect(canAccessConversation(crossOrgPip, conversation('private'))).toBe(false)
+    expect(canAccessConversation(maya, conversation('org'))).toBe(false)
+  })
+
+  it('redacts server and local filesystem paths from public conversation views', () => {
+    const publicView = publicConversationView(conversation('private'))
+    expect(publicView.workspaceContext).toEqual(expect.objectContaining({ workspaceId: 'acme', runtimeLabel: 'VPS' }))
+    expect(publicView.workspaceContext).not.toHaveProperty('vpsPath')
+    expect(publicView.workspaceContext).not.toHaveProperty('localPath')
+    expect(publicView.workspaceContext).not.toHaveProperty('agentDomainPath')
+    expect(publicView.workspaceContext).not.toHaveProperty('localAgentDomainPath')
+  })
+
+  it('limits access management to the canonical owner or a scoped administrator', () => {
+    const scopedAdmin = { uid: 'admin-2', role: 'admin', allowedOrgIds: ['org-1'] } as ApiUser
+    const restrictedAdmin = { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-2'] } as ApiUser
+    expect(canManageConversationAccess(owner, conversation('private'))).toBe(true)
+    expect(canManageConversationAccess(member, conversation('shared'))).toBe(false)
+    expect(canManageConversationAccess(scopedAdmin, conversation('private'))).toBe(true)
+    expect(canManageConversationAccess(restrictedAdmin, conversation('private'))).toBe(false)
   })
 
   it('provides stable visibility labels', () => {

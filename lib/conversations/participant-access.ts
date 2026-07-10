@@ -47,18 +47,15 @@ async function platformSuperAdminUids(): Promise<Set<string>> {
   }).map((doc) => doc.id))
 }
 
-async function organizationMemberUids(orgId: string): Promise<Set<string>> {
+export async function organizationMemberUids(orgId: string): Promise<Set<string>> {
   const result = new Set<string>()
   const orgDoc = await adminDb.collection('organizations').doc(orgId).get()
   if (orgId !== PIB_PLATFORM_ORG_ID && !orgDoc.exists) {
     throw new ConversationParticipantError('Organisation not found', 404)
   }
-  const members = (orgDoc.data()?.members ?? []) as OrgMemberLike[]
-  for (const member of members) {
-    const uid = cleanString(member.uid) || cleanString(member.userId)
-    if (uid) result.add(uid)
-  }
 
+  // `orgMembers` is the canonical, revocable membership source. Do not union
+  // the legacy embedded organization.members array: it can retain stale users.
   const linked = await adminDb.collection('orgMembers').where('orgId', '==', orgId).get()
   for (const doc of linked.docs) {
     const data = doc.data() as OrgMemberLike
@@ -109,9 +106,7 @@ export async function resolveHumanConversationParticipants({
   memberUids.add(ownerUid)
 
   for (const uid of orderedUids) {
-    const allowed = orgId === PIB_PLATFORM_ORG_ID
-      ? memberUids.has(uid) || superAdminUids.has(uid)
-      : memberUids.has(uid) || superAdminUids.has(uid)
+    const allowed = memberUids.has(uid) || superAdminUids.has(uid)
     if (!allowed) {
       throw new ConversationParticipantError(`User ${uid} is not eligible for this organisation`, 403)
     }
