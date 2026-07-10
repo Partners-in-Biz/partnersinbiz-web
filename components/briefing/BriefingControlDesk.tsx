@@ -2,7 +2,7 @@
 
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
-import type { OrgSummary, SoftwareBuildEvidenceRow, AgentOutputReviewStatus, AgentOutputReviewArtifact, AgentOutputQualityCheck, AgentOutputApprovalGate, AgentOutputReviewCard, AgentLearningReviewLink, AgentLearningReviewCard, BriefingCard, BriefingFeed, Mode, Flash } from './cockpit/cockpitTypes'
+import type { SoftwareBuildEvidenceRow, AgentOutputReviewStatus, AgentOutputReviewArtifact, AgentOutputQualityCheck, AgentOutputApprovalGate, AgentOutputReviewCard, AgentLearningReviewLink, AgentLearningReviewCard, BriefingCard, Mode } from './cockpit/cockpitTypes'
 import { useBriefingFeed } from './cockpit/useBriefingFeed'
 import { CockpitShell } from './cockpit/CockpitShell'
 
@@ -2434,27 +2434,23 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
           </div>
         </section>
 
-        <section className="hidden" aria-hidden="true">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="eyebrow !text-[10px] text-brand">{mode === 'portal' ? 'Account pulse' : 'Workspace pulse'}</p>
-              <p className="mt-1 text-sm text-on-surface-variant">
+        <section className="flex h-9 shrink-0 min-w-0 items-center gap-1 overflow-x-auto" aria-label={mode === 'portal' ? 'Account pulse' : 'Workspace pulse'}>
+          <div className="sr-only">
+              <p>{mode === 'portal' ? 'Account pulse' : 'Workspace pulse'}</p>
+              <p>
                 {mode === 'portal'
                   ? 'Jump between CRM companies and workspace operations by action pressure, blockers, approvals, and agent signals.'
                   : 'Jump between organisations by action pressure, blockers, document approvals, and agent signals.'}
               </p>
-            </div>
+          </div>
             {pulseSelectionId ? (
-              <button type="button" className="pib-btn-secondary text-xs" onClick={clearPulseSelection}>
-                <span className="material-symbols-outlined text-[15px]" aria-hidden="true">select_all</span>
+              <button type="button" className="h-7 shrink-0 rounded-full border border-[var(--color-card-border)] px-2.5 text-[11px] text-on-surface-variant hover:text-on-surface" onClick={clearPulseSelection}>
                 {mode === 'portal' ? 'All accounts' : 'All workspaces'}
               </button>
             ) : null}
-          </div>
-
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="flex min-w-0 items-center gap-1">
             {pulseRows.length === 0 ? (
-              <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] p-4 text-sm text-on-surface-variant">
+              <div className="px-2 text-xs text-on-surface-variant">
                 {mode === 'portal'
                   ? 'Account counts will appear when the live feed returns active cards.'
                   : 'Workspace counts will appear when the live feed returns active cards.'}
@@ -2465,23 +2461,10 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                 type="button"
                 onClick={() => selectPulseRow(row)}
                 aria-label={`Filter to ${row.name} ${mode === 'portal' ? 'account' : 'workspace'}`}
-                className={`min-h-36 rounded-lg border p-4 text-left transition ${pulseSelectionId === row.id ? 'border-[var(--color-accent-v2)] bg-[var(--color-accent-subtle)] shadow-lg shadow-black/20' : 'border-[var(--color-card-border)] bg-[var(--color-surface-container)] hover:border-[var(--color-accent-v2)]/50'}`}
+                className={`flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-[11px] transition ${pulseSelectionId === row.id ? 'border-primary/30 bg-primary/10 text-primary' : 'border-[var(--color-card-border)] text-on-surface-variant hover:text-on-surface'}`}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-on-surface">{row.name}</p>
-                    <p className="mt-1 text-xs text-on-surface-variant">{row.total} live cards</p>
-                  </div>
-                  <span className={`rounded-full px-2 py-1 text-xs font-semibold ${row.action > 0 ? 'bg-amber-300/15 text-amber-100' : 'bg-emerald-300/15 text-emerald-100'}`}>
-                    {row.action} action
-                  </span>
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-                  <span className="rounded-md bg-red-400/10 px-2 py-1 text-red-100">{row.blocked} blocked</span>
-                  <span className="rounded-md bg-sky-400/10 px-2 py-1 text-sky-100">{row.review} review</span>
-                  <span className="rounded-md bg-emerald-400/10 px-2 py-1 text-emerald-100">{row.agents} agents</span>
-                  <span className="rounded-md bg-violet-400/10 px-2 py-1 text-violet-100">{row.documents} docs</span>
-                </div>
+                <span className="max-w-40 truncate">{row.name}</span>
+                <span className={row.action > 0 ? 'text-amber-300' : 'text-emerald-300'}>{row.action}</span>
               </button>
             ))}
           </div>

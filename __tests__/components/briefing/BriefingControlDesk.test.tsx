@@ -1492,7 +1492,13 @@ describe('BriefingControlDesk', () => {
 
     const columns = screen.getByLabelText('Briefing control desk columns')
     expect(columns).toHaveClass('min-w-0')
-    expect(columns).toHaveClass('xl:grid-cols-[280px_minmax(0,1fr)_420px]')
+    expect(columns).toHaveClass('min-h-0')
+    expect(columns).toHaveClass('xl:grid-cols-[190px_350px_minmax(420px,1fr)]')
+
+    const shell = screen.getByTestId('briefings-room-shell')
+    expect(shell).toHaveClass('h-[calc(100dvh-88px)]')
+    expect(screen.getByRole('button', { name: /open pip briefing assistant/i })).toBeInTheDocument()
+    expect(screen.getByLabelText('Quick briefing actions')).toBeInTheDocument()
 
     expect(screen.getByLabelText('Workflow lanes')).toHaveClass('min-w-0')
     expect(screen.getByLabelText('Briefing card lane')).toHaveClass('min-w-0')
@@ -1647,7 +1653,7 @@ describe('BriefingControlDesk', () => {
     expect(screen.getByRole('button', { name: /live off/i })).toBeInTheDocument()
     expect((await screen.findAllByText('Theo completed work - review required')).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Client One').length).toBeGreaterThan(0)
-    expect(screen.getByLabelText('Live briefing cards')).toHaveClass('xl:overflow-y-auto')
+    expect(screen.getByLabelText('Live briefing cards')).toHaveClass('overflow-y-auto')
     expect(screen.getByRole('button', { name: /filter to acme holdings account/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/projects/project-1?taskId=task-1')
     expect(screen.getByLabelText('Structured review card')).toBeInTheDocument()
