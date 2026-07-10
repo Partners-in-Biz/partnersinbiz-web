@@ -5,6 +5,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { getAccessibleClientDocument } from '@/lib/client-documents/access'
+import { getRecentDocumentRows } from '@/lib/client-documents/indexed-query'
 import { adminDb } from '@/lib/firebase/admin'
 
 export const dynamic = 'force-dynamic'
@@ -16,14 +17,12 @@ export const GET = withAuth('client', async (_req: NextRequest, user: ApiUser, c
   const access = await getAccessibleClientDocument(id, user)
   if (!access.ok) return access.response
 
-  const snap = await adminDb
-    .collection('document_tasks')
-    .where('documentId', '==', id)
-    .orderBy('createdAt', 'desc')
-    .limit(20)
-    .get()
-
-  const tasks = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+  const tasks = await getRecentDocumentRows({
+    collectionName: 'document_tasks',
+    documentId: id,
+    orderField: 'createdAt',
+    limit: 20,
+  })
   return apiSuccess(tasks)
 })
 

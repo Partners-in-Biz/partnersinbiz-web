@@ -110,6 +110,24 @@ describe('withPortalAuthAndRole', () => {
     expect(captured).toEqual({ uid: 'uid-1', orgId: 'lumen-org', role: 'owner' })
   })
 
+  it('treats a platform admin as owner in an allowed company workspace without an orgMembers row', async () => {
+    mockGet
+      .mockResolvedValueOnce({ exists: true, data: () => ({ activeOrgId: 'platform-org', role: 'admin' }) })
+      .mockResolvedValueOnce({ exists: false })
+      .mockResolvedValueOnce({ exists: true, data: () => ({ members: [] }) })
+
+    let captured: { uid: string; orgId: string; role: string } | null = null
+    const handler = withPortalAuthAndRole('viewer', async (_req, uid, orgId, role) => {
+      captured = { uid, orgId, role }
+      return new Response('ok', { status: 200 })
+    })
+    const res = await handler(makeReq('http://localhost/test?orgId=lumen-org'))
+
+    expect(res.status).toBe(200)
+    expect(mockCanUsePortalOrg).toHaveBeenCalledWith('uid-1', expect.objectContaining({ role: 'admin' }), 'lumen-org')
+    expect(captured).toEqual({ uid: 'uid-1', orgId: 'lumen-org', role: 'owner' })
+  })
+
   it('falls back to organizations/members[] when orgMembers doc is missing', async () => {
     mockGet
       .mockResolvedValueOnce({ exists: true, data: () => ({ activeOrgId: 'org-1' }) })
