@@ -3,7 +3,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { adminDb } from '@/lib/firebase/admin'
 import { createHermesRun, requireHermesProfileAccess } from '@/lib/hermes/server'
-import { appendMessage, getConversation, listMessages, touchConversation } from '@/lib/hermes/conversations'
+import { appendMessage, getConversation, listMessages, touchConversation, updateMessage } from '@/lib/hermes/conversations'
 
 async function buildOrgContext(orgId: string): Promise<string> {
   try {
@@ -74,7 +74,9 @@ export const GET = withAuth('client', async (_req: NextRequest, user, ctx) => {
   const access = await requireHermesProfileAccess(user, orgId, 'runs')
   if (access instanceof Response) return access
   const conv = await getConversation(convId)
-  if (!conv || conv.orgId !== orgId) return apiError('Conversation not found', 404)
+  if (!conv || conv.orgId !== orgId || conv.profile !== access.link.profile) {
+    return apiError('Conversation not found', 404)
+  }
   if (!conv.participantUids.includes(user.uid)) return apiError('Forbidden', 403)
   const messages = await listMessages(convId)
   return apiSuccess({ messages })
@@ -85,7 +87,9 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   const access = await requireHermesProfileAccess(user, orgId, 'runs')
   if (access instanceof Response) return access
   const conv = await getConversation(convId)
-  if (!conv || conv.orgId !== orgId) return apiError('Conversation not found', 404)
+  if (!conv || conv.orgId !== orgId || conv.profile !== access.link.profile) {
+    return apiError('Conversation not found', 404)
+  }
   if (!conv.participantUids.includes(user.uid)) return apiError('Forbidden', 403)
 
   const body = await req.json().catch(() => ({}))
@@ -143,6 +147,14 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
 
   const hermesPayload = runResult.data && typeof runResult.data === 'object' ? (runResult.data as Record<string, unknown>) : {}
   const runId = String(hermesPayload.run_id ?? hermesPayload.runId ?? hermesPayload.id ?? '')
+  if (!runId) {
+    await updateMessage(convId, assistantMessage.id, {
+      status: 'failed',
+      error: 'Hermes run response did not include a run id',
+    })
+    return apiError('Hermes run response did not include a run id', 502)
+  }
+  await updateMessage(convId, assistantMessage.id, { runId })
 
   return apiSuccess({
     userMessage,

@@ -13,10 +13,13 @@ jest.mock('@/lib/firebase/admin', () => ({
   adminDb: {
     collection: (name: string) => {
       if (name === 'organizations') return {
-        doc: () => ({ get: async () => ({ exists: true, data: () => ({ members: [{ uid: 'owner' }, { userId: 'member' }] }) }) }),
+        doc: () => ({ get: async () => ({ exists: true, data: () => ({ members: [{ uid: 'outsider' }] }) }) }),
       }
       if (name === 'orgMembers') return {
-        where: () => ({ get: async () => ({ docs: [] }) }),
+        where: () => ({ get: async () => ({ docs: [
+          { id: 'owner', data: () => ({ userId: 'owner' }) },
+          { id: 'member', data: () => ({ uid: 'member' }) },
+        ] }) }),
       }
       if (name === 'users') return {
         where: () => ({ get: async () => ({ docs: [
@@ -58,5 +61,11 @@ describe('resolveHumanConversationParticipants', () => {
     await expect(resolveHumanConversationParticipants({
       orgId: 'org-1', ownerUid: 'owner', requestedUids: 'member',
     })).rejects.toMatchObject<Partial<ConversationParticipantError>>({ status: 400 })
+  })
+
+  it('does not trust stale legacy embedded organisation members', async () => {
+    await expect(resolveHumanConversationParticipants({
+      orgId: 'org-1', ownerUid: 'owner', requestedUids: ['outsider'],
+    })).rejects.toMatchObject<Partial<ConversationParticipantError>>({ status: 403 })
   })
 })

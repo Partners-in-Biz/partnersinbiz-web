@@ -7,15 +7,12 @@ import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { getConversation, listMessages } from '@/lib/conversations/conversations'
+import { canAccessConversation, publicConversationMessageView } from '@/lib/conversations/access'
 
 export const dynamic = 'force-dynamic'
 
 type Params = { params: Promise<{ convId: string }> }
 
-function canAccess(user: ApiUser, participantUids: string[]): boolean {
-  if (user.role === 'admin' || user.role === 'ai') return true
-  return participantUids.includes(user.uid)
-}
 
 export const GET = withAuth(
   'client',
@@ -24,11 +21,11 @@ export const GET = withAuth(
     const conversation = await getConversation(convId)
     if (!conversation) return apiError('Conversation not found', 404)
 
-    if (!canAccess(user, conversation.participantUids)) {
+    if (!canAccessConversation(user, conversation)) {
       return apiError('Forbidden', 403)
     }
 
     const messages = await listMessages(convId, 200)
-    return apiSuccess({ messages })
+    return apiSuccess({ messages: messages.map(publicConversationMessageView) })
   },
 )

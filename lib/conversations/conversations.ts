@@ -62,6 +62,7 @@ export async function createConversation(input: {
     participants: input.participants,
     participantUids,
     participantAgentIds,
+    accessVersion: 0,
     ...(input.orchestration ? { orchestration: input.orchestration } : {}),
     startedBy: input.startedBy,
     title: input.title?.trim() || 'New conversation',
@@ -196,6 +197,63 @@ export async function patchConversation(
   if (patch.participantUids !== undefined) updates.participantUids = patch.participantUids
   if (patch.workspaceContext !== undefined) updates.workspaceContext = patch.workspaceContext
   await convDoc(convId).update(updates)
+}
+
+export class ConversationAccessConflictError extends Error {
+  constructor(public readonly currentVersion: number) {
+    super('Conversation access changed since it was loaded')
+    this.name = 'ConversationAccessConflictError'
+  }
+}
+
+/** Atomically update access fields and append a durable access-history record. */
+export async function updateConversationAccess(input: {
+  convId: string
+  expectedOrgId: string
+  expectedVersion: number
+  shareMode: NonNullable<Conversation['workspaceContext']>['shareMode']
+  participants: Conversation['participants']
+  participantUids: string[]
+  participantAgentIds: Conversation['participantAgentIds']
+  actor: { uid: string; role: ApiUser['role'] }
+}): Promise<number> {
+  const ref = convDoc(input.convId)
+  return adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(ref)
+    if (!snapshot.exists) throw new Error('Conversation not found')
+    const current = snapshot.data() as Conversation
+    if (current.orgId !== input.expectedOrgId) throw new Error('Conversation organisation changed')
+    const currentOwnerUid = current.workspaceContext?.ownerUserId ?? current.startedBy
+    if (input.actor.role !== 'admin' && input.actor.uid !== currentOwnerUid) {
+      throw new Error('Conversation access manager changed')
+    }
+    const currentVersion = Number.isInteger(current.accessVersion) ? Number(current.accessVersion) : 0
+    if (currentVersion !== input.expectedVersion) {
+      throw new ConversationAccessConflictError(currentVersion)
+    }
+    const nextVersion = currentVersion + 1
+    const changedAt = FieldValue.serverTimestamp()
+    transaction.update(ref, {
+      participants: input.participants,
+      participantUids: input.participantUids,
+      participantAgentIds: input.participantAgentIds,
+      'workspaceContext.shareMode': input.shareMode,
+      accessVersion: nextVersion,
+      accessUpdatedAt: changedAt,
+      accessUpdatedBy: input.actor.uid,
+      updatedAt: changedAt,
+    })
+    transaction.set(ref.collection('access_history').doc(), {
+      accessVersion: nextVersion,
+      shareMode: input.shareMode,
+      participantUids: input.participantUids,
+      participantAgentIds: input.participantAgentIds,
+      actorUid: input.actor.uid,
+      actorRole: input.actor.role,
+      createdAt: changedAt,
+    })
+    return nextVersion
+  })
 }
 
 function attachmentStoragePathsFromMessage(message: FirebaseFirestore.DocumentData): string[] {

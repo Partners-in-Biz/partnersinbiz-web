@@ -96,6 +96,7 @@ export function HermesMessagesShell({
           orgName={orgName}
           initialConvId={initialConvId}
           allowDeleteConversations={surface === 'admin'}
+          allowManageConversationAccess={surface === 'admin'}
           allowAgentParticipants={capabilities.allowAgentParticipants}
           allowStartConversations={capabilities.allowStartConversations}
           allowSendMessages={capabilities.allowSendMessages}

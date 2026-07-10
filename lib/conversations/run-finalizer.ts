@@ -321,10 +321,21 @@ export async function finalizeConversationRun(input: {
   if (!msgDoc.exists) throw new HermesConversationRunError('Message not found', 404)
 
   const msgData = msgDoc.data() ?? {}
+  if (msgData.role !== 'assistant') {
+    throw new HermesConversationRunError('Message is not an assistant run', 409)
+  }
+  const storedRunId = cleanString(msgData.runId)
+  if (!storedRunId || storedRunId !== runId) {
+    throw new HermesConversationRunError('Run does not match this message', 409)
+  }
+  const storedAgentId = cleanString(msgData.dispatchAgentId)
+  if (!storedAgentId || (input.agentId && input.agentId !== storedAgentId)) {
+    throw new HermesConversationRunError('Agent does not match this message', 409)
+  }
   const messageAlreadyCompleted = msgData.status === 'completed'
 
-  const events = input.events ?? (Array.isArray(msgData.events) ? msgData.events as ChatEvent[] : [])
-  const agentId = resolveAgentId(input.agentId, msgData)
+  const events = Array.isArray(msgData.events) ? msgData.events as ChatEvent[] : []
+  const agentId = resolveAgentId(storedAgentId as AgentId, msgData)
   if (!agentId) throw new HermesConversationRunError('Agent not found for run', 404)
 
   const createdAtMs = createdAtToMillis(msgData.createdAt)

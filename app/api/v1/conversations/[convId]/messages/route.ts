@@ -35,7 +35,7 @@ import { CEO_APPROVAL_CARD_RULE_LINES, buildCeoDataDecisionOperatingRuleLines } 
 import { validateMessageModelSelection } from '@/lib/messages/model-catalog'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import type { ApiUser } from '@/lib/api/types'
-import { canAccessConversation } from '@/lib/conversations/access'
+import { canAccessConversation, canReplyConversation, publicConversationMessageView } from '@/lib/conversations/access'
 import type { AgentTeamDoc } from '@/lib/agents/types'
 import type { AgentId, Conversation, ConversationAttachment, ConversationMessage } from '@/lib/conversations/types'
 
@@ -43,43 +43,33 @@ export const dynamic = 'force-dynamic'
 
 type Params = { params: Promise<{ convId: string }> }
 
-function sanitizeAttachments(value: unknown): ConversationAttachment[] {
+async function resolveAttachments(value: unknown, convId: string, orgId: string): Promise<ConversationAttachment[] | null> {
   if (!Array.isArray(value)) return []
-  return value.slice(0, 5).flatMap((item) => {
-    if (!item || typeof item !== 'object') return []
+  if (value.length > 5) return null
+  const resolved = await Promise.all(value.map(async (item) => {
+    if (!item || typeof item !== 'object') return null
     const raw = item as Record<string, unknown>
     const id = typeof raw.id === 'string' ? raw.id.trim() : ''
-    const name = typeof raw.name === 'string' ? raw.name.trim() : ''
-    const url = typeof raw.url === 'string' ? raw.url.trim() : ''
-    const contentType = typeof raw.contentType === 'string'
-      ? raw.contentType.trim().toLowerCase()
-      : typeof raw.mimeType === 'string'
-        ? raw.mimeType.trim().toLowerCase()
-        : ''
-    const sizeBytes = typeof raw.sizeBytes === 'number'
-      ? raw.sizeBytes
-      : typeof raw.size === 'number'
-        ? raw.size
-        : 0
-    const storagePath = typeof raw.storagePath === 'string' ? raw.storagePath.trim() : ''
-
-    if (!id || !name || !url || !contentType || !Number.isFinite(sizeBytes) || sizeBytes < 0) return []
-    try {
-      const parsed = new URL(url)
-      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return []
-    } catch {
-      return []
-    }
-
-    return [{
+    if (!id) return null
+    const attachmentDoc = await adminDb.collection('conversation_attachments').doc(id).get()
+    if (!attachmentDoc.exists) return null
+    const attachment = attachmentDoc.data() ?? {}
+    if (attachment.conversationId !== convId || attachment.orgId !== orgId || attachment.deleted === true) return null
+    const name = typeof attachment.name === 'string' ? attachment.name : ''
+    const contentType = typeof attachment.contentType === 'string' ? attachment.contentType : ''
+    const sizeBytes = typeof attachment.sizeBytes === 'number' ? attachment.sizeBytes : -1
+    if (!name || !contentType || sizeBytes < 0) return null
+    return {
       id,
       name,
-      url,
+      url: `/api/v1/conversations/${convId}/attachments/${id}`,
       contentType,
       sizeBytes,
-      ...(storagePath ? { storagePath } : {}),
-    }]
-  })
+    }
+  }))
+  return resolved.every((attachment): attachment is ConversationAttachment => attachment !== null)
+    ? resolved
+    : null
 }
 
 function sanitizeSlashCommand(value: unknown): SlashCommandPayload | null {
@@ -293,6 +283,9 @@ export const POST = withAuth(
     if (!canAccessConversation(user, conversation)) {
       return apiError('Forbidden', 403)
     }
+    if (!canReplyConversation(user, conversation)) {
+      return apiError('Only explicit participants can reply to this conversation', 403)
+    }
     const replyAccess = await assertUserCanPerformOrganizationModuleAction(
       user,
       conversation.orgId,
@@ -317,7 +310,8 @@ export const POST = withAuth(
     const requestedModel = (body as Record<string, unknown>).model
     const requestedProvider = (body as Record<string, unknown>).provider
     const hasModelSelection = requestedModel !== undefined || requestedProvider !== undefined
-    const attachments = sanitizeAttachments((body as Record<string, unknown>).attachments)
+    const attachments = await resolveAttachments((body as Record<string, unknown>).attachments, convId, conversation.orgId)
+    if (!attachments) return apiError('One or more attachments are invalid for this conversation', 400)
     const slashCommand = sanitizeSlashCommand((body as Record<string, unknown>).slashCommand)
     if (!content && attachments.length === 0) return apiError('content or attachments are required', 400)
     const resolvedContextRefs = await resolveContextReferences(
@@ -564,6 +558,6 @@ export const GET = withAuth(
     }
 
     const messages = await listMessages(convId, 200)
-    return apiSuccess({ messages })
+    return apiSuccess({ messages: messages.map(publicConversationMessageView) })
   },
 )

@@ -10,6 +10,7 @@ const mockGetConversation = jest.fn()
 const mockMessagesDoc = jest.fn()
 const mockUpdateMessage = jest.fn()
 const mockTouchConversation = jest.fn()
+const mockRunQueryGet = jest.fn()
 
 let mockUser: MockUser = { uid: 'u1', role: 'admin' }
 
@@ -19,8 +20,17 @@ jest.mock('@/lib/api/auth', () => ({
 }))
 
 jest.mock('@/lib/hermes/server', () => ({
+  HERMES_RUNS_COLLECTION: 'hermes_runs',
   requireHermesProfileAccess: (...args: unknown[]) => mockRequireAccess(...args),
   callHermesJson: (...args: unknown[]) => mockCallHermesJson(...args),
+}))
+
+jest.mock('@/lib/firebase/admin', () => ({
+  adminDb: {
+    collection: () => ({
+      where: () => ({ limit: () => ({ get: mockRunQueryGet }) }),
+    }),
+  },
 }))
 
 jest.mock('@/lib/hermes/conversations', () => ({
@@ -38,7 +48,7 @@ jest.mock('@/lib/api/response', () => ({
 }))
 
 const baseLink = { orgId: 'org1', profile: 'p1', baseUrl: 'http://vps', enabled: true }
-const baseConv = { id: 'conv1', orgId: 'org1', participantUids: ['u1'] }
+const baseConv = { id: 'conv1', orgId: 'org1', profile: 'p1', participantUids: ['u1'] }
 
 function makeRequest(body: Record<string, unknown>) {
   return new NextRequest('http://localhost/api/v1/admin/hermes/profiles/org1/conversations/conv1/messages/msg1/finalize', {
@@ -54,13 +64,16 @@ beforeEach(() => {
   mockUser = { uid: 'u1', role: 'admin' }
   mockRequireAccess.mockResolvedValue({ link: baseLink })
   mockGetConversation.mockResolvedValue(baseConv)
-  mockMessagesDoc.mockResolvedValue({ exists: true, data: () => ({}) })
+  mockMessagesDoc.mockResolvedValue({ exists: true, data: () => ({ role: 'assistant', runId: 'run-1' }) })
+  mockRunQueryGet.mockResolvedValue({
+    docs: [{ data: () => ({ orgId: 'org1', profile: 'p1', conversationId: 'conv1', messageId: 'msg1' }) }],
+  })
   mockUpdateMessage.mockResolvedValue(undefined)
   mockTouchConversation.mockResolvedValue(undefined)
 })
 
 describe('finalize route', () => {
-  it('saves events to message when run completes', async () => {
+  it('ignores client events when a bound run completes', async () => {
     const events: ChatEvent[] = [
       { event: 'tool.call', tool: 'list_tasks', preview: '12 results', timestamp: 1000 },
     ]
@@ -81,8 +94,9 @@ describe('finalize route', () => {
     expect(body.data.status).toBe('completed')
     expect(mockUpdateMessage).toHaveBeenCalledWith(
       'conv1', 'msg1',
-      expect.objectContaining({ events, status: 'completed' }),
+      expect.objectContaining({ status: 'completed', runId: 'run-1' }),
     )
+    expect(mockUpdateMessage.mock.calls[0][2]).not.toHaveProperty('events')
   })
 
   it('returns waitingForApproval when Hermes status is waiting_for_approval', async () => {
@@ -105,18 +119,38 @@ describe('finalize route', () => {
     expect(mockUpdateMessage).not.toHaveBeenCalled()
   })
 
+  it('rejects messages, run ids, and run-ledger records that are not exactly bound', async () => {
+    const { POST } = await import(
+      '@/app/api/v1/admin/hermes/profiles/[orgId]/conversations/[convId]/messages/[msgId]/finalize/route'
+    )
+    const params = { params: Promise.resolve({ orgId: 'org1', convId: 'conv1', msgId: 'msg1' }) }
+
+    mockMessagesDoc.mockResolvedValueOnce({ exists: true, data: () => ({ role: 'user', runId: 'run-1' }) })
+    expect((await POST(makeRequest({ runId: 'run-1' }), params)).status).toBe(409)
+
+    mockMessagesDoc.mockResolvedValueOnce({ exists: true, data: () => ({ role: 'assistant', runId: 'run-1' }) })
+    expect((await POST(makeRequest({ runId: 'other-run' }), params)).status).toBe(409)
+
+    mockMessagesDoc.mockResolvedValueOnce({ exists: true, data: () => ({ role: 'assistant', runId: 'run-1' }) })
+    mockRunQueryGet.mockResolvedValueOnce({
+      docs: [{ data: () => ({ orgId: 'other-org', profile: 'p1', conversationId: 'conv1', messageId: 'msg1' }) }],
+    })
+    expect((await POST(makeRequest({ runId: 'run-1' }), params)).status).toBe(409)
+    expect(mockCallHermesJson).not.toHaveBeenCalled()
+  })
+
   it('marks missing Hermes runs as interrupted instead of returning a transient upstream error', async () => {
-    const events: ChatEvent[] = [{ event: 'assistant.text_delta', delta: 'partial', timestamp: 1000 }]
     mockCallHermesJson.mockResolvedValue({
       response: { ok: false, status: 404 },
       data: { detail: 'run not found' },
     })
+    mockMessagesDoc.mockResolvedValue({ exists: true, data: () => ({ role: 'assistant', runId: 'run-missing' }) })
 
     const { POST } = await import(
       '@/app/api/v1/admin/hermes/profiles/[orgId]/conversations/[convId]/messages/[msgId]/finalize/route'
     )
     const res = await POST(
-      makeRequest({ runId: 'run-missing', events }),
+      makeRequest({ runId: 'run-missing', events: [{ event: 'assistant.text_delta', delta: 'partial', timestamp: 1000 }] }),
       { params: Promise.resolve({ orgId: 'org1', convId: 'conv1', msgId: 'msg1' }) },
     )
     const body = await res.json()
@@ -129,7 +163,6 @@ describe('finalize route', () => {
       expect.objectContaining({
         status: 'failed',
         runId: 'run-missing',
-        events,
         error: expect.stringContaining('gateway lost this run'),
       }),
     )
@@ -177,7 +210,6 @@ describe('finalize route', () => {
         status: 'failed',
         error: 'gateway restarted while run was active',
         runId: 'run-1',
-        events: [{ event: 'run.interrupted', timestamp: 1000 }],
       }),
     )
     expect(mockTouchConversation).toHaveBeenCalledWith(

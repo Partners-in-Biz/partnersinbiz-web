@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 type MockUser = {
   uid: string
   role: 'admin' | 'client' | 'ai'
+  orgIds?: string[]
 }
 type MockHandler = (req: NextRequest, user: MockUser, ctx?: unknown) => Promise<Response>
 
@@ -12,7 +13,7 @@ const mockSave = jest.fn()
 const mockFile = jest.fn()
 const mockBucket = jest.fn()
 
-let mockUser: MockUser = { uid: 'client-1', role: 'client' }
+let mockUser: MockUser = { uid: 'client-1', role: 'client', orgIds: ['org-1'] }
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
@@ -41,7 +42,7 @@ jest.mock('firebase-admin/storage', () => ({
 beforeEach(() => {
   jest.resetModules()
   jest.clearAllMocks()
-  mockUser = { uid: 'client-1', role: 'client' }
+  mockUser = { uid: 'client-1', role: 'client', orgIds: ['org-1'] }
   mockSave.mockResolvedValue(undefined)
   mockFile.mockReturnValue({ save: mockSave })
   mockBucket.mockReturnValue({ name: 'bucket.test', file: mockFile })
@@ -89,7 +90,7 @@ describe('conversation attachment uploads', () => {
       id: 'attachment-doc-1',
       name: 'screenshot.png',
       contentType: 'image/png',
-      url: expect.stringContaining('https://firebasestorage.googleapis.com/v0/b/bucket.test/o/conversation-attachments%2Forg-1%2Fconv-1%2F'),
+      url: expect.stringMatching(/^\/api\/v1\/conversations\/conv-1\/attachments\/[a-f0-9]+$/),
     }))
   })
 })

@@ -4,6 +4,7 @@ type MockUser = {
   uid: string
   role: 'admin' | 'client' | 'ai'
   agentId?: string
+  orgId?: string
 }
 type MockHandler = (req: NextRequest, user: MockUser, ctx?: unknown) => Promise<Response>
 
@@ -12,7 +13,7 @@ const mockCreateMessage = jest.fn()
 const mockTouchConversation = jest.fn()
 const mockCreateHermesRun = jest.fn()
 
-let mockUser: MockUser = { uid: 'agent:qa-release', role: 'ai', agentId: 'qa-release' }
+let mockUser: MockUser = { uid: 'agent:qa-release', role: 'ai', agentId: 'qa-release', orgId: 'pib-platform-owner' }
 
 jest.mock('@/lib/api/auth', () => ({
   withAuth: (_role: string, handler: MockHandler) => async (req: NextRequest, ctx?: unknown) =>
@@ -36,12 +37,13 @@ jest.mock('@/lib/hermes/server', () => ({
 beforeEach(() => {
   jest.resetModules()
   jest.clearAllMocks()
-  mockUser = { uid: 'agent:qa-release', role: 'ai', agentId: 'qa-release' }
+  mockUser = { uid: 'agent:qa-release', role: 'ai', agentId: 'qa-release', orgId: 'pib-platform-owner' }
   mockGetConversation.mockResolvedValue({
     id: 'conv-1',
     orgId: 'pib-platform-owner',
     participantUids: ['admin-1'],
     participantAgentIds: ['pip', 'qa-release'],
+    orchestration: { requestedAgentIds: ['pip', 'qa-release', 'data'] },
     participants: [
       { kind: 'user', uid: 'admin-1', role: 'admin', displayName: 'Peet' },
       { kind: 'agent', agentId: 'pip', name: 'Pip' },
@@ -208,7 +210,7 @@ describe('POST /api/v1/conversations/[convId]/agent-messages', () => {
   })
 
   it('does not let an agent append as another non-Pip agent', async () => {
-    mockUser = { uid: 'agent:qa-release', role: 'ai', agentId: 'qa-release' }
+    mockUser = { uid: 'agent:qa-release', role: 'ai', agentId: 'qa-release', orgId: 'pib-platform-owner' }
     const { POST } = await import('@/app/api/v1/conversations/[convId]/agent-messages/route')
 
     const res = await POST(request({ agentId: 'maya', content: 'Wrong agent.' }), {
@@ -220,7 +222,7 @@ describe('POST /api/v1/conversations/[convId]/agent-messages', () => {
   })
 
   it('lets Pip relay completed output for a non-participant specialist agent', async () => {
-    mockUser = { uid: 'agent:pip', role: 'ai', agentId: 'pip' }
+    mockUser = { uid: 'agent:pip', role: 'ai', agentId: 'pip', orgId: 'pib-platform-owner' }
     const { POST } = await import('@/app/api/v1/conversations/[convId]/agent-messages/route')
 
     const res = await POST(request({
@@ -245,7 +247,7 @@ describe('POST /api/v1/conversations/[convId]/agent-messages', () => {
     }))
   })
 
-  it('lets admins relay completed output for a non-participant specialist agent', async () => {
+  it('does not let admins impersonate a non-participant specialist agent', async () => {
     mockUser = { uid: 'admin-1', role: 'admin' }
     const { POST } = await import('@/app/api/v1/conversations/[convId]/agent-messages/route')
 
@@ -261,16 +263,12 @@ describe('POST /api/v1/conversations/[convId]/agent-messages', () => {
       params: Promise.resolve({ convId: 'conv-1' }),
     })
 
-    expect(res.status).toBe(201)
-    expect(mockCreateMessage).toHaveBeenCalledWith('conv-1', expect.objectContaining({
-      authorId: 'agent:data',
-      dispatchAgentId: 'data',
-      status: 'completed',
-    }))
+    expect(res.status).toBe(403)
+    expect(mockCreateMessage).not.toHaveBeenCalled()
   })
 
-  it('rejects agents that are not conversation participants unless the author is Pip', async () => {
-    mockUser = { uid: 'ai-agent', role: 'ai' }
+  it('rejects legacy unscoped AI identities that cannot prove an agent participant', async () => {
+    mockUser = { uid: 'ai-agent', role: 'ai', orgId: 'pib-platform-owner' }
     const { POST } = await import('@/app/api/v1/conversations/[convId]/agent-messages/route')
 
     const res = await POST(request({ agentId: 'maya', content: 'Not in this conversation.' }), {

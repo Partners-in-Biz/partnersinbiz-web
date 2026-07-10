@@ -214,14 +214,27 @@ async function getUserExtrasFromFirestore(
   const data = doc.data() ?? {}
   const role = data.role
   const validRole: ApiRole = role === 'admin' || role === 'client' || role === 'ai' ? role : 'client'
-  const orgId = typeof data.orgId === 'string' ? data.orgId : undefined
-  const orgIds: string[] = Array.isArray(data.orgIds)
+  const profileOrgId = typeof data.orgId === 'string' ? data.orgId : undefined
+  const profileOrgIds: string[] = Array.isArray(data.orgIds)
     ? (data.orgIds.filter((v: unknown) => typeof v === 'string' && v.length > 0) as string[])
-    : (orgId ? [orgId] : [])
+    : (profileOrgId ? [profileOrgId] : [])
   const allowedOrgIds = Array.isArray(data.allowedOrgIds)
     ? (data.allowedOrgIds.filter((v: unknown) => typeof v === 'string' && v.length > 0) as string[])
     : undefined
-  const activeOrgId = typeof data.activeOrgId === 'string' && data.activeOrgId ? data.activeOrgId : orgId
+  const profileActiveOrgId = typeof data.activeOrgId === 'string' && data.activeOrgId ? data.activeOrgId : profileOrgId
+  let orgIds = profileOrgIds
+  let orgId = profileOrgId
+  let activeOrgId = profileActiveOrgId
+  if (validRole === 'client') {
+    const candidates = Array.from(new Set([profileOrgId, profileActiveOrgId, ...profileOrgIds].filter((value): value is string => Boolean(value))))
+    const memberships = await Promise.all(candidates.map(async (candidate) => ({
+      orgId: candidate,
+      exists: (await adminDb.collection('orgMembers').doc(`${candidate}_${uid}`).get()).exists,
+    })))
+    orgIds = memberships.filter((membership) => membership.exists).map((membership) => membership.orgId)
+    orgId = profileOrgId && orgIds.includes(profileOrgId) ? profileOrgId : orgIds[0]
+    activeOrgId = profileActiveOrgId && orgIds.includes(profileActiveOrgId) ? profileActiveOrgId : orgId
+  }
   const memberAccessPolicy = activeOrgId ? await loadMemberAccessPolicy(uid, activeOrgId) : undefined
   return { role: validRole, orgId, activeOrgId, orgIds: orgIds.length > 0 ? orgIds : undefined, allowedOrgIds, memberAccessPolicy }
 }

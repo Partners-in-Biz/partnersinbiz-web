@@ -8,7 +8,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { actorFrom } from '@/lib/api/actor'
 import { getConversation } from '@/lib/conversations/conversations'
 import type { ApiUser } from '@/lib/api/types'
-import { canAccessConversation } from '@/lib/conversations/access'
+import { canReplyConversation } from '@/lib/conversations/access'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,7 +46,7 @@ export const POST = withAuth(
     const { convId } = await (context as Params).params
     const conversation = await getConversation(convId)
     if (!conversation) return apiError('Conversation not found', 404)
-    if (!canAccessConversation(user, conversation)) return apiError('Forbidden', 403)
+    if (!canReplyConversation(user, conversation)) return apiError('Forbidden', 403)
 
     const contentLengthHeader = req.headers.get('content-length')
     if (contentLengthHeader) {
@@ -75,23 +75,20 @@ export const POST = withAuth(
       const bucket = getStorage(getAdminApp()).bucket()
       const id = crypto.randomBytes(12).toString('hex')
       const storagePath = `conversation-attachments/${conversation.orgId}/${convId}/${id}.${extensionFor(file)}`
-      const downloadToken = crypto.randomUUID()
       const storageFile = bucket.file(storagePath)
 
       await storageFile.save(buffer, {
         metadata: {
           contentType,
-          metadata: { firebaseStorageDownloadTokens: downloadToken },
         },
       })
 
-      const url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(storagePath)}?alt=media&token=${downloadToken}`
+      const url = `/api/v1/conversations/${convId}/attachments/${id}`
       const docRef = await adminDb.collection('conversation_attachments').add({
         conversationId: convId,
         orgId: conversation.orgId,
         name: file.name,
         storagePath,
-        url,
         contentType,
         sizeBytes: buffer.byteLength,
         deleted: false,
@@ -105,7 +102,6 @@ export const POST = withAuth(
         url,
         contentType,
         sizeBytes: buffer.byteLength,
-        storagePath,
       }, 201)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err)

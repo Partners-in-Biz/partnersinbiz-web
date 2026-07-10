@@ -14,6 +14,7 @@ export interface Conversation {
   participants: Participant[]
   participantUids: string[]
   participantAgentIds: AgentId[]
+  accessVersion?: number
   orchestration?: {
     mode: 'pip-orchestrator'
     dispatcherAgentId: AgentId
@@ -29,6 +30,7 @@ export interface Conversation {
     runtimeTarget: string
     runtimeLabel: string
     shareMode?: string
+    ownerUserId?: string
   }
   contextRefs?: ContextReference[]
   lastMessagePreview?: string

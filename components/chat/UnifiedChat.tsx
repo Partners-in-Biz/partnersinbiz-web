@@ -71,6 +71,7 @@ export interface UnifiedChatProps {
   autoCreateScopedConversation?: boolean
   autoCreateTitle?: string
   allowDeleteConversations?: boolean
+  allowManageConversationAccess?: boolean
   allowAgentParticipants?: boolean
   allowStartConversations?: boolean
   allowSendMessages?: boolean
@@ -352,6 +353,7 @@ export default function UnifiedChat({
   autoCreateScopedConversation = false,
   autoCreateTitle,
   allowDeleteConversations = false,
+  allowManageConversationAccess = false,
   allowAgentParticipants = true,
   allowStartConversations = true,
   allowSendMessages = true,
@@ -2124,7 +2126,7 @@ export default function UnifiedChat({
             <span className="material-symbols-outlined text-[14px]">edit</span>
             Rename
           </button>
-          {menuConversation?.workspaceContext && (allowDeleteConversations || menuConversation.startedBy === currentUserUid) && (
+          {menuConversation?.workspaceContext && (allowManageConversationAccess || (menuConversation.workspaceContext.ownerUserId ?? menuConversation.startedBy) === currentUserUid) && (
             <button
               type="button"
               className="w-full text-left px-3 py-2 text-xs text-on-surface hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
@@ -2258,7 +2260,7 @@ export default function UnifiedChat({
                       <span className="material-symbols-outlined text-[16px]">edit</span>
                       Rename
                     </button>
-                    {activeConversation.workspaceContext && (allowDeleteConversations || activeConversation.startedBy === currentUserUid) && (
+                    {activeConversation.workspaceContext && (allowManageConversationAccess || (activeConversation.workspaceContext.ownerUserId ?? activeConversation.startedBy) === currentUserUid) && (
                       <button
                         type="button"
                         className="w-full text-left px-3 py-2 text-sm text-on-surface hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
