@@ -194,6 +194,8 @@ shutil.copy2(src,dst)
     expect(partialState.baseline['workspace/a-first.md']).toEqual(expect.any(String))
     expect(partialState.baseline['workspace/z-fail.md']).toBeUndefined()
 
+    await writeFile(join(localRoot, 'Test Workspace', 'stable.md'), 'same-on-both-sides\n')
+    await writeFile(join(remoteWorkspace, 'stable.md'), 'same-on-both-sides\n')
     const resumePlanResult = runSync(root, baseArgs)
     expect(resumePlanResult.status).toBe(0)
     const resumePlan = JSON.parse(resumePlanResult.stdout) as {
@@ -207,6 +209,18 @@ shutil.copy2(src,dst)
     ])
     expect(resumeApply.status).toBe(0)
     expect(await readFile(join(localRoot, 'Test Workspace', 'z-fail.md'), 'utf8')).toBe('second-operation\n')
+    const seededState = JSON.parse(await readFile(join(stateRoot, 'states', stateFiles[0]), 'utf8')) as { baseline: Record<string, string> }
+    expect(seededState.baseline['workspace/stable.md']).toEqual(expect.any(String))
+
+    await writeFile(join(localRoot, 'Test Workspace', 'stable.md'), 'local-only-change\n')
+    const oneSidedPlanResult = runSync(root, [...baseArgs, '--direction', 'both'])
+    expect(oneSidedPlanResult.status).toBe(0)
+    const oneSidedPlan = JSON.parse(oneSidedPlanResult.stdout) as {
+      plan: Array<{ path: string; action: string; classification: string }>
+    }
+    expect(oneSidedPlan.plan).toContainEqual(expect.objectContaining({
+      path: 'workspace/stable.md', action: 'push', classification: 'push',
+    }))
 
     await symlink(join(remoteWorkspace, 'remote.md'), join(remoteWorkspace, 'linked.md'))
     const unsafePlan = runSync(root, baseArgs)
