@@ -2,7 +2,7 @@
 
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
-import type { OrgSummary, SoftwareBuildEvidenceRow, AgentOutputReviewStatus, AgentOutputReviewArtifact, AgentOutputQualityCheck, AgentOutputApprovalGate, AgentOutputReviewCard, AgentLearningReviewLink, AgentLearningReviewCard, BriefingCard, BriefingFeed, Mode, Flash } from './cockpit/cockpitTypes'
+import type { SoftwareBuildEvidenceRow, AgentOutputReviewStatus, AgentOutputReviewArtifact, AgentOutputQualityCheck, AgentOutputApprovalGate, AgentOutputReviewCard, AgentLearningReviewLink, AgentLearningReviewCard, BriefingCard, Mode } from './cockpit/cockpitTypes'
 import { useBriefingFeed } from './cockpit/useBriefingFeed'
 import { CockpitShell } from './cockpit/CockpitShell'
 
@@ -2356,13 +2356,10 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
     }
   }
 
-  // TODO: BriefingControlDesk and CockpitShell both call useBriefingFeed. The dual fetch is
-  // acceptable for now since both calls hit the same URL and the browser/React Query cache
-  // deduplicates. A follow-up task should lift feed state to remove the second call.
   const workFeedContent = (
-    <div className="min-h-screen bg-page text-on-surface">
-      <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
-        <section className="relative overflow-hidden rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-4 shadow-[var(--shadow-card)]">
+    <div className="h-full min-h-0 bg-page text-on-surface">
+      <div className="flex h-full min-h-0 w-full flex-col gap-2">
+        <section className="hidden" aria-hidden="true">
           <span className="absolute inset-y-0 left-0 w-1.5 bg-[var(--color-accent-v2)]" aria-hidden="true" />
           <div className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(520px,1.05fr)] lg:items-center">
             <div className="pl-2">
@@ -2401,46 +2398,35 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
           </div>
         ) : null}
 
-        <section className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-4">
-          <div className="grid gap-3 lg:grid-cols-[1.1fr_0.85fr_0.85fr_auto] lg:items-end">
+        <section className="shrink-0 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/65 px-2 py-1.5">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             {mode === 'admin' ? (
-              <label className="flex flex-col gap-2 text-sm text-on-surface-variant">
-                Workspace
-                <select className="pib-input" value={orgId} onChange={(event) => setOrgId(event.target.value)}>
+              <label className="sr-only" htmlFor="briefing-workspace-filter">Workspace</label>
+            ) : null}
+            {mode === 'admin' ? (
+                <select id="briefing-workspace-filter" aria-label="Workspace" className="h-8 max-w-52 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface" value={orgId} onChange={(event) => setOrgId(event.target.value)}>
                   <option value="">All visible workspaces</option>
                   {orgs.map((org) => (
                     <option key={org.id} value={org.id}>{org.name}</option>
                   ))}
                 </select>
-              </label>
             ) : (
-              <div className="flex min-h-[74px] flex-col justify-center rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2">
-                <p className="text-xs text-on-surface-variant">Active workspace</p>
-                <p className="mt-1 truncate text-sm font-semibold text-on-surface">{activeWorkspaceName}</p>
-              </div>
+              <span className="hidden max-w-44 truncate px-2 text-xs text-on-surface-variant sm:inline">{activeWorkspaceName}</span>
             )}
-            <label className="flex flex-col gap-2 text-sm text-on-surface-variant">
-              Priority
-              <select className="pib-input" value={priority} onChange={(event) => setPriority(event.target.value)}>
+            <label className="sr-only" htmlFor="briefing-priority-filter">Priority</label>
+              <select id="briefing-priority-filter" aria-label="Priority" className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface" value={priority} onChange={(event) => setPriority(event.target.value)}>
                 {PRIORITIES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
-            </label>
-            <label className="flex flex-col gap-2 text-sm text-on-surface-variant">
-              Source
-              <select className="pib-input" value={sourceType} onChange={(event) => setSourceType(event.target.value)}>
+            <label className="sr-only" htmlFor="briefing-source-filter">Source</label>
+              <select id="briefing-source-filter" aria-label="Source" className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface" value={sourceType} onChange={(event) => setSourceType(event.target.value)}>
                 {SOURCES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
-            </label>
-            <div className="flex flex-wrap gap-2">
-              <button className="pib-btn-secondary" type="button" onClick={() => setAutoRefresh((value) => !value)}>
+            <div className="ml-auto flex items-center gap-1">
+              <button className={`flex h-8 items-center gap-1 rounded-md px-2 text-xs transition ${autoRefresh ? 'bg-emerald-400/10 text-emerald-300' : 'text-on-surface-variant hover:bg-white/[0.05] hover:text-on-surface'}`} type="button" onClick={() => setAutoRefresh((value) => !value)}>
                 <span className="material-symbols-outlined text-[16px]" aria-hidden="true">{autoRefresh ? 'sync' : 'sync_disabled'}</span>
                 {autoRefresh ? 'Live on' : 'Live off'}
               </button>
-              <button className="pib-btn-secondary" type="button" onClick={() => loadFeed()} disabled={loading}>
-                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
-                {loading ? 'Refreshing' : 'Refresh'}
-              </button>
-              <button className="pib-btn-primary" type="button" onClick={createSnapshot} disabled={snapshotting}>
+              <button className="flex h-8 items-center gap-1 rounded-md px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface" type="button" onClick={createSnapshot} disabled={snapshotting}>
                 <span className="material-symbols-outlined text-[16px]" aria-hidden="true">bookmark_added</span>
                 {snapshotting ? 'Saving' : 'Snapshot'}
               </button>
@@ -2448,27 +2434,23 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
           </div>
         </section>
 
-        <section className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="eyebrow !text-[10px] text-brand">{mode === 'portal' ? 'Account pulse' : 'Workspace pulse'}</p>
-              <p className="mt-1 text-sm text-on-surface-variant">
+        <section className="flex h-9 shrink-0 min-w-0 items-center gap-1 overflow-x-auto" aria-label={mode === 'portal' ? 'Account pulse' : 'Workspace pulse'}>
+          <div className="sr-only">
+              <p>{mode === 'portal' ? 'Account pulse' : 'Workspace pulse'}</p>
+              <p>
                 {mode === 'portal'
                   ? 'Jump between CRM companies and workspace operations by action pressure, blockers, approvals, and agent signals.'
                   : 'Jump between organisations by action pressure, blockers, document approvals, and agent signals.'}
               </p>
-            </div>
+          </div>
             {pulseSelectionId ? (
-              <button type="button" className="pib-btn-secondary text-xs" onClick={clearPulseSelection}>
-                <span className="material-symbols-outlined text-[15px]" aria-hidden="true">select_all</span>
+              <button type="button" className="h-7 shrink-0 rounded-full border border-[var(--color-card-border)] px-2.5 text-[11px] text-on-surface-variant hover:text-on-surface" onClick={clearPulseSelection}>
                 {mode === 'portal' ? 'All accounts' : 'All workspaces'}
               </button>
             ) : null}
-          </div>
-
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="flex min-w-0 items-center gap-1">
             {pulseRows.length === 0 ? (
-              <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] p-4 text-sm text-on-surface-variant">
+              <div className="px-2 text-xs text-on-surface-variant">
                 {mode === 'portal'
                   ? 'Account counts will appear when the live feed returns active cards.'
                   : 'Workspace counts will appear when the live feed returns active cards.'}
@@ -2479,30 +2461,17 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                 type="button"
                 onClick={() => selectPulseRow(row)}
                 aria-label={`Filter to ${row.name} ${mode === 'portal' ? 'account' : 'workspace'}`}
-                className={`min-h-36 rounded-lg border p-4 text-left transition ${pulseSelectionId === row.id ? 'border-[var(--color-accent-v2)] bg-[var(--color-accent-subtle)] shadow-lg shadow-black/20' : 'border-[var(--color-card-border)] bg-[var(--color-surface-container)] hover:border-[var(--color-accent-v2)]/50'}`}
+                className={`flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-[11px] transition ${pulseSelectionId === row.id ? 'border-primary/30 bg-primary/10 text-primary' : 'border-[var(--color-card-border)] text-on-surface-variant hover:text-on-surface'}`}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-on-surface">{row.name}</p>
-                    <p className="mt-1 text-xs text-on-surface-variant">{row.total} live cards</p>
-                  </div>
-                  <span className={`rounded-full px-2 py-1 text-xs font-semibold ${row.action > 0 ? 'bg-amber-300/15 text-amber-100' : 'bg-emerald-300/15 text-emerald-100'}`}>
-                    {row.action} action
-                  </span>
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-                  <span className="rounded-md bg-red-400/10 px-2 py-1 text-red-100">{row.blocked} blocked</span>
-                  <span className="rounded-md bg-sky-400/10 px-2 py-1 text-sky-100">{row.review} review</span>
-                  <span className="rounded-md bg-emerald-400/10 px-2 py-1 text-emerald-100">{row.agents} agents</span>
-                  <span className="rounded-md bg-violet-400/10 px-2 py-1 text-violet-100">{row.documents} docs</span>
-                </div>
+                <span className="max-w-40 truncate">{row.name}</span>
+                <span className={row.action > 0 ? 'text-amber-300' : 'text-emerald-300'}>{row.action}</span>
               </button>
             ))}
           </div>
         </section>
 
-        <section aria-label="Briefing control desk columns" className="grid min-w-0 gap-4 xl:grid-cols-[280px_minmax(0,1fr)_420px] xl:items-start">
-          <aside aria-label="Workflow lanes" className="min-w-0 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 max-xl:order-3 xl:sticky xl:top-4 xl:h-fit">
+        <section aria-label="Briefing control desk columns" className="grid min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 xl:grid-cols-[190px_350px_minmax(420px,1fr)]">
+          <aside aria-label="Workflow lanes" className="min-w-0 overflow-y-auto border-r border-[var(--color-card-border)] p-2 max-xl:order-3">
             <div className="flex items-center justify-between gap-2 px-1">
               <p className="eyebrow !text-[10px]">Workflow lanes</p>
               {workflowLane !== 'all' ? (
@@ -2511,7 +2480,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                 </button>
               ) : null}
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-2 xl:grid-cols-1">
+            <div className="mt-2 grid grid-cols-2 gap-1 xl:grid-cols-1">
               {WORKFLOW_LANES.map((lane) => {
                 const laneCount = workflowLaneCount(pulseScopedItems, lane.id)
                 return (
@@ -2520,13 +2489,13 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                     type="button"
                     onClick={() => selectWorkflowLane(lane.id)}
                     aria-label={`${lane.label} workflow lane`}
-                    className={`flex min-h-20 items-start gap-3 rounded-lg border px-3 py-2 text-left text-sm transition ${workflowLane === lane.id ? 'border-[var(--color-accent-v2)] bg-[var(--color-accent-subtle)] text-on-surface' : 'border-[var(--color-card-border)] bg-[var(--color-surface-container)] text-on-surface-variant hover:border-[var(--color-accent-v2)]/50 hover:text-on-surface'}`}
+                    className={`flex min-h-14 items-start gap-2 rounded-md px-2 py-2 text-left text-xs transition ${workflowLane === lane.id ? 'bg-primary/10 text-on-surface' : 'text-on-surface-variant hover:bg-white/[0.04] hover:text-on-surface'}`}
                     style={{ borderLeft: `3px solid ${priorityAccentColor(lane.id === 'unblock' ? 'critical' : lane.id === 'approve' || lane.id === 'agent-review' ? 'review' : lane.id === 'follow-up' ? 'needs-peet' : lane.id === 'decide' ? 'client-risk' : 'fyi')}` }}
                   >
                     <span className="material-symbols-outlined mt-0.5 text-[19px]" style={{ color: priorityAccentColor(lane.id === 'unblock' ? 'critical' : lane.id === 'approve' || lane.id === 'agent-review' ? 'review' : lane.id === 'follow-up' ? 'needs-peet' : lane.id === 'decide' ? 'client-risk' : 'fyi') }} aria-hidden="true">{lane.icon}</span>
                     <span className="min-w-0 flex-1">
                       <span className="block font-medium">{lane.label}</span>
-                      <span className="block text-xs text-on-surface-variant">{laneCount} live · {lane.description}</span>
+                      <span className="block text-[11px] text-on-surface-variant">{laneCount} open</span>
                     </span>
                   </button>
                 )
@@ -2534,13 +2503,13 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
             </div>
           </aside>
 
-          <div aria-label="Briefing card lane" className="flex min-h-0 min-w-0 flex-col gap-3 max-xl:order-2 xl:sticky xl:top-4 xl:h-[calc(100vh-2rem)]">
-            <div className="flex shrink-0 items-center justify-between rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-4 py-3 text-sm text-on-surface-variant">
+          <div aria-label="Briefing card lane" className="flex min-h-0 min-w-0 flex-col border-r border-[var(--color-card-border)] max-xl:order-2">
+            <div className="flex h-9 shrink-0 items-center justify-between border-b border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant">
               <span>{items.length} live cards</span>
               <span>{feed?.generatedAt ? `Updated ${new Date(feed.generatedAt).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })}` : 'Waiting for feed'}</span>
             </div>
 
-            <div aria-label="Live briefing cards" className="min-h-0 flex-1 space-y-3 xl:overflow-y-auto xl:pr-2">
+            <div aria-label="Live briefing cards" className="min-h-0 flex-1 overflow-y-auto">
               {loading ? (
                 <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-6 text-sm text-on-surface-variant">Loading live briefings…</div>
               ) : items.length === 0 ? (
@@ -2551,17 +2520,16 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                     key={item.id}
                     type="button"
                     onClick={() => setSelectedId(item.id)}
-                    className={`w-full overflow-hidden rounded-lg border bg-[var(--color-card)] p-4 text-left transition-all duration-150 hover:-translate-y-0.5 hover:border-[var(--color-accent-v2)]/60 hover:bg-[var(--color-card-hover)] ${selected?.id === item.id ? 'border-[var(--color-accent-v2)] bg-[var(--color-card-hover)] shadow-[0_18px_40px_rgba(0,0,0,0.24)]' : 'border-[var(--color-card-border)]'}`}
+                    className={`w-full overflow-hidden border-b border-[var(--color-card-border)] px-3 py-3 text-left transition ${selected?.id === item.id ? 'bg-primary/[0.08]' : 'hover:bg-white/[0.035]'}`}
                     style={{ borderLeft: `3px solid ${priorityAccentColor(item.priority)}` }}
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${priorityClass(item.priority)}`}>{PRIORITY_LABELS[item.priority]}</span>
-                      <span className="rounded-full border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-2.5 py-1 text-xs text-on-surface-variant">{sourceLabel(item)}</span>
-                      {item.requiresAction ? <span className="rounded-full border border-[var(--color-accent-v2)]/35 bg-[var(--color-accent-subtle)] px-2.5 py-1 text-xs text-[var(--color-accent-text)]">Needs Peet</span> : null}
-                      <span className="ml-auto text-xs text-on-surface-variant">{item.timeAgo}</span>
+                      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${priorityClass(item.priority)}`}>{PRIORITY_LABELS[item.priority]}</span>
+                      <span className="min-w-0 flex-1 truncate text-[11px] text-on-surface-variant">{sourceLabel(item)}</span>
+                      <span className="text-[10px] text-on-surface-variant">{item.timeAgo}</span>
                     </div>
-                    <h2 data-testid="briefing-card-title" className="mt-3 break-words text-lg font-semibold leading-snug text-on-surface">{item.title}</h2>
-                    <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+                    <h2 data-testid="briefing-card-title" className="mt-2 break-words text-sm font-semibold leading-5 text-on-surface">{item.title}</h2>
+                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-on-surface-variant">
                       {humanReadableCopy(item.summary)}
                       {viewHrefFromCopy(item.summary) ? (
                         <>
@@ -2578,12 +2546,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                         </>
                       ) : null}
                     </p>
-                    <div className="mt-3 flex flex-wrap gap-2 text-xs text-on-surface-variant">
-                      <span>Workspace: {titledId(item.context.orgName, item.orgId)}</span>
-                      {item.context.companyName || item.context.companyId ? <span>Company: {titledId(item.context.companyName, item.context.companyId)}</span> : null}
-                      {item.context.projectName || item.context.projectId ? <span>Project: {titledId(item.context.projectName, item.context.projectId)}</span> : null}
-                      {item.context.taskTitle || item.context.taskId ? <span>Task: {titledId(item.context.taskTitle, item.context.taskId)}</span> : null}
-                    </div>
+                    <div className="mt-2 truncate text-[10px] text-on-surface-variant">{item.context.projectName || item.context.companyName || titledId(item.context.orgName, item.orgId)}</div>
                     {softwareBuildEvidenceRows(item).length ? (
                       <div className="mt-3 grid gap-1 rounded-lg border border-white/10 bg-white/[0.03] p-2 text-xs text-on-surface-variant" aria-label={`Software build evidence for ${item.title}`}>
                         {softwareBuildEvidenceRows(item).slice(0, 4).map((row) => (
@@ -2611,8 +2574,8 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
             </div>
           </div>
 
-          <aside aria-label="Selected briefing action panel" className="min-w-0 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-4 max-xl:order-1 sm:p-5 xl:sticky xl:top-4 xl:h-[calc(100vh-2rem)] xl:overflow-y-auto">
-            <p className="eyebrow !text-[10px] text-brand">Peet’s next move</p>
+          <aside aria-label="Selected briefing action panel" className="min-w-0 overflow-y-auto p-4 max-xl:order-1 sm:p-5">
+            <p className="eyebrow !text-[10px] text-brand">Next move</p>
             {selected ? (
               <div className="mt-4 space-y-5">
                 <div>
@@ -2633,6 +2596,43 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       </>
                     ) : null}
                   </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Quick briefing actions">
+                  <button
+                    type="button"
+                    className="pib-btn-primary min-w-0 justify-center px-3 py-2 text-xs"
+                    onClick={() => (reviewable(selected) || approvalGateReviewable(selected) || documentReviewable(selected) || (canSocialPostAct(selected) && Boolean(socialActionStage(selected)))) ? approvePhase2Item(selected) : setItemState(selected, 'handled')}
+                    disabled={!!busyAction}
+                  >
+                    <span className="material-symbols-outlined text-[15px]">done</span>
+                    {(reviewable(selected) || approvalGateReviewable(selected) || documentReviewable(selected)) ? 'Approve' : 'Clear'}
+                  </button>
+                  <button type="button" className="pib-btn-secondary min-w-0 justify-center px-3 py-2 text-xs" onClick={() => setItemState(selected, 'snoozed')} disabled={!!busyAction}>
+                    <span className="material-symbols-outlined text-[15px]">snooze</span>
+                    Later
+                  </button>
+                  <button
+                    type="button"
+                    className="pib-btn-secondary min-w-0 justify-center px-3 py-2 text-xs"
+                    onClick={() => createRoutedBriefingTask(selected, 'ask-specialist-triage')}
+                    disabled={!!busyAction || !selected.context.projectId}
+                    title={selected.context.projectId ? `Send this briefing to ${phase2AgentLabel(selected)}` : 'Link a project before delegating this briefing.'}
+                  >
+                    <span className="material-symbols-outlined text-[15px]">smart_toy</span>
+                    Ask {phase2AgentLabel(selected)}
+                  </button>
+                  {(mode === 'admin' ? adminSourceHref(selected) : sourceHref(selected, mode, portalScope)) ? (
+                    <a className="pib-btn-secondary min-w-0 justify-center px-3 py-2 text-xs" href={(mode === 'admin' ? adminSourceHref(selected) : sourceHref(selected, mode, portalScope)) ?? undefined} target="_blank" rel="noopener noreferrer">
+                      <span className="material-symbols-outlined text-[15px]">open_in_new</span>
+                      Source
+                    </a>
+                  ) : (
+                    <button type="button" className="pib-btn-secondary min-w-0 justify-center px-3 py-2 text-xs" disabled>
+                      <span className="material-symbols-outlined text-[15px]">open_in_new</span>
+                      Source
+                    </button>
+                  )}
                 </div>
 
                 <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] p-3">
@@ -3654,6 +3654,21 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
       mode={mode}
       portalScope={portalScope}
       currentUser={currentUser}
+      orgId={orgId}
+      orgName={orgs.find((org) => org.id === orgId)?.name ?? (mode === 'portal' ? activeWorkspaceName : orgId ? undefined : 'All workspaces')}
+      itemCount={items.length}
+      generatedAt={feed?.generatedAt}
+      loading={loading}
+      onRefresh={() => { void loadFeed() }}
+      selectedContextSeed={selected ? {
+        type: 'report',
+        id: `briefing:${selected.id}`,
+        orgId: selected.orgId || selected.context.orgId || orgId || undefined,
+        label: selected.title,
+        href: mode === 'admin' ? adminSourceHref(selected) ?? undefined : sourceHref(selected, mode, portalScope) ?? undefined,
+        summary: humanReadableCopy(selected.excerpt || selected.summary),
+        metadata: { sourceType: selected.source.type, sourceId: selected.source.id },
+      } : null}
       workFeedContent={workFeedContent}
     />
   )

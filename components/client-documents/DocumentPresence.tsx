@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { db } from '@/lib/firebase/client'
+import { getClientDb } from '@/lib/firebase/client'
 import {
   collection,
   doc,
@@ -102,7 +102,9 @@ export function DocumentPresence({
   useEffect(() => {
     if (!currentUserId || !documentId) return
 
-    const presenceCol = collection(db, 'document_presence', documentId, 'users')
+    // Firebase's collection() performs an instanceof-style validation. Resolve
+    // the underlying singleton rather than passing the legacy lazy Proxy.
+    const presenceCol = collection(getClientDb(), 'document_presence', documentId, 'users')
     const myDoc = doc(presenceCol, currentUserId)
     myDocRef.current = myDoc
 

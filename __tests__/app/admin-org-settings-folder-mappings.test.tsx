@@ -74,14 +74,20 @@ describe('OrgSettingsPage folder mappings', () => {
       if (url === '/api/v1/workspace-folders/assets/resync?orgId=org_1') {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ data: { queued: false, message: 'Manual resync is not configured for this folder yet.' } }),
+          json: async () => ({ data: {
+            queued: false,
+            requestId: 'sync_1',
+            requestStatus: 'blocked_conflict',
+            syncState: { status: 'conflict', lastSyncedAt: null, lastAttemptAt: '2026-07-10T12:00:00.000Z', error: null, conflictCount: 1, lastRequestId: 'sync_1', lastRequestStatus: 'blocked_conflict' },
+            message: 'Sync plan sync_1 recorded and blocked by 1 open conflict(s). No files were overwritten.',
+          } }),
         } as Response)
       }
       return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
     }) as jest.Mock
   })
 
-  it('renders the admin folder registry and exposes manual resync status without portal publishing', async () => {
+  it('renders the admin folder registry and records a conflict-safe sync plan without portal publishing', async () => {
     render(<OrgSettingsPage />)
 
     await waitFor(() => expect(screen.getByText('Workspace folder registry')).toBeInTheDocument())
@@ -100,7 +106,8 @@ describe('OrgSettingsPage folder mappings', () => {
     expect(screen.getByRole('button', { name: /Prepare personal X MCP/i })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /Resync Source Assets/i }))
-    await waitFor(() => expect(screen.getByText('Manual resync is not configured for this folder yet.')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Sync plan sync_1 recorded and blocked by 1 open conflict(s). No files were overwritten.')).toBeInTheDocument())
+    expect(screen.getByText(/Latest request: blocked_conflict · sync_1/)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /Prepare 1 OAuth/i }))
     await waitFor(() => {

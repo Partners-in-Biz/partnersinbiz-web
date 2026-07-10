@@ -1,6 +1,6 @@
 /**
  * GET   /api/v1/conversations/[convId] — fetch a single conversation
- * PATCH /api/v1/conversations/[convId] — update title or archived flag
+ * PATCH /api/v1/conversations/[convId] — update metadata and Workspace access
  * DELETE /api/v1/conversations/[convId] — permanently delete a conversation
  *
  * Auth: participant in the conversation OR admin role
@@ -17,7 +17,12 @@ import {
 } from '@/lib/conversations/conversations'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import { canAccessConversation } from '@/lib/conversations/access'
+import {
+  ConversationParticipantError,
+  resolveHumanConversationParticipants,
+} from '@/lib/conversations/participant-access'
 import type { ApiUser } from '@/lib/api/types'
+import type { Conversation } from '@/lib/conversations/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -52,7 +57,13 @@ export const PATCH = withAuth(
     const body = await req.json().catch(() => null)
     if (!body || typeof body !== 'object') return apiError('Invalid JSON body', 400)
 
-    const patch: { title?: string; archived?: boolean } = {}
+    const patch: {
+      title?: string
+      archived?: boolean
+      participants?: Conversation['participants']
+      participantUids?: string[]
+      workspaceContext?: Conversation['workspaceContext']
+    } = {}
     if (body.title !== undefined) {
       if (typeof body.title !== 'string') return apiError('title must be a string', 400)
       patch.title = body.title
@@ -72,13 +83,66 @@ export const PATCH = withAuth(
       if (!archiveAccess.ok) return apiError(archiveAccess.error, archiveAccess.status)
     }
 
+    const hasAccessUpdate = body.shareMode !== undefined || body.participantUids !== undefined
+    if (hasAccessUpdate) {
+      const canManage = user.role === 'admin' || user.role === 'ai' || conversation.startedBy === user.uid
+      if (!canManage) return apiError('Only the conversation owner or a platform administrator can manage access', 403)
+      if (!conversation.workspaceContext) return apiError('Access modes can only be managed for Workspace conversations', 400)
+
+      const shareMode = body.shareMode ?? conversation.workspaceContext.shareMode
+      if (shareMode !== 'private' && shareMode !== 'shared' && shareMode !== 'org') {
+        return apiError('shareMode must be private, shared, or org', 400)
+      }
+
+      const currentHumanUids = conversation.participants
+        .filter((participant) => participant.kind === 'user')
+        .map((participant) => participant.uid)
+      const requestedUids = body.participantUids ?? currentHumanUids
+
+      let humanParticipants
+      try {
+        humanParticipants = await resolveHumanConversationParticipants({
+          orgId: conversation.orgId,
+          ownerUid: conversation.startedBy,
+          requestedUids: shareMode === 'private' ? [conversation.startedBy] : requestedUids,
+          existingParticipants: conversation.participants,
+        })
+      } catch (error) {
+        if (error instanceof ConversationParticipantError) return apiError(error.message, error.status)
+        throw error
+      }
+
+      if (shareMode === 'shared' && humanParticipants.every((participant) => participant.uid === conversation.startedBy)) {
+        return apiError('Shared Workspace conversations require at least one additional human participant', 400)
+      }
+
+      const agentParticipants = conversation.participants.filter((participant) => participant.kind === 'agent')
+      patch.participants = [...humanParticipants, ...agentParticipants]
+      patch.participantUids = humanParticipants.map((participant) => participant.uid)
+      patch.workspaceContext = { ...conversation.workspaceContext, shareMode }
+    }
+
     if (Object.keys(patch).length === 0) {
-      return apiError('Nothing to update — supply title and/or archived', 400)
+      return apiError('Nothing to update — supply title, archived, shareMode, and/or participantUids', 400)
     }
 
     await patchConversation(convId, patch)
 
-    // Return the updated doc
+    if (hasAccessUpdate) {
+      const nextUids = patch.participantUids ?? conversation.participantUids
+      logActivity({
+        orgId: conversation.orgId,
+        type: 'conversation_access_updated',
+        actorId: user.uid,
+        actorName: user.uid,
+        actorRole: user.role === 'ai' ? 'ai' : user.role,
+        description: `Updated Workspace conversation access to ${patch.workspaceContext?.shareMode ?? conversation.workspaceContext?.shareMode ?? 'private'} for ${nextUids.length} participant${nextUids.length === 1 ? '' : 's'}`,
+        entityId: convId,
+        entityType: 'conversation',
+        entityTitle: conversation.title,
+      }).catch(() => {})
+    }
+
     const updated = await getConversation(convId)
     return apiSuccess({ conversation: updated })
   },

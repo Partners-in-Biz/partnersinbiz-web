@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { lastActorFrom } from '@/lib/api/actor'
@@ -8,6 +9,7 @@ import { WORKSPACE_FOLDER_COLLECTION, serializeWorkspaceFolder } from '@/lib/wor
 import { logActivity } from '@/lib/activity/log'
 
 export const dynamic = 'force-dynamic'
+const WORKSPACE_FOLDER_SYNC_REQUEST_COLLECTION = 'workspace_folder_sync_requests'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
@@ -23,16 +25,43 @@ export const POST = withAuth('admin', async (req: NextRequest, user, context) =>
   if ((reqOrgId && reqOrgId !== folder.orgId) || !canAccessOrg(user, folder.orgId)) return apiError('Forbidden', 403)
 
   const now = new Date().toISOString()
-  await ref.update({
-    syncState: {
-      ...folder.syncState,
-      status: 'not_configured',
-      lastAttemptAt: now,
-      error: 'Manual resync queue is not configured yet.',
+  const hasOpenConflicts = folder.syncState.conflictCount > 0 || folder.audit.conflictStatus === 'open'
+  const requestStatus = hasOpenConflicts ? 'blocked_conflict' : 'planned'
+  const requestRef = adminDb.collection(WORKSPACE_FOLDER_SYNC_REQUEST_COLLECTION).doc()
+  await requestRef.set({
+    folderId: id,
+    orgId: folder.orgId,
+    requestedBy: user.uid,
+    requestedAt: now,
+    status: requestStatus,
+    plan: {
+      sourceOfTruth: folder.sourceOfTruth,
+      syncMode: folder.syncMode,
+      targets: folder.syncTargets,
+      driveFolderId: folder.drive.folderId,
+      vpsConfigured: Boolean(folder.paths.vpsPath),
+      localConfigured: Boolean(folder.paths.localPathHint),
+      conflictCount: folder.syncState.conflictCount,
+      destructiveDeletes: false,
     },
+    createdAt: FieldValue.serverTimestamp(),
+    ...lastActorFrom(user),
+  })
+  const syncState = {
+    ...folder.syncState,
+    status: hasOpenConflicts ? 'conflict' as const : 'pending' as const,
+    lastAttemptAt: now,
+    error: null,
+    lastRequestId: requestRef.id,
+    lastRequestStatus: requestStatus,
+  }
+  await ref.update({
+    syncState,
     audit: {
       ...folder.audit,
-      notes: folder.audit.notes ?? 'Manual resync requested before a sync worker was configured.',
+      notes: hasOpenConflicts
+        ? 'Sync plan is blocked until open conflicts are resolved explicitly.'
+        : folder.audit.notes,
     },
     ...lastActorFrom(user),
   })
@@ -51,8 +80,13 @@ export const POST = withAuth('admin', async (req: NextRequest, user, context) =>
 
   return apiSuccess({
     queued: false,
+    requestId: requestRef.id,
     folderId: id,
-    syncStatus: 'not_configured',
-    message: 'Manual resync is not configured for this folder yet.',
+    requestStatus,
+    syncStatus: syncState.status,
+    syncState,
+    message: hasOpenConflicts
+      ? `Sync plan ${requestRef.id} recorded and blocked by ${folder.syncState.conflictCount} open conflict(s). No files were overwritten.`
+      : `Sync plan ${requestRef.id} recorded. No file transfer or deletion runs until an approved executor claims this request.`,
   })
 })

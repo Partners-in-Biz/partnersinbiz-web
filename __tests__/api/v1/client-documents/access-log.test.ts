@@ -5,6 +5,7 @@ const mockWhere = jest.fn()
 const mockOrderBy = jest.fn()
 const mockLimit = jest.fn()
 const mockGet = jest.fn()
+const mockFallbackGet = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: {
@@ -50,13 +51,14 @@ beforeEach(() => {
   jest.clearAllMocks()
   mockGetClientDocument.mockReset()
   mockGet.mockReset()
+  mockFallbackGet.mockReset()
 
   // Chain: adminDb.collection('document_access_log').where(...).orderBy(...).limit(...).get()
   const limitChain = { get: mockGet }
   mockLimit.mockReturnValue(limitChain)
   const orderByChain = { limit: mockLimit }
   mockOrderBy.mockReturnValue(orderByChain)
-  const whereChain = { orderBy: mockOrderBy }
+  const whereChain = { orderBy: mockOrderBy, get: mockFallbackGet }
   mockWhere.mockReturnValue(whereChain)
   mockCollection.mockReturnValue({ where: mockWhere })
 })
@@ -108,6 +110,34 @@ describe('GET /api/v1/client-documents/[id]/access-log', () => {
 
     expect(res.status).toBe(200)
     expect(mockLimit).toHaveBeenCalledWith(100)
+  })
+
+  it('falls back to a document-scoped read when the composite index is unavailable', async () => {
+    mockGetClientDocument.mockResolvedValueOnce({ id: 'doc-1', orgId: 'org-1', deleted: false })
+    mockGet.mockRejectedValueOnce(Object.assign(new Error('The query requires an index'), { code: 9 }))
+    mockFallbackGet.mockResolvedValueOnce({
+      docs: [
+        { id: 'older', data: () => ({ accessedAt: { toMillis: () => 100 } }) },
+        { id: 'newer', data: () => ({ accessedAt: { toMillis: () => 300 } }) },
+        { id: 'middle', data: () => ({ accessedAt: { toMillis: () => 200 } }) },
+      ],
+    })
+
+    const { GET } = await import('@/app/api/v1/client-documents/[id]/access-log/route')
+    const res = await GET(
+      getRequest('http://localhost/api/v1/client-documents/doc-1/access-log?limit=2'),
+      adminUser,
+      { params: Promise.resolve({ id: 'doc-1' }) },
+    )
+
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toEqual(expect.objectContaining({
+      data: { events: [
+        { id: 'newer', accessedAt: expect.any(Object) },
+        { id: 'middle', accessedAt: expect.any(Object) },
+      ] },
+    }))
+    expect(mockFallbackGet).toHaveBeenCalledTimes(1)
   })
 
   it('returns 404 when the document does not exist', async () => {

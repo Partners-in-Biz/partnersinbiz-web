@@ -76,6 +76,12 @@ export function withPortalAuthAndRole(minRole: OrgRole, handler: PortalRoleHandl
       }
     }
 
+    // Platform admins are allowed to enter client workspaces through
+    // canUsePortalOrg even when they are not duplicated into every client's
+    // orgMembers collection. Treat that already-authorized operator context as
+    // owner so read-only and administrative org routes remain usable there.
+    if (!role && userData.role === 'admin') role = 'owner'
+
     if (!role) return apiError('Workspace membership not found', 403)
     if (ROLE_RANK[role] < ROLE_RANK[minRole]) return apiError('Insufficient permissions', 403)
 

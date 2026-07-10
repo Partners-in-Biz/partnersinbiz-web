@@ -68,6 +68,8 @@ Expected behaviour:
 - Operators must be able to see last successful sync, pending/manual sync request, errors, and conflict state.
 - Failed sync must not silently overwrite local, VPS, or Drive content.
 
+The admin **Create sync plan** action now persists an auditable `workspace_folder_sync_requests` record and copies its request id/status onto the folder's `syncState`. It does not claim a transfer occurred. Requests with open conflicts are recorded as `blocked_conflict`; all requests explicitly record `destructiveDeletes: false`. A Drive transfer executor remains a separate, approval-gated operational component.
+
 Recommended v1 statuses:
 
 - `idle`: no sync currently needed
@@ -158,7 +160,48 @@ Suggested lookup examples:
 
 If a skill instructs agents to read or write client assets, that skill should mention this lookup policy and link to this runbook.
 
-## 7. Safe future path for two-way sync
+## 7. Conflict-aware VPS/local Workspace sync
+
+Generated markdown Workspaces and their Obsidian agent domains use a separate operator CLI. The VPS remains canonical by default, but an operator can explicitly plan approved local write-back.
+
+Plan the default pull direction (no files change):
+
+```bash
+npm run workspace:sync -- --workspace "Vikings Wrestling" --agent-domain vikings-wrestling
+```
+
+Apply only safe VPS-to-local operations:
+
+```bash
+npm run workspace:sync -- --workspace "Vikings Wrestling" --agent-domain vikings-wrestling --direction pull --apply
+```
+
+Plan both directions:
+
+```bash
+npm run workspace:sync -- --workspace "Vikings Wrestling" --agent-domain vikings-wrestling --direction both
+```
+
+An apply that could write to the VPS requires both an explicit direction and `--allow-push`:
+
+```bash
+npm run workspace:sync -- --workspace "Vikings Wrestling" --agent-domain vikings-wrestling --direction both --apply --allow-push
+```
+
+Safety contract:
+
+- Plan-only is the default.
+- Pushes never happen without `--apply --allow-push`.
+- SHA-256 inventories are compared with the last common baseline.
+- One-sided remote changes pull; one-sided local changes are only push candidates.
+- Competing changes are reported as conflicts and never overwritten.
+- Local deletion is restored from the canonical VPS; remote deletion never deletes the local copy automatically.
+- Replaced local files are backed up under `.pib-workspace-sync/backups`.
+- Replaced VPS files are backed up under `/var/lib/hermes/.pib-sync-backups`.
+- No operation uses destructive delete semantics.
+- State manifests are local operator state with mode `0600`; they are not stored in a client Workspace or Obsidian agent domain.
+
+## 8. Safe future path for Drive two-way sync
 
 Two-way sync is allowed only after v1 conflict/audit behaviour is proven. The safe path is staged:
 
@@ -172,7 +215,7 @@ Two-way sync is allowed only after v1 conflict/audit behaviour is proven. The sa
 
 Never enable automatic two-way sync for client-visible, legal, billing, or admin-private folders until conflict resolution and ACL boundaries have been reviewed.
 
-## 8. Evidence and project linking
+## 9. Evidence and project linking
 
 Every implementation task touching workspace folders or sync should link evidence back to the project:
 
