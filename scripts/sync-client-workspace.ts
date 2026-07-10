@@ -773,7 +773,15 @@ async function applyPersistedPlan(options: SyncOptions) {
     })),
   }
   await atomicWrite(journalPath, journal)
-  const advancedBaseline: SyncBaseline = { ...persisted.baseline }
+  const advancedBaseline: SyncBaseline = {
+    ...persisted.baseline,
+    ...commonBaseline(persisted.localInventory, persisted.remoteInventory),
+  }
+  // The immutable snapshots were just revalidated, so every currently
+  // identical file is a trustworthy three-way ancestor even when no transfer
+  // is selected. Persist these anchors before operations so a later one-sided
+  // edit is not misclassified as an unknown two-sided conflict.
+  await writeBaselineState(options, persisted, advancedBaseline, journalPath)
 
   try {
     for (let index = 0; index < selected.length; index += 1) {

@@ -58,10 +58,27 @@ export function publicConversationAttachmentView(
 /** Browser-safe message serializer used by both create and list responses. */
 export function publicConversationMessageView(message: ConversationMessage): ConversationMessage {
   return {
-    ...message,
+    id: message.id,
+    conversationId: message.conversationId,
+    role: message.role,
+    content: message.content,
     ...(message.attachments
       ? { attachments: message.attachments.map((attachment) => publicConversationAttachmentView(attachment, message.conversationId)) }
       : {}),
+    ...(message.contextRefs ? { contextRefs: message.contextRefs } : {}),
+    ...(message.slashCommand ? { slashCommand: message.slashCommand } : {}),
+    ...(message.agentEffort !== undefined ? { agentEffort: message.agentEffort } : {}),
+    ...(message.model ? { model: message.model } : {}),
+    ...(message.provider ? { provider: message.provider } : {}),
+    ...(message.runId ? { runId: message.runId } : {}),
+    ...(message.status ? { status: message.status } : {}),
+    ...(message.error ? { error: message.error } : {}),
+    ...(message.richParts ? { richParts: message.richParts } : {}),
+    ...(message.rich_parts ? { rich_parts: message.rich_parts } : {}),
+    authorKind: message.authorKind,
+    authorId: message.authorId,
+    authorDisplayName: message.authorDisplayName,
+    ...(message.createdAt ? { createdAt: message.createdAt } : {}),
   }
 }
 

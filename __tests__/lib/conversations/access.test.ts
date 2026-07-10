@@ -100,6 +100,11 @@ describe('Workspace conversation access', () => {
       authorKind: 'user',
       authorId: 'owner-1',
       authorDisplayName: 'Owner',
+      runId: 'browser-run-id',
+      runDocId: 'internal-ledger-id',
+      dispatchAgentId: 'pip',
+      events: [{ type: 'tool', output: '/var/lib/hermes/private' }],
+      toolName: 'terminal',
       attachments: [{
         id: 'attachment-1',
         name: 'brief.pdf',
@@ -114,6 +119,11 @@ describe('Workspace conversation access', () => {
       url: '/api/v1/conversations/conv-1/attachments/attachment-1',
     })])
     expect(publicMessage.attachments?.[0]).not.toHaveProperty('storagePath')
+    expect(publicMessage.runId).toBe('browser-run-id')
+    expect(publicMessage).not.toHaveProperty('runDocId')
+    expect(publicMessage).not.toHaveProperty('dispatchAgentId')
+    expect(publicMessage).not.toHaveProperty('events')
+    expect(publicMessage).not.toHaveProperty('toolName')
   })
 
   it('limits access management to the canonical owner or a scoped administrator', () => {
