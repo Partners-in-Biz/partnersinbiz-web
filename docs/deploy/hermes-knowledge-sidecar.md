@@ -61,6 +61,8 @@ npm run workspace:pull -- --workspace "Vikings Wrestling" --apply
 
 The command validates folder/domain/host input, never uses `--delete`, never pushes local files to the VPS, excludes nested Git metadata and keeps replacement backups under `.pib-pull-backups/<timestamp>`. Use `--plan` to print the exact argument-safe rsync plan without connecting.
 
+For baseline-aware ongoing synchronisation, use `npm run workspace:sync`. It is also plan-first and pull-default. It hashes the Workspace plus matching agent domain, records the last common baseline outside both trees, blocks conflict overwrites, and requires `--apply --allow-push` before any local-to-VPS transfer. See `docs/deploy/workspace-folder-sync-v1.md` for commands and the complete safety contract.
+
 ## Workspace integrity and cleanup audit
 
 Run the read-only Firestore/local/VPS audit before moving or deleting any legacy directories:

@@ -2124,6 +2124,20 @@ export default function UnifiedChat({
             <span className="material-symbols-outlined text-[14px]">edit</span>
             Rename
           </button>
+          {menuConversation?.workspaceContext && (allowDeleteConversations || menuConversation.startedBy === currentUserUid) && (
+            <button
+              type="button"
+              className="w-full text-left px-3 py-2 text-xs text-on-surface hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
+              onClick={() => {
+                setAccessConversation(menuConversation)
+                setMenuOpenId(null)
+                setMenuPosition(null)
+              }}
+            >
+              <span className="material-symbols-outlined text-[14px]">manage_accounts</span>
+              Manage access
+            </button>
+          )}
           {allowArchiveConversations && (
             <button
               type="button"
@@ -2244,6 +2258,19 @@ export default function UnifiedChat({
                       <span className="material-symbols-outlined text-[16px]">edit</span>
                       Rename
                     </button>
+                    {activeConversation.workspaceContext && (allowDeleteConversations || activeConversation.startedBy === currentUserUid) && (
+                      <button
+                        type="button"
+                        className="w-full text-left px-3 py-2 text-sm text-on-surface hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
+                        onClick={() => {
+                          setHeaderMenuOpen(false)
+                          setAccessConversation(activeConversation)
+                        }}
+                      >
+                        <span className="material-symbols-outlined text-[16px]">manage_accounts</span>
+                        Manage access
+                      </button>
+                    )}
                     {allowArchiveConversations && (
                       <button
                         type="button"
@@ -2833,6 +2860,19 @@ export default function UnifiedChat({
           collapsed={hermesLayout && !runtimeInspectorOpen}
           onCollapsedChange={hermesLayout ? (collapsed) => setRuntimeInspectorOpen(!collapsed) : undefined}
           variant={hermesLayout ? 'hermes' : 'classic'}
+        />
+      )}
+
+      {accessConversation && (
+        <ConversationAccessDialog
+          conversation={accessConversation}
+          onClose={() => setAccessConversation(null)}
+          onUpdated={(updated) => {
+            setConversations((current) => current.map((conversation) =>
+              conversation.id === updated.id ? updated : conversation,
+            ))
+            setAccessConversation(updated)
+          }}
         />
       )}
 

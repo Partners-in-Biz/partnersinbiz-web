@@ -346,7 +346,12 @@ export default function OrgSettingsPage() {
     setFolderNotice('')
     const res = await fetch(`/api/v1/workspace-folders/${folder.id}/resync?orgId=${encodeURIComponent(orgId)}`, { method: 'POST', headers: { 'X-Org-Id': orgId, 'X-Org-Slug': slug } })
     const body = await res.json().catch(() => ({}))
-    setFolderNotice(body.data?.message ?? body.error ?? 'Resync request recorded.')
+    setFolderNotice(body.data?.message ?? body.error ?? 'Sync plan request recorded.')
+    if (res.ok && body.data?.syncState) {
+      setFolderMappings(current => current.map(item => item.id === folder.id
+        ? { ...item, syncState: body.data.syncState }
+        : item))
+    }
     setResyncingFolderId(null)
   }
 
@@ -736,7 +741,7 @@ export default function OrgSettingsPage() {
                   className="pib-btn-secondary text-xs"
                   aria-label={`Resync ${folder.name}`}
                 >
-                  {resyncingFolderId === folder.id ? 'Requesting…' : 'Manual resync'}
+                  {resyncingFolderId === folder.id ? 'Planning…' : 'Create sync plan'}
                 </button>
               </div>
               <div className="grid gap-3 text-xs sm:grid-cols-2">
@@ -748,6 +753,9 @@ export default function OrgSettingsPage() {
                 <div>
                   <p className="font-label uppercase tracking-wide text-on-surface-variant">Sync / audit</p>
                   <p className="mt-1 text-on-surface">Status: {folder.syncState.status} · Conflicts: {folder.audit.conflictStatus}</p>
+                  {folder.syncState.lastRequestId && (
+                    <p className="mt-1 break-all text-on-surface-variant">Latest request: {folder.syncState.lastRequestStatus ?? 'planned'} · {folder.syncState.lastRequestId}</p>
+                  )}
                   <div className="mt-1 flex flex-wrap gap-1 text-on-surface-variant">
                     <span>Targets:</span>
                     {folder.syncTargets.length ? folder.syncTargets.map(target => <span key={target}>{folderSyncTargetLabel(target)}</span>) : <span>Not configured</span>}

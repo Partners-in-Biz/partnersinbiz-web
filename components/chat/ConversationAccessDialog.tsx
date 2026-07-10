@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import type { Conversation } from '@/lib/conversations/types'
 
 type ShareMode = 'private' | 'shared' | 'org'
 type Contact = {
@@ -11,10 +10,23 @@ type Contact = {
   role: 'admin' | 'client'
 }
 
-interface ConversationAccessDialogProps {
-  conversation: Conversation
+interface AccessConversation {
+  id: string
+  orgId: string
+  startedBy: string
+  title: string
+  participants: Array<
+    | { kind: 'user'; uid: string; role: 'admin' | 'client'; displayName?: string; email?: string }
+    | { kind: 'agent'; agentId?: string; name?: string }
+  >
+  participantUids: string[]
+  workspaceContext?: { shareMode?: string }
+}
+
+interface ConversationAccessDialogProps<T extends AccessConversation> {
+  conversation: T
   onClose: () => void
-  onUpdated: (conversation: Conversation) => void
+  onUpdated: (conversation: T) => void
 }
 
 const OPTIONS: Array<{ value: ShareMode; label: string; description: string; icon: string }> = [
@@ -42,13 +54,16 @@ function labelFor(contact: Contact): string {
   return contact.displayName?.trim() || contact.email?.trim() || contact.uid
 }
 
-export default function ConversationAccessDialog({
+export default function ConversationAccessDialog<T extends AccessConversation>({
   conversation,
   onClose,
   onUpdated,
-}: ConversationAccessDialogProps) {
+}: ConversationAccessDialogProps<T>) {
   const ownerUid = conversation.startedBy
-  const [shareMode, setShareMode] = useState<ShareMode>(conversation.workspaceContext?.shareMode ?? 'private')
+  const initialShareMode = conversation.workspaceContext?.shareMode
+  const [shareMode, setShareMode] = useState<ShareMode>(
+    initialShareMode === 'shared' || initialShareMode === 'org' ? initialShareMode : 'private',
+  )
   const [contacts, setContacts] = useState<Contact[]>([])
   const [selectedUids, setSelectedUids] = useState<string[]>(() =>
     conversation.participants
@@ -131,7 +146,7 @@ export default function ConversationAccessDialog({
       })
       const body = await response.json().catch(() => null)
       if (!response.ok) throw new Error(body?.error ?? 'Failed to update access')
-      onUpdated(body.data.conversation as Conversation)
+      onUpdated(body.data.conversation as T)
       onClose()
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Failed to update access')

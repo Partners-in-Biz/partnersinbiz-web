@@ -80,6 +80,8 @@ export interface WorkspaceFolder {
     lastAttemptAt: string | null
     error: string | null
     conflictCount: number
+    lastRequestId?: string | null
+    lastRequestStatus?: 'planned' | 'blocked_conflict' | 'completed' | 'failed' | null
   }
   audit: {
     approvalStatus: string | null
