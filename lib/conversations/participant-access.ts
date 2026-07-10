@@ -1,7 +1,7 @@
 import { adminDb } from '@/lib/firebase/admin'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import { isSuperAdmin } from '@/lib/api/platformAdmin'
-import type { Participant } from '@/lib/conversations/types'
+import type { HumanParticipant, Participant } from '@/lib/conversations/types'
 
 export class ConversationParticipantError extends Error {
   constructor(
@@ -26,7 +26,7 @@ function cleanString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
 }
 
-function userParticipant(uid: string, profile: UserProfile): Participant {
+function userParticipant(uid: string, profile: UserProfile): HumanParticipant {
   return {
     kind: 'user',
     uid,
@@ -86,7 +86,7 @@ export async function resolveHumanConversationParticipants({
   ownerUid,
   requestedUids,
   existingParticipants = [],
-}: ResolveHumanParticipantsInput): Promise<Participant[]> {
+}: ResolveHumanParticipantsInput): Promise<HumanParticipant[]> {
   if (!Array.isArray(requestedUids)) {
     throw new ConversationParticipantError('participantUids must be an array')
   }
