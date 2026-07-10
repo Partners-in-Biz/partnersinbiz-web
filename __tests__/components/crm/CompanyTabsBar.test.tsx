@@ -51,6 +51,18 @@ describe('CompanyTabsBar', () => {
     expect(onChange).toHaveBeenCalledWith('invoices')
   })
 
+  it('keeps the More menu inside a narrow viewport while preserving desktop right alignment', () => {
+    render(<CompanyTabsBar activeTab="overview" onChange={jest.fn()} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'More company sections' }))
+
+    expect(screen.getByRole('menu', { name: 'More company sections' })).toHaveClass(
+      'left-0',
+      'sm:left-auto',
+      'sm:right-0',
+    )
+  })
+
   it('shows the organisation workspace tab when a company is linked to a workspace', () => {
     const onChange = jest.fn()
     render(<CompanyTabsBar activeTab="overview" onChange={onChange} includeWorkspace />)
