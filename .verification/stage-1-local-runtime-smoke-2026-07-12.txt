@@ -1,0 +1,18 @@
+Stage 1 local runtime smoke
+Date: 2026-07-12 Africa/Johannesburg
+
+Runtime service:
+  launchctl print gui/$(id -u)/ai.hermes.local-runtime
+  Result: state=running, last exit code=0.
+
+Health probe:
+  GET http://127.0.0.1:8755/v1/health
+  HTTP status: 200
+  Body: {"status":"ok","platform":"hermes-agent","version":"0.18.2"}
+
+Real project pwd:
+  NOT RUN. The repository contains no safe Workspace dispatch smoke script and
+  .env.local does not configure the local Hermes runtime URL/key variables used
+  by scripts/register-local-agent-runtime.ts. The running profile's private
+  credential was not extracted or printed. Therefore this evidence does not
+  claim a real local project execution receipt or pwd result.
