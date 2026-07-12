@@ -10,7 +10,7 @@ import {
   sanitizeHermesCapabilities,
   sanitizeHermesPermissions,
 } from './access'
-import { safeHermesRunPayload, sanitizeDispatchMetadata } from '@/lib/workspaces/dispatch-errors'
+import { classifyWorkspaceDispatchFailure, safeHermesRunPayload, sanitizeDispatchMetadata } from '@/lib/workspaces/dispatch-errors'
 
 export const HERMES_PROFILE_LINKS_COLLECTION = 'hermes_profile_links'
 export const HERMES_RUNS_COLLECTION = 'hermes_runs'
@@ -264,16 +264,25 @@ export async function callHermesAdminControl(
 }
 
 export async function createHermesRun(link: HermesProfileLink, requestedBy: string, request: HermesRunRequest) {
-  const { prompt, ...rest } = request
+  const requestedAt = new Date().toISOString()
+  const { prompt, dispatch, ...rest } = request
   const hermesPayload = { input: prompt, ...rest }
   const { response, data } = await callHermesJson(link, '/v1/runs', {
     method: 'POST',
     body: JSON.stringify(hermesPayload),
   })
   if (!response.ok) {
-    return { response, data, runDocId: null }
+    return {
+      ok: false as const,
+      status: response.status,
+      data: {},
+      dispatchError: classifyWorkspaceDispatchFailure(data, response.status),
+      runDocId: null,
+      executionReceipt: null,
+    }
   }
 
+  const acceptedAt = new Date().toISOString()
   const safePayload = safeHermesRunPayload(data)
   const hermesRunId = safePayload.runId ?? ''
   const metadata = sanitizeDispatchMetadata(request.metadata)
@@ -294,11 +303,19 @@ export async function createHermesRun(link: HermesProfileLink, requestedBy: stri
     : typeof metadata?.agentId === 'string'
       ? metadata.agentId
       : undefined
+  const acceptedRuntimeTargetId = typeof link.runtimeTargetId === 'string'
+    && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(link.runtimeTargetId)
+    ? link.runtimeTargetId
+    : 'legacy-profile'
+  const requestedRuntimeTargetId = typeof dispatch?.requestedRuntimeTargetId === 'string'
+    && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(dispatch.requestedRuntimeTargetId)
+    ? dispatch.requestedRuntimeTargetId
+    : acceptedRuntimeTargetId
   const executionReceipt = {
-    ...(typeof metadata.requestedRuntimeTargetId === 'string' ? { requestedRuntimeTargetId: metadata.requestedRuntimeTargetId } : {}),
-    ...(typeof metadata.runtimeTargetId === 'string' ? { acceptedRuntimeTargetId: metadata.runtimeTargetId } : {}),
-    requestedAt: FieldValue.serverTimestamp(),
-    acceptedAt: FieldValue.serverTimestamp(),
+    requestedRuntimeTargetId,
+    acceptedRuntimeTargetId,
+    requestedAt,
+    acceptedAt,
     outcome: 'accepted',
   }
   const docRef = await adminDb.collection(HERMES_RUNS_COLLECTION).add({
@@ -320,7 +337,7 @@ export async function createHermesRun(link: HermesProfileLink, requestedBy: stri
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   })
-  return { response, data, runDocId: docRef.id, executionReceipt }
+  return { ok: true as const, status: response.status, data: safePayload, runDocId: docRef.id, executionReceipt }
 }
 
 export async function callHermesStream(link: HermesProfileLink, path: string) {

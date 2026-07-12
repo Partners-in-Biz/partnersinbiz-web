@@ -51,6 +51,8 @@ export interface HermesRunRequest {
   temperature?: number
   max_tokens?: number
   metadata?: Record<string, unknown>
+  /** Server-resolved routing identity. This is never forwarded to Hermes. */
+  dispatch?: { requestedRuntimeTargetId?: string }
 }
 
 export type RichMessagePartType =
@@ -68,6 +70,7 @@ export type RichMessagePartType =
   | 'approval_card'
   | 'clarify'
   | 'model_picker'
+  | 'project_task_proposal'
 
 export type RichMessageChoice = string | {
   id?: string

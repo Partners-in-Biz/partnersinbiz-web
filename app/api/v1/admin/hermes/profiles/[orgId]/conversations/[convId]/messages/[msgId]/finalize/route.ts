@@ -4,7 +4,7 @@ import { apiError, apiSuccess } from '@/lib/api/response'
 import { adminDb } from '@/lib/firebase/admin'
 import { callHermesJson, HERMES_RUNS_COLLECTION, requireHermesProfileAccess } from '@/lib/hermes/server'
 import { getConversation, messagesCollection, touchConversation, updateMessage } from '@/lib/hermes/conversations'
-import { classifyWorkspaceDispatchFailure } from '@/lib/workspaces/dispatch-errors'
+import { classifyWorkspaceDispatchFailure, isSafeHermesLifecycleStatus } from '@/lib/workspaces/dispatch-errors'
 
 export const dynamic = 'force-dynamic'
 
@@ -65,8 +65,7 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
 
   const payload = data && typeof data === 'object' ? (data as Record<string, unknown>) : {}
   const rawStatus = typeof payload.status === 'string' ? payload.status : 'unknown'
-  const allowedStatuses = new Set(['completed', 'failed', 'cancelled', 'canceled', 'stopped', 'interrupted', 'waiting_for_approval', 'approval_required', 'running', 'queued', 'submitted'])
-  const status = allowedStatuses.has(rawStatus) ? rawStatus : 'unknown'
+  const status = isSafeHermesLifecycleStatus(rawStatus) ? rawStatus : 'unknown'
   const output = typeof payload.output === 'string' ? payload.output : ''
   const error = status === 'failed'
     ? 'The agent run failed before completion.'

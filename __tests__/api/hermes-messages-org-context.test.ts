@@ -88,9 +88,11 @@ beforeEach(() => {
   mockTouchConversation.mockResolvedValue(undefined)
   mockListMessages.mockResolvedValue([])
   mockCreateHermesRun.mockResolvedValue({
-    response: { ok: true },
-    data: { run_id: 'run-1' },
+    ok: true,
+    status: 202,
+    data: { runId: 'run-1' },
     runDocId: 'rd-1',
+    executionReceipt: { requestedRuntimeTargetId: 'legacy-profile', acceptedRuntimeTargetId: 'legacy-profile', requestedAt: '2026-07-12T20:00:00.000Z', acceptedAt: '2026-07-12T20:00:00.001Z', outcome: 'accepted' },
   })
   mockOrgDocGet.mockResolvedValue({ exists: false, data: () => undefined })
   mockProjectDocGet.mockResolvedValue({ exists: false, data: () => undefined })
@@ -100,8 +102,9 @@ beforeEach(() => {
 describe('messages route — org context injection', () => {
   it('returns only safe accepted-run fields from an arbitrary upstream payload', async () => {
     mockCreateHermesRun.mockResolvedValue({
-      response: { ok: true },
-      data: { run_id: 'run-1', status: 'started', apiKey: 'super-secret', endpoint: 'https://gateway.example/v1/runs', working_directory: '/Users/peet/private' },
+      ok: true,
+      status: 202,
+      data: { runId: 'run-1', status: 'started' },
       runDocId: 'rd-1',
       executionReceipt: { requestedRuntimeTargetId: 'vps', acceptedRuntimeTargetId: 'vps', outcome: 'accepted' },
     })

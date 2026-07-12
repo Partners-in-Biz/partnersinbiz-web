@@ -504,6 +504,9 @@ export const POST = withAuth(
         ...(modelSelection?.model ? { model: modelSelection.model } : {}),
         ...(modelSelection?.provider ? { provider: modelSelection.provider } : {}),
         ...(agentEffort ? { reasoning_effort: agentEffort } : {}),
+        dispatch: {
+          requestedRuntimeTargetId: conversation.workspaceContext?.runtimeTarget ?? agentLink.runtimeTargetId,
+        },
         metadata: {
           conversationId: convId,
           messageId: assistantMessage.id,
@@ -554,7 +557,7 @@ export const POST = withAuth(
       }
 
       // Store runId on the pending message if run started
-      if (runResult.response.ok) {
+      if (runResult.ok) {
         const payload =
           runResult.data && typeof runResult.data === 'object'
             ? (runResult.data as Record<string, unknown>)

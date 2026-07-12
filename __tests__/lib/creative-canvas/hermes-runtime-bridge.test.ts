@@ -51,9 +51,11 @@ describe('Creative Canvas Hermes runtime bridge', () => {
     }
     mockGetHermesProfileLink.mockResolvedValue(link)
     mockCreateHermesRun.mockResolvedValue({
-      response: { ok: true },
-      data: { run_id: 'hermes-run-1', status: 'queued' },
+      ok: true,
+      status: 202,
+      data: { runId: 'hermes-run-1', status: 'queued' },
       runDocId: 'doc-1',
+      executionReceipt: { requestedRuntimeTargetId: 'legacy-profile', acceptedRuntimeTargetId: 'legacy-profile', requestedAt: '2026-07-12T20:00:00.000Z', acceptedAt: '2026-07-12T20:00:00.001Z', outcome: 'accepted' },
     })
 
     const result = await submitCreativeCanvasRunToHermes({

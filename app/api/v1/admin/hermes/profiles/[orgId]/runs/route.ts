@@ -40,8 +40,8 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   }
 
   const result = await createHermesRun(access.link, user.uid, runRequest)
-  if (!result.response.ok) {
-    return apiError('Hermes run request failed', result.response.status || 502, { hermes: result.data })
+  if (!result.ok) {
+    return apiError(result.dispatchError.message, result.status || 502, { dispatchError: result.dispatchError })
   }
-  return apiSuccess({ hermes: result.data, runDocId: result.runDocId })
+  return apiSuccess({ hermes: result.data, runDocId: result.runDocId, executionReceipt: result.executionReceipt })
 })

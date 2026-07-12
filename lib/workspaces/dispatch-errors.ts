@@ -77,11 +77,23 @@ export function sanitizeDispatchMetadata(input: unknown): Record<string, unknown
 
 export type SafeHermesRunPayload = { runId?: string; status?: string }
 
+export const SAFE_HERMES_LIFECYCLE_STATUSES = [
+  'queued', 'submitted', 'started', 'running', 'waiting_for_approval', 'approval_required',
+  'completed', 'failed', 'cancelled', 'canceled', 'stopped', 'interrupted',
+] as const
+
+export type SafeHermesLifecycleStatus = typeof SAFE_HERMES_LIFECYCLE_STATUSES[number]
+const SAFE_STATUS_SET = new Set<string>(SAFE_HERMES_LIFECYCLE_STATUSES)
+
+export function isSafeHermesLifecycleStatus(value: unknown): value is SafeHermesLifecycleStatus {
+  return typeof value === 'string' && SAFE_STATUS_SET.has(value)
+}
+
 export function safeHermesRunPayload(input: unknown): SafeHermesRunPayload {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return {}
   const payload = input as Record<string, unknown>
   const rawRunId = payload.run_id ?? payload.runId ?? payload.id
   const runId = typeof rawRunId === 'string' && SAFE_VALUE.test(rawRunId) ? rawRunId : undefined
-  const status = typeof payload.status === 'string' && SAFE_VALUE.test(payload.status) ? payload.status : undefined
+  const status = isSafeHermesLifecycleStatus(payload.status) ? payload.status : undefined
   return { ...(runId ? { runId } : {}), ...(status ? { status } : {}) }
 }

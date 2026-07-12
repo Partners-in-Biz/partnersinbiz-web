@@ -106,9 +106,11 @@ beforeEach(() => {
     permissions: { superAdmin: false, restrictedAdmin: false, client: true, allowedUserIds: [] },
   })
   mockCreateHermesRun.mockResolvedValue({
-    response: { ok: true },
-    data: { run_id: 'run-1' },
+    ok: true,
+    status: 202,
+    data: { runId: 'run-1' },
     runDocId: 'run-doc-1',
+    executionReceipt: { requestedRuntimeTargetId: 'legacy-profile', acceptedRuntimeTargetId: 'legacy-profile', requestedAt: '2026-07-12T20:00:00.000Z', acceptedAt: '2026-07-12T20:00:00.001Z', outcome: 'accepted' },
   })
   mockResolveContextReferences.mockResolvedValue([
     {
