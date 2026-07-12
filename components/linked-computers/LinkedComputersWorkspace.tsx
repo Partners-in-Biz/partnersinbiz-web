@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useId, useState } from 'react'
 import { PairComputerDialog } from './PairComputerDialog'
 import { AccessibleDialog, AccessibleMenu } from './AccessibleOverlay'
 
@@ -44,10 +44,11 @@ export function LinkedComputersWorkspace() {
   const [confirmRemove, setConfirmRemove] = useState<Device | null>(null)
   const [now, setNow] = useState(0)
   const [workspaceOptions, setWorkspaceOptions] = useState<WorkspaceOption[]>([])
+  const actionsMenuId = useId()
 
-  const load = useCallback(async () => {
-    try { const body = await request('/api/v1/linked-computers'); setDevices(Array.isArray(body.data) ? body.data : []); setError('') }
-    catch (cause) { setError(safeError(Number((cause as { status?: number }).status))) }
+  const load = useCallback(async (): Promise<boolean> => {
+    try { const body = await request('/api/v1/linked-computers'); setDevices(Array.isArray(body.data) ? body.data : []); setError(''); return true }
+    catch (cause) { setError(safeError(Number((cause as { status?: number }).status))); return false }
   }, [])
   useEffect(() => {
     setNow(Date.now()); void load()
@@ -55,7 +56,7 @@ export function LinkedComputersWorkspace() {
   }, [load])
 
   async function mutate(url: string, init: RequestInit): Promise<boolean> {
-    try { await request(url, { ...init, headers: { 'content-type': 'application/json', ...init.headers } }); setError(''); await load(); return true }
+    try { await request(url, { ...init, headers: { 'content-type': 'application/json', ...init.headers } }); setError(''); if (!await load()) { setError('Your change was saved, but the latest computer status could not be refreshed. Keep this window open and try again.'); return false } return true }
     catch (cause) { setError(safeError(Number((cause as { status?: number }).status))); return false }
   }
 
@@ -72,7 +73,7 @@ export function LinkedComputersWorkspace() {
         return <article key={device.deviceId} aria-label={device.label} className="rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card)] p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div><div className="flex items-center gap-2"><h2 className="font-semibold">{device.label}</h2><span className={`rounded-full px-2 py-0.5 text-xs ${online ? 'bg-emerald-400/10 text-emerald-300' : 'bg-white/5 text-on-surface-variant'}`}>{online ? 'Online' : 'Offline'}</span></div><p className="mt-1 text-xs text-on-surface-variant">{device.platform === 'macos' ? 'macOS' : 'Windows'} · {device.architecture} · Version {device.runtimeVersion}</p></div>
-            <div className="flex gap-2"><button type="button" aria-label={`Rename ${device.label}`} onClick={() => { setRenaming(device); setName(device.label) }} className="pib-btn-secondary text-xs">Rename</button><button type="button" aria-label={`Manage access for ${device.label}`} onClick={() => setAccess(device)} className="pib-btn-secondary text-xs">Access</button><button type="button" aria-label={`More actions for ${device.label}`} onClick={() => setActions(device)} className="pib-btn-secondary text-xs">More</button></div>
+            <div className="flex gap-2"><button type="button" aria-label={`Rename ${device.label}`} onClick={() => { setRenaming(device); setName(device.label) }} className="pib-btn-secondary text-xs">Rename</button><button type="button" aria-label={`Manage access for ${device.label}`} onClick={() => setAccess(device)} className="pib-btn-secondary text-xs">Access</button><button type="button" aria-label={`More actions for ${device.label}`} aria-haspopup="menu" aria-expanded={actions?.deviceId === device.deviceId} aria-controls={actions?.deviceId === device.deviceId ? actionsMenuId : undefined} onClick={() => setActions(device)} className="pib-btn-secondary text-xs">More</button></div>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <div><p className="text-xs font-semibold">Organisation access</p>{device.grants?.length ? device.grants.map(g => <p key={g.orgId} className="mt-1 text-sm text-on-surface-variant">{g.orgLabel ?? g.orgId} · {g.status}</p>) : <p className="mt-1 text-sm text-on-surface-variant">No organisation granted</p>}</div>
@@ -85,7 +86,7 @@ export function LinkedComputersWorkspace() {
     {pairing && <PairComputerDialog onClose={() => setPairing(false)} />}
     {renaming && <AccessibleDialog label="Rename computer" onClose={() => setRenaming(null)} className="w-full max-w-sm rounded-xl bg-[var(--color-card)] p-5"><form onSubmit={async e => { e.preventDefault(); if (await mutate(`/api/v1/linked-computers/${renaming.deviceId}`, { method: 'PATCH', body: JSON.stringify({ label: name }) })) setRenaming(null) }}><label className="block text-sm">Computer name<input autoFocus aria-label="Computer name" value={name} onChange={e => setName(e.target.value)} className="mt-2 w-full rounded-lg border bg-transparent p-2" /></label><button className="pib-btn-primary mt-4">Save name</button><button type="button" className="ml-3 text-sm" onClick={() => setRenaming(null)}>Cancel</button></form></AccessibleDialog>}
     {access && <AccessibleDialog label="Manage computer access" onClose={() => setAccess(null)}><h2 className="font-semibold">Manage computer access</h2><label className="mt-4 block text-sm">Organisation<select autoFocus aria-label="Organisation" value={orgId} onChange={e => { setOrgId(e.target.value); setWorkspaceId('') }} className="mt-1 w-full rounded-lg border bg-transparent p-2"><option value="">Select an organisation</option>{Array.from(new Map(workspaceOptions.map(option => [option.orgId, option])).values()).map(option => <option key={option.orgId} value={option.orgId}>{option.orgName}</option>)}</select></label><button type="button" disabled={!orgId} className="pib-btn-secondary mt-2" onClick={() => mutate(`/api/v1/linked-computers/${access.deviceId}/grants`, { method: 'PUT', body: JSON.stringify({ orgId, status: 'active' }) })}>Grant organisation</button><label className="mt-4 block text-sm">Workspace<select aria-label="Workspace" value={workspaceId} onChange={e => { setWorkspaceId(e.target.value); setWorkspaceLabel(workspaceOptions.find(option => option.workspaceId === e.target.value)?.orgName ?? '') }} className="mt-1 w-full rounded-lg border bg-transparent p-2"><option value="">Select a Workspace</option>{workspaceOptions.filter(option => option.orgId === orgId).map(option => <option key={option.workspaceId} value={option.workspaceId}>{option.orgName}</option>)}</select></label><button type="button" disabled={!workspaceId} className="pib-btn-secondary mt-2" onClick={() => mutate(`/api/v1/linked-computers/${access.deviceId}/mappings`, { method: 'PUT', body: JSON.stringify({ orgId, workspaceId, label: workspaceLabel, status: 'active' }) })}>Map Workspace</button><button type="button" className="ml-2 mt-2 text-sm" onClick={() => setAccess(null)}>Done</button></AccessibleDialog>}
-    {actions && <AccessibleMenu label={`Actions for ${actions.label}`} onClose={() => setActions(null)}><button role="menuitem" type="button" onClick={() => mutate(`/api/v1/linked-computers/${actions.deviceId}/credentials/rotate`, { method: 'POST' })}>Rotate credential</button><button role="menuitem" type="button" onClick={() => mutate(`/api/v1/linked-computers/${actions.deviceId}`, { method: 'PATCH', body: JSON.stringify({ status: 'paused' }) })}>Pause computer</button><button role="menuitem" type="button" onClick={() => mutate(`/api/v1/linked-computers/${actions.deviceId}`, { method: 'PATCH', body: JSON.stringify({ status: 'revoked' }) })}>Revoke computer</button><button role="menuitem" type="button" onClick={() => setConfirmRemove(actions)}>Remove computer</button></AccessibleMenu>}
+    {actions && <AccessibleMenu id={actionsMenuId} label={`Actions for ${actions.label}`} onClose={() => setActions(null)}><button role="menuitem" type="button" onClick={() => { const selected = actions; setActions(null); void mutate(`/api/v1/linked-computers/${selected.deviceId}/credentials/rotate`, { method: 'POST' }) }}>Rotate credential</button><button role="menuitem" type="button" onClick={() => { const selected = actions; setActions(null); void mutate(`/api/v1/linked-computers/${selected.deviceId}`, { method: 'PATCH', body: JSON.stringify({ status: 'paused' }) }) }}>Pause computer</button><button role="menuitem" type="button" onClick={() => { const selected = actions; setActions(null); void mutate(`/api/v1/linked-computers/${selected.deviceId}`, { method: 'PATCH', body: JSON.stringify({ status: 'revoked' }) }) }}>Revoke computer</button><button role="menuitem" type="button" onClick={() => { setConfirmRemove(actions); setActions(null) }}>Remove computer</button></AccessibleMenu>}
     {confirmRemove && <AccessibleDialog label="Remove computer" onClose={() => setConfirmRemove(null)}><p>Remove {confirmRemove.label}?</p><button autoFocus type="button" className="pib-btn-primary mt-4" onClick={async () => { if (await mutate(`/api/v1/linked-computers/${confirmRemove.deviceId}`, { method: 'DELETE' })) { setConfirmRemove(null); setActions(null) } }}>Confirm remove</button><button type="button" className="ml-3 text-sm" onClick={() => setConfirmRemove(null)}>Cancel</button></AccessibleDialog>}
   </div>
 }

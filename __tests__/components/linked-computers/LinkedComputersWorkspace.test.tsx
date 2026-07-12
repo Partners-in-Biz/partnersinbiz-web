@@ -50,11 +50,47 @@ describe('LinkedComputersWorkspace', () => {
     const more = screen.getByRole('button', { name: 'More actions for Studio Mac' })
     more.focus()
     fireEvent.click(more)
+    expect(more).toHaveAttribute('aria-haspopup', 'menu')
+    expect(more).toHaveAttribute('aria-expanded', 'true')
     const menu = screen.getByRole('menu', { name: 'Actions for Studio Mac' })
+    expect(more).toHaveAttribute('aria-controls', menu.id)
     expect(within(menu).getAllByRole('menuitem')).toHaveLength(4)
-    fireEvent.keyDown(menu, { key: 'Escape' })
+    const items = within(menu).getAllByRole('menuitem')
+    expect(items[0]).toHaveFocus()
+    fireEvent.keyDown(menu, { key: 'ArrowUp' })
+    expect(items[3]).toHaveFocus()
+    fireEvent.keyDown(menu, { key: 'Home' })
+    expect(items[0]).toHaveFocus()
+    fireEvent.keyDown(menu, { key: 'End' })
+    expect(items[3]).toHaveFocus()
+    fireEvent.keyDown(menu, { key: 'Tab' })
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
     expect(more).toHaveFocus()
+    fireEvent.click(more)
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    fireEvent.mouseDown(document.body)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    more.focus(); fireEvent.click(more)
+    const reopened = screen.getByRole('menu')
+    fireEvent.keyDown(reopened, { key: 'Escape' })
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(more).toHaveFocus()
+  })
+
+  it('keeps rename context open and reports refresh-needed when mutation succeeds but reload fails', async () => {
+    let listCalls = 0
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/workspaces') return response({ data: { workspaces: [] } })
+      if (url === '/api/v1/linked-computers') return ++listCalls === 1 ? response({ data: [device] }) : response({}, false)
+      return response({ success: true })
+    })
+    render(<LinkedComputersWorkspace />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Rename Studio Mac' }))
+    fireEvent.change(screen.getByLabelText('Computer name'), { target: { value: 'Office Mac' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save name' }))
+    expect(await screen.findByRole('dialog', { name: 'Rename computer' })).toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent('saved, but the latest computer status could not be refreshed')
   })
 
   it('pairs, names, grants, maps, rotates, pauses, revokes, and removes through safe lifecycle APIs', async () => {
@@ -79,8 +115,8 @@ describe('LinkedComputersWorkspace', () => {
     fireEvent.change(within(access).getByLabelText('Workspace'), { target: { value: 'workspace-b' } })
     fireEvent.click(within(access).getByRole('button', { name: 'Map Workspace' }))
 
-    fireEvent.click(screen.getByRole('button', { name: 'More actions for Studio Mac' }))
     for (const label of ['Rotate credential', 'Pause computer', 'Revoke computer', 'Remove computer']) {
+      fireEvent.click(screen.getByRole('button', { name: 'More actions for Studio Mac' }))
       fireEvent.click(screen.getByRole('menuitem', { name: label }))
       if (label === 'Remove computer') fireEvent.click(screen.getByRole('button', { name: 'Confirm remove' }))
     }
