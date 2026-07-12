@@ -19,8 +19,17 @@ const mockCallAgentPath = jest.fn()
 let mockUser: MockUser = { uid: 'owner-1', role: 'client', orgId: 'org-1' }
 
 jest.mock('@/lib/api/auth', () => ({
-  withAuth: (_role: string, handler: MockHandler) => async (req: NextRequest, ctx?: unknown) =>
-    handler(req, mockUser, ctx),
+  withAuth: (requiredRole: 'admin' | 'client', handler: MockHandler) => {
+    const wrapped = async (req: NextRequest, ctx?: unknown) => {
+      const roleOk = mockUser.role === 'ai'
+        || mockUser.role === 'admin'
+        || (requiredRole === 'client' && mockUser.role === 'client')
+      if (!roleOk) return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 })
+      return handler(req, mockUser, ctx)
+    }
+    Object.assign(wrapped, { requiredRole })
+    return wrapped
+  },
 }))
 
 jest.mock('@/lib/conversations/conversations', () => ({
@@ -81,6 +90,7 @@ beforeEach(() => {
 describe('conversation mutation route policies', () => {
   it('allows the client owner to delete and audits the real client role', async () => {
     const { DELETE } = await import('@/app/api/v1/conversations/[convId]/route')
+    expect((DELETE as typeof DELETE & { requiredRole: string }).requiredRole).toBe('client')
     const response = await DELETE(new NextRequest('http://localhost/api/v1/conversations/conv-1', {
       method: 'DELETE',
     }), ctx)
@@ -97,6 +107,7 @@ describe('conversation mutation route policies', () => {
     mockUser = { uid: 'member-1', role: 'client', orgId: 'org-1' }
     mockGetConversation.mockResolvedValue(conversation('shared'))
     const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/[msgId]/stop/route')
+    expect((POST as typeof POST & { requiredRole: string }).requiredRole).toBe('client')
     const response = await POST(new NextRequest(
       'http://localhost/api/v1/conversations/conv-1/messages/msg-1/stop',
       { method: 'POST' },
