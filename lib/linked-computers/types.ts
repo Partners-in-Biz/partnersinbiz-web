@@ -77,6 +77,7 @@ export interface LinkedComputerAuditEvent {
   deviceId?: string
   orgId?: string
   mappingId?: string
+  challengeId?: string
   fromStatus?: string
   toStatus?: string
   createdAt: unknown

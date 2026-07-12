@@ -20,6 +20,9 @@ const GRANTS = 'linked_device_grants'
 const MAPPINGS = 'linked_device_workspace_mappings'
 const AUDIT = 'linked_computer_audit_events'
 const MEMBERS = 'orgMembers'
+const WORKSPACES = 'org_workspaces'
+const PAIRING_TTL_MS = 10 * 60 * 1000
+const PAIRING_MAX_ATTEMPTS = 5
 
 interface RefLike { id: string; path?: string }
 interface SnapshotLike { exists: boolean; data(): Record<string, unknown> | undefined }
@@ -63,13 +66,14 @@ function membershipFrom(row: Record<string, unknown> | undefined, orgId: string,
   return {
     orgId,
     userId,
-    active: Boolean(row) && row?.orgId === orgId && (row.uid === userId || row.userId === userId) && row.status !== 'inactive',
+    active: Boolean(row) && row?.orgId === orgId && (row.uid === userId || row.userId === userId) && row.status === 'active',
     role: typeof row?.role === 'string' ? row.role : undefined,
   }
 }
 
 export async function createDevice(input: {
   deviceId: string
+  actorUserId: string
   ownerUserId: string
   runtimeTargetId: string
   publicKeyFingerprint: string
@@ -81,7 +85,9 @@ export async function createDevice(input: {
 }, options: StoreOptions = {}): Promise<void> {
   const db = options.db ?? (adminDb as unknown as DbLike)
   const deviceId = required(input.deviceId, 'deviceId')
+  const actorUserId = required(input.actorUserId, 'actorUserId')
   const ownerUserId = required(input.ownerUserId, 'ownerUserId')
+  if (actorUserId !== ownerUserId) throw new Error('linked computers: authenticated actor must be device owner')
   const at = timestamp(options)
   await db.runTransaction(async (tx) => {
     const deviceRef = db.collection(DEVICES).doc(deviceId)
@@ -98,35 +104,42 @@ export async function createDevice(input: {
 
 export async function createPairingChallenge(input: {
   challengeId: string
+  actorUserId: string
   ownerUserId: string
   secret: string
-  expiresAt: string
-  maxAttempts?: number
 }, options: StoreOptions = {}): Promise<{ challengeId: string; expiresAt: string }> {
   const db = options.db ?? (adminDb as unknown as DbLike)
   required(input.secret, 'pairing secret')
+  const actorUserId = required(input.actorUserId, 'actorUserId')
+  const ownerUserId = required(input.ownerUserId, 'ownerUserId')
+  if (actorUserId !== ownerUserId) throw new Error('linked computers: authenticated actor must be pairing owner')
+  const expiresAt = new Date((options.nowMs?.() ?? Date.now()) + PAIRING_TTL_MS).toISOString()
   const at = timestamp(options)
   await db.runTransaction(async (tx) => {
     const ref = db.collection(CHALLENGES).doc(required(input.challengeId, 'challengeId'))
     if ((await tx.get(ref)).exists) throw new Error('linked computers: pairing challenge already exists')
     tx.create(ref, {
-      challengeId: input.challengeId, ownerUserId: required(input.ownerUserId, 'ownerUserId'),
-      secretHash: hashSecret(input.secret), expiresAt: input.expiresAt, attempts: 0,
-      maxAttempts: input.maxAttempts ?? 5, createdAt: at,
+      challengeId: input.challengeId, ownerUserId,
+      secretHash: hashSecret(input.secret), expiresAt, attempts: 0,
+      maxAttempts: PAIRING_MAX_ATTEMPTS, createdAt: at,
     })
     tx.create(auditRef(db), {
-      eventId: randomUUID(), action: 'pairing.created', actorUserId: input.ownerUserId, createdAt: at,
+      eventId: randomUUID(), action: 'pairing.created', actorUserId, challengeId: input.challengeId, createdAt: at,
     })
   })
-  return { challengeId: input.challengeId, expiresAt: input.expiresAt }
+  return { challengeId: input.challengeId, expiresAt }
 }
 
 export async function consumePairingChallenge(input: {
   challengeId: string
+  actorUserId: string
   ownerUserId: string
   secret: string
 }, options: StoreOptions = {}): Promise<void> {
   const db = options.db ?? (adminDb as unknown as DbLike)
+  if (required(input.actorUserId, 'actorUserId') !== required(input.ownerUserId, 'ownerUserId')) {
+    throw new Error('linked computers: authenticated actor must be pairing owner')
+  }
   const result = await db.runTransaction(async (tx): Promise<'consumed' | 'invalid-secret'> => {
     const ref = db.collection(CHALLENGES).doc(input.challengeId)
     const snapshot = await tx.get(ref)
@@ -150,6 +163,16 @@ export async function consumePairingChallenge(input: {
 
 const TRANSITIONS: Record<LinkedDeviceStatus, LinkedDeviceStatus[]> = {
   active: ['paused', 'revoked'], paused: ['active', 'revoked'], revoked: ['removed'], removed: [],
+}
+const GRANT_TRANSITIONS: Record<DeviceGrantStatus, DeviceGrantStatus[]> = {
+  active: ['paused', 'revoked'], paused: ['active', 'revoked'], revoked: [],
+}
+const MAPPING_TRANSITIONS: Record<WorkspaceMappingStatus, WorkspaceMappingStatus[]> = {
+  active: ['stale', 'missing', 'paused', 'removed'],
+  stale: ['active', 'missing', 'paused', 'removed'],
+  missing: ['active', 'stale', 'paused', 'removed'],
+  paused: ['active', 'stale', 'missing', 'removed'],
+  removed: [],
 }
 
 export async function transitionDeviceStatus(input: {
@@ -198,6 +221,10 @@ export async function putDeviceGrant(input: {
     if (!membershipFrom(ownerSnap.data(), input.orgId, device.ownerUserId).active) throw new Error('linked computers: owner membership required')
     const ref = db.collection(GRANTS).doc(`${input.orgId}_${input.deviceId}`)
     const existing = await tx.get(ref)
+    const fromStatus = existing.exists ? existing.data()?.status as DeviceGrantStatus : undefined
+    if (fromStatus ? !GRANT_TRANSITIONS[fromStatus]?.includes(input.status) : input.status !== 'active') {
+      throw new Error('linked computers: invalid grant status transition')
+    }
     const at = timestamp(options)
     const statusAt = input.status === 'paused' ? { pausedAt: at } : input.status === 'revoked' ? { revokedAt: at } : {}
     tx.set(ref, {
@@ -207,7 +234,7 @@ export async function putDeviceGrant(input: {
     }, { merge: true })
     tx.create(auditRef(db), {
       eventId: randomUUID(), action: 'grant.changed', actorUserId: input.actorUserId,
-      deviceId: input.deviceId, orgId: input.orgId, toStatus: input.status, createdAt: at,
+      deviceId: input.deviceId, orgId: input.orgId, fromStatus: fromStatus ?? null, toStatus: input.status, createdAt: at,
     })
   })
 }
@@ -223,12 +250,17 @@ export async function putWorkspaceMapping(input: {
 }, options: StoreOptions = {}): Promise<void> {
   const db = options.db ?? (adminDb as unknown as DbLike)
   await db.runTransaction(async (tx) => {
-    const [deviceSnap, grantSnap, memberSnap] = await Promise.all([
+    const [deviceSnap, grantSnap, memberSnap, workspaceSnap] = await Promise.all([
       tx.get(db.collection(DEVICES).doc(input.deviceId)),
       tx.get(db.collection(GRANTS).doc(`${input.orgId}_${input.deviceId}`)),
       tx.get(db.collection(MEMBERS).doc(`${input.orgId}_${input.actorUserId}`)),
+      tx.get(db.collection(WORKSPACES).doc(input.workspaceId)),
     ])
     if (!deviceSnap.exists || !grantSnap.exists) throw new Error('linked computers: device grant not found')
+    const workspace = workspaceSnap.data() ?? {}
+    if (!workspaceSnap.exists || workspace.orgId !== input.orgId || workspace.status !== 'active') {
+      throw new Error('linked computers: active canonical Workspace required for tenant')
+    }
     const device = deviceSnap.data() as unknown as LinkedDevice
     const grant = grantSnap.data() as unknown as LinkedDeviceGrant
     assertDeviceOrgAccess({
@@ -241,6 +273,10 @@ export async function putWorkspaceMapping(input: {
       const old = existing.data() ?? {}
       if (old.deviceId !== input.deviceId || old.orgId !== input.orgId) throw new Error('linked computers: mapping tenant scope mismatch')
     }
+    const fromStatus = existing.exists ? existing.data()?.status as WorkspaceMappingStatus : undefined
+    if (fromStatus ? !MAPPING_TRANSITIONS[fromStatus]?.includes(input.status) : input.status !== 'active') {
+      throw new Error('linked computers: invalid mapping status transition')
+    }
     const at = timestamp(options)
     const statusAt = input.status === 'stale' ? { staleAt: at } : input.status === 'removed' ? { removedAt: at } : {}
     tx.set(ref, {
@@ -250,7 +286,8 @@ export async function putWorkspaceMapping(input: {
     }, { merge: true })
     tx.create(auditRef(db), {
       eventId: randomUUID(), action: 'mapping.changed', actorUserId: input.actorUserId,
-      deviceId: input.deviceId, orgId: input.orgId, mappingId: input.mappingId, toStatus: input.status, createdAt: at,
+      deviceId: input.deviceId, orgId: input.orgId, mappingId: input.mappingId,
+      fromStatus: fromStatus ?? null, toStatus: input.status, createdAt: at,
     })
   })
 }

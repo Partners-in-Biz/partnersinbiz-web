@@ -10,7 +10,7 @@ import { assertDeviceOrgAccess } from '@/lib/linked-computers/policy'
 
 type Row = Record<string, unknown>
 
-function fakeDb(seed: Record<string, Row> = {}) {
+function fakeDb(seed: Record<string, Row> = {}, failCreatePrefix?: string) {
   const rows = new Map(Object.entries(seed))
   const ref = (path: string) => ({ path, id: path.split('/').at(-1)! })
   const db = {
@@ -23,6 +23,7 @@ function fakeDb(seed: Record<string, Row> = {}) {
         data: () => pending.get(document.path),
       }),
       create: (document: { path: string }, value: Row) => {
+        if (failCreatePrefix && document.path.startsWith(failCreatePrefix)) throw new Error('forced write failure')
         if (pending.has(document.path)) throw new Error('already exists')
         pending.set(document.path, value)
       },
@@ -47,7 +48,7 @@ describe('linked computers tenant domain', () => {
   it('binds a new device to the authenticated owner and writes a redacted audit event', async () => {
     const { db, rows } = fakeDb()
     await createDevice({
-      deviceId: 'device-a', ownerUserId: 'user-a', runtimeTargetId: 'target-a',
+      deviceId: 'device-a', actorUserId: 'user-a', ownerUserId: 'user-a', runtimeTargetId: 'target-a',
       publicKeyFingerprint: 'sha256:public', label: 'Peet Mac', platform: 'macos',
       architecture: 'arm64', runtimeVersion: '1.0.0', capabilities: ['workspace.execute'],
     }, { db: db as never, now })
@@ -62,15 +63,17 @@ describe('linked computers tenant domain', () => {
   it('hashes, expires, and atomically consumes a user-owned pairing challenge once', async () => {
     const { db, rows } = fakeDb()
     const challenge = await createPairingChallenge({
-      challengeId: 'challenge-a', ownerUserId: 'user-a', secret: 'human-code', expiresAt: '2026-07-12T10:05:00.000Z',
-    }, { db: db as never, now })
-    expect(challenge).toEqual({ challengeId: 'challenge-a', expiresAt: '2026-07-12T10:05:00.000Z' })
+      challengeId: 'challenge-a', actorUserId: 'user-a', ownerUserId: 'user-a', secret: 'human-code',
+    }, { db: db as never, now, nowMs: () => Date.parse('2026-07-12T10:00:00.000Z') })
+    expect(challenge).toEqual({ challengeId: 'challenge-a', expiresAt: '2026-07-12T10:10:00.000Z' })
     expect(rows.get('linked_device_pairing_challenges/challenge-a')).not.toHaveProperty('secret')
+    expect(rows.get('linked_device_pairing_challenges/challenge-a')).toMatchObject({ maxAttempts: 5 })
+    expect([...rows.values()]).toContainEqual(expect.objectContaining({ action: 'pairing.created', challengeId: 'challenge-a' }))
 
-    await consumePairingChallenge({ challengeId: 'challenge-a', ownerUserId: 'user-a', secret: 'human-code' }, {
+    await consumePairingChallenge({ challengeId: 'challenge-a', actorUserId: 'user-a', ownerUserId: 'user-a', secret: 'human-code' }, {
       db: db as never, now, nowMs: () => Date.parse('2026-07-12T10:01:00.000Z'),
     })
-    await expect(consumePairingChallenge({ challengeId: 'challenge-a', ownerUserId: 'user-a', secret: 'human-code' }, {
+    await expect(consumePairingChallenge({ challengeId: 'challenge-a', actorUserId: 'user-a', ownerUserId: 'user-a', secret: 'human-code' }, {
       db: db as never, now, nowMs: () => Date.parse('2026-07-12T10:02:00.000Z'),
     })).rejects.toThrow('already consumed')
   })
@@ -78,12 +81,41 @@ describe('linked computers tenant domain', () => {
   it('persists failed pairing attempts before denying the exchange', async () => {
     const { db, rows } = fakeDb()
     await createPairingChallenge({
-      challengeId: 'challenge-a', ownerUserId: 'user-a', secret: 'right-code', expiresAt: '2026-07-12T10:05:00.000Z',
-    }, { db: db as never, now })
-    await expect(consumePairingChallenge({ challengeId: 'challenge-a', ownerUserId: 'user-a', secret: 'wrong-code' }, {
+      challengeId: 'challenge-a', actorUserId: 'user-a', ownerUserId: 'user-a', secret: 'right-code',
+    }, { db: db as never, now, nowMs: () => Date.parse('2026-07-12T10:00:00.000Z') })
+    await expect(consumePairingChallenge({ challengeId: 'challenge-a', actorUserId: 'user-a', ownerUserId: 'user-a', secret: 'wrong-code' }, {
       db: db as never, now, nowMs: () => Date.parse('2026-07-12T10:01:00.000Z'),
     })).rejects.toThrow('invalid pairing secret')
     expect(rows.get('linked_device_pairing_challenges/challenge-a')).toMatchObject({ attempts: 1 })
+  })
+
+  it('ignores caller-controlled pairing expiry and attempt limits in favour of server bounds', async () => {
+    const { db, rows } = fakeDb()
+    await createPairingChallenge({
+      challengeId: 'challenge-a', actorUserId: 'user-a', ownerUserId: 'user-a', secret: 'code',
+      expiresAt: '2099-01-01T00:00:00.000Z', maxAttempts: 999999,
+    } as never, { db: db as never, now, nowMs: () => Date.parse('2026-07-12T10:00:00.000Z') })
+    expect(rows.get('linked_device_pairing_challenges/challenge-a')).toMatchObject({
+      expiresAt: '2026-07-12T10:10:00.000Z', maxAttempts: 5,
+    })
+  })
+
+  it('rejects owner spoofing and rolls back every write when audit persistence fails', async () => {
+    const spoof = fakeDb()
+    await expect(createDevice({
+      deviceId: 'device-a', actorUserId: 'attacker', ownerUserId: 'victim', runtimeTargetId: 'target-a',
+      publicKeyFingerprint: 'sha256:public', label: 'Fake', platform: 'macos', architecture: 'arm64',
+      runtimeVersion: '1.0.0', capabilities: ['workspace.execute'],
+    }, { db: spoof.db as never, now })).rejects.toThrow('authenticated actor')
+    expect(spoof.rows.size).toBe(0)
+
+    const rollback = fakeDb({}, 'linked_computer_audit_events/')
+    await expect(createDevice({
+      deviceId: 'device-a', actorUserId: 'user-a', ownerUserId: 'user-a', runtimeTargetId: 'target-a',
+      publicKeyFingerprint: 'sha256:public', label: 'Mac', platform: 'macos', architecture: 'arm64',
+      runtimeVersion: '1.0.0', capabilities: ['workspace.execute'],
+    }, { db: rollback.db as never, now })).rejects.toThrow('forced write failure')
+    expect(rollback.rows.has('linked_devices/device-a')).toBe(false)
   })
 
   it('allows only valid device lifecycle transitions by the owner', async () => {
@@ -111,6 +143,31 @@ describe('linked computers tenant domain', () => {
       .rejects.toThrow('owner membership')
   })
 
+  it.each(['pending', 'invited', 'suspended', 'revoked', 'deleted', 'inactive'])('denies %s memberships', async (status) => {
+    const { db } = fakeDb({
+      'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'user-a', status: 'active' },
+      'orgMembers/org-a_admin': { orgId: 'org-a', uid: 'admin', role: 'admin', status },
+      'orgMembers/org-a_user-a': { orgId: 'org-a', uid: 'user-a', role: 'member', status: 'active' },
+    })
+    await expect(putDeviceGrant({ deviceId: 'device-a', orgId: 'org-a', actorUserId: 'admin', status: 'active', capabilities: [] }, { db: db as never, now }))
+      .rejects.toThrow('active membership')
+  })
+
+  it('makes revoked grants terminal, preserves revokedAt, and audits both statuses', async () => {
+    const { db, rows } = fakeDb({
+      'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'user-a', status: 'active' },
+      'orgMembers/org-a_admin': { orgId: 'org-a', uid: 'admin', role: 'admin', status: 'active' },
+      'orgMembers/org-a_user-a': { orgId: 'org-a', uid: 'user-a', role: 'member', status: 'active' },
+      'linked_device_grants/org-a_device-a': { deviceId: 'device-a', orgId: 'org-a', status: 'active', createdAt: 'created' },
+    })
+    await putDeviceGrant({ deviceId: 'device-a', orgId: 'org-a', actorUserId: 'admin', status: 'revoked', capabilities: [] }, { db: db as never, now })
+    const revokedAt = rows.get('linked_device_grants/org-a_device-a')?.revokedAt
+    expect([...rows.values()]).toContainEqual(expect.objectContaining({ action: 'grant.changed', fromStatus: 'active', toStatus: 'revoked' }))
+    await expect(putDeviceGrant({ deviceId: 'device-a', orgId: 'org-a', actorUserId: 'admin', status: 'active', capabilities: [] }, { db: db as never, now }))
+      .rejects.toThrow('invalid grant status transition')
+    expect(rows.get('linked_device_grants/org-a_device-a')?.revokedAt).toBe(revokedAt)
+  })
+
   it('supports multiple tenant-scoped Workspace mappings without storing local paths', async () => {
     const { db, rows } = fakeDb({
       'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'user-a', status: 'active' },
@@ -118,6 +175,8 @@ describe('linked computers tenant domain', () => {
       'linked_device_grants/org-b_device-a': { deviceId: 'device-a', orgId: 'org-b', status: 'active' },
       'orgMembers/org-a_user-a': { orgId: 'org-a', uid: 'user-a', status: 'active' },
       'orgMembers/org-b_user-a': { orgId: 'org-b', uid: 'user-a', status: 'active' },
+      'org_workspaces/ws-org-a': { workspaceId: 'ws-org-a', orgId: 'org-a', status: 'active' },
+      'org_workspaces/ws-org-b': { workspaceId: 'ws-org-b', orgId: 'org-b', status: 'active' },
     })
     for (const orgId of ['org-a', 'org-b']) {
       await putWorkspaceMapping({ mappingId: `map-${orgId}`, deviceId: 'device-a', orgId, workspaceId: `ws-${orgId}`, actorUserId: 'user-a', label: `${orgId} Workspace`, status: 'active' }, { db: db as never, now })
@@ -125,6 +184,38 @@ describe('linked computers tenant domain', () => {
     expect(rows.get('linked_device_workspace_mappings/map-org-a')).toMatchObject({ orgId: 'org-a', workspaceId: 'ws-org-a' })
     expect(rows.get('linked_device_workspace_mappings/map-org-b')).toMatchObject({ orgId: 'org-b', workspaceId: 'ws-org-b' })
     expect(JSON.stringify([...rows.values()])).not.toContain('/Users/')
+  })
+
+  it('rejects cross-tenant or inactive canonical Workspace bindings', async () => {
+    const base = {
+      'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'user-a', status: 'active' },
+      'linked_device_grants/org-a_device-a': { deviceId: 'device-a', orgId: 'org-a', status: 'active', allowedUserIds: [] },
+      'orgMembers/org-a_user-a': { orgId: 'org-a', uid: 'user-a', status: 'active' },
+    }
+    for (const workspace of [
+      { workspaceId: 'ws-a', orgId: 'org-b', status: 'active' },
+      { workspaceId: 'ws-a', orgId: 'org-a', status: 'inactive' },
+    ]) {
+      const { db } = fakeDb({ ...base, 'org_workspaces/ws-a': workspace })
+      await expect(putWorkspaceMapping({ mappingId: 'map-a', deviceId: 'device-a', orgId: 'org-a', workspaceId: 'ws-a', actorUserId: 'user-a', label: 'Workspace', status: 'active' }, { db: db as never, now }))
+        .rejects.toThrow('canonical Workspace')
+    }
+  })
+
+  it('makes removed mappings terminal and audits mapping status changes', async () => {
+    const { db, rows } = fakeDb({
+      'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'user-a', status: 'active' },
+      'linked_device_grants/org-a_device-a': { deviceId: 'device-a', orgId: 'org-a', status: 'active', allowedUserIds: [] },
+      'orgMembers/org-a_user-a': { orgId: 'org-a', uid: 'user-a', status: 'active' },
+      'org_workspaces/ws-a': { workspaceId: 'ws-a', orgId: 'org-a', status: 'active' },
+      'linked_device_workspace_mappings/map-a': { mappingId: 'map-a', deviceId: 'device-a', orgId: 'org-a', workspaceId: 'ws-a', status: 'active', createdAt: 'created' },
+    })
+    const request = { mappingId: 'map-a', deviceId: 'device-a', orgId: 'org-a', workspaceId: 'ws-a', actorUserId: 'user-a', label: 'Workspace' }
+    await putWorkspaceMapping({ ...request, status: 'removed' }, { db: db as never, now })
+    const removedAt = rows.get('linked_device_workspace_mappings/map-a')?.removedAt
+    expect([...rows.values()]).toContainEqual(expect.objectContaining({ action: 'mapping.changed', fromStatus: 'active', toStatus: 'removed' }))
+    await expect(putWorkspaceMapping({ ...request, status: 'active' }, { db: db as never, now })).rejects.toThrow('invalid mapping status transition')
+    expect(rows.get('linked_device_workspace_mappings/map-a')?.removedAt).toBe(removedAt)
   })
 
   it('denies cross-tenant access and immediately reflects membership loss', () => {
