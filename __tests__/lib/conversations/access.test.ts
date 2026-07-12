@@ -85,11 +85,17 @@ describe('Workspace conversation access', () => {
 
   it('redacts server and local filesystem paths from public conversation views', () => {
     const privateConversation = conversation('private')
+    if (privateConversation.workspaceContext) {
+      privateConversation.workspaceContext.vpsWorkingPath = '/var/lib/hermes/Cowork/Acme/projects/project-1'
+      privateConversation.workspaceContext.localWorkingPath = '~/Cowork/Acme/projects/project-1'
+    }
     privateConversation.participants = [{ kind: 'user', uid: 'owner-1', role: 'client', email: 'owner@example.com' }]
     const publicView = publicConversationView(privateConversation)
     expect(publicView.workspaceContext).toEqual(expect.objectContaining({ workspaceId: 'acme', runtimeLabel: 'VPS' }))
     expect(publicView.workspaceContext).not.toHaveProperty('vpsPath')
     expect(publicView.workspaceContext).not.toHaveProperty('localPath')
+    expect(publicView.workspaceContext).not.toHaveProperty('vpsWorkingPath')
+    expect(publicView.workspaceContext).not.toHaveProperty('localWorkingPath')
     expect(publicView.workspaceContext).not.toHaveProperty('agentDomainPath')
     expect(publicView.workspaceContext).not.toHaveProperty('localAgentDomainPath')
     expect(publicView.participants[0]).not.toHaveProperty('email')

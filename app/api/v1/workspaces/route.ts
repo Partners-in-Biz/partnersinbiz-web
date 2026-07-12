@@ -16,12 +16,16 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
   const orgScope = resolveOrgScope(user, searchParams.get('orgId'))
   if (!orgScope.ok) return apiError(orgScope.error, orgScope.status)
 
-  const [snap, runtimeDoc] = await Promise.all([
+  const [snap, runtimeDoc, ownProjects, clientProjects, targetProjects, recipientProjects] = await Promise.all([
     adminDb.collection(ORG_WORKSPACES_COLLECTION)
       .where('orgId', '==', orgScope.orgId)
       .where('status', '==', 'active')
       .get(),
     adminDb.collection('agent_dispatch_configs').doc('pip').get(),
+    adminDb.collection('projects').where('orgId', '==', orgScope.orgId).get(),
+    adminDb.collection('projects').where('clientOrgId', '==', orgScope.orgId).get(),
+    adminDb.collection('projects').where('targetOrgId', '==', orgScope.orgId).get(),
+    adminDb.collection('projects').where('recipientOrgId', '==', orgScope.orgId).get(),
   ])
 
   const workspaces = snap.docs
@@ -47,6 +51,16 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
     }))
 
   const runtimeTargets = publicRuntimeTargetPresence(runtimeDoc.data()?.runtimeTargets)
+  const projectsById = new Map<string, { id: string; name: string }>()
+  for (const projectSnap of [ownProjects, clientProjects, targetProjects, recipientProjects]) {
+    for (const projectDoc of projectSnap.docs) {
+      const data = projectDoc.data()
+      if (data.deleted === true || data.archived === true) continue
+      const name = typeof data.name === 'string' ? data.name.trim() : ''
+      if (name) projectsById.set(projectDoc.id, { id: projectDoc.id, name })
+    }
+  }
+  const projects = Array.from(projectsById.values()).sort((a, b) => a.name.localeCompare(b.name))
 
-  return apiSuccess({ workspaces, runtimeTargets })
+  return apiSuccess({ workspaces, runtimeTargets, projects })
 })

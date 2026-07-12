@@ -70,6 +70,12 @@ export type ConversationWorkspaceContext = {
   ownerUserId: string
   companyId: string | null
   contactIds: string[]
+  folderScope?: 'organisation' | 'project'
+  folderRelativePath?: string
+  vpsWorkingPath?: string
+  localWorkingPath?: string
+  projectId?: string
+  projectName?: string
 }
 
 export const ORG_WORKSPACES_COLLECTION = 'org_workspaces'
@@ -148,12 +154,17 @@ export async function resolveConversationWorkspaceContext(input: {
   runtimeTarget?: WorkspaceRuntimeTarget | null
   runtimeLabel?: string | null
   shareMode?: ConversationWorkspaceContext['shareMode'] | null
+  projectId?: string | null
+  projectName?: string | null
 }): Promise<ConversationWorkspaceContext | null> {
   const workspace = input.workspaceId
     ? await getOrgWorkspaceById(input.workspaceId)
     : await getDefaultOrgWorkspace(input.orgId)
   if (!workspace || workspace.orgId !== input.orgId) return null
   const runtimeTarget = (input.runtimeTarget || workspace.defaultRuntimeTarget || 'vps') as WorkspaceRuntimeTarget
+  const projectId = cleanString(input.projectId)
+  const projectName = cleanString(input.projectName)
+  const folderRelativePath = projectId ? `projects/${projectId}` : ''
   return {
     workspaceId: workspace.workspaceId,
     orgId: workspace.orgId,
@@ -171,5 +182,11 @@ export async function resolveConversationWorkspaceContext(input: {
     ownerUserId: input.ownerUserId,
     companyId: workspace.companyId ?? null,
     contactIds: Array.isArray(workspace.contactIds) ? workspace.contactIds : [],
+    folderScope: projectId ? 'project' : 'organisation',
+    folderRelativePath,
+    vpsWorkingPath: folderRelativePath ? `${workspace.vpsPath}/${folderRelativePath}` : workspace.vpsPath,
+    localWorkingPath: folderRelativePath ? `${workspace.localPath}/${folderRelativePath}` : workspace.localPath,
+    ...(projectId ? { projectId } : {}),
+    ...(projectName ? { projectName } : {}),
   }
 }

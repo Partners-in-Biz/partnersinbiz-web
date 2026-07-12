@@ -34,6 +34,8 @@ export function publicConversationView(conversation: Conversation): Conversation
   const {
     vpsPath: _vpsPath,
     localPath: _localPath,
+    vpsWorkingPath: _vpsWorkingPath,
+    localWorkingPath: _localWorkingPath,
     agentDomainPath: _agentDomainPath,
     localAgentDomainPath: _localAgentDomainPath,
     ...workspaceContext
