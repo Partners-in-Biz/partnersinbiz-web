@@ -1,4 +1,4 @@
-import { createHash, randomUUID, timingSafeEqual } from 'node:crypto'
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { assertDeviceOrgAccess, assertGrantAdministrator } from './policy'
@@ -23,6 +23,7 @@ const MEMBERS = 'orgMembers'
 const WORKSPACES = 'org_workspaces'
 const PAIRING_TTL_MS = 10 * 60 * 1000
 const PAIRING_MAX_ATTEMPTS = 5
+const CREDENTIAL_ROTATION_OVERLAP_MS = 5 * 60 * 1000
 
 interface RefLike { id: string; path?: string }
 interface SnapshotLike { exists: boolean; data(): Record<string, unknown> | undefined }
@@ -37,6 +38,49 @@ interface DbLike {
   runTransaction<T>(fn: (tx: TransactionLike) => Promise<T>): Promise<T>
 }
 interface StoreOptions { db?: DbLike; now?: () => unknown; nowMs?: () => number }
+
+export interface SafeLinkedDeviceDto {
+  deviceId: string; label: string; platform: LinkedDevicePlatform; architecture: LinkedDeviceArchitecture
+  runtimeVersion: string; capabilities: LinkedDeviceCapability[]; status: LinkedDeviceStatus
+  credentialVersion: number; createdAt: unknown; updatedAt: unknown; lastSeenAt: unknown | null
+}
+
+export function toSafeLinkedDeviceDto(row: LinkedDevice): SafeLinkedDeviceDto {
+  const { deviceId, label, platform, architecture, runtimeVersion, capabilities, status, credentialVersion, createdAt, updatedAt, lastSeenAt } = row
+  return { deviceId, label, platform, architecture, runtimeVersion, capabilities, status, credentialVersion, createdAt, updatedAt, lastSeenAt }
+}
+
+export async function listOwnedDevices(actorUserId: string, options: StoreOptions = {}): Promise<SafeLinkedDeviceDto[]> {
+  const db = (options.db ?? adminDb) as any
+  const snapshot = await db.collection(DEVICES).where('ownerUserId', '==', required(actorUserId, 'actorUserId')).get()
+  return snapshot.docs.map((doc: any) => toSafeLinkedDeviceDto(doc.data() as LinkedDevice))
+}
+
+export async function updateOwnedDevice(input: { deviceId: string; actorUserId: string; label?: string; status?: LinkedDeviceStatus }, options: StoreOptions = {}): Promise<void> {
+  if (input.status) return transitionDeviceStatus({ deviceId: input.deviceId, actorUserId: input.actorUserId, status: input.status }, options)
+  const db = options.db ?? (adminDb as unknown as DbLike)
+  await db.runTransaction(async (tx) => {
+    const ref = db.collection(DEVICES).doc(input.deviceId)
+    const snap = await tx.get(ref)
+    if (!snap.exists) throw new Error('linked computers: device not found')
+    const device = snap.data() as unknown as LinkedDevice
+    if (device.ownerUserId !== input.actorUserId) throw new Error('linked computers: device owner required')
+    tx.update(ref, { label: required(input.label ?? '', 'label'), updatedAt: timestamp(options) })
+  })
+}
+
+export async function recordDeviceHeartbeat(input: { deviceId: string; runtimeVersion: string; capabilities: LinkedDeviceCapability[]; health: 'ok' | 'degraded' }, options: StoreOptions = {}): Promise<void> {
+  const db = options.db ?? (adminDb as unknown as DbLike)
+  await db.runTransaction(async (tx) => {
+    const ref = db.collection(DEVICES).doc(input.deviceId)
+    const snap = await tx.get(ref)
+    if (!snap.exists) throw new Error('linked computers: device not found')
+    const device = snap.data() as unknown as LinkedDevice
+    if (device.status !== 'active') throw new Error('linked computers: active device required')
+    const at = timestamp(options)
+    tx.update(ref, { runtimeVersion: required(input.runtimeVersion, 'runtimeVersion'), capabilities: input.capabilities, health: input.health, lastSeenAt: at, updatedAt: at })
+  })
+}
 
 function timestamp(options: StoreOptions): unknown {
   return options.now ? options.now() : FieldValue.serverTimestamp()
@@ -208,6 +252,77 @@ export async function transitionDeviceStatus(input: {
       eventId: randomUUID(), action: 'device.status_changed', actorUserId: input.actorUserId,
       deviceId: input.deviceId, fromStatus: device.status, toStatus: input.status, createdAt: at,
     })
+  })
+}
+
+export async function rotateDeviceCredential(input: {
+  deviceId: string
+  actorUserId: string
+}, options: StoreOptions = {}): Promise<{ deviceId: string; credential: string; credentialVersion: number; overlapExpiresAt: string }> {
+  const db = options.db ?? (adminDb as unknown as DbLike)
+  const credential = randomBytes(32).toString('base64url')
+  const overlapExpiresAt = new Date((options.nowMs?.() ?? Date.now()) + CREDENTIAL_ROTATION_OVERLAP_MS).toISOString()
+  return db.runTransaction(async (tx) => {
+    const deviceRef = db.collection(DEVICES).doc(input.deviceId)
+    const credentialRef = db.collection('linked_device_credentials').doc(input.deviceId)
+    const [deviceSnap, credentialSnap] = await Promise.all([tx.get(deviceRef), tx.get(credentialRef)])
+    if (!deviceSnap.exists || !credentialSnap.exists) throw new Error('linked computers: device credential not found')
+    const device = deviceSnap.data() as unknown as LinkedDevice
+    const old = credentialSnap.data() ?? {}
+    if (device.ownerUserId !== input.actorUserId) throw new Error('linked computers: device owner required')
+    if (device.status === 'revoked' || device.status === 'removed') throw new Error('linked computers: active or paused device required')
+    if (old.revokedAt) throw new Error('linked computers: device credential revoked')
+    const credentialVersion = Number(device.credentialVersion) + 1
+    const at = timestamp(options)
+    tx.update(deviceRef, { credentialVersion, updatedAt: at })
+    tx.update(credentialRef, {
+      credentialHash: hashSecret(credential), credentialVersion, issuedAt: at, revokedAt: null,
+      previousCredentialHash: old.credentialHash, previousCredentialVersion: old.credentialVersion,
+      previousCredentialExpiresAt: overlapExpiresAt,
+    })
+    tx.create(auditRef(db), { eventId: randomUUID(), action: 'credential.rotated', actorUserId: input.actorUserId, deviceId: input.deviceId, createdAt: at })
+    return { deviceId: input.deviceId, credential, credentialVersion, overlapExpiresAt }
+  })
+}
+
+export async function revokeDeviceCredential(input: {
+  deviceId: string
+  actorUserId: string
+}, options: StoreOptions = {}): Promise<void> {
+  const db = options.db ?? (adminDb as unknown as DbLike)
+  await db.runTransaction(async (tx) => {
+    const deviceRef = db.collection(DEVICES).doc(input.deviceId)
+    const credentialRef = db.collection('linked_device_credentials').doc(input.deviceId)
+    const [deviceSnap, credentialSnap] = await Promise.all([tx.get(deviceRef), tx.get(credentialRef)])
+    if (!deviceSnap.exists || !credentialSnap.exists) throw new Error('linked computers: device credential not found')
+    const device = deviceSnap.data() as unknown as LinkedDevice
+    if (device.ownerUserId !== input.actorUserId) throw new Error('linked computers: device owner required')
+    const at = timestamp(options)
+    tx.update(credentialRef, { revokedAt: at, previousCredentialHash: null, previousCredentialVersion: null, previousCredentialExpiresAt: null })
+    tx.create(auditRef(db), { eventId: randomUUID(), action: 'credential.revoked', actorUserId: input.actorUserId, deviceId: input.deviceId, createdAt: at })
+  })
+}
+
+export async function removeOwnedDevice(input: { deviceId: string; actorUserId: string }, options: StoreOptions = {}): Promise<void> {
+  const db = (options.db ?? adminDb) as any
+  await db.runTransaction(async (tx: any) => {
+    const deviceRef = db.collection(DEVICES).doc(input.deviceId)
+    const credentialRef = db.collection('linked_device_credentials').doc(input.deviceId)
+    const [deviceSnap, credentialSnap, mappings, grants] = await Promise.all([
+      tx.get(deviceRef), tx.get(credentialRef),
+      tx.get(db.collection(MAPPINGS).where('deviceId', '==', input.deviceId)),
+      tx.get(db.collection(GRANTS).where('deviceId', '==', input.deviceId)),
+    ])
+    if (!deviceSnap.exists) throw new Error('linked computers: device not found')
+    const device = deviceSnap.data() as LinkedDevice
+    if (device.ownerUserId !== input.actorUserId) throw new Error('linked computers: device owner required')
+    if (device.status === 'removed') throw new Error('linked computers: invalid status transition')
+    const at = timestamp(options)
+    tx.update(deviceRef, { status: 'removed', removedAt: at, revokedAt: device.revokedAt ?? at, updatedAt: at })
+    if (credentialSnap.exists) tx.update(credentialRef, { revokedAt: at, previousCredentialHash: null, previousCredentialVersion: null, previousCredentialExpiresAt: null })
+    for (const doc of mappings.docs) if (doc.data().status !== 'removed') tx.update(doc.ref, { status: 'removed', removedAt: at, updatedAt: at })
+    for (const doc of grants.docs) if (doc.data().status !== 'revoked') tx.update(doc.ref, { status: 'revoked', revokedAt: at, updatedAt: at })
+    tx.create(auditRef(db), { eventId: randomUUID(), action: 'device.status_changed', actorUserId: input.actorUserId, deviceId: input.deviceId, fromStatus: device.status, toStatus: 'removed', createdAt: at })
   })
 }
 

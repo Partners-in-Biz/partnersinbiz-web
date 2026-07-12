@@ -70,6 +70,8 @@ export type LinkedComputerAuditAction =
   | 'device.status_changed'
   | 'grant.changed'
   | 'mapping.changed'
+  | 'credential.rotated'
+  | 'credential.revoked'
 
 export interface LinkedComputerAuditEvent {
   eventId: string

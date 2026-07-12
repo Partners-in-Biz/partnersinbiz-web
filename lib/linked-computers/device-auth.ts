@@ -51,10 +51,15 @@ export async function authenticateDeviceRequest(
     const storedCredential = credentialSnap.data() ?? {}
     if (device.status !== 'active') throw new Error('linked computers: active device required')
     if (storedCredential.revokedAt) throw new Error('linked computers: device credential revoked')
-    if (Number(device.credentialVersion) !== input.credentialVersion || Number(storedCredential.credentialVersion) !== input.credentialVersion) {
+    const currentVersion = Number(device.credentialVersion) === input.credentialVersion
+      && Number(storedCredential.credentialVersion) === input.credentialVersion
+    const previousVersion = Number(storedCredential.previousCredentialVersion) === input.credentialVersion
+      && currentTime <= Date.parse(String(storedCredential.previousCredentialExpiresAt ?? ''))
+    if (!currentVersion && !previousVersion) {
       throw new Error('linked computers: device credential version mismatch')
     }
-    if (!constantTimeSecretMatch(input.credential, String(storedCredential.credentialHash ?? ''))) {
+    const expectedHash = previousVersion ? storedCredential.previousCredentialHash : storedCredential.credentialHash
+    if (!constantTimeSecretMatch(input.credential, String(expectedHash ?? ''))) {
       throw new Error('linked computers: device authentication failed')
     }
     let validSignature = false

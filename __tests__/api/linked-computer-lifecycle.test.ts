@@ -1,0 +1,99 @@
+import { generateKeyPairSync, randomBytes, sign } from 'node:crypto'
+import { authenticateDeviceRequest, deviceRequestPayload } from '@/lib/linked-computers/device-auth'
+import { rotateDeviceCredential, revokeDeviceCredential, toSafeLinkedDeviceDto } from '@/lib/linked-computers/store'
+import { NextRequest } from 'next/server'
+import { handleLinkedComputerList } from '@/app/api/v1/linked-computers/route'
+import { handleDeviceHeartbeat } from '@/app/api/v1/linked-computers/[deviceId]/heartbeat/route'
+import { handleDeviceGrant } from '@/app/api/v1/linked-computers/[deviceId]/grants/route'
+import { handleDeviceMapping } from '@/app/api/v1/linked-computers/[deviceId]/mappings/route'
+
+type Row = Record<string, unknown>
+
+function fakeDb(seed: Record<string, Row>) {
+  const rows = new Map(Object.entries(seed))
+  const ref = (path: string) => ({ path, id: path.split('/').at(-1)! })
+  const db = {
+    collection: (name: string) => ({ doc: (id: string) => ref(`${name}/${id}`) }),
+    runTransaction: async (fn: (tx: any) => Promise<any>) => fn({
+      get: async (document: { path: string }) => ({ exists: rows.has(document.path), data: () => rows.get(document.path) }),
+      create: (document: { path: string }, value: Row) => rows.set(document.path, value),
+      set: (document: { path: string }, value: Row, options?: { merge?: boolean }) => rows.set(document.path, options?.merge ? { ...rows.get(document.path), ...value } : value),
+      update: (document: { path: string }, value: Row) => rows.set(document.path, { ...rows.get(document.path), ...value }),
+    }),
+  }
+  return { db, rows }
+}
+
+function request(credential: string, version: number, privateKey: ReturnType<typeof generateKeyPairSync>['privateKey'], requestId: string, timestamp = '1000000') {
+  const base = { deviceId: 'device-a', credential, credentialVersion: version, timestamp, requestId, method: 'POST', path: '/api/v1/linked-computers/device-a/heartbeat', body: '{"health":"ok"}' }
+  return { ...base, signature: sign(null, Buffer.from(deviceRequestPayload(base)), privateKey).toString('base64url') }
+}
+
+describe('linked computer credential lifecycle', () => {
+  it('allows the prior credential only during the server-controlled rotation overlap', async () => {
+    const keys = generateKeyPairSync('ed25519')
+    const oldCredential = randomBytes(32).toString('base64url')
+    const { db, rows } = fakeDb({
+      'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'user-a', status: 'active', credentialVersion: 1, publicKey: keys.publicKey.export({ type: 'spki', format: 'pem' }).toString() },
+      'linked_device_credentials/device-a': { deviceId: 'device-a', credentialHash: require('@/lib/linked-computers/crypto').hashLinkedComputerSecret(oldCredential), credentialVersion: 1, revokedAt: null },
+    })
+    const rotated = await rotateDeviceCredential({ deviceId: 'device-a', actorUserId: 'user-a' }, { db: db as never, now: () => 'now', nowMs: () => 1_000_000 })
+    expect(rotated).toEqual(expect.objectContaining({ deviceId: 'device-a', credentialVersion: 2, credential: expect.any(String), overlapExpiresAt: '1970-01-01T00:21:40.000Z' }))
+    await expect(authenticateDeviceRequest(request(oldCredential, 1, keys.privateKey, 'request-old-valid'), { db: db as never, nowMs: () => 1_000_001 })).resolves.toMatchObject({ credentialVersion: 1 })
+    await expect(authenticateDeviceRequest(request(oldCredential, 1, keys.privateKey, 'request-old-expired', '1360001'), { db: db as never, nowMs: () => 1_360_001 })).rejects.toThrow('version mismatch')
+    expect(rows.get('linked_devices/device-a')).toMatchObject({ credentialVersion: 2 })
+  })
+
+  it('revocation immediately denies both current and overlap credentials', async () => {
+    const keys = generateKeyPairSync('ed25519')
+    const credential = randomBytes(32).toString('base64url')
+    const { db, rows } = fakeDb({
+      'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'user-a', status: 'revoked', credentialVersion: 2, publicKey: keys.publicKey.export({ type: 'spki', format: 'pem' }).toString() },
+      'linked_device_credentials/device-a': { deviceId: 'device-a', credentialHash: require('@/lib/linked-computers/crypto').hashLinkedComputerSecret(credential), credentialVersion: 2, revokedAt: null },
+    })
+    await revokeDeviceCredential({ deviceId: 'device-a', actorUserId: 'user-a' }, { db: db as never, now: () => 'now' })
+    expect(rows.get('linked_device_credentials/device-a')).toMatchObject({ revokedAt: 'now' })
+    await expect(authenticateDeviceRequest(request(credential, 2, keys.privateKey, 'request-revoked-now'), { db: db as never, nowMs: () => 1_000_000 })).rejects.toThrow(/active device|revoked/)
+  })
+})
+
+describe('linked computer lifecycle HTTP boundaries', () => {
+  it('returns exact browser-safe devices without paths, keys, URLs, or credentials', async () => {
+    const safe = toSafeLinkedDeviceDto({
+      deviceId: 'device-a', ownerUserId: 'user-a', runtimeTargetId: 'private-target', publicKeyFingerprint: 'private-fingerprint',
+      label: 'Peet Mac', platform: 'macos', architecture: 'arm64', runtimeVersion: '1.0.0', capabilities: ['workspace.execute'],
+      status: 'active', credentialVersion: 2, createdAt: 'created', updatedAt: 'updated', lastSeenAt: 'seen',
+      localPath: '/Users/peet/private', credential: 'secret', internalUrl: 'http://private',
+    } as never)
+    const response = await handleLinkedComputerList({ uid: 'user-a' }, async () => [safe])
+    const json = await response.json()
+    expect(Object.keys(json.data[0]).sort()).toEqual(['architecture', 'capabilities', 'createdAt', 'credentialVersion', 'deviceId', 'label', 'lastSeenAt', 'platform', 'runtimeVersion', 'status', 'updatedAt'].sort())
+    expect(JSON.stringify(json)).not.toMatch(/\/Users|private-target|fingerprint|secret|internalUrl/i)
+  })
+
+  it('binds grant and mapping mutations to the route device and authenticated actor', async () => {
+    const grantPut = jest.fn(async () => undefined)
+    const grantReq = new NextRequest('https://test/api/v1/linked-computers/device-a/grants', { method: 'PUT', body: JSON.stringify({ deviceId: 'device-b', orgId: 'org-a', status: 'active', allowedUserIds: ['user-b'] }) })
+    expect((await handleDeviceGrant(grantReq, { uid: 'admin-a' }, 'device-a', grantPut)).status).toBe(200)
+    expect(grantPut).toHaveBeenCalledWith(expect.objectContaining({ deviceId: 'device-a', actorUserId: 'admin-a', orgId: 'org-a' }))
+
+    const mappingPut = jest.fn(async () => undefined)
+    const mappingReq = new NextRequest('https://test/api/v1/linked-computers/device-a/mappings', { method: 'PUT', body: JSON.stringify({ deviceId: 'device-b', mappingId: 'map-a', orgId: 'org-a', workspaceId: 'ws-a', label: 'Workspace', status: 'active', localPath: '/Users/escape' }) })
+    expect((await handleDeviceMapping(mappingReq, { uid: 'user-a' }, 'device-a', mappingPut)).status).toBe(200)
+    expect(mappingPut).toHaveBeenCalledWith(expect.not.objectContaining({ localPath: expect.anything() }))
+  })
+
+  it('authenticates heartbeat against the exact raw body and denies cross-device identity', async () => {
+    const auth = jest.fn(async (_req, deviceId, rawBody) => ({ deviceId, ownerUserId: 'user-a', credentialVersion: 1, rawBody }))
+    const record = jest.fn(async () => undefined)
+    const req = new NextRequest('https://test/api/v1/linked-computers/device-a/heartbeat', { method: 'POST', body: '{"runtimeVersion":"1.2.3","health":"ok","capabilities":["workspace.execute"],"localPath":"/Users/private"}' })
+    expect((await handleDeviceHeartbeat(req, 'device-a', auth as never, record)).status).toBe(200)
+    expect(auth).toHaveBeenCalledWith(expect.anything(), 'device-a', expect.stringContaining('"localPath"'))
+    expect(record).toHaveBeenCalledWith({ deviceId: 'device-a', runtimeVersion: '1.2.3', health: 'ok', capabilities: ['workspace.execute'] })
+    expect(record.mock.calls[0][0]).not.toHaveProperty('localPath')
+
+    const denied = new NextRequest('https://test/api/v1/linked-computers/device-a/heartbeat', { method: 'POST', body: '{"runtimeVersion":"1","health":"ok"}' })
+    const response = await handleDeviceHeartbeat(denied, 'device-a', async () => ({ deviceId: 'device-b', ownerUserId: 'user-b', credentialVersion: 1 }), record)
+    expect(response.status).toBe(403)
+  })
+})
