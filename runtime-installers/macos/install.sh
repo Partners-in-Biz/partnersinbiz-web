@@ -3,7 +3,7 @@ set -euo pipefail
 
 LABEL="com.partnersinbiz.runtime"
 ROOT="$HOME/Library/Application Support/PartnersInBiz"
-BIN="$ROOT/bin/pib-runtime"
+BIN="$ROOT/current/pib-runtime"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 API_BASE="${PIB_API_BASE:-https://partnersinbiz.online}"
 METADATA_URL="${PIB_RUNTIME_METADATA_URL:-$API_BASE/runtime/macos/stable.json}"
@@ -28,7 +28,7 @@ verify_release() {
   }
   local key_file="$metadata.public.pem" signature_file="$metadata.sig"
   printf '%s\n' "$PUBLIC_KEY" > "$key_file" # public verification material, never a credential
-  curl --fail --silent --show-error --proto '=https' "$METADATA_URL.sig" -o "$signature_file"
+  [[ -f "$signature_file" ]] || curl --fail --silent --show-error --proto '=https' "$METADATA_URL.sig" -o "$signature_file"
   openssl dgst -sha256 -verify "$key_file" -signature "$signature_file" "$metadata" >/dev/null
   local expected actual
   expected="$(/usr/bin/plutil -extract sha256 raw "$metadata")"
@@ -44,9 +44,11 @@ install_runtime() {
   curl --fail --silent --show-error --proto '=https' "$url" -o "$stage/pib-runtime"
   chmod 0755 "$stage/pib-runtime"
   verify_release "$stage/metadata.json" "$stage/pib-runtime"
-  if [[ -e "$BIN" ]]; then cp "$BIN" "$ROOT/pib-runtime.previous"; fi
-  mkdir -p "$ROOT/bin"; cp "$stage/pib-runtime" "$BIN"
-  "$BIN" enforce-minimum-version --metadata "$stage/metadata.json" # minimumVersion gate
+  "$stage/pib-runtime" enforce-minimum-version --metadata "$stage/metadata.json" # minimumVersion gate
+  cp "$stage/metadata.json" "$stage/manifest.json"; cp "$stage/metadata.json.sig" "$stage/manifest.sig" 2>/dev/null || cp "$stage/metadata.json.sig" "$stage/manifest.sig"
+  mkdir -p "$ROOT"; rm -rf "$ROOT/previous.new"; [[ ! -d "$ROOT/current" ]] || mv "$ROOT/current" "$ROOT/previous.new"
+  mkdir -p "$stage/release"; cp "$stage/pib-runtime" "$stage/release/pib-runtime"; cp "$stage/manifest.json" "$stage/release/manifest.json"; cp "$stage/manifest.sig" "$stage/release/manifest.sig"
+  mv "$stage/release" "$ROOT/current"; rm -rf "$ROOT/previous"; [[ ! -d "$ROOT/previous.new" ]] || mv "$ROOT/previous.new" "$ROOT/previous"
   mkdir -p "$(dirname "$PLIST")"; sed "s|__PIB_RUNTIME_BINARY__|$BIN|g" "$(dirname "$0")/$LABEL.plist" > "$PLIST"; chmod 0644 "$PLIST"
   launchctl bootout "gui/$(id -u)" "$PLIST" >/dev/null 2>&1 || true
   launchctl bootstrap "gui/$(id -u)" "$PLIST"; launchctl kickstart -k "gui/$(id -u)/$LABEL"
@@ -62,7 +64,7 @@ pair_runtime() {
 }
 
 update_runtime() { install_runtime; }
-rollback_runtime() { require_root; [[ -x "$ROOT/pib-runtime.previous" ]] || { echo 'No verified previous release.' >&2; return 1; }; cp "$ROOT/pib-runtime.previous" "$BIN"; launchctl kickstart -k "gui/$(id -u)/$LABEL"; }
+rollback_runtime() { require_root; [[ -x "$ROOT/previous/pib-runtime" ]] || { echo 'No verified previous release.' >&2; return 1; }; verify_release "$ROOT/previous/manifest.json" "$ROOT/previous/pib-runtime"; "$ROOT/previous/pib-runtime" enforce-minimum-version --metadata "$ROOT/previous/manifest.json"; mv "$ROOT/current" "$ROOT/swap"; mv "$ROOT/previous" "$ROOT/current"; mv "$ROOT/swap" "$ROOT/previous"; launchctl kickstart -k "gui/$(id -u)/$LABEL"; }
 revoke_runtime() { [[ -x "$BIN" ]] && "$BIN" revoke --signed-request --execution-receipt; delete_credentials; }
 uninstall_runtime() { require_root; revoke_runtime; launchctl bootout "gui/$(id -u)" "$PLIST" >/dev/null 2>&1 || true; rm -f "$PLIST"; rm -rf "$ROOT"; }
 

@@ -15,8 +15,10 @@ const mac = read('runtime-installers/macos/install.sh')
 const plist = read('runtime-installers/macos/com.partnersinbiz.runtime.plist')
 const win = read('runtime-installers/windows/install.ps1')
 const docs = read('runtime-installers/README.md')
+const structural = validatePowerShellStructure(win); if(structural) errors.push(`Windows PowerShell: ${structural}`)
 
-for (const [name, source] of [['macOS', mac], ['Windows', win]] as const) {
+const runtime=read('runtime-installers/runtime/cli.ts')
+for (const [name, source] of [['macOS', mac+runtime], ['Windows', win+runtime]] as const) {
   requireText(name, source, /challengeId/i)
   requireText(name, source, /pair/i)
   requireText(name, source, /heartbeat/i)
@@ -39,6 +41,11 @@ requireText('macOS plist', plist, /KeepAlive/)
 requireText('Windows', win, /CredWrite|Credential Manager/)
 requireText('Windows', win, /sc\.exe create PartnersInBizRuntime/)
 requireText('Windows service', read('runtime-installers/windows/PartnersInBizRuntimeService.cs'), /ServiceBase/)
+requireText('Windows service identity', win, /obj= LocalSystem/)
+requireText('Windows DPAPI handoff', win, /DataProtectionScope]::LocalMachine/)
+requireText('Windows handoff ACL', win, /SYSTEM:\(OI\)\(CI\)F.*Administrators:\(OI\)\(CI\)F/)
+requireText('Windows credential read', read('runtime-installers/windows/CredentialHelper.cs'), /CredRead/)
+requireText('Windows atomic handoff claim', read('runtime-installers/windows/PartnersInBizRuntimeService.cs'), /File\.Move\(ready,claim\)/)
 requireText('documentation', docs, /UNSIGNED DEVELOPMENT MODE/)
 requireText('documentation', docs, /signed and notarised/i)
 requireText('macOS', mac, /PIB_ALLOW_UNSIGNED_DEV/)
@@ -56,6 +63,8 @@ for (const command of safeCommands) {
 
 return errors
 }
+
+export function validatePowerShellStructure(source:string):string|null { let quote='',depth=0;for(let i=0;i<source.length;i++){const c=source[i];if(quote){if(c===quote&&source[i-1]!=='`')quote='';continue}if(c==='"'||c==="'"){quote=c;continue}if(c==='{')depth++;if(c==='}'&&--depth<0)return 'unexpected closing brace'}return quote?'unterminated string':depth?'unbalanced braces':null }
 
 if (require.main === module) {
   const errors = verifyLinkedRuntimeInstallers()

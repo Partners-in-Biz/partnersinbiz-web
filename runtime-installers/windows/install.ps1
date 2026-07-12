@@ -6,8 +6,8 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $Root = Join-Path $env:ProgramFiles 'Partners in Biz'
-$Binary = Join-Path $Root 'pib-runtime.exe'
-$Previous = Join-Path $Root 'pib-runtime.previous.exe'
+$Binary = Join-Path $Root 'current\pib-runtime.exe'
+$Previous = Join-Path $Root 'previous\pib-runtime.exe'
 $ApiBase = if ($env:PIB_API_BASE) { $env:PIB_API_BASE } else { 'https://partnersinbiz.online' }
 $MetadataUrl = if ($env:PIB_RUNTIME_METADATA_URL) { $env:PIB_RUNTIME_METADATA_URL } else { "$ApiBase/runtime/windows/stable.json" }
 
@@ -26,7 +26,7 @@ function Test-ReleaseSignature([string]$Metadata, [string]$Payload) {
   }
   $manifest = Get-Content -Raw $Metadata | ConvertFrom-Json
   $catalog = Join-Path (Split-Path $Metadata) 'release.cat'
-  Invoke-WebRequest -UseBasicParsing -Uri $manifest.catalogUrl -OutFile $catalog
+  if(-not(Test-Path $catalog)){Invoke-WebRequest -UseBasicParsing -Uri $manifest.catalogUrl -OutFile $catalog}
   $signature = Get-AuthenticodeSignature $catalog
   $expectedSigner = $env:PIB_RUNTIME_SIGNER_THUMBPRINT.Replace(' ', '').ToUpperInvariant()
   if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Thumbprint.ToUpperInvariant() -ne $expectedSigner) { throw 'Release catalog signature verification failed.' }
@@ -44,9 +44,9 @@ function Install-Runtime {
     $payload = Join-Path $stage 'pib-runtime.exe'; Invoke-WebRequest -UseBasicParsing -Uri $metadata.payloadUrl -OutFile $payload
     Test-ReleaseSignature $metadataPath $payload
     & $payload enforce-minimum-version --metadata $metadataPath # minimumVersion gate
-    New-Item -ItemType Directory -Force $Root | Out-Null
-    if (Test-Path $Binary) { Copy-Item -Force $Binary $Previous }
-    Copy-Item -Force $payload $Binary
+    $release=Join-Path $stage 'release';New-Item -ItemType Directory $release|Out-Null;Copy-Item $payload (Join-Path $release 'pib-runtime.exe');Copy-Item $metadataPath (Join-Path $release 'metadata.json');Copy-Item (Join-Path $stage 'release.cat') (Join-Path $release 'release.cat')
+    & sc.exe stop PartnersInBizRuntime 2>$null|Out-Null;New-Item -ItemType Directory -Force $Root | Out-Null;$current=Join-Path $Root 'current';$previous=Join-Path $Root 'previous';$old=Join-Path $Root 'previous.new';Remove-Item -Recurse -Force $old -ErrorAction SilentlyContinue;if(Test-Path $current){Move-Item $current $old};Move-Item $release $current;Remove-Item -Recurse -Force $previous -ErrorAction SilentlyContinue;if(Test-Path $old){Move-Item $old $previous}
+    Copy-Item -Force (Join-Path $PSScriptRoot 'PartnersInBizRuntimeService.exe') (Join-Path $Root 'PartnersInBizRuntimeService.exe')
     & sc.exe create PartnersInBizRuntime binPath= "`"$Root\PartnersInBizRuntimeService.exe`"" start= auto obj= LocalSystem
     & sc.exe start PartnersInBizRuntime
   } finally { Remove-Item -Recurse -Force $stage -ErrorAction SilentlyContinue }
@@ -54,13 +54,11 @@ function Install-Runtime {
 
 function Pair-Runtime {
   if (-not $ChallengeId) { throw 'Pair requires ChallengeId.' }
-  # The runtime securely prompts for the one-time code, creates/proves its key,
-  # exchanges challengeId, uses CredWrite, sends its signed heartbeat with
-  # bootstrapTransport=true, and emits signed execution receipts while bridging Hermes.
-  & $Binary pair --challenge $ChallengeId --platform windows --prompt-code --credential-store credwrite
+  $code=Read-Host 'One-time pairing code' -AsSecureString; $ptr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($code)
+  try{$plain=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr);$json=@{challengeId=$ChallengeId;code=$plain}|ConvertTo-Json -Compress;$bytes=[Text.Encoding]::UTF8.GetBytes($json);$encrypted=[Security.Cryptography.ProtectedData]::Protect($bytes,$null,[Security.Cryptography.DataProtectionScope]::LocalMachine);[Array]::Clear($bytes,0,$bytes.Length);$dir=Join-Path $env:ProgramData 'PartnersInBiz';New-Item -ItemType Directory -Force $dir|Out-Null;& icacls.exe $dir /inheritance:r /grant:r 'SYSTEM:(OI)(CI)F' 'Administrators:(OI)(CI)F'|Out-Null;$tmp=Join-Path $dir 'pairing.tmp';[IO.File]::WriteAllBytes($tmp,$encrypted);Move-Item -Force $tmp (Join-Path $dir 'pairing.ready')}finally{[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)}
 }
 function Update-Runtime { Install-Runtime }
-function Rollback-Runtime { Assert-Administrator; if(-not(Test-Path $Previous)){throw 'No verified previous release.'}; Copy-Item -Force $Previous $Binary; & sc.exe start PartnersInBizRuntime }
+function Rollback-Runtime { Assert-Administrator; if(-not(Test-Path $Previous)){throw 'No verified previous release.'};$previous=Split-Path $Previous;Test-ReleaseSignature (Join-Path $previous 'metadata.json') $Previous;& $Previous enforce-minimum-version --metadata (Join-Path $previous 'metadata.json');$current=Split-Path $Binary;$swap=Join-Path $Root 'swap';Move-Item $current $swap;Move-Item $previous $current;Move-Item $swap $previous;& sc.exe start PartnersInBizRuntime }
 function Revoke-Runtime { if (Test-Path $Binary) { & $Binary revoke --signed-request --execution-receipt }; Remove-RuntimeCredential }
 function Uninstall-Runtime { Assert-Administrator; Revoke-Runtime; & sc.exe stop PartnersInBizRuntime; & sc.exe delete PartnersInBizRuntime; Remove-Item -Recurse -Force $Root -ErrorAction SilentlyContinue }
 
