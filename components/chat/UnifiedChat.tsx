@@ -511,6 +511,7 @@ export default function UnifiedChat({
     () => workspaceRuntimeTargetsByWorkspace[selectedWorkspaceId] ?? [],
     [workspaceRuntimeTargetsByWorkspace, selectedWorkspaceId],
   )
+  const selectedWorkspaceRuntimeIsValid = workspaceRuntimeTargets.some(runtime => runtime.id === selectedWorkspaceRuntime && runtime.selectable)
   useEffect(() => {
     if (workspaceRuntimeTargets.length === 0) return
     if (!workspaceRuntimeExplicitRef.current && !workspaceRuntimeTargets.some((runtime) => runtime.id === selectedWorkspaceRuntime && runtime.selectable)) {
@@ -1675,6 +1676,10 @@ export default function UnifiedChat({
       setError('Starting new conversations is disabled for your organisation role.')
       return
     }
+    if ((newScope === 'workspace' || newScope === 'project') && !selectedWorkspaceRuntimeIsValid) {
+      setError('Select an available runtime for this Workspace before starting the conversation.')
+      return
+    }
     setCreatingConv(true)
     setError(null)
     try {
@@ -1730,7 +1735,7 @@ export default function UnifiedChat({
     } finally {
       setCreatingConv(false)
     }
-  }, [allowStartConversations, creatingConv, newParticipants, newTitle, newScope, orgId, projectId, scope, scopeRefId, contextRefs, selectedWorkspaceId, selectedWorkspaceRuntime, selectedWorkspaceShareMode, selectedProjectId])
+  }, [allowStartConversations, creatingConv, newParticipants, newTitle, newScope, orgId, projectId, scope, scopeRefId, contextRefs, selectedWorkspaceId, selectedWorkspaceRuntime, selectedWorkspaceRuntimeIsValid, selectedWorkspaceShareMode, selectedProjectId])
 
   const send = useCallback(
     async (e: FormEvent) => {
@@ -3116,7 +3121,7 @@ export default function UnifiedChat({
                     ) : (
                       <select
                         value={selectedWorkspaceId}
-                        onChange={(e) => setSelectedWorkspaceId(e.target.value)}
+                        onChange={(e) => { workspaceRuntimeExplicitRef.current = false; setSelectedWorkspaceId(e.target.value); setSelectedWorkspaceRuntime('') }}
                         disabled={workspacesLoading || workspaces.length === 0}
                         className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface outline-none focus:border-primary/60 disabled:opacity-60"
                       >
@@ -3212,7 +3217,7 @@ export default function UnifiedChat({
               <button
                 type="button"
                 onClick={handleCreateConversation}
-                disabled={!allowStartConversations || creatingConv || newParticipants.length === 0 || (newScope === 'workspace' && !selectedWorkspaceId) || (newScope === 'project' && (!selectedProjectId || !selectedWorkspaceId))}
+                disabled={!allowStartConversations || creatingConv || newParticipants.length === 0 || ((newScope === 'workspace' || newScope === 'project') && !selectedWorkspaceRuntimeIsValid) || (newScope === 'workspace' && !selectedWorkspaceId) || (newScope === 'project' && (!selectedProjectId || !selectedWorkspaceId))}
                 className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary disabled:opacity-50 hover:opacity-90"
               >
                 {creatingConv ? 'Creating…' : 'Start conversation'}

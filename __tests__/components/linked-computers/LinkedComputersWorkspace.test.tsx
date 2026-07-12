@@ -18,6 +18,7 @@ describe('LinkedComputersWorkspace', () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-07-13T09:00:00.000Z'))
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {
       if (String(input) === '/api/v1/linked-computers') return response({ data: [device] })
+      if (String(input) === '/api/v1/workspaces') return response({ data: { workspaces: [{ workspaceId: 'workspace-b', orgId: 'org-b', orgName: 'Beta Workspace' }] } })
       return response({ success: true, data: { challengeId: 'challenge-a', secret: 'PAIR-123', expiresAt: '2026-07-13T09:10:00.000Z' } })
     })
   })
@@ -50,10 +51,9 @@ describe('LinkedComputersWorkspace', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Manage access for Studio Mac' }))
     const access = screen.getByRole('dialog', { name: 'Manage computer access' })
-    fireEvent.change(within(access).getByLabelText('Organisation ID'), { target: { value: 'org-b' } })
+    fireEvent.change(within(access).getByLabelText('Organisation'), { target: { value: 'org-b' } })
     fireEvent.click(within(access).getByRole('button', { name: 'Grant organisation' }))
-    fireEvent.change(within(access).getByLabelText('Workspace ID'), { target: { value: 'workspace-b' } })
-    fireEvent.change(within(access).getByLabelText('Workspace label'), { target: { value: 'Beta Workspace' } })
+    fireEvent.change(within(access).getByLabelText('Workspace'), { target: { value: 'workspace-b' } })
     fireEvent.click(within(access).getByRole('button', { name: 'Map Workspace' }))
 
     fireEvent.click(screen.getByRole('button', { name: 'More actions for Studio Mac' }))

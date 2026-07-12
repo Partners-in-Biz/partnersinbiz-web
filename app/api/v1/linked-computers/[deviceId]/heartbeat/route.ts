@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { recordDeviceHeartbeat } from '@/lib/linked-computers/store'
+import { claimPendingDeviceRotation, recordDeviceHeartbeat } from '@/lib/linked-computers/store'
 import { authenticateSignedDeviceRequest, lifecycleError, noStoreHeaders } from '@/lib/linked-computers/http'
 import { bindLinkedRuntimeTransport, updateLinkedRuntimeTransportEndpoint } from '@/lib/linked-computers/transport'
 
 type Context = { params: Promise<{ deviceId: string }> }
-export async function handleDeviceHeartbeat(req: NextRequest, deviceId: string, auth = authenticateSignedDeviceRequest, record = recordDeviceHeartbeat, updateTransport = updateLinkedRuntimeTransportEndpoint, bindTransport = bindLinkedRuntimeTransport): Promise<Response> {
+export async function handleDeviceHeartbeat(req: NextRequest, deviceId: string, auth = authenticateSignedDeviceRequest, record = recordDeviceHeartbeat, updateTransport = updateLinkedRuntimeTransportEndpoint, bindTransport = bindLinkedRuntimeTransport, claimRotation = claimPendingDeviceRotation): Promise<Response> {
   try {
     const rawBody = await req.text()
     const identity = await auth(req, deviceId, rawBody)
@@ -19,7 +19,10 @@ export async function handleDeviceHeartbeat(req: NextRequest, deviceId: string, 
     } else if (body.runtimeEndpoint !== undefined) {
       await updateTransport({ deviceId, endpoint: body.runtimeEndpoint, credentialVersion: identity.credentialVersion })
     }
-    return NextResponse.json({ success: true, data: { acceptedAt: new Date().toISOString(), ...(transportToken ? { transportToken } : {}) } }, { headers: noStoreHeaders })
+    const rotation = body.claimRotation === true
+      ? await claimRotation({ deviceId, authenticatedCredentialVersion: identity.credentialVersion })
+      : null
+    return NextResponse.json({ success: true, data: { acceptedAt: new Date().toISOString(), ...(transportToken ? { transportToken } : {}), ...(rotation ? { rotation } : {}) } }, { headers: noStoreHeaders })
   } catch (error) { return lifecycleError(error) }
 }
 export const POST = async (req: NextRequest, context: Context) => handleDeviceHeartbeat(req, (await context.params).deviceId)

@@ -141,6 +141,17 @@ describe('linked computers tenant domain', () => {
     })).rejects.toThrow('device owner')
   })
 
+  it('hydrates only safe grant and mapping summaries for owned devices', async () => {
+    const { db } = fakeDb({
+      'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'user-a', label: 'Mac', platform: 'macos', architecture: 'arm64', runtimeVersion: '2.0.0', capabilities: ['workspace.execute'], status: 'active', credentialVersion: 2, health: 'ok', lastSeenAt: 'seen' },
+      'linked_device_grants/grant-a': { deviceId: 'device-a', orgId: 'org-a', status: 'active', allowedUserIds: ['secret-user'] },
+      'linked_device_workspace_mappings/map-a': { deviceId: 'device-a', mappingId: 'map-a', orgId: 'org-a', workspaceId: 'ws-a', label: 'Acme Workspace', status: 'active', localPath: '/Users/private' },
+    })
+    const [result] = await listOwnedDevices('user-a', { db: db as never })
+    expect(result).toMatchObject({ health: 'ok', grants: [{ orgId: 'org-a', status: 'active' }], mappings: [{ mappingId: 'map-a', orgId: 'org-a', workspaceId: 'ws-a', label: 'Acme Workspace', status: 'active' }] })
+    expect(JSON.stringify(result)).not.toMatch(/secret-user|\/Users|rawCredential|endpoint|publicKey/i)
+  })
+
   it('rolls back every write when audit persistence fails', async () => {
 
     const rollback = fakeDb({}, 'linked_computer_audit_events/')
