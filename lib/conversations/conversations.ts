@@ -102,15 +102,31 @@ export async function listConversations(
   },
 ): Promise<Conversation[]> {
   const readLimit = Math.max(limit * 4, filters?.scope || filters?.scopeRefId || filters?.projectId ? 100 : limit)
-  const snap = await adminDb
-    .collection(CONVERSATIONS_COLLECTION)
-    .where('orgId', '==', orgId)
-    .orderBy('updatedAt', 'desc')
-    .limit(readLimit)
-    .get()
+  const orgQuery = adminDb.collection(CONVERSATIONS_COLLECTION).where('orgId', '==', orgId)
+  let snap: FirebaseFirestore.QuerySnapshot
+  try {
+    snap = await orgQuery
+      .orderBy('updatedAt', 'desc')
+      .limit(readLimit)
+      .get()
+  } catch (error) {
+    const firestoreError = error as { code?: unknown; details?: unknown; message?: unknown }
+    const description = `${String(firestoreError.details ?? '')} ${String(firestoreError.message ?? '')}`.toLowerCase()
+    const missingIndex = firestoreError.code === 9 || firestoreError.code === 'failed-precondition' || description.includes('requires an index')
+    if (!missingIndex) throw error
+
+    // Keep messaging available while a newly declared composite index is still building.
+    // Read the whole org set before sorting so an unordered limit cannot hide newer rows.
+    snap = await orgQuery.get()
+  }
 
   return snap.docs
     .map((d) => ({ id: d.id, ...d.data() }) as Conversation)
+    .sort((left, right) => {
+      const leftMs = left.updatedAt?.toMillis?.() ?? 0
+      const rightMs = right.updatedAt?.toMillis?.() ?? 0
+      return rightMs - leftMs
+    })
     .filter((conversation) => {
       if (!canAccessConversation(user, conversation)) return false
       if (filters?.scope && conversation.scope !== filters.scope) return false
