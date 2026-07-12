@@ -28,6 +28,8 @@ export interface LinkedRunJob {
   leaseToken?: string
   claimedAtMs?: number
   completedAtMs?: number
+  acceptedRuntimeVersion?: string
+  acceptedMachineLabel?: string
   conversationId: string
   assistantMessageId: string
   agentId: string
@@ -116,6 +118,7 @@ export function sanitizeLinkedResult(value: string): string {
     .replace(/(?:-----BEGIN\s*)?PRIVATE KEY-----[^\r\n}]*/gi, '[redacted-private-key]')
     .replace(/\bAuthorization\s*:\s*(?:Bearer\s+)?[^\s,;]+/gi, 'Authorization: [redacted]')
     .replace(/\bBearer\s+[A-Za-z0-9._~+\/-]+=*/gi, 'Bearer [redacted]')
+    .replace(/(["'](?:api[_-]?key|token|secret|password|credential)["']\s*:\s*["'])((?:\\.|(?!\1)[^"'\\])*)(["'])/gi, '$1[redacted]$3')
     .replace(/(["']?(?:api[_-]?key|token|secret|password|credential)["']?\s*[:=]\s*["']?)[^"'\s,;}]+/gi, '$1[redacted]')
     .replace(/\\\\[^\\\s]+\\[^\s)\]}]+/g, '[redacted-path]')
     .replace(/\b[A-Za-z]:\\[^\s)\]}]+/g, '[redacted-path]')

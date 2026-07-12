@@ -49,8 +49,9 @@ describe('linked run queue security transitions', () => {
     const progress = transitionLinkedRun(claimed, { type: 'progress', deviceId: 'device-a', credentialVersion: 3, nowMs: now + 20_000, attempt: 1, leaseToken: claimed.leaseToken!, leaseMs: 30_000 })
     expect(progress.leaseExpiresAtMs).toBe(now + 50_000)
     expect(() => transitionLinkedRun(progress, { type: 'progress', deviceId: 'device-a', credentialVersion: 3, nowMs: now + 21_000, attempt: 1, leaseToken: 'stale-worker', leaseMs: 30_000 })).toThrow('lease mismatch')
-    const unsafe = 'Authorization: Bearer abc apiKey=xyz /etc/passwd C:\\Users\\Peet\\secret \\\\server\\share\\file PRIVATE KEY----- {"token":"nested-secret"}'
-    expect(sanitizeLinkedResult(unsafe)).not.toMatch(/abc|xyz|passwd|Peet|server|nested-secret|PRIVATE KEY/i)
+    const unsafe = 'Authorization: Bearer abc apiKey=xyz /etc/passwd C:\\Users\\Peet\\secret \\\\server\\share\\file PRIVATE KEY----- {"nested":{"token":"nested secret with \\\"escaped\\\" suffix"}}'
+    expect(sanitizeLinkedResult(unsafe)).not.toMatch(/abc|xyz|passwd|Peet|server|nested secret|escaped|suffix|PRIVATE KEY/i)
+    expect(sanitizeLinkedResult('{"nested":{"password":"value with spaces and \\\"escapes\\\" trailing"}}')).not.toMatch(/value with|escapes|trailing/)
   })
 
   it('denies cross-device, stale credential and out-of-order completion while making duplicate completion idempotent', () => {

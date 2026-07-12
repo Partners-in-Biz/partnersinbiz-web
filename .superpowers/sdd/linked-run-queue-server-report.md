@@ -65,3 +65,11 @@ Follow-up verification: 37 focused tests passed and targeted production ESLint/d
 - Result sanitization now covers arbitrary POSIX, drive-letter and UNC paths, URLs, Authorization/Bearer credentials, named secrets, nested JSON secrets, and private-key material.
 
 Final focused verification: 29 tests passed; targeted ESLint and diff checks passed. Full typecheck remains blocked solely by concurrent installer verifier regex flags outside this server slice.
+
+## Final P2 hardening
+
+- Bounded queue scans now preserve exact FIFO order: surviving head candidates remain ahead of the untouched tail.
+- The first signed acceptance snapshots runtime version and machine label onto the job. Later progress/completion validates against that immutable accepted identity, so a legitimate device rename or upgrade after acceptance cannot invalidate the run.
+- Redaction handles complete quoted JSON secret values, including spaces and escaped quotes, without leaking suffixes.
+
+P2 verification: 29 focused tests passed; targeted ESLint and diff checks passed. Full typecheck remains blocked only by the concurrent installer verifier regex target issue.

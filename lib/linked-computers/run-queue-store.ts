@@ -90,7 +90,8 @@ export async function claimOldestLinkedRun(input: { deviceId: string; ownerUserI
     let selected: LinkedRunJob | null = null
     let selectedRef: ReturnType<typeof adminDb.collection> extends never ? never : FirebaseFirestore.DocumentReference | null = null
     const candidates = ids.slice(0, 12)
-    const remaining: string[] = ids.slice(12)
+    const candidateSurvivors: string[] = []
+    const untouchedTail = ids.slice(12)
     const expiredRefs: Array<{ ref: FirebaseFirestore.DocumentReference; job: LinkedRunJob }> = []
     for (const id of candidates) {
       const ref = adminDb.collection(LINKED_RUN_JOBS).doc(id)
@@ -123,8 +124,9 @@ export async function claimOldestLinkedRun(input: { deviceId: string; ownerUserI
         }
         selected = transitionLinkedRun(current, { type: 'claim', ...input, nowMs, leaseMs: options.leaseMs ?? DEFAULT_LEASE_MS })
         selectedRef = ref
-      } else remaining.push(id)
+      } else candidateSurvivors.push(id)
     }
+    const remaining = [...candidateSurvivors, ...untouchedTail]
     for (const expired of expiredRefs) {
       tx.update(expired.ref, { status: 'expired', encryptedPayload: null, finalizationState: 'complete', completedAt: Timestamp.fromMillis(nowMs), cleanupAt: Timestamp.fromMillis(nowMs + DEFAULT_TTL_MS), updatedAt: Timestamp.fromMillis(nowMs) })
       tx.set(adminDb.collection('conversations').doc(expired.job.conversationId).collection('messages').doc(expired.job.assistantMessageId), { content: '', status: 'failed', error: 'The linked computer run expired or is no longer authorized.', runId: expired.job.jobId, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
@@ -158,7 +160,9 @@ export async function updateLinkedRunFromDevice(input: {
     const device = deviceSnap.data() ?? {}
     const output = typeof input.output === 'string' ? input.output : ''
     const error = typeof input.error === 'string' ? input.error : ''
-    if (input.receipt.runtimeVersion !== device.runtimeVersion || input.receipt.machineLabel !== device.label) throw new Error('linked computers: registered runtime identity mismatch')
+    const acceptedRuntimeVersion = job.acceptedRuntimeVersion ?? String(device.runtimeVersion ?? '')
+    const acceptedMachineLabel = job.acceptedMachineLabel ?? String(device.label ?? '')
+    if (input.receipt.runtimeVersion !== acceptedRuntimeVersion || input.receipt.machineLabel !== acceptedMachineLabel) throw new Error('linked computers: registered runtime identity mismatch')
     if (['completed', 'failed', 'cancelled'].includes(job.status)) {
       const stored = jobSnap.data() ?? {}
       if (JSON.stringify(stored.receipt) !== JSON.stringify(input.receipt) || stored.output !== sanitizeLinkedResult(output) || stored.error !== sanitizeLinkedResult(error)) {
@@ -172,7 +176,7 @@ export async function updateLinkedRunFromDevice(input: {
       ? transitionLinkedRun(job, { type: 'progress', deviceId: input.deviceId, credentialVersion: input.credentialVersion, nowMs, attempt: input.receipt.attempt, leaseToken: input.receipt.leaseToken, leaseMs: DEFAULT_LEASE_MS })
       : transitionLinkedRun(job, { type: 'complete', deviceId: input.deviceId, credentialVersion: input.credentialVersion, nowMs, outcome: input.outcome ?? 'completed', attempt: input.receipt.attempt, leaseToken: input.receipt.leaseToken })
     const safeOutput = sanitizeLinkedResult(output); const safeError = sanitizeLinkedResult(error)
-    tx.update(jobRef, { ...toStored(next), ...(input.event === 'progress' ? { acceptanceReceipt: input.receipt } : { receipt: input.receipt, finalizationState: 'complete' }), output: safeOutput, error: safeError })
+    tx.update(jobRef, { ...toStored(next), ...(!job.acceptedRuntimeVersion && input.receipt.event === 'accepted' ? { acceptedRuntimeVersion, acceptedMachineLabel } : {}), ...(input.event === 'progress' ? { acceptanceReceipt: input.receipt } : { receipt: input.receipt, finalizationState: 'complete' }), output: safeOutput, error: safeError })
     if (input.event === 'complete') {
       const status = input.outcome === 'completed' ? 'completed' : 'failed'
       const content = status === 'completed' ? safeOutput : (safeError || `Linked computer run ${input.outcome ?? 'failed'}`)
