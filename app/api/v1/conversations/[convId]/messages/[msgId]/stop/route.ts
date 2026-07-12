@@ -13,18 +13,18 @@ import {
 import { callAgentPath } from '@/lib/agents/team'
 import { AGENT_IDS, type AgentId } from '@/lib/agents/types'
 import type { ApiUser } from '@/lib/api/types'
-import { canAccessConversation } from '@/lib/conversations/access'
+import { canStopConversationRun } from '@/lib/conversations/access'
 
 export const dynamic = 'force-dynamic'
 
 type Ctx = { params: Promise<{ convId: string; msgId: string }> }
 
 
-export const POST = withAuth('admin', async (_req: NextRequest, user: ApiUser, ctx?: unknown) => {
+export const POST = withAuth('client', async (_req: NextRequest, user: ApiUser, ctx?: unknown) => {
   const { convId, msgId } = await (ctx as Ctx).params
   const conversation = await getConversation(convId)
   if (!conversation) return apiError('Conversation not found', 404)
-  if (!canAccessConversation(user, conversation)) return apiError('Forbidden', 403)
+  if (!canStopConversationRun(user, conversation)) return apiError('Forbidden', 403)
 
   const msgRef = messagesCollection(convId).doc(msgId)
   const msgDoc = await msgRef.get()

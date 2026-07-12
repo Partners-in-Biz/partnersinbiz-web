@@ -8,7 +8,6 @@
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
-import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { logActivity } from '@/lib/activity/log'
 import {
   ConversationAccessConflictError,
@@ -18,7 +17,12 @@ import {
   updateConversationAccess,
 } from '@/lib/conversations/conversations'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
-import { canAccessConversation, canManageConversationAccess, publicConversationView } from '@/lib/conversations/access'
+import {
+  canAccessConversation,
+  canDeleteConversation,
+  canManageConversationAccess,
+  publicConversationView,
+} from '@/lib/conversations/access'
 import {
   ConversationParticipantError,
   resolveHumanConversationParticipants,
@@ -178,13 +182,13 @@ export const PATCH = withAuth(
 )
 
 export const DELETE = withAuth(
-  'admin',
+  'client',
   async (_req: NextRequest, user: ApiUser, context?: unknown) => {
     const { convId } = await (context as Params).params
     const conversation = await getConversation(convId)
     if (!conversation) return apiError('Conversation not found', 404)
 
-    if (!canAccessConversation(user, conversation) || !canAccessOrg(user, conversation.orgId)) {
+    if (!canDeleteConversation(user, conversation)) {
       return apiError('Forbidden', 403)
     }
 
