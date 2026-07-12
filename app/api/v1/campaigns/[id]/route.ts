@@ -20,6 +20,7 @@ import {
 } from '@/lib/client-documents/linkedValidation'
 import { sanitizeAudienceDefinition } from '@/lib/email-marketing/audience-snapshot'
 import { getSenderPolicy } from '@/lib/email-marketing/sender-store'
+import { invalidatedEmailApprovalState } from '@/lib/email-marketing/agent-governance'
 
 export const dynamic = 'force-dynamic'
 
@@ -156,12 +157,7 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
     'exclusionContactIds', 'audienceDefinition', 'sequenceId', 'triggers', 'startAt',
   ]
   if (materialFields.some((field) => field in body) && current.approvalState?.status === 'approved') {
-    editable.approvalState = {
-      status: 'pending',
-      approvedBy: null,
-      approvedAt: null,
-      invalidatedReason: 'Material campaign content, sender, schedule, or audience changed',
-    }
+    editable.approvalState = invalidatedEmailApprovalState('Material campaign content, sender, schedule, or audience changed')
   }
 
   await snap.ref.update({
@@ -189,6 +185,9 @@ export const PATCH = withAuth('client', async (req: NextRequest, user: ApiUser, 
   const update: Record<string, unknown> = { ...lastActorFrom(user) }
   for (const k of CONTENT_PATCH_FIELDS) {
     if (k in body) update[k] = body[k]
+  }
+  if (current.approvalState?.status === 'approved' && ['status', 'brandIdentity', 'calendar'].some((field) => field in body)) {
+    update.approvalState = invalidatedEmailApprovalState('Material campaign delivery or content settings changed')
   }
   const relationshipInput = relationshipInputFrom(body as Record<string, unknown>)
   if (relationshipInput) {

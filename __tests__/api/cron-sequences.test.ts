@@ -15,6 +15,7 @@ const mockResendSend = jest.fn()
 const mockSendCampaignEmail = jest.fn()
 const mockResolveFrom = jest.fn()
 const mockResolveCanonicalEmailConsent = jest.fn()
+const mockAssertEmailMarketingDispatchApproval = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: {
@@ -56,11 +57,15 @@ jest.mock('@/lib/email/frequency', () => ({
 jest.mock('@/lib/consent-ledger/decision', () => ({
   resolveCanonicalEmailConsent: (...args: unknown[]) => mockResolveCanonicalEmailConsent(...args),
 }))
+jest.mock('@/lib/email-marketing/agent-governance', () => ({
+  assertEmailMarketingDispatchApproval: (...args: unknown[]) => mockAssertEmailMarketingDispatchApproval(...args),
+}))
 
 process.env.CRON_SECRET = 'cron-secret'
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockAssertEmailMarketingDispatchApproval.mockResolvedValue(undefined)
   activeLeaseToken = undefined
   const query = { where: mockWhere, orderBy: mockOrderBy, limit: mockLimit, get: mockGet }
   mockWhere.mockReturnValue(query)

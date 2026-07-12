@@ -40,7 +40,7 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
     try {
       await assertEmailMarketingAgentActionWithTask(user, 'email_marketing_send', snap.data()?.approvalState, {
         orgId: scope.orgId, resourceType: 'email_sequence', resourceId: id,
-      })
+      }, snap.data() as Record<string, unknown>)
     } catch (error) {
       return apiError(error instanceof Error ? error.message : 'Sequence activation is not authorised', 403)
     }

@@ -6,6 +6,7 @@ import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { validateEmailMarketingApprovalTask } from '@/lib/email-marketing/agent-governance'
+import { buildEmailApprovalSnapshotHash } from '@/lib/email-marketing/approval-snapshot'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,6 +47,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
       approvedByType: 'user',
       approvedAt: FieldValue.serverTimestamp(),
       approvalTaskId,
+      approvedSnapshotHash: buildEmailApprovalSnapshotHash(campaign),
     },
     updatedAt: FieldValue.serverTimestamp(),
     updatedBy: user.uid,

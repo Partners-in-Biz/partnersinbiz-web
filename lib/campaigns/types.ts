@@ -99,6 +99,7 @@ export interface Campaign {
     approvedByType?: 'user' | 'agent' | 'system' | null
     approvedAt?: Timestamp | null
     approvalTaskId?: string | null
+    approvedSnapshotHash?: string | null
   }
   deleted?: boolean
 }

@@ -23,7 +23,7 @@ import { runPreflight } from '@/lib/email/preflight'
 import { preflightInputForBroadcast } from '@/lib/email/preflight-source'
 import type { Broadcast } from '@/lib/broadcasts/types'
 import type { ApiUser } from '@/lib/api/types'
-import { assertEmailMarketingAgentActionWithTask } from '@/lib/email-marketing/agent-governance'
+import { assertEmailMarketingAgentActionWithTask, assertEmailMarketingDispatchApproval } from '@/lib/email-marketing/agent-governance'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,6 +48,10 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   const broadcast = { id: snap.id, ...snap.data() } as Broadcast
   const scope = resolveOrgScope(user, broadcast.orgId ?? null)
   if (!scope.ok) return apiError(scope.error, scope.status)
+  const projectedBroadcast = {
+    ...broadcast as unknown as Record<string, unknown>,
+    scheduledFor: scheduledDate.toISOString(),
+  }
 
   try {
     await assertEmailMarketingAgentActionWithTask(
@@ -55,9 +59,17 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
       'email_marketing_send',
       (broadcast as Broadcast & { approvalState?: Record<string, string | null> }).approvalState,
       { orgId: scope.orgId, resourceType: 'email_broadcast', resourceId: id },
+      projectedBroadcast,
     )
   } catch (error) {
     return apiError(error instanceof Error ? error.message : 'Broadcast scheduling is not authorised', 403)
+  }
+  try {
+    await assertEmailMarketingDispatchApproval(projectedBroadcast, {
+      orgId: scope.orgId, resourceType: 'email_broadcast', resourceId: id,
+    })
+  } catch (error) {
+    return apiError(error instanceof Error ? error.message : 'Broadcast approval is required by organisation policy', 403)
   }
 
   if (!['draft', 'paused', 'scheduled'].includes(broadcast.status)) {
@@ -94,6 +106,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   await ref.update({
     status: 'scheduled',
     scheduledFor: Timestamp.fromDate(scheduledDate),
+    approvalRequestedSchedule: null,
     'stats.audienceSize': validation.audienceSize,
     lastPreflight: {
       pass: preflight.pass,

@@ -75,6 +75,7 @@ export interface AutomationRule {
     approvedBy?: string | null
     approvedByType?: 'user' | 'agent' | 'system' | null
     approvalTaskId?: string | null
+    approvedSnapshotHash?: string | null
   }
 }
 

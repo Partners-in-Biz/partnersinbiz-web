@@ -17,6 +17,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import type { CaptureSource, CaptureSubmission } from './types'
 import type { Sequence } from '@/lib/sequences/types'
 import type { Campaign } from '@/lib/campaigns/types'
+import { assertEmailMarketingDispatchApproval } from '@/lib/email-marketing/agent-governance'
 
 export interface AutoEnrollResult {
   enrolledSequences: number
@@ -146,6 +147,9 @@ export async function performAutoEnroll(
       if (sequence.orgId && sequence.orgId !== source.orgId) continue
       if (sequence.status !== 'active') continue
       if (!sequence.steps?.length) continue
+      await assertEmailMarketingDispatchApproval(sequence as unknown as Record<string, unknown>, {
+        orgId: source.orgId, resourceType: 'email_sequence', resourceId: sequenceId,
+      })
 
       if (await enrollmentExists({ contactId: submission.contactId, sequenceId, campaignId: '' })) {
         continue
@@ -193,6 +197,9 @@ export async function performAutoEnroll(
         continue
       }
       if (!campaign.sequenceId) continue
+      await assertEmailMarketingDispatchApproval(campaign as unknown as Record<string, unknown>, {
+        orgId: source.orgId, resourceType: 'email_campaign', resourceId: campaignId,
+      })
 
       const sequence = await getSequence(campaign.sequenceId)
       if (!sequence) continue
@@ -258,6 +265,9 @@ export async function performAutoEnroll(
       if (campaign.deleted) continue
       if (enrolledCampaignIds.has(campaign.id)) continue
       if (!campaign.sequenceId) continue
+      await assertEmailMarketingDispatchApproval(campaign as unknown as Record<string, unknown>, {
+        orgId: source.orgId, resourceType: 'email_campaign', resourceId: campaign.id,
+      })
 
       const sequence = await getSequence(campaign.sequenceId)
       if (!sequence) continue

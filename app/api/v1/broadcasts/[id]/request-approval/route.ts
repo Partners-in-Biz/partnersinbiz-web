@@ -10,7 +10,7 @@ import type { Broadcast } from '@/lib/broadcasts/types'
 
 type Params = { params: Promise<{ id: string }> }
 
-export const POST = withAuth('client', async (_req: NextRequest, user: ApiUser, context?: unknown) => {
+export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, context?: unknown) => {
   const { id } = await (context as Params).params
   const broadcastRef = adminDb.collection('broadcasts').doc(id)
   const snap = await broadcastRef.get()
@@ -24,18 +24,38 @@ export const POST = withAuth('client', async (_req: NextRequest, user: ApiUser, 
     return apiError(error instanceof Error ? error.message : 'Approval request is not authorised', 403)
   }
 
-  const taskRef = await adminDb.collection('tasks').add({
-    orgId: scope.orgId,
-    title: `Approve email broadcast: ${broadcast.name}`,
-    description: 'Review the broadcast content, audience, sender, and schedule before client-visible delivery.',
-    status: 'todo', approvalStatus: 'pending', approvalGate: 'client-visible',
-    linkedResource: { type: 'email_broadcast', id },
-    createdBy: user.uid, createdByType: user.authKind === 'agent_api_key' ? 'agent' : 'user',
-    deleted: false, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(),
-  })
-  await broadcastRef.update({
-    approvalState: { status: 'pending', approvedBy: null, approvedByType: null, approvedAt: null, approvalTaskId: taskRef.id },
-    updatedAt: FieldValue.serverTimestamp(),
+  const existingTaskId = broadcast.approvalState?.status === 'pending'
+    ? broadcast.approvalState.approvalTaskId?.trim()
+    : null
+  if (existingTaskId) return apiSuccess({ id, approvalTaskId: existingTaskId, status: 'pending' })
+
+  const body = await req.json().catch(() => ({})) as Record<string, unknown>
+  const requestedSchedule = typeof body.scheduledFor === 'string' && !Number.isNaN(Date.parse(body.scheduledFor))
+    ? new Date(body.scheduledFor).toISOString()
+    : null
+  const taskRef = adminDb.collection('tasks').doc(`email-broadcast-approval-${id}`)
+  await adminDb.runTransaction(async (transaction) => {
+    const [latestBroadcast, existingTask] = await Promise.all([
+      transaction.get(broadcastRef), transaction.get(taskRef),
+    ])
+    const latest = latestBroadcast.data() as Broadcast | undefined
+    if (latest?.approvalState?.status === 'pending' && latest.approvalState.approvalTaskId) return
+    if (!existingTask.exists || existingTask.data()?.status === 'cancelled' || existingTask.data()?.deleted) {
+      transaction.set(taskRef, {
+        orgId: scope.orgId,
+        title: `Approve email broadcast: ${broadcast.name}`,
+        description: 'Review the broadcast content, audience, sender, and schedule before client-visible delivery.',
+        status: 'todo', approvalStatus: 'pending', approvalGate: 'client-visible',
+        linkedResource: { type: 'email_broadcast', id },
+        createdBy: user.uid, createdByType: user.authKind === 'agent_api_key' ? 'agent' : 'user',
+        deleted: false, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(),
+      })
+    }
+    transaction.update(broadcastRef, {
+      approvalState: { status: 'pending', approvedBy: null, approvedByType: null, approvedAt: null, approvalTaskId: taskRef.id, approvedSnapshotHash: null },
+      approvalRequestedSchedule: requestedSchedule,
+      updatedAt: FieldValue.serverTimestamp(),
+    })
   })
   return apiSuccess({ id, approvalTaskId: taskRef.id, status: 'pending' }, 201)
 })

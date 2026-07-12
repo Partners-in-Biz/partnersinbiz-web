@@ -14,6 +14,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { lastActorFrom } from '@/lib/api/actor'
 import type { Broadcast, BroadcastStatus } from '@/lib/broadcasts/types'
 import type { ApiUser } from '@/lib/api/types'
+import { invalidatedEmailApprovalState } from '@/lib/email-marketing/agent-governance'
 
 export const dynamic = 'force-dynamic'
 
@@ -97,15 +98,7 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
 
   const materialFields = ['content', 'audience', 'fromDomainId', 'fromName', 'fromLocal', 'replyTo']
   if (current.approvalState?.status === 'approved' && materialFields.some((field) => Object.prototype.hasOwnProperty.call(update, field))) {
-    update.approvalState = {
-      status: 'revoked',
-      approvedBy: null,
-      approvedByType: null,
-      approvedAt: null,
-      approvalTaskId: null,
-      invalidatedAt: FieldValue.serverTimestamp(),
-      invalidatedReason: 'Material broadcast content, audience, or sender settings changed',
-    }
+    update.approvalState = invalidatedEmailApprovalState('Material broadcast content, audience, or sender settings changed')
   }
 
   await snap.ref.update({ ...update, ...lastActorFrom(user) })

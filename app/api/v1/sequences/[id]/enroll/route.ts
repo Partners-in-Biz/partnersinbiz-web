@@ -33,7 +33,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   try {
     await assertEmailMarketingAgentActionWithTask(user, 'email_marketing_send', seq.approvalState, {
       orgId: scope.orgId, resourceType: 'email_sequence', resourceId: id,
-    })
+    }, seq)
   } catch (error) {
     return apiError(error instanceof Error ? error.message : 'Sequence enrollment is not authorised', 403)
   }

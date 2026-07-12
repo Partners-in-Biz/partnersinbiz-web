@@ -7,6 +7,7 @@ import { apiError, apiSuccess } from '@/lib/api/response'
 import { validateEmailMarketingApprovalTask } from '@/lib/email-marketing/agent-governance'
 import type { ApiUser } from '@/lib/api/types'
 import type { Broadcast } from '@/lib/broadcasts/types'
+import { buildEmailApprovalSnapshotHash } from '@/lib/email-marketing/approval-snapshot'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -37,6 +38,10 @@ export const POST = withAuth('client', async (_req: NextRequest, user: ApiUser, 
     approvalState: {
       status: 'approved', approvedBy: user.uid, approvedByType: 'user',
       approvedAt: FieldValue.serverTimestamp(), approvalTaskId: taskId,
+      approvedSnapshotHash: buildEmailApprovalSnapshotHash({
+        ...broadcast as unknown as Record<string, unknown>,
+        scheduledFor: broadcast.approvalRequestedSchedule ?? broadcast.scheduledFor,
+      }),
     },
     updatedAt: FieldValue.serverTimestamp(),
   })

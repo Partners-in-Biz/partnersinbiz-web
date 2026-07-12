@@ -27,6 +27,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { actorFrom } from '@/lib/api/actor'
 import type { ApiUser } from '@/lib/api/types'
+import { assertEmailMarketingAgentAction } from '@/lib/email-marketing/agent-governance'
 import {
   sendCampaignEmail,
   htmlToPlainText,
@@ -127,6 +128,11 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
 })
 
 export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser) => {
+  try {
+    assertEmailMarketingAgentAction(user, 'email_marketing_send', null)
+  } catch (error) {
+    return apiError(error instanceof Error ? error.message : 'Legacy admin broadcast is not authorised', 403)
+  }
   const body = await req.json().catch(() => ({}))
   const subject = (typeof body.subject === 'string' ? body.subject : '').trim()
   const html = typeof body.html === 'string' ? body.html : ''

@@ -12,6 +12,7 @@ const mockCollection = jest.fn()
 const mockSendCampaignEmail = jest.fn()
 const mockResolveFrom = jest.fn()
 const mockResolveCanonicalEmailConsent = jest.fn()
+const mockAssertEmailMarketingDispatchApproval = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
@@ -40,8 +41,16 @@ jest.mock('@/lib/email/frequency', () => ({
 jest.mock('@/lib/consent-ledger/decision', () => ({
   resolveCanonicalEmailConsent: (...args: unknown[]) => mockResolveCanonicalEmailConsent(...args),
 }))
+jest.mock('@/lib/email-marketing/agent-governance', () => ({
+  assertEmailMarketingDispatchApproval: (...args: unknown[]) => mockAssertEmailMarketingDispatchApproval(...args),
+}))
 
 process.env.CRON_SECRET = 'cron-secret'
+
+beforeEach(() => {
+  jest.clearAllMocks()
+  mockAssertEmailMarketingDispatchApproval.mockResolvedValue(undefined)
+})
 
 const scheduledEmailDoc = {
   id: 'email-1',
@@ -69,6 +78,13 @@ function setupFirestore() {
     .mockResolvedValueOnce({ exists: true, data: () => ({ fromName: 'Test Org' }) })
     .mockResolvedValueOnce({ exists: true, data: () => ({ name: 'Ada', email: 'ada@example.com' }) })
 }
+
+it('rechecks campaign approval immediately before provider dispatch', async () => {
+  mockAssertEmailMarketingDispatchApproval.mockRejectedValue(new Error('approval snapshot changed'))
+  await runCron()
+  expect(mockSendCampaignEmail).not.toHaveBeenCalled()
+  expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: 'skipped', skippedReason: 'approval snapshot changed' }))
+})
 
 async function runCron() {
   setupFirestore()

@@ -49,7 +49,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   try {
     await assertEmailMarketingAgentActionWithTask(user, 'email_marketing_send', campaign.approvalState, {
       orgId: scope.orgId, resourceType: 'email_campaign', resourceId: id,
-    })
+    }, campaign)
   } catch (error) {
     return apiError(error instanceof Error ? error.message : 'Email scheduling is not authorised', 403)
   }

@@ -5,12 +5,41 @@ import {
 } from '@/lib/agents/capabilities'
 import type { AgentCapability } from '@/lib/agents/skill-policy'
 import { adminDb } from '@/lib/firebase/admin'
+import { approvalSnapshotMatches } from '@/lib/email-marketing/approval-snapshot'
 
 export interface EmailMarketingApprovalEvidence {
   status?: string | null
   approvedBy?: string | null
   approvedByType?: string | null
   approvalTaskId?: string | null
+  approvedSnapshotHash?: string | null
+}
+
+export async function organizationRequiresEmailApproval(orgId: string): Promise<boolean> {
+  const snap = await adminDb.collection('organizations').doc(orgId).get()
+  const data = snap.exists ? snap.data() as Record<string, unknown> : {}
+  const settings = (data.settings && typeof data.settings === 'object' ? data.settings : {}) as Record<string, unknown>
+  const policy = (settings.emailMarketing && typeof settings.emailMarketing === 'object' ? settings.emailMarketing : {}) as Record<string, unknown>
+  return policy.approvalRequired === true || policy.makerChecker === true
+}
+
+export async function assertEmailMarketingDispatchApproval(
+  resource: Record<string, unknown>,
+  context: EmailMarketingApprovalContext,
+  options: { forceRequired?: boolean } = {},
+): Promise<void> {
+  const required = options.forceRequired === true
+    || resource.createdByType === 'agent'
+    || await organizationRequiresEmailApproval(context.orgId)
+  if (!required) return
+  const evidence = resource.approvalState as EmailMarketingApprovalEvidence | undefined
+  const taskId = evidence?.approvalTaskId?.trim()
+  if (!taskId) throw new EmailMarketingApprovalError('Email dispatch requires persisted human approval evidence.')
+  const taskSnap = await adminDb.collection('tasks').doc(taskId).get()
+  validateEmailMarketingApprovalTask(evidence, taskSnap.exists ? taskSnap.data() as ApprovalTaskLike : null, context)
+  if (!approvalSnapshotMatches(resource, evidence?.approvedSnapshotHash)) {
+    throw new EmailMarketingApprovalError('Email approval snapshot no longer matches content, audience, sender, or schedule.')
+  }
 }
 
 interface ApprovalTaskLike {
@@ -31,6 +60,19 @@ export class EmailMarketingApprovalError extends AgentCapabilityError {
   constructor(message: string) {
     super(message)
     this.name = 'EmailMarketingApprovalError'
+  }
+}
+
+export function invalidatedEmailApprovalState(reason: string) {
+  return {
+    status: 'revoked' as const,
+    approvedBy: null,
+    approvedByType: null,
+    approvedAt: null,
+    approvalTaskId: null,
+    approvedSnapshotHash: null,
+    invalidatedAt: new Date(),
+    invalidatedReason: reason,
   }
 }
 
@@ -74,6 +116,7 @@ export async function assertEmailMarketingAgentActionWithTask(
   capability: Extract<AgentCapability, 'email_marketing_send'>,
   evidence: EmailMarketingApprovalEvidence | null | undefined,
   context: EmailMarketingApprovalContext,
+  resource?: Record<string, unknown>,
 ): Promise<{ ok: true; gateRequired: boolean }> {
   if (user.authKind !== 'agent_api_key' && user.authKind !== 'legacy_ai_key') {
     return { ok: true, gateRequired: false }
@@ -89,6 +132,9 @@ export async function assertEmailMarketingAgentActionWithTask(
     taskSnap.exists ? taskSnap.data() as ApprovalTaskLike : null,
     context,
   )
+  if (resource && !approvalSnapshotMatches(resource, evidence?.approvedSnapshotHash)) {
+    throw new EmailMarketingApprovalError('Email approval snapshot no longer matches content, audience, sender, or schedule.')
+  }
   return assertEmailMarketingAgentAction(user, capability, verified)
 }
 

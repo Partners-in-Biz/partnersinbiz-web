@@ -83,6 +83,7 @@ export interface Broadcast {
 
   // Schedule
   scheduledFor: Timestamp | null
+  approvalRequestedSchedule?: string | null
   sendStartedAt: Timestamp | null
   sendCompletedAt: Timestamp | null
 
@@ -113,6 +114,7 @@ export interface Broadcast {
     approvedByType?: 'user' | 'agent' | 'system' | null
     approvedAt?: Timestamp | null
     approvalTaskId?: string | null
+    approvedSnapshotHash?: string | null
     invalidatedAt?: Timestamp | null
     invalidatedReason?: string | null
   }

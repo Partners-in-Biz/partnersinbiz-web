@@ -28,6 +28,7 @@ import { getSenderPolicy } from '@/lib/email-marketing/sender-store'
 import { resolveSenderForRecipient } from '@/lib/email-marketing/sender-resolution'
 import { buildSenderRecipientContext } from '@/lib/email-marketing/sender-context'
 import { resolveCanonicalEmailConsent } from '@/lib/consent-ledger/decision'
+import { assertEmailMarketingDispatchApproval } from '@/lib/email-marketing/agent-governance'
 
 export const dynamic = 'force-dynamic'
 
@@ -66,6 +67,18 @@ export async function GET(req: NextRequest) {
       if (!seqSnap.exists) continue
       const seq = seqSnap.data()!
       if (seq.orgId !== enrollmentOrgId) throw new Error('Sequence organisation mismatch')
+      try {
+        await assertEmailMarketingDispatchApproval(seq, {
+          orgId: enrollmentOrgId, resourceType: 'email_sequence', resourceId: enrollment.sequenceId,
+        })
+      } catch (error) {
+        await adminDb.collection('sequence_enrollments').doc(enrollDoc.id).update({
+          status: 'paused',
+          pausedReason: error instanceof Error ? error.message : 'approval invalid',
+          updatedAt: FieldValue.serverTimestamp(),
+        })
+        continue
+      }
       const steps: SequenceStep[] = seq.steps ?? []
       const goals: SequenceGoal[] | undefined = seq.goals
 

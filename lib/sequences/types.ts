@@ -126,6 +126,7 @@ export interface Sequence {
     approvedByType?: 'user' | 'agent' | 'system' | null
     approvedAt?: Timestamp | null
     approvalTaskId?: string | null
+    approvedSnapshotHash?: string | null
   }
   createdAt: Timestamp | null
   updatedAt: Timestamp | null
