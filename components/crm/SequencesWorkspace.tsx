@@ -567,7 +567,7 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
             </div>
           ) : visibleSequences.length === 0 ? (
             <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center">
-              <span className="material-symbols-outlined mb-2 block text-3xl text-[var(--color-pib-text-muted)]" aria-hidden="true">manage_search</span>
+              <span className="material-symbols-outlined mb-2 block text-[19px] text-on-surface-variant" aria-hidden="true">manage_search</span>
               <p className="eyebrow !text-[10px]">Filtered journey view</p>
               <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">No sequences match this view.</h2>
               <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Clear the sequence filters to return to every journey.</p>
@@ -597,7 +597,7 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
                       </span>
                       <div className="min-w-0">
                         <p className="eyebrow !text-[10px] text-red-200">Sequence delete confirmation</p>
-                        <h2 id="sequence-delete-confirm-title" className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
+                        <h2 id="sequence-delete-confirm-title" className="mt-1 text-sm font-semibold text-on-surface">
                           Delete sequence &quot;{pendingDeleteSequenceName}&quot;?
                         </h2>
                         <p id="sequence-delete-confirm-description" className="mt-2 text-sm text-red-100/90">

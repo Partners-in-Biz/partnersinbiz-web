@@ -78,17 +78,17 @@ const WIDGETS: Array<{
   color: string
   tab: string
 }> = [
-  { key: 'contacts', listKey: 'contacts', label: 'Contacts', icon: 'groups', color: '#60a5fa', tab: 'contacts' },
-  { key: 'deals', listKey: 'deals', label: 'Deals', icon: 'monetization_on', color: '#4ade80', tab: 'deals' },
-  { key: 'projects', listKey: 'projects', label: 'Projects', icon: 'folder_managed', color: '#f59e0b', tab: 'projects' },
-  { key: 'documents', listKey: 'documents', label: 'Documents', icon: 'description', color: '#a78bfa', tab: 'documents' },
-  { key: 'serviceWorkspaces', listKey: 'serviceWorkspaces', label: 'Services', icon: 'workspaces', color: '#22d3ee', tab: 'services' },
-  { key: 'relationships', listKey: 'relationships', label: 'Relationships', icon: 'hub', color: '#f472b6', tab: 'relationships' },
-  { key: 'quotes', listKey: 'quotes', label: 'Quotes', icon: 'request_quote', color: '#fb923c', tab: 'quotes' },
-  { key: 'invoices', listKey: 'invoices', label: 'Invoices', icon: 'receipt_long', color: '#38bdf8', tab: 'invoices' },
-  { key: 'orders', listKey: 'orders', label: 'Orders', icon: 'orders', color: '#34d399', tab: 'orders' },
-  { key: 'shipments', listKey: 'shipments', label: 'Shipments', icon: 'local_shipping', color: '#818cf8', tab: 'shipments' },
-  { key: 'inventoryItems', listKey: 'inventoryItems', label: 'Stock', icon: 'inventory_2', color: '#f87171', tab: 'inventory' },
+  { key: 'contacts', listKey: 'contacts', label: 'Contacts', icon: 'groups', color: 'var(--color-accent-v2)', tab: 'contacts' },
+  { key: 'deals', listKey: 'deals', label: 'Deals', icon: 'monetization_on', color: 'var(--color-accent-v2)', tab: 'deals' },
+  { key: 'projects', listKey: 'projects', label: 'Projects', icon: 'folder_managed', color: 'var(--color-accent-text)', tab: 'projects' },
+  { key: 'documents', listKey: 'documents', label: 'Documents', icon: 'description', color: 'var(--color-accent-v2)', tab: 'documents' },
+  { key: 'serviceWorkspaces', listKey: 'serviceWorkspaces', label: 'Services', icon: 'workspaces', color: 'var(--color-accent-v2)', tab: 'services' },
+  { key: 'relationships', listKey: 'relationships', label: 'Relationships', icon: 'hub', color: 'var(--color-accent-v2)', tab: 'relationships' },
+  { key: 'quotes', listKey: 'quotes', label: 'Quotes', icon: 'request_quote', color: 'var(--color-accent-text)', tab: 'quotes' },
+  { key: 'invoices', listKey: 'invoices', label: 'Invoices', icon: 'receipt_long', color: 'var(--color-accent-v2)', tab: 'invoices' },
+  { key: 'orders', listKey: 'orders', label: 'Orders', icon: 'orders', color: 'var(--color-accent-v2)', tab: 'orders' },
+  { key: 'shipments', listKey: 'shipments', label: 'Shipments', icon: 'local_shipping', color: 'var(--color-accent-v2)', tab: 'shipments' },
+  { key: 'inventoryItems', listKey: 'inventoryItems', label: 'Stock', icon: 'inventory_2', color: 'var(--color-accent-text)', tab: 'inventory' },
 ]
 
 const PROFILE_CHECKS = [
@@ -417,7 +417,7 @@ function ProfileCaptureAction({
               type="button"
               onClick={onEditCompany}
               aria-label={actionLabel}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface mt-4 inline-flex items-center gap-1.5 text-xs"
+              className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
             >
               <span aria-hidden="true" className="material-symbols-outlined text-[14px]">edit</span>
               Open profile editor
@@ -752,11 +752,11 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
   const hasRevenueData = revenueData.some((item) => item.value > 0)
 
   const riskDonut = [
-    { name: 'Open orders', value: counts.openOrders, color: '#f59e0b' },
-    { name: 'Low stock', value: counts.lowStockItems, color: '#ef4444' },
-    { name: 'Overdue invoices', value: counts.overdueInvoices, color: '#f87171' },
-    { name: 'Open projects', value: numberValue(center?.analytics?.openProjectCount), color: '#60a5fa' },
-    { name: 'Active services', value: numberValue(center?.analytics?.activeServiceCount), color: '#22d3ee' },
+    { name: 'Open orders', value: counts.openOrders, color: 'var(--color-accent-text)' },
+    { name: 'Low stock', value: counts.lowStockItems, color: 'var(--color-accent-text)' },
+    { name: 'Overdue invoices', value: counts.overdueInvoices, color: 'var(--color-accent-text)' },
+    { name: 'Open projects', value: numberValue(center?.analytics?.openProjectCount), color: 'var(--color-accent-v2)' },
+    { name: 'Active services', value: numberValue(center?.analytics?.activeServiceCount), color: 'var(--color-accent-v2)' },
   ].filter((item) => item.value > 0)
 
   const setupFocus = PROFILE_CHECKS.filter((check) => !check.done(company, counts)).slice(0, 4)
@@ -920,7 +920,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
                     type="button"
                     onClick={() => onSelectTab('invoices')}
                     aria-label={`Review operational risk for ${company.name}`}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface mt-3 inline-flex items-center gap-1.5 text-xs"
+                    className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
                   >
                     <span aria-hidden="true" className="material-symbols-outlined text-[14px]">receipt_long</span>
                     Review invoices
@@ -962,7 +962,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
           {hasRevenueData ? (
             <RevenueBarChart data={revenueData} valueFormatter={(value) => formatCurrency(value, currency)} height={260} />
           ) : (
-            <div className="flex min-h-[140px] items-center justify-center rounded-md border border-dashed border-[var(--color-card-border)] bg-white/[0.02] p-4 text-center">
+            <div className="flex min-h-24 items-center justify-center rounded-md border border-dashed border-[var(--color-card-border)] bg-white/[0.02] p-3 text-center">
               <div className="max-w-md">
                 <p className="eyebrow !text-[10px] text-amber-200">Revenue model missing</p>
                 <h3 className="mt-1 text-sm font-semibold text-on-surface">Build the first commercial signal</h3>
@@ -974,7 +974,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
                     type="button"
                     onClick={() => onSelectTab('deals')}
                     aria-label={`Review commercial records for ${company.name}`}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface mt-4 inline-flex items-center gap-1.5 text-xs"
+                    className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
                   >
                     <span aria-hidden="true" className="material-symbols-outlined text-[14px]">monetization_on</span>
                     Review deals
@@ -991,7 +991,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
           {mixData.length > 0 ? (
             <HorizontalBarChart data={mixData} height={260} />
           ) : (
-            <div className="flex min-h-[140px] items-center justify-center rounded-md border border-dashed border-[var(--color-card-border)] bg-white/[0.02] p-4 text-center">
+            <div className="flex min-h-24 items-center justify-center rounded-md border border-dashed border-[var(--color-card-border)] bg-white/[0.02] p-3 text-center">
               <div className="max-w-md">
                 <p className="eyebrow !text-[10px] text-amber-200">Operating footprint missing</p>
                 <h3 className="mt-1 text-sm font-semibold text-on-surface">Link the first account record</h3>
@@ -1003,7 +1003,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
                     type="button"
                     onClick={() => onSelectTab('contacts')}
                     aria-label={`Review linked contacts for ${company.name}`}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface mt-4 inline-flex items-center gap-1.5 text-xs"
+                    className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
                   >
                     <span aria-hidden="true" className="material-symbols-outlined text-[14px]">groups</span>
                     Review contacts
@@ -1022,7 +1022,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
           {riskDonut.length > 0 ? (
             <DonutChart data={riskDonut} centerValue={riskDonut.reduce((sum, item) => sum + item.value, 0)} centerLabel="Signals" />
           ) : (
-            <div className="flex min-h-[140px] items-center justify-center rounded-md border border-dashed border-[var(--color-card-border)] bg-white/[0.02] p-4 text-center">
+            <div className="flex min-h-24 items-center justify-center rounded-md border border-dashed border-[var(--color-card-border)] bg-white/[0.02] p-3 text-center">
               <div className="max-w-md">
                 <p className="eyebrow !text-[10px] text-emerald-200">Risk coverage clear</p>
                 <h3 className="mt-1 text-sm font-semibold text-on-surface">Keep account risk monitored</h3>
@@ -1034,7 +1034,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
                     type="button"
                     onClick={() => onSelectTab('invoices')}
                     aria-label={`Review risk records for ${company.name}`}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface mt-4 inline-flex items-center gap-1.5 text-xs"
+                    className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
                   >
                     <span aria-hidden="true" className="material-symbols-outlined text-[14px]">receipt_long</span>
                     Review invoices
@@ -1071,7 +1071,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
               })}
             </div>
           ) : (
-            <div className="flex min-h-[140px] items-center justify-center rounded-md border border-dashed border-[var(--color-card-border)] bg-white/[0.02] p-4 text-center">
+            <div className="flex min-h-24 items-center justify-center rounded-md border border-dashed border-[var(--color-card-border)] bg-white/[0.02] p-3 text-center">
               <div className="max-w-md">
                 <p className="eyebrow !text-[10px] text-amber-200">Account history quiet</p>
                 <h3 className="mt-1 text-sm font-semibold text-on-surface">Start the next account signal</h3>
@@ -1083,7 +1083,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
                     type="button"
                     onClick={() => onSelectTab('activity')}
                     aria-label={`Review activity for ${company.name}`}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface mt-4 inline-flex items-center gap-1.5 text-xs"
+                    className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
                   >
                     <span aria-hidden="true" className="material-symbols-outlined text-[14px]">history</span>
                     Review activity

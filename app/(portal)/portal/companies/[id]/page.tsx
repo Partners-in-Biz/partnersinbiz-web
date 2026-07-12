@@ -635,7 +635,7 @@ function ExistingContactLinkDrawer({
         <div className="flex items-center justify-between border-b border-[var(--color-pib-line)] px-6 py-4">
           <div>
             <p className="eyebrow !text-[10px]">Company contact</p>
-            <h2 className="font-display text-lg">Link existing contact to {company.name}</h2>
+            <h2 className="text-sm font-semibold text-on-surface">Link existing contact to {company.name}</h2>
           </div>
           <button
             type="button"
@@ -682,7 +682,7 @@ function ExistingContactLinkDrawer({
                   </div>
                   <button
                     type="button"
-                    className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex shrink-0 items-center justify-center gap-1.5 text-xs"
+                    className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
                     onClick={() => void handleLink(contact)}
                     disabled={Boolean(linkingId)}
                   >
@@ -1835,7 +1835,7 @@ function ActivityPanel({
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="eyebrow !text-[10px]">Company note</p>
-          <h3 className="mt-1 font-display text-lg text-[var(--color-pib-text)]">Log context for {company.name}</h3>
+          <h3 className="mt-1 text-sm font-semibold text-on-surface">Log context for {company.name}</h3>
           <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
             Anchored to {contactLabel(firstContact)} so this note joins the contact and company timeline.
           </p>
@@ -2602,7 +2602,7 @@ export default function CompanyDetailPage() {
               <span className="material-symbols-outlined mt-0.5 text-red-200" aria-hidden="true">warning</span>
               <div>
                 <p className="eyebrow !text-[10px] !text-red-100/80">Account archive</p>
-                <h2 id="company-archive-confirm-title" className="mt-1 font-display text-lg text-red-50">
+                <h2 id="company-archive-confirm-title" className="mt-1 text-sm font-semibold text-red-50">
                   Archive account &quot;{company.name}&quot;?
                 </h2>
                 <p id="company-archive-confirm-description" className="mt-2 max-w-2xl text-sm text-red-100/90">
@@ -2618,7 +2618,7 @@ export default function CompanyDetailPage() {
                   setArchiveConfirmOpen(false)
                   setArchiveError(null)
                 }}
-                className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface text-xs"
+                className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
                 disabled={deleting}
               >
                 Cancel
@@ -2665,7 +2665,7 @@ export default function CompanyDetailPage() {
       {/* Tab content */}
       <div role="tabpanel">
         {relatedError && tab !== 'overview' && (
-          <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 mb-4 text-sm text-red-300 border border-red-500/30">
+          <div className="mb-4 rounded-xl border border-red-500/30 bg-[var(--color-card)]/45 p-4 text-sm text-red-300">
             {relatedError}
           </div>
         )}
@@ -2907,7 +2907,7 @@ export default function CompanyDetailPage() {
             <div className="flex items-center justify-between border-b border-[var(--color-pib-line)] px-6 py-4">
               <div>
                 <p className="eyebrow !text-[10px]">Company contact</p>
-                <h2 className="font-display text-lg">New contact for {company.name}</h2>
+                <h2 className="text-sm font-semibold text-on-surface">New contact for {company.name}</h2>
               </div>
               <button
                 type="button"

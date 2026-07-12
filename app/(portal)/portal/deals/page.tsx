@@ -1133,13 +1133,13 @@ export default function DealsPage() {
                           onClick={() => setEditingDeal(deal)}
                           className="inline-flex rounded-md border border-transparent p-0.5 transition-colors hover:border-[var(--color-accent-v2)]"
                         >
-                          <span
-                            className="px-1.5 py-0.5 rounded-full text-[10px]"
-                            style={{
-                              background: prob >= 70 ? '#4ade8020' : prob >= 40 ? '#facc1520' : '#f8717120',
-                              color: prob >= 70 ? '#4ade80' : prob >= 40 ? '#facc15' : '#f87171',
-                            }}
-                          >
+                          <span className={`rounded-full border px-1.5 py-0.5 text-[10px] ${
+                            prob >= 70
+                              ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-100'
+                              : prob >= 40
+                                ? 'border-amber-400/40 bg-amber-400/10 text-amber-100'
+                                : 'border-red-400/40 bg-red-400/10 text-red-100'
+                          }`}>
                             {prob}%
                           </span>
                         </button>
@@ -1334,7 +1334,7 @@ export default function DealsPage() {
 
 // Helper: fallback color by stage kind when no custom color is set
 function stageColorByKind(kind?: string): string {
-  if (kind === 'won')  return '#4ade80'
-  if (kind === 'lost') return '#ef4444'
-  return '#60a5fa' // open stages default to blue
+  if (kind === 'won') return 'var(--color-accent-v2)'
+  if (kind === 'lost') return 'var(--color-accent-text)'
+  return 'var(--color-accent-v2)'
 }

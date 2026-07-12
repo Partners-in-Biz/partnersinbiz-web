@@ -20,6 +20,7 @@ import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { logActivity } from '@/lib/activity/log'
 import type { ApiUser } from '@/lib/api/types'
+import { assertEmailMarketingAgentAction } from '@/lib/email-marketing/agent-governance'
 
 export const dynamic = 'force-dynamic'
 
@@ -45,6 +46,12 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   const scope = resolveOrgScope(user, (campaign.orgId as string | undefined) ?? null)
   if (!scope.ok) return apiError(scope.error, scope.status)
 
+  try {
+    assertEmailMarketingAgentAction(user, 'email_marketing_send', campaign.approvalState)
+  } catch (error) {
+    return apiError(error instanceof Error ? error.message : 'Email scheduling is not authorised', 403)
+  }
+
   if (campaign.status === 'active' || campaign.status === 'completed') {
     return apiError(`Cannot schedule a campaign with status=${campaign.status}`, 422)
   }
@@ -54,6 +61,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   const hasAudience =
     !!campaign.segmentId ||
     !!campaign.tagId ||
+    !!campaign.audienceDefinition ||
     (Array.isArray(campaign.contactIds) && campaign.contactIds.length > 0)
   if (!hasAudience) {
     return apiError('Campaign has no audience — set a segment, tag, or contacts first', 422)

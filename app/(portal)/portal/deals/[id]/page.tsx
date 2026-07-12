@@ -131,10 +131,10 @@ function dateInputValue(value: unknown): string {
   return date.toISOString().slice(0, 10)
 }
 
-function probabilityColor(probability: number): string {
-  if (probability >= 70) return '#4ade80'
-  if (probability >= 40) return '#facc15'
-  return '#f87171'
+function probabilityTone(probability: number): string {
+  if (probability >= 70) return 'border-emerald-400/40 bg-emerald-400/10 text-emerald-100'
+  if (probability >= 40) return 'border-amber-400/40 bg-amber-400/10 text-amber-100'
+  return 'border-red-400/40 bg-red-400/10 text-red-100'
 }
 
 function clampProbability(value: number): number {
@@ -502,7 +502,7 @@ export default function DealDetailPage() {
   const prob = deal.probability ?? 50
   const lineItemTotal = lineItemsDisplayTotal(deal.lineItems ?? [])
   const weightedValue = (deal.value ?? 0) * (prob / 100)
-  const probColor = probabilityColor(prob)
+  const probTone = probabilityTone(prob)
   const isLost = Boolean(deal.lostReason || stageName.toLowerCase().includes('lost'))
   const isWon = stageName.toLowerCase().includes('won')
   const stageDisplay = stageName || deal.stageId || 'No stage'
@@ -716,10 +716,7 @@ export default function DealDetailPage() {
             <p className="eyebrow !text-[10px]">Deal command center</p>
             <h1 className="mt-1 text-base font-semibold leading-tight text-on-surface">{deal.title ?? '—'}</h1>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span
-                className="rounded-full px-2.5 py-1 text-[10px] font-label uppercase tracking-wide"
-                style={{ background: `${probColor}20`, color: probColor }}
-              >
+              <span className={`rounded-full border px-2.5 py-1 text-[10px] font-label uppercase tracking-wide ${probTone}`}>
                 {prob}% probability
               </span>
               <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
@@ -737,18 +734,18 @@ export default function DealDetailPage() {
 
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             {deal.contactId && (
-              <Link href={scopedPortalPath(`/portal/contacts/${deal.contactId}`, routeScope)} className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface inline-flex items-center gap-1.5">
+              <Link href={scopedPortalPath(`/portal/contacts/${deal.contactId}`, routeScope)} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface">
                 <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person</span>
                 Contact
               </Link>
             )}
             {deal.companyId && (
-              <Link href={scopedPortalPath(`/portal/companies/${deal.companyId}`, routeScope)} className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface inline-flex items-center gap-1.5">
+              <Link href={scopedPortalPath(`/portal/companies/${deal.companyId}`, routeScope)} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface">
                 <span className="material-symbols-outlined text-[16px]" aria-hidden="true">domain</span>
                 Company
               </Link>
             )}
-            <button type="button" onClick={() => setEditOpen(true)} className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface inline-flex items-center gap-1.5">
+            <button type="button" onClick={() => setEditOpen(true)} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface">
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">edit</span>
               Edit
             </button>
@@ -787,7 +784,7 @@ export default function DealDetailPage() {
                 <span className="material-symbols-outlined mt-0.5 text-red-200" aria-hidden="true">warning</span>
                 <div>
                   <p className="eyebrow !text-[10px] !text-red-100/80">Revenue record archive</p>
-                  <h2 id="deal-archive-confirm-title" className="mt-1 font-display text-lg text-red-50">
+                  <h2 id="deal-archive-confirm-title" className="mt-1 text-sm font-semibold text-red-50">
                     Archive deal &quot;{deal.title ?? 'this deal'}&quot;?
                   </h2>
                   <p id="deal-archive-confirm-description" className="mt-2 max-w-2xl text-sm text-red-100/90">
@@ -803,7 +800,7 @@ export default function DealDetailPage() {
                     setArchiveConfirmOpen(false)
                     setArchiveError('')
                   }}
-                  className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface text-xs"
+                  className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
                   disabled={deleting}
                 >
                   Cancel
@@ -845,10 +842,10 @@ export default function DealDetailPage() {
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
             <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Forecast confidence</p>
-            <span className="font-mono text-sm" style={{ color: probColor }}>{prob}%</span>
+            <span className={`font-mono text-sm ${prob >= 70 ? 'text-emerald-100' : prob >= 40 ? 'text-amber-100' : 'text-red-100'}`}>{prob}%</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-white/10">
-            <div className="h-full rounded-full" style={{ width: `${prob}%`, background: probColor }} />
+            <div className={`h-full rounded-full ${prob >= 70 ? 'bg-emerald-400' : prob >= 40 ? 'bg-amber-400' : 'bg-red-400'}`} style={{ width: `${prob}%` }} />
           </div>
           <div className="flex flex-wrap items-end gap-2 rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
             <div className="min-w-[180px] flex-1">
@@ -1120,7 +1117,7 @@ export default function DealDetailPage() {
                     type="button"
                     onClick={action.onClick}
                     aria-label={action.ariaLabel}
-                    className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface inline-flex max-w-full shrink-0 self-start items-center justify-center gap-1.5 text-xs"
+                    className="inline-flex h-8 max-w-full shrink-0 items-center justify-center gap-1.5 self-start rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
                   >
                     <span className="material-symbols-outlined text-[14px]" aria-hidden="true">arrow_forward</span>
                     {action.buttonLabel}
@@ -1167,7 +1164,7 @@ export default function DealDetailPage() {
               <div className="space-y-3">
                 {stageHistory.map((entry, index) => (
                   <div key={`${entry.pipelineId}-${entry.stageId}-${index}`} className="flex items-start gap-3">
-                    <div className="mt-1 h-2 w-2 rounded-full" style={{ background: index === 0 ? probColor : 'var(--color-pib-text-muted)' }} />
+                    <div className={`mt-1 h-2 w-2 rounded-full ${index === 0 ? 'bg-primary' : 'bg-[var(--color-pib-text-muted)]'}`} />
                     <div>
                       <p className="text-sm text-[var(--color-pib-text)]">{stageHistoryStageLabel(entry, pipelineStages)}</p>
                       <p className="text-xs text-[var(--color-pib-text-muted)]">
@@ -1190,7 +1187,7 @@ export default function DealDetailPage() {
                 <p className="eyebrow !text-[10px]">Line items</p>
                 <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Products, services, and quote-ready commercial detail.</p>
               </div>
-              <button type="button" onClick={() => setEditOpen(true)} className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface inline-flex items-center gap-1.5 text-xs">
+              <button type="button" onClick={() => setEditOpen(true)} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface">
                 <span className="material-symbols-outlined text-[14px]">edit</span>
                 Edit items
               </button>

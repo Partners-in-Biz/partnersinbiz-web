@@ -31,6 +31,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
     approvalState: {
       status: 'approved',
       approvedBy: user.uid,
+      approvedByType: 'user',
       approvedAt: FieldValue.serverTimestamp(),
       approvalTaskId: approvalTaskId || null,
     },

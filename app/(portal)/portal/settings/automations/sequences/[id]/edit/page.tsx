@@ -25,8 +25,8 @@ export default function EditSequencePage({ params }: { params: Promise<{ id: str
           Automations
         </button>
         <p className="eyebrow !text-[10px]">Email sequence builder</p>
-        <h1 className="pib-page-title mt-2">Edit email sequence</h1>
-        <p className="pib-page-sub max-w-2xl">
+        <h1 className="mt-1 text-base font-semibold text-on-surface">Edit email sequence</h1>
+        <p className="mt-1 max-w-2xl text-xs leading-5 text-on-surface-variant">
           Tune the send / wait / branch flow, trigger, and goals. Preview the path before saving.
         </p>
       </div>

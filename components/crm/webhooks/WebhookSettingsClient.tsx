@@ -268,13 +268,13 @@ function healthClass(webhook: OutboundWebhook) {
 
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
   return (
-    <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2 min-h-[124px]">
+    <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
       <div className="flex items-start justify-between gap-3">
         <p className="eyebrow !text-[10px]">{label}</p>
         <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
       </div>
-      <p className="mt-3 font-display text-lg leading-none text-[var(--color-pib-text)]">{value}</p>
-      <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">{sub}</p>
+      <p className="mt-2 text-lg font-semibold leading-none text-on-surface">{value}</p>
+      <p className="mt-2 text-[11px] leading-4 text-on-surface-variant">{sub}</p>
     </div>
   )
 }
@@ -605,7 +605,7 @@ export function WebhookSettingsClient() {
         </div>
       )}
       {secretOnce && (
-        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 border-amber-400/30 bg-amber-400/10">
+        <div className="rounded-xl border border-amber-400/30 bg-amber-400/10">
           <p className="text-sm font-medium text-amber-100 mb-2">Save this signing secret now</p>
           <code className="block text-xs text-amber-50 break-all rounded-lg bg-black/30 border border-amber-400/20 px-3 py-2">
             {secretOnce}
@@ -614,7 +614,7 @@ export function WebhookSettingsClient() {
       )}
 
       {hasSourceFailure ? (
-        <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 border-amber-400/25 bg-amber-400/10">
+        <section className="rounded-xl border border-amber-400/25 bg-amber-400/10">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex gap-3">
               <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-amber-400/25 bg-amber-400/10 text-amber-200">
@@ -852,7 +852,7 @@ export function WebhookSettingsClient() {
                     </span>
                     <div className="min-w-0">
                       <p className="eyebrow !text-[10px] text-red-200">Webhook delete confirmation</p>
-                      <h3 id="webhook-delete-confirm-title" className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
+                      <h3 id="webhook-delete-confirm-title" className="mt-1 text-sm font-semibold text-on-surface">
                         Delete webhook subscription &quot;{pendingDeleteWebhookName}&quot;?
                       </h3>
                       <p id="webhook-delete-confirm-description" className="mt-2 text-sm text-red-100/90">
@@ -865,7 +865,7 @@ export function WebhookSettingsClient() {
                       type="button"
                       aria-label={`Cancel delete webhook subscription ${pendingDeleteWebhookName}`}
                       onClick={() => setPendingDeleteWebhook(null)}
-                      className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface text-xs"
+                      className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
                       disabled={busyId !== null}
                     >
                       Cancel
@@ -901,7 +901,7 @@ export function WebhookSettingsClient() {
                     </span>
                     <div className="min-w-0">
                       <p className="eyebrow !text-[10px] text-amber-200">Webhook secret rotation</p>
-                      <h3 id="webhook-rotate-confirm-title" className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
+                      <h3 id="webhook-rotate-confirm-title" className="mt-1 text-sm font-semibold text-on-surface">
                         Rotate signing secret for &quot;{pendingRotateWebhookName}&quot;?
                       </h3>
                       <p id="webhook-rotate-confirm-description" className="mt-2 text-sm text-amber-100/90">
@@ -914,7 +914,7 @@ export function WebhookSettingsClient() {
                       type="button"
                       aria-label={`Cancel rotate webhook signing secret ${pendingRotateWebhookName}`}
                       onClick={() => setPendingRotateWebhook(null)}
-                      className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface text-xs"
+                      className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
                       disabled={busyId !== null}
                     >
                       Cancel
@@ -1015,7 +1015,7 @@ export function WebhookSettingsClient() {
                         onClick={() => postAction(webhook, 'test')}
                         disabled={busyId !== null}
                         aria-label={`Test webhook subscription ${displayName}`}
-                        className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface flex items-center gap-1.5 text-xs disabled:opacity-50"
+                        className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface disabled:opacity-50"
                       >
                         <span className="material-symbols-outlined text-[14px]">send</span>
                         Test
@@ -1025,7 +1025,7 @@ export function WebhookSettingsClient() {
                         onClick={() => postAction(webhook, webhook.active ? 'disable' : 'enable')}
                         disabled={busyId !== null}
                         aria-label={`${toggleActionLabel} webhook subscription ${displayName}`}
-                        className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface flex items-center gap-1.5 text-xs disabled:opacity-50"
+                        className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface disabled:opacity-50"
                       >
                         <span className="material-symbols-outlined text-[14px]">
                           {webhook.active ? 'pause' : 'play_arrow'}
@@ -1037,7 +1037,7 @@ export function WebhookSettingsClient() {
                         onClick={() => toggleDeliveries(webhook.id)}
                         aria-expanded={expandedDeliveries === webhook.id}
                         aria-label={`Show recent deliveries for ${displayName}`}
-                        className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface flex items-center gap-1.5 text-xs disabled:opacity-50"
+                        className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface disabled:opacity-50"
                       >
                         <span className="material-symbols-outlined text-[14px]">history</span>
                         Deliveries
@@ -1050,7 +1050,7 @@ export function WebhookSettingsClient() {
                         onClick={() => startEdit(webhook)}
                         disabled={busyId !== null}
                         aria-label={`Edit webhook subscription ${displayName}`}
-                        className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface flex items-center gap-1.5 text-xs disabled:opacity-50"
+                        className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface disabled:opacity-50"
                       >
                         <span className="material-symbols-outlined text-[14px]">edit</span>
                         Edit
@@ -1063,7 +1063,7 @@ export function WebhookSettingsClient() {
                         }}
                         disabled={busyId !== null}
                         aria-label={`Rotate webhook signing secret ${displayName}`}
-                        className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface flex items-center gap-1.5 text-xs disabled:opacity-50"
+                        className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface disabled:opacity-50"
                       >
                         <span className="material-symbols-outlined text-[14px]">key</span>
                         Rotate
@@ -1076,7 +1076,7 @@ export function WebhookSettingsClient() {
                         }}
                         disabled={busyId !== null}
                         aria-label={`Delete webhook subscription ${displayName}`}
-                        className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface flex items-center gap-1.5 text-xs text-red-300 hover:bg-red-400/10 disabled:opacity-50"
+                        className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-red-300 transition-colors hover:bg-red-400/10 disabled:opacity-50"
                       >
                         <span className="material-symbols-outlined text-[14px]">delete</span>
                         Delete

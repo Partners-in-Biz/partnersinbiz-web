@@ -148,13 +148,13 @@ function ruleDisplayName(rule: AutomationRule): string {
 
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
   return (
-    <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2 min-h-[124px]">
+    <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
       <div className="flex items-start justify-between gap-3">
         <p className="eyebrow !text-[10px]">{label}</p>
         <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
       </div>
-      <p className="mt-3 font-display text-lg leading-none text-[var(--color-pib-text)]">{value}</p>
-      <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">{sub}</p>
+      <p className="mt-2 text-lg font-semibold leading-none text-on-surface">{value}</p>
+      <p className="mt-2 text-[11px] leading-4 text-on-surface-variant">{sub}</p>
     </div>
   )
 }
@@ -519,7 +519,7 @@ export default function AutomationsPage() {
               <button
                 type="button"
                 onClick={clearViewFilters}
-                className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface mt-5 inline-flex items-center gap-1.5 text-xs"
+                className="mt-5 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
                 aria-label="Show all automations"
               >
                 <span className="material-symbols-outlined text-[15px]" aria-hidden="true">filter_alt_off</span>
@@ -542,7 +542,7 @@ export default function AutomationsPage() {
                       </span>
                       <div className="min-w-0">
                         <p className="eyebrow !text-[10px] text-red-200">Automation delete confirmation</p>
-                        <h2 id="automation-delete-confirm-title" className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
+                        <h2 id="automation-delete-confirm-title" className="mt-1 text-sm font-semibold text-on-surface">
                           Delete automation &quot;{ruleDisplayName(pendingDeleteRule)}&quot;?
                         </h2>
                         <p id="automation-delete-confirm-description" className="mt-2 text-sm text-red-100/90">
@@ -557,7 +557,7 @@ export default function AutomationsPage() {
                           setPendingDeleteRule(null)
                           setDeleteError(null)
                         }}
-                        className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface text-xs"
+                        className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
                         disabled={deletingId !== null}
                         aria-label={`Cancel delete for automation ${ruleDisplayName(pendingDeleteRule)}`}
                       >
