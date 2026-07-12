@@ -1,12 +1,13 @@
 import { generateKeyPairSync, randomBytes, sign } from 'node:crypto'
 import { authenticateDeviceRequest, deviceRequestPayload } from '@/lib/linked-computers/device-auth'
-import { rotateDeviceCredential, revokeDeviceCredential, toSafeLinkedDeviceDto } from '@/lib/linked-computers/store'
+import { removeOwnedDevice, rotateDeviceCredential, revokeDeviceCredential, toSafeLinkedDeviceDto } from '@/lib/linked-computers/store'
 import { NextRequest } from 'next/server'
 import { handleLinkedComputerList } from '@/app/api/v1/linked-computers/route'
 import { handleDeviceHeartbeat } from '@/app/api/v1/linked-computers/[deviceId]/heartbeat/route'
 import { handleDeviceGrant } from '@/app/api/v1/linked-computers/[deviceId]/grants/route'
 import { handleDeviceMapping } from '@/app/api/v1/linked-computers/[deviceId]/mappings/route'
 import { handleLinkedComputerUpdate } from '@/app/api/v1/linked-computers/[deviceId]/route'
+import { handleLinkedComputerRemove } from '@/app/api/v1/linked-computers/[deviceId]/route'
 import { handleCredentialRotation } from '@/app/api/v1/linked-computers/[deviceId]/credentials/rotate/route'
 import * as linkedComputerCollectionRoute from '@/app/api/v1/linked-computers/route'
 
@@ -16,9 +17,14 @@ function fakeDb(seed: Record<string, Row>) {
   const rows = new Map(Object.entries(seed))
   const ref = (path: string) => ({ path, id: path.split('/').at(-1)! })
   const db = {
-    collection: (name: string) => ({ doc: (id: string) => ref(`${name}/${id}`) }),
+    collection: (name: string) => ({
+      doc: (id: string) => ref(`${name}/${id}`),
+      where: (field: string, _op: string, value: unknown) => ({ collection: name, field, value }),
+    }),
     runTransaction: async (fn: (tx: any) => Promise<any>) => fn({
-      get: async (document: { path: string }) => ({ exists: rows.has(document.path), data: () => rows.get(document.path) }),
+      get: async (document: { path?: string; collection?: string; field?: string; value?: unknown }) => document.collection
+        ? ({ docs: [...rows.entries()].filter(([path, row]) => path.startsWith(`${document.collection}/`) && row[document.field!] === document.value).map(([path, row]) => ({ ref: ref(path), data: () => row })) })
+        : ({ exists: rows.has(document.path!), data: () => rows.get(document.path!) }),
       create: (document: { path: string }, value: Row) => rows.set(document.path, value),
       set: (document: { path: string }, value: Row, options?: { merge?: boolean }) => rows.set(document.path, options?.merge ? { ...rows.get(document.path), ...value } : value),
       update: (document: { path: string }, value: Row) => rows.set(document.path, { ...rows.get(document.path), ...value }),
@@ -101,6 +107,23 @@ describe('linked computer lifecycle HTTP boundaries', () => {
     const response = await handleCredentialRotation({ uid: 'owner-a' }, 'device-a', async () => ({ deviceId: 'device-a', credential: 'one-time', credentialVersion: 2, overlapExpiresAt: 'expiry' }))
     expect(response.headers.get('cache-control')).toBe('no-store')
     expect(Object.keys((await response.json()).data).sort()).toEqual(['credential', 'credentialVersion', 'deviceId', 'overlapExpiresAt'].sort())
+  })
+
+  it('binds DELETE removal to the route device and authenticated owner', async () => {
+    const { db, rows } = fakeDb({
+      'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'owner-a', status: 'active' },
+      'linked_device_credentials/device-a': { deviceId: 'device-a', credentialHash: 'hash', credentialVersion: 1 },
+      'linked_device_grants/org-a_device-a': { deviceId: 'device-a', orgId: 'org-a', status: 'active' },
+      'linked_device_workspace_mappings/map-a': { mappingId: 'map-a', deviceId: 'device-a', orgId: 'org-a', status: 'active' },
+    })
+    const remove = jest.fn((input) => removeOwnedDevice(input, { db: db as never, now: () => 'server-time' }))
+    const response = await handleLinkedComputerRemove({ uid: 'owner-a' }, 'device-a', remove)
+    expect(response.status).toBe(200)
+    expect(remove).toHaveBeenCalledWith({ deviceId: 'device-a', actorUserId: 'owner-a' })
+    expect(rows.get('linked_devices/device-a')).toMatchObject({ status: 'removed' })
+    expect(rows.get('linked_device_credentials/device-a')).toMatchObject({ revokedAt: 'server-time' })
+    expect(rows.get('linked_device_grants/org-a_device-a')).toMatchObject({ status: 'revoked' })
+    expect(rows.get('linked_device_workspace_mappings/map-a')).toMatchObject({ status: 'removed' })
   })
 
   it('authenticates heartbeat against the exact raw body and denies cross-device identity', async () => {

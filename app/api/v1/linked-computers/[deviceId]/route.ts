@@ -14,9 +14,9 @@ export async function handleLinkedComputerUpdate(req: NextRequest, user: { uid: 
     return NextResponse.json({ success: true }, { headers: noStoreHeaders })
   } catch (error) { return lifecycleError(error) }
 }
-export async function handleLinkedComputerRemove(user: { uid: string }, deviceId: string): Promise<Response> {
+export async function handleLinkedComputerRemove(user: { uid: string }, deviceId: string, remove = removeOwnedDevice): Promise<Response> {
   try {
-    await removeOwnedDevice({ deviceId, actorUserId: user.uid })
+    await remove({ deviceId, actorUserId: user.uid })
     return NextResponse.json({ success: true }, { headers: noStoreHeaders })
   } catch (error) { return lifecycleError(error) }
 }
