@@ -66,20 +66,21 @@ export async function enqueueLinkedRun(input: {
       if (row.deviceId !== input.deviceId || row.requestId !== input.requestId) throw new Error('linked computers: run identity collision')
       return
     }
-    tx.create(ref, toStored(job))
     const ids = Array.isArray(queue.data()?.pendingJobIds) ? queue.data()!.pendingJobIds as string[] : []
-    tx.set(queueRef, { deviceId: input.deviceId, pendingJobIds: [...ids, id].slice(-500), updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+    if (ids.length >= 500) throw new Error('linked computers: device run queue full')
+    tx.create(ref, toStored(job))
+    tx.set(queueRef, { deviceId: input.deviceId, pendingJobIds: [...ids, id], updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+    tx.set(adminDb.collection('hermes_runs').doc(id), {
+      hermesRunId: id, runId: id, status: 'pending', orgId: input.orgId, profile: input.agentId,
+      conversationId: input.conversationId, messageId: input.assistantMessageId,
+      runtimeKind: 'linked-computer', linkedDeviceId: input.deviceId, linkedDeviceMappingId: input.mappingId,
+      createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(),
+    })
   })
-  await adminDb.collection('hermes_runs').doc(id).set({
-    hermesRunId: id, runId: id, status: 'pending', orgId: input.orgId, profile: input.agentId,
-    conversationId: input.conversationId, messageId: input.assistantMessageId,
-    runtimeKind: 'linked-computer', linkedDeviceId: input.deviceId, linkedDeviceMappingId: input.mappingId,
-    createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(),
-  }, { merge: true })
   return job
 }
 
-export async function claimOldestLinkedRun(input: { deviceId: string; credentialVersion: number }, options: { nowMs?: number; leaseMs?: number } = {}) {
+export async function claimOldestLinkedRun(input: { deviceId: string; ownerUserId: string; credentialVersion: number }, options: { nowMs?: number; leaseMs?: number } = {}) {
   const nowMs = options.nowMs ?? Date.now()
   return adminDb.runTransaction(async (tx) => {
     const queueRef = adminDb.collection(LINKED_RUN_QUEUES).doc(input.deviceId)
@@ -88,21 +89,45 @@ export async function claimOldestLinkedRun(input: { deviceId: string; credential
     let selected: LinkedRunJob | null = null
     let selectedRef: ReturnType<typeof adminDb.collection> extends never ? never : FirebaseFirestore.DocumentReference | null = null
     const remaining: string[] = []
-    const expiredRefs: FirebaseFirestore.DocumentReference[] = []
+    const expiredRefs: Array<{ ref: FirebaseFirestore.DocumentReference; job: LinkedRunJob }> = []
     for (const id of ids) {
       const ref = adminDb.collection(LINKED_RUN_JOBS).doc(id)
       const snap = await tx.get(ref)
       if (!snap.exists) continue
       const current = fromStored(snap.data() ?? {})
       if (current.deviceId !== input.deviceId || ['completed', 'failed', 'cancelled', 'expired'].includes(current.status)) continue
-      if (current.expiresAtMs <= nowMs) { expiredRefs.push(ref); continue }
-      if (!selected && (current.status === 'queued' || (current.status === 'claimed' && (current.leaseExpiresAtMs ?? 0) <= nowMs))) {
+      if (current.expiresAtMs <= nowMs) { expiredRefs.push({ ref, job: current }); continue }
+      if (!selected && (current.status === 'queued' || (['claimed', 'running'].includes(current.status) && (current.leaseExpiresAtMs ?? 0) <= nowMs))) {
+        const [device, grant, mapping, member] = await Promise.all([
+          tx.get(adminDb.collection('linked_devices').doc(current.deviceId)),
+          tx.get(adminDb.collection('linked_device_grants').doc(`${current.orgId}_${current.deviceId}`)),
+          tx.get(adminDb.collection('linked_device_workspace_mappings').doc(current.mappingId)),
+          tx.get(adminDb.collection('orgMembers').doc(`${current.orgId}_${input.ownerUserId}`)),
+        ])
+        const d = device.data() ?? {}; const g = grant.data() ?? {}; const m = mapping.data() ?? {}; const u = member.data() ?? {}
+        if (!device.exists || d.status !== 'active' || Number(d.credentialVersion) !== input.credentialVersion
+          || d.ownerUserId !== input.ownerUserId || !member.exists || u.status !== 'active' || u.orgId !== current.orgId
+          || (u.uid !== input.ownerUserId && u.userId !== input.ownerUserId)
+          || !Array.isArray(d.capabilities) || !d.capabilities.includes('workspace.execute')
+          || !grant.exists || g.status !== 'active' || g.orgId !== current.orgId || g.deviceId !== current.deviceId
+          || !Array.isArray(g.capabilities) || !g.capabilities.includes('workspace.execute')
+          || !mapping.exists || m.status !== 'active' || m.deviceId !== current.deviceId || m.orgId !== current.orgId
+          || m.workspaceId !== current.workspaceId || (current.projectId && m.projectId && m.projectId !== current.projectId)) {
+          expiredRefs.push({ ref, job: current }); continue
+        }
         selected = transitionLinkedRun(current, { type: 'claim', ...input, nowMs, leaseMs: options.leaseMs ?? DEFAULT_LEASE_MS })
         selectedRef = ref
       } else remaining.push(id)
     }
-    for (const ref of expiredRefs) tx.update(ref, { status: 'expired', encryptedPayload: null, updatedAt: Timestamp.fromMillis(nowMs) })
-    if (!selected || !selectedRef) return null
+    for (const expired of expiredRefs) {
+      tx.update(expired.ref, { status: 'expired', encryptedPayload: null, finalizationState: 'complete', completedAt: Timestamp.fromMillis(nowMs), cleanupAt: Timestamp.fromMillis(nowMs + DEFAULT_TTL_MS), updatedAt: Timestamp.fromMillis(nowMs) })
+      tx.set(adminDb.collection('conversations').doc(expired.job.conversationId).collection('messages').doc(expired.job.assistantMessageId), { content: '', status: 'failed', error: 'The linked computer run expired or is no longer authorized.', runId: expired.job.jobId, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+      tx.set(adminDb.collection('hermes_runs').doc(expired.job.jobId), { status: 'expired', error: 'The linked computer run expired or is no longer authorized.', completedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+    }
+    if (!selected || !selectedRef) {
+      if (remaining.length !== ids.length) tx.set(queueRef, { pendingJobIds: remaining, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+      return null
+    }
     tx.update(selectedRef, toStored(selected))
     tx.set(queueRef, { pendingJobIds: [selected.jobId, ...remaining], updatedAt: FieldValue.serverTimestamp() }, { merge: true })
     return publicClaimedLinkedRun(selected, decryptLinkedRunPayload(selected.encryptedPayload!, selected.deviceId, selected.jobId))
@@ -114,8 +139,10 @@ export async function updateLinkedRunFromDevice(input: {
   event: 'progress' | 'complete'; outcome?: 'completed' | 'failed' | 'cancelled'; output?: string; error?: string
 }, options: { nowMs?: number } = {}) {
   const nowMs = options.nowMs ?? Date.now()
-  const expectedReceiptEvent = input.event === 'progress' ? 'progress' : input.outcome
-  if (input.receipt.event !== expectedReceiptEvent) throw new Error('linked computers: run receipt event mismatch')
+  const validReceiptEvent = input.event === 'progress'
+    ? input.receipt.event === 'accepted' || input.receipt.event === 'progress'
+    : input.receipt.event === input.outcome
+  if (!validReceiptEvent) throw new Error('linked computers: run receipt event mismatch')
   const result = await adminDb.runTransaction(async (tx) => {
     const jobRef = adminDb.collection(LINKED_RUN_JOBS).doc(input.jobId)
     const deviceRef = adminDb.collection('linked_devices').doc(input.deviceId)
@@ -123,23 +150,31 @@ export async function updateLinkedRunFromDevice(input: {
     if (!jobSnap.exists || !deviceSnap.exists) throw new Error('linked computers: run not found')
     const job = fromStored(jobSnap.data() ?? {})
     const device = deviceSnap.data() ?? {}
-    requireLinkedRunReceipt(job, input.receipt, String(device.publicKey ?? ''), nowMs)
+    const output = typeof input.output === 'string' ? input.output : ''
+    const error = typeof input.error === 'string' ? input.error : ''
+    if (['completed', 'failed', 'cancelled'].includes(job.status)) {
+      const stored = jobSnap.data() ?? {}
+      if (JSON.stringify(stored.receipt) !== JSON.stringify(input.receipt) || stored.output !== sanitizeLinkedResult(output) || stored.error !== sanitizeLinkedResult(error)) {
+        throw new Error('linked computers: immutable terminal run mismatch')
+      }
+      requireLinkedRunReceipt(job, input.receipt, String(device.publicKey ?? ''), Date.parse(input.receipt.timestamp), { output, error })
+      return job
+    }
+    requireLinkedRunReceipt(job, input.receipt, String(device.publicKey ?? ''), nowMs, { output, error })
     const next = input.event === 'progress'
-      ? transitionLinkedRun(job, { type: 'progress', deviceId: input.deviceId, credentialVersion: input.credentialVersion, nowMs })
-      : transitionLinkedRun(job, { type: 'complete', deviceId: input.deviceId, credentialVersion: input.credentialVersion, nowMs, outcome: input.outcome ?? 'completed' })
-    tx.update(jobRef, { ...toStored(next), receipt: input.receipt, ...(input.output ? { output: input.output.slice(0, 1_000_000) } : {}), ...(input.error ? { error: input.error.slice(0, 10_000) } : {}) })
+      ? transitionLinkedRun(job, { type: 'progress', deviceId: input.deviceId, credentialVersion: input.credentialVersion, nowMs, attempt: input.receipt.attempt, leaseToken: input.receipt.leaseToken })
+      : transitionLinkedRun(job, { type: 'complete', deviceId: input.deviceId, credentialVersion: input.credentialVersion, nowMs, outcome: input.outcome ?? 'completed', attempt: input.receipt.attempt, leaseToken: input.receipt.leaseToken })
+    const safeOutput = sanitizeLinkedResult(output); const safeError = sanitizeLinkedResult(error)
+    tx.update(jobRef, { ...toStored(next), ...(input.event === 'progress' ? { acceptanceReceipt: input.receipt } : { receipt: input.receipt, finalizationState: 'complete' }), output: safeOutput, error: safeError })
+    if (input.event === 'complete') {
+      const status = input.outcome === 'completed' ? 'completed' : 'failed'
+      const content = status === 'completed' ? safeOutput : (safeError || `Linked computer run ${input.outcome ?? 'failed'}`)
+      tx.set(adminDb.collection('conversations').doc(job.conversationId).collection('messages').doc(job.assistantMessageId), { content, status, runId: job.jobId, acceptedDevice: { deviceId: job.deviceId, runtimeTargetId: job.runtimeTargetId, acceptedAt: input.receipt.acceptedAt, runtimeVersion: input.receipt.runtimeVersion, machineLabel: input.receipt.machineLabel }, linkedRunReceipt: input.receipt, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+      tx.set(adminDb.collection('hermes_runs').doc(job.jobId), { status, output: content, response: { status, receipt: input.receipt }, updatedAt: FieldValue.serverTimestamp(), completedAt: FieldValue.serverTimestamp() }, { merge: true })
+    }
     return next
   })
-  if (input.event === 'complete') await finalizeLinkedRun(result, input)
   return result
-}
-
-async function finalizeLinkedRun(job: LinkedRunJob, result: { outcome?: string; output?: string; error?: string; receipt: LinkedRunReceipt }) {
-  const msgRef = adminDb.collection('conversations').doc(job.conversationId).collection('messages').doc(job.assistantMessageId)
-  const status = result.outcome === 'completed' ? 'completed' : 'failed'
-  const content = status === 'completed' ? (result.output ?? '') : (result.error ?? `Linked computer run ${result.outcome ?? 'failed'}`)
-  await msgRef.set({ content, status, runId: job.jobId, acceptedDevice: { deviceId: job.deviceId, runtimeTargetId: job.runtimeTargetId, acceptedAt: result.receipt.timestamp }, linkedRunReceipt: result.receipt, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
-  await adminDb.collection('hermes_runs').doc(job.jobId).set({ hermesRunId: job.jobId, status, output: content, orgId: job.orgId, profile: job.agentId, conversationId: job.conversationId, messageId: job.assistantMessageId, runtimeKind: 'linked-computer', linkedDeviceId: job.deviceId, linkedDeviceMappingId: job.mappingId, response: { status, receipt: result.receipt }, updatedAt: FieldValue.serverTimestamp(), completedAt: FieldValue.serverTimestamp() }, { merge: true })
 }
 
 export async function waitForLinkedRunClaim(job: LinkedRunJob, options: { timeoutMs?: number; pollMs?: number } = {}) {
@@ -147,7 +182,8 @@ export async function waitForLinkedRunClaim(job: LinkedRunJob, options: { timeou
   while (Date.now() < deadline) {
     const snap = await adminDb.collection(LINKED_RUN_JOBS).doc(job.jobId).get()
     const row = snap.exists ? fromStored(snap.data() ?? {}) : null
-    if (row?.status === 'claimed' || row?.status === 'running') return row
+    const stored = snap.data() ?? {}
+    if (row && ['running', 'completed', 'failed', 'cancelled'].includes(row.status) && (stored.acceptanceReceipt || stored.receipt)) return row
     await new Promise((resolve) => setTimeout(resolve, Math.max(50, options.pollMs ?? 200)))
   }
   throw new Error('linked computers: claim timeout')
@@ -160,6 +196,20 @@ export async function cancelLinkedRun(jobIdValue: string, reason = 'cancelled') 
     if (!snap.exists) return
     const job = fromStored(snap.data() ?? {})
     if (['completed', 'failed', 'cancelled', 'expired'].includes(job.status)) return
-    tx.update(ref, { status: 'cancelled', encryptedPayload: null, error: reason.slice(0, 500), completedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() })
+    const queueRef = adminDb.collection(LINKED_RUN_QUEUES).doc(job.deviceId)
+    const queue = await tx.get(queueRef)
+    const ids = Array.isArray(queue.data()?.pendingJobIds) ? queue.data()!.pendingJobIds as string[] : []
+    const error = sanitizeLinkedResult(reason.slice(0, 500))
+    tx.update(ref, { status: 'cancelled', encryptedPayload: null, error, finalizationState: 'complete', completedAt: FieldValue.serverTimestamp(), cleanupAt: Timestamp.fromMillis(Date.now() + DEFAULT_TTL_MS), updatedAt: FieldValue.serverTimestamp() })
+    tx.set(queueRef, { pendingJobIds: ids.filter((id) => id !== jobIdValue), updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+    tx.set(adminDb.collection('conversations').doc(job.conversationId).collection('messages').doc(job.assistantMessageId), { content: '', status: 'failed', error: 'The linked computer run was cancelled.', runId: job.jobId, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+    tx.set(adminDb.collection('hermes_runs').doc(job.jobId), { status: 'cancelled', error: 'The linked computer run was cancelled.', updatedAt: FieldValue.serverTimestamp(), completedAt: FieldValue.serverTimestamp() }, { merge: true })
   })
+}
+
+export function sanitizeLinkedResult(value: string): string {
+  return value.slice(0, 1_000_000)
+    .replace(/(?:https?:\/\/)[^\s)\]}]+/gi, '[redacted-url]')
+    .replace(/(?:\/Users\/|\/home\/|\/var\/|[A-Za-z]:\\)[^\s)\]}]+/g, '[redacted-path]')
+    .replace(/\b(?:api[_-]?key|token|secret|password|credential)\s*[:=]\s*[^\s,;]+/gi, '$1=[redacted]')
 }

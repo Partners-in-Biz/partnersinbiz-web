@@ -44,3 +44,13 @@ GREEN:
 ## Commit
 
 Recorded in the Git commit containing this report (`feat(devices): add secure outbound run queue`).
+
+## Security review follow-up
+
+The review hardening pass adds an unpredictable per-attempt lease token, running-job reclaim, strict old-worker fencing, and completion receipts that canonically sign outcome, timing, runtime identity, lease identity, and SHA-256 plus byte lengths for output/error. Completion bodies are verified before any write, terminal duplicates are immutable, and result text is redacted before reaching Messages or the run ledger.
+
+Queue insertion now rejects backpressure before creating a job, creates the run ledger in the same transaction as the job/queue entry, and never drops live IDs by slicing. Claim revalidates the device, owner membership, grant capability, current credential, and exact active mapping before decryption. Signed acceptance is stored through the progress callback, and the dispatch waiter requires an acceptance or completion receipt rather than treating a bare claim as success.
+
+Cancellation now transactionally checks non-terminal state, removes the queue ID, clears ciphertext, and finalizes job/message/ledger together. Completion also finalizes all three records in one transaction.
+
+Follow-up verification: 37 focused tests passed and targeted production ESLint/diff checks passed. Full typecheck was blocked only by concurrent installer verifier changes using unsupported regex flags in `scripts/verify-linked-runtime-installers.ts`; no type errors were reported in this server slice.

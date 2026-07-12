@@ -24,6 +24,7 @@ export interface LinkedRunJob {
   updatedAtMs: number
   expiresAtMs: number
   leaseExpiresAtMs?: number
+  leaseToken?: string
   claimedAtMs?: number
   completedAtMs?: number
   conversationId: string
@@ -38,8 +39,18 @@ export interface LinkedRunReceipt {
   mappingId: string
   credentialVersion: number
   attempt: number
+  leaseToken: string
   event: 'accepted' | 'progress' | 'completed' | 'failed' | 'cancelled'
+  outcome: 'accepted' | 'running' | 'completed' | 'failed' | 'cancelled'
   timestamp: string
+  acceptedAt: string
+  toolStartedAt: string
+  runtimeVersion: string
+  machineLabel: string
+  outputSha256: string
+  outputBytes: number
+  errorSha256: string
+  errorBytes: number
   signature: string
 }
 
@@ -78,8 +89,8 @@ function assertIdentity(job: LinkedRunJob, event: { deviceId: string; credential
 
 export function transitionLinkedRun(job: LinkedRunJob, event:
   | { type: 'claim'; deviceId: string; credentialVersion: number; nowMs: number; leaseMs: number }
-  | { type: 'progress'; deviceId: string; credentialVersion: number; nowMs: number }
-  | { type: 'complete'; deviceId: string; credentialVersion: number; nowMs: number; outcome: 'completed' | 'failed' | 'cancelled' }
+  | { type: 'progress'; deviceId: string; credentialVersion: number; nowMs: number; attempt: number; leaseToken: string }
+  | { type: 'complete'; deviceId: string; credentialVersion: number; nowMs: number; outcome: 'completed' | 'failed' | 'cancelled'; attempt: number; leaseToken: string }
 ): LinkedRunJob {
   assertIdentity(job, event)
   if (event.type === 'complete' && job.status === event.outcome) return job
@@ -89,25 +100,38 @@ export function transitionLinkedRun(job: LinkedRunJob, event:
     if (job.status !== 'queued' && !(job.status === 'claimed' && (job.leaseExpiresAtMs ?? 0) <= event.nowMs)) {
       throw new Error('linked computers: run lease active')
     }
-    return { ...job, status: 'claimed', attempt: job.attempt + 1, claimedAtMs: event.nowMs, leaseExpiresAtMs: event.nowMs + event.leaseMs, updatedAtMs: event.nowMs }
+    return { ...job, status: 'claimed', attempt: job.attempt + 1, leaseToken: crypto.randomBytes(24).toString('base64url'), claimedAtMs: event.nowMs, leaseExpiresAtMs: event.nowMs + event.leaseMs, updatedAtMs: event.nowMs }
   }
   if (!['claimed', 'running'].includes(job.status)) throw new Error('linked computers: run not claimed')
+  if (event.attempt !== job.attempt || event.leaseToken !== job.leaseToken) throw new Error('linked computers: run lease mismatch')
   if ((job.leaseExpiresAtMs ?? 0) < event.nowMs) throw new Error('linked computers: run lease expired')
   if (event.type === 'progress') return { ...job, status: 'running', updatedAtMs: event.nowMs }
   return { ...job, status: event.outcome, encryptedPayload: null, completedAtMs: event.nowMs, updatedAtMs: event.nowMs }
 }
 
 export function linkedRunReceiptPayload(receipt: Omit<LinkedRunReceipt, 'signature'> | LinkedRunReceipt): string {
-  return [receipt.jobId, receipt.requestId, receipt.deviceId, receipt.mappingId, String(receipt.credentialVersion), String(receipt.attempt), receipt.event, receipt.timestamp].join('\n')
+  return [receipt.jobId, receipt.requestId, receipt.deviceId, receipt.mappingId, String(receipt.credentialVersion), String(receipt.attempt), receipt.leaseToken,
+    receipt.event, receipt.outcome, receipt.timestamp, receipt.acceptedAt, receipt.toolStartedAt, receipt.runtimeVersion, receipt.machineLabel,
+    receipt.outputSha256, String(receipt.outputBytes), receipt.errorSha256, String(receipt.errorBytes)].join('\n')
 }
 
-export function requireLinkedRunReceipt(job: LinkedRunJob, receipt: LinkedRunReceipt, publicKey: string, nowMs = Date.now()): LinkedRunReceipt {
+export function requireLinkedRunReceipt(job: LinkedRunJob, receipt: LinkedRunReceipt, publicKey: string, nowMs = Date.now(), body: { output?: string; error?: string } = {}): LinkedRunReceipt {
   if (receipt.jobId !== job.jobId || receipt.requestId !== job.requestId || receipt.deviceId !== job.deviceId
     || receipt.mappingId !== job.mappingId || receipt.credentialVersion !== job.credentialVersion
-    || receipt.attempt !== Math.max(1, job.attempt)) throw new Error('linked computers: run receipt mismatch')
+    || receipt.attempt !== Math.max(1, job.attempt) || receipt.leaseToken !== job.leaseToken) throw new Error('linked computers: run receipt mismatch')
   const receiptMs = Date.parse(receipt.timestamp)
-  if (!Number.isFinite(receiptMs) || Math.abs(nowMs - receiptMs) > MAX_RECEIPT_SKEW_MS
+  const acceptedMs = Date.parse(receipt.acceptedAt)
+  const toolMs = Date.parse(receipt.toolStartedAt)
+  if (!Number.isFinite(receiptMs) || !Number.isFinite(acceptedMs) || !Number.isFinite(toolMs)
+    || Math.abs(nowMs - receiptMs) > MAX_RECEIPT_SKEW_MS || acceptedMs > toolMs || toolMs > receiptMs
+    || acceptedMs < (job.claimedAtMs ?? job.createdAtMs) - 60_000 || !receipt.runtimeVersion || !receipt.machineLabel
+    || receipt.event !== receipt.outcome && !(receipt.event === 'progress' && receipt.outcome === 'running')
     || !/^[A-Za-z0-9_-]{16,1024}$/.test(receipt.signature)) throw new Error('linked computers: invalid run receipt')
+  const output = body.output ?? ''
+  const error = body.error ?? ''
+  const digest = (value: string) => crypto.createHash('sha256').update(value).digest('hex')
+  if (receipt.outputBytes !== Buffer.byteLength(output) || receipt.errorBytes !== Buffer.byteLength(error)
+    || receipt.outputSha256 !== digest(output) || receipt.errorSha256 !== digest(error)) throw new Error('linked computers: run receipt body mismatch')
   let valid = false
   try { valid = verify(null, Buffer.from(linkedRunReceiptPayload(receipt)), publicKey, Buffer.from(receipt.signature, 'base64url')) } catch { valid = false }
   if (!valid) throw new Error('linked computers: invalid run receipt signature')
@@ -118,7 +142,7 @@ export function publicClaimedLinkedRun(job: LinkedRunJob, payload: LinkedRunPayl
   return {
     jobId: job.jobId, requestId: job.requestId, prompt: payload.prompt, workspaceId: job.workspaceId,
     ...(job.projectId ? { projectId: job.projectId } : {}), mappingId: job.mappingId,
-    relativeFolder: job.relativeFolder, ...(payload.model ? { model: payload.model } : {}),
+    relativeFolder: job.relativeFolder, attempt: job.attempt, leaseToken: job.leaseToken, ...(payload.model ? { model: payload.model } : {}),
     ...(payload.provider ? { provider: payload.provider } : {}),
   }
 }

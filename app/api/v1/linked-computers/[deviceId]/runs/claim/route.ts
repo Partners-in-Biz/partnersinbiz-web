@@ -14,7 +14,7 @@ export async function handleLinkedRunClaim(
     const rawBody = await req.text()
     const identity = await auth(req, deviceId, rawBody)
     if (identity.deviceId !== deviceId) throw new Error('linked computers: tenant scope mismatch')
-    const job = await claim({ deviceId, credentialVersion: identity.credentialVersion })
+    const job = await claim({ deviceId, ownerUserId: identity.ownerUserId, credentialVersion: identity.credentialVersion })
     return NextResponse.json({ success: true, data: job }, { status: job ? 200 : 204, headers: noStoreHeaders })
   } catch (error) { return lifecycleError(error) }
 }
