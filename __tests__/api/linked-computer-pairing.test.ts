@@ -184,7 +184,11 @@ describe('linked computer device authentication', () => {
   it('authenticates once and atomically denies an identical signed request replay', async () => {
     const { db, rows, base } = authFixture()
     await expect(authenticateDeviceRequest(base, { db, nowMs: () => nowMs })).resolves.toMatchObject({ ownerUserId: 'user-a' })
-    expect([...rows.keys()].filter((key) => key.startsWith('linked_device_request_nonces/'))).toHaveLength(1)
+    const nonceKey = [...rows.keys()].find((key) => key.startsWith('linked_device_request_nonces/'))
+    expect(nonceKey).toBeTruthy()
+    const expiresAt = rows.get(nonceKey!)?.expiresAt as { toMillis?: () => number }
+    expect(typeof expiresAt.toMillis).toBe('function')
+    expect(expiresAt.toMillis?.()).toBeGreaterThanOrEqual(nowMs + 5 * 60 * 1000)
     await expect(authenticateDeviceRequest(base, { db, nowMs: () => nowMs })).rejects.toThrow('request replay')
   })
 

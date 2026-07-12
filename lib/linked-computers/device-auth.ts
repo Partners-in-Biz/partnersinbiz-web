@@ -1,4 +1,5 @@
 import { createHash, verify } from 'node:crypto'
+import { Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import {
   constantTimeSecretMatch,
@@ -67,7 +68,7 @@ export async function authenticateDeviceRequest(
     tx.create(nonceRef, {
       deviceId: input.deviceId, requestIdHash: createHash('sha256').update(input.requestId).digest('hex'),
       credentialVersion: input.credentialVersion, requestTimestamp: requestTime,
-      expiresAt: new Date(currentTime + MAX_CLOCK_SKEW_MS).toISOString(),
+      expiresAt: Timestamp.fromMillis(currentTime + MAX_CLOCK_SKEW_MS),
     })
     return { deviceId: input.deviceId, ownerUserId: String(device.ownerUserId), credentialVersion: input.credentialVersion }
   })

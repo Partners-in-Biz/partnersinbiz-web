@@ -2404,6 +2404,16 @@
   ],
   "fieldOverrides": [
     {
+      "collectionGroup": "linked_device_request_nonces",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION" },
+        { "order": "DESCENDING", "queryScope": "COLLECTION" },
+        { "arrayConfig": "CONTAINS", "queryScope": "COLLECTION" }
+      ]
+    },
+    {
       "collectionGroup": "form_rate_limits",
       "fieldPath": "expiresAt",
       "ttl": true,
