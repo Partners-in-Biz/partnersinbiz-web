@@ -12,7 +12,7 @@ const hermes=process.env.PIB_LOCAL_HERMES||'http://127.0.0.1:8755'
 const runtimeVersion=process.env.PIB_RUNTIME_VERSION||'1.0.0'
 const stateRoot=process.env.PIB_RUNTIME_STATE_DIR||path.join(os.homedir(),'.partnersinbiz')
 const maps=new MappingRegistry(path.join(stateRoot,'mappings.json'))
-const helper=process.env.PIB_CREDENTIAL_HELPER||'pib-credential-helper'
+const helper=process.env.PIB_CREDENTIAL_HELPER||path.join(path.dirname(process.execPath),process.platform==='win32'?'pib-credential-helper.exe':'pib-credential-helper')
 const store={async put(name:string,value:string){const {spawnSync}=await import('node:child_process');const r=spawnSync(helper,['put',name],{input:value,stdio:['pipe','ignore','pipe']});if(r.status)throw new Error('secure credential write failed')},async get(name:string){const {execFileSync}=await import('node:child_process');return execFileSync(helper,['get',name],{encoding:'utf8'}).trim()},async clear(){const {execFileSync}=await import('node:child_process');try{execFileSync(helper,['clear'])}catch{}}}
 
 async function promptSecret(label:string){
@@ -30,7 +30,7 @@ async function pair(challengeId:string){
  const code=await promptSecret('One-time pairing code: '),deviceId=randomUUID(),keys=createPairingIdentity()
  const proof=sign(null,Buffer.from(pairingPayload(challengeId,code,deviceId,keys.publicKey)),keys.privateKey).toString('base64url')
  const response=await fetch(`${api}/api/v1/linked-computers/pairing/exchange`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({challengeId,secret:code,deviceId,publicKey:keys.publicKey,proof,label:os.hostname(),platform:process.platform==='win32'?'windows':'macos',architecture:process.arch==='arm64'?'arm64':'x64',runtimeVersion})})
- const data=await jsonData(response);await store.put('identity',JSON.stringify({...data,privateKey:keys.privateKey.export({type:'pkcs8',format:'pem'})}));await heartbeat(true);process.stdout.write('Paired.\n')
+ const data=await jsonData(response),outboundIdentity={...data};delete outboundIdentity.transportToken;await store.put('identity',JSON.stringify({...outboundIdentity,privateKey:keys.privateKey.export({type:'pkcs8',format:'pem'})}));await heartbeat(true);process.stdout.write('Paired.\n')
 }
 async function heartbeat(bootstrapTransport=false){const i=await identity(),response=await post(`/api/v1/linked-computers/${i.deviceId}/heartbeat`,{runtimeVersion,health:'ok',capabilities:['workspace.execute'],bootstrapTransport,claimRotation:true});const data=await jsonData(response);if(data?.credential){await store.put('identity',JSON.stringify({...i,...data}))}}
 async function claim():Promise<Job|null>{const i=await identity();const response=await post(`/api/v1/linked-computers/${i.deviceId}/runs/claim`,{runtimeVersion});if(response.status===204)return null;return jsonData(response)}

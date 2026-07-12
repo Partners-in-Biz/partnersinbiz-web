@@ -19,4 +19,4 @@ pib-runtime pair --challenge <challengeId> --platform windows
 
 Folder mappings are local-only and private: use `pib-runtime map --mapping <id> --folder <absolute folder>`, `unmap`, and `status`. The registry is atomically written with mode `0600`, and runtime resolution rejects symlink escapes.
 
-Build shared source with `runtime-installers/build-runtime.sh`. It emits source artifacts for macOS arm64/x64 and Windows arm64/x64 containing the runtime, mandatory release manager, native helper, installer, and service source. Packaging still needs release-owned native compilation and signing.
+Build with `runtime-installers/build-runtime.sh`. Bun compiles standalone runtime and release-manager executables for macOS arm64/x64 and Windows arm64/x64, Swift compiles the macOS helpers, and the .NET SDK cross-publishes the Windows SCM service and Credential Manager helper. The build fails clearly instead of emitting source-only packages when the native toolchain is absent. Production packaging still needs release signing and native VM drills.

@@ -1,2 +1,26 @@
-using System; using System.Diagnostics; using System.IO; using System.Security.Cryptography; using System.ServiceProcess; using System.Text; using System.Text.Json; using System.Threading;
-namespace PartnersInBiz { public sealed class RuntimeService:ServiceBase { Process child; Timer timer; readonly string root=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),"PartnersInBiz"); string RuntimePath()=>Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),@"Partners in Biz\current\pib-runtime.exe"); public RuntimeService(){ServiceName="PartnersInBizRuntime";} protected override void OnStart(string[] a){child=Process.Start(new ProcessStartInfo(RuntimePath(),"service"){UseShellExecute=false,CreateNoWindow=true});timer=new Timer(_=>ClaimPairing(),null,0,2000);} protected override void OnCustomCommand(int command){if(command!=128)return;try{var revoke=Process.Start(new ProcessStartInfo(RuntimePath(),"revoke"){UseShellExecute=false,CreateNoWindow=true});revoke.WaitForExit(30000);}catch(Exception e){EventLog.WriteEntry("Credential cleanup failed: "+e.GetType().Name,EventLogEntryType.Error);}} void ClaimPairing(){var ready=Path.Combine(root,"pairing.ready"),claim=Path.Combine(root,"pairing.claimed");try{if(!File.Exists(ready))return;File.Move(ready,claim);var plain=ProtectedData.Unprotect(File.ReadAllBytes(claim),null,DataProtectionScope.LocalMachine);File.Delete(claim);var h=JsonSerializer.Deserialize<Handoff>(plain);CryptographicOperations.ZeroMemory(plain);var p=new Process{StartInfo=new ProcessStartInfo(RuntimePath(),"pair --challenge "+h.challengeId){UseShellExecute=false,RedirectStandardInput=true,CreateNoWindow=true}};p.Start();p.StandardInput.WriteLine(h.code);p.StandardInput.Close();p.WaitForExit();}catch(Exception e){EventLog.WriteEntry("Pairing handoff failed: "+e.GetType().Name,EventLogEntryType.Error);try{File.Delete(claim);}catch{}}} protected override void OnStop(){timer?.Dispose();if(child!=null&&!child.HasExited){child.CloseMainWindow();if(!child.WaitForExit(15000))child.Kill();}} public static void Main(){ServiceBase.Run(new RuntimeService());} class Handoff{public string challengeId{get;set;}public string code{get;set;}} } }
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Security.Cryptography;
+using System.ServiceProcess;
+using System.Text.Json;
+using System.Threading;
+
+namespace PartnersInBiz {
+  public sealed class RuntimeService : ServiceBase {
+    readonly string root=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),"PartnersInBiz");
+    readonly object childLock=new object();
+    Process child; Timer pairingTimer; Thread supervisor; CancellationTokenSource stopping;
+    string RuntimePath()=>Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),@"Partners in Biz\current\pib-runtime.exe");
+    public RuntimeService(){ServiceName="PartnersInBizRuntime";CanStop=true;CanShutdown=true;}
+    protected override void OnStart(string[] args){stopping=new CancellationTokenSource();supervisor=new Thread(()=>Supervise(stopping.Token)){IsBackground=true,Name="PiB runtime supervisor"};supervisor.Start();pairingTimer=new Timer(_=>ClaimPairing(),null,0,2000);}
+    void Supervise(CancellationToken token){var backoff=1000;while(!token.IsCancellationRequested){try{var process=Process.Start(new ProcessStartInfo(RuntimePath(),"service"){UseShellExecute=false,CreateNoWindow=true});lock(childLock)child=process;while(!token.IsCancellationRequested&&!process.WaitForExit(500)){}if(token.IsCancellationRequested)break;EventLog.WriteEntry("Runtime worker exited; restarting.",EventLogEntryType.Warning);backoff=Math.Min(backoff*2,30000);}catch(Exception e){EventLog.WriteEntry("Runtime worker start failed: "+e.GetType().Name,EventLogEntryType.Error);backoff=Math.Min(backoff*2,30000);}if(token.WaitHandle.WaitOne(backoff))break;}lock(childLock)child=null;}
+    void RestartWorker(){lock(childLock){if(child!=null&&!child.HasExited){child.Kill();child.WaitForExit(15000);}}}
+    protected override void OnCustomCommand(int command){if(command!=128)return;try{var revoke=Process.Start(new ProcessStartInfo(RuntimePath(),"revoke"){UseShellExecute=false,CreateNoWindow=true});revoke.WaitForExit(30000);}catch(Exception e){EventLog.WriteEntry("Credential cleanup failed: "+e.GetType().Name,EventLogEntryType.Error);}}
+    void ClaimPairing(){var ready=Path.Combine(root,"pairing.ready"),claim=Path.Combine(root,"pairing.claimed");try{if(!File.Exists(ready))return;File.Move(ready,claim);var plain=ProtectedData.Unprotect(File.ReadAllBytes(claim),null,DataProtectionScope.LocalMachine);File.Delete(claim);var handoff=JsonSerializer.Deserialize<Handoff>(plain);CryptographicOperations.ZeroMemory(plain);var pair=Process.Start(new ProcessStartInfo(RuntimePath(),"pair --challenge "+handoff.challengeId){UseShellExecute=false,RedirectStandardInput=true,CreateNoWindow=true});pair.StandardInput.WriteLine(handoff.code);pair.StandardInput.Close();if(!pair.WaitForExit(30000)||pair.ExitCode!=0)throw new InvalidOperationException("pairing failed");RestartWorker();}catch(Exception e){EventLog.WriteEntry("Pairing handoff failed: "+e.GetType().Name,EventLogEntryType.Error);try{File.Delete(claim);}catch{}}}
+    protected override void OnStop(){pairingTimer?.Dispose();stopping?.Cancel();RestartWorker();supervisor?.Join(15000);stopping?.Dispose();}
+    protected override void OnShutdown(){OnStop();base.OnShutdown();}
+    public static void Main(){ServiceBase.Run(new RuntimeService());}
+    sealed class Handoff{public string challengeId{get;set;}public string code{get;set;}}
+  }
+}
