@@ -12,6 +12,7 @@ export interface LinkedRunJob {
   deviceId: string
   runtimeTargetId: string
   orgId: string
+  actorUserId: string
   workspaceId: string
   projectId?: string
   mappingId: string
@@ -89,7 +90,7 @@ function assertIdentity(job: LinkedRunJob, event: { deviceId: string; credential
 
 export function transitionLinkedRun(job: LinkedRunJob, event:
   | { type: 'claim'; deviceId: string; credentialVersion: number; nowMs: number; leaseMs: number }
-  | { type: 'progress'; deviceId: string; credentialVersion: number; nowMs: number; attempt: number; leaseToken: string }
+  | { type: 'progress'; deviceId: string; credentialVersion: number; nowMs: number; attempt: number; leaseToken: string; leaseMs: number }
   | { type: 'complete'; deviceId: string; credentialVersion: number; nowMs: number; outcome: 'completed' | 'failed' | 'cancelled'; attempt: number; leaseToken: string }
 ): LinkedRunJob {
   assertIdentity(job, event)
@@ -97,7 +98,7 @@ export function transitionLinkedRun(job: LinkedRunJob, event:
   if (['completed', 'failed', 'cancelled', 'expired'].includes(job.status)) throw new Error('linked computers: run already final')
   if (event.nowMs >= job.expiresAtMs) throw new Error('linked computers: run expired')
   if (event.type === 'claim') {
-    if (job.status !== 'queued' && !(job.status === 'claimed' && (job.leaseExpiresAtMs ?? 0) <= event.nowMs)) {
+    if (job.status !== 'queued' && !(['claimed', 'running'].includes(job.status) && (job.leaseExpiresAtMs ?? 0) <= event.nowMs)) {
       throw new Error('linked computers: run lease active')
     }
     return { ...job, status: 'claimed', attempt: job.attempt + 1, leaseToken: crypto.randomBytes(24).toString('base64url'), claimedAtMs: event.nowMs, leaseExpiresAtMs: event.nowMs + event.leaseMs, updatedAtMs: event.nowMs }
@@ -105,8 +106,21 @@ export function transitionLinkedRun(job: LinkedRunJob, event:
   if (!['claimed', 'running'].includes(job.status)) throw new Error('linked computers: run not claimed')
   if (event.attempt !== job.attempt || event.leaseToken !== job.leaseToken) throw new Error('linked computers: run lease mismatch')
   if ((job.leaseExpiresAtMs ?? 0) < event.nowMs) throw new Error('linked computers: run lease expired')
-  if (event.type === 'progress') return { ...job, status: 'running', updatedAtMs: event.nowMs }
+  if (event.type === 'progress') return { ...job, status: 'running', leaseExpiresAtMs: event.nowMs + event.leaseMs, updatedAtMs: event.nowMs }
   return { ...job, status: event.outcome, encryptedPayload: null, completedAtMs: event.nowMs, updatedAtMs: event.nowMs }
+}
+
+export function sanitizeLinkedResult(value: string): string {
+  return value.slice(0, 1_000_000)
+    .replace(/-----BEGIN[\s\S]{0,100}?PRIVATE KEY-----[\s\S]*?-----END[\s\S]{0,100}?PRIVATE KEY-----/gi, '[redacted-private-key]')
+    .replace(/(?:-----BEGIN\s*)?PRIVATE KEY-----[^\r\n}]*/gi, '[redacted-private-key]')
+    .replace(/\bAuthorization\s*:\s*(?:Bearer\s+)?[^\s,;]+/gi, 'Authorization: [redacted]')
+    .replace(/\bBearer\s+[A-Za-z0-9._~+\/-]+=*/gi, 'Bearer [redacted]')
+    .replace(/(["']?(?:api[_-]?key|token|secret|password|credential)["']?\s*[:=]\s*["']?)[^"'\s,;}]+/gi, '$1[redacted]')
+    .replace(/\\\\[^\\\s]+\\[^\s)\]}]+/g, '[redacted-path]')
+    .replace(/\b[A-Za-z]:\\[^\s)\]}]+/g, '[redacted-path]')
+    .replace(/(^|[\s("'])\/(?!\/)[^\s)\]}"']+/gm, '$1[redacted-path]')
+    .replace(/(?:https?:\/\/)[^\s)\]}]+/gi, '[redacted-url]')
 }
 
 export function linkedRunReceiptPayload(receipt: Omit<LinkedRunReceipt, 'signature'> | LinkedRunReceipt): string {

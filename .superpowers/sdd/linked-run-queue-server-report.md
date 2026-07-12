@@ -54,3 +54,14 @@ Queue insertion now rejects backpressure before creating a job, creates the run 
 Cancellation now transactionally checks non-terminal state, removes the queue ID, clears ciphertext, and finalizes job/message/ledger together. Completion also finalizes all three records in one transaction.
 
 Follow-up verification: 37 focused tests passed and targeted production ESLint/diff checks passed. Full typecheck was blocked only by concurrent installer verifier changes using unsupported regex flags in `scripts/verify-linked-runtime-installers.ts`; no type errors were reported in this server slice.
+
+## Final race and identity hardening
+
+- Expired `running` work is reclaimable with a new random lease token and incremented attempt; signed progress renews only the current fenced lease.
+- Timeout cancellation reports whether its transaction won. Messages writes timeout only on a winning cancellation and otherwise preserves the terminal result.
+- Jobs retain the dispatch actor ID. Claim revalidates both actor and owner memberships plus owner/shared grant access before releasing plaintext.
+- Receipt runtime version and machine label must equal the registered device values before accepted identity is persisted.
+- Claim scans at most 12 candidate IDs per transaction, preserving the rest for later polls.
+- Result sanitization now covers arbitrary POSIX, drive-letter and UNC paths, URLs, Authorization/Bearer credentials, named secrets, nested JSON secrets, and private-key material.
+
+Final focused verification: 29 tests passed; targeted ESLint and diff checks passed. Full typecheck remains blocked solely by concurrent installer verifier regex flags outside this server slice.

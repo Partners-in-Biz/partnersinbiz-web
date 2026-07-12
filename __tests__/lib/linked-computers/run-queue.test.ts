@@ -5,6 +5,7 @@ import {
   linkedRunReceiptPayload,
   requireLinkedRunReceipt,
   transitionLinkedRun,
+  sanitizeLinkedResult,
   type LinkedRunJob,
 } from '@/lib/linked-computers/run-queue'
 
@@ -13,7 +14,7 @@ const now = Date.parse('2026-07-13T09:00:00.000Z')
 function queued(overrides: Partial<LinkedRunJob> = {}): LinkedRunJob {
   return {
     jobId: 'job-1', requestId: 'request-1234567890', deviceId: 'device-a', runtimeTargetId: 'target-a',
-    orgId: 'org-a', workspaceId: 'workspace-a', projectId: 'project-a', mappingId: 'mapping-a',
+    orgId: 'org-a', actorUserId: 'user-a', workspaceId: 'workspace-a', projectId: 'project-a', mappingId: 'mapping-a',
     relativeFolder: 'Projects/project-a', credentialVersion: 3, status: 'queued', attempt: 0,
     encryptedPayload: { ciphertext: 'cipher', iv: 'iv', tag: 'tag' },
     createdAtMs: now, updatedAtMs: now, expiresAtMs: now + 3_600_000,
@@ -39,6 +40,17 @@ describe('linked run queue security transitions', () => {
     const retried = transitionLinkedRun(first, { type: 'claim', deviceId: 'device-a', credentialVersion: 3, nowMs: now + 31_000, leaseMs: 30_000 })
     expect(retried).toEqual(expect.objectContaining({ requestId: first.requestId, attempt: 2 }))
     expect(retried.leaseToken).not.toBe(first.leaseToken)
+    const running = { ...first, status: 'running' as const }
+    expect(transitionLinkedRun(running, { type: 'claim', deviceId: 'device-a', credentialVersion: 3, nowMs: now + 31_000, leaseMs: 30_000 })).toEqual(expect.objectContaining({ attempt: 2, status: 'claimed' }))
+  })
+
+  it('renews only the current worker lease and comprehensively redacts results', () => {
+    const claimed = transitionLinkedRun(queued(), { type: 'claim', deviceId: 'device-a', credentialVersion: 3, nowMs: now, leaseMs: 30_000 })
+    const progress = transitionLinkedRun(claimed, { type: 'progress', deviceId: 'device-a', credentialVersion: 3, nowMs: now + 20_000, attempt: 1, leaseToken: claimed.leaseToken!, leaseMs: 30_000 })
+    expect(progress.leaseExpiresAtMs).toBe(now + 50_000)
+    expect(() => transitionLinkedRun(progress, { type: 'progress', deviceId: 'device-a', credentialVersion: 3, nowMs: now + 21_000, attempt: 1, leaseToken: 'stale-worker', leaseMs: 30_000 })).toThrow('lease mismatch')
+    const unsafe = 'Authorization: Bearer abc apiKey=xyz /etc/passwd C:\\Users\\Peet\\secret \\\\server\\share\\file PRIVATE KEY----- {"token":"nested-secret"}'
+    expect(sanitizeLinkedResult(unsafe)).not.toMatch(/abc|xyz|passwd|Peet|server|nested-secret|PRIVATE KEY/i)
   })
 
   it('denies cross-device, stale credential and out-of-order completion while making duplicate completion idempotent', () => {

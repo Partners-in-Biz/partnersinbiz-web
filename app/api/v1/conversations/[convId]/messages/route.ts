@@ -526,6 +526,7 @@ export const POST = withAuth(
           deviceId: linkedComputerBinding.deviceId,
           runtimeTargetId: linkedComputerBinding.runtimeTargetId,
           orgId: conversation.orgId,
+          actorUserId: user.uid,
           workspaceId: linkedComputerBinding.workspaceId,
           ...(projectId ? { projectId } : {}),
           mappingId: linkedComputerBinding.mappingId,
@@ -554,7 +555,10 @@ export const POST = withAuth(
           })
           return apiSuccess({ message, assistantMessage: { ...assistantMessage, runId: queued.jobId, dispatchAgentId: agentId, acceptedDevice }, runId: queued.jobId, dispatchAgentId: agentId }, 201)
         } catch {
-          await cancelLinkedRun(queued.jobId, 'claim timeout')
+          const cancelled = await cancelLinkedRun(queued.jobId, 'claim timeout')
+          if (!cancelled.won) {
+            return apiSuccess({ message, assistantMessage: { ...assistantMessage, runId: queued.jobId, dispatchAgentId: agentId, status: cancelled.status }, runId: queued.jobId, dispatchAgentId: agentId }, 201)
+          }
           const error = 'The linked computer did not accept the run before the secure dispatch timeout.'
           await messagesCollection(convId).doc(assistantMessage.id).update({ content: '', status: 'failed', error, workspaceDispatchFailureCode: 'linked_device_claim_timeout' })
           return apiSuccess({ message, assistantMessage: { ...assistantMessage, status: 'failed', error, workspaceDispatchFailureCode: 'linked_device_claim_timeout' } }, 201)
