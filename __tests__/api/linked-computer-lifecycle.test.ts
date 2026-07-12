@@ -1,6 +1,6 @@
 import { generateKeyPairSync, randomBytes, sign } from 'node:crypto'
 import { authenticateDeviceRequest, deviceRequestPayload } from '@/lib/linked-computers/device-auth'
-import { claimPendingDeviceRotation, removeOwnedDevice, rotateDeviceCredential, revokeDeviceCredential, toSafeLinkedDeviceDto } from '@/lib/linked-computers/store'
+import { acknowledgeDeviceRotation, claimPendingDeviceRotation, removeOwnedDevice, rotateDeviceCredential, revokeDeviceCredential, toSafeLinkedDeviceDto } from '@/lib/linked-computers/store'
 import { NextRequest } from 'next/server'
 import { handleLinkedComputerList } from '@/app/api/v1/linked-computers/route'
 import { handleDeviceHeartbeat } from '@/app/api/v1/linked-computers/[deviceId]/heartbeat/route'
@@ -9,6 +9,7 @@ import { handleDeviceMapping } from '@/app/api/v1/linked-computers/[deviceId]/ma
 import { handleLinkedComputerUpdate } from '@/app/api/v1/linked-computers/[deviceId]/route'
 import { handleLinkedComputerRemove } from '@/app/api/v1/linked-computers/[deviceId]/route'
 import { handleCredentialRotation } from '@/app/api/v1/linked-computers/[deviceId]/credentials/rotate/route'
+import { handleRotationAck } from '@/app/api/v1/linked-computers/[deviceId]/credentials/rotation/ack/route'
 import * as linkedComputerCollectionRoute from '@/app/api/v1/linked-computers/route'
 
 type Row = Record<string, unknown>
@@ -52,8 +53,12 @@ describe('linked computer credential lifecycle', () => {
     expect(rotated).not.toHaveProperty('credential')
     expect(rotated).not.toHaveProperty('transportToken')
     const claimed = await claimPendingDeviceRotation({ deviceId: 'device-a', authenticatedCredentialVersion: 1 }, { db: db as never, now: () => 'claimed', nowMs: () => 1_000_001 })
-    expect(claimed).toEqual({ credential: expect.any(String), transportToken: expect.any(String), credentialVersion: 2 })
-    await expect(claimPendingDeviceRotation({ deviceId: 'device-a', authenticatedCredentialVersion: 1 }, { db: db as never, now: () => 'claimed', nowMs: () => 1_000_002 })).resolves.toBeNull()
+    expect(claimed).toEqual({ rotationDeliveryId: expect.any(String), credential: expect.any(String), credentialVersion: 2 })
+    await expect(claimPendingDeviceRotation({ deviceId: 'device-a', authenticatedCredentialVersion: 1 }, { db: db as never, now: () => 'redelivered', nowMs: () => 1_000_002 })).resolves.toEqual(claimed)
+    await expect(acknowledgeDeviceRotation({ deviceId: 'device-a', authenticatedCredentialVersion: 1, rotationDeliveryId: claimed!.rotationDeliveryId }, { db: db as never, now: () => 'bad-ack' })).rejects.toThrow('new credential')
+    await expect(acknowledgeDeviceRotation({ deviceId: 'device-a', authenticatedCredentialVersion: 2, rotationDeliveryId: claimed!.rotationDeliveryId }, { db: db as never, now: () => 'acked' })).resolves.toEqual({ acknowledged: true, credentialVersion: 2 })
+    await expect(acknowledgeDeviceRotation({ deviceId: 'device-a', authenticatedCredentialVersion: 2, rotationDeliveryId: claimed!.rotationDeliveryId }, { db: db as never, now: () => 'acked-again' })).resolves.toEqual({ acknowledged: true, credentialVersion: 2 })
+    await expect(claimPendingDeviceRotation({ deviceId: 'device-a', authenticatedCredentialVersion: 1 }, { db: db as never, now: () => 'after-ack', nowMs: () => 1_000_003 })).resolves.toBeNull()
     await expect(authenticateDeviceRequest(request(oldCredential, 1, keys.privateKey, 'request-old-valid'), { db: db as never, nowMs: () => 1_000_001 })).resolves.toMatchObject({ credentialVersion: 1 })
     await expect(authenticateDeviceRequest(request(oldCredential, 1, keys.privateKey, 'request-old-expired', '1360001'), { db: db as never, nowMs: () => 1_360_001 })).rejects.toThrow('version mismatch')
     expect(rows.get('linked_devices/device-a')).toMatchObject({ credentialVersion: 2 })
@@ -73,6 +78,13 @@ describe('linked computer credential lifecycle', () => {
 })
 
 describe('linked computer lifecycle HTTP boundaries', () => {
+  it('acks rotation only with the signed new-version device identity and exact delivery id', async () => {
+    const acknowledge = jest.fn(async () => ({ acknowledged: true as const, credentialVersion: 2 }))
+    const req = new NextRequest('https://test/api/v1/linked-computers/device-a/credentials/rotation/ack', { method: 'POST', body: '{"rotationDeliveryId":"delivery-123"}' })
+    const response = await handleRotationAck(req, 'device-a', async () => ({ deviceId: 'device-a', ownerUserId: 'user-a', credentialVersion: 2 }), acknowledge)
+    expect(response.status).toBe(200)
+    expect(acknowledge).toHaveBeenCalledWith({ deviceId: 'device-a', authenticatedCredentialVersion: 2, rotationDeliveryId: 'delivery-123' })
+  })
   it('intentionally exposes no collection POST because pairing exchange is the sole secure creation route', () => {
     expect(linkedComputerCollectionRoute).not.toHaveProperty('POST')
   })
@@ -149,12 +161,12 @@ describe('linked computer lifecycle HTTP boundaries', () => {
     expect(response.status).toBe(403)
   })
 
-  it('delivers a pending rotation exactly once only to a signed previous-version heartbeat', async () => {
-    const claim = jest.fn(async () => ({ credential: 'new-credential', transportToken: 'new-token', credentialVersion: 2 }))
+  it('redelivers a pending rotation without a transport token to a signed previous-version heartbeat', async () => {
+    const claim = jest.fn(async () => ({ rotationDeliveryId: 'delivery-1', credential: 'new-credential', credentialVersion: 2 }))
     const req = new NextRequest('https://test/api/v1/linked-computers/device-a/heartbeat', { method: 'POST', body: '{"runtimeVersion":"2.0.0","health":"ok","claimRotation":true}' })
     const response = await handleDeviceHeartbeat(req, 'device-a', async () => ({ deviceId: 'device-a', ownerUserId: 'user-a', credentialVersion: 1 }), jest.fn(async () => undefined), jest.fn(), jest.fn(), claim)
     expect(claim).toHaveBeenCalledWith({ deviceId: 'device-a', authenticatedCredentialVersion: 1 })
-    expect((await response.json()).data.rotation).toEqual({ credential: 'new-credential', transportToken: 'new-token', credentialVersion: 2 })
+    expect((await response.json()).data.rotation).toEqual({ rotationDeliveryId: 'delivery-1', credential: 'new-credential', credentialVersion: 2 })
   })
 
   it('updates the private runtime endpoint only after signed device authentication', async () => {

@@ -281,14 +281,13 @@ export async function rotateDeviceCredential(input: {
 }, options: StoreOptions = {}): Promise<{ deviceId: string; status: 'pending'; credentialVersion: number; overlapExpiresAt: string }> {
   const db = options.db ?? (adminDb as unknown as DbLike)
   const credential = randomBytes(32).toString('base64url')
-  const transportToken = randomBytes(32).toString('base64url')
+  const rotationDeliveryId = randomUUID()
   const overlapExpiresAt = new Date((options.nowMs?.() ?? Date.now()) + CREDENTIAL_ROTATION_OVERLAP_MS).toISOString()
   return db.runTransaction(async (tx) => {
     const deviceRef = db.collection(DEVICES).doc(input.deviceId)
     const credentialRef = db.collection('linked_device_credentials').doc(input.deviceId)
-    const transportRef = db.collection(LINKED_DEVICE_TRANSPORTS).doc(input.deviceId)
     const deliveryRef = db.collection(ROTATION_DELIVERIES).doc(input.deviceId)
-    const [deviceSnap, credentialSnap, transportSnap] = await Promise.all([tx.get(deviceRef), tx.get(credentialRef), tx.get(transportRef)])
+    const [deviceSnap, credentialSnap] = await Promise.all([tx.get(deviceRef), tx.get(credentialRef)])
     if (!deviceSnap.exists || !credentialSnap.exists) throw new Error('linked computers: device credential not found')
     const device = deviceSnap.data() as unknown as LinkedDevice
     const old = credentialSnap.data() ?? {}
@@ -303,33 +302,46 @@ export async function rotateDeviceCredential(input: {
       previousCredentialHash: old.credentialHash, previousCredentialVersion: old.credentialVersion,
       previousCredentialExpiresAt: overlapExpiresAt,
     })
-    if (transportSnap.exists) tx.update(transportRef, {
-      encryptedOutboundToken: encryptLinkedTransportToken(transportToken, input.deviceId), credentialVersion, updatedAt: at,
-    })
     tx.set(deliveryRef, {
-      deviceId: input.deviceId, credentialVersion, previousCredentialVersion: Number(old.credentialVersion),
+      deviceId: input.deviceId, rotationDeliveryId, credentialVersion, previousCredentialVersion: Number(old.credentialVersion),
       encryptedCredential: encryptLinkedTransportToken(credential, `${input.deviceId}:rotation-credential`),
-      encryptedTransportToken: encryptLinkedTransportToken(transportToken, `${input.deviceId}:rotation-transport`),
-      expiresAt: overlapExpiresAt, createdAt: at, claimedAt: null,
+      expiresAt: overlapExpiresAt, createdAt: at, deliveredAt: null, deliveryAttempts: 0, acknowledgedAt: null,
     })
     tx.create(auditRef(db), { eventId: randomUUID(), action: 'credential.rotated', actorUserId: input.actorUserId, deviceId: input.deviceId, createdAt: at })
     return { deviceId: input.deviceId, status: 'pending', credentialVersion, overlapExpiresAt }
   })
 }
 
-export async function claimPendingDeviceRotation(input: { deviceId: string; authenticatedCredentialVersion: number }, options: StoreOptions = {}): Promise<{ credential: string; transportToken: string; credentialVersion: number } | null> {
+export async function claimPendingDeviceRotation(input: { deviceId: string; authenticatedCredentialVersion: number }, options: StoreOptions = {}): Promise<{ rotationDeliveryId: string; credential: string; credentialVersion: number } | null> {
   const db = options.db ?? (adminDb as unknown as DbLike)
   return db.runTransaction(async (tx) => {
     const ref = db.collection(ROTATION_DELIVERIES).doc(input.deviceId)
     const snap = await tx.get(ref)
     if (!snap.exists) return null
     const row = snap.data() ?? {}
-    if (row.claimedAt || Number(row.previousCredentialVersion) !== input.authenticatedCredentialVersion
-      || (options.nowMs?.() ?? Date.now()) >= Date.parse(String(row.expiresAt))) return null
+    if (row.acknowledgedAt || Number(row.previousCredentialVersion) !== input.authenticatedCredentialVersion) return null
+    if ((options.nowMs?.() ?? Date.now()) >= Date.parse(String(row.expiresAt))) {
+      tx.update(ref, { encryptedCredential: null, expiredAt: timestamp(options) })
+      return null
+    }
     const credential = decryptLinkedTransportToken(row.encryptedCredential as never, `${input.deviceId}:rotation-credential`)
-    const transportToken = decryptLinkedTransportToken(row.encryptedTransportToken as never, `${input.deviceId}:rotation-transport`)
-    tx.update(ref, { claimedAt: timestamp(options), encryptedCredential: null, encryptedTransportToken: null })
-    return { credential, transportToken, credentialVersion: Number(row.credentialVersion) }
+    tx.update(ref, { deliveredAt: timestamp(options), deliveryAttempts: Number(row.deliveryAttempts ?? 0) + 1 })
+    return { rotationDeliveryId: String(row.rotationDeliveryId), credential, credentialVersion: Number(row.credentialVersion) }
+  })
+}
+
+export async function acknowledgeDeviceRotation(input: { deviceId: string; authenticatedCredentialVersion: number; rotationDeliveryId: string }, options: StoreOptions = {}): Promise<{ acknowledged: true; credentialVersion: number }> {
+  const db = options.db ?? (adminDb as unknown as DbLike)
+  return db.runTransaction(async (tx) => {
+    const deviceRef = db.collection(DEVICES).doc(input.deviceId)
+    const ref = db.collection(ROTATION_DELIVERIES).doc(input.deviceId)
+    const [deviceSnap, snap] = await Promise.all([tx.get(deviceRef), tx.get(ref)])
+    if (!deviceSnap.exists || !snap.exists) throw new Error('linked computers: rotation delivery not found')
+    const device = deviceSnap.data() ?? {}; const row = snap.data() ?? {}
+    if (Number(device.credentialVersion) !== input.authenticatedCredentialVersion || Number(row.credentialVersion) !== input.authenticatedCredentialVersion) throw new Error('linked computers: new credential required')
+    if (row.rotationDeliveryId !== input.rotationDeliveryId) throw new Error('linked computers: rotation delivery mismatch')
+    if (!row.acknowledgedAt) tx.update(ref, { acknowledgedAt: timestamp(options), encryptedCredential: null })
+    return { acknowledged: true, credentialVersion: Number(row.credentialVersion) }
   })
 }
 
@@ -342,13 +354,15 @@ export async function revokeDeviceCredential(input: {
     const deviceRef = db.collection(DEVICES).doc(input.deviceId)
     const credentialRef = db.collection('linked_device_credentials').doc(input.deviceId)
     const transportRef = db.collection(LINKED_DEVICE_TRANSPORTS).doc(input.deviceId)
-    const [deviceSnap, credentialSnap, transportSnap] = await Promise.all([tx.get(deviceRef), tx.get(credentialRef), tx.get(transportRef)])
+    const deliveryRef = db.collection(ROTATION_DELIVERIES).doc(input.deviceId)
+    const [deviceSnap, credentialSnap, transportSnap, deliverySnap] = await Promise.all([tx.get(deviceRef), tx.get(credentialRef), tx.get(transportRef), tx.get(deliveryRef)])
     if (!deviceSnap.exists || !credentialSnap.exists) throw new Error('linked computers: device credential not found')
     const device = deviceSnap.data() as unknown as LinkedDevice
     if (device.ownerUserId !== input.actorUserId) throw new Error('linked computers: device owner required')
     const at = timestamp(options)
     tx.update(credentialRef, { revokedAt: at, previousCredentialHash: null, previousCredentialVersion: null, previousCredentialExpiresAt: null })
     if (transportSnap.exists) tx.update(transportRef, { enabled: false, state: 'revoked', updatedAt: at })
+    if (deliverySnap.exists) tx.update(deliveryRef, { encryptedCredential: null, revokedAt: at })
     tx.create(auditRef(db), { eventId: randomUUID(), action: 'credential.revoked', actorUserId: input.actorUserId, deviceId: input.deviceId, createdAt: at })
   })
 }
@@ -359,9 +373,11 @@ export async function removeOwnedDevice(input: { deviceId: string; actorUserId: 
     const deviceRef = db.collection(DEVICES).doc(input.deviceId)
     const credentialRef = db.collection('linked_device_credentials').doc(input.deviceId)
     const transportRef = db.collection(LINKED_DEVICE_TRANSPORTS).doc(input.deviceId)
-    const [deviceSnap, credentialSnap, transportSnap, mappings, grants] = await Promise.all([
+    const deliveryRef = db.collection(ROTATION_DELIVERIES).doc(input.deviceId)
+    const [deviceSnap, credentialSnap, transportSnap, deliverySnap, mappings, grants] = await Promise.all([
       tx.get(deviceRef), tx.get(credentialRef),
       tx.get(transportRef),
+      tx.get(deliveryRef),
       tx.get(db.collection(MAPPINGS).where('deviceId', '==', input.deviceId)),
       tx.get(db.collection(GRANTS).where('deviceId', '==', input.deviceId)),
     ])
@@ -376,6 +392,7 @@ export async function removeOwnedDevice(input: { deviceId: string; actorUserId: 
       tx.create(auditRef(db), { eventId: randomUUID(), action: 'credential.revoked', actorUserId: input.actorUserId, deviceId: input.deviceId, createdAt: at })
     }
     if (transportSnap.exists) tx.update(transportRef, { enabled: false, state: 'revoked', updatedAt: at })
+    if (deliverySnap.exists) tx.update(deliveryRef, { encryptedCredential: null, removedAt: at })
     for (const doc of mappings.docs) {
       const mapping = doc.data()
       if (mapping.status === 'removed') continue

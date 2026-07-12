@@ -73,3 +73,11 @@ Final focused verification: 29 tests passed; targeted ESLint and diff checks pas
 - Redaction handles complete quoted JSON secret values, including spaces and escaped quotes, without leaking suffixes.
 
 P2 verification: 29 focused tests passed; targeted ESLint and diff checks passed. Full typecheck remains blocked only by the concurrent installer verifier regex target issue.
+
+## Two-phase credential rotation
+
+Credential rotation delivery is now crash-safe and explicitly acknowledged. A previous-version heartbeat receives a stable `rotationDeliveryId`, the new credential and version, but no outbound transport token. Delivery records retain encrypted credential material through the overlap and record delivery timestamp/attempt count so an interrupted installation can request the same delivery again.
+
+The signed rotation acknowledgment endpoint authenticates with the new credential/version, matches the device and delivery ID transactionally, clears ciphertext only after success, and is idempotent for the exact acknowledged delivery. Old credentials, wrong delivery IDs, expiry, revocation, and removal cannot retain or acknowledge pending ciphertext.
+
+Rotation verification: 35 lifecycle/pairing tests passed; full TypeScript typecheck, targeted ESLint, and diff checks passed.
