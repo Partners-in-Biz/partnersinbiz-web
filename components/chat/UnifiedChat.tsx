@@ -1887,8 +1887,8 @@ export default function UnifiedChat({
     : 'Default'
   const subtitle = [orgName, scopeLabel].filter(Boolean).join(' · ')
   const availableConversationContexts = [
-    { value: 'general' as const, label: `Workspace-wide${orgName ? `: ${orgName}` : ''}` },
-    ...(workspaces.length > 0 ? [{ value: 'workspace' as const, label: 'Workspace' }] : []),
+    { value: 'general' as const, label: `General conversation${orgName ? `: ${orgName}` : ''}` },
+    ...(workspaces.length > 0 ? [{ value: 'workspace' as const, label: 'Organisation Workspace folder' }] : []),
     ...(workspaceProjects.length > 0 || projectId ? [{ value: 'project' as const, label: 'Project inside organisation' }] : []),
     ...(scope && scope !== 'general' && scope !== 'project' && scope !== 'workspace'
       ? [{ value: scope, label: `Current ${scope}: ${scopeRefId ?? 'selected item'}` }]
