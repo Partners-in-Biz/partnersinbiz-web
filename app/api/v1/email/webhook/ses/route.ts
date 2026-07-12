@@ -28,7 +28,7 @@ import {
   temporaryExpiryFromNow,
   type SuppressionReason,
 } from '@/lib/email/suppressions'
-import { appendEmailEvent, claimEmailEventProjection } from '@/lib/email-events/store'
+import { appendEmailEvent, claimEmailEventProjection, completeEmailEventProjection } from '@/lib/email-events/store'
 import type { EmailEventType } from '@/lib/email-events/types'
 import { appendConsentEvent } from '@/lib/consent-ledger/store'
 import { resolveProviderEventTarget } from '@/lib/email-events/provider-target'
@@ -237,6 +237,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const eventType = (event.eventType ?? event.notificationType ?? '').toLowerCase()
   const canonicalEvent = canonicalSesEvent(eventType)
   let ledgerEventId = ''
+  let projectionLeaseToken = ''
   if (canonicalEvent) {
     const ledger = await appendEmailEvent({
       orgId: emailOrgId,
@@ -276,7 +277,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       })
     }
 
-    if (!(await claimEmailEventProjection(ledger.id))) {
+    projectionLeaseToken = (await claimEmailEventProjection(ledger.id)) ?? ''
+    if (!projectionLeaseToken) {
       return NextResponse.json({ ok: true, replayed: true, eventId: ledger.id })
     }
   }
@@ -438,5 +440,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   }
 
+  if (ledgerEventId && projectionLeaseToken) await completeEmailEventProjection(ledgerEventId, projectionLeaseToken)
   return NextResponse.json({ ok: true, ...(ledgerEventId ? { eventId: ledgerEventId } : {}) })
 }

@@ -1,6 +1,7 @@
 const update = jest.fn()
 const appendEmailEvent = jest.fn()
 const claimEmailEventProjection = jest.fn()
+const completeEmailEventProjection = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: {
@@ -25,7 +26,7 @@ jest.mock('@/lib/firebase/admin', () => ({
     }),
   },
 }))
-jest.mock('@/lib/email-events/store', () => ({ appendEmailEvent: (...args: unknown[]) => appendEmailEvent(...args), claimEmailEventProjection: (...args: unknown[]) => claimEmailEventProjection(...args) }))
+jest.mock('@/lib/email-events/store', () => ({ appendEmailEvent: (...args: unknown[]) => appendEmailEvent(...args), claimEmailEventProjection: (...args: unknown[]) => claimEmailEventProjection(...args), completeEmailEventProjection: (...args: unknown[]) => completeEmailEventProjection(...args) }))
 jest.mock('@/lib/consent-ledger/store', () => ({ appendConsentEvent: jest.fn() }))
 jest.mock('@/lib/email/suppressions', () => ({ addSuppression: jest.fn(), temporaryExpiryFromNow: jest.fn() }))
 jest.mock('@/lib/ab-testing/cronHelpers', () => ({ incrementVariantStat: jest.fn() }))

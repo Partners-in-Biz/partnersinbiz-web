@@ -35,7 +35,7 @@ import {
   recordSoftBounce,
   SOFT_BOUNCE_ESCALATION_THRESHOLD,
 } from '@/lib/email/bounceTracking'
-import { appendEmailEvent, claimEmailEventProjection } from '@/lib/email-events/store'
+import { appendEmailEvent, claimEmailEventProjection, completeEmailEventProjection } from '@/lib/email-events/store'
 import type { EmailEventType } from '@/lib/email-events/types'
 import { classifyOpenPrivacy } from '@/lib/email-events/privacy-classifier'
 import { appendConsentEvent } from '@/lib/consent-ledger/store'
@@ -181,6 +181,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   })
   const canonicalEvent = canonicalResendEvent(type, privacyClassification === 'machine')
   let ledgerEventId = ''
+  let projectionLeaseToken = ''
   if (canonicalEvent) {
     const ledger = await appendEmailEvent({
       orgId: emailOrgId,
@@ -217,7 +218,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       })
     }
 
-    if (!(await claimEmailEventProjection(ledger.id))) {
+    projectionLeaseToken = (await claimEmailEventProjection(ledger.id)) ?? ''
+    if (!projectionLeaseToken) {
       return NextResponse.json({ ok: true, replayed: true, eventId: ledger.id })
     }
   }
@@ -462,5 +464,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   }
 
+  if (ledgerEventId && projectionLeaseToken) await completeEmailEventProjection(ledgerEventId, projectionLeaseToken)
   return NextResponse.json({ ok: true, ...(ledgerEventId ? { eventId: ledgerEventId } : {}) })
 }

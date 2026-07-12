@@ -2,6 +2,7 @@ const update = jest.fn()
 const campaignUpdate = jest.fn()
 const appendEmailEvent = jest.fn()
 const claimEmailEventProjection = jest.fn()
+const completeEmailEventProjection = jest.fn()
 const appendConsentEvent = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
@@ -32,7 +33,7 @@ jest.mock('@/lib/firebase/admin', () => ({
     }),
   },
 }))
-jest.mock('@/lib/email-events/store', () => ({ appendEmailEvent: (...args: unknown[]) => appendEmailEvent(...args), claimEmailEventProjection: (...args: unknown[]) => claimEmailEventProjection(...args) }))
+jest.mock('@/lib/email-events/store', () => ({ appendEmailEvent: (...args: unknown[]) => appendEmailEvent(...args), claimEmailEventProjection: (...args: unknown[]) => claimEmailEventProjection(...args), completeEmailEventProjection: (...args: unknown[]) => completeEmailEventProjection(...args) }))
 jest.mock('@/lib/consent-ledger/store', () => ({ appendConsentEvent: (...args: unknown[]) => appendConsentEvent(...args) }))
 jest.mock('@/lib/email/suppressions', () => ({
   addSuppression: jest.fn(),
@@ -53,7 +54,8 @@ describe('Resend email event ledger integration', () => {
     delete process.env.RESEND_WEBHOOK_SECRET
     delete process.env.RESEND_WEBHOOK_REQUIRE_SIGNATURE
     delete process.env.VERCEL_ENV
-    claimEmailEventProjection.mockResolvedValue(true)
+    claimEmailEventProjection.mockResolvedValue('lease-1')
+    completeEmailEventProjection.mockResolvedValue(true)
   })
 
   it('returns replay success without mutating projections for a duplicate provider event', async () => {
@@ -86,7 +88,7 @@ describe('Resend email event ledger integration', () => {
 
   it('repairs projections on replay when append succeeded but projection never claimed', async () => {
     appendEmailEvent.mockResolvedValue({ id: 'evt-repair', created: false })
-    claimEmailEventProjection.mockResolvedValue(true)
+    claimEmailEventProjection.mockResolvedValue('lease-repair')
     const response = await POST(new NextRequest('http://localhost/api/v1/email/webhook', {
       method: 'POST', headers: { 'content-type': 'application/json', 'svix-id': 'svix-repair' },
       body: JSON.stringify({ type: 'email.opened', data: { email_id: 'provider-1' } }),

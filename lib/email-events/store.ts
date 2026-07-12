@@ -3,6 +3,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { buildEmailEventIdentity } from './identity'
 import { canonicalizeEventMetadata } from './identity'
 import { createHash } from 'crypto'
+import { randomUUID } from 'crypto'
 import type { EmailEventInput } from './types'
 
 interface DocumentRefLike { id: string }
@@ -10,6 +11,7 @@ interface SnapshotLike { exists: boolean; data(): Record<string, unknown> | unde
 interface TransactionLike {
   get(ref: DocumentRefLike): Promise<SnapshotLike>
   create(ref: DocumentRefLike, value: Record<string, unknown>): void
+  set?(ref: DocumentRefLike, value: Record<string, unknown>, options?: { merge: boolean }): void
 }
 interface DatabaseLike {
   collection(name: string): { doc(id: string): DocumentRefLike }
@@ -31,17 +33,43 @@ export interface AppendEmailEventResult {
 /** Claim projection work independently from append so a replay repairs an append-only crash. */
 export async function claimEmailEventProjection(
   eventId: string,
+  options: AppendEmailEventOptions & { leaseMs?: number; token?: string } = {},
+): Promise<string | null> {
+  const db = options.db ?? (adminDb as unknown as DatabaseLike)
+  const ref = db.collection('email_event_projections').doc(eventId)
+  const nowMs = Date.now()
+  const token = options.token ?? randomUUID()
+  return db.runTransaction(async (tx) => {
+    const snapshot = await tx.get(ref)
+    const row = snapshot.data() ?? {}
+    if (row.status === 'completed') return null
+    if (row.status === 'processing' && typeof row.leaseExpiresAt === 'number' && row.leaseExpiresAt > nowMs) return null
+    const value = {
+      eventId,
+      status: 'processing',
+      leaseToken: token,
+      leaseExpiresAt: nowMs + (options.leaseMs ?? 5 * 60_000),
+      schemaVersion: 1,
+      claimedAt: options.now ? options.now() : FieldValue.serverTimestamp(),
+    }
+    if (snapshot.exists) tx.set?.(ref, value, { merge: true })
+    else tx.create(ref, value)
+    return token
+  })
+}
+
+export async function completeEmailEventProjection(
+  eventId: string,
+  leaseToken: string,
   options: AppendEmailEventOptions = {},
 ): Promise<boolean> {
   const db = options.db ?? (adminDb as unknown as DatabaseLike)
   const ref = db.collection('email_event_projections').doc(eventId)
   return db.runTransaction(async (tx) => {
-    if ((await tx.get(ref)).exists) return false
-    tx.create(ref, {
-      eventId,
-      schemaVersion: 1,
-      claimedAt: options.now ? options.now() : FieldValue.serverTimestamp(),
-    })
+    const snapshot = await tx.get(ref)
+    const row = snapshot.data() ?? {}
+    if (!snapshot.exists || row.leaseToken !== leaseToken || row.status !== 'processing') return false
+    tx.set?.(ref, { status: 'completed', completedAt: options.now ? options.now() : FieldValue.serverTimestamp(), leaseExpiresAt: 0 }, { merge: true })
     return true
   })
 }
