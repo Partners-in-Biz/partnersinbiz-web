@@ -1,6 +1,6 @@
 import { generateKeyPairSync, randomBytes, sign } from 'node:crypto'
 import { authenticateDeviceRequest, deviceRequestPayload } from '@/lib/linked-computers/device-auth'
-import { acknowledgeDeviceRotation, claimPendingDeviceRotation, removeOwnedDevice, rotateDeviceCredential, revokeDeviceCredential, toSafeLinkedDeviceDto } from '@/lib/linked-computers/store'
+import { acknowledgeDeviceRotation, claimPendingDeviceRotation, removeOwnedDevice, rotateDeviceCredential, revokeDeviceCredential, toSafeLinkedDeviceDto, transitionDeviceStatus } from '@/lib/linked-computers/store'
 import { NextRequest } from 'next/server'
 import { handleLinkedComputerList } from '@/app/api/v1/linked-computers/route'
 import { handleDeviceHeartbeat } from '@/app/api/v1/linked-computers/[deviceId]/heartbeat/route'
@@ -55,9 +55,9 @@ describe('linked computer credential lifecycle', () => {
     const claimed = await claimPendingDeviceRotation({ deviceId: 'device-a', authenticatedCredentialVersion: 1 }, { db: db as never, now: () => 'claimed', nowMs: () => 1_000_001 })
     expect(claimed).toEqual({ rotationDeliveryId: expect.any(String), credential: expect.any(String), credentialVersion: 2 })
     await expect(claimPendingDeviceRotation({ deviceId: 'device-a', authenticatedCredentialVersion: 1 }, { db: db as never, now: () => 'redelivered', nowMs: () => 1_000_002 })).resolves.toEqual(claimed)
-    await expect(acknowledgeDeviceRotation({ deviceId: 'device-a', authenticatedCredentialVersion: 1, rotationDeliveryId: claimed!.rotationDeliveryId }, { db: db as never, now: () => 'bad-ack' })).rejects.toThrow('new credential')
-    await expect(acknowledgeDeviceRotation({ deviceId: 'device-a', authenticatedCredentialVersion: 2, rotationDeliveryId: claimed!.rotationDeliveryId }, { db: db as never, now: () => 'acked' })).resolves.toEqual({ acknowledged: true, credentialVersion: 2 })
-    await expect(acknowledgeDeviceRotation({ deviceId: 'device-a', authenticatedCredentialVersion: 2, rotationDeliveryId: claimed!.rotationDeliveryId }, { db: db as never, now: () => 'acked-again' })).resolves.toEqual({ acknowledged: true, credentialVersion: 2 })
+    await expect(acknowledgeDeviceRotation({ deviceId: 'device-a', authenticatedCredentialVersion: 1, rotationDeliveryId: claimed!.rotationDeliveryId }, { db: db as never, now: () => 'bad-ack', nowMs: () => 1_000_003 })).rejects.toThrow('new credential')
+    await expect(acknowledgeDeviceRotation({ deviceId: 'device-a', authenticatedCredentialVersion: 2, rotationDeliveryId: claimed!.rotationDeliveryId }, { db: db as never, now: () => 'acked', nowMs: () => 1_000_003 })).resolves.toEqual({ acknowledged: true, credentialVersion: 2 })
+    await expect(acknowledgeDeviceRotation({ deviceId: 'device-a', authenticatedCredentialVersion: 2, rotationDeliveryId: claimed!.rotationDeliveryId }, { db: db as never, now: () => 'acked-again', nowMs: () => 1_000_004 })).resolves.toEqual({ acknowledged: true, credentialVersion: 2 })
     await expect(claimPendingDeviceRotation({ deviceId: 'device-a', authenticatedCredentialVersion: 1 }, { db: db as never, now: () => 'after-ack', nowMs: () => 1_000_003 })).resolves.toBeNull()
     await expect(authenticateDeviceRequest(request(oldCredential, 1, keys.privateKey, 'request-old-valid'), { db: db as never, nowMs: () => 1_000_001 })).resolves.toMatchObject({ credentialVersion: 1 })
     await expect(authenticateDeviceRequest(request(oldCredential, 1, keys.privateKey, 'request-old-expired', '1360001'), { db: db as never, nowMs: () => 1_360_001 })).rejects.toThrow('version mismatch')
@@ -74,6 +74,26 @@ describe('linked computer credential lifecycle', () => {
     await revokeDeviceCredential({ deviceId: 'device-a', actorUserId: 'user-a' }, { db: db as never, now: () => 'now' })
     expect(rows.get('linked_device_credentials/device-a')).toMatchObject({ revokedAt: 'now' })
     await expect(authenticateDeviceRequest(request(credential, 2, keys.privateKey, 'request-revoked-now'), { db: db as never, nowMs: () => 1_000_000 })).rejects.toThrow(/active device|revoked/)
+  })
+
+  it('disallows rotation while paused and clears pending delivery on ordinary revoke transition', async () => {
+    const { db, rows } = fakeDb({
+      'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'user-a', status: 'paused', credentialVersion: 1 },
+      'linked_device_credentials/device-a': { credentialHash: 'hash', credentialVersion: 1, previousCredentialHash: 'old' },
+      'linked_device_rotation_deliveries/device-a': { deviceId: 'device-a', encryptedCredential: { ciphertext: 'secret' } },
+    })
+    await expect(rotateDeviceCredential({ deviceId: 'device-a', actorUserId: 'user-a' }, { db: db as never })).rejects.toThrow('active device')
+    await transitionDeviceStatus({ deviceId: 'device-a', actorUserId: 'user-a', status: 'revoked' }, { db: db as never, now: () => 'revoked-now' })
+    expect(rows.get('linked_device_rotation_deliveries/device-a')).toMatchObject({ encryptedCredential: null, terminalState: 'revoked' })
+    expect(rows.get('linked_device_credentials/device-a')).toMatchObject({ previousCredentialHash: null, previousCredentialVersion: null })
+  })
+
+  it('rejects expired or cleared unacknowledged rotation acknowledgments', async () => {
+    const { db } = fakeDb({
+      'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'user-a', status: 'active', credentialVersion: 2 },
+      'linked_device_rotation_deliveries/device-a': { deviceId: 'device-a', rotationDeliveryId: 'delivery-a', credentialVersion: 2, expiresAt: '1970-01-01T00:00:01.000Z', encryptedCredential: null, acknowledgedAt: null, expiredAt: 'expired' },
+    })
+    await expect(acknowledgeDeviceRotation({ deviceId: 'device-a', authenticatedCredentialVersion: 2, rotationDeliveryId: 'delivery-a' }, { db: db as never, nowMs: () => 2_000 })).rejects.toThrow('expired')
   })
 })
 

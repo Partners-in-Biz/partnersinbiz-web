@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
-import { FieldValue } from 'firebase-admin/firestore'
+import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { assertDeviceOrgAccess, assertGrantAdministrator } from './policy'
 import type {
@@ -255,7 +255,9 @@ export async function transitionDeviceStatus(input: {
   await db.runTransaction(async (tx) => {
     const ref = db.collection(DEVICES).doc(input.deviceId)
     const transportRef = db.collection(LINKED_DEVICE_TRANSPORTS).doc(input.deviceId)
-    const [snapshot, transportSnap] = await Promise.all([tx.get(ref), tx.get(transportRef)])
+    const credentialRef = db.collection('linked_device_credentials').doc(input.deviceId)
+    const deliveryRef = db.collection(ROTATION_DELIVERIES).doc(input.deviceId)
+    const [snapshot, transportSnap, credentialSnap, deliverySnap] = await Promise.all([tx.get(ref), tx.get(transportRef), tx.get(credentialRef), tx.get(deliveryRef)])
     if (!snapshot.exists) throw new Error('linked computers: device not found')
     const device = snapshot.data() as unknown as LinkedDevice
     if (device.ownerUserId !== input.actorUserId) throw new Error('linked computers: device owner required')
@@ -268,6 +270,10 @@ export async function transitionDeviceStatus(input: {
     if (transportSnap.exists) tx.update(transportRef, {
       enabled: input.status === 'active', state: input.status === 'active' ? 'active' : input.status === 'paused' ? 'paused' : 'revoked', updatedAt: at,
     })
+    if (input.status === 'revoked' || input.status === 'removed') {
+      if (credentialSnap.exists) tx.update(credentialRef, { revokedAt: at, previousCredentialHash: null, previousCredentialVersion: null, previousCredentialExpiresAt: null })
+      if (deliverySnap.exists) tx.update(deliveryRef, { encryptedCredential: null, terminalState: input.status, terminalAt: at, cleanupAt: Timestamp.fromMillis((options.nowMs?.() ?? Date.now()) + CREDENTIAL_ROTATION_OVERLAP_MS) })
+    }
     tx.create(auditRef(db), {
       eventId: randomUUID(), action: 'device.status_changed', actorUserId: input.actorUserId,
       deviceId: input.deviceId, fromStatus: device.status, toStatus: input.status, createdAt: at,
@@ -292,7 +298,7 @@ export async function rotateDeviceCredential(input: {
     const device = deviceSnap.data() as unknown as LinkedDevice
     const old = credentialSnap.data() ?? {}
     if (device.ownerUserId !== input.actorUserId) throw new Error('linked computers: device owner required')
-    if (device.status === 'revoked' || device.status === 'removed') throw new Error('linked computers: active or paused device required')
+    if (device.status !== 'active') throw new Error('linked computers: active device required')
     if (old.revokedAt) throw new Error('linked computers: device credential revoked')
     const credentialVersion = Number(device.credentialVersion) + 1
     const at = timestamp(options)
@@ -305,7 +311,7 @@ export async function rotateDeviceCredential(input: {
     tx.set(deliveryRef, {
       deviceId: input.deviceId, rotationDeliveryId, credentialVersion, previousCredentialVersion: Number(old.credentialVersion),
       encryptedCredential: encryptLinkedTransportToken(credential, `${input.deviceId}:rotation-credential`),
-      expiresAt: overlapExpiresAt, createdAt: at, deliveredAt: null, deliveryAttempts: 0, acknowledgedAt: null,
+      expiresAt: overlapExpiresAt, cleanupAt: Timestamp.fromMillis(Date.parse(overlapExpiresAt) + CREDENTIAL_ROTATION_OVERLAP_MS), createdAt: at, deliveredAt: null, deliveryAttempts: 0, acknowledgedAt: null, terminalState: null,
     })
     tx.create(auditRef(db), { eventId: randomUUID(), action: 'credential.rotated', actorUserId: input.actorUserId, deviceId: input.deviceId, createdAt: at })
     return { deviceId: input.deviceId, status: 'pending', credentialVersion, overlapExpiresAt }
@@ -321,7 +327,7 @@ export async function claimPendingDeviceRotation(input: { deviceId: string; auth
     const row = snap.data() ?? {}
     if (row.acknowledgedAt || Number(row.previousCredentialVersion) !== input.authenticatedCredentialVersion) return null
     if ((options.nowMs?.() ?? Date.now()) >= Date.parse(String(row.expiresAt))) {
-      tx.update(ref, { encryptedCredential: null, expiredAt: timestamp(options) })
+      tx.update(ref, { encryptedCredential: null, expiredAt: timestamp(options), terminalState: 'expired' })
       return null
     }
     const credential = decryptLinkedTransportToken(row.encryptedCredential as never, `${input.deviceId}:rotation-credential`)
@@ -338,9 +344,15 @@ export async function acknowledgeDeviceRotation(input: { deviceId: string; authe
     const [deviceSnap, snap] = await Promise.all([tx.get(deviceRef), tx.get(ref)])
     if (!deviceSnap.exists || !snap.exists) throw new Error('linked computers: rotation delivery not found')
     const device = deviceSnap.data() ?? {}; const row = snap.data() ?? {}
+    if (row.acknowledgedAt) {
+      if (row.rotationDeliveryId !== input.rotationDeliveryId || Number(row.credentialVersion) !== input.authenticatedCredentialVersion) throw new Error('linked computers: rotation delivery mismatch')
+      return { acknowledged: true, credentialVersion: Number(row.credentialVersion) }
+    }
+    if (device.status !== 'active') throw new Error('linked computers: active device required')
+    if (row.expiredAt || row.terminalState || !row.encryptedCredential || (options.nowMs?.() ?? Date.now()) >= Date.parse(String(row.expiresAt))) throw new Error('linked computers: rotation delivery expired')
     if (Number(device.credentialVersion) !== input.authenticatedCredentialVersion || Number(row.credentialVersion) !== input.authenticatedCredentialVersion) throw new Error('linked computers: new credential required')
     if (row.rotationDeliveryId !== input.rotationDeliveryId) throw new Error('linked computers: rotation delivery mismatch')
-    if (!row.acknowledgedAt) tx.update(ref, { acknowledgedAt: timestamp(options), encryptedCredential: null })
+    tx.update(ref, { acknowledgedAt: timestamp(options), encryptedCredential: null, terminalState: 'acknowledged' })
     return { acknowledged: true, credentialVersion: Number(row.credentialVersion) }
   })
 }
@@ -362,7 +374,7 @@ export async function revokeDeviceCredential(input: {
     const at = timestamp(options)
     tx.update(credentialRef, { revokedAt: at, previousCredentialHash: null, previousCredentialVersion: null, previousCredentialExpiresAt: null })
     if (transportSnap.exists) tx.update(transportRef, { enabled: false, state: 'revoked', updatedAt: at })
-    if (deliverySnap.exists) tx.update(deliveryRef, { encryptedCredential: null, revokedAt: at })
+    if (deliverySnap.exists) tx.update(deliveryRef, { encryptedCredential: null, revokedAt: at, terminalState: 'revoked', cleanupAt: Timestamp.fromMillis((options.nowMs?.() ?? Date.now()) + CREDENTIAL_ROTATION_OVERLAP_MS) })
     tx.create(auditRef(db), { eventId: randomUUID(), action: 'credential.revoked', actorUserId: input.actorUserId, deviceId: input.deviceId, createdAt: at })
   })
 }
@@ -392,7 +404,7 @@ export async function removeOwnedDevice(input: { deviceId: string; actorUserId: 
       tx.create(auditRef(db), { eventId: randomUUID(), action: 'credential.revoked', actorUserId: input.actorUserId, deviceId: input.deviceId, createdAt: at })
     }
     if (transportSnap.exists) tx.update(transportRef, { enabled: false, state: 'revoked', updatedAt: at })
-    if (deliverySnap.exists) tx.update(deliveryRef, { encryptedCredential: null, removedAt: at })
+    if (deliverySnap.exists) tx.update(deliveryRef, { encryptedCredential: null, removedAt: at, terminalState: 'removed', cleanupAt: Timestamp.fromMillis((options.nowMs?.() ?? Date.now()) + CREDENTIAL_ROTATION_OVERLAP_MS) })
     for (const doc of mappings.docs) {
       const mapping = doc.data()
       if (mapping.status === 'removed') continue

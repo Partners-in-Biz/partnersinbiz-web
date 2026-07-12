@@ -81,3 +81,11 @@ Credential rotation delivery is now crash-safe and explicitly acknowledged. A pr
 The signed rotation acknowledgment endpoint authenticates with the new credential/version, matches the device and delivery ID transactionally, clears ciphertext only after success, and is idempotent for the exact acknowledged delivery. Old credentials, wrong delivery IDs, expiry, revocation, and removal cannot retain or acknowledge pending ciphertext.
 
 Rotation verification: 35 lifecycle/pairing tests passed; full TypeScript typecheck, targeted ESLint, and diff checks passed.
+
+## Rotation cleanup hardening
+
+Rotation deliveries now carry a Firestore `cleanupAt` TTL timestamp. Expiry clears ciphertext and marks the delivery terminal before TTL deletion. Every revoke/remove path—including ordinary status transitions, explicit credential revocation, and device removal—clears pending rotation ciphertext and invalidates the previous-credential overlap transactionally.
+
+Acknowledgment now requires an active device, current version, unexpired delivery, live ciphertext, and a non-terminal state. Idempotent success is limited to the exact already-acknowledged delivery; cleared-but-unacknowledged or expired deliveries fail closed. Credential rotation is active-device-only and cannot start while paused.
+
+Cleanup verification: 37 lifecycle/pairing tests passed; full typecheck, targeted ESLint, index JSON validation, and diff checks passed.
