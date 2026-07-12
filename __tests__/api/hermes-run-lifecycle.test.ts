@@ -69,7 +69,7 @@ describe('GET /api/v1/admin/hermes/profiles/[orgId]/runs/[runId]', () => {
     ;(global.fetch as jest.Mock).mockResolvedValue({
       ok: true,
       status: 200,
-      text: async () => JSON.stringify({ run_id: 'run-1', status: 'started' }),
+      text: async () => JSON.stringify({ run_id: 'run-1', status: 'started', endpoint: 'https://gateway.example/v1/runs', apiKey: 'super-secret' }),
     })
 
     const { createHermesRun } = await import('@/lib/hermes/server')
@@ -91,6 +91,9 @@ describe('GET /api/v1/admin/hermes/profiles/[orgId]/runs/[runId]', () => {
         conversationId: 'conv-1',
         messageId: 'msg-1',
         dispatchAgentId: 'pip',
+        requestedRuntimeTargetId: 'local',
+        runtimeTargetId: 'local',
+        localWorkingPath: '/Users/peet/private',
       },
     })
 
@@ -107,7 +110,14 @@ describe('GET /api/v1/admin/hermes/profiles/[orgId]/runs/[runId]', () => {
         messageId: 'msg-1',
         dispatchAgentId: 'pip',
       }),
+      executionReceipt: expect.objectContaining({
+        requestedRuntimeTargetId: 'local',
+        acceptedRuntimeTargetId: 'local',
+        outcome: 'accepted',
+      }),
+      response: { runId: 'run-1', status: 'started' },
     }))
+    expect(JSON.stringify(mockAdd.mock.calls)).not.toMatch(/gateway\.example|super-secret|Users\/peet/)
   })
 
   it('proxies run status from Hermes', async () => {

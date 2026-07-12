@@ -36,6 +36,7 @@ import { CEO_APPROVAL_CARD_RULE_LINES, buildCeoDataDecisionOperatingRuleLines } 
 import { validateMessageModelSelection } from '@/lib/messages/model-catalog'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import { resolveAuthorizedWorkingDirectory } from '@/lib/client-provisioning/working-directory'
+import { classifyWorkspaceDispatchFailure } from '@/lib/workspaces/dispatch-errors'
 import type { ApiUser } from '@/lib/api/types'
 import { canAccessConversation, canReplyConversation, publicConversationMessageView } from '@/lib/conversations/access'
 import type { AgentTeamDoc } from '@/lib/agents/types'
@@ -468,6 +469,7 @@ export const POST = withAuth(
         : ''
       const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + agentSkillsContext + decisionDataRuleContext + attachedContext + conversationHistory + commandContext + content + attachmentContext
       let selectedWorkingDirectory: string | undefined
+      let workspacePathClass: 'organisation' | 'project' | undefined
       if (conversation.workspaceContext) {
         const workingDirectory = await resolveAuthorizedWorkingDirectory({
           workspaceContext: conversation.workspaceContext,
@@ -491,6 +493,7 @@ export const POST = withAuth(
           }, 201)
         }
         selectedWorkingDirectory = workingDirectory.directory
+        workspacePathClass = workingDirectory.pathClass
       }
 
       // Dispatch Hermes run
@@ -505,15 +508,13 @@ export const POST = withAuth(
           conversationId: convId,
           messageId: assistantMessage.id,
           orgId: conversation.orgId,
-          ...(conversation.workspaceContext ? { workspaceContext: conversation.workspaceContext } : {}),
           ...(conversation.workspaceContext?.workspaceId ? { workspaceId: conversation.workspaceContext.workspaceId } : {}),
           ...(conversation.workspaceContext?.runtimeTarget ? { runtimeTarget: conversation.workspaceContext.runtimeTarget } : {}),
           ...(conversation.workspaceContext?.runtimeTarget ? { requestedRuntimeTargetId: conversation.workspaceContext.runtimeTarget } : {}),
           ...(agentLink.runtimeTargetId ? { runtimeTargetId: agentLink.runtimeTargetId } : {}),
           ...(agentLink.runtimeKind ? { runtimeKind: agentLink.runtimeKind } : {}),
           ...(agentLink.machineLabel ? { runtimeMachineLabel: agentLink.machineLabel } : {}),
-          ...(conversation.workspaceContext?.vpsWorkingPath ? { vpsWorkingPath: conversation.workspaceContext.vpsWorkingPath } : {}),
-          ...(conversation.workspaceContext?.localWorkingPath ? { localWorkingPath: conversation.workspaceContext.localWorkingPath } : {}),
+          ...(workspacePathClass ? { workspacePathClass } : {}),
           ...(conversation.workspaceContext?.projectId ? { projectId: conversation.workspaceContext.projectId } : {}),
           dispatchAgentId: agentId,
           ...(modelSelection?.model ? { model: modelSelection.model } : {}),
@@ -526,16 +527,17 @@ export const POST = withAuth(
           ...(slashCommand ? { slashCommand } : {}),
         },
       }).catch(async (err) => {
+        const safeFailure = classifyWorkspaceDispatchFailure(err)
         console.error('[conversation-agent-dispatch-failed]', {
           convId,
           agentId,
-          error: err instanceof Error ? err.message : String(err),
+          code: safeFailure.code,
         })
-        const error = 'Agent run could not be started on the gateway.'
         await messagesCollection(convId).doc(assistantMessage.id).update({
           content: '',
           status: 'failed',
-          error,
+          error: safeFailure.message,
+          workspaceDispatchFailureCode: safeFailure.code,
         })
         return null
       })
