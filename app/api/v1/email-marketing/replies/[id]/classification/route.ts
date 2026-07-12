@@ -7,9 +7,10 @@ import type { SalesReplyClassification } from '@/lib/email-marketing/reply-class
 
 const CLASSIFICATIONS = new Set(['positive', 'negative', 'out_of_office', 'neutral'])
 
-export const PATCH = withAuth('client', withTenant(async (req: NextRequest, user, orgId, context?: { params: Promise<{ id: string }> }) => {
+export const PATCH = withAuth('client', withTenant(async (req: NextRequest, user, orgId, context) => {
   try {
-    const { id } = await (context?.params ?? Promise.resolve({ id: '' }))
+    const params = context?.params as Promise<{ id: string }> | undefined
+    const { id } = await (params ?? Promise.resolve({ id: '' }))
     const body = await req.json().catch(() => ({})) as Record<string, unknown>
     const classification = typeof body.classification === 'string' ? body.classification : ''
     if (!CLASSIFICATIONS.has(classification)) return apiError('Invalid classification', 400)
