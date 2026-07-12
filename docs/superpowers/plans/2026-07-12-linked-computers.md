@@ -4,9 +4,9 @@
 
 **Goal:** Build secure per-user linked computers with one-time pairing, organisation grants, local folder mappings, heartbeat/credential lifecycle, strict dispatch, product UI, and install/update foundations for macOS and Windows.
 
-**Architecture:** Firestore stores device identity, hashed pairing challenges, organisation grants, mapping metadata, heartbeats, and audit events. A device-authenticated API exchanges short-lived challenges for scoped credentials, while PiB dispatch authorises user + organisation + device + grant + mapping and the local runtime resolves logical mapping IDs to contained paths.
+**Architecture:** Firestore stores device identity, hashed pairing challenges, organisation grants, mapping metadata, heartbeats, audit events, and encrypted per-device run jobs. A device-authenticated API exchanges short-lived challenges for scoped credentials. PiB dispatch authorises user + organisation + device + grant + mapping and enqueues encrypted work; the local runtime uses outbound-only signed HTTPS calls to claim leased work, resolves logical mapping IDs to contained paths, and returns signed progress/completion receipts. No public device endpoint or inbound tunnel is used.
 
-**Tech Stack:** Next.js App Router, TypeScript, Firebase Admin/Firestore transactions, Node crypto, Jest, macOS launchd package assets, Windows PowerShell/service installer assets, Hermes HTTP runtime.
+**Tech Stack:** Next.js App Router, TypeScript, Firebase Admin/Firestore transactions and TTL policies, Node crypto, Jest, macOS launchd package assets, Windows PowerShell/service installer assets, outbound runtime worker, loopback Hermes bridge.
 
 ## Global Constraints
 
@@ -16,6 +16,8 @@
 - Device discovery and dispatch revalidate user ownership/share, current organisation membership, organisation grant, device state, credential version, heartbeat freshness, capability, and folder mapping.
 - Browser APIs expose logical IDs and friendly status only; no raw paths, runtime URLs, permanent secrets, or internal commands.
 - Explicit device selection never falls back.
+- Devices poll only fixed PiB HTTPS queue endpoints; device-controlled endpoints, inbound tunnels, redirects, and long-lived transport tokens are forbidden.
+- Claim/progress/completion is signed, replay-protected, lease-fenced, and bound to exact job/request/device/mapping/credential identities.
 - VPS remains canonical; linked computers are local execution mirrors unless an explicit conflict-aware push is approved.
 - macOS and Windows support is not claimed complete until signed installer/update/revoke lifecycle evidence exists.
 - All behavior changes use red-green TDD.
@@ -71,10 +73,15 @@
 - [ ] Re-run lifecycle tests and confirm pass.
 - [ ] Commit with `feat(devices): add grants mappings and credential lifecycle`.
 
-### Task 4: Device-authorised runtime discovery and dispatch
+### Task 4: Device-authorised runtime discovery and outbound queue dispatch
 
 **Files:**
 - Create: `lib/linked-computers/runtime-targets.ts`
+- Create: `lib/linked-computers/run-queue.ts`
+- Create: `lib/linked-computers/run-queue-store.ts`
+- Create: `app/api/v1/linked-computers/[deviceId]/runs/claim/route.ts`
+- Create: `app/api/v1/linked-computers/[deviceId]/runs/[jobId]/progress/route.ts`
+- Create: `app/api/v1/linked-computers/[deviceId]/runs/[jobId]/complete/route.ts`
 - Modify: `app/api/v1/workspaces/route.ts`
 - Modify: `app/api/v1/conversations/route.ts`
 - Modify: `lib/agents/team.ts`
@@ -84,7 +91,9 @@
 - [ ] Write failing tests proving only owned/shared org-granted fresh devices appear, guessed IDs fail, membership loss blocks dispatch, missing mappings fail, and explicit devices never fall back.
 - [ ] Run the suite and confirm failures.
 - [ ] Implement discovery and dispatch authorization from device/grant/mapping records; retain existing platform VPS and operator-local targets behind explicit compatibility adapters.
-- [ ] Require runtime execution receipts to match the authorised device/credential/mapping.
+- [ ] Encrypt authorised work into the platform-owned per-device queue; claim atomically revalidates tenancy and uses short lease/attempt/token fencing.
+- [ ] Require signed acceptance/progress/completion receipts to match the exact job, request, device, credential, mapping, attempt, lease token, body digests, and registered machine identity.
+- [ ] Prove stale workers cannot complete reclaimed jobs, duplicate callbacks are idempotent, terminal results are redacted, and explicit offline devices never fall back.
 - [ ] Re-run dispatch tests plus Stage 1 runtime/message suites and confirm pass.
 - [ ] Commit with `feat(devices): authorize linked computer dispatch`.
 
@@ -131,5 +140,6 @@
 - [ ] Run all linked-computer, Workspace, runtime, and conversation-policy suites.
 - [ ] Run typecheck, lint ratchet, targeted ESLint, index validation, `git diff --check`, and production build sequentially.
 - [ ] Run two-user/two-org emulator acceptance proving cross-tenant denial, pairing replay denial, membership-loss denial, rotation/revocation, offline no-fallback, and redaction.
+- [ ] Verify outbound queue claim/progress/completion, lease renewal/reclaim fencing, signed callbacks, encrypted payload storage, replay nonces, and TTL policy declarations.
 - [ ] Document installer signing/notarisation and production credentials as explicit release gates; do not claim those gates passed without artifacts.
 - [ ] Commit the runbook/evidence contract with `docs(devices): add linked computer operations runbook`.

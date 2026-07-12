@@ -2404,6 +2404,12 @@
   ],
   "fieldOverrides": [
     {
+      "collectionGroup": "linked_device_pairing_challenges",
+      "fieldPath": "cleanupAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
       "collectionGroup": "linked_device_rotation_deliveries",
       "fieldPath": "cleanupAt",
       "ttl": true,

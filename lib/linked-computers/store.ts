@@ -189,7 +189,7 @@ export async function createPairingChallenge(input: {
     if ((await tx.get(ref)).exists) throw new Error('linked computers: pairing challenge already exists')
     tx.create(ref, {
       challengeId: input.challengeId, deviceId, ownerUserId: device.ownerUserId,
-      secretHash: hashSecret(input.secret), expiresAt, attempts: 0,
+      secretHash: hashSecret(input.secret), expiresAt, cleanupAt: Timestamp.fromMillis(Date.parse(expiresAt)), attempts: 0,
       maxAttempts: PAIRING_MAX_ATTEMPTS, createdAt: at,
     })
     tx.create(auditRef(db), {

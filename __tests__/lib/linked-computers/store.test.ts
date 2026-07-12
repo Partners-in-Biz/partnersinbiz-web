@@ -83,6 +83,7 @@ describe('linked computers tenant domain', () => {
     expect(challenge).toEqual({ challengeId: 'challenge-a', expiresAt: '2026-07-12T10:10:00.000Z' })
     expect(rows.get('linked_device_pairing_challenges/challenge-a')).not.toHaveProperty('secret')
     expect(rows.get('linked_device_pairing_challenges/challenge-a')).toMatchObject({ maxAttempts: 5 })
+    expect((rows.get('linked_device_pairing_challenges/challenge-a')?.cleanupAt as { toMillis(): number }).toMillis()).toBe(Date.parse('2026-07-12T10:10:00.000Z'))
     expect([...rows.values()]).toContainEqual(expect.objectContaining({ action: 'pairing.created', challengeId: 'challenge-a' }))
 
     await consumePairingChallenge({ challengeId: 'challenge-a', secret: 'human-code' }, {

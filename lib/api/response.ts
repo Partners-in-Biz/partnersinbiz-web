@@ -29,12 +29,12 @@ export function apiError(
  * of buried in server logs. In production we return a generic 500 to avoid
  * leaking project internals.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function apiErrorFromException(err: any): NextResponse<ApiResponse<never>> {
+export function apiErrorFromException(err: unknown): NextResponse<ApiResponse<never>> {
   const isDev = process.env.NODE_ENV !== 'production'
-  const message: string = (err?.message ?? String(err)) || 'Internal Server Error'
-  const code: string | number | undefined = err?.code
-  const status: number | undefined = typeof err?.status === 'number' ? err.status : undefined
+  const details = typeof err === 'object' && err !== null ? err as { message?: unknown; code?: unknown; status?: unknown } : {}
+  const message = (typeof details.message === 'string' ? details.message : String(err)) || 'Internal Server Error'
+  const code = typeof details.code === 'string' || typeof details.code === 'number' ? details.code : undefined
+  const status = typeof details.status === 'number' ? details.status : undefined
   if (status && status >= 400 && status < 600) return apiError(message, status)
 
   // Firestore missing composite index

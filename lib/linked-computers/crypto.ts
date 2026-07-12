@@ -5,7 +5,7 @@ import {
   timingSafeEqual,
   verify,
 } from 'node:crypto'
-import { FieldValue } from 'firebase-admin/firestore'
+import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import type { LinkedDeviceArchitecture, LinkedDevicePlatform } from './types'
 import { encryptLinkedTransportToken, LINKED_DEVICE_TRANSPORTS, validateLinkedRuntimeEndpoint } from './transport'
@@ -82,6 +82,7 @@ export async function createPairing(
     if ((await tx.get(ref)).exists) throw new Error('linked computers: pairing challenge already exists')
     tx.create(ref, {
       challengeId, ownerUserId, secretHash: hashLinkedComputerSecret(secret), expiresAt,
+      cleanupAt: Timestamp.fromMillis(Date.parse(expiresAt)),
       attempts: 0, maxAttempts: MAX_ATTEMPTS, createdAt: at,
     })
     tx.create(auditRef(db), {

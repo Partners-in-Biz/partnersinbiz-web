@@ -76,6 +76,7 @@ describe('linked computer one-time pairing', () => {
     expect(rows.get(`linked_device_pairing_challenges/${result.challengeId}`)).toMatchObject({
       ownerUserId: 'user-a', attempts: 0, maxAttempts: 5,
     })
+    expect((rows.get(`linked_device_pairing_challenges/${result.challengeId}`)?.cleanupAt as { toMillis(): number }).toMillis()).toBe(nowMs + 10 * 60 * 1000)
     expect(rows.get(`linked_device_pairing_challenges/${result.challengeId}`)).not.toHaveProperty('secret')
     expect(JSON.stringify([...rows.values()])).not.toContain(result.secret)
   })

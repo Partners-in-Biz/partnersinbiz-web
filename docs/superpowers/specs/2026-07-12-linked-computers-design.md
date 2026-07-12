@@ -56,11 +56,13 @@ Mappings are keyed by device and Workspace, support multiple organisations per d
 
 Authenticated heartbeats report device identity, runtime version, capabilities, health, and mapping summaries. Freshness windows are server-controlled. A device credential is scoped to the device, versioned, rotatable with a short overlap window, and immediately invalid after revocation. Pause blocks dispatch without deleting history; remove revokes credentials and mappings.
 
-## Dispatch and execution receipt
+## Platform-owned outbound run queue
 
 Messages lists only devices owned by or explicitly shared with the user and granted to the selected organisation. An explicit device selection never falls back. Dispatch revalidates user membership, device ownership/share, organisation grant, credential version, health/freshness, capability, and mapping state.
 
-The runtime returns a signed execution receipt containing device ID, target ID, machine label, accepted time, tool-start time, runtime version, and outcome. PiB displays the accepted device rather than merely echoing the requested label.
+Linked computers do not expose a public listener, accept an inbound tunnel, or register a device-controlled runtime URL. PiB encrypts an authorised logical run into a platform-owned, per-device queue. The runtime makes outbound HTTPS requests only to fixed PiB endpoints, authenticates every claim/progress/completion request with its device credential and Ed25519 identity, and resolves the mapping ID locally. Queue claims use short leases, attempt counters, and opaque lease tokens; progress renews the current lease, while stale workers cannot complete a reclaimed job. Membership, grant, device, credential, and mapping state are revalidated atomically when work is claimed.
+
+The runtime returns signed acceptance, progress, and terminal receipts bound to the exact job, request, device, mapping, credential version, attempt, lease token, output/error digests, machine label, runtime version, timestamps, and outcome. PiB verifies the receipt before updating conversation state and displays the accepted device rather than merely echoing the requested label. Prompts are encrypted at rest in the queue, terminal output is comprehensively redacted, and TTL cleanup is required for jobs and replay nonces.
 
 ## Product experience
 
@@ -87,6 +89,8 @@ Installer/update signing, release infrastructure, and security review are releas
 - Pairing codes are hashed, short-lived, rate-limited, and single-use.
 - Device private keys never leave the device.
 - Runtime credentials are scoped, versioned, rotatable, and revocable.
+- Linked computers use outbound-only access to fixed platform endpoints; no device endpoint, tunnel hostname, transport token, or listener is part of normal dispatch.
+- Queue leases, attempt fencing, one-time request nonces, and signed receipts prevent replay and stale-worker completion.
 - Every API enforces user, organisation, device, grant, and mapping scope.
 - Raw paths, credentials, internal URLs, and SSH details are absent from browser APIs and user-visible logs.
 - Audit events cover pairing, grants, mappings, rotation, pause, revoke, dispatch acceptance, and failures.
@@ -104,6 +108,7 @@ Each slice is test-first and requires emulator-backed tenancy tests. Final accep
 - credential rotation overlap and old-version rejection;
 - offline/stale/update-required errors with no fallback;
 - signed execution receipts matching actual machines;
+- queue claim, lease renewal, reclaim fencing, callback idempotency, and TTL cleanup;
 - real macOS and Windows organisation/project `pwd` runs;
 - installer, update, rollback, uninstall, and revoked-device tests;
 - redaction and audit-log review;
