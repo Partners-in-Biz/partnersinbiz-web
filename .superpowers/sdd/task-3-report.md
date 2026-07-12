@@ -53,3 +53,29 @@ Results: 2 suites passed, 30 tests passed; TypeScript passed; diff check passed.
 ## Concerns
 
 None.
+
+## Reviewer fix: degraded health and metadata hardening
+
+### Red evidence
+
+`npx jest __tests__/lib/agents/runtime-targets.test.ts __tests__/api/conversation-messages-routing.test.ts --runInBand`
+
+Result before the reviewer fix: 2 suites failed, 5 tests failed, 29 passed. Failures showed that `degraded` was accepted, unsafe IDs and labels were reflected, and exception messages were logged.
+
+### Green evidence
+
+- Focused Jest: 2 suites passed, 34 tests passed.
+- TypeScript: the default-heap run exhausted Node's heap; `NODE_OPTIONS=--max-old-space-size=4096 npx tsc --noEmit --pretty false` passed with no diagnostics.
+- Task-file `git diff --check` passed.
+
+### Fix commit
+
+`cf862a2f` (`fix(runtimes): sanitize target execution identity`)
+
+### Reviewer-fix self-review
+
+- Canonical `degraded` is unhealthy for explicit and auto selection; missing health remains compatible with existing targets.
+- Runtime IDs use a bounded safe charset; invalid explicit values become the non-reflective `invalid` identity.
+- Unsafe configured IDs are dropped, and friendly labels/host labels are restricted before they can become Hermes run metadata.
+- Dispatch failure logs contain only allowlisted typed codes and validated target IDs, never arbitrary exception messages.
+- Malicious URL, path traversal, newline, and key-like strings are covered across selection, presence output, stored failure metadata, and logs.
