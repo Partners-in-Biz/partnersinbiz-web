@@ -703,7 +703,7 @@ export default function DealDetailPage() {
       {/* Back link */}
       <Link
         href={dealListHref}
-        className="inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
+        className="inline-flex items-center gap-1 text-xs text-on-surface-variant hover:text-on-surface transition-colors"
       >
         <span className="material-symbols-outlined text-[14px]" aria-hidden="true">arrow_back</span>
         Deals
@@ -719,11 +719,11 @@ export default function DealDetailPage() {
               <span className={`rounded-full border px-2.5 py-1 text-[10px] font-label uppercase tracking-wide ${probTone}`}>
                 {prob}% probability
               </span>
-              <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+              <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
                 {normalizeStageName(stageDisplay)}
               </span>
               {pipelineName && (
-                <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+                <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
                   {pipelineName}
                 </span>
               )}
@@ -828,26 +828,26 @@ export default function DealDetailPage() {
               aria-label={tile.ariaLabel}
               onClick={tile.onClick}
               disabled={tile.disabled}
-              className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3 text-left transition-colors hover:bg-white/[0.05] disabled:cursor-default disabled:hover:bg-white/[0.02]"
+              className="rounded-xl border border-[var(--color-card-border)] bg-white/[0.02] p-3 text-left transition-colors hover:bg-white/[0.05] disabled:cursor-default disabled:hover:bg-white/[0.02]"
             >
               <div className="flex items-center justify-between gap-2">
-                <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{tile.label}</p>
-                <span className="material-symbols-outlined text-[17px] text-[var(--color-pib-text-muted)]">{tile.icon}</span>
+                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{tile.label}</p>
+                <span className="material-symbols-outlined text-[17px] text-on-surface-variant">{tile.icon}</span>
               </div>
-              <p className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">{tile.value}</p>
+              <p className="mt-2 text-lg font-semibold text-on-surface">{tile.value}</p>
             </button>
           ))}
         </div>
 
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Forecast confidence</p>
+            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Forecast confidence</p>
             <span className={`font-mono text-sm ${prob >= 70 ? 'text-emerald-100' : prob >= 40 ? 'text-amber-100' : 'text-red-100'}`}>{prob}%</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-white/10">
             <div className={`h-full rounded-full ${prob >= 70 ? 'bg-emerald-400' : prob >= 40 ? 'bg-amber-400' : 'bg-red-400'}`} style={{ width: `${prob}%` }} />
           </div>
-          <div className="flex flex-wrap items-end gap-2 rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
+          <div className="flex flex-wrap items-end gap-2 rounded-xl border border-[var(--color-card-border)] bg-white/[0.02] p-3">
             <div className="min-w-[180px] flex-1">
               <label htmlFor="dealForecastProbability" className="pib-label">Update forecast probability</label>
               <input
@@ -871,14 +871,14 @@ export default function DealDetailPage() {
               <span className="material-symbols-outlined text-base">trending_up</span>
               {probabilityPending ? 'Updating...' : 'Update'}
             </button>
-            <p className="basis-full text-xs leading-5 text-[var(--color-pib-text-muted)]">
+            <p className="basis-full text-xs leading-5 text-on-surface-variant">
               Adjust confidence after real buyer signals so the weighted forecast stays honest for leadership.
             </p>
             {probabilityError && <p className="basis-full text-xs text-red-300">{probabilityError}</p>}
           </div>
         </div>
 
-        <div className="flex flex-wrap items-end gap-2 rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
+        <div className="flex flex-wrap items-end gap-2 rounded-xl border border-[var(--color-card-border)] bg-white/[0.02] p-3">
           <div className="min-w-[180px] flex-1">
             <label htmlFor="dealExpectedCloseDate" className="pib-label">Set expected close date</label>
             <input
@@ -900,7 +900,7 @@ export default function DealDetailPage() {
             <span className="material-symbols-outlined text-base">event_upcoming</span>
             {closeDatePending ? 'Updating...' : 'Update'}
           </button>
-          <p className="basis-full text-xs leading-5 text-[var(--color-pib-text-muted)]">
+          <p className="basis-full text-xs leading-5 text-on-surface-variant">
             Keep pipeline velocity and month-end forecast timing visible before this opportunity stalls.
           </p>
           {closeDateError && <p className="basis-full text-xs text-red-300">{closeDateError}</p>}
@@ -908,7 +908,7 @@ export default function DealDetailPage() {
 
         <div className="flex flex-wrap gap-2">
           {commandSignals.map((signal) => (
-            <span key={signal} className="rounded-full bg-white/5 px-2.5 py-1 text-xs text-[var(--color-pib-text-muted)]">
+            <span key={signal} className="rounded-full bg-white/5 px-2.5 py-1 text-xs text-on-surface-variant">
               {signal}
             </span>
           ))}
@@ -926,8 +926,8 @@ export default function DealDetailPage() {
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
               <p className="eyebrow !text-[10px]">Leadership brief</p>
-              <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Revenue risk brief</h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+              <h2 className="mt-1 font-display text-xl text-on-surface">Revenue risk brief</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-on-surface-variant">
                 {revenueRiskItems.length} revenue {revenueRiskItems.length === 1 ? 'risk needs' : 'risks need'} leadership attention before {deal.title ?? 'this deal'} is forecast-ready.
               </p>
             </div>
@@ -976,16 +976,16 @@ export default function DealDetailPage() {
             <p className="eyebrow !text-[10px]">Details</p>
             {pipelineName && (
               <div>
-                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Pipeline</p>
-                <p className="text-[var(--color-pib-text)] mt-0.5">{pipelineName}</p>
+                <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-mono">Pipeline</p>
+                <p className="text-on-surface mt-0.5">{pipelineName}</p>
               </div>
             )}
             {deal.contactId && (
               <div>
-                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Contact</p>
+                <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-mono">Contact</p>
                 <Link
                   href={scopedPortalPath(`/portal/contacts/${deal.contactId}`, routeScope)}
-                  className="text-[var(--color-pib-accent)] hover:underline mt-0.5 inline-block"
+                  className="text-primary hover:underline mt-0.5 inline-block"
                 >
                   {dealContactLabel(deal, contactName, contactLoading)}
                 </Link>
@@ -993,32 +993,32 @@ export default function DealDetailPage() {
             )}
             {deal.companyId && (
               <div>
-                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Company</p>
+                <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-mono">Company</p>
                 <Link
                   href={scopedPortalPath(`/portal/companies/${deal.companyId}`, routeScope)}
-                  className="text-[var(--color-pib-accent)] hover:underline mt-0.5 inline-block"
+                  className="text-primary hover:underline mt-0.5 inline-block"
                 >
                   {dealCompanyLabel(deal)}
                 </Link>
               </div>
             )}
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Owner</p>
+              <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-mono">Owner</p>
               <div className="mt-0.5 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-[var(--color-pib-text)]">
+                <p className="text-on-surface">
                   {dealOwnerLabel(deal)}
                 </p>
                 <button
                   type="button"
                   onClick={focusOwnerSelect}
                   aria-label={`${deal.ownerRef?.displayName || deal.ownerUid ? 'Change' : 'Assign'} owner for ${deal.title ?? 'this deal'} from deal details`}
-                  className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                  className="inline-flex items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 py-1 text-[11px] font-medium text-primary transition-colors hover:border-primary hover:text-on-surface"
                 >
                   <span className="material-symbols-outlined text-[13px]" aria-hidden="true">assignment_ind</span>
                   {deal.ownerRef?.displayName || deal.ownerUid ? 'Change owner' : 'Assign owner'}
                 </button>
               </div>
-              <div className="mt-3 space-y-2 rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
+              <div className="mt-3 space-y-2 rounded-xl border border-[var(--color-card-border)] bg-white/[0.02] p-3">
                 <label htmlFor="dealDetailOwner" className="pib-label">Assign deal owner</label>
                 <div className="flex flex-wrap gap-2">
                   <select
@@ -1046,44 +1046,44 @@ export default function DealDetailPage() {
                     {ownerPending ? 'Assigning...' : 'Assign'}
                   </button>
                 </div>
-                <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                <p className="text-xs leading-5 text-on-surface-variant">
                   Keep forecast and follow-up ownership tied to a real person before this opportunity moves.
                 </p>
                 {ownerError && <p className="text-xs text-red-300">{ownerError}</p>}
               </div>
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Close date</p>
+              <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-mono">Close date</p>
               {deal.expectedCloseDate ? (
                 <div className="mt-0.5 flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-mono text-xs text-[var(--color-pib-text-muted)]">
+                  <p className="font-mono text-xs text-on-surface-variant">
                     {fmtTimestamp(deal.expectedCloseDate)}
                   </p>
                   <button
                     type="button"
                     onClick={focusCloseDateInput}
                     aria-label={`Review close date for ${deal.title ?? 'this deal'} from deal details`}
-                    className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                    className="inline-flex items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 py-1 text-[11px] font-medium text-primary transition-colors hover:border-primary hover:text-on-surface"
                   >
                     <span className="material-symbols-outlined text-[13px]" aria-hidden="true">event_upcoming</span>
                     Review date
                   </button>
                 </div>
               ) : (
-                <div className="mt-1 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
+                <div className="mt-1 rounded-lg border border-[var(--color-card-border)] bg-white/[0.02] p-3">
                   <div className="flex flex-wrap items-start justify-between gap-2">
-                    <p className="text-sm font-semibold text-[var(--color-pib-text)]">No close date captured</p>
+                    <p className="text-sm font-semibold text-on-surface">No close date captured</p>
                     <button
                       type="button"
                       onClick={focusCloseDateInput}
                       aria-label={`Set close date for ${deal.title ?? 'this deal'} from deal details`}
-                      className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                      className="inline-flex items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 py-1 text-[11px] font-medium text-primary transition-colors hover:border-primary hover:text-on-surface"
                     >
                       <span className="material-symbols-outlined text-[13px]" aria-hidden="true">event_upcoming</span>
                       Set date
                     </button>
                   </div>
-                  <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                  <p className="mt-1 text-xs leading-5 text-on-surface-variant">
                     Set forecast timing so leadership can trust pipeline commitments.
                   </p>
                 </div>
@@ -1091,8 +1091,8 @@ export default function DealDetailPage() {
             </div>
             {deal.notes && (
               <div>
-                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Notes</p>
-                <p className="text-[var(--color-pib-text)] mt-0.5 whitespace-pre-wrap">{deal.notes}</p>
+                <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-mono">Notes</p>
+                <p className="text-on-surface mt-0.5 whitespace-pre-wrap">{deal.notes}</p>
               </div>
             )}
           </div>
@@ -1104,13 +1104,13 @@ export default function DealDetailPage() {
                 <div
                   key={action.title}
                   data-testid="deal-next-best-action"
-                  className="flex min-w-0 flex-col gap-3 rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3"
+                  className="flex min-w-0 flex-col gap-3 rounded-xl border border-[var(--color-card-border)] bg-white/[0.02] p-3"
                 >
                   <div className="flex min-w-0 items-start gap-3">
-                    <span className="material-symbols-outlined shrink-0 text-[18px] text-[var(--color-pib-text-muted)]">{action.icon}</span>
+                    <span className="material-symbols-outlined shrink-0 text-[18px] text-on-surface-variant">{action.icon}</span>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium leading-5 text-[var(--color-pib-text)]">{action.title}</p>
-                      <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{action.copy}</p>
+                      <p className="text-sm font-medium leading-5 text-on-surface">{action.title}</p>
+                      <p className="mt-1 text-xs leading-5 text-on-surface-variant">{action.copy}</p>
                     </div>
                   </div>
                   <button
@@ -1130,21 +1130,21 @@ export default function DealDetailPage() {
           <div className="mt-3 space-y-3 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
             <p className="eyebrow !text-[10px]">Stage movement</p>
             {stageHistory.length === 0 ? (
-              <div className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
+              <div className="rounded-xl border border-[var(--color-card-border)] bg-white/[0.02] p-4">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="flex gap-3">
                     <span
                       aria-hidden="true"
-                      className="material-symbols-outlined flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-white/[0.04] text-[20px] text-[var(--color-accent-v2)]"
+                      className="material-symbols-outlined flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[var(--color-card-border)] bg-white/[0.04] text-[20px] text-[var(--color-accent-v2)]"
                     >
                       timeline
                     </span>
                     <div>
-                      <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                      <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
                         Pipeline progress unproven
                       </p>
-                      <h3 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">Record the first stage signal</h3>
-                      <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                      <h3 className="mt-1 text-base font-semibold text-on-surface">Record the first stage signal</h3>
+                      <p className="mt-2 max-w-2xl text-sm leading-6 text-on-surface-variant">
                         Confirm the current stage now so leadership can trust the forecast, reps can see where the opportunity is stuck, and future stage changes have a baseline.
                       </p>
                     </div>
@@ -1164,10 +1164,10 @@ export default function DealDetailPage() {
               <div className="space-y-3">
                 {stageHistory.map((entry, index) => (
                   <div key={`${entry.pipelineId}-${entry.stageId}-${index}`} className="flex items-start gap-3">
-                    <div className={`mt-1 h-2 w-2 rounded-full ${index === 0 ? 'bg-primary' : 'bg-[var(--color-pib-text-muted)]'}`} />
+                    <div className={`mt-1 h-2 w-2 rounded-full ${index === 0 ? 'bg-primary' : 'bg-[var(--color-on-surface-variant)]'}`} />
                     <div>
-                      <p className="text-sm text-[var(--color-pib-text)]">{stageHistoryStageLabel(entry, pipelineStages)}</p>
-                      <p className="text-xs text-[var(--color-pib-text-muted)]">
+                      <p className="text-sm text-on-surface">{stageHistoryStageLabel(entry, pipelineStages)}</p>
+                      <p className="text-xs text-on-surface-variant">
                         {stageHistoryTimeLabel(entry)} · {stageHistoryActorLabel(entry)}
                       </p>
                     </div>
@@ -1182,10 +1182,10 @@ export default function DealDetailPage() {
         <section className="space-y-3 lg:col-span-2">
           {/* Line items */}
           <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
-            <div className="px-5 py-3.5 border-b border-[var(--color-pib-line)] bg-white/[0.02] flex items-center justify-between gap-3">
+            <div className="px-5 py-3.5 border-b border-[var(--color-card-border)] bg-white/[0.02] flex items-center justify-between gap-3">
               <div>
                 <p className="eyebrow !text-[10px]">Line items</p>
-                <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Products, services, and quote-ready commercial detail.</p>
+                <p className="mt-1 text-xs text-on-surface-variant">Products, services, and quote-ready commercial detail.</p>
               </div>
               <button type="button" onClick={() => setEditOpen(true)} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface">
                 <span className="material-symbols-outlined text-[14px]">edit</span>
@@ -1195,11 +1195,11 @@ export default function DealDetailPage() {
             {(deal.lineItems?.length ?? 0) > 0 ? (
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b" style={{ borderColor: 'var(--color-pib-line)' }}>
+                  <tr className="border-b" style={{ borderColor: 'var(--color-card-border)' }}>
                     {['Item', 'Qty', 'Unit price', 'Total'].map(h => (
                       <th
                         key={h}
-                        className="text-left text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] px-4 py-2.5"
+                        className="text-left text-[10px] font-label uppercase tracking-widest text-on-surface-variant px-4 py-2.5"
                       >
                         {h}
                       </th>
@@ -1211,23 +1211,23 @@ export default function DealDetailPage() {
                     <tr
                       key={i}
                       className="border-b last:border-0"
-                      style={{ borderColor: 'var(--color-pib-line)' }}
+                      style={{ borderColor: 'var(--color-card-border)' }}
                     >
-                      <td className="px-4 py-3 text-[var(--color-pib-text)]">{li.name}</td>
-                      <td className="px-4 py-3 font-mono text-[var(--color-pib-text-muted)]">{li.qty}</td>
-                      <td className="px-4 py-3 font-mono text-[var(--color-pib-text-muted)]">
+                      <td className="px-4 py-3 text-on-surface">{li.name}</td>
+                      <td className="px-4 py-3 font-mono text-on-surface-variant">{li.qty}</td>
+                      <td className="px-4 py-3 font-mono text-on-surface-variant">
                         {fmtValue(li.unitPrice, li.currency || deal.currency)}
                       </td>
-                      <td className="px-4 py-3 font-mono text-[var(--color-pib-text)]">
+                      <td className="px-4 py-3 font-mono text-on-surface">
                         {fmtValue(lineItemDisplayTotal(li), li.currency || deal.currency)}
                       </td>
                     </tr>
                   ))}
-                  <tr style={{ background: 'var(--color-pib-surface)' }}>
-                    <td colSpan={3} className="px-4 py-3 text-xs font-bold text-[var(--color-pib-text-muted)] uppercase tracking-widest">
+                  <tr style={{ background: 'var(--color-card)' }}>
+                    <td colSpan={3} className="px-4 py-3 text-xs font-bold text-on-surface-variant uppercase tracking-widest">
                       Total
                     </td>
-                    <td className="px-4 py-3 font-mono font-bold text-[var(--color-pib-text)]">
+                    <td className="px-4 py-3 font-mono font-bold text-on-surface">
                       {fmtValue(lineItemTotal, deal.currency)}
                     </td>
                   </tr>
@@ -1238,16 +1238,16 @@ export default function DealDetailPage() {
                 <div className="mx-auto flex max-w-lg flex-col items-center gap-3 text-center">
                   <span
                     aria-hidden="true"
-                    className="material-symbols-outlined flex h-10 w-10 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-white/[0.04] text-[20px] text-[var(--color-accent-v2)]"
+                    className="material-symbols-outlined flex h-10 w-10 items-center justify-center rounded-md border border-[var(--color-card-border)] bg-white/[0.04] text-[20px] text-[var(--color-accent-v2)]"
                   >
                     request_quote
                   </span>
                   <div>
-                    <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                    <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
                       Commercial detail missing
                     </p>
-                    <h3 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">Make this deal quote-ready</h3>
-                    <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                    <h3 className="mt-1 text-base font-semibold text-on-surface">Make this deal quote-ready</h3>
+                    <p className="mt-2 text-sm leading-6 text-on-surface-variant">
                       Add products, services, or ad-hoc pricing so leadership can review value, delivery can see scope, and the opportunity can become a client-ready quote.
                     </p>
                   </div>
@@ -1267,9 +1267,9 @@ export default function DealDetailPage() {
 
           {/* Activity */}
           <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
-            <div className="px-5 py-3.5 border-b border-[var(--color-pib-line)] bg-white/[0.02] flex items-center justify-between">
+            <div className="px-5 py-3.5 border-b border-[var(--color-card-border)] bg-white/[0.02] flex items-center justify-between">
               <p className="eyebrow !text-[10px]">Activity</p>
-              <span className="text-[11px] text-[var(--color-pib-text-muted)] font-mono">
+              <span className="text-[11px] text-on-surface-variant font-mono">
                 {activitiesLoading ? '…' : `${activities.length} record${activities.length === 1 ? '' : 's'}`}
               </span>
             </div>
@@ -1285,16 +1285,16 @@ export default function DealDetailPage() {
                 <div className="mx-auto flex max-w-lg flex-col items-center gap-3 text-center">
                   <span
                     aria-hidden="true"
-                    className="material-symbols-outlined flex h-10 w-10 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-white/[0.04] text-[20px] text-[var(--color-accent-v2)]"
+                    className="material-symbols-outlined flex h-10 w-10 items-center justify-center rounded-md border border-[var(--color-card-border)] bg-white/[0.04] text-[20px] text-[var(--color-accent-v2)]"
                   >
                     history
                   </span>
                   <div>
-                    <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                    <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
                       Relationship trail missing
                     </p>
-                    <h3 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">Anchor the first deal activity</h3>
-                    <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                    <h3 className="mt-1 text-base font-semibold text-on-surface">Anchor the first deal activity</h3>
+                    <p className="mt-2 text-sm leading-6 text-on-surface-variant">
                       {activityEmptyState.copy}
                     </p>
                   </div>
@@ -1312,15 +1312,15 @@ export default function DealDetailPage() {
             ) : (
               <div className="px-5 pb-4">
                 {activities.map(a => (
-                  <div key={a.id} className="flex gap-3 py-3 border-b border-[var(--color-pib-line)] last:border-0">
-                    <div className="shrink-0 w-8 h-8 rounded-full bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] flex items-center justify-center">
-                      <span className="material-symbols-outlined text-[14px] text-[var(--color-pib-text-muted)]">
+                  <div key={a.id} className="flex gap-3 py-3 border-b border-[var(--color-card-border)] last:border-0">
+                    <div className="shrink-0 w-8 h-8 rounded-full bg-[var(--color-card)] border border-[var(--color-card-border)] flex items-center justify-center">
+                      <span className="material-symbols-outlined text-[14px] text-on-surface-variant">
                         {ACTIVITY_ICONS[String(a.type ?? '')] ?? 'circle'}
                       </span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-[var(--color-pib-text)]">{activitySummaryLabel(a)}</p>
-                      <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">
+                      <p className="text-sm text-on-surface">{activitySummaryLabel(a)}</p>
+                      <p className="text-xs text-on-surface-variant mt-0.5">
                         {activityActorLabel(a)} · {activityTimeLabel(a)}
                       </p>
                     </div>

@@ -847,19 +847,19 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
       <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 overflow-hidden p-0">
         <div className="grid gap-0 lg:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.6fr)]">
           <div className="space-y-3 p-3 md:p-4">
-            <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="eyebrow !text-[10px]">Business pulse</p>
-                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-on-surface">
+                <h2 className="mt-1 text-base font-semibold tracking-tight text-on-surface">
                   {company.name}
                 </h2>
                 <p className="mt-2 max-w-2xl text-sm text-on-surface-variant">
                   {accountContext || 'Command center'}
                 </p>
               </div>
-              <div className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.03] px-4 py-3 text-right">
+              <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2 text-right">
                 <p className="eyebrow !text-[10px]">Profile strength</p>
-                <p className="mt-1 text-2xl font-semibold text-[var(--color-accent-v2)]">{profileScore}%</p>
+                <p className="mt-1 text-lg font-semibold text-[var(--color-accent-v2)]">{profileScore}%</p>
               </div>
             </div>
 

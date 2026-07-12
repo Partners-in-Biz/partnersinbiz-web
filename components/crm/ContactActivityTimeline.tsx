@@ -177,7 +177,7 @@ export function ContactActivityTimeline({
 
   if (activities.length === 0) {
     return (
-      <div className="p-5">
+      <div className="p-3">
         <div className="mx-auto flex max-w-lg flex-col items-center gap-2 text-center">
           <span
             aria-hidden="true"
@@ -237,7 +237,7 @@ export function ContactActivityTimeline({
       )}
 
       {effectiveFilter !== ALL_FILTER && visibleActivities.length === 0 && (
-        <p className="py-4 text-center text-xs text-on-surface-variant">
+        <p className="py-3 text-center text-xs text-on-surface-variant">
           No {readableActivityType(effectiveFilter).toLowerCase()} events for {contactLabel}.
         </p>
       )}

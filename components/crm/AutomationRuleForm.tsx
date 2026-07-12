@@ -329,10 +329,10 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
 
   return (
     <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="space-y-4">
+      <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
       {/* ── Name ── */}
-      <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-3">
-        <div className="mb-4 flex items-start justify-between gap-3">
+      <div className="border-b border-[var(--color-card-border)] p-3">
+        <div className="mb-3 flex items-start justify-between gap-3">
           <div>
             <p className="eyebrow !text-[10px]">Rule identity</p>
             <h2 id="automation-rule-name-label" className="mt-2 text-sm font-semibold">Name the business outcome</h2>
@@ -350,8 +350,8 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
       </div>
 
       {/* ── Trigger ── */}
-      <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-3">
-        <div className="mb-4 flex items-start justify-between gap-3">
+      <div className="border-b border-[var(--color-card-border)] p-3">
+        <div className="mb-3 flex items-start justify-between gap-3">
           <div>
             <p className="eyebrow !text-[10px]">Trigger</p>
             <h2 id="automation-trigger-label" className="mt-2 text-sm font-semibold">Choose the CRM moment</h2>
@@ -397,8 +397,8 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
       </div>
 
       {/* ── Timing ── */}
-      <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-3">
-        <div className="mb-4 flex items-start justify-between gap-3">
+      <div className="border-b border-[var(--color-card-border)] p-3">
+        <div className="mb-3 flex items-start justify-between gap-3">
           <div>
             <p className="eyebrow !text-[10px]">Timing</p>
             <h2 className="mt-2 text-sm font-semibold">Decide when it runs</h2>
@@ -453,8 +453,8 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
       </div>
 
       {/* ── Actions ── */}
-      <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-3">
-        <div className="mb-4 flex items-start justify-between gap-3">
+      <div className="border-b border-[var(--color-card-border)] p-3">
+        <div className="mb-3 flex items-start justify-between gap-3">
           <div>
             <p className="eyebrow !text-[10px]">Actions</p>
             <h2 className="mt-2 text-sm font-semibold">Build the execution chain</h2>
@@ -490,7 +490,7 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
       </div>
 
       {/* ── Enabled toggle ── */}
-      <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-3 flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-3 border-b border-[var(--color-card-border)] p-3">
         <div>
           <p id="automation-enabled-label" className="text-sm font-medium">Enabled</p>
           <p className="text-xs text-on-surface-variant mt-0.5">
@@ -519,7 +519,7 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
       )}
 
       {/* ── Footer buttons ── */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 p-3">
         <button
           type="button"
           onClick={handleSubmit}
@@ -540,8 +540,8 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
       </div>
       </div>
 
-      <aside className="space-y-4 xl:sticky xl:top-4 xl:self-start">
-        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-3">
+      <aside className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 xl:sticky xl:top-4 xl:self-start">
+        <div className="border-b border-[var(--color-card-border)] p-3">
           <p className="eyebrow !text-[10px]">Rule preview</p>
           <h2 className="mt-2 text-sm font-semibold">{name.trim() || 'Untitled automation'}</h2>
           <p className="mt-3 text-sm text-on-surface-variant">
@@ -563,7 +563,7 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
           </div>
         </div>
 
-        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-3">
+        <div className="p-3">
           <p className="eyebrow !text-[10px]">Action stack</p>
           <div className="mt-4 space-y-2">
             {actions.length === 0 ? (

@@ -97,7 +97,7 @@ export default function SequenceDetailPage({ params }: { params: Promise<{ id: s
           <button
             type="button"
             onClick={handleCancel}
-            className="cursor-pointer mb-4 flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
+            className="cursor-pointer mb-4 flex items-center gap-1 text-xs text-on-surface-variant transition-colors hover:text-on-surface"
           >
             <span className="material-symbols-outlined text-[14px]">arrow_back</span>
             Sequences
@@ -113,7 +113,7 @@ export default function SequenceDetailPage({ params }: { params: Promise<{ id: s
             <p className="text-xs font-medium">
               {sequence.status === 'active' ? 'Currently active' : sequence.status === 'paused' ? 'Currently paused' : 'Currently draft'}
             </p>
-            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+            <p className="mt-1 text-xs text-on-surface-variant">
               {sequence.steps.length} step{sequence.steps.length === 1 ? '' : 's'} configured for this journey.
             </p>
           </div>
@@ -122,7 +122,7 @@ export default function SequenceDetailPage({ params }: { params: Promise<{ id: s
 
       {loading ? (
         <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4">
-          <p className="text-sm text-[var(--color-pib-text-muted)]">Loading sequence...</p>
+          <p className="text-sm text-on-surface-variant">Loading sequence...</p>
         </div>
       ) : fetchError ? (
         <section className="rounded-xl border border-amber-400/25 bg-amber-400/10 p-3">
@@ -133,11 +133,11 @@ export default function SequenceDetailPage({ params }: { params: Promise<{ id: s
               </span>
               <div>
                 <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
-                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+                <h2 className="mt-1 font-display text-xl text-on-surface">
                   Sequence journey could not load
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{fetchError}</p>
-                <p className="mt-3 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                <p className="mt-2 text-sm leading-6 text-on-surface-variant">{fetchError}</p>
+                <p className="mt-3 text-xs leading-5 text-on-surface-variant">
                   Journey status, steps, and launch controls stay hidden until the sequence source responds, so teams do not edit from stale or partial follow-up data.
                 </p>
               </div>

@@ -170,7 +170,7 @@ export function DealPipelineCommandBar({
             </div>
           </label>
         </div>
-        <p className="sr-only">
+        <p className="px-1 text-[11px] leading-4 text-on-surface-variant">
           Use this lens before editing stages, forecast probability, or opening a deal record.
         </p>
       </div>

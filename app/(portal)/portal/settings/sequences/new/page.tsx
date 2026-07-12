@@ -27,7 +27,7 @@ export default function NewSequencePage() {
           <button
             type="button"
             onClick={handleCancel}
-            className="cursor-pointer flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] mb-4 transition-colors"
+            className="cursor-pointer flex items-center gap-1 text-xs text-on-surface-variant hover:text-on-surface mb-4 transition-colors"
           >
             <span aria-hidden="true" className="material-symbols-outlined text-[14px]">arrow_back</span>
             Sequences
@@ -40,7 +40,7 @@ export default function NewSequencePage() {
         </div>
         <div className="w-full max-w-sm rounded-lg border border-[var(--color-card-border)] bg-black/10 p-3">
           <p className="text-xs font-medium">Recommended starting point</p>
-          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+          <p className="mt-1 text-xs text-on-surface-variant">
             Keep the first journey short: one immediate confirmation, one value follow-up, and one human handoff.
           </p>
         </div>

@@ -137,7 +137,8 @@ export function CompanyRow({
   const lifecycleLabel = readableAccountLabel(company.lifecycleStage)
   const strength = profileStrength(company)
   const health = typeof company.healthScore === 'number' ? company.healthScore : strength
-  const healthColor = health >= 75 ? '#4ade80' : health >= 45 ? '#facc15' : '#f87171'
+  const healthTone = health >= 75 ? 'text-emerald-300' : health >= 45 ? 'text-amber-200' : 'text-red-300'
+  const healthBarTone = health >= 75 ? 'bg-emerald-400' : health >= 45 ? 'bg-amber-300' : 'bg-red-400'
   const tierCls = company.tier ? (TIER_COLOURS[company.tier] ?? 'bg-surface-container text-on-surface-variant') : ''
   const tierLabel = readableAccountLabel(company.tier)
   const websiteLabel = company.domain || company.website || ''
@@ -233,11 +234,11 @@ export function CompanyRow({
           className="block min-w-24 text-left"
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-mono" style={{ color: healthColor }}>{health}%</span>
+            <span className={`font-mono text-xs ${healthTone}`}>{health}%</span>
             <span className="text-[10px] text-on-surface-variant">health</span>
           </div>
           <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10">
-            <div className="h-full rounded-full" style={{ width: `${health}%`, background: healthColor }} />
+            <div className={`h-full rounded-full ${healthBarTone}`} style={{ width: `${health}%` }} />
           </div>
         </button>
       </td>

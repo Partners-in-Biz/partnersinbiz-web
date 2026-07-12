@@ -462,8 +462,8 @@ export function SequenceForm({ initial, apiScope, onSave, onCancel }: Props) {
       </div>
       </div>
 
-      <aside className="space-y-3 xl:sticky xl:top-4 xl:self-start">
-        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
+      <aside className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 xl:sticky xl:top-4 xl:self-start">
+        <div className="border-b border-[var(--color-card-border)] p-3">
           <p className="eyebrow !text-[10px]">Sequence preview</p>
           <h2 className="mt-2 text-sm font-semibold">{name.trim() || 'Untitled sequence'}</h2>
           <p className="mt-3 text-sm text-on-surface-variant">
@@ -471,28 +471,28 @@ export function SequenceForm({ initial, apiScope, onSave, onCancel }: Props) {
             <span className="text-on-surface">{steps.length} step{steps.length === 1 ? '' : 's'}</span> over{' '}
             <span className="text-on-surface">{describeCadence(steps)}</span>.
           </p>
-          <div className="mt-4 grid grid-cols-3 gap-2">
-            <div className="rounded-md border border-[var(--color-card-border)] px-3 py-2">
+          <div className="mt-3 grid grid-cols-3 divide-x divide-[var(--color-card-border)] border border-[var(--color-card-border)]">
+            <div className="px-2 py-2">
               <p className="text-[10px] text-on-surface-variant">Ready</p>
               <p className="mt-1 text-lg font-semibold">{readySteps}</p>
             </div>
-            <div className="rounded-md border border-[var(--color-card-border)] px-3 py-2">
+            <div className="px-2 py-2">
               <p className="text-[10px] text-on-surface-variant">Email</p>
               <p className="mt-1 text-lg font-semibold">{emailSteps}</p>
             </div>
-            <div className="rounded-md border border-[var(--color-card-border)] px-3 py-2">
+            <div className="px-2 py-2">
               <p className="text-[10px] text-on-surface-variant">SMS</p>
               <p className="mt-1 text-lg font-semibold">{smsSteps}</p>
             </div>
           </div>
         </div>
 
-        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
+        <div className="p-3">
           <p className="eyebrow !text-[10px]">First touch</p>
           <p className="mt-3 line-clamp-3 text-sm">{firstTouch}</p>
           <div className="mt-4 space-y-2">
             {steps.map((step, index) => (
-              <div key={`${step.stepNumber}-${index}`} className="flex items-center gap-3 rounded-md border border-[var(--color-card-border)] px-3 py-2">
+              <div key={`${step.stepNumber}-${index}`} className="flex items-center gap-3 border-b border-[var(--color-card-border)] px-2 py-2 last:border-b-0">
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[var(--color-card-border)] text-[10px]">
                   {index + 1}
                 </span>

@@ -151,7 +151,7 @@ function StatCard({ label, value, sub, icon }: { label: string; value: string; s
     <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
       <div className="flex items-start justify-between gap-3">
         <p className="eyebrow !text-[10px]">{label}</p>
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
+        <span className="material-symbols-outlined text-[18px] text-on-surface-variant">{icon}</span>
       </div>
       <p className="mt-2 text-lg font-semibold leading-none text-on-surface">{value}</p>
       <p className="mt-2 text-[11px] leading-4 text-on-surface-variant">{sub}</p>
@@ -359,7 +359,7 @@ export default function AutomationsPage() {
           <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-3 space-y-4">
             <div>
               <h2 className="text-sm font-semibold">Operating view</h2>
-              <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+              <p className="mt-1 text-xs text-on-surface-variant">
                 Segment rules by state, then search by trigger, message, owner, sequence, or endpoint.
               </p>
             </div>
@@ -367,7 +367,7 @@ export default function AutomationsPage() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search automations..."
-              className="w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm outline-none focus:border-[var(--color-pib-accent)]"
+              className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm outline-none focus:border-primary"
             />
             <div className="grid grid-cols-2 gap-2">
               {[
@@ -383,8 +383,8 @@ export default function AutomationsPage() {
                   className={[
                     'cursor-pointer rounded-lg border px-3 py-2 text-left text-xs transition-colors',
                     filter === id
-                      ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-text)]'
-                      : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-white/[0.03]',
+                      ? 'border-primary bg-primary/10 text-on-surface'
+                      : 'border-[var(--color-card-border)] text-on-surface-variant hover:bg-white/[0.03]',
                   ].join(' ')}
                 >
                   {label}
@@ -397,9 +397,9 @@ export default function AutomationsPage() {
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold">Trigger map</h2>
-                <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Coverage across CRM events.</p>
+                <p className="mt-1 text-xs text-on-surface-variant">Coverage across CRM events.</p>
               </div>
-              <span className="text-[10px] rounded-full border border-[var(--color-pib-line)] px-2 py-1 text-[var(--color-pib-text-muted)]">
+              <span className="text-[10px] rounded-full border border-[var(--color-card-border)] px-2 py-1 text-on-surface-variant">
                 {stats.eventCoverage} active
               </span>
             </div>
@@ -407,15 +407,15 @@ export default function AutomationsPage() {
               {(Object.entries(TRIGGER_META) as Array<[TriggerEvent, (typeof TRIGGER_META)[TriggerEvent]]>).map(([event, meta]) => {
                 const count = rules.filter((rule) => rule.trigger.event === event).length
                 return (
-                  <div key={event} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-pib-line)] px-3 py-2">
+                  <div key={event} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-card-border)] px-3 py-2">
                     <div className="flex min-w-0 items-center gap-2">
-                      <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">{meta.icon}</span>
+                      <span className="material-symbols-outlined text-[16px] text-on-surface-variant">{meta.icon}</span>
                       <div className="min-w-0">
                         <p className="truncate text-xs font-medium">{meta.label}</p>
-                        <p className="truncate text-[10px] text-[var(--color-pib-text-muted)]">{meta.group}</p>
+                        <p className="truncate text-[10px] text-on-surface-variant">{meta.group}</p>
                       </div>
                     </div>
-                    <span className={count > 0 ? 'text-xs text-emerald-300' : 'text-xs text-[var(--color-pib-text-muted)]'}>
+                    <span className={count > 0 ? 'text-xs text-emerald-300' : 'text-xs text-on-surface-variant'}>
                       {count}
                     </span>
                   </div>
@@ -435,7 +435,7 @@ export default function AutomationsPage() {
 
           {loading ? (
             <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-3">
-              <p className="text-sm text-[var(--color-pib-text-muted)]">Loading automations...</p>
+              <p className="text-sm text-on-surface-variant">Loading automations...</p>
             </div>
           ) : fetchError ? (
             <section className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-5">
@@ -444,10 +444,10 @@ export default function AutomationsPage() {
                   <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">warning</span>
                   <div>
                     <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
-                    <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+                    <h2 className="mt-1 font-display text-xl text-on-surface">
                       Automation rules could not load
                     </h2>
-                    <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{fetchError}</p>
+                    <p className="mt-2 text-sm leading-6 text-on-surface-variant">{fetchError}</p>
                   </div>
                 </div>
                 <button
@@ -464,16 +464,16 @@ export default function AutomationsPage() {
           ) : rules.length === 0 ? (
             <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-0 overflow-hidden">
               <div className="grid gap-0 lg:grid-cols-[minmax(0,0.9fr)_minmax(320px,1.1fr)]">
-                <div className="flex flex-col justify-between gap-3 border-b border-[var(--color-pib-line)] p-4 lg:border-b-0 lg:border-r">
+                <div className="flex flex-col justify-between gap-3 border-b border-[var(--color-card-border)] p-4 lg:border-b-0 lg:border-r">
                   <div>
-                    <span className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--color-pib-accent)]/25 bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
+                    <span className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary">
                       <span className="material-symbols-outlined text-[22px]">account_tree</span>
                     </span>
                     <p className="eyebrow !text-[10px]">Automation setup</p>
-                    <h2 className="mt-3 text-2xl font-semibold tracking-normal text-[var(--color-pib-text)]">
+                    <h2 className="mt-3 text-2xl font-semibold tracking-normal text-on-surface">
                       Launch your first CRM safety net
                     </h2>
-                    <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                    <p className="mt-3 max-w-xl text-sm leading-6 text-on-surface-variant">
                       Start with the highest-risk handoff in the business: new lead assignment, stage-change notifications, win/loss follow-up, or a webhook into the next operating system. The goal is simple: every employee knows what happens next.
                     </p>
                   </div>
@@ -486,7 +486,7 @@ export default function AutomationsPage() {
                       <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
                       Create the first automation
                     </Link>
-                    <span className="rounded-full border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)]">
+                    <span className="rounded-full border border-[var(--color-card-border)] px-3 py-1.5 text-xs text-on-surface-variant">
                       Start with one rule, then expand coverage
                     </span>
                   </div>
@@ -494,17 +494,17 @@ export default function AutomationsPage() {
 
                 <div className="grid gap-3 p-4 sm:grid-cols-2">
                   {automationBlueprint.map((item) => (
-                    <div key={item.label} className="rounded-xl border border-[var(--color-pib-line)] bg-black/10 p-4">
+                    <div key={item.label} className="rounded-xl border border-[var(--color-card-border)] bg-black/10 p-4">
                       <div className="mb-4 flex items-start justify-between gap-3">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-[var(--color-pib-text)]">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-on-surface">
                           <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
                         </span>
-                        <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)]">
+                        <span className="rounded-full border border-[var(--color-card-border)] px-2 py-1 text-[10px] text-on-surface-variant">
                           {item.value}
                         </span>
                       </div>
-                      <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{item.label}</h3>
-                      <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">{item.copy}</p>
+                      <h3 className="text-sm font-semibold text-on-surface">{item.label}</h3>
+                      <p className="mt-2 text-xs leading-5 text-on-surface-variant">{item.copy}</p>
                     </div>
                   ))}
                 </div>
@@ -512,10 +512,10 @@ export default function AutomationsPage() {
             </div>
           ) : visibleRules.length === 0 ? (
             <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-4 text-center">
-              <span className="material-symbols-outlined mb-2 block text-lg text-[var(--color-pib-text-muted)]" aria-hidden="true">manage_search</span>
+              <span className="material-symbols-outlined mb-2 block text-lg text-on-surface-variant" aria-hidden="true">manage_search</span>
               <p className="eyebrow !text-[10px]">Filtered automation view</p>
-              <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">No automations match this view.</h2>
-              <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Clear the automation filters to return to every CRM rule.</p>
+              <h2 className="mt-2 text-lg font-semibold text-on-surface">No automations match this view.</h2>
+              <p className="mt-2 text-sm text-on-surface-variant">Clear the automation filters to return to every CRM rule.</p>
               <button
                 type="button"
                 onClick={clearViewFilters}
@@ -592,7 +592,7 @@ export default function AutomationsPage() {
                   <article
                     key={rule.id}
                     className={[
-                      'rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-0 overflow-hidden transition-colors hover:border-[var(--color-pib-accent)]',
+                      'rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-0 overflow-hidden transition-colors hover:border-primary',
                       isDeleting ? 'opacity-50 pointer-events-none' : '',
                     ].join(' ')}
                   >
@@ -610,7 +610,7 @@ export default function AutomationsPage() {
                             <span className="material-symbols-outlined text-[13px]">{rule.enabled ? 'play_arrow' : 'pause'}</span>
                             {rule.enabled ? 'Active' : 'Paused'}
                           </span>
-                          <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)]">
+                          <span className="rounded-full border border-[var(--color-card-border)] px-2 py-1 text-[10px] text-on-surface-variant">
                             {delayLabel(rule.delayMinutes)}
                           </span>
                           <span className={score >= 80 ? 'rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[10px] text-emerald-300' : 'rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-1 text-[10px] text-amber-300'}>
@@ -619,13 +619,13 @@ export default function AutomationsPage() {
                         </div>
                         <h2 className="truncate text-base font-semibold">{displayName}</h2>
                         {rule.description && (
-                          <p className="mt-1 line-clamp-2 text-xs text-[var(--color-pib-text-muted)]">{rule.description}</p>
+                          <p className="mt-1 line-clamp-2 text-xs text-on-surface-variant">{rule.description}</p>
                         )}
-                        <div className="mt-4 flex items-start gap-3 rounded-lg border border-[var(--color-pib-line)] bg-black/10 px-3 py-3">
-                          <span className="material-symbols-outlined mt-0.5 text-[18px] text-[var(--color-pib-accent)]">{triggerMeta.icon}</span>
+                        <div className="mt-4 flex items-start gap-3 rounded-lg border border-[var(--color-card-border)] bg-black/10 px-3 py-3">
+                          <span className="material-symbols-outlined mt-0.5 text-[18px] text-primary">{triggerMeta.icon}</span>
                           <div className="min-w-0">
                             <p className="text-xs font-medium">{triggerLabel(rule)}</p>
-                            <p className="mt-1 line-clamp-2 text-[11px] text-[var(--color-pib-text-muted)]">{triggerMeta.sub}</p>
+                            <p className="mt-1 line-clamp-2 text-[11px] text-on-surface-variant">{triggerMeta.sub}</p>
                           </div>
                         </div>
                       </div>
@@ -639,8 +639,8 @@ export default function AutomationsPage() {
                         </div>
                         <div className="space-y-2">
                           {rule.actions.slice(0, 3).map((action, index) => (
-                            <div key={`${action.type}-detail-${index}`} className="flex min-w-0 items-center gap-2 text-xs text-[var(--color-pib-text-muted)]">
-                              <span className="h-5 w-5 shrink-0 rounded-full border border-[var(--color-pib-line)] text-center text-[10px] leading-5">
+                            <div key={`${action.type}-detail-${index}`} className="flex min-w-0 items-center gap-2 text-xs text-on-surface-variant">
+                              <span className="h-5 w-5 shrink-0 rounded-full border border-[var(--color-card-border)] text-center text-[10px] leading-5">
                                 {index + 1}
                               </span>
                               <span className="truncate">{actionDetail(action)}</span>
@@ -662,7 +662,7 @@ export default function AutomationsPage() {
                           title={rule.enabled ? 'Disable automation' : 'Enable automation'}
                           className={[
                             'cursor-pointer relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none',
-                            rule.enabled ? 'bg-[var(--color-pib-accent)]' : 'bg-[var(--color-pib-line-strong)]',
+                            rule.enabled ? 'bg-primary' : 'bg-[var(--color-card-border-strong)]',
                             isToggling ? 'opacity-60' : '',
                           ].join(' ')}
                         >
@@ -678,7 +678,7 @@ export default function AutomationsPage() {
                           <Link
                             href={automationHref(`/portal/settings/automations/${rule.id}/edit`)}
                             title="Edit automation"
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-white/[0.06] hover:text-on-surface"
                           >
                             <span className="material-symbols-outlined text-[17px]">edit</span>
                           </Link>
@@ -691,7 +691,7 @@ export default function AutomationsPage() {
                             disabled={isDeleting}
                             aria-label={`Delete automation ${displayName}`}
                             title="Delete automation"
-                            className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-red-400/[0.08] hover:text-red-400"
+                            className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-red-400/[0.08] hover:text-red-400"
                           >
                             {isDeleting ? (
                               <span className="material-symbols-outlined text-[17px] animate-spin">progress_activity</span>

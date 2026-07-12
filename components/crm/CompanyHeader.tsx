@@ -107,7 +107,8 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
   const lifecycleLabel = readableAccountLabel(company.lifecycleStage)
   const am = companyAccountOwnerRef(company)
   const strength = typeof company.healthScore === 'number' ? company.healthScore : profileStrength(company)
-  const strengthColor = strength >= 75 ? '#4ade80' : strength >= 45 ? '#facc15' : '#f87171'
+  const strengthTone = strength >= 75 ? 'text-emerald-300' : strength >= 45 ? 'text-amber-200' : 'text-red-300'
+  const strengthBarTone = strength >= 75 ? 'bg-emerald-400' : strength >= 45 ? 'bg-amber-300' : 'bg-red-400'
   const siteHref = websiteHref(company)
   const missingIdentity = !company.domain && !company.website && !company.legalName
   const missingIndustry = !company.industry
@@ -304,10 +305,10 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
         <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
           <div className="flex items-center justify-between gap-3">
             <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Profile health</p>
-            <span className="font-mono text-xs" style={{ color: strengthColor }}>{strength}%</span>
+            <span className={`font-mono text-xs ${strengthTone}`}>{strength}%</span>
           </div>
           <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10">
-            <div className="h-full rounded-full" style={{ width: `${strength}%`, background: strengthColor }} />
+            <div className={`h-full rounded-full ${strengthBarTone}`} style={{ width: `${strength}%` }} />
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] leading-4 text-on-surface-variant">
             <span>{formatCurrency(company.annualRevenue, company.currency)}</span>

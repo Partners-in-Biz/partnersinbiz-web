@@ -122,7 +122,7 @@ function SortableRow({
       style={style}
       className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-0 overflow-hidden"
     >
-      <div className="flex flex-col gap-4 p-4 lg:flex-row lg:items-start">
+      <div className="flex flex-col gap-3 p-3 lg:flex-row lg:items-start">
         <div className="flex items-start gap-3 min-w-0 flex-1">
           {/* Drag handle (admin only) */}
           {isAdmin && canReorder && (
@@ -171,12 +171,12 @@ function SortableRow({
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 text-center lg:w-[250px]">
-          <div className="rounded-md border border-[var(--color-card-border)] bg-white/[0.03] p-2">
+        <div className="grid grid-cols-3 divide-x divide-[var(--color-card-border)] border border-[var(--color-card-border)] text-center lg:w-[250px]">
+          <div className="p-2">
             <p className="truncate text-xs font-medium text-on-surface" title={def.group || 'Other'}>{def.group || 'Other'}</p>
             <p className="mt-1 text-[10px] uppercase tracking-widest text-on-surface-variant">Group</p>
           </div>
-          <div className="rounded-md border border-[var(--color-card-border)] bg-white/[0.03] p-2">
+          <div className="p-2">
             {missingOptions ? (
               <div className="flex min-h-[28px] flex-col items-center justify-center gap-1">
                 <p className="text-[11px] font-medium text-amber-200">Options missing</p>
@@ -193,12 +193,12 @@ function SortableRow({
                 )}
               </div>
             ) : (
-              <p className="text-lg text-on-surface">{optionCount || (hasConstraint ? 'Set' : '-')}</p>
+              <p className="text-sm font-semibold text-on-surface">{optionCount || (hasConstraint ? 'Set' : '-')}</p>
             )}
             <p className="mt-1 text-[10px] uppercase tracking-widest text-on-surface-variant">Rules</p>
           </div>
-          <div className="rounded-md border border-[var(--color-card-border)] bg-white/[0.03] p-2">
-            <p className="text-lg text-on-surface">{def.order}</p>
+          <div className="p-2">
+            <p className="text-sm font-semibold text-on-surface">{def.order}</p>
             <p className="mt-1 text-[10px] uppercase tracking-widest text-on-surface-variant">Order</p>
           </div>
         </div>

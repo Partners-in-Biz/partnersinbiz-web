@@ -63,7 +63,7 @@ function resolveStage(
   const pipeline = pipelinesById.get(deal.pipelineId)
   const stage: PipelineStage | undefined = pipeline?.stages.find(s => s.id === deal.stageId)
   if (!stage) {
-    return { label: fallbackStageLabel(deal.stageId), color: '#6b7280', kind: fallbackStageKind(deal) }
+    return { label: fallbackStageLabel(deal.stageId), color: 'var(--color-on-surface-variant)', kind: fallbackStageKind(deal) }
   }
   const color = stage.color ?? kindColor(stage.kind)
   return { label: stage.label, color, kind: stage.kind }
@@ -87,9 +87,9 @@ function fallbackStageKind(deal: Deal): string {
 }
 
 function kindColor(kind: string): string {
-  if (kind === 'won')  return '#4ade80'
-  if (kind === 'lost') return '#ef4444'
-  return '#60a5fa'
+  if (kind === 'won') return 'var(--color-accent-v2)'
+  if (kind === 'lost') return 'var(--color-error)'
+  return 'var(--color-primary)'
 }
 
 function unwrapDealsList(body: unknown): Deal[] {
@@ -267,7 +267,7 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '', orgScope
           ))}
         </div>
       ) : loadError ? (
-        <div className="p-5 text-center">
+        <div className="p-3 text-center">
           <span className="material-symbols-outlined text-[19px] text-amber-300" aria-hidden="true">
             sync_problem
           </span>
@@ -293,7 +293,7 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '', orgScope
           </button>
         </div>
       ) : deals.length === 0 ? (
-        <div className="p-5 text-center">
+        <div className="p-3 text-center">
           <span className="material-symbols-outlined text-[19px] text-[var(--color-accent-v2)]" aria-hidden="true">
             monetization_on
           </span>

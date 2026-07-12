@@ -56,7 +56,7 @@ export default function NewSequencePage() {
           <button
             type="button"
             onClick={handleCancel}
-            className="cursor-pointer mb-4 flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
+            className="cursor-pointer mb-4 flex items-center gap-1 text-xs text-on-surface-variant transition-colors hover:text-on-surface"
           >
             <span className="material-symbols-outlined text-[14px]">arrow_back</span>
             Sequences
@@ -69,7 +69,7 @@ export default function NewSequencePage() {
         </div>
         <div className="w-full max-w-sm rounded-lg border border-[var(--color-card-border)] bg-black/10 p-3">
           <p className="text-xs font-medium">Company-scoped journey</p>
-          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+          <p className="mt-1 text-xs text-on-surface-variant">
             This sequence is created against the organisation selected from the company workspace.
           </p>
         </div>

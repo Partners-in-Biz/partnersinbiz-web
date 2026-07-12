@@ -117,7 +117,7 @@ export function SegmentCommandCenter({
     <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55">
       <div className="flex h-11 items-center gap-2 border-b border-[var(--color-card-border)] px-3">
         <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Segment command center</p>
-        <h2 className="sr-only">Audience reach and targeting quality</h2>
+        <h2 className="truncate text-[11px] text-on-surface-variant">Audience reach and targeting quality</h2>
         <div className="ml-auto flex min-w-0 max-w-xs flex-1 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-transparent px-2">
           <span className="material-symbols-outlined text-[16px] text-on-surface-variant">search</span>
           <label className="sr-only">Search segments</label>

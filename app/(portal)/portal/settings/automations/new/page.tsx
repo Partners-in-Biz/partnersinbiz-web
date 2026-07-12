@@ -28,7 +28,7 @@ export default function NewAutomationPage() {
           <button
             type="button"
             onClick={handleCancel}
-            className="cursor-pointer flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] mb-4 transition-colors"
+            className="cursor-pointer flex items-center gap-1 text-xs text-on-surface-variant hover:text-on-surface mb-4 transition-colors"
           >
             <span aria-hidden="true" className="material-symbols-outlined text-[14px]">arrow_back</span>
             Automations
@@ -41,7 +41,7 @@ export default function NewAutomationPage() {
         </div>
         <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-4 w-full max-w-sm">
           <p className="text-xs font-medium">Recommended starting point</p>
-          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+          <p className="mt-1 text-xs text-on-surface-variant">
             Start with one trigger and one high-confidence action, then expand once the rule is live.
           </p>
         </div>

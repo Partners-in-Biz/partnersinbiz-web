@@ -417,8 +417,8 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
 
       <div className={fetchError ? '' : 'grid gap-3 xl:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)]'}>
         {!fetchError && (
-        <aside className="space-y-5">
-          <div className="space-y-3 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
+        <aside className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+          <div className="space-y-3 border-b border-[var(--color-card-border)] p-3">
             <div>
               <h2 className="text-sm font-semibold">Journey view</h2>
               <p className="mt-1 text-xs text-on-surface-variant">
@@ -456,7 +456,7 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
             </div>
           </div>
 
-          <div className="space-y-3 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
+          <div className="space-y-3 p-3">
             <div>
               <h2 className="text-sm font-semibold">Channel focus</h2>
               <p className="mt-1 text-xs text-on-surface-variant">Check whether journeys are email-only, SMS, or mixed.</p>

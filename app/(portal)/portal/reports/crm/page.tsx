@@ -401,7 +401,7 @@ function OwnershipMetricTile({
 }) {
   const className = [
     'rounded-lg border border-[var(--color-card-border)] bg-white/[0.03] p-3',
-    href ? 'block transition-colors hover:border-[var(--color-pib-accent)] hover:bg-white/[0.05] focus:outline-none focus:ring-2 focus:ring-primary/40' : '',
+    href ? 'block transition-colors hover:border-primary hover:bg-white/[0.05] focus:outline-none focus:ring-2 focus:ring-primary/40' : '',
   ].filter(Boolean).join(' ')
   const content = (
     <>

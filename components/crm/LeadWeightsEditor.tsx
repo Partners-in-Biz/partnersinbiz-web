@@ -35,12 +35,12 @@ export function LeadWeightsEditor({ value, onChange, disabled }: Props) {
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
       {WEIGHT_FIELDS.map(({ key, label, description, defaultValue }) => {
         const displayVal = value[key] ?? defaultValue
         return (
           <div key={key} className="flex flex-col gap-1">
-            <label className="text-sm font-medium">{label}</label>
+            <label className="text-xs font-medium">{label}</label>
             <p className="text-xs text-on-surface-variant">{description}</p>
             <input
               type="number"
@@ -51,7 +51,7 @@ export function LeadWeightsEditor({ value, onChange, disabled }: Props) {
               disabled={disabled}
               aria-label={label}
               onChange={e => setWeight(key, e.target.value)}
-              className="mt-1 w-28 px-3 py-2 rounded-md border border-[var(--color-card-border)] bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-50"
+              className="mt-0.5 h-8 w-24 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-50"
             />
           </div>
         )

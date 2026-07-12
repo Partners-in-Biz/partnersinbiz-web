@@ -118,8 +118,8 @@ export function CompaniesTable({
             </>
           ) : companies.length === 0 ? (
             <tr>
-              <td colSpan={COLUMNS.length + (selectable ? 1 : 0)} className="px-3 py-10 text-center">
-                <div className="mx-auto flex max-w-md flex-col items-center px-4 py-4">
+              <td colSpan={COLUMNS.length + (selectable ? 1 : 0)} className="px-3 py-6 text-center">
+                <div className="mx-auto flex max-w-md flex-col items-center px-3 py-3">
                   <span className="material-symbols-outlined grid h-8 w-8 place-items-center rounded-md bg-primary/10 text-[19px] text-primary">
                     {state.icon}
                   </span>
@@ -128,7 +128,7 @@ export function CompaniesTable({
                   <p className="mt-1.5 max-w-md text-xs leading-5 text-on-surface-variant">
                     {state.description}
                   </p>
-                  <div className="mt-4 flex flex-wrap justify-center gap-1.5">
+                  <div className="mt-3 flex flex-wrap justify-center gap-1.5">
                     {state.primaryAction ? (
                       <button
                         type="button"

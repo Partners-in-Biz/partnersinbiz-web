@@ -516,7 +516,7 @@ function ContactsPanel({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="eyebrow !text-[10px]">Stakeholders</p>
-          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+          <p className="mt-1 text-sm text-on-surface-variant">
             Add every buyer, approver, finance owner, and delivery contact that matters for {company.name}.
           </p>
         </div>
@@ -533,7 +533,7 @@ function ContactsPanel({
       </div>
       <CompanyRecordTableShell>
         <table className="w-full text-sm">
-          <thead className="border-b border-[var(--color-pib-line)] text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
+          <thead className="border-b border-[var(--color-card-border)] text-[10px] font-label uppercase tracking-wider text-on-surface-variant">
             <tr>
               <th className="px-5 py-3 text-left">Name</th>
               <th className="px-5 py-3 text-left">Email</th>
@@ -541,7 +541,7 @@ function ContactsPanel({
               <th className="px-5 py-3 text-left">Stage</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[var(--color-pib-line)]">
+          <tbody className="divide-y divide-[var(--color-card-border)]">
             {contacts.map((contact) => (
               <tr key={contact.id} className="hover:bg-white/[0.02]">
                 <td className="px-5 py-4">
@@ -549,7 +549,7 @@ function ContactsPanel({
                     {contactIdentityLabel(contact)}
                   </Link>
                 </td>
-                <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{contact.email || 'No email captured'}</td>
+                <td className="px-5 py-4 text-on-surface-variant">{contact.email || 'No email captured'}</td>
                 <td className="px-5 py-4"><CompanyRecordStatusChip value={contact.type} emptyLabel="Type not set" /></td>
                 <td className="px-5 py-4"><CompanyRecordStatusChip value={contact.stage} emptyLabel="Stage not set" /></td>
               </tr>
@@ -631,8 +631,8 @@ function ExistingContactLinkDrawer({
       aria-label={`Link existing contact to ${company.name}`}
     >
       <div className="flex-1 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="w-full max-w-lg overflow-y-auto border-l border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
-        <div className="flex items-center justify-between border-b border-[var(--color-pib-line)] px-6 py-4">
+      <div className="w-full max-w-lg overflow-y-auto border-l border-[var(--color-card-border)] bg-[var(--color-card)]">
+        <div className="flex items-center justify-between border-b border-[var(--color-card-border)] px-6 py-4">
           <div>
             <p className="eyebrow !text-[10px]">Company contact</p>
             <h2 className="text-sm font-semibold text-on-surface">Link existing contact to {company.name}</h2>
@@ -640,7 +640,7 @@ function ExistingContactLinkDrawer({
           <button
             type="button"
             onClick={onClose}
-            className="text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
+            className="text-on-surface-variant transition-colors hover:text-on-surface"
             aria-label={`Close existing contact drawer for ${company.name}`}
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
@@ -648,7 +648,7 @@ function ExistingContactLinkDrawer({
         </div>
         <div className="space-y-4 p-4">
           <label className="block text-sm">
-            <span className="mb-1 block text-[var(--color-pib-text-muted)]">Search contacts</span>
+            <span className="mb-1 block text-on-surface-variant">Search contacts</span>
             <input
               className="input-pib w-full"
               value={query}
@@ -657,7 +657,7 @@ function ExistingContactLinkDrawer({
             />
           </label>
           <label className="block text-sm">
-            <span className="mb-1 block text-[var(--color-pib-text-muted)]">Role at {company.name} (optional)</span>
+            <span className="mb-1 block text-on-surface-variant">Role at {company.name} (optional)</span>
             <input
               className="input-pib w-full"
               value={roleTitle}
@@ -667,16 +667,16 @@ function ExistingContactLinkDrawer({
           </label>
           {error && <p className="rounded-lg border border-red-400/20 bg-red-400/10 px-3 py-2 text-sm text-red-100">{error}</p>}
           <div className="space-y-2">
-            {loading ? <p className="text-sm text-[var(--color-pib-text-muted)]">Loading contacts...</p> : null}
+            {loading ? <p className="text-sm text-on-surface-variant">Loading contacts...</p> : null}
             {!loading && contacts.length === 0 ? (
-              <p className="text-sm text-[var(--color-pib-text-muted)]">No unlinked contacts found. Create a new contact instead if this person is not in CRM yet.</p>
+              <p className="text-sm text-on-surface-variant">No unlinked contacts found. Create a new contact instead if this person is not in CRM yet.</p>
             ) : null}
             {contacts.map((contact) => (
-              <div key={contact.id} className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
+              <div key={contact.id} className="rounded-xl border border-[var(--color-card-border)] bg-white/[0.02] p-3">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="font-medium text-[var(--color-pib-text)]">{contactIdentityLabel(contact)}</p>
-                    <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+                    <p className="font-medium text-on-surface">{contactIdentityLabel(contact)}</p>
+                    <p className="mt-1 text-xs text-on-surface-variant">
                       {contact.email || 'No email captured'}{contact.companyName || contact.company ? ` · ${contact.companyName || contact.company}` : ''}
                     </p>
                   </div>
@@ -746,7 +746,7 @@ function DealsPanel({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="eyebrow !text-[10px]">Opportunities</p>
-          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+          <p className="mt-1 text-sm text-on-surface-variant">
             Keep every expansion, renewal, and new commercial track visible for {company.name}.
           </p>
         </div>
@@ -764,7 +764,7 @@ function DealsPanel({
       </div>
       <CompanyRecordTableShell>
         <table className="w-full text-sm">
-          <thead className="border-b border-[var(--color-pib-line)] text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
+          <thead className="border-b border-[var(--color-card-border)] text-[10px] font-label uppercase tracking-wider text-on-surface-variant">
             <tr>
               <th className="px-5 py-3 text-left">Deal</th>
               <th className="px-5 py-3 text-left">Value</th>
@@ -772,7 +772,7 @@ function DealsPanel({
               <th className="px-5 py-3 text-left">Probability</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[var(--color-pib-line)]">
+          <tbody className="divide-y divide-[var(--color-card-border)]">
             {deals.map((deal) => (
               <tr key={deal.id} className="hover:bg-white/[0.02]">
                 <td className="px-5 py-4">
@@ -780,9 +780,9 @@ function DealsPanel({
                     {deal.title || deal.id}
                   </Link>
                 </td>
-                <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{dealValueLabel(deal)}</td>
+                <td className="px-5 py-4 text-on-surface-variant">{dealValueLabel(deal)}</td>
                 <td className="px-5 py-4"><CompanyRecordStatusChip value={deal.stageId} emptyLabel="Stage not set" /></td>
-                <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{dealProbabilityLabel(deal)}</td>
+                <td className="px-5 py-4 text-on-surface-variant">{dealProbabilityLabel(deal)}</td>
               </tr>
             ))}
           </tbody>
@@ -888,7 +888,7 @@ function ProjectsPanel({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="eyebrow !text-[10px]">Delivery workspaces</p>
-          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+          <p className="mt-1 text-sm text-on-surface-variant">
             Keep every discovery sprint, build, handoff, and delivery track connected to {company.name}.
           </p>
         </div>
@@ -984,7 +984,7 @@ function ServicesPanel({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="eyebrow !text-[10px]">Service workspaces</p>
-          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+          <p className="mt-1 text-sm text-on-surface-variant">
             Keep every retainer, delivery lane, and operational workspace connected to {company.name}.
           </p>
         </div>
@@ -1067,7 +1067,7 @@ function DocumentsPanel({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="eyebrow !text-[10px]">Commercial documents</p>
-          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+          <p className="mt-1 text-sm text-on-surface-variant">
             Keep proposals, approvals, and client-facing account history connected to {company.name}.
           </p>
         </div>
@@ -1088,10 +1088,10 @@ function DocumentsPanel({
           { label: 'Received', value: documentDirectionCounts.received, help: 'Created from the linked workspace' },
           { label: 'Linked', value: documentDirectionCounts.linked, help: 'Attached by relationship or company link' },
         ].map((item) => (
-          <div key={item.label} className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.03] px-4 py-3">
+          <div key={item.label} className="rounded-xl border border-[var(--color-card-border)] bg-white/[0.03] px-4 py-3">
             <p className="eyebrow !text-[9px]">{item.label}</p>
-            <p className="mt-1 font-display text-2xl text-[var(--color-pib-text)]">{item.value}</p>
-            <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">{item.help}</p>
+            <p className="mt-1 font-display text-2xl text-on-surface">{item.value}</p>
+            <p className="mt-1 text-[11px] text-on-surface-variant">{item.help}</p>
           </div>
         ))}
       </div>
@@ -1160,7 +1160,7 @@ function RelationshipsPanel({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="eyebrow !text-[10px]">Business relationships</p>
-          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+          <p className="mt-1 text-sm text-on-surface-variant">
             Keep partnerships, shared delivery, and collaboration context connected to {company.name}.
           </p>
         </div>
@@ -1246,7 +1246,7 @@ function QuotesPanel({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="eyebrow !text-[10px]">Commercial quotes</p>
-          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+          <p className="mt-1 text-sm text-on-surface-variant">
             Keep proposal momentum, pricing context, and validity windows connected to {company.name}.
           </p>
         </div>
@@ -1270,7 +1270,7 @@ function QuotesPanel({
       {quoteError ? <p className="text-xs text-red-300">{quoteError}</p> : null}
       <CompanyRecordTableShell>
         <table className="w-full text-sm">
-          <thead className="border-b border-[var(--color-pib-line)] text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
+          <thead className="border-b border-[var(--color-card-border)] text-[10px] font-label uppercase tracking-wider text-on-surface-variant">
             <tr>
               <th className="px-5 py-3 text-left">Quote</th>
               <th className="px-5 py-3 text-left">Status</th>
@@ -1278,13 +1278,13 @@ function QuotesPanel({
               <th className="px-5 py-3 text-left">Valid Until</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[var(--color-pib-line)]">
+          <tbody className="divide-y divide-[var(--color-card-border)]">
             {quotes.map((quote) => (
               <tr key={quote.id} className="hover:bg-white/[0.02]">
                 <td className="px-5 py-4 font-mono">{quote.quoteNumber || quote.id}</td>
                 <td className="px-5 py-4"><CompanyRecordStatusChip value={quote.status} emptyLabel="Quote status not set" /></td>
-                <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{quoteTotalLabel(quote)}</td>
-                <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{quoteValidUntilLabel(quote)}</td>
+                <td className="px-5 py-4 text-on-surface-variant">{quoteTotalLabel(quote)}</td>
+                <td className="px-5 py-4 text-on-surface-variant">{quoteValidUntilLabel(quote)}</td>
               </tr>
             ))}
           </tbody>
@@ -1421,7 +1421,7 @@ function InvoicesPanel({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="eyebrow !text-[10px]">Billing invoices</p>
-          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+          <p className="mt-1 text-sm text-on-surface-variant">
             Keep accepted revenue, billing status, due dates, and finance handoffs connected to {company.name}.
           </p>
         </div>
@@ -1449,7 +1449,7 @@ function InvoicesPanel({
       {invoiceError ? <p className="text-xs text-red-300">{invoiceError}</p> : null}
       <CompanyRecordTableShell>
         <table className="w-full text-sm">
-          <thead className="border-b border-[var(--color-pib-line)] text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
+          <thead className="border-b border-[var(--color-card-border)] text-[10px] font-label uppercase tracking-wider text-on-surface-variant">
             <tr>
               <th className="px-5 py-3 text-left">Invoice</th>
               <th className="px-5 py-3 text-left">Status</th>
@@ -1458,7 +1458,7 @@ function InvoicesPanel({
               <th className="px-5 py-3 text-right">PDF</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[var(--color-pib-line)]">
+          <tbody className="divide-y divide-[var(--color-card-border)]">
             {editableInvoices.map((invoice) => {
               const pdfHref = scopedApiPath(`/api/v1/invoices/${invoice.id}/pdf`, orgScope)
               const pdfFilename = `${invoice.invoiceNumber || invoice.id}.pdf`
@@ -1467,8 +1467,8 @@ function InvoicesPanel({
                   <tr className="hover:bg-white/[0.02]">
                     <td className="px-5 py-4 font-mono">{invoice.invoiceNumber || invoice.id}</td>
                     <td className="px-5 py-4"><CompanyRecordStatusChip value={invoice.status} emptyLabel="Invoice status not set" /></td>
-                    <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{invoiceTotalLabel(invoice)}</td>
-                    <td className="px-5 py-4 text-[var(--color-pib-text-muted)]">{invoiceDueDateLabel(invoice)}</td>
+                    <td className="px-5 py-4 text-on-surface-variant">{invoiceTotalLabel(invoice)}</td>
+                    <td className="px-5 py-4 text-on-surface-variant">{invoiceDueDateLabel(invoice)}</td>
                     <td className="px-5 py-4 text-right">
                       <div className="flex justify-end gap-3">
                         {invoice.canEdit && invoice.status === 'draft' ? (
@@ -1489,22 +1489,22 @@ function InvoicesPanel({
                   <tr key={`${invoice.id}-editor`}>
                     <td colSpan={5} className="bg-white/[0.02] px-5 py-4">
                       <div className="grid gap-3 sm:grid-cols-2">
-                        <label className="text-xs text-[var(--color-pib-text-muted)]">Due date
+                        <label className="text-xs text-on-surface-variant">Due date
                           <input type="date" value={draftForm.dueDate} onChange={(event) => setDraftForm((current) => ({ ...current, dueDate: event.target.value }))} className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface mt-1" />
                         </label>
-                        <label className="text-xs text-[var(--color-pib-text-muted)]">Tax rate
+                        <label className="text-xs text-on-surface-variant">Tax rate
                           <input type="number" min="0" max="100" value={draftForm.taxRate} onChange={(event) => setDraftForm((current) => ({ ...current, taxRate: event.target.value }))} className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface mt-1" />
                         </label>
-                        <label className="text-xs text-[var(--color-pib-text-muted)] sm:col-span-2">Line item description
+                        <label className="text-xs text-on-surface-variant sm:col-span-2">Line item description
                           <input value={draftForm.description} onChange={(event) => setDraftForm((current) => ({ ...current, description: event.target.value }))} className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface mt-1" />
                         </label>
-                        <label className="text-xs text-[var(--color-pib-text-muted)]">Quantity
+                        <label className="text-xs text-on-surface-variant">Quantity
                           <input type="number" min="1" value={draftForm.quantity} onChange={(event) => setDraftForm((current) => ({ ...current, quantity: event.target.value }))} className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface mt-1" />
                         </label>
-                        <label className="text-xs text-[var(--color-pib-text-muted)]">Unit price
+                        <label className="text-xs text-on-surface-variant">Unit price
                           <input type="number" min="0" step="0.01" value={draftForm.unitPrice} onChange={(event) => setDraftForm((current) => ({ ...current, unitPrice: event.target.value }))} className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface mt-1" />
                         </label>
-                        <label className="text-xs text-[var(--color-pib-text-muted)] sm:col-span-2">Notes
+                        <label className="text-xs text-on-surface-variant sm:col-span-2">Notes
                           <textarea value={draftForm.notes} onChange={(event) => setDraftForm((current) => ({ ...current, notes: event.target.value }))} className="rounded-md border border-[var(--color-card-border)] bg-transparent p-2 text-xs text-on-surface mt-1" rows={2} />
                         </label>
                       </div>
@@ -1586,7 +1586,7 @@ function OrdersPanel({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="eyebrow !text-[10px]">Fulfillment orders</p>
-          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+          <p className="mt-1 text-sm text-on-surface-variant">
             Keep delivery commitments, order value, and fulfillment status connected to {company.name}.
           </p>
         </div>
@@ -1685,7 +1685,7 @@ function ShipmentsPanel({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="eyebrow !text-[10px]">Delivery shipments</p>
-          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+          <p className="mt-1 text-sm text-on-surface-variant">
             Keep carrier, tracking, and expected delivery context connected to {company.name}.
           </p>
         </div>
@@ -1765,7 +1765,7 @@ function InventoryPanel({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="eyebrow !text-[10px]">Inventory control</p>
-          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+          <p className="mt-1 text-sm text-on-surface-variant">
             Keep stock levels, reservations, low-stock thresholds, and fulfillment readiness visible for {company.name}.
           </p>
         </div>
@@ -1836,21 +1836,21 @@ function ActivityPanel({
         <div>
           <p className="eyebrow !text-[10px]">Company note</p>
           <h3 className="mt-1 text-sm font-semibold text-on-surface">Log context for {company.name}</h3>
-          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+          <p className="mt-1 text-xs text-on-surface-variant">
             Anchored to {contactLabel(firstContact)} so this note joins the contact and company timeline.
           </p>
         </div>
         <button
           type="button"
           onClick={onCancelNote}
-          className="text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
+          className="text-on-surface-variant transition-colors hover:text-on-surface"
           aria-label={dismissCompanyNoteLabel}
         >
           <span className="material-symbols-outlined text-[20px]">close</span>
         </button>
       </div>
       <div className="mt-4 space-y-3">
-        <label htmlFor="company-activity-note" className="block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+        <label htmlFor="company-activity-note" className="block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
           Company note
         </label>
         <textarea
@@ -1921,14 +1921,14 @@ function ActivityPanel({
         </button>
       </div>
       {composer}
-      <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 divide-y divide-[var(--color-pib-line)]">
+      <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 divide-y divide-[var(--color-card-border)]">
         {activities.map((activity) => (
           <div key={activity.id} className="px-5 py-4 flex items-start justify-between gap-4">
             <div>
-              <p className="font-medium text-sm text-[var(--color-pib-text)]">{activitySummaryLabel(activity)}</p>
-              <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">{activityTypeLabel(activity)}</p>
+              <p className="font-medium text-sm text-on-surface">{activitySummaryLabel(activity)}</p>
+              <p className="text-xs text-on-surface-variant mt-1">{activityTypeLabel(activity)}</p>
             </div>
-            <span className="text-xs text-[var(--color-pib-text-muted)] shrink-0">{activityCreatedAtLabel(activity)}</span>
+            <span className="text-xs text-on-surface-variant shrink-0">{activityCreatedAtLabel(activity)}</span>
           </div>
         ))}
       </div>
@@ -2530,10 +2530,10 @@ export default function CompanyDetailPage() {
   if (error || !company) {
     return (
       <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center space-y-4">
-        <span className="material-symbols-outlined text-[19px] text-[var(--color-pib-text-muted)]">
+        <span className="material-symbols-outlined text-[19px] text-on-surface-variant">
           {error ? 'error_outline' : 'domain_disabled'}
         </span>
-        <p className="text-sm text-[var(--color-pib-text-muted)]">
+        <p className="text-sm text-on-surface-variant">
           {error ?? 'Company not found.'}
         </p>
         <Link
@@ -2556,7 +2556,7 @@ export default function CompanyDetailPage() {
       <Link
         href={companyPortalPath('/portal/companies')}
         aria-label="Back to Companies"
-        className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors"
+        className="text-xs text-on-surface-variant hover:text-on-surface inline-flex items-center gap-1 transition-colors"
       >
         <span aria-hidden="true" className="material-symbols-outlined text-sm">arrow_back</span>
         Companies
@@ -2903,8 +2903,8 @@ export default function CompanyDetailPage() {
           aria-label={`New contact for ${company.name}`}
         >
           <div className="flex-1 bg-black/60 backdrop-blur-sm" onClick={() => setNewContactOpen(false)} />
-          <div className="w-full max-w-md overflow-y-auto border-l border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
-            <div className="flex items-center justify-between border-b border-[var(--color-pib-line)] px-6 py-4">
+          <div className="w-full max-w-md overflow-y-auto border-l border-[var(--color-card-border)] bg-[var(--color-card)]">
+            <div className="flex items-center justify-between border-b border-[var(--color-card-border)] px-6 py-4">
               <div>
                 <p className="eyebrow !text-[10px]">Company contact</p>
                 <h2 className="text-sm font-semibold text-on-surface">New contact for {company.name}</h2>
@@ -2912,7 +2912,7 @@ export default function CompanyDetailPage() {
               <button
                 type="button"
                 onClick={() => setNewContactOpen(false)}
-                className="text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
+                className="text-on-surface-variant transition-colors hover:text-on-surface"
                 aria-label={`Close contact drawer for ${company.name}`}
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>

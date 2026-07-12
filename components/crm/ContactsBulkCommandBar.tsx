@@ -101,7 +101,7 @@ export function ContactsBulkCommandBar({
         <div className="min-w-0">
           <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Bulk command center</p>
           <h2 className="truncate text-xs font-semibold text-on-surface">Shape this contact set in one controlled move.</h2>
-          <p className="sr-only">
+          <p className="mt-0.5 max-w-2xl text-[11px] leading-4 text-on-surface-variant">
             Apply ownership, lifecycle, type, or tag updates to the selected contacts without leaving the list.
           </p>
         </div>

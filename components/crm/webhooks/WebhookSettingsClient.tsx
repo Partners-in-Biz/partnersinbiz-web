@@ -645,8 +645,8 @@ export function WebhookSettingsClient() {
         </section>
       ) : (
       <div className="grid gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
-        <section className="space-y-3">
-          <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-0 overflow-hidden">
+        <section className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+          <div>
             <div className="px-4 py-3 border-b border-[var(--color-card-border)] flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold">Event catalog</h2>
@@ -701,12 +701,12 @@ export function WebhookSettingsClient() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+          <div className="border-t border-[var(--color-card-border)] p-3">
             <h2 className="text-sm font-semibold mb-1">Payload example</h2>
             <p className="text-xs text-on-surface-variant mb-3">
               Deliveries are signed with <code>X-PIB-Signature</code> and include the selected event payload.
             </p>
-            <pre className="max-h-[360px] overflow-auto rounded-md border border-[var(--color-card-border)] bg-black/30 p-4 text-xs leading-relaxed text-on-surface">
+            <pre className="max-h-[360px] overflow-auto rounded-md border border-[var(--color-card-border)] bg-black/30 p-3 text-xs leading-relaxed text-on-surface">
 {JSON.stringify(
   {
     event: selectedCatalogEvent.event,
@@ -719,8 +719,8 @@ export function WebhookSettingsClient() {
           </div>
         </section>
 
-        <aside className="space-y-3">
-          <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+        <aside className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+          <div className="p-3">
             <h2 className="text-sm font-semibold mb-1">{editing ? 'Edit subscription' : 'Create subscription'}</h2>
             <p className="text-xs text-on-surface-variant mb-4">
               Use an HTTPS endpoint that accepts signed POST requests.
@@ -832,8 +832,8 @@ export function WebhookSettingsClient() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-0 overflow-hidden">
-            <div className="px-4 py-3 border-b border-[var(--color-card-border)]">
+          <div className="overflow-hidden border-t border-[var(--color-card-border)]">
+            <div className="border-b border-[var(--color-card-border)] px-3 py-2">
               <h2 className="text-sm font-semibold">Subscriptions</h2>
               <p className="text-xs text-on-surface-variant">Existing outbound CRM webhook endpoints.</p>
             </div>

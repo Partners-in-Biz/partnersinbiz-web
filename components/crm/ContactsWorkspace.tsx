@@ -828,7 +828,7 @@ export function ContactsWorkspace({
             <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Executive lens</p>
             <h2 className="truncate text-xs font-semibold text-on-surface">Today&apos;s contact cockpit</h2>
           </div>
-          <p className="sr-only">
+          <p className="min-w-[16rem] flex-1 px-1 text-[11px] leading-4 text-on-surface-variant">
             Follow-up pressure, owner gaps, customer volume, and the current working lens in one board-ready view.
           </p>
           <div className="ml-auto flex flex-wrap items-center gap-1">

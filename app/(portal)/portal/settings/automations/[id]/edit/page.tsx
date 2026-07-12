@@ -68,7 +68,7 @@ export default function EditAutomationPage({
           <button
             type="button"
             onClick={handleCancel}
-            className="cursor-pointer flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] mb-4 transition-colors"
+            className="cursor-pointer flex items-center gap-1 text-xs text-on-surface-variant hover:text-on-surface mb-4 transition-colors"
           >
             <span aria-hidden="true" className="material-symbols-outlined text-[14px]">arrow_back</span>
             Automations
@@ -82,7 +82,7 @@ export default function EditAutomationPage({
         {rule && (
           <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-4 w-full max-w-sm">
             <p className="text-xs font-medium">{rule.enabled ? 'Currently live' : 'Currently paused'}</p>
-            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+            <p className="mt-1 text-xs text-on-surface-variant">
               {rule.actions.length} action{rule.actions.length === 1 ? '' : 's'} configured for this automation.
             </p>
           </div>
@@ -91,7 +91,7 @@ export default function EditAutomationPage({
 
       {loading ? (
         <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-3">
-          <p className="text-sm text-[var(--color-pib-text-muted)]">Loading rule…</p>
+          <p className="text-sm text-on-surface-variant">Loading rule…</p>
         </div>
       ) : fetchError ? (
         <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 border-amber-400/25 bg-amber-400/10">
@@ -102,11 +102,11 @@ export default function EditAutomationPage({
               </span>
               <div>
                 <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
-                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+                <h2 className="mt-1 font-display text-xl text-on-surface">
                   Automation rule could not load
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{fetchError}</p>
-                <p className="mt-3 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                <p className="mt-2 text-sm leading-6 text-on-surface-variant">{fetchError}</p>
+                <p className="mt-3 text-xs leading-5 text-on-surface-variant">
                   Trigger, timing, and action controls stay hidden until the automation source responds, so teams do not change workflow rules from stale or partial data.
                 </p>
               </div>

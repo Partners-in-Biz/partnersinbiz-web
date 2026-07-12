@@ -140,11 +140,11 @@ function withOrg(path: string, orgId?: string, extra?: Record<string, string>): 
 }
 
 const LABEL =
-  'block text-[10px] font-medium uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1.5'
+  'block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant mb-1.5'
 const INPUT =
-  'w-full px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] text-[var(--color-pib-text)] text-sm'
+  'w-full px-3 py-2 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] text-on-surface text-sm'
 const CARD =
-  'rounded-xl bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] p-5 space-y-4'
+  'border-b border-[var(--color-card-border)] p-3 space-y-3'
 
 function slugifyKey(label: string): string {
   const camel = label
@@ -323,10 +323,10 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
     return (
       <section className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-5">
         <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
-        <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+        <h2 className="mt-1 font-display text-xl text-on-surface">
           Could not load this capture source
         </h2>
-        <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{loadError}</p>
+        <p className="mt-2 text-sm text-on-surface-variant">{loadError}</p>
         <button type="button" onClick={loadSource} className="mt-3 h-8 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant hover:bg-white/[0.05] hover:text-on-surface">
           Retry
         </button>
@@ -349,7 +349,7 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
 
       {/* Basics */}
       <div className={CARD}>
-        <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Basics</h2>
+        <h2 className="text-sm font-medium text-on-surface">Basics</h2>
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <label className={LABEL}>Name</label>
@@ -371,7 +371,7 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
             </select>
           </div>
         </div>
-        <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text)] cursor-pointer select-none">
+        <label className="flex items-center gap-2 text-sm text-on-surface cursor-pointer select-none">
           <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} className="h-4 w-4" />
           <span>Active (accepting submissions)</span>
         </label>
@@ -379,9 +379,9 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
 
       {/* Opt-in mode (US-057) */}
       <div className={CARD}>
-        <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Opt-in mode</h2>
+        <h2 className="text-sm font-medium text-on-surface">Opt-in mode</h2>
         <div className="flex flex-col gap-2">
-          <label className="flex items-start gap-2 text-sm text-[var(--color-pib-text)] cursor-pointer select-none">
+          <label className="flex items-start gap-2 text-sm text-on-surface cursor-pointer select-none">
             <input
               type="radio"
               name="doubleOptIn"
@@ -391,12 +391,12 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
             />
             <span>
               <span className="font-medium">Single opt-in</span>
-              <span className="block text-xs text-[var(--color-pib-text-muted)]">
+              <span className="block text-xs text-on-surface-variant">
                 Contacts are subscribed immediately on submit.
               </span>
             </span>
           </label>
-          <label className="flex items-start gap-2 text-sm text-[var(--color-pib-text)] cursor-pointer select-none">
+          <label className="flex items-start gap-2 text-sm text-on-surface cursor-pointer select-none">
             <input
               type="radio"
               name="doubleOptIn"
@@ -406,7 +406,7 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
             />
             <span>
               <span className="font-medium">Double opt-in</span>
-              <span className="block text-xs text-[var(--color-pib-text-muted)]">
+              <span className="block text-xs text-on-surface-variant">
                 A confirmation email is sent first; enrollment is deferred until the contact clicks
                 the confirm link. The confirmation email subject/body can be customised via the API.
               </span>
@@ -417,7 +417,7 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
 
       {/* Success message (US-057) */}
       <div className={CARD}>
-        <h2 className="text-sm font-medium text-[var(--color-pib-text)]">After submission</h2>
+        <h2 className="text-sm font-medium text-on-surface">After submission</h2>
         <div>
           <label className={LABEL}>Success message</label>
           <textarea
@@ -427,7 +427,7 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
             placeholder="Thanks — you are subscribed!"
             className={INPUT}
           />
-          <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">
+          <p className="text-xs text-on-surface-variant mt-1">
             Shown to the visitor after a successful submit.
           </p>
         </div>
@@ -447,8 +447,8 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
       <div className={CARD}>
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Form fields</h2>
-            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+            <h2 className="text-sm font-medium text-on-surface">Form fields</h2>
+            <p className="mt-1 text-xs text-on-surface-variant">
               Email is always collected and required. Add the extra fields this form should ask for.
             </p>
           </div>
@@ -461,7 +461,7 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
               type="button"
               onClick={() => addField(p)}
               disabled={fields.some((f) => f.key === p.key)}
-              className="px-2.5 py-1 rounded-md text-xs bg-white/[0.04] hover:bg-white/[0.08] text-[var(--color-pib-text)] border border-[var(--color-pib-line)] transition-colors disabled:opacity-40"
+              className="px-2.5 py-1 rounded-md text-xs bg-white/[0.04] hover:bg-white/[0.08] text-on-surface border border-[var(--color-card-border)] transition-colors disabled:opacity-40"
             >
               + {p.label}
             </button>
@@ -469,7 +469,7 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
           <button
             type="button"
             onClick={() => addField()}
-            className="px-2.5 py-1 rounded-md text-xs bg-white/[0.04] hover:bg-white/[0.08] text-[var(--color-pib-text)] border border-[var(--color-pib-line)] transition-colors"
+            className="px-2.5 py-1 rounded-md text-xs bg-white/[0.04] hover:bg-white/[0.08] text-on-surface border border-[var(--color-card-border)] transition-colors"
           >
             + Custom field
           </button>
@@ -480,7 +480,7 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
             {fields.map((f, idx) => (
               <div
                 key={idx}
-                className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] p-3 space-y-2"
+                className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] p-3 space-y-2"
               >
                 <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_140px_minmax(0,1fr)]">
                   <div>
@@ -537,7 +537,7 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
                 )}
 
                 <div className="flex items-center justify-between gap-3">
-                  <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text)] cursor-pointer select-none">
+                  <label className="flex items-center gap-2 text-sm text-on-surface cursor-pointer select-none">
                     <input
                       type="checkbox"
                       checked={f.required}
@@ -562,14 +562,14 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
 
       {/* Auto-apply tags (US-057) */}
       <div className={CARD}>
-        <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Auto-apply tags</h2>
+        <h2 className="text-sm font-medium text-on-surface">Auto-apply tags</h2>
         <input
           value={tags}
           onChange={(e) => setTags(e.target.value)}
           placeholder="lead, newsletter, website"
           className={INPUT}
         />
-        <p className="text-xs text-[var(--color-pib-text-muted)]">
+        <p className="text-xs text-on-surface-variant">
           Comma-separated. These tags are applied to every contact created or matched through this
           source.
         </p>
@@ -577,7 +577,7 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
 
       {/* Theme (US-057) */}
       <div className={CARD}>
-        <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Theme</h2>
+        <h2 className="text-sm font-medium text-on-surface">Theme</h2>
         <div className="grid gap-4 md:grid-cols-3">
           <div>
             <label className={LABEL}>Primary color</label>
@@ -586,7 +586,7 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
                 type="color"
                 value={theme.primaryColor}
                 onChange={(e) => setTheme((t) => ({ ...t, primaryColor: e.target.value }))}
-                className="h-9 w-12 rounded border border-[var(--color-pib-line)] bg-transparent"
+                className="h-9 w-12 rounded border border-[var(--color-card-border)] bg-transparent"
               />
               <input
                 value={theme.primaryColor}
@@ -602,7 +602,7 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
                 type="color"
                 value={theme.textColor}
                 onChange={(e) => setTheme((t) => ({ ...t, textColor: e.target.value }))}
-                className="h-9 w-12 rounded border border-[var(--color-pib-line)] bg-transparent"
+                className="h-9 w-12 rounded border border-[var(--color-card-border)] bg-transparent"
               />
               <input
                 value={theme.textColor}
@@ -618,7 +618,7 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
                 type="color"
                 value={theme.backgroundColor}
                 onChange={(e) => setTheme((t) => ({ ...t, backgroundColor: e.target.value }))}
-                className="h-9 w-12 rounded border border-[var(--color-pib-line)] bg-transparent"
+                className="h-9 w-12 rounded border border-[var(--color-card-border)] bg-transparent"
               />
               <input
                 value={theme.backgroundColor}
@@ -671,8 +671,8 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
 
       {/* Webhook (US-091) */}
       <div className={CARD}>
-        <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Outbound webhook</h2>
-        <p className="text-xs text-[var(--color-pib-text-muted)]">
+        <h2 className="text-sm font-medium text-on-surface">Outbound webhook</h2>
+        <p className="text-xs text-on-surface-variant">
           Each submission POSTs the payload to this URL with up to 3 retries and exponential
           backoff. Delivery is asynchronous and never delays the visitor&apos;s submit.
         </p>
@@ -694,34 +694,34 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
             placeholder="Used to HMAC-SHA256 sign each delivery (X-PIB-Signature)"
             className={`${INPUT} font-mono`}
           />
-          <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">
+          <p className="text-xs text-on-surface-variant mt-1">
             When set, deliveries include <code>X-PIB-Signature: sha256=…</code> and{' '}
             <code>X-PIB-Timestamp</code> headers so the receiver can verify authenticity.
           </p>
         </div>
 
         {isEdit && (
-          <div className="border-t border-[var(--color-pib-line)] pt-4">
+          <div className="border-t border-[var(--color-card-border)] pt-4">
             <div className="flex items-center justify-between gap-3 mb-2">
-              <h3 className="text-xs font-medium uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+              <h3 className="text-xs font-medium uppercase tracking-widest text-on-surface-variant">
                 Delivery log
               </h3>
               <button
                 type="button"
                 onClick={loadSource}
-                className="px-2.5 py-1 rounded-md text-xs bg-white/[0.04] hover:bg-white/[0.08] text-[var(--color-pib-text)] border border-[var(--color-pib-line)] transition-colors"
+                className="px-2.5 py-1 rounded-md text-xs bg-white/[0.04] hover:bg-white/[0.08] text-on-surface border border-[var(--color-card-border)] transition-colors"
               >
                 Refresh
               </button>
             </div>
             {deliveries.length === 0 ? (
-              <p className="text-sm text-[var(--color-pib-text-muted)]">No deliveries yet.</p>
+              <p className="text-sm text-on-surface-variant">No deliveries yet.</p>
             ) : (
               <div className="space-y-2">
                 {deliveries.map((d) => (
                   <div
                     key={d.id}
-                    className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] p-3"
+                    className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] p-3"
                   >
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <span
@@ -733,7 +733,7 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
                       >
                         {d.status === 'success' ? 'Delivered' : 'Failed'}
                       </span>
-                      <span className="text-xs text-[var(--color-pib-text-muted)]">
+                      <span className="text-xs text-on-surface-variant">
                         {d.statusCode ? `HTTP ${d.statusCode}` : 'no response'} · {d.attemptCount}{' '}
                         attempt{d.attemptCount === 1 ? '' : 's'}
                         {fmtTimestamp(d.createdAt) ? ` · ${fmtTimestamp(d.createdAt)}` : ''}
@@ -747,7 +747,7 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
                         {d.attempts.map((a) => (
                           <p
                             key={a.attempt}
-                            className="text-[11px] font-mono text-[var(--color-pib-text-muted)]"
+                            className="text-[11px] font-mono text-on-surface-variant"
                           >
                             #{a.attempt} {a.ok ? 'ok' : 'fail'}{' '}
                             {a.statusCode ? `(${a.statusCode})` : ''} {a.durationMs}ms

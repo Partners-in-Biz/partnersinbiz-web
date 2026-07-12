@@ -74,7 +74,7 @@ export function DealDetailDrawer({
   companyHrefForDeal,
 }: DealDetailDrawerProps) {
   const stage = stages.find(s => s.id === deal.stageId)
-  const stageColor = stage?.color ?? (stage?.kind === 'won' ? '#4ade80' : stage?.kind === 'lost' ? '#ef4444' : '#60a5fa')
+  const stageColor = stage?.color ?? (stage?.kind === 'won' ? 'var(--color-accent-v2)' : stage?.kind === 'lost' ? 'var(--color-error)' : 'var(--color-primary)')
   const showLostReason = isLostStage(stage)
   const dealLabel = deal.title?.trim() || 'Deal name missing'
   const readableContact = contactLabel?.trim() || 'Decision-maker name missing'
@@ -192,7 +192,7 @@ export function DealDetailDrawer({
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        <div className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
           {/* Quote conversion feedback */}
           {quoteResult && (
             <div className="flex items-center gap-2 rounded-md border border-emerald-400/40 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-100">
@@ -216,7 +216,7 @@ export function DealDetailDrawer({
             </div>
           )}
           {/* Value + weighted value */}
-          <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex flex-wrap items-center gap-2">
             <div>
               <p className={labelCls}>Deal value</p>
               {onEdit ? (
@@ -249,20 +249,11 @@ export function DealDetailDrawer({
               {/* Progress bar */}
               <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
                 <div
-                  className="h-full rounded-full transition-all"
-                  style={{
-                    width: `${probability}%`,
-                    background: probability >= 70 ? '#4ade80' : probability >= 40 ? '#facc15' : '#f87171',
-                  }}
+                  className={`h-full rounded-full transition-all ${probability >= 70 ? 'bg-emerald-400' : probability >= 40 ? 'bg-amber-300' : 'bg-red-400'}`}
+                  style={{ width: `${probability}%` }}
                 />
               </div>
-              <span
-                className="text-xs font-mono font-semibold px-2 py-0.5 rounded-full"
-                style={{
-                  background: probability >= 70 ? '#4ade8020' : probability >= 40 ? '#facc1520' : '#f8717120',
-                  color: probability >= 70 ? '#4ade80' : probability >= 40 ? '#facc15' : '#f87171',
-                }}
-              >
+              <span className={`rounded-full px-2 py-0.5 font-mono text-xs font-semibold ${probability >= 70 ? 'bg-emerald-400/10 text-emerald-300' : probability >= 40 ? 'bg-amber-300/10 text-amber-200' : 'bg-red-400/10 text-red-300'}`}>
                 {probability}%
               </span>
             </div>

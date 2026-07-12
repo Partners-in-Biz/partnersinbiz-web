@@ -197,7 +197,7 @@ export function CaptureSourceImportWorkspace({ orgId, orgName }: CaptureSourceIm
         <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
           {orgName || 'Workspace'}
         </p>
-        <h1 className="text-2xl font-semibold text-on-surface">Import contacts from CSV</h1>
+        <h1 className="text-base font-semibold text-on-surface">Import contacts from CSV</h1>
         <p className="text-sm text-on-surface-variant mt-1 max-w-2xl">
           Bulk-import contacts into this organisation. Existing contacts (matched by
           email) get their tags merged — names and other fields are not overwritten.
@@ -460,7 +460,7 @@ function Stat({ label, value }: { label: string; value: number }) {
       <p className="text-[10px] uppercase tracking-widest text-on-surface-variant">
         {label}
       </p>
-      <p className="text-2xl font-semibold text-on-surface">{value}</p>
+      <p className="text-lg font-semibold text-on-surface">{value}</p>
     </div>
   )
 }

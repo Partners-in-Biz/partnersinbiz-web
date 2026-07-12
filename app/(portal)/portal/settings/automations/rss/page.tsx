@@ -18,7 +18,7 @@ export default function RssAutomationsPage() {
         <button
           type="button"
           onClick={() => router.push(href('/portal/settings/automations'))}
-          className="cursor-pointer flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] mb-4 transition-colors"
+          className="cursor-pointer flex items-center gap-1 text-xs text-on-surface-variant hover:text-on-surface mb-4 transition-colors"
         >
           <span aria-hidden="true" className="material-symbols-outlined text-[14px]">arrow_back</span>
           Automations
