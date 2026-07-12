@@ -4,6 +4,7 @@ import {
   createPairingChallenge,
   putDeviceGrant,
   putWorkspaceMapping,
+  removeOwnedDevice,
   transitionDeviceStatus,
 } from '@/lib/linked-computers/store'
 import { assertDeviceOrgAccess } from '@/lib/linked-computers/policy'
@@ -14,14 +15,20 @@ function fakeDb(seed: Record<string, Row> = {}, failCreatePrefix?: string) {
   const rows = new Map(Object.entries(seed))
   const ref = (path: string) => ({ path, id: path.split('/').at(-1)! })
   const db = {
-    collection: jest.fn((name: string) => ({ doc: (id: string) => ref(`${name}/${id}`) })),
+    collection: jest.fn((name: string) => ({
+      doc: (id: string) => ref(`${name}/${id}`),
+      where: (field: string, _op: string, value: unknown) => ({ collection: name, field, value }),
+    })),
     runTransaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
       const pending = new Map(rows)
       const result = await fn({
-      get: async (document: { path: string }) => ({
-        exists: pending.has(document.path),
-        data: () => pending.get(document.path),
-      }),
+      get: async (document: { path?: string; collection?: string; field?: string; value?: unknown }) => {
+        if (document.collection) {
+          const docs = [...pending.entries()].filter(([path, value]) => path.startsWith(`${document.collection}/`) && value[document.field!] === document.value).map(([path, value]) => ({ ref: ref(path), data: () => value }))
+          return { docs }
+        }
+        return { exists: pending.has(document.path!), data: () => pending.get(document.path!) }
+      },
       create: (document: { path: string }, value: Row) => {
         if (failCreatePrefix && document.path.startsWith(failCreatePrefix)) throw new Error('forced write failure')
         if (pending.has(document.path)) throw new Error('already exists')
@@ -151,7 +158,7 @@ describe('linked computers tenant domain', () => {
       .rejects.toThrow('invalid status transition')
   })
 
-  it('requires current org membership to create or change an organisation grant', async () => {
+  it('requires owner membership for active grants but lets current admins contain an existing grant after membership loss', async () => {
     const { db, rows } = fakeDb({
       'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'user-a', status: 'active' },
       'orgMembers/org-a_admin': { orgId: 'org-a', uid: 'admin', role: 'admin', status: 'active' },
@@ -160,8 +167,11 @@ describe('linked computers tenant domain', () => {
     await putDeviceGrant({ deviceId: 'device-a', orgId: 'org-a', actorUserId: 'admin', status: 'active', capabilities: ['workspace.execute'] }, { db: db as never, now })
     expect(rows.get('linked_device_grants/org-a_device-a')).toMatchObject({ orgId: 'org-a', deviceId: 'device-a', status: 'active' })
     rows.delete('orgMembers/org-a_user-a')
-    await expect(putDeviceGrant({ deviceId: 'device-a', orgId: 'org-a', actorUserId: 'admin', status: 'paused', capabilities: [] }, { db: db as never, now }))
+    await expect(putDeviceGrant({ deviceId: 'device-a', orgId: 'org-a', actorUserId: 'admin', status: 'paused', capabilities: [] }, { db: db as never, now })).resolves.toBeUndefined()
+    expect(rows.get('linked_device_grants/org-a_device-a')).toMatchObject({ status: 'paused' })
+    await expect(putDeviceGrant({ deviceId: 'device-a', orgId: 'org-a', actorUserId: 'admin', status: 'active', capabilities: ['workspace.execute'] }, { db: db as never, now }))
       .rejects.toThrow('owner membership')
+    await expect(putDeviceGrant({ deviceId: 'device-a', orgId: 'org-a', actorUserId: 'admin', status: 'revoked', capabilities: [] }, { db: db as never, now })).resolves.toBeUndefined()
   })
 
   it.each(['pending', 'invited', 'suspended', 'revoked', 'deleted', 'inactive'])('denies %s memberships', async (status) => {
@@ -205,6 +215,36 @@ describe('linked computers tenant domain', () => {
     expect(rows.get('linked_device_workspace_mappings/map-org-a')).toMatchObject({ orgId: 'org-a', workspaceId: 'ws-org-a' })
     expect(rows.get('linked_device_workspace_mappings/map-org-b')).toMatchObject({ orgId: 'org-b', workspaceId: 'ws-org-b' })
     expect(JSON.stringify([...rows.values()])).not.toContain('/Users/')
+  })
+
+  it('restricts every mapping mutation to the device owner even when a user is explicitly shared', async () => {
+    const { db } = fakeDb({
+      'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'owner-a', status: 'active' },
+      'linked_device_grants/org-a_device-a': { deviceId: 'device-a', orgId: 'org-a', status: 'active', allowedUserIds: ['shared-a'] },
+      'orgMembers/org-a_shared-a': { orgId: 'org-a', uid: 'shared-a', status: 'active' },
+      'org_workspaces/ws-a': { workspaceId: 'ws-a', orgId: 'org-a', status: 'active' },
+    })
+    await expect(putWorkspaceMapping({ mappingId: 'map-a', deviceId: 'device-a', orgId: 'org-a', workspaceId: 'ws-a', actorUserId: 'shared-a', label: 'Workspace', status: 'active' }, { db: db as never, now }))
+      .rejects.toThrow('device owner')
+  })
+
+  it('removes the device, credentials, mappings, and grants with per-entity cascade audits', async () => {
+    const { db, rows } = fakeDb({
+      'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'owner-a', status: 'active' },
+      'linked_device_credentials/device-a': { deviceId: 'device-a', credentialHash: 'hash', credentialVersion: 1, revokedAt: null },
+      'linked_device_grants/org-a_device-a': { deviceId: 'device-a', orgId: 'org-a', status: 'active' },
+      'linked_device_workspace_mappings/map-a': { mappingId: 'map-a', deviceId: 'device-a', orgId: 'org-a', status: 'active' },
+    })
+    await removeOwnedDevice({ deviceId: 'device-a', actorUserId: 'owner-a' }, { db: db as never, now })
+    expect(rows.get('linked_devices/device-a')).toMatchObject({ status: 'removed' })
+    expect(rows.get('linked_device_credentials/device-a')).toMatchObject({ revokedAt: now() })
+    expect(rows.get('linked_device_grants/org-a_device-a')).toMatchObject({ status: 'revoked' })
+    expect(rows.get('linked_device_workspace_mappings/map-a')).toMatchObject({ status: 'removed' })
+    expect([...rows.values()]).toEqual(expect.arrayContaining([
+      expect.objectContaining({ action: 'credential.revoked', deviceId: 'device-a' }),
+      expect.objectContaining({ action: 'grant.changed', deviceId: 'device-a', orgId: 'org-a', toStatus: 'revoked' }),
+      expect.objectContaining({ action: 'mapping.changed', deviceId: 'device-a', mappingId: 'map-a', toStatus: 'removed' }),
+    ]))
   })
 
   it('rejects cross-tenant or inactive canonical Workspace bindings', async () => {

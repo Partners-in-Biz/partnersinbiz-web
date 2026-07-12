@@ -319,9 +319,22 @@ export async function removeOwnedDevice(input: { deviceId: string; actorUserId: 
     if (device.status === 'removed') throw new Error('linked computers: invalid status transition')
     const at = timestamp(options)
     tx.update(deviceRef, { status: 'removed', removedAt: at, revokedAt: device.revokedAt ?? at, updatedAt: at })
-    if (credentialSnap.exists) tx.update(credentialRef, { revokedAt: at, previousCredentialHash: null, previousCredentialVersion: null, previousCredentialExpiresAt: null })
-    for (const doc of mappings.docs) if (doc.data().status !== 'removed') tx.update(doc.ref, { status: 'removed', removedAt: at, updatedAt: at })
-    for (const doc of grants.docs) if (doc.data().status !== 'revoked') tx.update(doc.ref, { status: 'revoked', revokedAt: at, updatedAt: at })
+    if (credentialSnap.exists) {
+      tx.update(credentialRef, { revokedAt: at, previousCredentialHash: null, previousCredentialVersion: null, previousCredentialExpiresAt: null })
+      tx.create(auditRef(db), { eventId: randomUUID(), action: 'credential.revoked', actorUserId: input.actorUserId, deviceId: input.deviceId, createdAt: at })
+    }
+    for (const doc of mappings.docs) {
+      const mapping = doc.data()
+      if (mapping.status === 'removed') continue
+      tx.update(doc.ref, { status: 'removed', removedAt: at, updatedAt: at })
+      tx.create(auditRef(db), { eventId: randomUUID(), action: 'mapping.changed', actorUserId: input.actorUserId, deviceId: input.deviceId, orgId: mapping.orgId, mappingId: mapping.mappingId ?? doc.id, fromStatus: mapping.status, toStatus: 'removed', createdAt: at })
+    }
+    for (const doc of grants.docs) {
+      const grant = doc.data()
+      if (grant.status === 'revoked') continue
+      tx.update(doc.ref, { status: 'revoked', revokedAt: at, updatedAt: at })
+      tx.create(auditRef(db), { eventId: randomUUID(), action: 'grant.changed', actorUserId: input.actorUserId, deviceId: input.deviceId, orgId: grant.orgId, fromStatus: grant.status, toStatus: 'revoked', createdAt: at })
+    }
     tx.create(auditRef(db), { eventId: randomUUID(), action: 'device.status_changed', actorUserId: input.actorUserId, deviceId: input.deviceId, fromStatus: device.status, toStatus: 'removed', createdAt: at })
   })
 }
@@ -343,11 +356,13 @@ export async function putDeviceGrant(input: {
       tx.get(db.collection(MEMBERS).doc(`${input.orgId}_${input.actorUserId}`)),
       tx.get(db.collection(MEMBERS).doc(`${input.orgId}_${device.ownerUserId}`)),
     ])
-    assertGrantAdministrator(membershipFrom(actorSnap.data(), input.orgId, input.actorUserId), input.orgId, input.actorUserId)
-    if (!membershipFrom(ownerSnap.data(), input.orgId, device.ownerUserId).active) throw new Error('linked computers: owner membership required')
     const ref = db.collection(GRANTS).doc(`${input.orgId}_${input.deviceId}`)
     const existing = await tx.get(ref)
     const fromStatus = existing.exists ? existing.data()?.status as DeviceGrantStatus : undefined
+    assertGrantAdministrator(membershipFrom(actorSnap.data(), input.orgId, input.actorUserId), input.orgId, input.actorUserId)
+    if (input.status === 'active' && !membershipFrom(ownerSnap.data(), input.orgId, device.ownerUserId).active) {
+      throw new Error('linked computers: owner membership required')
+    }
     if (fromStatus ? !GRANT_TRANSITIONS[fromStatus]?.includes(input.status) : input.status !== 'active') {
       throw new Error('linked computers: invalid grant status transition')
     }
@@ -389,6 +404,7 @@ export async function putWorkspaceMapping(input: {
     }
     const device = deviceSnap.data() as unknown as LinkedDevice
     const grant = grantSnap.data() as unknown as LinkedDeviceGrant
+    if (device.ownerUserId !== input.actorUserId) throw new Error('linked computers: device owner required')
     assertDeviceOrgAccess({
       actorUserId: input.actorUserId, orgId: input.orgId, device, grant,
       membership: membershipFrom(memberSnap.data(), input.orgId, input.actorUserId),

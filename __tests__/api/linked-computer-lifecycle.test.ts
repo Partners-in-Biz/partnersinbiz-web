@@ -6,6 +6,9 @@ import { handleLinkedComputerList } from '@/app/api/v1/linked-computers/route'
 import { handleDeviceHeartbeat } from '@/app/api/v1/linked-computers/[deviceId]/heartbeat/route'
 import { handleDeviceGrant } from '@/app/api/v1/linked-computers/[deviceId]/grants/route'
 import { handleDeviceMapping } from '@/app/api/v1/linked-computers/[deviceId]/mappings/route'
+import { handleLinkedComputerUpdate } from '@/app/api/v1/linked-computers/[deviceId]/route'
+import { handleCredentialRotation } from '@/app/api/v1/linked-computers/[deviceId]/credentials/rotate/route'
+import * as linkedComputerCollectionRoute from '@/app/api/v1/linked-computers/route'
 
 type Row = Record<string, unknown>
 
@@ -58,6 +61,10 @@ describe('linked computer credential lifecycle', () => {
 })
 
 describe('linked computer lifecycle HTTP boundaries', () => {
+  it('intentionally exposes no collection POST because pairing exchange is the sole secure creation route', () => {
+    expect(linkedComputerCollectionRoute).not.toHaveProperty('POST')
+  })
+
   it('returns exact browser-safe devices without paths, keys, URLs, or credentials', async () => {
     const safe = toSafeLinkedDeviceDto({
       deviceId: 'device-a', ownerUserId: 'user-a', runtimeTargetId: 'private-target', publicKeyFingerprint: 'private-fingerprint',
@@ -81,6 +88,19 @@ describe('linked computer lifecycle HTTP boundaries', () => {
     const mappingReq = new NextRequest('https://test/api/v1/linked-computers/device-a/mappings', { method: 'PUT', body: JSON.stringify({ deviceId: 'device-b', mappingId: 'map-a', orgId: 'org-a', workspaceId: 'ws-a', label: 'Workspace', status: 'active', localPath: '/Users/escape' }) })
     expect((await handleDeviceMapping(mappingReq, { uid: 'user-a' }, 'device-a', mappingPut)).status).toBe(200)
     expect(mappingPut).toHaveBeenCalledWith(expect.not.objectContaining({ localPath: expect.anything() }))
+  })
+
+  it.each(['paused', 'active', 'revoked'] as const)('binds the %s device lifecycle transition to its owner', async (status) => {
+    const update = jest.fn(async () => undefined)
+    const req = new NextRequest('https://test/api/v1/linked-computers/device-a', { method: 'PATCH', body: JSON.stringify({ deviceId: 'device-b', status }) })
+    expect((await handleLinkedComputerUpdate(req, { uid: 'owner-a' }, 'device-a', update)).status).toBe(200)
+    expect(update).toHaveBeenCalledWith({ deviceId: 'device-a', actorUserId: 'owner-a', status })
+  })
+
+  it('returns only one-time credential rotation fields under no-store', async () => {
+    const response = await handleCredentialRotation({ uid: 'owner-a' }, 'device-a', async () => ({ deviceId: 'device-a', credential: 'one-time', credentialVersion: 2, overlapExpiresAt: 'expiry' }))
+    expect(response.headers.get('cache-control')).toBe('no-store')
+    expect(Object.keys((await response.json()).data).sort()).toEqual(['credential', 'credentialVersion', 'deviceId', 'overlapExpiresAt'].sort())
   })
 
   it('authenticates heartbeat against the exact raw body and denies cross-device identity', async () => {

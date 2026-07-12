@@ -65,7 +65,7 @@
 - Create: `app/api/v1/linked-computers/[deviceId]/credentials/rotate/route.ts`
 - Create: `__tests__/api/linked-computer-lifecycle.test.ts`
 
-- [ ] Write failing lifecycle tests for list/create/update, admin grant/revoke, owner mapping, heartbeat freshness, pause/resume, rotation overlap, old-version rejection, revoke, remove, membership loss, and cross-device/cross-org denial.
+- [ ] Write failing lifecycle tests for list/update, admin grant/revoke, owner mapping, heartbeat freshness, pause/resume, rotation overlap, old-version rejection, revoke, remove, membership loss, and cross-device/cross-org denial. Device creation remains exclusively behind the secure pairing-exchange route; the collection intentionally exposes no `POST`.
 - [ ] Run the suite and confirm failures.
 - [ ] Implement user/admin/device-authenticated routes using the central policy/store functions and safe DTOs.
 - [ ] Re-run lifecycle tests and confirm pass.
@@ -133,4 +133,3 @@
 - [ ] Run two-user/two-org emulator acceptance proving cross-tenant denial, pairing replay denial, membership-loss denial, rotation/revocation, offline no-fallback, and redaction.
 - [ ] Document installer signing/notarisation and production credentials as explicit release gates; do not claim those gates passed without artifacts.
 - [ ] Commit the runbook/evidence contract with `docs(devices): add linked computer operations runbook`.
-
