@@ -23,6 +23,10 @@ import type {
 import type { Contact } from '@/lib/crm/types'
 import { evaluateCondition, findHitGoal, type EvaluationContext } from '@/lib/sequences/conditions'
 import { sendSmsToContact } from '@/lib/sms/send'
+import { randomUUID } from 'crypto'
+import { getSenderPolicy } from '@/lib/email-marketing/sender-store'
+import { resolveSenderForRecipient } from '@/lib/email-marketing/sender-resolution'
+import { buildSenderRecipientContext } from '@/lib/email-marketing/sender-context'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,6 +34,8 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://partnersinbiz.onli
 
 const HOUR_MS = 60 * 60 * 1000
 const DAY_MS = 24 * HOUR_MS
+const LEASE_MS = 10 * 60 * 1000
+const MAX_DELIVERY_ATTEMPTS = 5
 
 export async function GET(req: NextRequest) {
   const auth = req.headers.get('authorization')
@@ -40,23 +46,32 @@ export async function GET(req: NextRequest) {
   const snap = await (adminDb.collection('sequence_enrollments') as any)
     .where('status', '==', 'active')
     .where('nextSendAt', '<=', now)
+    .limit(100)
     .get()
 
   let processed = 0
 
   for (const enrollDoc of snap.docs) {
+    const leaseToken = randomUUID()
+    let leaseAcquired = false
     try {
+      leaseAcquired = await acquireEnrollmentLease(enrollDoc.id, leaseToken, now)
+      if (!leaseAcquired) continue
       const enrollment = enrollDoc.data()
+      const enrollmentOrgId: string = enrollment.orgId ?? ''
+      if (!enrollmentOrgId) throw new Error('Enrollment has no organisation boundary')
 
       const seqSnap = await adminDb.collection('sequences').doc(enrollment.sequenceId).get()
       if (!seqSnap.exists) continue
       const seq = seqSnap.data()!
+      if (seq.orgId !== enrollmentOrgId) throw new Error('Sequence organisation mismatch')
       const steps: SequenceStep[] = seq.steps ?? []
       const goals: SequenceGoal[] | undefined = seq.goals
 
       const contactSnap = await adminDb.collection('contacts').doc(enrollment.contactId).get()
       if (!contactSnap.exists) continue
       const contact = { id: contactSnap.id, ...contactSnap.data() } as Contact
+      if (contact.orgId !== enrollmentOrgId) throw new Error('Contact organisation mismatch')
 
       // Hard-block: skip and exit if contact has bounced or unsubscribed.
       if (contact.bouncedAt || contact.unsubscribedAt) {
@@ -71,7 +86,6 @@ export async function GET(req: NextRequest) {
       // Suppression check (covers complaints, hard bounces from another
       // campaign, and live soft-bounce holds). Exit the enrollment with
       // `bounced` so it doesn't get re-picked next tick.
-      const enrollmentOrgId: string = enrollment.orgId ?? ''
       if (
         enrollmentOrgId &&
         contact.email &&
@@ -314,10 +328,14 @@ export async function GET(req: NextRequest) {
 
       // Look up the campaign if linked. Honor pause / completed / deleted states.
       type CampaignLite = {
+        orgId?: string
+        senderPolicyId?: string
         fromDomainId?: string
         fromName?: string
         fromLocal?: string
         replyTo?: string
+        createdBy?: string
+        stats?: { enrolled?: number }
         status?: string
         deleted?: boolean
       }
@@ -328,6 +346,7 @@ export async function GET(req: NextRequest) {
         const campSnap = await adminDb.collection('campaigns').doc(campaignId).get()
         if (campSnap.exists) {
           campaign = (campSnap.data() ?? null) as CampaignLite | null
+          if (campaign?.orgId !== enrollmentOrgId) throw new Error('Campaign organisation mismatch')
           if (campaign?.deleted || campaign?.status === 'completed') {
             await adminDb.collection('sequence_enrollments').doc(enrollDoc.id).update({
               status: 'exited',
@@ -337,7 +356,10 @@ export async function GET(req: NextRequest) {
             continue
           }
           if (campaign?.status === 'paused') {
-            // Skip — leave the enrollment unchanged so it retries once unpaused.
+            await enrollDoc.ref.update({
+              nextSendAt: Timestamp.fromMillis(nowDate.getTime() + HOUR_MS),
+              updatedAt: FieldValue.serverTimestamp(),
+            })
             continue
           }
         }
@@ -360,8 +382,11 @@ export async function GET(req: NextRequest) {
           topicId: sequenceTopicId,
         })
         if (!prefsCheck.allowed) {
-          // Skip without advancing the step — if they opt back in later, the
-          // next cron tick will resend this same step.
+          // Keep the enrollment resumable without hot-looping every cron tick.
+          await enrollDoc.ref.update({
+            nextSendAt: Timestamp.fromMillis(nowDate.getTime() + DAY_MS),
+            updatedAt: FieldValue.serverTimestamp(),
+          })
           continue
         }
         const freqCheck = await isWithinFrequencyCap(
@@ -377,6 +402,10 @@ export async function GET(req: NextRequest) {
             source: 'sequence',
             sourceId: enrollment.sequenceId,
             reason: freqCheck.reason ?? 'frequency cap',
+          })
+          await enrollDoc.ref.update({
+            nextSendAt: Timestamp.fromMillis(nowDate.getTime() + 6 * HOUR_MS),
+            updatedAt: FieldValue.serverTimestamp(),
           })
           continue
         }
@@ -401,8 +430,10 @@ export async function GET(req: NextRequest) {
         ab: stepAb,
       })
       if (variantPick.defer) {
-        // Winner-only cohort excludes this contact for now; nextSendAt stays so
-        // the cron picks them up again after the winner is decided.
+        await enrollDoc.ref.update({
+          nextSendAt: Timestamp.fromMillis(nowDate.getTime() + HOUR_MS),
+          updatedAt: FieldValue.serverTimestamp(),
+        })
         continue
       }
 
@@ -474,13 +505,58 @@ export async function GET(req: NextRequest) {
         void outcome
         // Fall through to the shared post-send progression block below.
       } else {
-        // ── Email path (unchanged) ───────────────────────────────────────
-        const resolved = await resolveFrom({
-          fromDomainId: campaign?.fromDomainId,
-          fromName: campaign?.fromName,
-          fromLocal: campaign?.fromLocal || 'campaigns',
-          orgName,
-        })
+        // ── Email path ───────────────────────────────────────────────────
+        const senderPolicyId =
+          (typeof enrollment.senderPolicyId === 'string' && enrollment.senderPolicyId.trim()) ||
+          campaign?.senderPolicyId?.trim() ||
+          ''
+        const senderPolicy = senderPolicyId
+          ? await getSenderPolicy(enrollmentOrgId, senderPolicyId)
+          : null
+        if (senderPolicyId && (!senderPolicy?.enabled || !['lifecycle', 'sales_1to1'].includes(senderPolicy.purpose))) {
+          await enrollDoc.ref.update({
+            status: 'exited',
+            exitReason: 'sender-unavailable',
+            lastDeliveryError: 'Sender policy is unavailable, disabled, or invalid for sequences',
+            nextSendAt: null,
+            updatedAt: FieldValue.serverTimestamp(),
+          })
+          continue
+        }
+        const senderResolution = senderPolicy
+          ? await resolveSenderForRecipient({
+              orgId: enrollmentOrgId,
+              actorUid: campaign?.createdBy ?? 'system',
+              campaignCreatorUid: campaign?.createdBy ?? null,
+              policy: senderPolicy,
+              recipient: await buildSenderRecipientContext(enrollmentOrgId, contact, senderPolicy),
+              batchSize: Math.max(1, campaign?.stats?.enrolled ?? 1),
+            })
+          : null
+        if (senderResolution && senderResolution.status !== 'resolved') {
+          await enrollDoc.ref.update({
+            status: 'exited',
+            exitReason: 'sender-unavailable',
+            lastDeliveryError: senderResolution.reason ?? 'Sender resolution failed',
+            nextSendAt: null,
+            updatedAt: FieldValue.serverTimestamp(),
+          })
+          continue
+        }
+        const policyIdentity = senderResolution?.identity
+        const resolved = policyIdentity
+          ? {
+              from: `${policyIdentity.displayName} <${policyIdentity.emailAddress}>`,
+              fromDomainId: policyIdentity.domainId ?? '',
+              fromDomain: policyIdentity.emailAddress.split('@')[1] ?? '',
+              isFallback: senderResolution?.resolutionSource === 'fallback',
+            }
+          : await resolveFrom({
+              fromDomainId: campaign?.fromDomainId,
+              fromName: campaign?.fromName,
+              fromLocal: campaign?.fromLocal || 'campaigns',
+              orgName,
+            })
 
         const interpolatedSubject = interpolate(step.subject ?? '', vars)
         const interpolatedHtml = interpolate(step.bodyHtml ?? '', vars)
@@ -501,7 +577,7 @@ export async function GET(req: NextRequest) {
         const sendResult = await sendCampaignEmail({
           from: resolved.from,
           to: contact.email,
-          replyTo: campaign?.replyTo,
+          replyTo: policyIdentity?.replyTo || campaign?.replyTo,
           subject: effective.subject,
           html: effective.bodyHtml,
           text: effective.bodyText,
@@ -513,6 +589,11 @@ export async function GET(req: NextRequest) {
           orgId: enrollmentOrgId,
           campaignId,
           fromDomainId: resolved.fromDomainId,
+          senderPolicyId: senderResolution?.policyId ?? '',
+          senderIdentityId: policyIdentity?.id ?? '',
+          senderOwnerUid: senderResolution?.ownerUid ?? null,
+          senderResolutionSource: senderResolution?.resolutionSource ?? 'legacy',
+          replyTo: policyIdentity?.replyTo || campaign?.replyTo || '',
           direction: 'outbound',
           contactId: enrollment.contactId,
           resendId: sendResult.resendId,
@@ -536,6 +617,29 @@ export async function GET(req: NextRequest) {
           topicId: sequenceTopicId,
           createdAt: FieldValue.serverTimestamp(),
         })
+
+        if (!sendResult.ok) {
+          const attempts = Number(enrollment.deliveryAttempts ?? 0) + 1
+          const terminalFailure = attempts >= MAX_DELIVERY_ATTEMPTS
+          const retryDelayMs = Math.min(24 * HOUR_MS, 2 ** attempts * 15 * 60 * 1000)
+          await enrollDoc.ref.update({
+            status: terminalFailure ? 'exited' : 'active',
+            exitReason: terminalFailure ? 'delivery-failed' : FieldValue.delete(),
+            deliveryAttempts: attempts,
+            lastDeliveryError: sendResult.error ?? 'Email provider rejected the send',
+            nextSendAt: terminalFailure ? null : Timestamp.fromMillis(nowDate.getTime() + retryDelayMs),
+            updatedAt: FieldValue.serverTimestamp(),
+          })
+          continue
+        }
+
+        if (enrollment.deliveryAttempts || enrollment.lastDeliveryError) {
+          await enrollDoc.ref.update({
+            deliveryAttempts: 0,
+            lastDeliveryError: FieldValue.delete(),
+            updatedAt: FieldValue.serverTimestamp(),
+          })
+        }
 
         // Variant-level sent-stat increment (best-effort).
         if (sendResult.ok && variantPick.variant?.id) {
@@ -676,6 +780,12 @@ export async function GET(req: NextRequest) {
     } catch (err) {
       // Log and continue so a single bad enrollment doesn't abort the whole run.
       console.error('[cron/sequences] enrollment failed', enrollDoc.id, err)
+    } finally {
+      if (leaseAcquired) {
+        await releaseEnrollmentLease(enrollDoc.id, leaseToken).catch((err) => {
+          console.error('[cron/sequences] lease release failed', enrollDoc.id, err)
+        })
+      }
     }
   }
 
@@ -683,6 +793,43 @@ export async function GET(req: NextRequest) {
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
+
+async function acquireEnrollmentLease(
+  enrollmentId: string,
+  token: string,
+  now: Timestamp,
+): Promise<boolean> {
+  const ref = adminDb.collection('sequence_enrollments').doc(enrollmentId)
+  return adminDb.runTransaction(async (transaction) => {
+    const current = await transaction.get(ref)
+    if (!current.exists) return false
+    const data = current.data() ?? {}
+    const nextSendAt = data.nextSendAt
+    const leaseUntil = data.processingLeaseUntil
+    if (data.status !== 'active') return false
+    if (nextSendAt?.toMillis?.() > now.toMillis()) return false
+    if (leaseUntil?.toMillis?.() > now.toMillis()) return false
+    transaction.update(ref, {
+      processingLeaseToken: token,
+      processingLeaseUntil: Timestamp.fromMillis(now.toMillis() + LEASE_MS),
+      updatedAt: FieldValue.serverTimestamp(),
+    })
+    return true
+  })
+}
+
+async function releaseEnrollmentLease(enrollmentId: string, token: string): Promise<void> {
+  const ref = adminDb.collection('sequence_enrollments').doc(enrollmentId)
+  await adminDb.runTransaction(async (transaction) => {
+    const current = await transaction.get(ref)
+    if (!current.exists || current.data()?.processingLeaseToken !== token) return
+    transaction.update(ref, {
+      processingLeaseToken: FieldValue.delete(),
+      processingLeaseUntil: FieldValue.delete(),
+      updatedAt: FieldValue.serverTimestamp(),
+    })
+  })
+}
 
 interface OrgMeta {
   orgName: string

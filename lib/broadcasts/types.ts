@@ -71,6 +71,8 @@ export interface Broadcast {
 
   // Sender — resolved through lib/email/resolveFrom.ts (email channel only;
   // SMS uses the org's Twilio messaging service / default number).
+  /** Canonical V2 sender policy. Send-time resolution fails closed when configured but unavailable. */
+  senderPolicyId?: string
   fromDomainId: string
   fromName: string
   fromLocal: string

@@ -28,6 +28,9 @@ import {
   temporaryExpiryFromNow,
   type SuppressionReason,
 } from '@/lib/email/suppressions'
+import { appendEmailEvent } from '@/lib/email-events/store'
+import type { EmailEventType } from '@/lib/email-events/types'
+import { appendConsentEvent } from '@/lib/consent-ledger/store'
 
 // SNS signing cert must come from an amazonaws.com subdomain
 const SNS_CERT_URL_RE = /^https:\/\/sns\.[a-z0-9-]+\.amazonaws\.com\//
@@ -110,6 +113,18 @@ interface SesEventEnvelope {
 }
 
 let missingTopicWarned = false
+
+function canonicalSesEvent(eventType: string): EmailEventType | null {
+  if (eventType === 'delivery') return 'delivered'
+  if (eventType === 'open') return 'opened'
+  if (eventType === 'click') return 'clicked'
+  if (eventType === 'bounce') return 'bounced'
+  if (eventType === 'complaint') return 'complained'
+  if (eventType === 'deliverydelay') return 'deferred'
+  if (eventType === 'send') return 'sent'
+  if (eventType === 'reject') return 'failed'
+  return null
+}
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const rawBody = await req.text()
@@ -210,6 +225,51 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const sequenceStep = emailData?.sequenceStep ?? null
 
   const eventType = (event.eventType ?? event.notificationType ?? '').toLowerCase()
+  const canonicalEvent = canonicalSesEvent(eventType)
+  let ledgerEventId = ''
+  if (canonicalEvent) {
+    const ledger = await appendEmailEvent({
+      orgId: emailOrgId,
+      messageId: snapshot.docs[0].id ?? docRef.id ?? sesMessageId,
+      programId: broadcastId || campaignId || sequenceId || undefined,
+      contactId: contactId || undefined,
+      provider: 'ses',
+      providerMessageId: sesMessageId,
+      providerEventId: envelope.MessageId || undefined,
+      event: canonicalEvent,
+      providerTimestamp: envelope.Timestamp,
+      recipient: emailTo || event.mail?.destination?.[0],
+      bounceClass:
+        canonicalEvent === 'bounced'
+          ? (event.bounce?.bounceType ?? '').toLowerCase() === 'permanent'
+            ? 'hard'
+            : (event.bounce?.bounceType ?? '').toLowerCase() === 'transient'
+              ? 'soft'
+              : 'undetermined'
+          : undefined,
+      metadata: canonicalEvent === 'bounced' ? { bounce: event.bounce ?? {} } : {},
+    })
+    ledgerEventId = ledger.id
+
+    if (canonicalEvent === 'complained' && contactId) {
+      await appendConsentEvent({
+        orgId: emailOrgId,
+        contactId,
+        channel: 'email',
+        topicId: '*',
+        state: 'revoked',
+        legalBasis: 'consent',
+        source: 'provider-complaint',
+        sourceEventId: ledger.id,
+        occurredAt: envelope.Timestamp ?? new Date().toISOString(),
+        proofRef: `ses:${sesMessageId}`,
+      })
+    }
+
+    if (!ledger.created) {
+      return NextResponse.json({ ok: true, replayed: true, eventId: ledger.id })
+    }
+  }
   let campaignStatField: string | null = null
   let variantStatField: VariantStatField | null = null
 
@@ -368,5 +428,5 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   }
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, ...(ledgerEventId ? { eventId: ledgerEventId } : {}) })
 }

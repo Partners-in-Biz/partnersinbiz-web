@@ -35,6 +35,10 @@ import {
   recordSoftBounce,
   SOFT_BOUNCE_ESCALATION_THRESHOLD,
 } from '@/lib/email/bounceTracking'
+import { appendEmailEvent } from '@/lib/email-events/store'
+import type { EmailEventType } from '@/lib/email-events/types'
+import { classifyOpenPrivacy } from '@/lib/email-events/privacy-classifier'
+import { appendConsentEvent } from '@/lib/consent-ledger/store'
 
 // Resend webhook signature verification uses svix.
 // Set RESEND_WEBHOOK_SECRET (format: whsec_xxxx) in env to verify signatures.
@@ -43,6 +47,18 @@ import {
 // See: https://resend.com/docs/dashboard/webhooks/verify-webhook-requests
 
 let missingSecretWarned = false
+
+function canonicalResendEvent(type: string, machineOpen: boolean): EmailEventType | null {
+  if (type === 'email.delivered') return 'delivered'
+  if (type === 'email.opened') return machineOpen ? 'machine_opened' : 'opened'
+  if (type === 'email.clicked') return 'clicked'
+  if (type === 'email.bounced') return 'bounced'
+  if (type === 'email.delivery_delayed') return 'deferred'
+  if (type === 'email.complained') return 'complained'
+  if (type === 'email.sent') return 'sent'
+  if (type === 'email.failed') return 'failed'
+  return null
+}
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   // Read raw body BEFORE parsing — svix needs the exact bytes to verify the signature.
@@ -85,6 +101,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     data: {
       email_id: string
       to?: string | string[]
+      created_at?: string
+      createdAt?: string
+      click?: { link?: string; user_agent?: string; userAgent?: string }
+      open?: { user_agent?: string; userAgent?: string; privacy_proxy?: boolean; machine?: boolean }
       bounce?: BouncePayloadShape
       bounce_type?: string
       bounceType?: string
@@ -137,6 +157,58 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const broadcastId = emailData?.broadcastId ?? ''
   const sequenceId = emailData?.sequenceId ?? ''
   const sequenceStep = emailData?.sequenceStep ?? null
+
+  // Append provider truth before mutating projections. A deterministic event
+  // document makes normal Svix retries and concurrent duplicate deliveries a
+  // no-op, preventing duplicate rollups and suppression side effects.
+  const userAgent = data?.open?.user_agent ?? data?.open?.userAgent ?? data?.click?.user_agent ?? data?.click?.userAgent
+  const privacyClassification = classifyOpenPrivacy({
+    userAgent,
+    privacyProxy: data?.open?.privacy_proxy === true,
+    providerMachineFlag: data?.open?.machine === true,
+  })
+  const canonicalEvent = canonicalResendEvent(type, privacyClassification === 'machine')
+  let ledgerEventId = ''
+  if (canonicalEvent) {
+    const ledger = await appendEmailEvent({
+      orgId: emailOrgId,
+      messageId: snapshot.docs[0].id ?? docRef.id ?? resendEmailId,
+      programId: broadcastId || campaignId || sequenceId || undefined,
+      contactId: contactId || undefined,
+      provider: 'resend',
+      providerMessageId: resendEmailId,
+      providerEventId: req.headers.get('svix-id') || undefined,
+      event: canonicalEvent,
+      providerTimestamp: data?.created_at ?? data?.createdAt,
+      url: data?.click?.link,
+      userAgent,
+      privacyClassification,
+      recipient: emailTo || (Array.isArray(data?.to) ? data.to[0] : data?.to),
+      metadata: type === 'email.bounced' ? { bounce: data?.bounce ?? {}, bounceType: data?.bounce_type ?? data?.bounceType ?? '' } : {},
+    })
+    ledgerEventId = ledger.id
+
+    // A complaint is both a provider event and an explicit global email
+    // revocation. Keep the consent proof independently append-only.
+    if (canonicalEvent === 'complained' && contactId) {
+      await appendConsentEvent({
+        orgId: emailOrgId,
+        contactId,
+        channel: 'email',
+        topicId: '*',
+        state: 'revoked',
+        legalBasis: 'consent',
+        source: 'provider-complaint',
+        sourceEventId: ledger.id,
+        occurredAt: data?.created_at ?? data?.createdAt ?? new Date().toISOString(),
+        proofRef: `resend:${resendEmailId}`,
+      })
+    }
+
+    if (!ledger.created) {
+      return NextResponse.json({ ok: true, replayed: true, eventId: ledger.id })
+    }
+  }
 
   let campaignStatField: string | null = null
 
@@ -378,5 +450,5 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   }
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, ...(ledgerEventId ? { eventId: ledgerEventId } : {}) })
 }

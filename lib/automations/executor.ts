@@ -121,7 +121,15 @@ async function executeEnrollInSequence(action: AutomationAction, context: Trigge
   }
 
   const firstStepDelayDays = sequence.steps[0]?.delayDays ?? 0
-  await enrollContact(context.orgId, action.sequenceId, context.contactId, AGENT_PIP_REF, firstStepDelayDays)
+  const enrollmentArgs = [context.orgId, action.sequenceId, context.contactId, AGENT_PIP_REF, firstStepDelayDays] as const
+  if (sequence.reentryPolicy || sequence.maxActiveEnrollments) {
+    await enrollContact(...enrollmentArgs, {
+        reentryPolicy: sequence.reentryPolicy,
+        maxActiveEnrollments: sequence.maxActiveEnrollments,
+      })
+  } else {
+    await enrollContact(...enrollmentArgs)
+  }
 }
 
 async function executeAddTag(action: AutomationAction, context: TriggerContext): Promise<void> {

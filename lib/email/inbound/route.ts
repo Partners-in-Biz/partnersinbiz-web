@@ -29,6 +29,8 @@ import { adminDb } from '@/lib/firebase/admin'
 import { getResendClient } from '@/lib/email/resend'
 import { addSuppression, temporaryExpiryFromNow } from '@/lib/email/suppressions'
 import { resolveFrom } from '@/lib/email/resolveFrom'
+import { routeReplyToSales, type ReplyOutboundSnapshot } from '@/lib/email-marketing/reply-routing'
+import { classifySalesReply } from '@/lib/email-marketing/reply-classification'
 import type { InboundEmail, ReplyIntent } from './types'
 
 export interface ProcessInboundResult {
@@ -37,6 +39,8 @@ export interface ProcessInboundResult {
   unsubscribed: boolean
   contactMatched: boolean
   outboundMatched: boolean
+  replyOwnerUserId: string | null
+  replyQueueId: string | null
 }
 
 /**
@@ -93,11 +97,13 @@ async function findOutboundByMessageId(
  */
 async function findContactByEmail(
   fromEmail: string,
+  orgId: string,
 ): Promise<{ contactId: string; orgId: string } | null> {
   const norm = (fromEmail ?? '').trim().toLowerCase()
-  if (!norm) return null
+  if (!norm || !orgId) return null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const snap = await (adminDb.collection('contacts') as any)
+    .where('orgId', '==', orgId)
     .where('email', '==', norm)
     .limit(5)
     .get()
@@ -230,34 +236,39 @@ export async function processInboundEmail(
   inbound: InboundEmail,
 ): Promise<ProcessInboundResult> {
   let { orgId, contactId, sequenceId, campaignId, broadcastId, replyToEmailId } = inbound
+  let outboundSnapshot: ReplyOutboundSnapshot | null = null
 
-  // 1. Match by Message-ID first.
+  // 1. Match by Message-ID first. The outbound record is authoritative for
+  // tenant lineage; inbound payload fields may never widen that scope.
   let outboundMatched = false
   const matched = await findOutboundByMessageId(inbound.inReplyTo, inbound.references)
   if (matched) {
     outboundMatched = true
-    const d = matched.data as {
-      orgId?: string
-      contactId?: string
-      sequenceId?: string
-      campaignId?: string
-      broadcastId?: string
+    const d = matched.data as unknown as ReplyOutboundSnapshot
+    if (orgId && d.orgId && orgId !== d.orgId) {
+      throw new Error('Inbound/outbound organisation mismatch')
     }
     replyToEmailId = matched.emailId
-    orgId = orgId || d.orgId || ''
-    contactId = contactId || d.contactId || ''
-    sequenceId = sequenceId || d.sequenceId || ''
-    campaignId = campaignId || d.campaignId || ''
-    broadcastId = broadcastId || d.broadcastId || ''
+    orgId = d.orgId || ''
+    contactId = d.contactId || ''
+    sequenceId = d.sequenceId || ''
+    campaignId = d.campaignId || ''
+    broadcastId = d.broadcastId || ''
+    outboundSnapshot = {
+      ...d,
+      orgId,
+      contactId,
+      sequenceId,
+      campaignId,
+      broadcastId,
+    }
   }
 
-  // 2. Fallback: lookup contact by from-address.
-  if (!contactId) {
-    const fallback = await findContactByEmail(inbound.fromEmail)
-    if (fallback) {
-      contactId = fallback.contactId
-      if (!orgId) orgId = fallback.orgId
-    }
+  // 2. A sender-email fallback is only safe once an organisation has already
+  // been resolved. Never pick the first same-email contact across tenants.
+  if (!contactId && orgId) {
+    const fallback = await findContactByEmail(inbound.fromEmail, orgId)
+    if (fallback) contactId = fallback.contactId
   }
 
   // Update the inbound doc with whatever we resolved.
@@ -277,43 +288,27 @@ export async function processInboundEmail(
 
   let pausedEnrollments = 0
   let unsubscribed = false
+  let replyOwnerUserId: string | null = null
+  let replyQueueId: string | null = null
 
   // 3. Apply intent.
   switch (inbound.intent) {
     case 'reply': {
-      if (contactId && orgId) {
-        pausedEnrollments = await pauseActiveEnrollments(orgId, contactId, 'replied')
-        try {
-          await adminDb.collection('contacts').doc(contactId).update({
-            lastRepliedAt: FieldValue.serverTimestamp(),
-            repliesCount: FieldValue.increment(1),
-            updatedAt: FieldValue.serverTimestamp(),
-          })
-        } catch (err) {
-          // eslint-disable-next-line no-console
-          console.error('[inbound/route] failed to bump contact reply stats', err)
-        }
-        try {
-          await adminDb.collection('activities').add({
-            orgId,
-            contactId,
-            dealId: '',
-            type: 'email_replied',
-            summary: `Reply: ${inbound.subject || '(no subject)'}`,
-            metadata: {
-              inboundEmailId: inboundDocId,
-              replyToEmailId,
-              sequenceId,
-              campaignId,
-              broadcastId,
-            },
-            createdBy: 'system',
-            createdAt: FieldValue.serverTimestamp(),
-          })
-        } catch (err) {
-          // eslint-disable-next-line no-console
-          console.error('[inbound/route] failed to log email_replied activity', err)
-        }
+      if (outboundSnapshot) {
+        const salesClassification = classifySalesReply({ subject: inbound.subject, bodyText: inbound.bodyText })
+        const routed = await routeReplyToSales({
+          inboundId: inboundDocId,
+          inboundOrgId: inbound.orgId,
+          outboundEmailId: replyToEmailId,
+          outbound: outboundSnapshot,
+          subject: inbound.subject,
+          bodyText: inbound.bodyText,
+          fromEmail: inbound.fromEmail,
+          receivedAt: inbound.receivedAt,
+        })
+        replyOwnerUserId = routed.ownerUserId
+        replyQueueId = routed.queueId
+        await adminDb.collection('inbound_emails').doc(inboundDocId).set({ salesClassification }, { merge: true })
       }
       break
     }
@@ -491,6 +486,8 @@ export async function processInboundEmail(
     unsubscribed,
     contactMatched: !!contactId,
     outboundMatched,
+    replyOwnerUserId,
+    replyQueueId,
   }
 }
 

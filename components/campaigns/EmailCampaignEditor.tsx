@@ -41,6 +41,9 @@ import {
   type ThemeConfig,
 } from '@/lib/email-builder/types'
 import { CampaignReviewPanel } from '@/components/campaigns/CampaignReviewPanel'
+import { MergeFieldBrowser } from '@/components/email-marketing/MergeFieldBrowser'
+import { PreflightPanel } from '@/components/email-marketing/PreflightPanel'
+import { runEmailPreflight } from '@/lib/email-marketing/preflight'
 
 const BLOCK_TYPES: BlockType[] = ['hero', 'heading', 'paragraph', 'button', 'image', 'divider', 'spacer', 'columns', 'footer']
 
@@ -188,6 +191,10 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
     () => ({ ...doc, subject, preheader: previewText }),
     [doc, subject, previewText],
   )
+  const preflight = useMemo(
+    () => runEmailPreflight(liveDoc, { renderedHtmlBytes: new TextEncoder().encode(previewHtml).length }),
+    [liveDoc, previewHtml],
+  )
 
   // Debounced preview render
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -262,6 +269,12 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
 
   const selectedBlock = useMemo(() => doc.blocks.find((b) => b.id === selectedId) ?? null, [doc.blocks, selectedId])
   const updateTheme = (patch: Partial<ThemeConfig>) => setDoc((d) => ({ ...d, theme: { ...d.theme, ...patch } }))
+  const updateFallback = (key: string, value: string) => {
+    setDoc((current) => ({
+      ...current,
+      mergeTagFallbacks: { ...current.mergeTagFallbacks, [key]: value },
+    }))
+  }
 
   async function save(): Promise<boolean> {
     setSaving(true)
@@ -294,6 +307,10 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
   }
 
   async function openReview() {
+    if (preflight.blocking) {
+      setStatusMsg('Resolve the blocking preflight issues before review.')
+      return
+    }
     const ok = await save()
     if (ok) setReviewOpen(true)
   }
@@ -329,7 +346,7 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
           <button onClick={() => save()} disabled={saving || readOnly} className="btn-pib-secondary disabled:opacity-50">
             {saving ? 'Saving…' : 'Save'}
           </button>
-          <button onClick={openReview} disabled={readOnly} className="btn-pib-primary disabled:opacity-50">
+          <button onClick={openReview} disabled={readOnly || preflight.blocking} className="btn-pib-primary disabled:opacity-50" title={preflight.blocking ? 'Resolve blocking preflight issues first' : undefined}>
             Review &amp; send
             <span className="material-symbols-outlined text-base">arrow_forward</span>
           </button>
@@ -359,6 +376,18 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
             <Field label="Font">
               <Select value={doc.theme.fontFamily} onChange={(v) => updateTheme({ fontFamily: v })} options={FONT_OPTIONS} />
             </Field>
+          </div>
+
+          <div className="pib-card">
+            <MergeFieldBrowser
+              fallbacks={doc.mergeTagFallbacks ?? {}}
+              onFallbackChange={updateFallback}
+              onInsert={(token) => setSubject((current) => `${current}${current.endsWith(' ') || !current ? '' : ' '}${token}`)}
+            />
+          </div>
+
+          <div className="pib-card">
+            <PreflightPanel result={preflight} />
           </div>
 
           <div className="pib-card">

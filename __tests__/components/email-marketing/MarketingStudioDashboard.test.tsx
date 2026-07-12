@@ -13,7 +13,7 @@ describe('MarketingStudioDashboard', () => {
     render(<MarketingStudioDashboard scope={scope} />)
 
     expect(screen.getByRole('heading', { name: 'Marketing Studio' })).toBeInTheDocument()
-    expect(screen.getByText(/Lumen/)).toBeInTheDocument()
+    expect(screen.getAllByText(/Lumen/).length).toBeGreaterThan(0)
     expect(screen.getByRole('link', { name: /create email campaign/i })).toHaveAttribute(
       'href',
       '/portal/campaigns/email/new?orgId=client-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen',

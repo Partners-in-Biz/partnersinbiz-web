@@ -14,10 +14,16 @@
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import type { Campaign } from '@/lib/campaigns/types'
-import type { Sequence } from '@/lib/sequences/types'
 import type { Contact } from '@/lib/crm/types'
-import { resolveSegmentContacts } from '@/lib/crm/segments'
+import type { Sequence } from '@/lib/sequences/types'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
+import type { AudienceDefinition } from '@/lib/email-marketing/audience-types'
+import { sanitizeAudienceDefinition } from '@/lib/email-marketing/audience-snapshot'
+import { estimateAudienceDefinition } from '@/lib/email-marketing/audience-resolver'
+import { createAudienceVersion } from '@/lib/email-marketing/audience-version-store'
+import { getSenderPolicy } from '@/lib/email-marketing/sender-store'
+import { runEmailPreflight } from '@/lib/email-marketing/preflight'
+import type { EmailDocument } from '@/lib/email-builder/types'
 
 export interface LaunchResult {
   ok: boolean
@@ -34,14 +40,31 @@ export interface LaunchResult {
  * responsible for org-scoping the campaign before invoking this.
  */
 export async function launchCampaign(
-  campaign: Campaign & { exclusionContactIds?: string[]; tagId?: string },
+  campaign: Campaign & {
+    exclusionContactIds?: string[]
+    tagId?: string
+    audienceDefinition?: AudienceDefinition | null
+    createdBy?: string
+  },
   ref: FirebaseFirestore.DocumentReference,
 ): Promise<LaunchResult> {
   if (campaign.status === 'active') return { ok: false, status: 422, error: 'Campaign is already active' }
   if (campaign.status === 'completed') return { ok: false, status: 422, error: 'Campaign is already completed' }
+  if (campaign.createdByType === 'agent' && campaign.approvalState?.status !== 'approved') {
+    return { ok: false, status: 403, error: 'Agent-created campaigns require human approval before launch' }
+  }
+  const emailDocument = (campaign as Campaign & { emailDocument?: EmailDocument | null }).emailDocument
+  if (emailDocument) {
+    const preflight = runEmailPreflight(emailDocument)
+    if (preflight.blocking) {
+      const blockers = preflight.issues.filter((issue) => issue.severity === 'error').map((issue) => issue.message)
+      return { ok: false, status: 422, error: `Email preflight failed: ${blockers.join(' ')}` }
+    }
+  }
   if (!campaign.sequenceId) return { ok: false, status: 422, error: 'Campaign has no sequence — set sequenceId first' }
 
   const hasAudience =
+    !!campaign.audienceDefinition ||
     !!campaign.segmentId ||
     !!campaign.tagId ||
     (Array.isArray(campaign.contactIds) && campaign.contactIds.length > 0)
@@ -55,33 +78,63 @@ export async function launchCampaign(
   if (sequence.orgId !== campaign.orgId) return { ok: false, status: 403, error: 'Sequence belongs to a different org' }
   if (!sequence.steps?.length) return { ok: false, status: 422, error: 'Sequence has no steps' }
 
-  // Resolve audience → contact-id list
-  let contactIds: string[] = []
-  if (campaign.segmentId) {
-    const segSnap = await adminDb.collection('segments').doc(campaign.segmentId).get()
-    if (!segSnap.exists || segSnap.data()?.deleted) return { ok: false, status: 422, error: 'Segment not found' }
-    if (segSnap.data()?.orgId !== campaign.orgId) return { ok: false, status: 403, error: 'Segment belongs to a different org' }
-    const filters = segSnap.data()?.filters ?? {}
-    const contacts = await resolveSegmentContacts(campaign.orgId, filters)
-    contactIds = contacts.map((c: Contact) => c.id)
-  } else if (campaign.tagId) {
-    const contacts = await resolveSegmentContacts(campaign.orgId, { tags: [campaign.tagId] })
-    contactIds = contacts.map((c: Contact) => c.id)
-  } else {
-    contactIds = [...campaign.contactIds]
+  const senderPolicyId = campaign.senderPolicyId?.trim() ?? ''
+  if (senderPolicyId) {
+    const senderPolicy = await getSenderPolicy(campaign.orgId, senderPolicyId)
+    if (!senderPolicy?.enabled) {
+      return { ok: false, status: 422, error: 'Sender policy is unavailable or disabled' }
+    }
+    if (!['lifecycle', 'sales_1to1'].includes(senderPolicy.purpose)) {
+      return { ok: false, status: 422, error: 'Sender policy purpose is not valid for a sequence campaign' }
+    }
   }
 
-  // Apply the exclusion list
-  const excluded = new Set<string>(
-    Array.isArray(campaign.exclusionContactIds)
-      ? campaign.exclusionContactIds.filter((v): v is string => typeof v === 'string')
-      : [],
-  )
-  contactIds = contactIds.filter((cid) => !excluded.has(cid))
+  // Freeze a server-resolved audience version at launch. Legacy selectors are
+  // adapted into the canonical definition so every path gets the same
+  // suppression, preference, frequency, dedupe, and tenant checks.
+  const legacyInclude = campaign.segmentId
+    ? [{ type: 'segment' as const, segmentId: campaign.segmentId }]
+    : campaign.tagId
+      ? [{ type: 'tags' as const, tags: [campaign.tagId] }]
+      : [{
+          type: 'contacts' as const,
+          contactIds: Array.isArray(campaign.contactIds) ? [...campaign.contactIds] : [],
+        }]
+  const rawDefinition = campaign.audienceDefinition ?? {
+    schemaVersion: 1,
+    include: legacyInclude,
+    exclude: campaign.exclusionContactIds?.length
+      ? [{ type: 'contacts' as const, contactIds: campaign.exclusionContactIds }]
+      : undefined,
+    topicId: sequence.topicId ?? 'newsletter',
+    holdoutPercent: 0,
+  }
+  let definition: AudienceDefinition
+  try {
+    definition = sanitizeAudienceDefinition(rawDefinition)
+  } catch (error) {
+    return {
+      ok: false,
+      status: 422,
+      error: error instanceof Error ? error.message : 'Audience definition is invalid',
+    }
+  }
+  const estimate = await estimateAudienceDefinition(campaign.orgId, definition, {
+    holdoutSeed: campaign.id,
+  })
+  const contactIds = estimate.eligibleContactIds
 
   if (contactIds.length === 0) {
     return { ok: false, status: 422, error: 'Audience is empty — campaign has no contacts to enrol' }
   }
+
+  const audienceVersion = await createAudienceVersion({
+    orgId: campaign.orgId,
+    programId: campaign.id,
+    createdBy: campaign.createdBy ?? 'system',
+    definition,
+    estimate,
+  })
 
   const firstStep = sequence.steps[0]
   const delayMs = (firstStep.delayDays ?? 0) * 24 * 60 * 60 * 1000
@@ -106,6 +159,9 @@ export async function launchCampaign(
     await adminDb.collection('sequence_enrollments').add({
       orgId: campaign.orgId,
       campaignId: campaign.id,
+      audienceVersionId: audienceVersion.id,
+      senderPolicyId,
+      replyPolicyId: campaign.replyPolicyId?.trim() ?? '',
       sequenceId: sequence.id,
       contactId,
       status: 'active',
@@ -131,6 +187,8 @@ export async function launchCampaign(
     status: 'active',
     startAt: FieldValue.serverTimestamp(),
     scheduledAt: null,
+    audienceVersionId: audienceVersion.id,
+    audienceDefinition: definition,
     'stats.enrolled': FieldValue.increment(enrolledCount),
     updatedAt: FieldValue.serverTimestamp(),
   })

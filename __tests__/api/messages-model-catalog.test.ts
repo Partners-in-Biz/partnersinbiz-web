@@ -33,9 +33,10 @@ beforeEach(() => {
   mockGetConversation.mockResolvedValue({
     id: 'conv-1',
     orgId: 'org-1',
-    participantUids: ['client-1'],
+    participantUids: ['admin-1', 'client-1'],
     participantAgentIds: ['pip'],
     participants: [
+      { kind: 'user', uid: 'admin-1', role: 'admin', displayName: 'Admin User' },
       { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
       { kind: 'agent', agentId: 'pip', name: 'Pip' },
     ],

@@ -18,6 +18,8 @@ import { logActivity } from '@/lib/activity/log'
 import {
   normalizeResourceRelationshipLinks,
 } from '@/lib/client-documents/linkedValidation'
+import { sanitizeAudienceDefinition } from '@/lib/email-marketing/audience-snapshot'
+import { getSenderPolicy } from '@/lib/email-marketing/sender-store'
 
 export const dynamic = 'force-dynamic'
 
@@ -101,6 +103,14 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
   if (typeof body.fromName === 'string') editable.fromName = body.fromName
   if (typeof body.fromLocal === 'string') editable.fromLocal = body.fromLocal
   if (typeof body.replyTo === 'string') editable.replyTo = body.replyTo
+  if (typeof body.replyPolicyId === 'string') editable.replyPolicyId = body.replyPolicyId.trim()
+  if (typeof body.senderPolicyId === 'string') {
+    const senderPolicyId = body.senderPolicyId.trim()
+    if (senderPolicyId && !(await getSenderPolicy(current.orgId, senderPolicyId))) {
+      return apiError('senderPolicyId not found for this organisation', 400)
+    }
+    editable.senderPolicyId = senderPolicyId
+  }
   if (typeof body.segmentId === 'string') editable.segmentId = body.segmentId
   if (typeof body.tagId === 'string') editable.tagId = body.tagId
   if (Array.isArray(body.contactIds)) editable.contactIds = body.contactIds
@@ -108,6 +118,13 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
     editable.exclusionContactIds = body.exclusionContactIds.filter(
       (v: unknown): v is string => typeof v === 'string',
     )
+  }
+  if (body.audienceDefinition != null) {
+    try {
+      editable.audienceDefinition = sanitizeAudienceDefinition(body.audienceDefinition)
+    } catch (error) {
+      return apiError(error instanceof Error ? error.message : 'Invalid audience definition', 400)
+    }
   }
   if (typeof body.sequenceId === 'string') {
     if (body.sequenceId) {
@@ -133,9 +150,25 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
     Object.assign(editable, relationships.value)
   }
 
+  const materialFields = [
+    'subject', 'previewText', 'emailDocument', 'fromDomainId', 'fromName', 'fromLocal',
+    'replyTo', 'replyPolicyId', 'senderPolicyId', 'segmentId', 'tagId', 'contactIds',
+    'exclusionContactIds', 'audienceDefinition', 'sequenceId', 'triggers', 'startAt',
+  ]
+  if (materialFields.some((field) => field in body) && current.approvalState?.status === 'approved') {
+    editable.approvalState = {
+      status: 'pending',
+      approvedBy: null,
+      approvedAt: null,
+      invalidatedReason: 'Material campaign content, sender, schedule, or audience changed',
+    }
+  }
+
   await snap.ref.update({
     ...editable,
     updatedAt: FieldValue.serverTimestamp(),
+    updatedBy: user.uid,
+    updatedByType: user.role === 'ai' ? 'agent' : 'user',
   })
   return apiSuccess({ id })
 })

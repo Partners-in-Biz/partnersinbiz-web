@@ -1,0 +1,37 @@
+'use client'
+
+import type { EmailPreflightResult } from '@/lib/email-marketing/preflight'
+
+export function PreflightPanel({ result }: { result: EmailPreflightResult }) {
+  const errors = result.issues.filter((issue) => issue.severity === 'error').length
+  const warnings = result.issues.filter((issue) => issue.severity === 'warning').length
+  return (
+    <div className="space-y-3" aria-live="polite">
+      <div className="flex items-baseline justify-between gap-3">
+        <div>
+          <p className="eyebrow !text-[10px]">Preflight</p>
+          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+            {errors ? `${errors} blocking` : 'Ready to review'}{warnings ? ` · ${warnings} warnings` : ''}
+          </p>
+        </div>
+        <span className={[
+          'text-sm font-semibold tabular-nums',
+          errors ? 'text-rose-300' : warnings ? 'text-amber-300' : 'text-emerald-300',
+        ].join(' ')}>{result.score}</span>
+      </div>
+      {result.issues.length > 0 && (
+        <ul className="max-h-56 space-y-2 overflow-y-auto">
+          {result.issues.map((issue, index) => (
+            <li key={`${issue.code}-${issue.blockId ?? index}`} className="flex items-start gap-2 text-xs text-[var(--color-pib-text-muted)]">
+              <span className={[
+                'mt-1 h-1.5 w-1.5 shrink-0 rounded-full',
+                issue.severity === 'error' ? 'bg-rose-400' : issue.severity === 'warning' ? 'bg-amber-400' : 'bg-sky-400',
+              ].join(' ')} />
+              <span>{issue.message}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}

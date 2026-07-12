@@ -1,6 +1,6 @@
 {
-  "version": "2026-06-02.v1",
-  "catalogVersion": "2026-06-02.skills-v1",
+  "version": "2026-07-12.email-marketing-v1",
+  "catalogVersion": "2026-07-12.email-marketing-skills-v1",
   "mode": "hard_allowlist",
   "vpsRoot": "/var/lib/hermes/agent-skills",
   "futureAgentCandidates": [],
@@ -14,7 +14,15 @@
     "spend",
     "message_client",
     "access_secret",
-    "delete"
+    "delete",
+    "email_marketing_read",
+    "email_marketing_draft",
+    "email_marketing_manage_audience",
+    "email_marketing_manage_sender",
+    "email_marketing_preflight",
+    "email_marketing_request_approval",
+    "email_marketing_analyze",
+    "email_marketing_send"
   ],
   "approvalGates": {
     "approve": {
@@ -36,6 +44,10 @@
     "message_client": {
       "requiresApproval": true,
       "reason": "Client-visible outbound messages require approval."
+    },
+    "email_marketing_send": {
+      "requiresApproval": true,
+      "reason": "Email launch, schedule, activation, enrollment, and client-visible sending require server-verified human approval evidence."
     },
     "access_secret": {
       "requiresApproval": true,
@@ -63,6 +75,7 @@
     "crm-hygiene-gather",
     "data-analyst",
     "docs-lead",
+    "email-marketing-governance",
     "email-outreach",
     "evidence-ledger",
     "geo-seo-service",
@@ -253,6 +266,22 @@
       "allowedAgentIds": [
         "maya",
         "nora",
+        "pip",
+        "qa-release",
+        "sales",
+        "support",
+        "theo"
+      ],
+      "riskLevel": "critical",
+      "syncTarget": "vps"
+    },
+    "email-marketing-governance": {
+      "ownerAgentId": "maya",
+      "allowedAgentIds": [
+        "data",
+        "maya",
+        "nora",
+        "pip",
         "qa-release",
         "sales",
         "support",
@@ -1122,6 +1151,8 @@
         "crm-sales",
         "crm-hygiene-gather",
         "data-analyst",
+        "email-marketing-governance",
+        "email-outreach",
         "evidence-ledger",
         "google-workspace",
         "platform-ops",
@@ -1153,7 +1184,13 @@
         "draft",
         "write",
         "approve",
-        "message_client"
+        "message_client",
+        "email_marketing_read",
+        "email_marketing_draft",
+        "email_marketing_manage_audience",
+        "email_marketing_preflight",
+        "email_marketing_request_approval",
+        "email_marketing_analyze"
       ],
       "approvalGates": [
         "approve",
@@ -1207,6 +1244,7 @@
         "crm-hygiene-gather",
         "data-analyst",
         "docs-lead",
+        "email-marketing-governance",
         "email-outreach",
         "evidence-ledger",
         "geo-seo-service",
@@ -1238,6 +1276,7 @@
         "crm-hygiene-gather",
         "data-analyst",
         "docs-lead",
+        "email-marketing-governance",
         "email-outreach",
         "evidence-ledger",
         "geo-seo-service",
@@ -1311,11 +1350,16 @@
         "draft",
         "write",
         "deploy",
-        "access_secret"
+        "access_secret",
+        "email_marketing_read",
+        "email_marketing_draft",
+        "email_marketing_preflight",
+        "email_marketing_send"
       ],
       "approvalGates": [
         "deploy",
-        "access_secret"
+        "access_secret",
+        "email_marketing_send"
       ],
       "primaryOwnerOf": [
         "code",
@@ -1408,11 +1452,20 @@
         "draft",
         "write",
         "publish",
-        "message_client"
+        "message_client",
+        "email_marketing_read",
+        "email_marketing_draft",
+        "email_marketing_manage_audience",
+        "email_marketing_manage_sender",
+        "email_marketing_preflight",
+        "email_marketing_request_approval",
+        "email_marketing_analyze",
+        "email_marketing_send"
       ],
       "approvalGates": [
         "publish",
-        "message_client"
+        "message_client",
+        "email_marketing_send"
       ],
       "primaryOwnerOf": [
         "content engine",
@@ -1568,12 +1621,21 @@
         "write",
         "approve",
         "message_client",
-        "delete"
+        "delete",
+        "email_marketing_read",
+        "email_marketing_draft",
+        "email_marketing_manage_audience",
+        "email_marketing_manage_sender",
+        "email_marketing_preflight",
+        "email_marketing_request_approval",
+        "email_marketing_analyze",
+        "email_marketing_send"
       ],
       "approvalGates": [
         "approve",
         "message_client",
-        "delete"
+        "delete",
+        "email_marketing_send"
       ],
       "primaryOwnerOf": [
         "billing",
@@ -1717,6 +1779,7 @@
         "crm-hygiene-gather",
         "data-analyst",
         "docs-lead",
+        "email-marketing-governance",
         "email-outreach",
         "evidence-ledger",
         "geo-seo-service",
@@ -1748,6 +1811,7 @@
         "crm-hygiene-gather",
         "data-analyst",
         "docs-lead",
+        "email-marketing-governance",
         "email-outreach",
         "evidence-ledger",
         "geo-seo-service",
@@ -1807,11 +1871,16 @@
         "draft",
         "write",
         "approve",
-        "deploy"
+        "deploy",
+        "email_marketing_read",
+        "email_marketing_preflight",
+        "email_marketing_analyze",
+        "email_marketing_send"
       ],
       "approvalGates": [
         "approve",
-        "deploy"
+        "deploy",
+        "email_marketing_send"
       ],
       "primaryOwnerOf": [
         "QA",
@@ -1884,10 +1953,16 @@
         "read",
         "draft",
         "write",
-        "message_client"
+        "message_client",
+        "email_marketing_read",
+        "email_marketing_draft",
+        "email_marketing_preflight",
+        "email_marketing_request_approval",
+        "email_marketing_send"
       ],
       "approvalGates": [
-        "message_client"
+        "message_client",
+        "email_marketing_send"
       ],
       "primaryOwnerOf": [
         "ticket triage",
@@ -1972,7 +2047,9 @@
         "read",
         "draft",
         "write",
-        "delete"
+        "delete",
+        "email_marketing_read",
+        "email_marketing_analyze"
       ],
       "approvalGates": [
         "delete"
@@ -2209,10 +2286,19 @@
         "read",
         "draft",
         "write",
-        "message_client"
+        "message_client",
+        "email_marketing_read",
+        "email_marketing_draft",
+        "email_marketing_manage_audience",
+        "email_marketing_manage_sender",
+        "email_marketing_preflight",
+        "email_marketing_request_approval",
+        "email_marketing_analyze",
+        "email_marketing_send"
       ],
       "approvalGates": [
-        "message_client"
+        "message_client",
+        "email_marketing_send"
       ],
       "primaryOwnerOf": [
         "lead lists",

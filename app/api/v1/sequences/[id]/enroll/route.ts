@@ -6,6 +6,8 @@ import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import type { ApiUser } from '@/lib/api/types'
+import { evaluateSequenceReentry } from '@/lib/email-marketing/automation-policy'
+import type { SequenceEnrollment, SequenceReentryPolicy } from '@/lib/sequences/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,24 +35,50 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   const delayMs = (firstStep?.delayDays ?? 0) * 24 * 60 * 60 * 1000
   const nextSendAt = Timestamp.fromDate(new Date(Date.now() + delayMs))
 
+  const maxActiveEnrollments = Math.max(0, Math.floor(Number(seq.maxActiveEnrollments ?? 0) || 0))
+  let activeEnrollmentCount = 0
+  if (maxActiveEnrollments > 0) {
+    const activeSnap = await adminDb
+      .collection('sequence_enrollments')
+      .where('orgId', '==', seqOrgId)
+      .where('sequenceId', '==', id)
+      .where('status', '==', 'active')
+      .get()
+    activeEnrollmentCount = activeSnap.docs.length
+  }
+
   const enrolled: string[] = []
+  const skipped: Array<{ contactId: string; reason: string }> = []
   for (const contactId of body.contactIds as string[]) {
     const contactSnap = await adminDb.collection('contacts').doc(contactId).get()
     if (!contactSnap.exists || contactSnap.data()?.deleted) continue
     // Cross-org isolation: contact must be in the same org as the sequence
     if (contactSnap.data()?.orgId && contactSnap.data()?.orgId !== seqOrgId) continue
 
-    const existingSnap = await adminDb
+    const historySnap = await adminDb
       .collection('sequence_enrollments')
       .where('orgId', '==', seqOrgId)
       .where('sequenceId', '==', id)
       .where('contactId', '==', contactId)
-      .where('status', '==', 'active')
-      .limit(1)
       .get()
-    const existing = existingSnap.docs[0]
-    if (existing) {
-      enrolled.push(existing.id)
+    const history = historySnap.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as SequenceEnrollment[]
+    const reentry = evaluateSequenceReentry(
+      history,
+      seq.reentryPolicy as SequenceReentryPolicy | undefined,
+    )
+    if (reentry.existingEnrollmentId) {
+      enrolled.push(reentry.existingEnrollmentId)
+      continue
+    }
+    if (!reentry.allowed) {
+      skipped.push({ contactId, reason: reentry.reason })
+      continue
+    }
+    if (maxActiveEnrollments > 0 && activeEnrollmentCount >= maxActiveEnrollments) {
+      skipped.push({ contactId, reason: 'sequence_capacity_reached' })
       continue
     }
 
@@ -75,7 +103,8 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
     })
 
     enrolled.push(ref.id)
+    activeEnrollmentCount++
   }
 
-  return apiSuccess({ enrolled }, 201)
+  return apiSuccess({ enrolled, skipped }, 201)
 })

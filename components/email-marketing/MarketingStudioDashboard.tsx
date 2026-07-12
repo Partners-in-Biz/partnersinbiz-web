@@ -29,10 +29,13 @@ const HEALTH_LINKS = [
 ] as const
 
 const SUPPORT_LINKS = [
+  { label: 'Sequences', href: '/portal/settings/sequences', icon: 'route' },
   { label: 'Templates', href: '/portal/email-templates', icon: 'view_quilt' },
   { label: 'Audience segments', href: '/portal/segments', icon: 'group_work' },
   { label: 'Capture sources', href: '/portal/capture-sources', icon: 'inventory_2' },
-  { label: 'Analytics', href: '/portal/email-analytics', icon: 'query_stats' },
+  { label: 'Email analytics', href: '/portal/email-analytics', icon: 'query_stats' },
+  { label: 'SEO', href: '/portal/seo', icon: 'trending_up' },
+  { label: 'Social overview', href: '/portal/social', icon: 'share' },
 ] as const
 
 export function MarketingStudioDashboard({ scope }: MarketingStudioDashboardProps) {
@@ -67,6 +70,21 @@ export function MarketingStudioDashboard({ scope }: MarketingStudioDashboardProp
         </header>
 
         <MarketingStudioNav scope={scope} />
+
+        {scope.sourceCompanyName ? (
+          <section
+            aria-label="CRM company workspace context"
+            className="border-b border-[var(--color-card-border)] bg-primary/[0.035] px-3 py-3 sm:px-4"
+          >
+            <p className="text-[10px] font-label uppercase tracking-[0.18em] text-primary">Opened from CRM company</p>
+            <h2 className="mt-1 text-sm font-semibold">
+              {scope.sourceCompanyName} is linked to {scope.orgSlug || scope.orgId || 'this organisation workspace'}
+            </h2>
+            <p className="mt-1 text-xs leading-5 text-on-surface-variant">
+              New delivery work created here belongs to that organisation; links preserve the CRM source context.
+            </p>
+          </section>
+        ) : null}
 
         <div className="grid min-w-0 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.65fr)]">
           <section aria-labelledby="marketing-work-queue" className="min-w-0 border-b border-[var(--color-card-border)] lg:border-b-0 lg:border-r">

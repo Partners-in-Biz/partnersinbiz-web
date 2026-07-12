@@ -184,4 +184,67 @@ describe('broadcast send pipeline', () => {
       }),
     )
   })
+
+  it('enforces a canonical sender policy and persists the resolution snapshot', async () => {
+    process.env.RESEND_API_KEY = 're_test'
+    const sendCampaignEmail = jest.fn().mockResolvedValue({ ok: true, resendId: 'resend-policy', provider: 'resend' })
+    const emailAdd = jest.fn().mockResolvedValue({ id: 'email-policy' })
+    const update = jest.fn().mockResolvedValue(undefined)
+    const senderPolicy = { id: 'policy-1', orgId: 'org-1', purpose: 'marketing_bulk', strategy: 'contact_owner', enabled: true }
+    const collection = jest.fn((name: string) => {
+      if (name === 'organizations') return { doc: jest.fn(() => ({ get: jest.fn().mockResolvedValue({ exists: true, data: () => ({ name: 'Acme' }) }) })) }
+      if (name === 'emails' || name === 'activities') return { add: emailAdd }
+      if (name === 'broadcasts') return { doc: jest.fn(() => ({ update })) }
+      return { doc: jest.fn(() => ({ get: jest.fn().mockResolvedValue({ exists: false }) })) }
+    })
+    jest.doMock('@/lib/firebase/admin', () => ({ adminDb: { collection } }))
+    jest.doMock('firebase-admin/firestore', () => ({
+      FieldValue: { serverTimestamp: jest.fn(() => 'SERVER_TIMESTAMP'), increment: jest.fn((n: number) => ({ __increment: n })) },
+      Timestamp: { now: jest.fn(() => ({ toMillis: () => Date.now(), toDate: () => new Date() })) },
+    }))
+    jest.doMock('@/lib/email/resend', () => ({
+      sendCampaignEmail,
+      htmlToPlainText: (html: string) => html.replace(/<[^>]+>/g, ''),
+      plainTextToHtml: (text: string) => `<p>${text}</p>`,
+    }))
+    jest.doMock('@/lib/email/resolveFrom', () => ({
+      resolveFrom: jest.fn().mockResolvedValue({ from: 'Legacy <legacy@example.com>', fromDomainId: '', fromDomain: 'example.com', isFallback: true }),
+    }))
+    jest.doMock('@/lib/email-marketing/sender-store', () => ({ getSenderPolicy: jest.fn().mockResolvedValue(senderPolicy) }))
+    jest.doMock('@/lib/email-marketing/sender-resolution', () => ({
+      resolveSenderForRecipient: jest.fn().mockResolvedValue({
+        status: 'resolved',
+        identity: {
+          id: 'identity-salesperson', ownerUid: 'sales-1', displayName: 'Alice Sales',
+          emailAddress: 'alice@acme.test', replyTo: 'alice@acme.test', mode: 'esp_domain',
+          domainId: 'domain-acme', mailboxAccountId: null,
+        },
+        policyId: 'policy-1', purpose: 'marketing_bulk', resolutionSource: 'contact_owner',
+        ownerUid: 'sales-1', reason: null, fallbackReason: null,
+      }),
+    }))
+    jest.doMock('@/lib/email/unsubscribeToken', () => ({ signUnsubscribeToken: jest.fn(() => 'token') }))
+    jest.doMock('@/lib/email/suppressions', () => ({ isSuppressed: jest.fn().mockResolvedValue(false) }))
+    jest.doMock('@/lib/preferences/store', () => ({ shouldSendToContact: jest.fn().mockResolvedValue({ allowed: true }) }))
+    jest.doMock('@/lib/email/frequency', () => ({ isWithinFrequencyCap: jest.fn().mockResolvedValue({ allowed: true }), logFrequencySkip: jest.fn() }))
+
+    const { buildSendContext, sendBroadcastToContact } = await import('@/lib/broadcasts/send')
+    const broadcast = {
+      id: 'broadcast-policy', orgId: 'org-1', senderPolicyId: 'policy-1', createdBy: 'creator-1',
+      fromDomainId: '', fromLocal: 'news', fromName: 'Legacy', replyTo: '',
+      content: { templateId: '', subject: 'Hello', bodyHtml: '<p>Hello</p>', bodyText: 'Hello' },
+      stats: { audienceSize: 50 },
+    } as any
+    const contact = { id: 'contact-1', orgId: 'org-1', assignedTo: 'sales-1', email: 'person@example.com', name: 'Person', tags: [] } as any
+    const outcome = await sendBroadcastToContact(await buildSendContext(broadcast), contact, new Set())
+
+    expect(outcome.status).toBe('sent')
+    expect(sendCampaignEmail).toHaveBeenCalledWith(expect.objectContaining({
+      from: 'Alice Sales <alice@acme.test>', replyTo: 'alice@acme.test',
+    }))
+    expect(emailAdd).toHaveBeenCalledWith(expect.objectContaining({
+      senderPolicyId: 'policy-1', senderIdentityId: 'identity-salesperson',
+      senderOwnerUid: 'sales-1', senderResolutionSource: 'contact_owner',
+    }))
+  })
 })

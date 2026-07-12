@@ -50,13 +50,19 @@ export const POST = withCrmAuth<RouteCtx>('member', async (req, ctx, routeCtx) =
 
     const firstStepDelayDays = sequence.steps[0]?.delayDays ?? 0
 
-    const enrollment = await enrollContact(
+    const enrollmentArgs = [
       ctx.orgId,
       id,
       (body.contactId as string).trim(),
       ctx.actor,
       firstStepDelayDays,
-    )
+    ] as const
+    const enrollment = sequence.reentryPolicy || sequence.maxActiveEnrollments
+      ? await enrollContact(...enrollmentArgs, {
+        reentryPolicy: sequence.reentryPolicy,
+        maxActiveEnrollments: sequence.maxActiveEnrollments,
+      })
+      : await enrollContact(...enrollmentArgs)
     return apiSuccess({ enrollment }, 201)
   } catch (err) {
     if (err instanceof SequenceEnrollmentError) return apiError(err.message, err.status)
