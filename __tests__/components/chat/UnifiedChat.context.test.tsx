@@ -165,6 +165,75 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
   })
 })
 
+describe('UnifiedChat project pulse integration', () => {
+  it('loads project progress, anchors a living bundle, opens the lens, and resolves approval through the task API', async () => {
+    const conversation = { ...baseConversation, contextRefs: [projectRef] }
+    const progress = {
+      project: { id: 'project-1', name: 'Launch Project', status: 'active' },
+      counts: { total: 2, complete: 0, running: 1, waiting: 0, blocked: 0, needsYou: 1, approvals: 1 },
+      next: {
+        id: 'approval', title: 'Approve sender', columnId: 'blocked', agentStatus: 'awaiting-input',
+        state: 'needs_input', unresolvedDependencyIds: [], assigneeAgentId: 'pip', approvalStatus: 'pending', labels: ['approval-gate'],
+        chatOrigin: { conversationId: 'conv-1', requestMessageId: 'm-1', responseMessageId: 'm-2', bundleId: 'bundle-1', sequence: 1 },
+      },
+      tasks: [
+        {
+          id: 'draft', title: 'Draft copy', columnId: 'in_progress', agentStatus: 'in-progress', state: 'running',
+          unresolvedDependencyIds: [], assigneeAgentId: 'maya',
+          chatOrigin: { conversationId: 'conv-1', requestMessageId: 'm-1', responseMessageId: 'm-2', bundleId: 'bundle-1', sequence: 0 },
+        },
+        {
+          id: 'approval', title: 'Approve sender', columnId: 'blocked', agentStatus: 'awaiting-input', state: 'needs_input',
+          unresolvedDependencyIds: [], assigneeAgentId: 'pip', approvalStatus: 'pending', labels: ['approval-gate'],
+          chatOrigin: { conversationId: 'conv-1', requestMessageId: 'm-1', responseMessageId: 'm-2', bundleId: 'bundle-1', sequence: 1 },
+        },
+      ],
+      asOf: '2026-07-12T10:00:00.000Z',
+    }
+    const fetchMock = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [] } })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [conversation] } })
+      if (url === '/api/v1/conversations/conv-1/messages') {
+        return jsonResponse({ data: { messages: [{
+          id: 'm-2', conversationId: 'conv-1', role: 'assistant', content: 'I created the linked work.',
+          authorKind: 'agent', authorId: 'pip', authorDisplayName: 'Pip', status: 'completed', createdAt: '2026-07-12T09:00:00.000Z',
+        }] } })
+      }
+      if (url === '/api/v1/projects/project-1/chat-progress') return jsonResponse({ data: progress })
+      if (url === '/api/v1/projects/project-1/tasks/approval' && init?.method === 'PATCH') return jsonResponse({ data: { updated: true } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+    global.fetch = fetchMock
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        initialConvId="conv-1"
+        layoutVariant="hermes"
+        userRole="admin"
+      />,
+    )
+
+    expect(await screen.findByTestId('project-pulse')).toHaveTextContent('0/2 complete')
+    expect(await screen.findByText('2 linked tasks')).toBeInTheDocument()
+    expect(screen.getByTestId('project-composer-chip')).toHaveTextContent('Launch Project')
+
+    fireEvent.click(screen.getByRole('button', { name: /Open project lens/i }))
+    expect(screen.getByRole('dialog', { name: 'Launch Project project tasks' })).toBeInTheDocument()
+    fireEvent.click(screen.getAllByRole('button', { name: 'Approve next step' })[0])
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/projects/project-1/tasks/approval',
+      expect.objectContaining({ method: 'PATCH' }),
+    ))
+  })
+})
+
 describe('UnifiedChat message scrolling', () => {
   let originalRequestAnimationFrame: typeof window.requestAnimationFrame
   let originalCancelAnimationFrame: typeof window.cancelAnimationFrame

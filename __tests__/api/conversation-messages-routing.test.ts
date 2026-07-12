@@ -290,6 +290,34 @@ describe('unified conversation message routing', () => {
     expect(body.data.dispatchAgentId).toBe('pip')
   })
 
+  it('gives Pip project task lineage and smart creation rules for tagged project chat', async () => {
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'pib-platform-owner',
+      participantUids: ['client-1'],
+      participantAgentIds: ['pip'],
+      participants: [
+        { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
+        { kind: 'agent', agentId: 'pip', name: 'Pip' },
+      ],
+      scope: 'project',
+      scopeRefId: 'project-1',
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    const res = await POST(req({ content: 'Plan the next campaign phase' }), { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(res.status).toBe(201)
+    const prompt = mockCreateHermesRun.mock.calls[0][2].prompt as string
+    expect(prompt).toContain('[Project chat orchestration]')
+    expect(prompt).toContain('projectId: project-1')
+    expect(prompt).toContain('conversationId: conv-1')
+    expect(prompt).toContain('requestMessageId: msg-1')
+    expect(prompt).toContain('responseMessageId: assistant-1')
+    expect(prompt).toContain('project_task_proposal')
+    expect(prompt).toContain('Create a clear, bounded, low-risk single task immediately')
+  })
+
   it('enforces the selected local project folder as the Hermes run working directory', async () => {
     mockGetAgentDispatchHermesProfileLink.mockResolvedValue({
       orgId: 'pib-platform-owner', profile: 'pip', baseUrl: 'https://local.example', apiKey: 'local-key', enabled: true,

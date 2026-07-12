@@ -102,6 +102,33 @@ function cleanStringArray(value: unknown): string[] {
   return Array.from(new Set(value.map(cleanString).filter((item): item is string => !!item)))
 }
 
+function cleanChatOrigin(value: unknown): PayloadResult<Record<string, unknown> | null> {
+  if (value === undefined || value === null) return { ok: true, value: null }
+  if (!isRecord(value)) return { ok: false, error: 'chatOrigin must be an object', status: 400 }
+  const conversationId = cleanString(value.conversationId)
+  const requestMessageId = cleanString(value.requestMessageId)
+  const responseMessageId = cleanString(value.responseMessageId)
+  const bundleId = cleanString(value.bundleId)
+  const sequence = value.sequence
+  if (!conversationId || !requestMessageId || !responseMessageId || !bundleId || !Number.isInteger(sequence) || Number(sequence) < 0) {
+    return {
+      ok: false,
+      error: 'chatOrigin requires conversationId, requestMessageId, responseMessageId, bundleId, and a non-negative integer sequence',
+      status: 400,
+    }
+  }
+  return {
+    ok: true,
+    value: {
+      conversationId: conversationId.slice(0, 160),
+      requestMessageId: requestMessageId.slice(0, 160),
+      responseMessageId: responseMessageId.slice(0, 160),
+      bundleId: bundleId.slice(0, 160),
+      sequence: Number(sequence),
+    },
+  }
+}
+
 function cleanRiskLevel(value: unknown): PayloadResult<string | null> {
   if (value === undefined || value === null || value === '') return { ok: true, value: null }
   const cleaned = cleanString(value)
@@ -434,6 +461,8 @@ export function buildProjectTaskCreateData(
   if (!agentReleaseAt.ok) return agentReleaseAt
   const dependsOn = cleanDependsOn(body.dependsOn)
   if (!dependsOn.ok) return dependsOn
+  const chatOrigin = cleanChatOrigin(body.chatOrigin)
+  if (!chatOrigin.ok) return chatOrigin
 
   const value: Record<string, unknown> = {
     orgId: cleanString(body.orgId) ?? fallbackOrgId ?? null,
@@ -479,6 +508,7 @@ export function buildProjectTaskCreateData(
   if (!reviewerAgentId.ok) return reviewerAgentId
   if (reviewerIds.length > 0) value.reviewerIds = reviewerIds
   if (reviewerAgentId.value) value.reviewerAgentId = reviewerAgentId.value
+  if (chatOrigin.value) value.chatOrigin = chatOrigin.value
 
   return { ok: true, value }
 }

@@ -93,6 +93,7 @@ export function HermesMessagesShell({
           orgId={orgId}
           currentUserUid={currentUserUid}
           currentUserDisplayName={currentUserDisplayName}
+          userRole={userRole}
           orgName={orgName}
           initialConvId={initialConvId}
           allowDeleteConversations={surface === 'admin'}

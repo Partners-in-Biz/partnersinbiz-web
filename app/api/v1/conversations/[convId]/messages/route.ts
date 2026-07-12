@@ -41,6 +41,7 @@ import type { ApiUser } from '@/lib/api/types'
 import { canAccessConversation, canReplyConversation, publicConversationMessageView } from '@/lib/conversations/access'
 import type { AgentTeamDoc } from '@/lib/agents/types'
 import type { AgentId, Conversation, ConversationAttachment, ConversationMessage } from '@/lib/conversations/types'
+import { selectActiveProjectId } from '@/lib/projects/chatProgress'
 
 export const dynamic = 'force-dynamic'
 
@@ -262,6 +263,34 @@ function buildOrchestrationContext(conversation: Conversation, dispatchAgentId: 
   ].join('\n')
 }
 
+function buildProjectChatOrchestrationContext(input: {
+  conversation: Conversation
+  dispatchAgentId: AgentId
+  requestMessageId: string
+  responseMessageId: string
+}): string {
+  if (input.dispatchAgentId !== 'pip') return ''
+  const projectId = selectActiveProjectId(input.conversation)
+  if (!projectId) return ''
+  const bundleId = `${input.conversation.id}:${input.responseMessageId}`
+  return [
+    '[Project chat orchestration]',
+    'You are Pip, the project front door. Projects/Kanban remains the source of truth.',
+    `projectId: ${projectId}`,
+    `conversationId: ${input.conversation.id}`,
+    `requestMessageId: ${input.requestMessageId}`,
+    `responseMessageId: ${input.responseMessageId}`,
+    `bundleId: ${bundleId}`,
+    'Create a clear, bounded, low-risk single task immediately when the request is unambiguous.',
+    'For ambiguous work, more than one task, sensitive capabilities, or approval-gated work, preview the chain and wait for confirmation before creating tasks.',
+    'Every created project task must include chatOrigin with the IDs above plus a zero-based sequence. Preserve assigneeAgentId, agentModel, agentEffort, dependsOn, reviewerAgentId, riskLevel, requiredCapability, approvalGateTaskId, and expectedArtifacts as applicable.',
+    'For a preview, return a structured rich part with type "project_task_proposal", projectId, bundleId, and tasks. Each task must include title, assigneeAgentId, dependencySequence, reviewerAgentId, requiredCapability, agentEffort, and modelPolicy. Include one custom UI action labelled "Create tasks" so confirmation resumes this run.',
+    'Do not manually dispatch dependent tasks from chat. The existing watcher releases and dispatches them when their dependencies and approval gates clear.',
+    '---',
+    '',
+  ].join('\n')
+}
+
 function buildDecisionDataOperatingRuleContext(): string {
   return [
     ...buildCeoDataDecisionOperatingRuleLines({ orgId: 'the current orgId' }),
@@ -460,6 +489,12 @@ export const POST = withAuth(
       const convContext = buildConversationContext(conversation, authorDisplayName)
       const workspaceContext = buildWorkspaceContext(conversation)
       const orchestrationContext = buildOrchestrationContext(conversation, agentId)
+      const projectChatOrchestrationContext = buildProjectChatOrchestrationContext({
+        conversation,
+        dispatchAgentId: agentId,
+        requestMessageId: message.id,
+        responseMessageId: assistantMessage.id,
+      })
       const agentSkillsContext = buildAgentSkillsPromptBlock(agentData, agentId)
       const decisionDataRuleContext = buildDecisionDataOperatingRuleContext()
       const attachedContext = buildAttachedContextBlock(resolvedContextRefs)
@@ -467,7 +502,7 @@ export const POST = withAuth(
       const attachmentContext = attachments.length > 0
         ? `\n\n[Attachments]\n${attachments.map((attachment) => `- ${attachment.name}: ${attachment.url} (${attachment.contentType}, ${attachment.sizeBytes} bytes)`).join('\n')}`
         : ''
-      const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + agentSkillsContext + decisionDataRuleContext + attachedContext + conversationHistory + commandContext + content + attachmentContext
+      const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + projectChatOrchestrationContext + agentSkillsContext + decisionDataRuleContext + attachedContext + conversationHistory + commandContext + content + attachmentContext
       let selectedWorkingDirectory: string | undefined
       let workspacePathClass: 'organisation' | 'project' | undefined
       if (conversation.workspaceContext) {

@@ -1,0 +1,114 @@
+import { NextRequest } from 'next/server'
+
+const mockGetProjectForUser = jest.fn()
+const mockGetConversation = jest.fn()
+const mockResolveContextReferences = jest.fn()
+const mockCollection = jest.fn()
+const mockProjectDoc = jest.fn()
+const mockTaskCollection = jest.fn()
+const mockTaskWhere = jest.fn()
+const mockTaskAdd = jest.fn()
+const mockDuplicateGet = jest.fn()
+
+const mockUser = { uid: 'ai-agent', role: 'ai' as const, orgId: 'org-1' }
+
+jest.mock('firebase-admin/firestore', () => ({
+  FieldValue: { serverTimestamp: jest.fn(() => 'SERVER_TIMESTAMP') },
+}))
+
+jest.mock('@/lib/firebase/admin', () => ({
+  adminDb: { collection: mockCollection },
+}))
+
+jest.mock('@/lib/api/auth', () => ({
+  withAuth: (_role: string, handler: any) => async (req: NextRequest, ctx?: unknown) =>
+    handler(req, mockUser, ctx),
+}))
+
+jest.mock('@/lib/projects/access', () => ({
+  getProjectForUser: (...args: unknown[]) => mockGetProjectForUser(...args),
+}))
+
+jest.mock('@/lib/conversations/conversations', () => ({
+  getConversation: (...args: unknown[]) => mockGetConversation(...args),
+}))
+
+jest.mock('@/lib/context-references/registry', () => ({
+  resolveContextReferences: (...args: unknown[]) => mockResolveContextReferences(...args),
+}))
+
+jest.mock('@/lib/activity/log', () => ({ logActivity: jest.fn(() => Promise.resolve()) }))
+
+const chatOrigin = {
+  conversationId: 'conv-1',
+  requestMessageId: 'user-message-1',
+  responseMessageId: 'assistant-message-1',
+  bundleId: 'launch-chain',
+  sequence: 0,
+}
+
+function request(origin = chatOrigin) {
+  return new NextRequest('http://localhost/api/v1/projects/project-1/tasks', {
+    method: 'POST',
+    body: JSON.stringify({ title: 'Draft campaign copy', chatOrigin: origin }),
+  })
+}
+
+beforeEach(() => {
+  jest.clearAllMocks()
+  mockGetProjectForUser.mockResolvedValue({
+    ok: true,
+    doc: { id: 'project-1', data: () => ({ orgId: 'org-1', name: 'Launch' }) },
+    projectAccess: { role: 'manager', source: 'owner_org', canViewInternal: true },
+  })
+  mockGetConversation.mockResolvedValue({
+    id: 'conv-1',
+    orgId: 'org-1',
+    scope: 'general',
+    contextRefs: [{ type: 'project', id: 'project-1', orgId: 'org-1', label: 'Launch', origin: 'mention' }],
+  })
+  mockResolveContextReferences.mockResolvedValue([])
+  mockDuplicateGet.mockResolvedValue({ empty: true, docs: [] })
+  const secondWhere = jest.fn(() => ({ limit: () => ({ get: mockDuplicateGet }) }))
+  mockTaskWhere.mockReturnValue({ where: secondWhere })
+  mockTaskAdd.mockResolvedValue({ id: 'task-new' })
+  mockTaskCollection.mockReturnValue({ where: mockTaskWhere, add: mockTaskAdd })
+  mockProjectDoc.mockReturnValue({ collection: mockTaskCollection })
+  mockCollection.mockImplementation((name: string) => {
+    if (name === 'projects') return { doc: mockProjectDoc }
+    if (name === 'notifications') return { add: jest.fn() }
+    throw new Error(`Unexpected collection ${name}`)
+  })
+})
+
+describe('project task chat origin', () => {
+  it('rejects chat lineage from another organisation', async () => {
+    mockGetConversation.mockResolvedValueOnce({
+      id: 'conv-1', orgId: 'other-org', contextRefs: [{ type: 'project', id: 'project-1' }],
+    })
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/tasks/route')
+    const res = await POST(request(), { params: Promise.resolve({ projectId: 'project-1' }) })
+
+    expect(res.status).toBe(400)
+    expect(mockTaskAdd).not.toHaveBeenCalled()
+  })
+
+  it('returns the existing task for a retried bundle sequence', async () => {
+    mockDuplicateGet.mockResolvedValueOnce({ empty: false, docs: [{ id: 'task-existing' }] })
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/tasks/route')
+    const res = await POST(request(), { params: Promise.resolve({ projectId: 'project-1' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data).toEqual({ id: 'task-existing', deduplicated: true })
+    expect(mockTaskAdd).not.toHaveBeenCalled()
+  })
+
+  it('stores validated chat lineage for a new task', async () => {
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/tasks/route')
+    const res = await POST(request(), { params: Promise.resolve({ projectId: 'project-1' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockTaskAdd).toHaveBeenCalledWith(expect.objectContaining({ chatOrigin }))
+  })
+})

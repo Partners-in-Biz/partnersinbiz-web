@@ -38,6 +38,9 @@ import ConversationListItem, { type Conversation } from './ConversationListItem'
 import ConversationAccessDialog from './ConversationAccessDialog'
 import VoiceInputButton from './VoiceInputButton'
 import ModelProviderPicker, { type MessageModelCatalog, type ModelRuntimeSelection } from '@/components/messages/hermes/ModelProviderPicker'
+import { LivingTaskBundle, ProjectLens, ProjectPulse } from '@/components/chat/project/ProjectChatExperience'
+import { useProjectChatProgress } from '@/components/chat/project/useProjectChatProgress'
+import type { ProjectChatTaskItem } from '@/lib/projects/chatProgress'
 import RuntimeInspectorRail from '@/components/messages/hermes/RuntimeInspectorRail'
 
 type AgentId = string
@@ -62,6 +65,7 @@ export interface UnifiedChatProps {
   orgId: string
   currentUserUid: string
   currentUserDisplayName: string
+  userRole?: string
   orgName?: string
   projectId?: string
   scope?: ConversationScope
@@ -348,6 +352,7 @@ export default function UnifiedChat({
   orgId,
   currentUserUid,
   currentUserDisplayName,
+  userRole,
   orgName,
   projectId,
   scope,
@@ -389,6 +394,7 @@ export default function UnifiedChat({
   const [historyCursor, setHistoryCursor] = useState<number | null>(null)
   const [queuedDraftsByConversation, setQueuedDraftsByConversation] = useState<Record<string, QueuedComposerDraft[]>>({})
   const [runtimeInspectorOpen, setRuntimeInspectorOpen] = useState(false)
+  const [projectLensOpen, setProjectLensOpen] = useState(false)
   const [pinnedConversationIds, setPinnedConversationIds] = useState<string[]>(() => readPinnedConversationIds(orgId))
 
   // Agent map for looking up colorKey / iconKey for bubbles
@@ -466,6 +472,7 @@ export default function UnifiedChat({
     () => conversations.find((c) => c.id === activeId) ?? null,
     [conversations, activeId],
   )
+  const projectChat = useProjectChatProgress(orgId, activeConversation)
   const activeModelAgentId = useMemo<AgentId | null>(() => {
     const agentIds = activeConversation?.participantAgentIds ?? []
     if (agentIds.length === 0) return null
@@ -877,6 +884,7 @@ export default function UnifiedChat({
 
   // Close header menu when switching conversations
   useEffect(() => { setHeaderMenuOpen(false) }, [activeId])
+  useEffect(() => { setProjectLensOpen(false) }, [activeId, projectChat.activeProjectId])
 
   // Cleanup polling + SSE on unmount
   useEffect(() => () => {
@@ -1185,6 +1193,40 @@ export default function UnifiedChat({
     },
     [activeId, initialAgentId, pollFinalize, startEventStream],
   )
+
+  const projectTaskHref = useCallback((taskId: string) => {
+    const projectId = projectChat.activeProjectId ?? ''
+    const base = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')
+      ? `/admin/projects/${encodeURIComponent(projectId)}`
+      : `/portal/projects/${encodeURIComponent(projectId)}`
+    return `${base}?task=${encodeURIComponent(taskId)}`
+  }, [projectChat.activeProjectId])
+
+  const handleProjectTaskAction = useCallback(async (task: ProjectChatTaskItem) => {
+    const projectId = projectChat.activeProjectId
+    if (!projectId) return
+    const approvalTask = task.approvalStatus === 'pending'
+      || task.labels?.some((label) => /approval-gate|approval-required|client-approval|required-approval/.test(label.toLowerCase()))
+    if (!approvalTask) {
+      window.location.assign(projectTaskHref(task.id))
+      return
+    }
+    const res = await fetch(`/api/v1/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(task.id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        columnId: 'done',
+        reviewStatus: 'approved',
+        approvalStatus: 'approved',
+      }),
+    })
+    if (!res.ok) {
+      const body = await readApiResponse(res)
+      setError(typeof body.error === 'string' ? body.error : `Task approval failed: ${res.status}`)
+      return
+    }
+    await projectChat.refresh().catch(() => {})
+  }, [projectChat, projectTaskHref])
 
   const addSelectionToComposer = useCallback((selectedText: string) => {
     const cleaned = selectedText.trim()
@@ -1907,6 +1949,7 @@ export default function UnifiedChat({
   const showComposerContextToolbar = Boolean(
     currentPageContext ||
     contextRefs.length > 0 ||
+    projectChat.progress ||
     (!hermesLayout && (allowAgentParticipants || activeModelAgentId)),
   )
 
@@ -1916,12 +1959,12 @@ export default function UnifiedChat({
       data-layout-variant={layoutVariant}
       className={
         compact
-          ? 'flex h-full min-h-0 min-w-0 flex-1 overflow-hidden'
+          ? 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden'
           : hermesLayout
             ? runtimeInspectorOpen
-              ? 'flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-2 lg:grid-cols-[236px_minmax(0,1fr)] xl:grid-cols-[236px_minmax(0,1fr)_260px]'
-              : 'flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-2 lg:grid-cols-[236px_minmax(0,1fr)] xl:grid-cols-[236px_minmax(0,1fr)_44px]'
-            : 'flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-4 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_280px]'
+              ? 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-2 lg:grid-cols-[236px_minmax(0,1fr)] xl:grid-cols-[236px_minmax(0,1fr)_260px]'
+              : 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-2 lg:grid-cols-[236px_minmax(0,1fr)] xl:grid-cols-[236px_minmax(0,1fr)_44px]'
+            : 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-4 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_280px]'
       }
     >
       {/* ── Left: conversation list ─────────────────────────────────────── */}
@@ -2187,8 +2230,8 @@ export default function UnifiedChat({
       <section
         className={[
           hermesLayout
-            ? 'flex-col overflow-hidden min-h-0 min-w-0 flex-1 rounded-xl border border-[var(--color-card-border)] bg-black/[0.06]'
-            : 'pib-card flex-col overflow-hidden min-h-0 min-w-0 flex-1',
+            ? 'relative flex-col overflow-hidden min-h-0 min-w-0 flex-1 rounded-xl border border-[var(--color-card-border)] bg-black/[0.06]'
+            : 'pib-card relative flex-col overflow-hidden min-h-0 min-w-0 flex-1',
           compact ? '!p-0 !rounded-none !border-0 !bg-transparent' : 'lg:flex max-lg:!p-0 max-lg:!rounded-none max-lg:!border-0 max-lg:!bg-transparent',
           showListOnMobile ? 'hidden' : 'flex',
         ].join(' ')}
@@ -2335,6 +2378,16 @@ export default function UnifiedChat({
           )}
         </div>
 
+        {projectChat.progress && projectChat.activeProjectId && (
+          <ProjectPulse
+            progress={projectChat.progress}
+            projects={projectChat.projects}
+            activeProjectId={projectChat.activeProjectId}
+            onProjectChange={projectChat.setActiveProjectId}
+            onOpen={() => setProjectLensOpen(true)}
+          />
+        )}
+
         {/* Messages */}
         <div
           ref={messagesContainerRef}
@@ -2384,6 +2437,15 @@ export default function UnifiedChat({
                     onUiAction={handleUiAction}
                   />
 
+                  {(projectChat.tasksByResponseMessageId.get(m.id)?.length ?? 0) > 0 && (
+                    <LivingTaskBundle
+                      tasks={projectChat.tasksByResponseMessageId.get(m.id) ?? []}
+                      onTaskAction={handleProjectTaskAction}
+                      taskHref={projectTaskHref}
+                      canApprove={userRole === 'admin'}
+                    />
+                  )}
+
                   {/* Approval card */}
                   {m.role === 'assistant' &&
                     m.status === 'waiting_approval' &&
@@ -2426,6 +2488,17 @@ export default function UnifiedChat({
                 </div>
               )
             })}
+          {projectChat.routineUpdateCount > 0 && (
+            <button
+              type="button"
+              onClick={projectChat.dismissRoutineUpdates}
+              className="ml-0 inline-flex items-center gap-2 rounded-md border border-white/10 bg-black/15 px-3 py-2 text-[11px] text-on-surface-variant hover:bg-white/[0.05] lg:ml-10"
+            >
+              <span className="material-symbols-outlined text-[14px] text-primary" aria-hidden="true">update</span>
+              {projectChat.routineUpdateCount} project update{projectChat.routineUpdateCount === 1 ? '' : 's'}
+              <span className="material-symbols-outlined text-[13px]" aria-hidden="true">expand_more</span>
+            </button>
+          )}
         </div>
 
         {/* Error bar */}
@@ -2452,6 +2525,15 @@ export default function UnifiedChat({
           {showComposerContextToolbar && (
             <div data-testid="chat-context-toolbar" className="flex items-center justify-between gap-2">
               <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                {projectChat.progress && projectChat.activeProjectId && !contextRefs.some((ref) => ref.type === 'project' && ref.id === projectChat.activeProjectId) && (
+                  <span
+                    data-testid="project-composer-chip"
+                    className="inline-flex h-7 max-w-full items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 text-[11px] text-on-surface"
+                  >
+                    <span className="material-symbols-outlined text-[13px]" aria-hidden="true">folder_managed</span>
+                    <span className="max-w-[180px] truncate">{projectChat.progress.project.name}</span>
+                  </span>
+                )}
                 {currentPageContext && (
                   <button
                     type="button"
@@ -2471,6 +2553,7 @@ export default function UnifiedChat({
                 {contextRefs.map((ref) => (
                   <span
                     key={contextReferenceKey(ref)}
+                    data-testid={ref.type === 'project' && ref.id === projectChat.activeProjectId ? 'project-composer-chip' : undefined}
                     className="inline-flex h-7 max-w-full items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 text-[11px] text-on-surface"
                     title={`${ref.type}: ${contextChipLabel(ref)}`}
                   >
@@ -2865,6 +2948,17 @@ export default function UnifiedChat({
             </div>
           )}
         </form>
+
+        {projectChat.progress && (
+          <ProjectLens
+            progress={projectChat.progress}
+            open={projectLensOpen}
+            onClose={() => setProjectLensOpen(false)}
+            onTaskAction={handleProjectTaskAction}
+            taskHref={projectTaskHref}
+            canApprove={userRole === 'admin'}
+          />
+        )}
       </section>
 
       {showRuntimeInspectorRail && (
