@@ -14,7 +14,7 @@ function unwrapPolicies(body: unknown): Policy[] {
   if (!body || typeof body !== 'object') return []
   const outer = body as { data?: { policies?: Policy[] }; policies?: Policy[] }
   const policies = outer.data?.policies ?? outer.policies ?? []
-  return policies.filter((policy) => policy.enabled)
+  return policies
 }
 
 export function SenderPolicyEditor({ orgId, value, onChange, disabled = false }: {
@@ -25,6 +25,9 @@ export function SenderPolicyEditor({ orgId, value, onChange, disabled = false }:
 }) {
   const [policies, setPolicies] = useState<Policy[]>([])
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
+  const enabledPolicies = policies.filter((policy) => policy.enabled)
+  const selectedPolicy = value ? policies.find((policy) => policy.id === value) : undefined
+  const selectedUnavailable = state !== 'loading' && !!value && (!selectedPolicy || !selectedPolicy.enabled)
 
   useEffect(() => {
     let cancelled = false
@@ -62,13 +65,19 @@ export function SenderPolicyEditor({ orgId, value, onChange, disabled = false }:
         className="min-h-10 w-full rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 text-sm text-[var(--color-pib-text)]"
       >
         <option value="">Organisation default</option>
-        {policies.map((policy) => (
+        {selectedUnavailable ? (
+          <option value={value}>
+            {selectedPolicy?.name ?? `Saved policy ${value}`} · unavailable
+          </option>
+        ) : null}
+        {enabledPolicies.map((policy) => (
           <option key={policy.id} value={policy.id}>{policy.name} · {policy.strategy.replaceAll('_', ' ')}</option>
         ))}
       </select>
       {state === 'loading' ? <p role="status" className="text-xs text-[var(--color-pib-text-muted)]">Loading sender policies…</p> : null}
       {state === 'error' ? <p role="alert" className="text-xs text-amber-300">Sender policies could not be loaded. The saved organisation default remains unchanged.</p> : null}
-      {state === 'ready' && policies.length === 0 ? <p className="text-xs text-amber-300">No enabled sender policies are configured. Delivery will use the established organisation default.</p> : null}
+      {selectedUnavailable ? <p role="alert" className="text-xs text-amber-300">The saved sender policy is unavailable. Choose an enabled policy or deliberately switch to Organisation default before saving.</p> : null}
+      {state === 'ready' && enabledPolicies.length === 0 ? <p className="text-xs text-amber-300">No enabled sender policies are configured. Delivery will use the established organisation default.</p> : null}
       <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">
         Reply routing is assigned by the campaign delivery workflow. A selectable reply policy will appear when the organisation reply-policy registry is available.
       </p>

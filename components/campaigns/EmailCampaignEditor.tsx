@@ -85,6 +85,15 @@ interface Props {
   brandBackground?: string
 }
 
+export function buildCampaignEditorSavePayload(input: {
+  subject: string
+  previewText: string
+  emailDocument: EmailDocument
+  senderPolicyId: string
+}) {
+  return input
+}
+
 function defaultBlock(type: BlockType, ctx: { orgName: string; address: string }): Block {
   const id = makeBlockId()
   switch (type) {
@@ -287,12 +296,12 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
       const res = await fetch(`/api/v1/campaigns/${campaign.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: JSON.stringify(buildCampaignEditorSavePayload({
           subject,
           previewText,
           emailDocument: liveDoc,
           senderPolicyId,
-        }),
+        })),
       })
       const body = await res.json().catch(() => null)
       if (!res.ok) {

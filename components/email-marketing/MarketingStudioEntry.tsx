@@ -16,5 +16,11 @@ export function MarketingStudioEntry({ scope }: { scope: PortalOrgRouteScope }) 
 
   if (enabled) return <MarketingStudioDashboard scope={scope} />
 
-  return <HubPage {...buildMarketingHubProps({ surface: 'portal', ...scope })} />
+  return <HubPage {...buildMarketingHubProps({
+    surface: 'portal',
+    orgId: scope.orgId ?? undefined,
+    orgSlug: scope.orgSlug ?? undefined,
+    sourceCompanyId: scope.sourceCompanyId ?? undefined,
+    sourceCompanyName: scope.sourceCompanyName ?? undefined,
+  })} />
 }

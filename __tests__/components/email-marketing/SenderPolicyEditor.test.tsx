@@ -24,4 +24,19 @@ describe('SenderPolicyEditor', () => {
     fireEvent.change(screen.getByLabelText('Sender policy'), { target: { value: 'policy-1' } })
     expect(onChange).toHaveBeenCalledWith('policy-1')
   })
+
+  it('keeps a saved disabled policy visible until the user deliberately replaces it', async () => {
+    render(<SenderPolicyEditor orgId="org-1" value="policy-disabled" onChange={jest.fn()} />)
+
+    await waitFor(() => expect(screen.getByRole('option', { name: /old sender.*unavailable/i })).toBeInTheDocument())
+    expect(screen.getByLabelText('Sender policy')).toHaveValue('policy-disabled')
+    expect(screen.getByRole('alert')).toHaveTextContent(/saved sender policy is unavailable/i)
+  })
+
+  it('keeps an unknown saved policy id visible instead of presenting the organisation default', async () => {
+    render(<SenderPolicyEditor orgId="org-1" value="policy-deleted" onChange={jest.fn()} />)
+
+    await waitFor(() => expect(screen.getByRole('option', { name: /saved policy policy-deleted.*unavailable/i })).toBeInTheDocument())
+    expect(screen.getByLabelText('Sender policy')).toHaveValue('policy-deleted')
+  })
 })
