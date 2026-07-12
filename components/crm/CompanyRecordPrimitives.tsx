@@ -40,7 +40,7 @@ export function CompanyRecordEmptyPanel({
   children?: ReactNode
 }) {
   return (
-    <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-6 text-center">
+    <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center">
       <span className="material-symbols-outlined text-[22px] text-on-surface-variant">{icon}</span>
       <p className="mx-auto mt-2 max-w-2xl text-xs leading-5 text-on-surface-variant">
         {label}

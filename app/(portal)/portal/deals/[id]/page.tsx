@@ -487,8 +487,8 @@ export default function DealDetailPage() {
 
   if (error || !deal) {
     return (
-      <div className="bento-card !p-8 text-center space-y-3">
-        <span className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)] block">
+      <div className="space-y-3 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center">
+        <span className="material-symbols-outlined block text-[19px] text-on-surface-variant">
           monetization_on
         </span>
         <p className="text-[var(--color-pib-text-muted)]">{error || 'Deal not found'}</p>
@@ -699,7 +699,7 @@ export default function DealDetailPage() {
     }
 
   return (
-    <div className="space-y-6">
+    <div className="flex h-full min-h-0 flex-col gap-3">
       {/* Back link */}
       <Link
         href={dealListHref}
@@ -710,11 +710,11 @@ export default function DealDetailPage() {
       </Link>
 
       {/* Command header */}
-      <div className="bento-card !p-5 space-y-5">
+      <div className="space-y-3 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
             <p className="eyebrow !text-[10px]">Deal command center</p>
-            <h1 className="mt-1 font-display text-3xl font-bold leading-tight text-[var(--color-pib-text)]">{deal.title ?? '—'}</h1>
+            <h1 className="mt-1 text-base font-semibold leading-tight text-on-surface">{deal.title ?? '—'}</h1>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span
                 className="rounded-full px-2.5 py-1 text-[10px] font-label uppercase tracking-wide"
@@ -737,18 +737,18 @@ export default function DealDetailPage() {
 
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             {deal.contactId && (
-              <Link href={scopedPortalPath(`/portal/contacts/${deal.contactId}`, routeScope)} className="btn-pib-secondary inline-flex items-center gap-1.5">
+              <Link href={scopedPortalPath(`/portal/contacts/${deal.contactId}`, routeScope)} className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface inline-flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person</span>
                 Contact
               </Link>
             )}
             {deal.companyId && (
-              <Link href={scopedPortalPath(`/portal/companies/${deal.companyId}`, routeScope)} className="btn-pib-secondary inline-flex items-center gap-1.5">
+              <Link href={scopedPortalPath(`/portal/companies/${deal.companyId}`, routeScope)} className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface inline-flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-[16px]" aria-hidden="true">domain</span>
                 Company
               </Link>
             )}
-            <button type="button" onClick={() => setEditOpen(true)} className="btn-pib-secondary inline-flex items-center gap-1.5">
+            <button type="button" onClick={() => setEditOpen(true)} className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface inline-flex items-center gap-1.5">
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">edit</span>
               Edit
             </button>
@@ -780,7 +780,7 @@ export default function DealDetailPage() {
             aria-modal="false"
             aria-labelledby="deal-archive-confirm-title"
             aria-describedby="deal-archive-confirm-description"
-            className="rounded-lg border border-red-400/25 bg-red-500/10 p-5 shadow-[0_18px_40px_rgba(127,29,29,0.18)]"
+            className="rounded-md border border-red-400/40 bg-red-400/10 p-3"
           >
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div className="flex gap-3">
@@ -803,7 +803,7 @@ export default function DealDetailPage() {
                     setArchiveConfirmOpen(false)
                     setArchiveError('')
                   }}
-                  className="btn-pib-secondary text-xs"
+                  className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface text-xs"
                   disabled={deleting}
                 >
                   Cancel
@@ -861,7 +861,7 @@ export default function DealDetailPage() {
                 max={100}
                 value={probabilityInput}
                 onChange={(event) => setProbabilityInput(event.target.value)}
-                className="pib-input mt-1"
+                className="mt-1 h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs"
               />
             </div>
             <button
@@ -890,7 +890,7 @@ export default function DealDetailPage() {
               type="date"
               value={closeDateInput}
               onChange={(event) => setCloseDateInput(event.target.value)}
-              className="pib-input mt-1"
+              className="mt-1 h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs"
             />
           </div>
           <button
@@ -918,17 +918,14 @@ export default function DealDetailPage() {
         </div>
 
         {deal.lostReason && (
-          <div
-            className="rounded-[var(--radius-card)] px-4 py-2 text-sm"
-            style={{ background: '#ef444415', color: '#f87171', border: '1px solid #ef444430' }}
-          >
+          <div className="rounded-md border border-red-400/40 bg-red-400/10 px-3 py-2 text-xs text-red-200">
             Lost: {deal.lostReason}
           </div>
         )}
       </div>
 
       {revenueRiskItems.length > 0 && (
-        <section className="bento-card !p-5" role="region" aria-label="Revenue risk brief">
+        <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3" role="region" aria-label="Revenue risk brief">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
               <p className="eyebrow !text-[10px]">Leadership brief</p>
@@ -975,10 +972,10 @@ export default function DealDetailPage() {
       )}
 
       {/* 2-col layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
         {/* Left col */}
         <section className="lg:col-span-1">
-          <div className="bento-card !p-5 space-y-4 text-sm">
+          <div className="space-y-3 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3 text-sm">
             <p className="eyebrow !text-[10px]">Details</p>
             {pipelineName && (
               <div>
@@ -1032,7 +1029,7 @@ export default function DealDetailPage() {
                     id="dealDetailOwner"
                     value={ownerUid}
                     onChange={(event) => setOwnerUid(event.target.value)}
-                    className="pib-select min-w-[220px] flex-1"
+                    className="h-8 min-w-[220px] flex-1 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs"
                   >
                     <option value="">Select a team member</option>
                     {teamMembers.map((member) => (
@@ -1103,7 +1100,7 @@ export default function DealDetailPage() {
             )}
           </div>
 
-          <section className="mt-4 bento-card !p-5 space-y-4" aria-label="Next best actions">
+          <section className="mt-3 space-y-3 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3" aria-label="Next best actions">
             <p className="eyebrow !text-[10px]">Next best actions</p>
             <div className="space-y-3">
               {nextBestActions.map((action) => (
@@ -1123,7 +1120,7 @@ export default function DealDetailPage() {
                     type="button"
                     onClick={action.onClick}
                     aria-label={action.ariaLabel}
-                    className="btn-pib-secondary inline-flex max-w-full shrink-0 self-start items-center justify-center gap-1.5 text-xs"
+                    className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface inline-flex max-w-full shrink-0 self-start items-center justify-center gap-1.5 text-xs"
                   >
                     <span className="material-symbols-outlined text-[14px]" aria-hidden="true">arrow_forward</span>
                     {action.buttonLabel}
@@ -1133,7 +1130,7 @@ export default function DealDetailPage() {
             </div>
           </section>
 
-          <div className="mt-4 bento-card !p-5 space-y-3">
+          <div className="mt-3 space-y-3 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
             <p className="eyebrow !text-[10px]">Stage movement</p>
             {stageHistory.length === 0 ? (
               <div className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
@@ -1185,15 +1182,15 @@ export default function DealDetailPage() {
         </section>
 
         {/* Right col */}
-        <section className="lg:col-span-2 space-y-6">
+        <section className="space-y-3 lg:col-span-2">
           {/* Line items */}
-          <div className="bento-card !p-0 overflow-hidden">
+          <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
             <div className="px-5 py-3.5 border-b border-[var(--color-pib-line)] bg-white/[0.02] flex items-center justify-between gap-3">
               <div>
                 <p className="eyebrow !text-[10px]">Line items</p>
                 <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Products, services, and quote-ready commercial detail.</p>
               </div>
-              <button type="button" onClick={() => setEditOpen(true)} className="btn-pib-secondary inline-flex items-center gap-1.5 text-xs">
+              <button type="button" onClick={() => setEditOpen(true)} className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface inline-flex items-center gap-1.5 text-xs">
                 <span className="material-symbols-outlined text-[14px]">edit</span>
                 Edit items
               </button>
@@ -1240,7 +1237,7 @@ export default function DealDetailPage() {
                 </tbody>
               </table>
             ) : (
-              <div className="p-10">
+              <div className="p-4">
                 <div className="mx-auto flex max-w-lg flex-col items-center gap-3 text-center">
                   <span
                     aria-hidden="true"
@@ -1272,7 +1269,7 @@ export default function DealDetailPage() {
           </div>
 
           {/* Activity */}
-          <div className="pib-card-section">
+          <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
             <div className="px-5 py-3.5 border-b border-[var(--color-pib-line)] bg-white/[0.02] flex items-center justify-between">
               <p className="eyebrow !text-[10px]">Activity</p>
               <span className="text-[11px] text-[var(--color-pib-text-muted)] font-mono">
@@ -1287,7 +1284,7 @@ export default function DealDetailPage() {
                 ))}
               </div>
             ) : activities.length === 0 ? (
-              <div className="p-10">
+              <div className="p-4">
                 <div className="mx-auto flex max-w-lg flex-col items-center gap-3 text-center">
                   <span
                     aria-hidden="true"

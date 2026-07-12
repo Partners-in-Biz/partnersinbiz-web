@@ -264,7 +264,7 @@ function EmptyState({
   action?: { href: string; label: string; ariaLabel: string; icon: string }
 }) {
   return (
-    <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-6 text-center">
+    <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 p-4 text-center">
       <span className="material-symbols-outlined text-[19px] text-[var(--color-accent-text)]">{icon}</span>
       <p className="mt-2 text-sm font-semibold text-on-surface">{title}</p>
       <p className="mx-auto mt-1 max-w-md text-xs text-on-surface-variant">{body}</p>
@@ -379,9 +379,9 @@ function HealthBar({ value, label }: { value: number; label: string }) {
 
 function SummaryChip({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bento-card !p-4 min-w-[130px]">
-      <p className="eyebrow !text-[10px] mb-1">{label}</p>
-      <p className="text-xl font-display font-bold text-on-surface leading-none">{value}</p>
+    <div className="min-w-[130px] rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+      <p className="mb-1 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">{label}</p>
+      <p className="text-lg font-semibold leading-none text-on-surface">{value}</p>
     </div>
   )
 }
@@ -423,9 +423,11 @@ function OwnershipMetricTile({
 
 function Section({ eyebrow, children }: { eyebrow: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="space-y-5">
-      <p className="eyebrow">{eyebrow}</p>
-      {children}
+    <section className="border-t border-[var(--color-card-border)]">
+      <div className="flex h-9 items-center border-b border-[var(--color-card-border)] px-3">
+        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">{eyebrow}</p>
+      </div>
+      <div className="p-3">{children}</div>
     </section>
   )
 }
@@ -664,15 +666,16 @@ export default function CrmReportsPage() {
 
   if (loading) {
     return (
-      <div className="space-y-12">
-        <header>
-          <p className="eyebrow">CRM</p>
-          <h1 className="pib-page-title mt-2">CRM Reports</h1>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+        <header className="flex h-11 shrink-0 items-center gap-2 border-b border-[var(--color-card-border)] px-3">
+          <span className="grid h-6 w-6 place-items-center rounded-md bg-primary/10 text-primary"><span className="material-symbols-outlined text-[16px]" aria-hidden="true">monitoring</span></span>
+          <div><p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">CRM</p><h1 className="text-sm font-semibold text-on-surface">CRM Reports</h1></div>
         </header>
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
         {/* Funnel skeleton */}
         <div className="space-y-5">
           <div className="pib-skeleton h-4 w-36" />
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28" />)}
           </div>
           <Skeleton className="h-40" />
@@ -680,7 +683,7 @@ export default function CrmReportsPage() {
         {/* Forecast skeleton */}
         <div className="space-y-5">
           <div className="pib-skeleton h-4 w-40" />
-          <div className="flex gap-4">
+          <div className="flex gap-2">
             {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20 w-32" />)}
           </div>
           <Skeleton className="h-56" />
@@ -698,30 +701,33 @@ export default function CrmReportsPage() {
           <div className="pib-skeleton h-4 w-44" />
           <Skeleton className="h-40" />
         </div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-12">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
       {/* Page header */}
-      <header>
-        <p className="eyebrow">CRM</p>
-        <h1 className="pib-page-title mt-2">CRM Reports</h1>
-        <p className="pib-page-sub max-w-2xl">
+      <header className="flex min-h-11 shrink-0 items-center gap-2 border-b border-[var(--color-card-border)] px-3 py-1.5">
+        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-primary"><span className="material-symbols-outlined text-[16px]" aria-hidden="true">monitoring</span></span>
+        <div className="min-w-0"><p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">CRM</p><h1 className="text-sm font-semibold text-on-surface">CRM Reports</h1>
+        <p className="truncate text-[11px] text-on-surface-variant">
           A command view for pipeline quality, revenue coverage, team execution, and the actions that need attention.
-        </p>
+        </p></div>
       </header>
+
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
 
       <ReportSourceWarning failures={reportFailures} reloadHref={reportPortalPath('/portal/reports/crm')} />
 
-      <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-        <div className="space-y-5">
-          <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+      <section className="grid gap-2 lg:grid-cols-[1.15fr_0.85fr]">
+        <div className="space-y-3">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
               <p className="eyebrow">Executive signal</p>
-              <h2 className="mt-3 font-display text-3xl tracking-tight text-on-surface">{pipelineSignal}</h2>
-              <p className="mt-2 max-w-xl text-sm leading-relaxed text-on-surface-variant">
+              <h2 className="mt-1 text-base font-semibold text-on-surface">{pipelineSignal}</h2>
+              <p className="mt-1 max-w-xl text-xs leading-5 text-on-surface-variant">
                 Weighted forecast, stage velocity, ownership hygiene, and activity rhythm are combined here so CRM review starts with decisions, not spreadsheet reading.
               </p>
             </div>
@@ -742,7 +748,7 @@ export default function CrmReportsPage() {
           <div
             role="group"
             aria-label="Executive CRM signal metrics"
-            className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+            className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3"
           >
             <StatCard label="Contacts" value={fmtNum(funnel?.total ?? 0)} sub={`${fmtPercent(clientMix)} clients in active base`} icon="contacts" />
             <StatCard label="Open pipeline" value={openPipelineValue} sub={openPipelineSub} icon="payments" />
@@ -752,7 +758,7 @@ export default function CrmReportsPage() {
           </div>
         </div>
 
-        <div className="bento-card !p-6 space-y-5">
+        <div className="space-y-3 rounded-md border border-[var(--color-card-border)] bg-black/10 p-3">
           <div>
             <p className="eyebrow">Analytics health</p>
             <p className="mt-2 text-sm text-on-surface-variant">Signals that should be reviewed before the next sales standup.</p>
@@ -764,7 +770,7 @@ export default function CrmReportsPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
         <InsightCard
           icon="moving"
           label="Funnel shape"
@@ -866,7 +872,7 @@ export default function CrmReportsPage() {
 
             {/* By stage — horizontal bar chart */}
             <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
-              <div className="bento-card !p-5">
+              <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 p-3">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <p className="text-xs font-medium text-on-surface-variant">By stage</p>
                   {topStage && (
@@ -887,7 +893,7 @@ export default function CrmReportsPage() {
                     <Link
                       href={reportPortalPath('/portal/contacts?create=contact')}
                       aria-label="Open contacts to classify missing stage mix"
-                      className="pib-btn-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
+                      className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
                     >
                       <span aria-hidden="true" className="material-symbols-outlined text-[14px]">filter_alt</span>
                       Classify contacts
@@ -895,7 +901,7 @@ export default function CrmReportsPage() {
                   </div>
                 )}
               </div>
-              <div className="bento-card !p-5 space-y-4">
+              <div className="space-y-3 rounded-md border border-[var(--color-card-border)] bg-black/10 p-3">
                 <p className="eyebrow !text-[10px]">Conversion mix</p>
                 <HealthBar value={clientMix} label="Clients in active base" />
                 <HealthBar value={prospectMix} label="Prospects in active base" />
@@ -934,7 +940,7 @@ export default function CrmReportsPage() {
 
             {/* Forecast table */}
             <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
-              <div className="bento-card !p-0 overflow-hidden">
+              <div className="overflow-hidden rounded-md border border-[var(--color-card-border)] bg-black/10">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[var(--color-card-border)] bg-black/[0.08]">
@@ -963,7 +969,7 @@ export default function CrmReportsPage() {
                   </tbody>
                 </table>
               </div>
-              <div className="bento-card !p-5 space-y-5">
+              <div className="space-y-3 rounded-md border border-[var(--color-card-border)] bg-black/10 p-3">
                 <div>
                   <p className="eyebrow !text-[10px]">Forecast discipline</p>
                   <p className="mt-2 text-sm text-on-surface-variant">Close dates and probabilities decide how believable the pipeline is.</p>
@@ -1004,9 +1010,9 @@ export default function CrmReportsPage() {
           />
         ) : (
           <div className="grid lg:grid-cols-[260px_1fr] gap-4">
-            <div className="pib-stat-card">
+            <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 p-3">
               <p className="eyebrow !text-[10px]">Bottlenecks</p>
-              <p className="mt-3 font-display tracking-tight leading-none text-4xl text-on-surface">
+              <p className="mt-1 text-2xl font-semibold leading-none text-on-surface">
                 {fmtNum(velocity.summary.bottleneckCount)}
               </p>
               <p className="mt-3 text-xs text-on-surface-variant">
@@ -1038,7 +1044,7 @@ export default function CrmReportsPage() {
               </div>
             </div>
 
-            <div className="bento-card !p-0 overflow-hidden">
+            <div className="overflow-hidden rounded-md border border-[var(--color-card-border)] bg-black/10">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[var(--color-card-border)] bg-black/[0.08]">
@@ -1098,7 +1104,7 @@ export default function CrmReportsPage() {
           />
         ) : (
           <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
-            <div className="bento-card !p-0 overflow-hidden">
+            <div className="overflow-hidden rounded-md border border-[var(--color-card-border)] bg-black/10">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[var(--color-card-border)] bg-black/[0.08]">
@@ -1147,7 +1153,7 @@ export default function CrmReportsPage() {
                 </tbody>
               </table>
             </div>
-            <div className="bento-card !p-5 space-y-5">
+            <div className="space-y-3 rounded-md border border-[var(--color-card-border)] bg-black/10 p-3">
               <div>
                 <p className="eyebrow !text-[10px]">Ownership</p>
                 <p className="mt-2 text-sm text-on-surface-variant">Performance reporting is only useful when contacts and deals have accountable owners.</p>
@@ -1219,9 +1225,9 @@ export default function CrmReportsPage() {
         ) : (
           <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_1fr_320px]">
             {/* Total + sparkline */}
-            <div className="bento-card !p-5 space-y-4">
+            <div className="space-y-3 rounded-md border border-[var(--color-card-border)] bg-black/10 p-3">
               <div>
-                <p className="font-display tracking-tight leading-none text-5xl text-on-surface">
+                <p className="text-2xl font-semibold leading-none text-on-surface">
                   {fmtNum(activity.total)}
                 </p>
                 <p className="text-xs text-on-surface-variant mt-2">
@@ -1237,7 +1243,7 @@ export default function CrmReportsPage() {
             </div>
 
             {/* By type — horizontal bar chart */}
-            <div className="bento-card !p-5">
+            <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 p-3">
               <p className="text-xs text-on-surface-variant mb-4 font-medium">By type</p>
               {byTypeEntries.length === 0 ? (
                 <div className="rounded-lg border border-amber-400/20 bg-amber-400/10 p-4">
@@ -1249,7 +1255,7 @@ export default function CrmReportsPage() {
                   <Link
                     href={reportPortalPath('/portal/contacts?followUp=stale')}
                     aria-label="Open contacts to log typed CRM activity"
-                    className="pib-btn-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
+                    className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
                   >
                     <span aria-hidden="true" className="material-symbols-outlined text-[14px]">edit_note</span>
                     Log typed activity
@@ -1260,7 +1266,7 @@ export default function CrmReportsPage() {
               )}
             </div>
 
-            <div className="bento-card !p-5 space-y-4">
+            <div className="space-y-3 rounded-md border border-[var(--color-card-border)] bg-black/10 p-3">
               <div>
                 <p className="eyebrow !text-[10px]">Rhythm</p>
                 <p className="mt-2 text-sm text-on-surface-variant">Use this to spot quiet periods before pipeline follow-up slips.</p>
@@ -1294,6 +1300,7 @@ export default function CrmReportsPage() {
           </div>
         )}
       </Section>
+      </div>
     </div>
   )
 }

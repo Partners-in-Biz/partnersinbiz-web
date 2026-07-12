@@ -624,7 +624,7 @@ export default function PortalSegmentsPage() {
           </div>
         </section>
       ) : segments.length === 0 ? (
-        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-6 text-center">
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center">
           <span className="material-symbols-outlined text-[19px] text-primary" aria-hidden="true">filter_alt</span>
           <h2 className="mt-2 text-sm font-semibold text-on-surface">No segments yet.</h2>
           <p className="mt-1 text-xs text-on-surface-variant">
@@ -641,7 +641,7 @@ export default function PortalSegmentsPage() {
           )}
         </div>
       ) : filteredSegments.length === 0 ? (
-        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-6 text-center">
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center">
           <span className="material-symbols-outlined text-[19px] text-primary">search_off</span>
           <p className="mt-2 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Filtered audience view</p>
           <h2 className="mt-2 text-sm font-semibold text-on-surface">No saved audiences match this view.</h2>

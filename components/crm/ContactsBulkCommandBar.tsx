@@ -94,7 +94,7 @@ export function ContactsBulkCommandBar({
 
   return (
     <section
-      className="sticky top-4 z-40 space-y-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 shadow-[0_24px_80px_rgba(0,0,0,0.24)]"
+      className="sticky top-4 z-40 space-y-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2"
       aria-label="Bulk command center"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">

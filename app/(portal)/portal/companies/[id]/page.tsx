@@ -206,10 +206,10 @@ function Skeleton({ className = '' }: { className?: string }) {
 
 function PageSkeleton() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <Skeleton className="h-6 w-24" />
       <div className="flex items-start gap-4">
-        <Skeleton className="h-16 w-16 rounded-2xl" />
+        <Skeleton className="h-16 w-16 rounded-xl" />
         <div className="flex-1 space-y-2">
           <Skeleton className="h-8 w-64" />
           <Skeleton className="h-5 w-40" />
@@ -499,11 +499,11 @@ function ContactsPanel({
         label="No linked contacts yet. Add the first stakeholder so emails, deals, quotes, and activity have a real relationship anchor."
       >
         <div className="flex flex-wrap justify-center gap-2">
-          <button type="button" onClick={onCreateContact} className="btn-pib-primary inline-flex items-center gap-1.5">
+          <button type="button" onClick={onCreateContact} className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 inline-flex items-center gap-1.5">
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
             Add first contact for {company.name}
           </button>
-          <button type="button" onClick={onLinkExistingContact} className="btn-pib-secondary inline-flex items-center gap-1.5">
+          <button type="button" onClick={onLinkExistingContact} className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex items-center gap-1.5">
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">link</span>
             Link existing contact
           </button>
@@ -521,11 +521,11 @@ function ContactsPanel({
           </p>
         </div>
         <div className="flex flex-wrap gap-2 sm:justify-end">
-          <button type="button" onClick={onLinkExistingContact} className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5">
+          <button type="button" onClick={onLinkExistingContact} className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex shrink-0 items-center gap-1.5">
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">link</span>
             Link existing contact
           </button>
-          <button type="button" onClick={onCreateContact} className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5">
+          <button type="button" onClick={onCreateContact} className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex shrink-0 items-center gap-1.5">
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
             Add contact for {company.name}
           </button>
@@ -646,7 +646,7 @@ function ExistingContactLinkDrawer({
             <span className="material-symbols-outlined text-[20px]">close</span>
           </button>
         </div>
-        <div className="space-y-4 p-6">
+        <div className="space-y-4 p-4">
           <label className="block text-sm">
             <span className="mb-1 block text-[var(--color-pib-text-muted)]">Search contacts</span>
             <input
@@ -682,7 +682,7 @@ function ExistingContactLinkDrawer({
                   </div>
                   <button
                     type="button"
-                    className="btn-pib-secondary inline-flex shrink-0 items-center justify-center gap-1.5 text-xs"
+                    className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex shrink-0 items-center justify-center gap-1.5 text-xs"
                     onClick={() => void handleLink(contact)}
                     disabled={Boolean(linkingId)}
                   >
@@ -728,12 +728,12 @@ function DealsPanel({
         }
       >
         {firstContact ? (
-          <button type="button" onClick={onCreateDeal} className="btn-pib-primary inline-flex items-center gap-1.5">
+          <button type="button" onClick={onCreateDeal} className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 inline-flex items-center gap-1.5">
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_business</span>
             Create first deal for {company.name}
           </button>
         ) : (
-          <button type="button" onClick={onCreateContact} className="btn-pib-secondary inline-flex items-center gap-1.5">
+          <button type="button" onClick={onCreateContact} className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex items-center gap-1.5">
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
             Add contact before deal
           </button>
@@ -751,12 +751,12 @@ function DealsPanel({
           </p>
         </div>
         {contacts[0] ? (
-          <button type="button" onClick={onCreateDeal} className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5">
+          <button type="button" onClick={onCreateDeal} className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex shrink-0 items-center gap-1.5">
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_business</span>
             Add deal for {company.name}
           </button>
         ) : (
-          <button type="button" onClick={onCreateContact} className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5">
+          <button type="button" onClick={onCreateContact} className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex shrink-0 items-center gap-1.5">
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
             Add contact before deal
           </button>
@@ -862,18 +862,18 @@ function ProjectsPanel({
               type="button"
               onClick={onCreateProject}
               disabled={creatingProject}
-              className="btn-pib-primary inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+              className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_task</span>
               {creatingProject ? 'Creating project...' : `Create discovery project for ${company.name}`}
             </button>
           ) : firstContact ? (
-            <Link href={`/portal/contacts/${firstContact.id}`} className="btn-pib-secondary inline-flex items-center gap-1.5">
+            <Link href={`/portal/contacts/${firstContact.id}`} className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex items-center gap-1.5">
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">alternate_email</span>
               Add email to {contactLabel(firstContact)}
             </Link>
           ) : (
-            <button type="button" onClick={onCreateContact} className="btn-pib-secondary inline-flex items-center gap-1.5">
+            <button type="button" onClick={onCreateContact} className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex items-center gap-1.5">
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
               Add contact before project
             </button>
@@ -897,18 +897,18 @@ function ProjectsPanel({
             type="button"
             onClick={onCreateProject}
             disabled={creatingProject}
-            className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+            className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_task</span>
             {creatingProject ? 'Creating project...' : `Create another project for ${company.name}`}
           </button>
         ) : firstContact ? (
-          <Link href={`/portal/contacts/${firstContact.id}`} className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5">
+          <Link href={`/portal/contacts/${firstContact.id}`} className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex shrink-0 items-center gap-1.5">
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">alternate_email</span>
             Add email to {contactLabel(firstContact)}
           </Link>
         ) : (
-          <button type="button" onClick={onCreateContact} className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5">
+          <button type="button" onClick={onCreateContact} className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex shrink-0 items-center gap-1.5">
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
             Add contact before project
           </button>
@@ -969,7 +969,7 @@ function ServicesPanel({
             type="button"
             onClick={onCreateService}
             disabled={creatingService}
-            className="btn-pib-primary inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+            className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">workspaces</span>
             {creatingService ? 'Creating workspace...' : `Create service workspace for ${company.name}`}
@@ -992,7 +992,7 @@ function ServicesPanel({
           type="button"
           onClick={onCreateService}
           disabled={creatingService}
-          className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+          className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <span className="material-symbols-outlined text-[16px]" aria-hidden="true">workspaces</span>
           {creatingService ? 'Creating workspace...' : `Create another service workspace for ${company.name}`}
@@ -1044,7 +1044,7 @@ function DocumentsPanel({
             type="button"
             onClick={onCreateDocument}
             disabled={creatingDocument}
-            className="btn-pib-primary inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+            className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">note_add</span>
             {creatingDocument ? 'Creating proposal...' : `Create sales proposal for ${company.name}`}
@@ -1075,7 +1075,7 @@ function DocumentsPanel({
           type="button"
           onClick={onCreateDocument}
           disabled={creatingDocument}
-          className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+          className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <span className="material-symbols-outlined text-[16px]" aria-hidden="true">note_add</span>
           {creatingDocument ? 'Creating proposal...' : `Create another sales proposal for ${company.name}`}
@@ -1088,7 +1088,7 @@ function DocumentsPanel({
           { label: 'Received', value: documentDirectionCounts.received, help: 'Created from the linked workspace' },
           { label: 'Linked', value: documentDirectionCounts.linked, help: 'Attached by relationship or company link' },
         ].map((item) => (
-          <div key={item.label} className="rounded-2xl border border-[var(--color-pib-line)] bg-white/[0.03] px-4 py-3">
+          <div key={item.label} className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.03] px-4 py-3">
             <p className="eyebrow !text-[9px]">{item.label}</p>
             <p className="mt-1 font-display text-2xl text-[var(--color-pib-text)]">{item.value}</p>
             <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">{item.help}</p>
@@ -1145,7 +1145,7 @@ function RelationshipsPanel({
             type="button"
             onClick={onCreateRelationship}
             disabled={creatingRelationship}
-            className="btn-pib-primary inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+            className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_link</span>
             {creatingRelationship ? 'Creating relationship...' : `Create relationship for ${company.name}`}
@@ -1168,7 +1168,7 @@ function RelationshipsPanel({
           type="button"
           onClick={onCreateRelationship}
           disabled={creatingRelationship}
-          className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+          className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_link</span>
           {creatingRelationship ? 'Creating relationship...' : `Create another relationship for ${company.name}`}
@@ -1224,13 +1224,13 @@ function QuotesPanel({
               type="button"
               onClick={onCreateQuote}
               disabled={creatingQuote}
-              className="btn-pib-primary inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+              className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">request_quote</span>
               {creatingQuote ? 'Creating quote...' : `Create quote from ${dealLabel(firstDeal)}`}
             </button>
           ) : (
-            <button type="button" onClick={onCreateDeal} className="btn-pib-secondary inline-flex items-center gap-1.5">
+            <button type="button" onClick={onCreateDeal} className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex items-center gap-1.5">
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_business</span>
               Create deal before quote
             </button>
@@ -1255,13 +1255,13 @@ function QuotesPanel({
             type="button"
             onClick={onCreateQuote}
             disabled={creatingQuote}
-            className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+            className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">request_quote</span>
             {creatingQuote ? 'Creating quote...' : `Create another quote from ${dealLabel(firstDeal)}`}
           </button>
         ) : (
-          <button type="button" onClick={onCreateDeal} className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5">
+          <button type="button" onClick={onCreateDeal} className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex shrink-0 items-center gap-1.5">
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_business</span>
             Create deal before quote
           </button>
@@ -1395,7 +1395,7 @@ function InvoicesPanel({
               type="button"
               onClick={() => onCreateInvoiceFromQuote(acceptedQuote)}
               disabled={creatingInvoiceId === acceptedQuote.id}
-              className="btn-pib-primary inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+              className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">receipt_long</span>
               {creatingInvoiceId === acceptedQuote.id ? 'Creating invoice...' : `Create invoice from ${quoteLabel(acceptedQuote)}`}
@@ -1404,7 +1404,7 @@ function InvoicesPanel({
             <button
               type="button"
               disabled
-              className="btn-pib-secondary inline-flex cursor-not-allowed items-center gap-1.5 opacity-60"
+              className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex cursor-not-allowed items-center gap-1.5 opacity-60"
             >
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">approval</span>
               Accept quote before invoice
@@ -1430,7 +1430,7 @@ function InvoicesPanel({
             type="button"
             onClick={() => onCreateInvoiceFromQuote(acceptedQuote)}
             disabled={creatingInvoiceId === acceptedQuote.id}
-            className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+            className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">receipt_long</span>
             {creatingInvoiceId === acceptedQuote.id ? 'Creating invoice...' : `Create another invoice from ${quoteLabel(acceptedQuote)}`}
@@ -1439,7 +1439,7 @@ function InvoicesPanel({
           <button
             type="button"
             disabled
-            className="btn-pib-secondary inline-flex shrink-0 cursor-not-allowed items-center gap-1.5 opacity-60"
+            className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex shrink-0 cursor-not-allowed items-center gap-1.5 opacity-60"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">approval</span>
             Accept quote before invoice
@@ -1490,28 +1490,28 @@ function InvoicesPanel({
                     <td colSpan={5} className="bg-white/[0.02] px-5 py-4">
                       <div className="grid gap-3 sm:grid-cols-2">
                         <label className="text-xs text-[var(--color-pib-text-muted)]">Due date
-                          <input type="date" value={draftForm.dueDate} onChange={(event) => setDraftForm((current) => ({ ...current, dueDate: event.target.value }))} className="pib-input mt-1" />
+                          <input type="date" value={draftForm.dueDate} onChange={(event) => setDraftForm((current) => ({ ...current, dueDate: event.target.value }))} className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface mt-1" />
                         </label>
                         <label className="text-xs text-[var(--color-pib-text-muted)]">Tax rate
-                          <input type="number" min="0" max="100" value={draftForm.taxRate} onChange={(event) => setDraftForm((current) => ({ ...current, taxRate: event.target.value }))} className="pib-input mt-1" />
+                          <input type="number" min="0" max="100" value={draftForm.taxRate} onChange={(event) => setDraftForm((current) => ({ ...current, taxRate: event.target.value }))} className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface mt-1" />
                         </label>
                         <label className="text-xs text-[var(--color-pib-text-muted)] sm:col-span-2">Line item description
-                          <input value={draftForm.description} onChange={(event) => setDraftForm((current) => ({ ...current, description: event.target.value }))} className="pib-input mt-1" />
+                          <input value={draftForm.description} onChange={(event) => setDraftForm((current) => ({ ...current, description: event.target.value }))} className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface mt-1" />
                         </label>
                         <label className="text-xs text-[var(--color-pib-text-muted)]">Quantity
-                          <input type="number" min="1" value={draftForm.quantity} onChange={(event) => setDraftForm((current) => ({ ...current, quantity: event.target.value }))} className="pib-input mt-1" />
+                          <input type="number" min="1" value={draftForm.quantity} onChange={(event) => setDraftForm((current) => ({ ...current, quantity: event.target.value }))} className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface mt-1" />
                         </label>
                         <label className="text-xs text-[var(--color-pib-text-muted)]">Unit price
-                          <input type="number" min="0" step="0.01" value={draftForm.unitPrice} onChange={(event) => setDraftForm((current) => ({ ...current, unitPrice: event.target.value }))} className="pib-input mt-1" />
+                          <input type="number" min="0" step="0.01" value={draftForm.unitPrice} onChange={(event) => setDraftForm((current) => ({ ...current, unitPrice: event.target.value }))} className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface mt-1" />
                         </label>
                         <label className="text-xs text-[var(--color-pib-text-muted)] sm:col-span-2">Notes
-                          <textarea value={draftForm.notes} onChange={(event) => setDraftForm((current) => ({ ...current, notes: event.target.value }))} className="pib-textarea mt-1" rows={2} />
+                          <textarea value={draftForm.notes} onChange={(event) => setDraftForm((current) => ({ ...current, notes: event.target.value }))} className="rounded-md border border-[var(--color-card-border)] bg-transparent p-2 text-xs text-on-surface mt-1" rows={2} />
                         </label>
                       </div>
                       {editError ? <p className="mt-3 text-xs text-red-300">{editError}</p> : null}
                       <div className="mt-3 flex justify-end gap-2">
-                        <button type="button" onClick={() => setEditingInvoiceId(null)} className="btn-pib-secondary">Cancel</button>
-                        <button type="button" onClick={() => saveDraftInvoice(invoice)} disabled={savingInvoiceId === invoice.id} className="btn-pib-primary disabled:opacity-60">
+                        <button type="button" onClick={() => setEditingInvoiceId(null)} className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface">Cancel</button>
+                        <button type="button" onClick={() => saveDraftInvoice(invoice)} disabled={savingInvoiceId === invoice.id} className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 disabled:opacity-60">
                           {savingInvoiceId === invoice.id ? 'Saving...' : 'Save draft invoice'}
                         </button>
                       </div>
@@ -1560,7 +1560,7 @@ function OrdersPanel({
               type="button"
               onClick={() => onCreateOrderFromInvoice(firstInvoice)}
               disabled={creatingOrder}
-              className="btn-pib-primary inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+              className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_shopping_cart</span>
               {creatingOrder ? 'Creating order...' : `Create fulfillment order from ${invoiceLabel(firstInvoice)}`}
@@ -1569,7 +1569,7 @@ function OrdersPanel({
             <button
               type="button"
               disabled
-              className="btn-pib-secondary inline-flex cursor-not-allowed items-center gap-1.5 opacity-60"
+              className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex cursor-not-allowed items-center gap-1.5 opacity-60"
             >
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">receipt_long</span>
               Create invoice before order
@@ -1595,7 +1595,7 @@ function OrdersPanel({
             type="button"
             onClick={() => onCreateOrderFromInvoice(firstInvoice)}
             disabled={creatingOrder}
-            className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+            className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_shopping_cart</span>
             {creatingOrder ? 'Creating order...' : `Create another fulfillment order from ${invoiceLabel(firstInvoice)}`}
@@ -1604,7 +1604,7 @@ function OrdersPanel({
           <button
             type="button"
             disabled
-            className="btn-pib-secondary inline-flex shrink-0 cursor-not-allowed items-center gap-1.5 opacity-60"
+            className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex shrink-0 cursor-not-allowed items-center gap-1.5 opacity-60"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">receipt_long</span>
             Create invoice before order
@@ -1659,7 +1659,7 @@ function ShipmentsPanel({
               type="button"
               onClick={() => onCreateShipmentFromOrder(firstOrder)}
               disabled={creatingShipment}
-              className="btn-pib-primary inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+              className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">local_shipping</span>
               {creatingShipment ? 'Creating shipment...' : `Create shipment for ${orderLabel(firstOrder)}`}
@@ -1668,7 +1668,7 @@ function ShipmentsPanel({
             <button
               type="button"
               disabled
-              className="btn-pib-secondary inline-flex cursor-not-allowed items-center gap-1.5 opacity-60"
+              className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex cursor-not-allowed items-center gap-1.5 opacity-60"
             >
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">orders</span>
               Create order before shipment
@@ -1694,7 +1694,7 @@ function ShipmentsPanel({
             type="button"
             onClick={() => onCreateShipmentFromOrder(firstOrder)}
             disabled={creatingShipment}
-            className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+            className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">local_shipping</span>
             {creatingShipment ? 'Creating shipment...' : `Create another shipment for ${orderLabel(firstOrder)}`}
@@ -1703,7 +1703,7 @@ function ShipmentsPanel({
           <button
             type="button"
             disabled
-            className="btn-pib-secondary inline-flex shrink-0 cursor-not-allowed items-center gap-1.5 opacity-60"
+            className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex shrink-0 cursor-not-allowed items-center gap-1.5 opacity-60"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">orders</span>
             Create order before shipment
@@ -1750,7 +1750,7 @@ function InventoryPanel({
             type="button"
             onClick={onCreateInventoryItem}
             disabled={creatingInventoryItem}
-            className="btn-pib-primary inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+            className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_box</span>
             {creatingInventoryItem ? 'Creating item...' : `Create inventory item for ${company.name}`}
@@ -1773,7 +1773,7 @@ function InventoryPanel({
           type="button"
           onClick={onCreateInventoryItem}
           disabled={creatingInventoryItem}
-          className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+          className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_box</span>
           {creatingInventoryItem ? 'Creating item...' : `Create another inventory item for ${company.name}`}
@@ -1831,7 +1831,7 @@ function ActivityPanel({
   const cancelCompanyNoteLabel = `Cancel company note for ${company.name}`
   const saveCompanyNoteLabel = `Save company note for ${company.name}`
   const composer = noteOpen && firstContact ? (
-    <div className="bento-card p-5 text-left">
+    <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3 text-left">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="eyebrow !text-[10px]">Company note</p>
@@ -1859,7 +1859,7 @@ function ActivityPanel({
           value={note}
           onChange={(event) => onNoteChange(event.target.value)}
           rows={4}
-          className="pib-input w-full resize-none"
+          className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface w-full resize-none"
           placeholder="Capture a decision, call summary, risk, or follow-up..."
         />
         {noteError ? <p className="text-xs text-red-300">{noteError}</p> : null}
@@ -1868,7 +1868,7 @@ function ActivityPanel({
             type="button"
             onClick={onCancelNote}
             disabled={savingNote}
-            className="btn-pib-secondary"
+            className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
             aria-label={cancelCompanyNoteLabel}
           >
             Cancel
@@ -1877,7 +1877,7 @@ function ActivityPanel({
             type="button"
             onClick={onSaveNote}
             disabled={savingNote || !note.trim()}
-            className="btn-pib-primary disabled:cursor-not-allowed disabled:opacity-60"
+            className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             aria-label={saveCompanyNoteLabel}
           >
             {savingNote ? 'Saving...' : 'Save note'}
@@ -1899,12 +1899,12 @@ function ActivityPanel({
         }
       >
         {firstContact ? (
-          <button type="button" onClick={onOpenNote} className="btn-pib-primary inline-flex items-center gap-1.5">
+          <button type="button" onClick={onOpenNote} className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 inline-flex items-center gap-1.5">
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">edit_note</span>
             Log first note for {company.name}
           </button>
         ) : (
-          <button type="button" onClick={onCreateContact} className="btn-pib-secondary inline-flex items-center gap-1.5">
+          <button type="button" onClick={onCreateContact} className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex items-center gap-1.5">
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
             Add contact before activity
           </button>
@@ -1915,13 +1915,13 @@ function ActivityPanel({
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <button type="button" onClick={onOpenNote} className="btn-pib-secondary inline-flex items-center gap-1.5">
+        <button type="button" onClick={onOpenNote} className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex items-center gap-1.5">
           <span className="material-symbols-outlined text-[16px]" aria-hidden="true">edit_note</span>
           Log note
         </button>
       </div>
       {composer}
-      <div className="bento-card divide-y divide-[var(--color-pib-line)]">
+      <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 divide-y divide-[var(--color-pib-line)]">
         {activities.map((activity) => (
           <div key={activity.id} className="px-5 py-4 flex items-start justify-between gap-4">
             <div>
@@ -2529,8 +2529,8 @@ export default function CompanyDetailPage() {
 
   if (error || !company) {
     return (
-      <div className="bento-card p-10 text-center space-y-4">
-        <span className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">
+      <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center space-y-4">
+        <span className="material-symbols-outlined text-[19px] text-[var(--color-pib-text-muted)]">
           {error ? 'error_outline' : 'domain_disabled'}
         </span>
         <p className="text-sm text-[var(--color-pib-text-muted)]">
@@ -2539,7 +2539,7 @@ export default function CompanyDetailPage() {
         <Link
           href={companyPortalPath('/portal/companies')}
           aria-label="Back to Companies"
-          className="btn-pib-secondary inline-flex items-center gap-1.5 mt-2"
+          className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex items-center gap-1.5 mt-2"
         >
           <span aria-hidden="true" className="material-symbols-outlined text-sm">arrow_back</span>
           Back to companies
@@ -2551,7 +2551,7 @@ export default function CompanyDetailPage() {
   // ── Main render ─────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Breadcrumb */}
       <Link
         href={companyPortalPath('/portal/companies')}
@@ -2563,7 +2563,7 @@ export default function CompanyDetailPage() {
       </Link>
 
       {/* Header */}
-      <div className="bento-card p-5">
+      <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
         <CompanyHeader
           company={company}
           onEdit={() => setEditOpen(true)}
@@ -2595,7 +2595,7 @@ export default function CompanyDetailPage() {
           aria-modal="false"
           aria-labelledby="company-archive-confirm-title"
           aria-describedby="company-archive-confirm-description"
-          className="rounded-lg border border-red-400/25 bg-red-500/10 p-5 shadow-[0_18px_40px_rgba(127,29,29,0.18)]"
+          className="rounded-lg border border-red-400/25 bg-red-500/10 p-3"
         >
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div className="flex gap-3">
@@ -2618,7 +2618,7 @@ export default function CompanyDetailPage() {
                   setArchiveConfirmOpen(false)
                   setArchiveError(null)
                 }}
-                className="btn-pib-secondary text-xs"
+                className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface text-xs"
                 disabled={deleting}
               >
                 Cancel
@@ -2665,13 +2665,13 @@ export default function CompanyDetailPage() {
       {/* Tab content */}
       <div role="tabpanel">
         {relatedError && tab !== 'overview' && (
-          <div className="bento-card p-4 mb-4 text-sm text-red-300 border border-red-500/30">
+          <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 mb-4 text-sm text-red-300 border border-red-500/30">
             {relatedError}
           </div>
         )}
         {relatedLoading && tab !== 'overview' && <Skeleton className="h-36 w-full" />}
         {tab === 'overview' && (
-          <div className="space-y-6">
+          <div className="space-y-3">
             <CompanyOverviewPanel
               company={company}
               loading={relatedLoading}
@@ -2706,7 +2706,7 @@ export default function CompanyDetailPage() {
               }}
             />
             {customFieldDefs.length > 0 && (
-              <div className="bento-card p-5 space-y-3">
+              <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3 space-y-3">
                 <p className="eyebrow !text-[10px]">Custom fields</p>
                 <CustomFieldsSection
                   definitions={customFieldDefs}

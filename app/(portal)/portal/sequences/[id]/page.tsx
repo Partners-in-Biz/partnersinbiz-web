@@ -91,7 +91,7 @@ export default function SequenceDetailPage({ params }: { params: Promise<{ id: s
   }
 
   return (
-    <div className="max-w-6xl space-y-6">
+    <div className="max-w-6xl space-y-3">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <button
@@ -103,13 +103,13 @@ export default function SequenceDetailPage({ params }: { params: Promise<{ id: s
             Sequences
           </button>
           <p className="eyebrow !text-[10px]">Journey builder</p>
-          <h1 className="pib-page-title mt-2">Edit sequence</h1>
-          <p className="pib-page-sub max-w-2xl">
+          <h1 className="mt-1 text-base font-semibold text-on-surface">Edit sequence</h1>
+          <p className="mt-1 max-w-2xl text-xs text-on-surface-variant">
             Tune the company follow-up journey while keeping the CRM automation path scoped to the selected organisation.
           </p>
         </div>
         {sequence && (
-          <div className="bento-card !p-4 w-full max-w-sm">
+          <div className="w-full max-w-sm rounded-lg border border-[var(--color-card-border)] bg-black/10 p-3">
             <p className="text-xs font-medium">
               {sequence.status === 'active' ? 'Currently active' : sequence.status === 'paused' ? 'Currently paused' : 'Currently draft'}
             </p>
@@ -121,11 +121,11 @@ export default function SequenceDetailPage({ params }: { params: Promise<{ id: s
       </div>
 
       {loading ? (
-        <div className="bento-card !p-6">
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4">
           <p className="text-sm text-[var(--color-pib-text-muted)]">Loading sequence...</p>
         </div>
       ) : fetchError ? (
-        <section className="bento-card border-amber-400/25 bg-amber-400/10">
+        <section className="rounded-xl border border-amber-400/25 bg-amber-400/10 p-3">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex gap-3">
               <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-amber-400/25 bg-amber-400/10 text-amber-200">
@@ -147,7 +147,7 @@ export default function SequenceDetailPage({ params }: { params: Promise<{ id: s
                 type="button"
                 onClick={() => loadSequence()}
                 aria-label="Retry loading sequence journey"
-                className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 text-sm"
+                className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
               >
                 <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
                 Retry
@@ -155,7 +155,7 @@ export default function SequenceDetailPage({ params }: { params: Promise<{ id: s
               <button
                 type="button"
                 onClick={handleCancel}
-                className="cursor-pointer btn-pib-secondary text-sm"
+                className="h-8 cursor-pointer rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
               >
                 Back to sequences
               </button>

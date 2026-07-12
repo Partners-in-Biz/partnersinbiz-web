@@ -256,7 +256,7 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
           </div>
         </section>
       ) : tags.length === 0 ? (
-        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-6 text-center">
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center">
           <span className="material-symbols-outlined text-[19px] text-primary" aria-hidden="true">label</span>
           <h2 className="mt-2 text-sm font-semibold text-on-surface">No tags yet.</h2>
           <p className="mt-1 text-xs text-on-surface-variant">

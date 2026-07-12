@@ -75,7 +75,7 @@ function SequencePickerInline({
         const seq = sequences.find(s => s.id === e.target.value)
         onChange(e.target.value, seq?.name ?? '')
       }}
-      className="pib-input text-sm"
+      className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface"
     >
       <option value="">Select sequence…</option>
       {sequences.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -101,7 +101,7 @@ function ActionRow({
   const actionNumber = index + 1
 
   return (
-    <div className="bento-card !p-4 mb-2 flex flex-col gap-2">
+    <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-4 mb-2 flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
         <select
           aria-label={`Action ${actionNumber} type`}
@@ -331,7 +331,7 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
       <div className="space-y-4">
       {/* ── Name ── */}
-      <div className="bento-card !p-6">
+      <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-3">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <p className="eyebrow !text-[10px]">Rule identity</p>
@@ -350,7 +350,7 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
       </div>
 
       {/* ── Trigger ── */}
-      <div className="bento-card !p-6">
+      <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-3">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <p className="eyebrow !text-[10px]">Trigger</p>
@@ -397,7 +397,7 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
       </div>
 
       {/* ── Timing ── */}
-      <div className="bento-card !p-6">
+      <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-3">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <p className="eyebrow !text-[10px]">Timing</p>
@@ -405,7 +405,7 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
           </div>
           <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">schedule</span>
         </div>
-        <div className="flex gap-6">
+        <div className="flex gap-3">
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="radio"
@@ -453,7 +453,7 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
       </div>
 
       {/* ── Actions ── */}
-      <div className="bento-card !p-6">
+      <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-3">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <p className="eyebrow !text-[10px]">Actions</p>
@@ -482,7 +482,7 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
         <button
           type="button"
           onClick={addAction}
-          className="cursor-pointer btn-pib-secondary text-sm flex items-center gap-1.5 mt-3"
+          className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface flex items-center gap-1.5 mt-3"
         >
           <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
           Add action
@@ -490,7 +490,7 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
       </div>
 
       {/* ── Enabled toggle ── */}
-      <div className="bento-card !p-5 flex items-center justify-between gap-4">
+      <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-3 flex items-center justify-between gap-4">
         <div>
           <p id="automation-enabled-label" className="text-sm font-medium">Enabled</p>
           <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">
@@ -524,7 +524,7 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
           type="button"
           onClick={handleSubmit}
           disabled={saving}
-          className="cursor-pointer btn-pib-accent flex items-center gap-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+          className="cursor-pointer h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <span className="material-symbols-outlined text-[16px]" aria-hidden="true">save</span>
           {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create rule'}
@@ -533,15 +533,15 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
           type="button"
           onClick={onCancel}
           disabled={saving}
-          className="cursor-pointer btn-pib-secondary text-sm disabled:opacity-60"
+          className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface disabled:opacity-60"
         >
           Cancel
         </button>
       </div>
       </div>
 
-      <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
-        <div className="bento-card !p-5">
+      <aside className="space-y-4 xl:sticky xl:top-4 xl:self-start">
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-3">
           <p className="eyebrow !text-[10px]">Rule preview</p>
           <h2 className="mt-2 text-sm font-semibold">{name.trim() || 'Untitled automation'}</h2>
           <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">
@@ -563,7 +563,7 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
           </div>
         </div>
 
-        <div className="bento-card !p-5">
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-3">
           <p className="eyebrow !text-[10px]">Action stack</p>
           <div className="mt-4 space-y-2">
             {actions.length === 0 ? (

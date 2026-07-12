@@ -120,7 +120,7 @@ function SortableRow({
     <div
       ref={setNodeRef}
       style={style}
-      className="bento-card !p-0 overflow-hidden"
+      className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-0 overflow-hidden"
     >
       <div className="flex flex-col gap-4 p-4 lg:flex-row lg:items-start">
         <div className="flex items-start gap-3 min-w-0 flex-1">
@@ -289,7 +289,7 @@ export function CustomFieldDefinitionsList({
       onDragEnd={handleDragEnd}
     >
       <SortableContext items={items.map((d) => d.id)} strategy={verticalListSortingStrategy}>
-        <div className="space-y-6">
+        <div className="space-y-3">
           {Array.from(groups.entries()).map(([group, defs]) => (
             <div key={group}>
               <h4 className="text-xs font-label text-[var(--color-pib-text-muted)] uppercase tracking-wider mb-2">

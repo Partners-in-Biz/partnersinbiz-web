@@ -191,19 +191,19 @@ export default function PortalCaptureSourceImportPage() {
   ]
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-3">
       <header className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <p className="eyebrow">CRM</p>
-          <h1 className="pib-page-title mt-2">CSV intake command center</h1>
-          <p className="pib-page-sub max-w-2xl">
+          <h1 className="mt-1 text-base font-semibold text-on-surface">CSV intake command center</h1>
+          <p className="mt-1 max-w-2xl text-xs text-on-surface-variant">
             Govern bulk CRM intake before records land in the database. Preview rows, apply source attribution, merge tags, and validate the import before any contacts are created or updated.
           </p>
         </div>
         <div>
           <Link
             href={captureSourcesHref}
-            className="btn-pib-secondary !py-2 !px-4 !text-sm"
+            className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
           >
             <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
             Back to capture sources
@@ -272,7 +272,7 @@ export default function PortalCaptureSourceImportPage() {
             </p>
           )}
           {parseError && (
-            <p className="mt-1.5 text-sm text-[#FCA5A5]">{parseError}</p>
+            <p className="mt-1.5 text-sm text-red-100">{parseError}</p>
           )}
           <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">
             Expected headers (case-insensitive): email (required), name or firstname/lastname, company, phone, tags (comma- or semicolon-separated), notes.
@@ -365,7 +365,7 @@ export default function PortalCaptureSourceImportPage() {
             })}
           </div>
           {!emailMapped && (
-            <p className="text-xs text-[#FBBF24]">
+            <p className="text-xs text-amber-100">
               Map one column to Email to enable validation and import.
             </p>
           )}
@@ -419,7 +419,7 @@ export default function PortalCaptureSourceImportPage() {
             type="button"
             onClick={handleValidate}
             disabled={validating || importing}
-            className="btn-pib-secondary !py-2 !px-4 !text-sm disabled:opacity-50"
+            className="h-8 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface disabled:opacity-50"
           >
             {validating ? 'Validating...' : 'Validate (dry run)'}
           </button>
@@ -427,7 +427,7 @@ export default function PortalCaptureSourceImportPage() {
             type="button"
             onClick={handleImport}
             disabled={validating || importing}
-            className="btn-pib-accent !py-2 !px-4 !text-sm disabled:opacity-50"
+            className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black disabled:opacity-50"
           >
             {importing ? 'Importing...' : 'Import'}
           </button>
@@ -435,7 +435,7 @@ export default function PortalCaptureSourceImportPage() {
       )}
 
       {submitError && (
-        <div className="rounded-xl bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] p-4 text-sm text-[#FCA5A5]">
+        <div className="rounded-xl border border-red-400/40 bg-red-400/10 p-3 text-sm text-red-100">
           {submitError}
         </div>
       )}

@@ -54,12 +54,12 @@ function productSearchText(product: Product): string {
 
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
   return (
-    <div className="pib-stat-card">
+    <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
       <div className="flex items-start justify-between gap-3">
         <p className="eyebrow !text-[10px]">{label}</p>
         <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
       </div>
-      <p className="mt-3 font-display text-3xl leading-none text-[var(--color-pib-text)]">{value}</p>
+      <p className="mt-3 font-display text-lg leading-none text-[var(--color-pib-text)]">{value}</p>
       <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">{sub}</p>
     </div>
   )
@@ -230,19 +230,19 @@ export default function ProductsPage() {
   ]
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-3">
       <header className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <p className="eyebrow">CRM settings</p>
-          <h1 className="pib-page-title mt-2">Product catalog</h1>
-          <p className="pib-page-sub max-w-2xl">
+          <h1 className="text-base font-semibold text-on-surface mt-2">Product catalog</h1>
+          <p className="text-xs leading-5 text-on-surface-variant max-w-2xl">
             Manage the services and products that power deal line items, quote pricing, and revenue forecasting.
           </p>
         </div>
         <button
           type="button"
           onClick={handleOpenCreate}
-          className="cursor-pointer btn-pib-accent flex items-center gap-1.5 text-sm shrink-0"
+          className="cursor-pointer h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 flex items-center gap-1.5 shrink-0"
         >
           <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
           New product
@@ -262,7 +262,7 @@ export default function ProductsPage() {
             <section
               role="region"
               aria-label="Catalog readiness review"
-              className="rounded-[var(--radius-card)] border border-amber-400/25 bg-amber-400/[0.08] p-5 shadow-[0_18px_40px_rgba(146,64,14,0.14)]"
+              className="rounded-[var(--radius-card)] border border-amber-400/25 bg-amber-400/[0.08] p-5"
             >
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="flex gap-3">
@@ -287,7 +287,7 @@ export default function ProductsPage() {
                   type="button"
                   onClick={() => handleOpenEdit(firstIncompleteProduct)}
                   aria-label={`Fix catalog setup for ${productDisplayName(firstIncompleteProduct)}`}
-                  className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+                  className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex shrink-0 items-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-base" aria-hidden="true">edit_note</span>
                   Fix catalog setup
@@ -302,14 +302,14 @@ export default function ProductsPage() {
                 <input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  className="pib-input min-w-[220px] flex-1"
+                  className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface min-w-[220px] flex-1"
                   placeholder="Search product, unit, currency..."
                 />
                 <select
                   aria-label="Filter products by currency"
                   value={currencyFilter}
                   onChange={(event) => setCurrencyFilter(event.target.value)}
-                  className="pib-input !w-auto"
+                  className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface !w-auto"
                 >
                   <option value="">All currencies</option>
                   {currencyCodes.map((currency) => (
@@ -320,7 +320,7 @@ export default function ProductsPage() {
                   aria-label="Filter products by health"
                   value={healthFilter}
                   onChange={(event) => setHealthFilter(event.target.value as 'all' | 'ready' | 'needs-work')}
-                  className="pib-input !w-auto"
+                  className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface !w-auto"
                 >
                   <option value="all">All health</option>
                   <option value="ready">Ready</option>
@@ -332,7 +332,7 @@ export default function ProductsPage() {
                 <button
                   type="button"
                   onClick={() => { setSearch(''); setCurrencyFilter(''); setHealthFilter('all') }}
-                  className="btn-pib-secondary text-xs inline-flex items-center gap-1.5"
+                  className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface text-xs inline-flex items-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-[14px]" aria-hidden="true">filter_alt_off</span>
                   Clear filters
@@ -340,7 +340,7 @@ export default function ProductsPage() {
               ) : null}
             </div>
 
-            <div className="bento-card !p-5 space-y-4">
+            <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-3 space-y-4">
               <div>
                 <p className="eyebrow !text-[10px]">Catalog focus</p>
                 <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
@@ -386,7 +386,7 @@ export default function ProductsPage() {
             <button
               type="button"
               onClick={loadProducts}
-              className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+              className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex shrink-0 items-center gap-1.5"
               aria-label="Retry loading products"
             >
               <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
@@ -395,9 +395,9 @@ export default function ProductsPage() {
           </div>
         </section>
       ) : products.length === 0 ? (
-        <div className="bento-card !p-0 overflow-hidden">
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-0 overflow-hidden">
           <div className="grid gap-0 lg:grid-cols-[1.1fr_1.4fr]">
-            <div className="border-b border-[var(--color-pib-line)] p-6 lg:border-b-0 lg:border-r">
+            <div className="border-b border-[var(--color-pib-line)] p-4 lg:border-b-0 lg:border-r">
               <span className="material-symbols-outlined mb-4 block text-[34px] text-[var(--color-accent-v2)]">inventory_2</span>
               <p className="eyebrow !text-[10px]">Catalog setup</p>
               <h2 className="mt-2 font-display text-2xl leading-tight text-[var(--color-pib-text)]">
@@ -410,7 +410,7 @@ export default function ProductsPage() {
               <button
                 type="button"
                 onClick={handleOpenCreate}
-                className="btn-pib-accent mt-5 inline-flex cursor-pointer items-center gap-1.5 text-sm"
+                className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 mt-5 inline-flex cursor-pointer items-center gap-1.5"
               >
                 <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
                 Create the first catalog item
@@ -434,7 +434,7 @@ export default function ProductsPage() {
           </div>
         </div>
       ) : filteredProducts.length === 0 ? (
-        <div className="bento-card !p-8 text-center">
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-4 text-center">
           <span className="material-symbols-outlined text-[32px] text-[var(--color-pib-text-muted)] mb-3 block" aria-hidden="true">search_off</span>
           <p className="eyebrow !text-[10px]">Filtered catalog view</p>
           <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">No products match this view.</h2>
@@ -442,7 +442,7 @@ export default function ProductsPage() {
           <button
             type="button"
             onClick={clearProductFilters}
-            className="btn-pib-secondary mt-5 inline-flex items-center gap-1.5 text-xs"
+            className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface mt-5 inline-flex items-center gap-1.5 text-xs"
             aria-label="Show all products"
           >
             <span className="material-symbols-outlined text-[15px]" aria-hidden="true">filter_alt_off</span>
@@ -450,7 +450,7 @@ export default function ProductsPage() {
           </button>
         </div>
       ) : (
-        <div className="bento-card !p-0 overflow-hidden">
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-0 overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--color-pib-line)]">
@@ -576,7 +576,7 @@ export default function ProductsPage() {
           role="alertdialog"
           aria-labelledby="delete-product-title"
           aria-describedby="delete-product-description"
-          className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-4xl rounded-lg border border-red-400/30 bg-[var(--color-pib-surface)] p-4 shadow-2xl md:bottom-6"
+          className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-4xl rounded-lg border border-red-400/30 bg-[var(--color-pib-surface)] p-4 md:bottom-6"
         >
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex gap-3">
@@ -612,7 +612,7 @@ export default function ProductsPage() {
                   setPendingDeleteProduct(null)
                   setDeleteError(null)
                 }}
-                className="btn-pib-secondary text-xs"
+                className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface text-xs"
                 disabled={deletingId === pendingDeleteProduct.id}
                 aria-label={`Cancel delete for catalog product ${productDisplayName(pendingDeleteProduct)}`}
               >

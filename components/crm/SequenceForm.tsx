@@ -8,7 +8,7 @@ import { scopedApiPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-rou
 // ── Input class helper ────────────────────────────────────────────────────────
 
 const inputCls =
-  'w-full text-sm px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] text-[var(--color-pib-text)] placeholder-[var(--color-pib-text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--color-pib-accent)]'
+  'h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm text-on-surface outline-none transition placeholder:text-on-surface-variant focus:border-primary/40'
 
 function stepChannel(step: SequenceStep) {
   return step.channel === 'sms' ? 'sms' : 'email'
@@ -49,7 +49,7 @@ function StepRow({
   const stepNumber = index + 1
 
   return (
-    <div className="bento-card !p-4 mb-3">
+    <div className="mb-2 rounded-lg border border-[var(--color-card-border)] bg-black/10 p-3">
       {/* Header row */}
       <div className="flex items-center justify-between gap-2 mb-3">
         <div className="min-w-0">
@@ -337,7 +337,7 @@ export function SequenceForm({ initial, apiScope, onSave, onCancel }: Props) {
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
       <div className="space-y-4">
       {/* ── Section 1: Details ── */}
-      <div className="bento-card !p-6">
+      <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <p className="eyebrow !text-[10px]">Journey identity</p>
@@ -392,7 +392,7 @@ export function SequenceForm({ initial, apiScope, onSave, onCancel }: Props) {
       </div>
 
       {/* ── Section 2: Steps ── */}
-      <div className="bento-card !p-6">
+      <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <p className="eyebrow !text-[10px]">Journey steps</p>
@@ -425,7 +425,7 @@ export function SequenceForm({ initial, apiScope, onSave, onCancel }: Props) {
         <button
           type="button"
           onClick={addStep}
-          className="cursor-pointer btn-pib-secondary text-sm flex items-center gap-1.5 mt-3"
+          className="mt-3 flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
         >
           <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
           Add step
@@ -446,7 +446,7 @@ export function SequenceForm({ initial, apiScope, onSave, onCancel }: Props) {
           type="button"
           onClick={handleSubmit}
           disabled={saving}
-          className="cursor-pointer btn-pib-accent flex items-center gap-1.5 text-sm disabled:opacity-60"
+          className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black disabled:opacity-60"
         >
           <span className="material-symbols-outlined text-[16px]" aria-hidden="true">save</span>
           {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create sequence'}
@@ -455,15 +455,15 @@ export function SequenceForm({ initial, apiScope, onSave, onCancel }: Props) {
           type="button"
           onClick={onCancel}
           disabled={saving}
-          className="cursor-pointer btn-pib-secondary text-sm disabled:opacity-60"
+          className="h-8 cursor-pointer rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface disabled:opacity-60"
         >
           Cancel
         </button>
       </div>
       </div>
 
-      <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
-        <div className="bento-card !p-5">
+      <aside className="space-y-3 xl:sticky xl:top-4 xl:self-start">
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
           <p className="eyebrow !text-[10px]">Sequence preview</p>
           <h2 className="mt-2 text-sm font-semibold">{name.trim() || 'Untitled sequence'}</h2>
           <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">
@@ -487,7 +487,7 @@ export function SequenceForm({ initial, apiScope, onSave, onCancel }: Props) {
           </div>
         </div>
 
-        <div className="bento-card !p-5">
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
           <p className="eyebrow !text-[10px]">First touch</p>
           <p className="mt-3 line-clamp-3 text-sm">{firstTouch}</p>
           <div className="mt-4 space-y-2">

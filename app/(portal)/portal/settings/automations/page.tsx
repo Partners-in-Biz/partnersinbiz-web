@@ -148,12 +148,12 @@ function ruleDisplayName(rule: AutomationRule): string {
 
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
   return (
-    <div className="pib-stat-card min-h-[124px]">
+    <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2 min-h-[124px]">
       <div className="flex items-start justify-between gap-3">
         <p className="eyebrow !text-[10px]">{label}</p>
         <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
       </div>
-      <p className="mt-3 font-display text-3xl leading-none text-[var(--color-pib-text)]">{value}</p>
+      <p className="mt-3 font-display text-lg leading-none text-[var(--color-pib-text)]">{value}</p>
       <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">{sub}</p>
     </div>
   )
@@ -307,19 +307,19 @@ export default function AutomationsPage() {
   }
 
   return (
-    <div className="max-w-6xl space-y-6">
+    <div className="max-w-6xl space-y-3">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className="eyebrow !text-[10px]">CRM operations</p>
-          <h1 className="pib-page-title mt-2">Automation command center</h1>
-          <p className="pib-page-sub max-w-2xl">
+          <h1 className="text-base font-semibold text-on-surface mt-2">Automation command center</h1>
+          <p className="text-xs leading-5 text-on-surface-variant max-w-2xl">
             Design, monitor, and tune the CRM rules that react to contact and deal movement without leaving gaps in follow-up.
           </p>
         </div>
         <div className="flex w-fit shrink-0 flex-wrap items-center gap-2">
           <Link
             href={automationHref('/portal/settings/automations/sequences/new')}
-            className="btn-pib-secondary flex items-center gap-1.5 text-sm"
+            className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface flex items-center gap-1.5"
             aria-label="New email sequence"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">send_time_extension</span>
@@ -327,7 +327,7 @@ export default function AutomationsPage() {
           </Link>
           <Link
             href={automationHref('/portal/settings/automations/rss')}
-            className="btn-pib-secondary flex items-center gap-1.5 text-sm"
+            className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface flex items-center gap-1.5"
             aria-label="RSS digest automations"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">rss_feed</span>
@@ -335,7 +335,7 @@ export default function AutomationsPage() {
           </Link>
           <Link
             href={automationHref('/portal/settings/automations/new')}
-            className="btn-pib-accent flex items-center gap-1.5 text-sm"
+            className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 flex items-center gap-1.5"
             aria-label="New automation"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
@@ -355,8 +355,8 @@ export default function AutomationsPage() {
 
       <div className={fetchError ? '' : 'grid gap-5 xl:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)]'}>
         {!fetchError && (
-        <aside className="space-y-5">
-          <div className="bento-card !p-5 space-y-4">
+        <aside className="space-y-3">
+          <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-3 space-y-4">
             <div>
               <h2 className="text-sm font-semibold">Operating view</h2>
               <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
@@ -393,7 +393,7 @@ export default function AutomationsPage() {
             </div>
           </div>
 
-          <div className="bento-card !p-5">
+          <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-3">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold">Trigger map</h2>
@@ -434,7 +434,7 @@ export default function AutomationsPage() {
           )}
 
           {loading ? (
-            <div className="bento-card !p-6">
+            <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-3">
               <p className="text-sm text-[var(--color-pib-text-muted)]">Loading automations...</p>
             </div>
           ) : fetchError ? (
@@ -453,7 +453,7 @@ export default function AutomationsPage() {
                 <button
                   type="button"
                   onClick={fetchAutomationRules}
-                  className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+                  className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex shrink-0 items-center gap-1.5"
                   aria-label="Retry loading automation rules"
                 >
                   <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
@@ -462,9 +462,9 @@ export default function AutomationsPage() {
               </div>
             </section>
           ) : rules.length === 0 ? (
-            <div className="bento-card !p-0 overflow-hidden">
+            <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-0 overflow-hidden">
               <div className="grid gap-0 lg:grid-cols-[minmax(0,0.9fr)_minmax(320px,1.1fr)]">
-                <div className="flex flex-col justify-between gap-8 border-b border-[var(--color-pib-line)] p-6 lg:border-b-0 lg:border-r">
+                <div className="flex flex-col justify-between gap-3 border-b border-[var(--color-pib-line)] p-4 lg:border-b-0 lg:border-r">
                   <div>
                     <span className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--color-pib-accent)]/25 bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
                       <span className="material-symbols-outlined text-[22px]">account_tree</span>
@@ -480,7 +480,7 @@ export default function AutomationsPage() {
                   <div className="flex flex-wrap items-center gap-3">
                     <Link
                       href={automationHref('/portal/settings/automations/new')}
-                      className="btn-pib-accent flex w-fit items-center gap-1.5 text-sm"
+                      className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 flex w-fit items-center gap-1.5"
                       aria-label="Create the first automation"
                     >
                       <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
@@ -511,15 +511,15 @@ export default function AutomationsPage() {
               </div>
             </div>
           ) : visibleRules.length === 0 ? (
-            <div className="bento-card !p-8 text-center">
-              <span className="material-symbols-outlined mb-2 block text-3xl text-[var(--color-pib-text-muted)]" aria-hidden="true">manage_search</span>
+            <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-4 text-center">
+              <span className="material-symbols-outlined mb-2 block text-lg text-[var(--color-pib-text-muted)]" aria-hidden="true">manage_search</span>
               <p className="eyebrow !text-[10px]">Filtered automation view</p>
               <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">No automations match this view.</h2>
               <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Clear the automation filters to return to every CRM rule.</p>
               <button
                 type="button"
                 onClick={clearViewFilters}
-                className="btn-pib-secondary mt-5 inline-flex items-center gap-1.5 text-xs"
+                className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface mt-5 inline-flex items-center gap-1.5 text-xs"
                 aria-label="Show all automations"
               >
                 <span className="material-symbols-outlined text-[15px]" aria-hidden="true">filter_alt_off</span>
@@ -533,7 +533,7 @@ export default function AutomationsPage() {
                   role="alertdialog"
                   aria-labelledby="automation-delete-confirm-title"
                   aria-describedby="automation-delete-confirm-description"
-                  className="rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-3 shadow-xl"
+                  className="rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-3"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex gap-3">
@@ -557,7 +557,7 @@ export default function AutomationsPage() {
                           setPendingDeleteRule(null)
                           setDeleteError(null)
                         }}
-                        className="btn-pib-secondary text-xs"
+                        className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface text-xs"
                         disabled={deletingId !== null}
                         aria-label={`Cancel delete for automation ${ruleDisplayName(pendingDeleteRule)}`}
                       >
@@ -592,7 +592,7 @@ export default function AutomationsPage() {
                   <article
                     key={rule.id}
                     className={[
-                      'bento-card !p-0 overflow-hidden transition-colors hover:border-[var(--color-pib-accent)]',
+                      'rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-0 overflow-hidden transition-colors hover:border-[var(--color-pib-accent)]',
                       isDeleting ? 'opacity-50 pointer-events-none' : '',
                     ].join(' ')}
                   >
@@ -668,7 +668,7 @@ export default function AutomationsPage() {
                         >
                           <span
                             className={[
-                              'inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform',
+                              'inline-block h-4 w-4 rounded-full bg-white transition-transform',
                               rule.enabled ? 'translate-x-6' : 'translate-x-1',
                             ].join(' ')}
                           />

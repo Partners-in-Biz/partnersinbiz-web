@@ -62,7 +62,7 @@ export default function EditAutomationPage({
   }
 
   return (
-    <div className="max-w-6xl space-y-6">
+    <div className="max-w-6xl space-y-3">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <button
@@ -74,13 +74,13 @@ export default function EditAutomationPage({
             Automations
           </button>
           <p className="eyebrow !text-[10px]">Rule builder</p>
-          <h1 className="pib-page-title mt-2">Edit automation</h1>
-          <p className="pib-page-sub max-w-2xl">
+          <h1 className="text-base font-semibold text-on-surface mt-2">Edit automation</h1>
+          <p className="text-xs leading-5 text-on-surface-variant max-w-2xl">
             Tune the trigger, timing, and execution chain without breaking the rule&apos;s operational intent.
           </p>
         </div>
         {rule && (
-          <div className="bento-card !p-4 w-full max-w-sm">
+          <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-4 w-full max-w-sm">
             <p className="text-xs font-medium">{rule.enabled ? 'Currently live' : 'Currently paused'}</p>
             <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
               {rule.actions.length} action{rule.actions.length === 1 ? '' : 's'} configured for this automation.
@@ -90,11 +90,11 @@ export default function EditAutomationPage({
       </div>
 
       {loading ? (
-        <div className="bento-card !p-6">
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-3">
           <p className="text-sm text-[var(--color-pib-text-muted)]">Loading rule…</p>
         </div>
       ) : fetchError ? (
-        <section className="bento-card border-amber-400/25 bg-amber-400/10">
+        <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 border-amber-400/25 bg-amber-400/10">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex gap-3">
               <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-amber-400/25 bg-amber-400/10 text-amber-200">
@@ -116,7 +116,7 @@ export default function EditAutomationPage({
                 type="button"
                 onClick={() => loadRule()}
                 aria-label="Retry loading automation rule"
-                className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 text-sm"
+                className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface flex items-center gap-1.5"
               >
                 <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
                 Retry
@@ -124,7 +124,7 @@ export default function EditAutomationPage({
               <button
                 type="button"
                 onClick={handleCancel}
-                className="cursor-pointer btn-pib-secondary text-sm"
+                className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
               >
                 Back to automations
               </button>

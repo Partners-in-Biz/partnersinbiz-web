@@ -125,7 +125,7 @@ export function CompanyTabsBar({ activeTab, onChange, counts, includeWorkspace =
           <div
             role="menu"
             aria-label="More company sections"
-            className="absolute left-0 z-30 mt-1.5 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-pib-surface)] p-1.5 shadow-2xl shadow-black/50 sm:left-auto sm:right-0"
+            className="absolute left-0 z-30 mt-1.5 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-pib-surface)] p-1.5 sm:left-auto sm:right-0"
           >
             {OVERFLOW_GROUPS.map((group) => {
               const groupTabs = group.tabs

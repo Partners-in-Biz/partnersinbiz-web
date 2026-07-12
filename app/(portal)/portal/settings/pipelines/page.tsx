@@ -531,7 +531,7 @@ export default function PipelinesPage() {
           </div>
         </section>
       ) : pipelines.length > 0 && filteredPipelines.length === 0 ? (
-        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-6 text-center">
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center">
           <span className="material-symbols-outlined mb-2 block text-[19px] text-on-surface-variant" aria-hidden="true">search_off</span>
           <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Filtered revenue path</p>
           <h2 className="mt-1 text-sm font-semibold text-on-surface">No pipelines match this view.</h2>

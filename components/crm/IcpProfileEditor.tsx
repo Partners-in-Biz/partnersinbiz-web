@@ -76,7 +76,7 @@ export function IcpProfileEditor({ value, onChange, disabled }: Props) {
     'w-full px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] text-sm focus:outline-none focus:ring-1 focus:ring-[var(--color-pib-accent)] disabled:opacity-50'
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
 
       {/* Industries */}
       <div>

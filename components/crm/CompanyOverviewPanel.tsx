@@ -843,10 +843,10 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
   ]
 
   return (
-    <div className="space-y-6">
-      <section className="bento-card overflow-hidden p-0">
+    <div className="space-y-3">
+      <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 overflow-hidden p-0">
         <div className="grid gap-0 lg:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.6fr)]">
-          <div className="space-y-5 p-5 md:p-6">
+          <div className="space-y-3 p-3 md:p-4">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="min-w-0">
                 <p className="eyebrow !text-[10px]">Business pulse</p>
@@ -859,7 +859,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
               </div>
               <div className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.03] px-4 py-3 text-right">
                 <p className="eyebrow !text-[10px]">Profile strength</p>
-                <p className="mt-1 text-3xl font-semibold text-[var(--color-pib-accent)]">{profileScore}%</p>
+                <p className="mt-1 text-2xl font-semibold text-[var(--color-pib-accent)]">{profileScore}%</p>
               </div>
             </div>
 
@@ -892,7 +892,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
             </div>
           </div>
 
-          <div className="border-t border-[var(--color-card-border)] bg-white/[0.02] p-5 lg:border-l lg:border-t-0">
+          <div className="border-t border-[var(--color-card-border)] bg-white/[0.02] p-3 lg:border-l lg:border-t-0">
             <p className="eyebrow !text-[10px]">Operational pulse</p>
             <div className="mt-4 grid grid-cols-2 gap-3">
               <MiniStatus label="Open orders" value={counts.openOrders} icon="orders" tone={counts.openOrders > 0 ? 'warn' : 'neutral'} />

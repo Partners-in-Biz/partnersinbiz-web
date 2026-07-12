@@ -307,7 +307,7 @@ export function SuppressionList({ apiPath }: SuppressionListProps) {
           </div>
         </section>
       ) : rows.length === 0 ? (
-        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-6 text-center">
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center">
           <span className="material-symbols-outlined text-[19px] text-primary" aria-hidden="true">do_not_disturb_on</span>
           <h2 className="mt-2 text-sm font-semibold text-on-surface">No suppressed addresses.</h2>
           <p className="mt-1 text-xs text-on-surface-variant">

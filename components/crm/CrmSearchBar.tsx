@@ -171,7 +171,7 @@ export function CrmSearchBar({ className, orgScope }: Props) {
       {/* Dropdown */}
       {open && (
         <div
-          className="absolute top-full left-0 right-0 z-50 mt-1 overflow-hidden rounded-lg border border-[var(--color-card-border)] shadow-xl"
+          className="absolute top-full left-0 right-0 z-50 mt-1 overflow-hidden rounded-lg border border-[var(--color-card-border)]"
           style={{ background: 'var(--color-sidebar, var(--color-surface-container))' }}
         >
           {!hasResults ? (

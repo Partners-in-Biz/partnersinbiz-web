@@ -294,7 +294,7 @@ export default function MigrateCompaniesPage() {
 
       {/* Errors */}
       {previewError && (
-        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-6 text-center space-y-2">
+        <div className="space-y-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center">
           <span className="material-symbols-outlined text-[19px] text-on-surface-variant">
             {previewError.includes('Admin') ? 'lock' : 'error_outline'}
           </span>
@@ -319,7 +319,7 @@ export default function MigrateCompaniesPage() {
 
       {/* Empty state (preview loaded, zero matches) */}
       {!loading && !previewError && !applyResult && matches.length === 0 && (
-        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-6 text-center space-y-2">
+        <div className="space-y-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center">
           <span className="material-symbols-outlined mx-auto grid h-8 w-8 place-items-center rounded-md bg-primary/10 text-[19px] text-primary" aria-hidden="true">check_circle</span>
           <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Clean account data</p>
           <h2 className="text-sm font-semibold text-on-surface">

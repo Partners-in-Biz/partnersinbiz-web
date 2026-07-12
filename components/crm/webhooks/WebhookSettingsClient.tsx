@@ -268,12 +268,12 @@ function healthClass(webhook: OutboundWebhook) {
 
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
   return (
-    <div className="pib-stat-card min-h-[124px]">
+    <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2 min-h-[124px]">
       <div className="flex items-start justify-between gap-3">
         <p className="eyebrow !text-[10px]">{label}</p>
         <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
       </div>
-      <p className="mt-3 font-display text-3xl leading-none text-[var(--color-pib-text)]">{value}</p>
+      <p className="mt-3 font-display text-lg leading-none text-[var(--color-pib-text)]">{value}</p>
       <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">{sub}</p>
     </div>
   )
@@ -565,12 +565,12 @@ export function WebhookSettingsClient() {
   const pendingRotateWebhookName = pendingRotateWebhook ? webhookDisplayName(pendingRotateWebhook) : ''
 
   return (
-    <div className="max-w-6xl space-y-6">
+    <div className="max-w-6xl space-y-3">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className="eyebrow !text-[10px]">CRM integrations</p>
-          <h1 className="pib-page-title mt-2">Webhook command center</h1>
-          <p className="pib-page-sub max-w-2xl">
+          <h1 className="text-base font-semibold text-on-surface mt-2">Webhook command center</h1>
+          <p className="text-xs leading-5 text-on-surface-variant max-w-2xl">
             Manage signed outbound CRM events for automations, reporting warehouses, and external operating systems.
           </p>
         </div>
@@ -578,7 +578,7 @@ export function WebhookSettingsClient() {
           type="button"
           onClick={retryLoadWebhooks}
           disabled={loading || !orgId}
-          className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 text-sm w-fit disabled:opacity-50"
+          className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface flex items-center gap-1.5 w-fit disabled:opacity-50"
         >
           <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
           Refresh
@@ -605,7 +605,7 @@ export function WebhookSettingsClient() {
         </div>
       )}
       {secretOnce && (
-        <div className="bento-card border-amber-400/30 bg-amber-400/10">
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 border-amber-400/30 bg-amber-400/10">
           <p className="text-sm font-medium text-amber-100 mb-2">Save this signing secret now</p>
           <code className="block text-xs text-amber-50 break-all rounded-lg bg-black/30 border border-amber-400/20 px-3 py-2">
             {secretOnce}
@@ -614,7 +614,7 @@ export function WebhookSettingsClient() {
       )}
 
       {hasSourceFailure ? (
-        <section className="bento-card border-amber-400/25 bg-amber-400/10">
+        <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 border-amber-400/25 bg-amber-400/10">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex gap-3">
               <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-amber-400/25 bg-amber-400/10 text-amber-200">
@@ -636,7 +636,7 @@ export function WebhookSettingsClient() {
               onClick={retryLoadWebhooks}
               disabled={loading || !orgId}
               aria-label="Retry loading webhook subscriptions"
-              className="btn-pib-secondary flex shrink-0 items-center justify-center gap-1.5 text-sm disabled:opacity-50"
+              className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface flex shrink-0 items-center justify-center gap-1.5 disabled:opacity-50"
             >
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
               Retry
@@ -645,8 +645,8 @@ export function WebhookSettingsClient() {
         </section>
       ) : (
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
-        <section className="space-y-5">
-          <div className="bento-card !p-0 overflow-hidden">
+        <section className="space-y-3">
+          <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-0 overflow-hidden">
             <div className="px-4 py-3 border-b border-[var(--color-pib-line)] flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold">Event catalog</h2>
@@ -701,7 +701,7 @@ export function WebhookSettingsClient() {
             </div>
           </div>
 
-          <div className="bento-card">
+          <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
             <h2 className="text-sm font-semibold mb-1">Payload example</h2>
             <p className="text-xs text-[var(--color-pib-text-muted)] mb-3">
               Deliveries are signed with <code>X-PIB-Signature</code> and include the selected event payload.
@@ -719,8 +719,8 @@ export function WebhookSettingsClient() {
           </div>
         </section>
 
-        <aside className="space-y-5">
-          <div className="bento-card">
+        <aside className="space-y-3">
+          <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
             <h2 className="text-sm font-semibold mb-1">{editing ? 'Edit subscription' : 'Create subscription'}</h2>
             <p className="text-xs text-[var(--color-pib-text-muted)] mb-4">
               Use an HTTPS endpoint that accepts signed POST requests.
@@ -804,7 +804,7 @@ export function WebhookSettingsClient() {
                     type="button"
                     onClick={saveEdit}
                     disabled={!canSaveEdit}
-                    className="cursor-pointer btn-pib-accent flex flex-1 items-center justify-center gap-1.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="cursor-pointer h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 flex flex-1 items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <span className="material-symbols-outlined text-[16px]" aria-hidden="true">save</span>
                     {saving ? 'Saving...' : 'Save webhook'}
@@ -813,7 +813,7 @@ export function WebhookSettingsClient() {
                     type="button"
                     onClick={() => setEditing(null)}
                     disabled={saving}
-                    className="cursor-pointer btn-pib-secondary text-sm disabled:opacity-50"
+                    className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface disabled:opacity-50"
                   >
                     Cancel
                   </button>
@@ -823,7 +823,7 @@ export function WebhookSettingsClient() {
                   type="button"
                   onClick={createWebhook}
                   disabled={!canCreate}
-                  className="cursor-pointer btn-pib-accent w-full flex items-center justify-center gap-1.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="cursor-pointer h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 w-full flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
                   {saving ? 'Creating...' : 'Create webhook'}
@@ -832,7 +832,7 @@ export function WebhookSettingsClient() {
             </div>
           </div>
 
-          <div className="bento-card !p-0 overflow-hidden">
+          <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-0 overflow-hidden">
             <div className="px-4 py-3 border-b border-[var(--color-pib-line)]">
               <h2 className="text-sm font-semibold">Subscriptions</h2>
               <p className="text-xs text-[var(--color-pib-text-muted)]">Existing outbound CRM webhook endpoints.</p>
@@ -843,7 +843,7 @@ export function WebhookSettingsClient() {
                 role="alertdialog"
                 aria-labelledby="webhook-delete-confirm-title"
                 aria-describedby="webhook-delete-confirm-description"
-                className="m-4 rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-3 shadow-xl"
+                className="m-4 rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-3"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex gap-3">
@@ -865,7 +865,7 @@ export function WebhookSettingsClient() {
                       type="button"
                       aria-label={`Cancel delete webhook subscription ${pendingDeleteWebhookName}`}
                       onClick={() => setPendingDeleteWebhook(null)}
-                      className="btn-pib-secondary text-xs"
+                      className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface text-xs"
                       disabled={busyId !== null}
                     >
                       Cancel
@@ -892,7 +892,7 @@ export function WebhookSettingsClient() {
                 role="alertdialog"
                 aria-labelledby="webhook-rotate-confirm-title"
                 aria-describedby="webhook-rotate-confirm-description"
-                className="m-4 rounded-lg border border-amber-400/30 bg-amber-500/10 px-4 py-3 shadow-xl"
+                className="m-4 rounded-lg border border-amber-400/30 bg-amber-500/10 px-4 py-3"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex gap-3">
@@ -914,7 +914,7 @@ export function WebhookSettingsClient() {
                       type="button"
                       aria-label={`Cancel rotate webhook signing secret ${pendingRotateWebhookName}`}
                       onClick={() => setPendingRotateWebhook(null)}
-                      className="btn-pib-secondary text-xs"
+                      className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface text-xs"
                       disabled={busyId !== null}
                     >
                       Cancel
@@ -1015,7 +1015,7 @@ export function WebhookSettingsClient() {
                         onClick={() => postAction(webhook, 'test')}
                         disabled={busyId !== null}
                         aria-label={`Test webhook subscription ${displayName}`}
-                        className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 text-xs disabled:opacity-50"
+                        className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface flex items-center gap-1.5 text-xs disabled:opacity-50"
                       >
                         <span className="material-symbols-outlined text-[14px]">send</span>
                         Test
@@ -1025,7 +1025,7 @@ export function WebhookSettingsClient() {
                         onClick={() => postAction(webhook, webhook.active ? 'disable' : 'enable')}
                         disabled={busyId !== null}
                         aria-label={`${toggleActionLabel} webhook subscription ${displayName}`}
-                        className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 text-xs disabled:opacity-50"
+                        className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface flex items-center gap-1.5 text-xs disabled:opacity-50"
                       >
                         <span className="material-symbols-outlined text-[14px]">
                           {webhook.active ? 'pause' : 'play_arrow'}
@@ -1037,7 +1037,7 @@ export function WebhookSettingsClient() {
                         onClick={() => toggleDeliveries(webhook.id)}
                         aria-expanded={expandedDeliveries === webhook.id}
                         aria-label={`Show recent deliveries for ${displayName}`}
-                        className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 text-xs disabled:opacity-50"
+                        className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface flex items-center gap-1.5 text-xs disabled:opacity-50"
                       >
                         <span className="material-symbols-outlined text-[14px]">history</span>
                         Deliveries
@@ -1050,7 +1050,7 @@ export function WebhookSettingsClient() {
                         onClick={() => startEdit(webhook)}
                         disabled={busyId !== null}
                         aria-label={`Edit webhook subscription ${displayName}`}
-                        className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 text-xs disabled:opacity-50"
+                        className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface flex items-center gap-1.5 text-xs disabled:opacity-50"
                       >
                         <span className="material-symbols-outlined text-[14px]">edit</span>
                         Edit
@@ -1063,7 +1063,7 @@ export function WebhookSettingsClient() {
                         }}
                         disabled={busyId !== null}
                         aria-label={`Rotate webhook signing secret ${displayName}`}
-                        className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 text-xs disabled:opacity-50"
+                        className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface flex items-center gap-1.5 text-xs disabled:opacity-50"
                       >
                         <span className="material-symbols-outlined text-[14px]">key</span>
                         Rotate
@@ -1076,7 +1076,7 @@ export function WebhookSettingsClient() {
                         }}
                         disabled={busyId !== null}
                         aria-label={`Delete webhook subscription ${displayName}`}
-                        className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 text-xs text-red-300 hover:bg-red-400/10 disabled:opacity-50"
+                        className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface flex items-center gap-1.5 text-xs text-red-300 hover:bg-red-400/10 disabled:opacity-50"
                       >
                         <span className="material-symbols-outlined text-[14px]">delete</span>
                         Delete
@@ -1101,7 +1101,7 @@ export function WebhookSettingsClient() {
                             <button
                               type="button"
                               onClick={() => loadDeliveries(webhook.id)}
-                              className="cursor-pointer btn-pib-secondary !py-1 !px-2 !text-[11px]"
+                              className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface !py-1 !px-2 !text-[11px]"
                             >
                               Retry
                             </button>

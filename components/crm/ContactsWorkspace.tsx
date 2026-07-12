@@ -83,18 +83,15 @@ interface SegmentOption {
 }
 
 function StatusBadge({ status }: { status: ContactStatus }) {
-  const color =
+  const tone =
     status === 'active'
-      ? 'var(--color-pib-success)'
+      ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-100'
       : status === 'bounced'
-      ? 'var(--color-pib-danger, #FCA5A5)'
-      : 'var(--color-pib-accent)'
+      ? 'border-red-400/40 bg-red-400/10 text-red-100'
+      : 'border-primary/30 bg-primary/10 text-primary'
   const label = status.charAt(0).toUpperCase() + status.slice(1)
   return (
-    <span
-      className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full capitalize font-mono"
-      style={{ background: `${color}20`, color }}
-    >
+    <span className={`inline-flex h-6 items-center rounded-full border px-2 text-[10px] font-mono uppercase tracking-wider ${tone}`}>
       {label}
     </span>
   )
@@ -126,22 +123,26 @@ function useInlineToast() {
       {toasts.map(t => (
         <div
           key={t.id}
-          className="pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-[var(--radius-card)] shadow-lg min-w-72 max-w-sm"
-          style={{
-            background: 'var(--color-sidebar)',
-            border: `1px solid ${t.tone === 'success' ? '#4ade80' : t.tone === 'error' ? '#ef4444' : '#60a5fa'}`,
-          }}
+          className={`pointer-events-auto flex min-w-72 max-w-sm items-center gap-2 rounded-lg border bg-[var(--color-card)] px-3 py-2 ${
+            t.tone === 'success'
+              ? 'border-emerald-400/40'
+              : t.tone === 'error'
+                ? 'border-red-400/40'
+                : 'border-primary/40'
+          }`}
         >
           <span
-            className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-            style={{
-              background: t.tone === 'success' ? 'rgba(74,222,128,0.15)' : t.tone === 'error' ? 'rgba(239,68,68,0.15)' : 'rgba(96,165,250,0.15)',
-              color: t.tone === 'success' ? '#4ade80' : t.tone === 'error' ? '#ef4444' : '#60a5fa',
-            }}
+            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+              t.tone === 'success'
+                ? 'bg-emerald-400/10 text-emerald-100'
+                : t.tone === 'error'
+                  ? 'bg-red-400/10 text-red-100'
+                  : 'bg-primary/10 text-primary'
+            }`}
           >
             {t.tone === 'success' ? '✓' : t.tone === 'error' ? '✕' : 'i'}
           </span>
-          <span className="text-sm text-[var(--color-pib-text)]">{t.message}</span>
+          <span className="text-xs text-on-surface">{t.message}</span>
         </div>
       ))}
     </div>
@@ -152,33 +153,27 @@ function useInlineToast() {
 function StageBadge({ stage }: { stage: string }) {
   const win = ['won', 'demo', 'replied']
   const lost = ['lost']
-  const color = lost.includes(stage)
-    ? 'var(--color-pib-danger, #FCA5A5)'
+  const tone = lost.includes(stage)
+    ? 'border-red-400/40 bg-red-400/10 text-red-100'
     : win.includes(stage)
-    ? 'var(--color-pib-success)'
-    : 'var(--color-pib-accent)'
+    ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-100'
+    : 'border-primary/30 bg-primary/10 text-primary'
   return (
-    <span
-      className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full capitalize font-mono"
-      style={{ background: `${color}20`, color }}
-    >
+    <span className={`inline-flex h-6 items-center rounded-full border px-2 text-[10px] font-mono uppercase tracking-wider ${tone}`}>
       {readableContactLabel(stage)}
     </span>
   )
 }
 
 function TypeBadge({ type }: { type: string }) {
-  const color =
+  const tone =
     type === 'client'
-      ? 'var(--color-pib-success)'
+      ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-100'
       : type === 'churned'
-      ? 'var(--color-pib-danger, #FCA5A5)'
-      : 'var(--color-pib-accent)'
+      ? 'border-red-400/40 bg-red-400/10 text-red-100'
+      : 'border-primary/30 bg-primary/10 text-primary'
   return (
-    <span
-      className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full capitalize font-mono"
-      style={{ background: `${color}20`, color }}
-    >
+    <span className={`inline-flex h-6 items-center rounded-full border px-2 text-[10px] font-mono uppercase tracking-wider ${tone}`}>
       {readableContactLabel(type)}
     </span>
   )
@@ -1303,7 +1298,7 @@ export function ContactsWorkspace({
           ))}
         </div>
       ) : displayedContacts.length === 0 ? (
-        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-6 text-center">
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center">
           <span className="material-symbols-outlined text-[19px] text-on-surface-variant">contacts</span>
           <h2 className="mt-2 text-sm font-semibold text-on-surface">{emptyTitle}</h2>
           <p className="mt-1 text-xs text-on-surface-variant">

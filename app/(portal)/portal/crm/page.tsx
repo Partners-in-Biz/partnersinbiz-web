@@ -712,7 +712,7 @@ export default function PortalCrmPage() {
               {Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="h-10" />)}
             </div>
           ) : !dashboard?.topOpenDeals?.length ? (
-            <div className="p-6 text-center">
+            <div className="p-4 text-center">
               <span className="material-symbols-outlined text-[19px] text-[var(--color-accent-text)]" aria-hidden="true">monetization_on</span>
               <h2 className="mt-2 text-sm font-semibold text-on-surface">Build the first active pipeline.</h2>
               <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-on-surface-variant">
@@ -762,7 +762,7 @@ export default function PortalCrmPage() {
               {Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="h-9" />)}
             </div>
           ) : !dashboard?.recentActivities?.length ? (
-            <div className="p-6 text-center">
+            <div className="p-4 text-center">
               <span className="material-symbols-outlined text-[19px] text-[var(--color-accent-text)]" aria-hidden="true">history</span>
               <h2 className="mt-2 text-sm font-semibold text-on-surface">Relationship activity missing</h2>
               <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-on-surface-variant">
