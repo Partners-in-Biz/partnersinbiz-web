@@ -2,11 +2,16 @@ import { createHash, generateKeyPairSync, sign, verify, type KeyLike } from 'nod
 
 export type ReleaseManifest = { channel:string; platform:string; architecture:string; version:string; minimumVersion:string; sha256:string; payloadUrl?:string }
 export function canonicalJson(value: unknown): string { if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`; if (value && typeof value === 'object') return `{${Object.entries(value as Record<string,unknown>).sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>`${JSON.stringify(k)}:${canonicalJson(v)}`).join(',')}}`; return JSON.stringify(value) }
-const parts=(v:string)=>v.split('.').map(Number); const lt=(a:string,b:string)=>{const x=parts(a),y=parts(b); for(const i of [0,1,2]){if((x[i]||0)!==(y[i]||0))return (x[i]||0)<(y[i]||0)} return false}
-export function verifyRelease(m:ReleaseManifest, signature:string, payload:Buffer, key:KeyLike, host:{platform:string;architecture:string;currentVersion:string}) {
+const SEMVER=/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$/
+const parts=(v:string)=>v.split(/[.-]/).slice(0,3).map(Number); const lt=(a:string,b:string)=>{const x=parts(a),y=parts(b); for(const i of [0,1,2]){if(x[i]!==y[i])return x[i]<y[i]} return false}
+export function verifyRelease(m:ReleaseManifest, signature:string, payload:Buffer, key:KeyLike, host:{platform:string;architecture:string;currentVersion:string;channel?:string;allowDowngrade?:boolean}) {
+  if(!SEMVER.test(m.version)||!SEMVER.test(m.minimumVersion)||!SEMVER.test(host.currentVersion))throw new Error('invalid semver')
+  if(!/^[a-z][a-z0-9-]{0,31}$/.test(m.channel))throw new Error('invalid release channel')
   if (!verify(null, Buffer.from(canonicalJson(m)), key, Buffer.from(signature,'base64url'))) throw new Error('invalid manifest signature')
   if (m.platform!==host.platform) throw new Error('platform mismatch'); if(m.architecture!==host.architecture) throw new Error('architecture mismatch')
+  if(host.channel&&m.channel!==host.channel)throw new Error('channel mismatch')
   if (lt(host.currentVersion,m.minimumVersion) || lt(m.version,m.minimumVersion)) throw new Error('minimum version not satisfied')
+  if(!host.allowDowngrade&&lt(m.version,host.currentVersion))throw new Error('release downgrade refused')
   if(createHash('sha256').update(payload).digest('hex')!==m.sha256) throw new Error('payload hash mismatch')
   return m
 }

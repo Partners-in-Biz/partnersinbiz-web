@@ -17,7 +17,7 @@ const win = read('runtime-installers/windows/install.ps1')
 const docs = read('runtime-installers/README.md')
 const structural = validatePowerShellStructure(win); if(structural) errors.push(`Windows PowerShell: ${structural}`)
 
-const runtime=read('runtime-installers/runtime/cli.ts')
+const runtime=['cli.ts','client.ts','worker.ts','core.ts','bridge.ts','release-manager.ts'].map(file=>read(`runtime-installers/runtime/${file}`)).join('\n')
 for (const [name, source] of [['macOS', mac+runtime], ['Windows', win+runtime]] as const) {
   requireText(name, source, /challengeId/i)
   requireText(name, source, /pair/i)
@@ -39,6 +39,12 @@ requireText('macOS', mac, /launchctl (?:bootstrap|bootout|kickstart)/)
 requireText('macOS plist', plist, /com\.partnersinbiz\.runtime/)
 requireText('macOS plist', plist, /KeepAlive/)
 requireText('Windows', win, /CredWrite|Credential Manager/)
+requireText('runtime service', runtime, /pollForever/)
+rejectText('runtime service', runtime, /createServer|\.listen\s*\(/)
+requireText('runtime signed client', read('runtime-installers/runtime/client.ts'), /x-device-signature/)
+requireText('macOS release manager', mac, /RELEASE_MANAGER.*verify/s)
+requireText('Windows release manager', win, /releaseArgs=.*'verify'.*& \$ReleaseManager @releaseArgs/s)
+requireText('build matrix', read('runtime-installers/build-runtime.sh'), /macos-arm64 macos-x64 windows-arm64 windows-x64/)
 requireText('Windows', win, /sc\.exe create PartnersInBizRuntime/)
 requireText('Windows service', read('runtime-installers/windows/PartnersInBizRuntimeService.cs'), /ServiceBase/)
 requireText('Windows service identity', win, /obj= LocalSystem/)
@@ -64,7 +70,22 @@ for (const command of safeCommands) {
 return errors
 }
 
-export function validatePowerShellStructure(source:string):string|null { let quote='',depth=0;for(let i=0;i<source.length;i++){const c=source[i];if(quote){if(c===quote&&source[i-1]!=='`')quote='';continue}if(c==='"'||c==="'"){quote=c;continue}if(c==='{')depth++;if(c==='}'&&--depth<0)return 'unexpected closing brace'}return quote?'unterminated string':depth?'unbalanced braces':null }
+export function validatePowerShellStructure(source:string):string|null {
+  const stack:string[]=[];let quote='',here='',comment=false,quoteStart=0
+  const pairs:Record<string,string>={')':'(',']':'[','}':'{'}
+  for(let i=0;i<source.length;i++){
+    const c=source[i],n=source[i+1]
+    if(comment){if(c==='\n')comment=false;continue}
+    if(here){if((i===0||source[i-1]==='\n')&&source.startsWith(here+'@',i)){i++;here=''}continue}
+    if(quote){if(c===quote){let ticks=0;for(let j=i-1;j>=0&&source[j]==='`';j--)ticks++;if(ticks%2===1)continue;if(n===quote){i++;continue}quote=''}continue}
+    if(c==='#'){comment=true;continue}
+    if(c==='@'&&(n==='"'||n==="'")&&(i===0||/\s/.test(source[i-1]))){here=n;i++;continue}
+    if(c==='"'||c==="'"){quote=c;quoteStart=i;continue}
+    if('([{'.includes(c))stack.push(c)
+    else if(')]}'.includes(c)&&stack.pop()!==pairs[c])return 'mismatched delimiter'
+  }
+  return here?'unterminated here-string':quote?`unterminated string near ${JSON.stringify(source.slice(quoteStart,quoteStart+40))}`:stack.length?`unbalanced ${stack.at(-1)==='{'?'brace':'delimiter'}`:null
+}
 
 if (require.main === module) {
   const errors = verifyLinkedRuntimeInstallers()

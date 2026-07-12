@@ -1,1 +1,1 @@
-{"name":"@partnersinbiz/linked-runtime","private":true,"bin":{"pib-runtime":"dist/cli.js"},"scripts":{"build":"tsc -p tsconfig.json"}}
+{"name":"@partnersinbiz/linked-runtime","private":true,"bin":{"pib-runtime":"dist/cli.js","pib-release-manager":"dist/release-manager.js"},"scripts":{"build":"tsc -p tsconfig.json"}}

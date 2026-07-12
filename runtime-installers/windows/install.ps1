@@ -10,15 +10,17 @@ $Binary = Join-Path $Root 'current\pib-runtime.exe'
 $Previous = Join-Path $Root 'previous\pib-runtime.exe'
 $ApiBase = if ($env:PIB_API_BASE) { $env:PIB_API_BASE } else { 'https://partnersinbiz.online' }
 $MetadataUrl = if ($env:PIB_RUNTIME_METADATA_URL) { $env:PIB_RUNTIME_METADATA_URL } else { "$ApiBase/runtime/windows/stable.json" }
+$ReleaseManager = if ($env:PIB_RELEASE_MANAGER) { $env:PIB_RELEASE_MANAGER } else { Join-Path $PSScriptRoot 'pib-release-manager.exe' }
 
 function Assert-Administrator { if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'Run from an elevated PowerShell.' } }
+function Wait-ServiceStopped { for($i=0;$i -lt 60;$i++){ $state=(& sc.exe query PartnersInBizRuntime | Select-String 'STATE').ToString();if($state -match 'STOPPED'){return};Start-Sleep -Milliseconds 250 };throw 'Runtime service did not reach SERVICE_STOPPED.' }
 
 # The runtime uses CredWrite/CredRead through Windows Credential Manager for its
 # device credential, transport token and signing private key. Secrets are passed
 # in memory only and never as process arguments, files, environment, or logs.
 function Remove-RuntimeCredential { if (Test-Path $Binary) { & $Binary credential-delete --store 'Credential Manager' | Out-Null } }
 
-function Test-ReleaseSignature([string]$Metadata, [string]$Payload) {
+function Test-ReleaseSignature([string]$Metadata, [string]$Payload, [switch]$AllowDowngrade) {
   if (-not $env:PIB_RUNTIME_SIGNER_THUMBPRINT) {
     if (-not $AllowUnsignedDev) { throw 'Production install refused: update signature key missing.' }
     Write-Warning 'UNSIGNED DEVELOPMENT MODE: package authenticity is not guaranteed.'
@@ -33,6 +35,9 @@ function Test-ReleaseSignature([string]$Metadata, [string]$Payload) {
   if ((Test-FileCatalog -Path (Split-Path $Metadata) -CatalogFilePath $catalog -Detailed).Status -ne 'Valid') { throw 'Authenticated update metadata/payload catalog verification failed.' }
   $actualHash = (Get-FileHash -Algorithm SHA256 $Payload).Hash.ToLowerInvariant()
   if ($actualHash -ne ([string]$manifest.sha256).ToLowerInvariant()) { throw 'Release payload hash verification failed.' }
+  if(-not(Test-Path $ReleaseManager)){throw 'Signed release manager is missing.'}
+  $currentVersion=if($env:PIB_RUNTIME_CURRENT_VERSION){$env:PIB_RUNTIME_CURRENT_VERSION}else{[string]$manifest.minimumVersion};$releaseArgs=@('verify','--manifest',$Metadata,'--signature',(Join-Path (Split-Path $Metadata) 'manifest.sig'),'--payload',$Payload,'--public-key',(Join-Path $PSScriptRoot 'release-public.pem'),'--platform','windows','--architecture',$env:PROCESSOR_ARCHITECTURE.ToLowerInvariant().Replace('amd64','x64'),'--current-version',$currentVersion,'--channel','stable');if($AllowDowngrade){$releaseArgs+='--allow-downgrade'};& $ReleaseManager @releaseArgs
+  if($LASTEXITCODE -ne 0){throw 'Release manager verification failed.'}
 }
 
 function Install-Runtime {
@@ -40,12 +45,12 @@ function Install-Runtime {
   $stage = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString('N')); New-Item -ItemType Directory $stage | Out-Null
   try {
     $metadataPath = Join-Path $stage 'metadata.json'; Invoke-WebRequest -UseBasicParsing -Uri $MetadataUrl -OutFile $metadataPath
+    Invoke-WebRequest -UseBasicParsing -Uri "$MetadataUrl.sig" -OutFile (Join-Path $stage 'manifest.sig')
     $metadata = Get-Content -Raw $metadataPath | ConvertFrom-Json
     $payload = Join-Path $stage 'pib-runtime.exe'; Invoke-WebRequest -UseBasicParsing -Uri $metadata.payloadUrl -OutFile $payload
     Test-ReleaseSignature $metadataPath $payload
-    & $payload enforce-minimum-version --metadata $metadataPath # minimumVersion gate
-    $release=Join-Path $stage 'release';New-Item -ItemType Directory $release|Out-Null;Copy-Item $payload (Join-Path $release 'pib-runtime.exe');Copy-Item $metadataPath (Join-Path $release 'metadata.json');Copy-Item (Join-Path $stage 'release.cat') (Join-Path $release 'release.cat')
-    & sc.exe stop PartnersInBizRuntime 2>$null|Out-Null;New-Item -ItemType Directory -Force $Root | Out-Null;$current=Join-Path $Root 'current';$previous=Join-Path $Root 'previous';$old=Join-Path $Root 'previous.new';Remove-Item -Recurse -Force $old -ErrorAction SilentlyContinue;if(Test-Path $current){Move-Item $current $old};Move-Item $release $current;Remove-Item -Recurse -Force $previous -ErrorAction SilentlyContinue;if(Test-Path $old){Move-Item $old $previous}
+    $release=Join-Path $stage 'release';New-Item -ItemType Directory $release|Out-Null;Copy-Item $payload (Join-Path $release 'pib-runtime.exe');Copy-Item $metadataPath (Join-Path $release 'metadata.json');Copy-Item (Join-Path $stage 'manifest.sig') (Join-Path $release 'manifest.sig');Copy-Item (Join-Path $stage 'release.cat') (Join-Path $release 'release.cat')
+    & sc.exe stop PartnersInBizRuntime 2>$null|Out-Null;if((Get-Service PartnersInBizRuntime -ErrorAction SilentlyContinue)){Wait-ServiceStopped};New-Item -ItemType Directory -Force $Root | Out-Null;$current=Join-Path $Root 'current';$previous=Join-Path $Root 'previous';$old=Join-Path $Root 'previous.new';Remove-Item -Recurse -Force $old -ErrorAction SilentlyContinue;if(Test-Path $current){Move-Item $current $old};Move-Item $release $current;Remove-Item -Recurse -Force $previous -ErrorAction SilentlyContinue;if(Test-Path $old){Move-Item $old $previous}
     Copy-Item -Force (Join-Path $PSScriptRoot 'PartnersInBizRuntimeService.exe') (Join-Path $Root 'PartnersInBizRuntimeService.exe')
     & sc.exe create PartnersInBizRuntime binPath= "`"$Root\PartnersInBizRuntimeService.exe`"" start= auto obj= LocalSystem
     & sc.exe start PartnersInBizRuntime
@@ -58,8 +63,8 @@ function Pair-Runtime {
   try{$plain=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr);$json=@{challengeId=$ChallengeId;code=$plain}|ConvertTo-Json -Compress;$bytes=[Text.Encoding]::UTF8.GetBytes($json);$encrypted=[Security.Cryptography.ProtectedData]::Protect($bytes,$null,[Security.Cryptography.DataProtectionScope]::LocalMachine);[Array]::Clear($bytes,0,$bytes.Length);$dir=Join-Path $env:ProgramData 'PartnersInBiz';New-Item -ItemType Directory -Force $dir|Out-Null;& icacls.exe $dir /inheritance:r /grant:r 'SYSTEM:(OI)(CI)F' 'Administrators:(OI)(CI)F'|Out-Null;$tmp=Join-Path $dir 'pairing.tmp';[IO.File]::WriteAllBytes($tmp,$encrypted);Move-Item -Force $tmp (Join-Path $dir 'pairing.ready')}finally{[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)}
 }
 function Update-Runtime { Install-Runtime }
-function Rollback-Runtime { Assert-Administrator; if(-not(Test-Path $Previous)){throw 'No verified previous release.'};$previous=Split-Path $Previous;Test-ReleaseSignature (Join-Path $previous 'metadata.json') $Previous;& $Previous enforce-minimum-version --metadata (Join-Path $previous 'metadata.json');$current=Split-Path $Binary;$swap=Join-Path $Root 'swap';Move-Item $current $swap;Move-Item $previous $current;Move-Item $swap $previous;& sc.exe start PartnersInBizRuntime }
-function Revoke-Runtime { if (Test-Path $Binary) { & $Binary revoke --signed-request --execution-receipt }; Remove-RuntimeCredential }
+function Rollback-Runtime { Assert-Administrator; if(-not(Test-Path $Previous)){throw 'No verified previous release.'};$previous=Split-Path $Previous;Test-ReleaseSignature (Join-Path $previous 'metadata.json') $Previous -AllowDowngrade;$current=Split-Path $Binary;$swap=Join-Path $Root 'swap';Move-Item $current $swap;Move-Item $previous $current;Move-Item $swap $previous;& sc.exe start PartnersInBizRuntime }
+function Revoke-Runtime { if(Get-Service PartnersInBizRuntime -ErrorAction SilentlyContinue){& sc.exe control PartnersInBizRuntime 128|Out-Null;Start-Sleep -Seconds 2}elseif(Test-Path $Binary){& $Binary revoke};Remove-RuntimeCredential }
 function Uninstall-Runtime { Assert-Administrator; Revoke-Runtime; & sc.exe stop PartnersInBizRuntime; & sc.exe delete PartnersInBizRuntime; Remove-Item -Recurse -Force $Root -ErrorAction SilentlyContinue }
 
 switch ($Action) { 'Install' { Install-Runtime }; 'Pair' { Pair-Runtime }; 'Update' { Update-Runtime }; 'Rollback' { Rollback-Runtime }; 'Revoke' { Revoke-Runtime }; 'Uninstall' { Uninstall-Runtime } }

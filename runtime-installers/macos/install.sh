@@ -8,6 +8,7 @@ PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 API_BASE="${PIB_API_BASE:-https://partnersinbiz.online}"
 METADATA_URL="${PIB_RUNTIME_METADATA_URL:-$API_BASE/runtime/macos/stable.json}"
 PUBLIC_KEY="${PIB_RUNTIME_UPDATE_PUBLIC_KEY:-}"
+RELEASE_MANAGER="${PIB_RELEASE_MANAGER:-$(dirname "$0")/pib-release-manager}"
 
 usage() { echo "usage: install.sh install|pair|update|rollback|uninstall|revoke [challengeId]"; }
 require_root() { [[ $EUID -ne 0 ]] || { echo "Run as the paired desktop user, not root." >&2; exit 1; }; }
@@ -29,11 +30,10 @@ verify_release() {
   local key_file="$metadata.public.pem" signature_file="$metadata.sig"
   printf '%s\n' "$PUBLIC_KEY" > "$key_file" # public verification material, never a credential
   [[ -f "$signature_file" ]] || curl --fail --silent --show-error --proto '=https' "$METADATA_URL.sig" -o "$signature_file"
-  openssl dgst -sha256 -verify "$key_file" -signature "$signature_file" "$metadata" >/dev/null
-  local expected actual
-  expected="$(/usr/bin/plutil -extract sha256 raw "$metadata")"
-  actual="$(shasum -a 256 "$payload" | awk '{print $1}')"
-  [[ "$actual" == "$expected" ]] || { echo "Release payload hash verification failed." >&2; return 1; }
+  [[ -x "$RELEASE_MANAGER" ]] || { echo "Signed release manager is missing." >&2; return 1; }
+  local current_version="${PIB_RUNTIME_CURRENT_VERSION:-$(/usr/bin/plutil -extract minimumVersion raw "$metadata")}" rollback_flag=""
+  [[ "${3:-}" != rollback ]] || rollback_flag="--allow-downgrade"
+  "$RELEASE_MANAGER" verify --manifest "$metadata" --signature "$signature_file" --payload "$payload" --public-key "$key_file" --platform macos --architecture "$(uname -m | sed 's/x86_64/x64/')" --current-version "$current_version" --channel stable $rollback_flag
 }
 
 install_runtime() {
@@ -44,12 +44,12 @@ install_runtime() {
   curl --fail --silent --show-error --proto '=https' "$url" -o "$stage/pib-runtime"
   chmod 0755 "$stage/pib-runtime"
   verify_release "$stage/metadata.json" "$stage/pib-runtime"
-  "$stage/pib-runtime" enforce-minimum-version --metadata "$stage/metadata.json" # minimumVersion gate
   cp "$stage/metadata.json" "$stage/manifest.json"; cp "$stage/metadata.json.sig" "$stage/manifest.sig" 2>/dev/null || cp "$stage/metadata.json.sig" "$stage/manifest.sig"
   mkdir -p "$ROOT"; rm -rf "$ROOT/previous.new"; [[ ! -d "$ROOT/current" ]] || mv "$ROOT/current" "$ROOT/previous.new"
   mkdir -p "$stage/release"; cp "$stage/pib-runtime" "$stage/release/pib-runtime"; cp "$stage/manifest.json" "$stage/release/manifest.json"; cp "$stage/manifest.sig" "$stage/release/manifest.sig"
   mv "$stage/release" "$ROOT/current"; rm -rf "$ROOT/previous"; [[ ! -d "$ROOT/previous.new" ]] || mv "$ROOT/previous.new" "$ROOT/previous"
-  mkdir -p "$(dirname "$PLIST")"; sed "s|__PIB_RUNTIME_BINARY__|$BIN|g" "$(dirname "$0")/$LABEL.plist" > "$PLIST"; chmod 0644 "$PLIST"
+  local logs="$ROOT/logs";mkdir -p "$logs";chmod 0700 "$ROOT" "$logs";[[ ! -f "$logs/runtime.log" ]]||{ for n in 4 3 2 1;do [[ ! -f "$logs/runtime.log.$n" ]]||mv "$logs/runtime.log.$n" "$logs/runtime.log.$((n+1))";done;mv "$logs/runtime.log" "$logs/runtime.log.1";};touch "$logs/runtime.log";chmod 0600 "$logs/runtime.log"
+  mkdir -p "$(dirname "$PLIST")"; sed -e "s|__PIB_RUNTIME_BINARY__|$BIN|g" -e "s|__PIB_RUNTIME_LOG_DIR__|$logs|g" "$(dirname "$0")/$LABEL.plist" > "$PLIST"; chmod 0644 "$PLIST"
   launchctl bootout "gui/$(id -u)" "$PLIST" >/dev/null 2>&1 || true
   launchctl bootstrap "gui/$(id -u)" "$PLIST"; launchctl kickstart -k "gui/$(id -u)/$LABEL"
 }
@@ -64,7 +64,7 @@ pair_runtime() {
 }
 
 update_runtime() { install_runtime; }
-rollback_runtime() { require_root; [[ -x "$ROOT/previous/pib-runtime" ]] || { echo 'No verified previous release.' >&2; return 1; }; verify_release "$ROOT/previous/manifest.json" "$ROOT/previous/pib-runtime"; "$ROOT/previous/pib-runtime" enforce-minimum-version --metadata "$ROOT/previous/manifest.json"; mv "$ROOT/current" "$ROOT/swap"; mv "$ROOT/previous" "$ROOT/current"; mv "$ROOT/swap" "$ROOT/previous"; launchctl kickstart -k "gui/$(id -u)/$LABEL"; }
+rollback_runtime() { require_root; [[ -x "$ROOT/previous/pib-runtime" ]] || { echo 'No verified previous release.' >&2; return 1; }; verify_release "$ROOT/previous/manifest.json" "$ROOT/previous/pib-runtime" rollback; mv "$ROOT/current" "$ROOT/swap"; mv "$ROOT/previous" "$ROOT/current"; mv "$ROOT/swap" "$ROOT/previous"; launchctl kickstart -k "gui/$(id -u)/$LABEL"; }
 revoke_runtime() { [[ -x "$BIN" ]] && "$BIN" revoke --signed-request --execution-receipt; delete_credentials; }
 uninstall_runtime() { require_root; revoke_runtime; launchctl bootout "gui/$(id -u)" "$PLIST" >/dev/null 2>&1 || true; rm -f "$PLIST"; rm -rf "$ROOT"; }
 
