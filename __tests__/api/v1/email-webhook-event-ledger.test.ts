@@ -44,7 +44,7 @@ jest.mock('@/lib/email/bounceTracking', () => ({
   SOFT_BOUNCE_ESCALATION_THRESHOLD: 3,
 }))
 jest.mock('@/lib/ab-testing/cronHelpers', () => ({ incrementVariantStat: jest.fn() }))
-jest.mock('@/lib/email-events/effects', () => ({ applyFirestoreProjectionEffect: jest.fn().mockResolvedValue(true) }))
+jest.mock('@/lib/email-events/effects', () => ({ applyFirestoreProjectionEffect: jest.fn().mockResolvedValue(true), applyVariantProjectionEffect: jest.fn().mockResolvedValue(true) }))
 
 import { NextRequest } from 'next/server'
 import { POST } from '@/app/api/v1/email/webhook/route'

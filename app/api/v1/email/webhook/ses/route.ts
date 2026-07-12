@@ -22,7 +22,7 @@ import { createVerify } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
-import { incrementVariantStat, type VariantStatField } from '@/lib/ab-testing/cronHelpers'
+import type { VariantStatField } from '@/lib/ab-testing/cronHelpers'
 import {
   addSuppression,
   temporaryExpiryFromNow,
@@ -32,7 +32,7 @@ import { appendEmailEvent, claimEmailEventProjection, completeEmailEventProjecti
 import type { EmailEventType } from '@/lib/email-events/types'
 import { appendConsentEvent } from '@/lib/consent-ledger/store'
 import { resolveProviderEventTarget } from '@/lib/email-events/provider-target'
-import { applyFirestoreProjectionEffect } from '@/lib/email-events/effects'
+import { applyFirestoreProjectionEffect, applyVariantProjectionEffect } from '@/lib/email-events/effects'
 
 // SNS signing cert must come from an amazonaws.com subdomain
 const SNS_CERT_URL_RE = /^https:\/\/sns\.[a-z0-9-]+\.amazonaws\.com\//
@@ -419,14 +419,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (variantId && variantStatField) {
     try {
       if (broadcastId) {
-        await incrementVariantStat({
+        await applyVariantProjectionEffect({ eventId: ledgerEventId,
           targetCollection: 'broadcasts',
           targetId: broadcastId,
           variantId,
           field: variantStatField,
         })
       } else if (sequenceId && typeof sequenceStep === 'number') {
-        await incrementVariantStat({
+        await applyVariantProjectionEffect({ eventId: ledgerEventId,
           targetCollection: 'sequences',
           targetId: sequenceId,
           stepNumber: sequenceStep,
