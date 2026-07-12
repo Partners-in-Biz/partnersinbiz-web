@@ -24,6 +24,7 @@ async function identity():Promise<DeviceIdentity&Record<string,unknown>>{return 
 async function client(){return new DeviceApiClient(api,await identity())}
 async function post(path:string,body:unknown){return (await client()).post(path,body)}
 async function jsonData(response:Response){if(!response.ok)throw new Error(`PiB request rejected (${response.status})`);return (await response.json() as any).data}
+export function applyHeartbeatData<T extends Record<string,any>>(current:T,data:any):T{const rotation=data?.rotation;if(!rotation||typeof rotation.credential!=='string'||!Number.isInteger(rotation.credentialVersion)||rotation.credentialVersion<=Number(current.credentialVersion))return current;const next={...current,credential:rotation.credential,credentialVersion:rotation.credentialVersion};delete next.transportToken;return next}
 
 async function pair(challengeId:string){
  if(!/^[A-Za-z0-9_-]{1,128}$/.test(challengeId||''))throw new Error('invalid challenge identifier')
@@ -32,7 +33,7 @@ async function pair(challengeId:string){
  const response=await fetch(`${api}/api/v1/linked-computers/pairing/exchange`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({challengeId,secret:code,deviceId,publicKey:keys.publicKey,proof,label:os.hostname(),platform:process.platform==='win32'?'windows':'macos',architecture:process.arch==='arm64'?'arm64':'x64',runtimeVersion})})
  const data=await jsonData(response),outboundIdentity={...data};delete outboundIdentity.transportToken;await store.put('identity',JSON.stringify({...outboundIdentity,privateKey:keys.privateKey.export({type:'pkcs8',format:'pem'})}));await heartbeat(true);process.stdout.write('Paired.\n')
 }
-async function heartbeat(bootstrapTransport=false){const i=await identity(),response=await post(`/api/v1/linked-computers/${i.deviceId}/heartbeat`,{runtimeVersion,health:'ok',capabilities:['workspace.execute'],bootstrapTransport,claimRotation:true});const data=await jsonData(response);if(data?.credential){await store.put('identity',JSON.stringify({...i,...data}))}}
+async function heartbeat(bootstrapTransport=false){const i=await identity(),response=await post(`/api/v1/linked-computers/${i.deviceId}/heartbeat`,{runtimeVersion,health:'ok',capabilities:['workspace.execute'],bootstrapTransport,claimRotation:true}),data=await jsonData(response),next=applyHeartbeatData(i,data);if(next!==i)await store.put('identity',JSON.stringify(next))}
 async function claim():Promise<Job|null>{const i=await identity();const response=await post(`/api/v1/linked-computers/${i.deviceId}/runs/claim`,{runtimeVersion});if(response.status===204)return null;return jsonData(response)}
 async function localHermes(body:any){const response=await fetch(`${hermes}/v1/runs`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});if(!response.ok)throw new Error('Local Hermes execution failed');return response.json()}
 async function run(job:Job){const i=await identity();return executeJob(job,i,maps,(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body),localHermes)}

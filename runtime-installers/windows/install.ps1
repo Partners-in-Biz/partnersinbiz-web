@@ -22,8 +22,8 @@ function Remove-RuntimeCredential { if (Test-Path $Binary) { & $Binary credentia
 
 function Test-ReleaseSignature([string]$Metadata, [string]$Payload, [switch]$AllowDowngrade) {
   $manifest = Get-Content -Raw $Metadata | ConvertFrom-Json
-  $unsigned = -not $env:PIB_RUNTIME_SIGNER_THUMBPRINT
-  if (-not $env:PIB_RUNTIME_SIGNER_THUMBPRINT) {
+  $artifactUnsigned=Test-Path (Join-Path (Split-Path $Metadata) '.unsigned-dev');$unsigned=$artifactUnsigned -or -not $env:PIB_RUNTIME_SIGNER_THUMBPRINT
+  if ($unsigned) {
     if (-not $AllowUnsignedDev) { throw 'Production install refused: update signature key missing.' }
     Write-Warning 'UNSIGNED DEVELOPMENT MODE: package authenticity is not guaranteed.'
   } else { $catalog = Join-Path (Split-Path $Metadata) 'release.cat';if(-not(Test-Path $catalog)){Invoke-WebRequest -UseBasicParsing -Uri $manifest.catalogUrl -OutFile $catalog};$signature=Get-AuthenticodeSignature $catalog;$expectedSigner=$env:PIB_RUNTIME_SIGNER_THUMBPRINT.Replace(' ','').ToUpperInvariant();if($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Thumbprint.ToUpperInvariant() -ne $expectedSigner){throw 'Release catalog signature verification failed.'};if((Test-FileCatalog -Path (Split-Path $Metadata) -CatalogFilePath $catalog -Detailed).Status -ne 'Valid'){throw 'Authenticated update metadata/payload catalog verification failed.'} }
@@ -31,8 +31,8 @@ function Test-ReleaseSignature([string]$Metadata, [string]$Payload, [switch]$All
   $currentVersion=$env:PIB_RUNTIME_CURRENT_VERSION
   if(-not $currentVersion -and (Test-Path $Binary)){
     $currentManifest=Join-Path (Split-Path $Binary) 'metadata.json';$currentSignature=Join-Path (Split-Path $Binary) 'manifest.sig'
-    if(-not(Test-Path $currentManifest) -or -not(Test-Path $currentSignature)){throw 'Installed release verification material is missing.'}
-    $currentVersion=& $ReleaseManager installed-version --manifest $currentManifest --signature $currentSignature --payload $Binary --public-key (Join-Path $PSScriptRoot 'release-public.pem') --platform windows --architecture $env:PROCESSOR_ARCHITECTURE.ToLowerInvariant().Replace('amd64','x64') --channel stable
+    $currentUnsigned=Test-Path (Join-Path (Split-Path $Binary) '.unsigned-dev');if($currentUnsigned -and -not $AllowUnsignedDev){throw 'Production refused an installed unsigned development release.'};if(-not $currentUnsigned -and -not(Test-Path $currentSignature)){throw 'Installed release verification material is missing.'}
+    $installedArgs=@('installed-version','--manifest',$currentManifest,'--payload',$Binary,'--platform','windows','--architecture',$env:PROCESSOR_ARCHITECTURE.ToLowerInvariant().Replace('amd64','x64'),'--channel','stable');if($currentUnsigned){$installedArgs+='--allow-unsigned-dev'}else{$installedArgs+=@('--signature',$currentSignature,'--public-key',(Join-Path $PSScriptRoot 'release-public.pem'))};$currentVersion=& $ReleaseManager @installedArgs
     if($LASTEXITCODE -ne 0){throw 'Installed release verification failed.'}
   }
   if(-not $currentVersion){$currentVersion=[string]$manifest.minimumVersion}
@@ -51,7 +51,7 @@ function Install-Runtime {
     $metadata = Get-Content -Raw $metadataPath | ConvertFrom-Json
     $payload = Join-Path $stage 'pib-runtime.exe'; Invoke-WebRequest -UseBasicParsing -Uri $metadata.payloadUrl -OutFile $payload
     Test-ReleaseSignature $metadataPath $payload
-    $release=Join-Path $stage 'release';New-Item -ItemType Directory $release|Out-Null;Copy-Item $payload (Join-Path $release 'pib-runtime.exe');Copy-Item $ReleaseManager (Join-Path $release 'pib-release-manager.exe');Copy-Item (Join-Path $PSScriptRoot 'pib-credential-helper.exe') (Join-Path $release 'pib-credential-helper.exe');Copy-Item $metadataPath (Join-Path $release 'metadata.json');if(Test-Path (Join-Path $stage 'manifest.sig')){Copy-Item (Join-Path $stage 'manifest.sig') (Join-Path $release 'manifest.sig')};if(Test-Path (Join-Path $stage 'release.cat')){Copy-Item (Join-Path $stage 'release.cat') (Join-Path $release 'release.cat')}
+    $release=Join-Path $stage 'release';New-Item -ItemType Directory $release|Out-Null;Copy-Item $payload (Join-Path $release 'pib-runtime.exe');Copy-Item $ReleaseManager (Join-Path $release 'pib-release-manager.exe');Copy-Item (Join-Path $PSScriptRoot 'pib-credential-helper.exe') (Join-Path $release 'pib-credential-helper.exe');Copy-Item $metadataPath (Join-Path $release 'metadata.json');if($AllowUnsignedDev -and -not $env:PIB_RUNTIME_SIGNER_THUMBPRINT){New-Item -ItemType File (Join-Path $release '.unsigned-dev')|Out-Null}else{Copy-Item (Join-Path $stage 'manifest.sig') (Join-Path $release 'manifest.sig');Copy-Item (Join-Path $stage 'release.cat') (Join-Path $release 'release.cat')}
     & sc.exe stop PartnersInBizRuntime 2>$null|Out-Null;if((Get-Service PartnersInBizRuntime -ErrorAction SilentlyContinue)){Wait-ServiceStopped};New-Item -ItemType Directory -Force $Root | Out-Null;$current=Join-Path $Root 'current';$previous=Join-Path $Root 'previous';$old=Join-Path $Root 'previous.new';Remove-Item -Recurse -Force $old -ErrorAction SilentlyContinue;if(Test-Path $current){Move-Item $current $old};Move-Item $release $current;Remove-Item -Recurse -Force $previous -ErrorAction SilentlyContinue;if(Test-Path $old){Move-Item $old $previous}
     Copy-Item -Force (Join-Path $PSScriptRoot 'PartnersInBizRuntimeService.exe') (Join-Path $Root 'PartnersInBizRuntimeService.exe')
     & sc.exe query PartnersInBizRuntime 2>$null|Out-Null;if($LASTEXITCODE -eq 0){& sc.exe config PartnersInBizRuntime binPath= "`"$Root\PartnersInBizRuntimeService.exe`"" start= auto obj= LocalSystem}else{& sc.exe create PartnersInBizRuntime binPath= "`"$Root\PartnersInBizRuntimeService.exe`"" start= auto obj= LocalSystem};if($LASTEXITCODE -ne 0){throw 'Runtime service registration failed.'};& sc.exe start PartnersInBizRuntime;if($LASTEXITCODE -ne 0){throw 'Runtime service failed to start.'}

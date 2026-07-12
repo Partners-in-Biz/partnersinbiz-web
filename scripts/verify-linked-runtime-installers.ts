@@ -62,7 +62,11 @@ requireText('Windows atomic handoff claim', read('runtime-installers/windows/Par
 requireText('documentation', docs, /UNSIGNED DEVELOPMENT MODE/)
 requireText('documentation', docs, /signed and notarised/i)
 requireText('macOS', mac, /PIB_ALLOW_UNSIGNED_DEV/)
+requireText('macOS unsigned marker', mac, /\.unsigned-dev/)
+rejectText('macOS signature path', mac, /metadata\.json\.sig/)
 requireText('Windows', win, /AllowUnsignedDev/)
+requireText('Windows unsigned marker', win, /\.unsigned-dev/)
+requireText('Windows rollback stop fence', win, /Rollback-Runtime[\s\S]*sc\.exe stop[\s\S]*Wait-ServiceStopped/)
 
 // The browser handoff is deliberately a non-secret command contract.
 const safeCommands = [
