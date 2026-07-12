@@ -1,0 +1,256 @@
+import { createHash, randomUUID, timingSafeEqual } from 'node:crypto'
+import { FieldValue } from 'firebase-admin/firestore'
+import { adminDb } from '@/lib/firebase/admin'
+import { assertDeviceOrgAccess, assertGrantAdministrator } from './policy'
+import type {
+  ActiveOrgMembership,
+  DeviceGrantStatus,
+  LinkedDevice,
+  LinkedDeviceArchitecture,
+  LinkedDeviceCapability,
+  LinkedDeviceGrant,
+  LinkedDevicePlatform,
+  LinkedDeviceStatus,
+  WorkspaceMappingStatus,
+} from './types'
+
+const DEVICES = 'linked_devices'
+const CHALLENGES = 'linked_device_pairing_challenges'
+const GRANTS = 'linked_device_grants'
+const MAPPINGS = 'linked_device_workspace_mappings'
+const AUDIT = 'linked_computer_audit_events'
+const MEMBERS = 'orgMembers'
+
+interface RefLike { id: string; path?: string }
+interface SnapshotLike { exists: boolean; data(): Record<string, unknown> | undefined }
+interface TransactionLike {
+  get(ref: RefLike): Promise<SnapshotLike>
+  create(ref: RefLike, value: Record<string, unknown>): void
+  set(ref: RefLike, value: Record<string, unknown>, options?: { merge?: boolean }): void
+  update(ref: RefLike, value: Record<string, unknown>): void
+}
+interface DbLike {
+  collection(name: string): { doc(id: string): RefLike }
+  runTransaction<T>(fn: (tx: TransactionLike) => Promise<T>): Promise<T>
+}
+interface StoreOptions { db?: DbLike; now?: () => unknown; nowMs?: () => number }
+
+function timestamp(options: StoreOptions): unknown {
+  return options.now ? options.now() : FieldValue.serverTimestamp()
+}
+
+function required(value: string, field: string): string {
+  const clean = value.trim()
+  if (!clean) throw new Error(`linked computers: ${field} is required`)
+  return clean
+}
+
+function hashSecret(secret: string): string {
+  return createHash('sha256').update(secret).digest('hex')
+}
+
+function secretsMatch(actualSecret: string, expectedHash: string): boolean {
+  const actual = Buffer.from(hashSecret(actualSecret), 'hex')
+  const expected = Buffer.from(expectedHash, 'hex')
+  return actual.length === expected.length && timingSafeEqual(actual, expected)
+}
+
+function auditRef(db: DbLike): RefLike {
+  return db.collection(AUDIT).doc(randomUUID())
+}
+
+function membershipFrom(row: Record<string, unknown> | undefined, orgId: string, userId: string): ActiveOrgMembership {
+  return {
+    orgId,
+    userId,
+    active: Boolean(row) && row?.orgId === orgId && (row.uid === userId || row.userId === userId) && row.status !== 'inactive',
+    role: typeof row?.role === 'string' ? row.role : undefined,
+  }
+}
+
+export async function createDevice(input: {
+  deviceId: string
+  ownerUserId: string
+  runtimeTargetId: string
+  publicKeyFingerprint: string
+  label: string
+  platform: LinkedDevicePlatform
+  architecture: LinkedDeviceArchitecture
+  runtimeVersion: string
+  capabilities: LinkedDeviceCapability[]
+}, options: StoreOptions = {}): Promise<void> {
+  const db = options.db ?? (adminDb as unknown as DbLike)
+  const deviceId = required(input.deviceId, 'deviceId')
+  const ownerUserId = required(input.ownerUserId, 'ownerUserId')
+  const at = timestamp(options)
+  await db.runTransaction(async (tx) => {
+    const deviceRef = db.collection(DEVICES).doc(deviceId)
+    if ((await tx.get(deviceRef)).exists) throw new Error('linked computers: device already exists')
+    tx.create(deviceRef, {
+      ...input, deviceId, ownerUserId, status: 'active', credentialVersion: 1,
+      createdAt: at, updatedAt: at, lastSeenAt: null,
+    })
+    tx.create(auditRef(db), {
+      eventId: randomUUID(), action: 'device.paired', actorUserId: ownerUserId, deviceId, createdAt: at,
+    })
+  })
+}
+
+export async function createPairingChallenge(input: {
+  challengeId: string
+  ownerUserId: string
+  secret: string
+  expiresAt: string
+  maxAttempts?: number
+}, options: StoreOptions = {}): Promise<{ challengeId: string; expiresAt: string }> {
+  const db = options.db ?? (adminDb as unknown as DbLike)
+  required(input.secret, 'pairing secret')
+  const at = timestamp(options)
+  await db.runTransaction(async (tx) => {
+    const ref = db.collection(CHALLENGES).doc(required(input.challengeId, 'challengeId'))
+    if ((await tx.get(ref)).exists) throw new Error('linked computers: pairing challenge already exists')
+    tx.create(ref, {
+      challengeId: input.challengeId, ownerUserId: required(input.ownerUserId, 'ownerUserId'),
+      secretHash: hashSecret(input.secret), expiresAt: input.expiresAt, attempts: 0,
+      maxAttempts: input.maxAttempts ?? 5, createdAt: at,
+    })
+    tx.create(auditRef(db), {
+      eventId: randomUUID(), action: 'pairing.created', actorUserId: input.ownerUserId, createdAt: at,
+    })
+  })
+  return { challengeId: input.challengeId, expiresAt: input.expiresAt }
+}
+
+export async function consumePairingChallenge(input: {
+  challengeId: string
+  ownerUserId: string
+  secret: string
+}, options: StoreOptions = {}): Promise<void> {
+  const db = options.db ?? (adminDb as unknown as DbLike)
+  const result = await db.runTransaction(async (tx): Promise<'consumed' | 'invalid-secret'> => {
+    const ref = db.collection(CHALLENGES).doc(input.challengeId)
+    const snapshot = await tx.get(ref)
+    if (!snapshot.exists) throw new Error('linked computers: pairing challenge not found')
+    const row = snapshot.data() ?? {}
+    if (row.ownerUserId !== input.ownerUserId) throw new Error('linked computers: pairing owner mismatch')
+    if (row.consumedAt) throw new Error('linked computers: pairing challenge already consumed')
+    if ((options.nowMs?.() ?? Date.now()) >= Date.parse(String(row.expiresAt))) throw new Error('linked computers: pairing challenge expired')
+    if (Number(row.attempts ?? 0) >= Number(row.maxAttempts ?? 5)) throw new Error('linked computers: pairing attempts exhausted')
+    if (!secretsMatch(input.secret, String(row.secretHash))) {
+      tx.update(ref, { attempts: Number(row.attempts ?? 0) + 1 })
+      return 'invalid-secret'
+    }
+    const at = timestamp(options)
+    tx.update(ref, { consumedAt: at })
+    tx.create(auditRef(db), { eventId: randomUUID(), action: 'pairing.consumed', actorUserId: input.ownerUserId, createdAt: at })
+    return 'consumed'
+  })
+  if (result === 'invalid-secret') throw new Error('linked computers: invalid pairing secret')
+}
+
+const TRANSITIONS: Record<LinkedDeviceStatus, LinkedDeviceStatus[]> = {
+  active: ['paused', 'revoked'], paused: ['active', 'revoked'], revoked: ['removed'], removed: [],
+}
+
+export async function transitionDeviceStatus(input: {
+  deviceId: string
+  actorUserId: string
+  status: LinkedDeviceStatus
+}, options: StoreOptions = {}): Promise<void> {
+  const db = options.db ?? (adminDb as unknown as DbLike)
+  await db.runTransaction(async (tx) => {
+    const ref = db.collection(DEVICES).doc(input.deviceId)
+    const snapshot = await tx.get(ref)
+    if (!snapshot.exists) throw new Error('linked computers: device not found')
+    const device = snapshot.data() as unknown as LinkedDevice
+    if (device.ownerUserId !== input.actorUserId) throw new Error('linked computers: device owner required')
+    if (!TRANSITIONS[device.status].includes(input.status)) throw new Error('linked computers: invalid status transition')
+    const at = timestamp(options)
+    const statusAt = input.status === 'paused' ? { pausedAt: at }
+      : input.status === 'revoked' ? { revokedAt: at }
+        : input.status === 'removed' ? { removedAt: at } : {}
+    tx.update(ref, { status: input.status, updatedAt: at, ...statusAt })
+    tx.create(auditRef(db), {
+      eventId: randomUUID(), action: 'device.status_changed', actorUserId: input.actorUserId,
+      deviceId: input.deviceId, fromStatus: device.status, toStatus: input.status, createdAt: at,
+    })
+  })
+}
+
+export async function putDeviceGrant(input: {
+  deviceId: string
+  orgId: string
+  actorUserId: string
+  status: DeviceGrantStatus
+  capabilities: LinkedDeviceCapability[]
+  allowedUserIds?: string[]
+}, options: StoreOptions = {}): Promise<void> {
+  const db = options.db ?? (adminDb as unknown as DbLike)
+  await db.runTransaction(async (tx) => {
+    const deviceSnap = await tx.get(db.collection(DEVICES).doc(input.deviceId))
+    if (!deviceSnap.exists) throw new Error('linked computers: device not found')
+    const device = deviceSnap.data() as unknown as LinkedDevice
+    const [actorSnap, ownerSnap] = await Promise.all([
+      tx.get(db.collection(MEMBERS).doc(`${input.orgId}_${input.actorUserId}`)),
+      tx.get(db.collection(MEMBERS).doc(`${input.orgId}_${device.ownerUserId}`)),
+    ])
+    assertGrantAdministrator(membershipFrom(actorSnap.data(), input.orgId, input.actorUserId), input.orgId, input.actorUserId)
+    if (!membershipFrom(ownerSnap.data(), input.orgId, device.ownerUserId).active) throw new Error('linked computers: owner membership required')
+    const ref = db.collection(GRANTS).doc(`${input.orgId}_${input.deviceId}`)
+    const existing = await tx.get(ref)
+    const at = timestamp(options)
+    const statusAt = input.status === 'paused' ? { pausedAt: at } : input.status === 'revoked' ? { revokedAt: at } : {}
+    tx.set(ref, {
+      deviceId: input.deviceId, orgId: input.orgId, grantedByUserId: input.actorUserId,
+      allowedUserIds: input.allowedUserIds ?? [], capabilities: input.capabilities, status: input.status,
+      ...(!existing.exists ? { createdAt: at } : {}), updatedAt: at, ...statusAt,
+    }, { merge: true })
+    tx.create(auditRef(db), {
+      eventId: randomUUID(), action: 'grant.changed', actorUserId: input.actorUserId,
+      deviceId: input.deviceId, orgId: input.orgId, toStatus: input.status, createdAt: at,
+    })
+  })
+}
+
+export async function putWorkspaceMapping(input: {
+  mappingId: string
+  deviceId: string
+  orgId: string
+  workspaceId: string
+  actorUserId: string
+  label: string
+  status: WorkspaceMappingStatus
+}, options: StoreOptions = {}): Promise<void> {
+  const db = options.db ?? (adminDb as unknown as DbLike)
+  await db.runTransaction(async (tx) => {
+    const [deviceSnap, grantSnap, memberSnap] = await Promise.all([
+      tx.get(db.collection(DEVICES).doc(input.deviceId)),
+      tx.get(db.collection(GRANTS).doc(`${input.orgId}_${input.deviceId}`)),
+      tx.get(db.collection(MEMBERS).doc(`${input.orgId}_${input.actorUserId}`)),
+    ])
+    if (!deviceSnap.exists || !grantSnap.exists) throw new Error('linked computers: device grant not found')
+    const device = deviceSnap.data() as unknown as LinkedDevice
+    const grant = grantSnap.data() as unknown as LinkedDeviceGrant
+    assertDeviceOrgAccess({
+      actorUserId: input.actorUserId, orgId: input.orgId, device, grant,
+      membership: membershipFrom(memberSnap.data(), input.orgId, input.actorUserId),
+    })
+    const ref = db.collection(MAPPINGS).doc(required(input.mappingId, 'mappingId'))
+    const existing = await tx.get(ref)
+    if (existing.exists) {
+      const old = existing.data() ?? {}
+      if (old.deviceId !== input.deviceId || old.orgId !== input.orgId) throw new Error('linked computers: mapping tenant scope mismatch')
+    }
+    const at = timestamp(options)
+    const statusAt = input.status === 'stale' ? { staleAt: at } : input.status === 'removed' ? { removedAt: at } : {}
+    tx.set(ref, {
+      mappingId: input.mappingId, deviceId: input.deviceId, orgId: input.orgId,
+      workspaceId: required(input.workspaceId, 'workspaceId'), label: required(input.label, 'label'), status: input.status,
+      ...(!existing.exists ? { createdAt: at } : {}), updatedAt: at, ...statusAt,
+    }, { merge: true })
+    tx.create(auditRef(db), {
+      eventId: randomUUID(), action: 'mapping.changed', actorUserId: input.actorUserId,
+      deviceId: input.deviceId, orgId: input.orgId, mappingId: input.mappingId, toStatus: input.status, createdAt: at,
+    })
+  })
+}
