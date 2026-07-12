@@ -48,6 +48,7 @@ import type { CaptureSource } from '@/lib/crm/captureSources'
 import type { Campaign } from '@/lib/campaigns/types'
 import type { Sequence, SequenceEnrollment } from '@/lib/sequences/types'
 import { evaluateSequenceReentry } from '@/lib/email-marketing/automation-policy'
+import { appendConsentEvent } from '@/lib/consent-ledger/store'
 
 type Params = { params: Promise<{ publicKey: string }> }
 
@@ -209,6 +210,25 @@ export async function POST(req: NextRequest, context: Params) {
       lastContactedAt: FieldValue.serverTimestamp(),
     })
     contactId = docRef.id
+  }
+
+  // Consent proof is durable and append-only. Persist it before any automatic
+  // enrollment so a capture cannot start marketing sends without ledger truth.
+  if (consentGiven) {
+    await appendConsentEvent({
+      orgId: source.orgId,
+      contactId,
+      channel: 'email',
+      topicId: 'newsletter',
+      state: 'granted',
+      legalBasis: 'consent',
+      source: 'capture',
+      sourceEventId: `public-capture:${source.id}:${contactId}`,
+      sourceId: source.id,
+      occurredAt: new Date().toISOString(),
+      proofRef: `capture_sources/${source.id}`,
+      metadata: consentMetadata,
+    })
   }
 
   // ── 5. Bump source counter (best-effort) ───────────────────────────────────

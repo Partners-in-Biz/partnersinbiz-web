@@ -8,6 +8,7 @@ const mockDoc = jest.fn()
 const mockWhere = jest.fn()
 const mockLimit = jest.fn()
 const mockCollection = jest.fn()
+const mockAppendConsentEvent = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection, runTransaction: jest.fn() },
@@ -15,6 +16,9 @@ jest.mock('@/lib/firebase/admin', () => ({
 
 jest.mock('@/lib/forms/ratelimit', () => ({
   checkFormRateLimit: jest.fn().mockResolvedValue(true),
+}))
+jest.mock('@/lib/consent-ledger/store', () => ({
+  appendConsentEvent: mockAppendConsentEvent,
 }))
 
 import { POST } from '@/app/api/public/capture/[publicKey]/route'
@@ -24,6 +28,7 @@ const docRef = { update: mockUpdate, get: mockGet, ref: { update: mockUpdate } }
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockAppendConsentEvent.mockResolvedValue({ id: 'consent-1', created: true })
 
   const query = { where: mockWhere, get: mockGet, limit: mockLimit, add: mockAdd, doc: mockDoc }
   mockWhere.mockReturnValue(query)
@@ -168,6 +173,14 @@ describe('POST /api/public/capture/[publicKey]', () => {
         }),
       })
     )
+    expect(mockAppendConsentEvent).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      contactId: 'contact-new',
+      channel: 'email',
+      state: 'granted',
+      source: 'capture',
+      sourceId: 'src-1',
+    }))
   })
 
   it('reuses an existing contact and merges tags', async () => {
