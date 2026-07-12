@@ -39,4 +39,16 @@ describe('SenderPolicyEditor', () => {
     await waitFor(() => expect(screen.getByRole('option', { name: /saved policy policy-deleted.*unavailable/i })).toBeInTheDocument())
     expect(screen.getByLabelText('Sender policy')).toHaveValue('policy-deleted')
   })
+
+  it('preserves the saved policy with availability unknown when the registry request fails', async () => {
+    global.fetch = jest.fn().mockRejectedValue(new Error('offline')) as jest.Mock
+
+    render(<SenderPolicyEditor orgId="org-1" value="policy-1" onChange={jest.fn()} />)
+
+    await waitFor(() => expect(screen.getByRole('option', { name: /saved policy policy-1.*availability unknown/i })).toBeInTheDocument())
+    expect(screen.getByLabelText('Sender policy')).toHaveValue('policy-1')
+    expect(screen.getAllByRole('alert')).toHaveLength(1)
+    expect(screen.getByRole('alert')).toHaveTextContent(/availability could not be verified/i)
+    expect(screen.queryByText(/saved sender policy is unavailable/i)).not.toBeInTheDocument()
+  })
 })
