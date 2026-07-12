@@ -263,7 +263,7 @@ function healthLabel(webhook: OutboundWebhook) {
 function healthClass(webhook: OutboundWebhook) {
   if (isHealthy(webhook)) return 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300'
   if (webhook.active) return 'border-amber-400/20 bg-amber-400/10 text-amber-300'
-  return 'border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] text-[var(--color-pib-text-muted)]'
+  return 'border-[var(--color-card-border)] bg-transparent text-on-surface-variant'
 }
 
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
@@ -271,7 +271,7 @@ function StatCard({ label, value, sub, icon }: { label: string; value: string; s
     <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
       <div className="flex items-start justify-between gap-3">
         <p className="eyebrow !text-[10px]">{label}</p>
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
+        <span className="material-symbols-outlined text-[18px] text-on-surface-variant">{icon}</span>
       </div>
       <p className="mt-2 text-lg font-semibold leading-none text-on-surface">{value}</p>
       <p className="mt-2 text-[11px] leading-4 text-on-surface-variant">{sub}</p>
@@ -595,19 +595,19 @@ export function WebhookSettingsClient() {
       )}
 
       {error && !hasSourceFailure && (
-        <div className="px-4 py-3 rounded-lg border border-red-400/25 bg-red-400/10 text-sm text-red-200">
+        <div className="px-4 py-3 rounded-md border border-red-400/25 bg-red-400/10 text-sm text-red-200">
           {error}
         </div>
       )}
       {message && (
-        <div className="px-4 py-3 rounded-lg border border-emerald-400/25 bg-emerald-400/10 text-sm text-emerald-200">
+        <div className="px-4 py-3 rounded-md border border-emerald-400/25 bg-emerald-400/10 text-sm text-emerald-200">
           {message}
         </div>
       )}
       {secretOnce && (
         <div className="rounded-xl border border-amber-400/30 bg-amber-400/10">
           <p className="text-sm font-medium text-amber-100 mb-2">Save this signing secret now</p>
-          <code className="block text-xs text-amber-50 break-all rounded-lg bg-black/30 border border-amber-400/20 px-3 py-2">
+          <code className="block text-xs text-amber-50 break-all rounded-md bg-black/30 border border-amber-400/20 px-3 py-2">
             {secretOnce}
           </code>
         </div>
@@ -617,16 +617,16 @@ export function WebhookSettingsClient() {
         <section className="rounded-xl border border-amber-400/25 bg-amber-400/10">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex gap-3">
-              <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-amber-400/25 bg-amber-400/10 text-amber-200">
-                <span className="material-symbols-outlined text-[20px]" aria-hidden="true">warning</span>
+              <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-amber-400/25 bg-amber-400/10 text-amber-200">
+                <span className="material-symbols-outlined text-[18px]" aria-hidden="true">warning</span>
               </span>
               <div>
                 <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
-                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+                <h2 className="mt-1 text-base text-on-surface">
                   Webhook subscriptions could not load
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{fetchError}</p>
-                <p className="mt-3 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                <p className="mt-2 text-sm leading-6 text-on-surface-variant">{fetchError}</p>
+                <p className="mt-3 text-xs leading-5 text-on-surface-variant">
                   Subscription counts, event coverage, and delivery health are hidden until the webhook source responds, so leaders do not mistake an outage for a clean integration estate.
                 </p>
               </div>
@@ -644,20 +644,20 @@ export function WebhookSettingsClient() {
           </div>
         </section>
       ) : (
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
         <section className="space-y-3">
           <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-0 overflow-hidden">
-            <div className="px-4 py-3 border-b border-[var(--color-pib-line)] flex items-center justify-between gap-3">
+            <div className="px-4 py-3 border-b border-[var(--color-card-border)] flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold">Event catalog</h2>
-                <p className="text-xs text-[var(--color-pib-text-muted)]">Choose an event to preview its signed payload.</p>
+                <p className="text-xs text-on-surface-variant">Choose an event to preview its signed payload.</p>
               </div>
-              <span className="text-[10px] px-2 py-1 rounded-full bg-[var(--color-pib-line-strong)] text-[var(--color-pib-text-muted)]">
+              <span className="text-[10px] px-2 py-1 rounded-full bg-[var(--color-surface-container)] text-on-surface-variant">
                 {supportedCatalog.length} subscribable
               </span>
             </div>
 
-            <div className="divide-y divide-[var(--color-pib-line)]">
+            <div className="divide-y divide-[var(--color-card-border)]">
               {CRM_EVENT_CATALOG.map((item) => {
                 const supported = SUPPORTED_EVENTS.has(item.event)
                 const selected = selectedEvent === item.event
@@ -670,14 +670,14 @@ export function WebhookSettingsClient() {
                     onClick={() => setSelectedEvent(item.event)}
                     className={[
                       'cursor-pointer w-full text-left px-4 py-3 transition-colors',
-                      selected ? 'bg-[var(--color-pib-accent-soft)]' : 'hover:bg-white/[0.03]',
+                      selected ? 'bg-primary/10' : 'hover:bg-white/[0.03]',
                     ].join(' ')}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2 mb-1">
                           <span className="text-sm font-medium">{item.label}</span>
-                          <code className="text-[10px] text-[var(--color-pib-text-muted)] bg-black/20 border border-[var(--color-pib-line)] rounded px-1.5 py-0.5">
+                          <code className="text-[10px] text-on-surface-variant bg-black/20 border border-[var(--color-card-border)] rounded px-1.5 py-0.5">
                             {item.event}
                           </code>
                           {!supported && (
@@ -691,9 +691,9 @@ export function WebhookSettingsClient() {
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-[var(--color-pib-text-muted)]">{item.description}</p>
+                        <p className="text-xs text-on-surface-variant">{item.description}</p>
                       </div>
-                      <span className="text-[10px] text-[var(--color-pib-text-muted)] shrink-0">{item.group}</span>
+                      <span className="text-[10px] text-on-surface-variant shrink-0">{item.group}</span>
                     </div>
                   </button>
                 )
@@ -703,10 +703,10 @@ export function WebhookSettingsClient() {
 
           <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
             <h2 className="text-sm font-semibold mb-1">Payload example</h2>
-            <p className="text-xs text-[var(--color-pib-text-muted)] mb-3">
+            <p className="text-xs text-on-surface-variant mb-3">
               Deliveries are signed with <code>X-PIB-Signature</code> and include the selected event payload.
             </p>
-            <pre className="max-h-[360px] overflow-auto rounded-lg border border-[var(--color-pib-line)] bg-black/30 p-4 text-xs leading-relaxed text-[var(--color-pib-text)]">
+            <pre className="max-h-[360px] overflow-auto rounded-md border border-[var(--color-card-border)] bg-black/30 p-4 text-xs leading-relaxed text-on-surface">
 {JSON.stringify(
   {
     event: selectedCatalogEvent.event,
@@ -722,39 +722,39 @@ export function WebhookSettingsClient() {
         <aside className="space-y-3">
           <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
             <h2 className="text-sm font-semibold mb-1">{editing ? 'Edit subscription' : 'Create subscription'}</h2>
-            <p className="text-xs text-[var(--color-pib-text-muted)] mb-4">
+            <p className="text-xs text-on-surface-variant mb-4">
               Use an HTTPS endpoint that accepts signed POST requests.
             </p>
 
             <div className="space-y-3">
               <label className="block">
-                <span className="text-xs text-[var(--color-pib-text-muted)]">Name</span>
+                <span className="text-xs text-on-surface-variant">Name</span>
                 <input
                   value={editing ? editing.name : name}
                   onChange={(event) =>
                     editing ? setEditing({ ...editing, name: event.target.value }) : setName(event.target.value)
                   }
                   placeholder="CRM events to Zapier"
-                  className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm outline-none focus:border-[var(--color-pib-accent)]"
+                  className="mt-1 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-3 py-2 text-sm outline-none focus:border-primary/30"
                 />
               </label>
               <label className="block">
-                <span className="text-xs text-[var(--color-pib-text-muted)]">Endpoint URL</span>
+                <span className="text-xs text-on-surface-variant">Endpoint URL</span>
                 <input
                   value={editing ? editing.url : url}
                   onChange={(event) =>
                     editing ? setEditing({ ...editing, url: event.target.value }) : setUrl(event.target.value)
                   }
                   placeholder="https://example.com/pib-webhook"
-                  className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm outline-none focus:border-[var(--color-pib-accent)]"
+                  className="mt-1 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-3 py-2 text-sm outline-none focus:border-primary/30"
                 />
               </label>
 
               {editing && (
-                <label className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-pib-line)] px-3 py-2">
+                <label className="flex items-center justify-between gap-3 rounded-md border border-[var(--color-card-border)] px-3 py-2">
                   <span>
                     <span className="block text-sm font-medium">Active delivery</span>
-                    <span className="block text-xs text-[var(--color-pib-text-muted)]">Paused webhooks stay saved but do not receive events.</span>
+                    <span className="block text-xs text-on-surface-variant">Paused webhooks stay saved but do not receive events.</span>
                   </span>
                   <input
                     type="checkbox"
@@ -766,7 +766,7 @@ export function WebhookSettingsClient() {
               )}
 
               <div>
-                <p className="text-xs text-[var(--color-pib-text-muted)] mb-2">Events</p>
+                <p className="text-xs text-on-surface-variant mb-2">Events</p>
                 <div className="grid gap-2">
                   {CRM_EVENT_CATALOG.map((item) => {
                     const supported = SUPPORTED_EVENTS.has(item.event)
@@ -775,10 +775,10 @@ export function WebhookSettingsClient() {
                       <label
                         key={item.event}
                         className={[
-                          'flex items-start gap-2 rounded-lg border px-3 py-2 text-sm',
+                          'flex items-start gap-2 rounded-md border px-3 py-2 text-sm',
                           supported
-                            ? 'cursor-pointer border-[var(--color-pib-line)] hover:bg-white/[0.03]'
-                            : 'cursor-not-allowed border-[var(--color-pib-line)] opacity-55',
+                            ? 'cursor-pointer border-[var(--color-card-border)] hover:bg-white/[0.03]'
+                            : 'cursor-not-allowed border-[var(--color-card-border)] opacity-55',
                         ].join(' ')}
                       >
                         <input
@@ -790,7 +790,7 @@ export function WebhookSettingsClient() {
                         />
                         <span className="min-w-0">
                           <span className="block font-medium">{item.label}</span>
-                          <code className="block text-[10px] text-[var(--color-pib-text-muted)] truncate">{item.event}</code>
+                          <code className="block text-[10px] text-on-surface-variant truncate">{item.event}</code>
                         </span>
                       </label>
                     )
@@ -833,9 +833,9 @@ export function WebhookSettingsClient() {
           </div>
 
           <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-0 overflow-hidden">
-            <div className="px-4 py-3 border-b border-[var(--color-pib-line)]">
+            <div className="px-4 py-3 border-b border-[var(--color-card-border)]">
               <h2 className="text-sm font-semibold">Subscriptions</h2>
-              <p className="text-xs text-[var(--color-pib-text-muted)]">Existing outbound CRM webhook endpoints.</p>
+              <p className="text-xs text-on-surface-variant">Existing outbound CRM webhook endpoints.</p>
             </div>
 
             {pendingDeleteWebhook && (
@@ -843,7 +843,7 @@ export function WebhookSettingsClient() {
                 role="alertdialog"
                 aria-labelledby="webhook-delete-confirm-title"
                 aria-describedby="webhook-delete-confirm-description"
-                className="m-4 rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-3"
+                className="m-4 rounded-md border border-red-400/30 bg-red-500/10 px-4 py-3"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex gap-3">
@@ -892,7 +892,7 @@ export function WebhookSettingsClient() {
                 role="alertdialog"
                 aria-labelledby="webhook-rotate-confirm-title"
                 aria-describedby="webhook-rotate-confirm-description"
-                className="m-4 rounded-lg border border-amber-400/30 bg-amber-500/10 px-4 py-3"
+                className="m-4 rounded-md border border-amber-400/30 bg-amber-500/10 px-4 py-3"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex gap-3">
@@ -937,44 +937,44 @@ export function WebhookSettingsClient() {
             )}
 
             {loading ? (
-              <p className="p-4 text-sm text-[var(--color-pib-text-muted)]">Loading...</p>
+              <p className="p-4 text-sm text-on-surface-variant">Loading...</p>
             ) : webhooks.length === 0 ? (
               <div className="p-4">
-                <div className="rounded-xl border border-[var(--color-pib-line)] bg-black/10 p-4">
-                  <span className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--color-pib-accent)]/25 bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
-                    <span className="material-symbols-outlined text-[20px]">webhook</span>
+                <div className="rounded-xl border border-[var(--color-card-border)] bg-black/10 p-4">
+                  <span className="mb-4 flex h-10 w-10 items-center justify-center rounded-md border border-primary/30/25 bg-primary/10 text-primary">
+                    <span className="material-symbols-outlined text-[18px]">webhook</span>
                   </span>
                   <p className="eyebrow !text-[10px]">Integration launch</p>
-                  <h3 className="mt-3 text-lg font-semibold text-[var(--color-pib-text)]">
+                  <h3 className="mt-3 text-lg font-semibold text-on-surface">
                     Launch your first outbound CRM bridge
                   </h3>
-                  <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                  <p className="mt-2 text-sm leading-6 text-on-surface-variant">
                     Connect the CRM to the next operating system only after the receiver, event scope, signature, and delivery test are clear. This keeps employee handoffs observable instead of hidden in one-off integrations.
                   </p>
-                  <p className="mt-4 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
+                  <p className="mt-4 rounded-md border border-[var(--color-card-border)] bg-white/[0.03] px-3 py-2 text-xs text-on-surface-variant">
                     Fill in the subscription form above to create the first signed delivery endpoint.
                   </p>
                 </div>
 
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   {WEBHOOK_LAUNCH_CHECKLIST.map((item) => (
-                    <div key={item.label} className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
+                    <div key={item.label} className="rounded-xl border border-[var(--color-card-border)] bg-white/[0.02] p-3">
                       <div className="mb-3 flex items-start justify-between gap-2">
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-[var(--color-pib-text)]">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/[0.04] text-on-surface">
                           <span className="material-symbols-outlined text-[17px]">{item.icon}</span>
                         </span>
-                        <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)]">
+                        <span className="rounded-full border border-[var(--color-card-border)] px-2 py-1 text-[10px] text-on-surface-variant">
                           {item.value}
                         </span>
                       </div>
-                      <h4 className="text-sm font-semibold text-[var(--color-pib-text)]">{item.label}</h4>
-                      <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">{item.copy}</p>
+                      <h4 className="text-sm font-semibold text-on-surface">{item.label}</h4>
+                      <p className="mt-2 text-xs leading-5 text-on-surface-variant">{item.copy}</p>
                     </div>
                   ))}
                 </div>
               </div>
             ) : (
-              <div className="divide-y divide-[var(--color-pib-line)]">
+              <div className="divide-y divide-[var(--color-card-border)]">
                 {webhooks.map((webhook) => {
                   const displayName = webhookDisplayName(webhook)
                   const toggleActionLabel = webhook.active ? 'Disable' : 'Enable'
@@ -984,7 +984,7 @@ export function WebhookSettingsClient() {
                     <div className="flex items-start justify-between gap-3 mb-2">
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate">{displayName}</p>
-                        <p className="text-xs text-[var(--color-pib-text-muted)] truncate">{webhook.url}</p>
+                        <p className="text-xs text-on-surface-variant truncate">{webhook.url}</p>
                       </div>
                       <span className={`text-[10px] rounded-full border px-2 py-0.5 shrink-0 ${healthClass(webhook)}`}>
                         {healthLabel(webhook)}
@@ -995,14 +995,14 @@ export function WebhookSettingsClient() {
                       {(webhook.events ?? []).map((event) => (
                         <span
                           key={event}
-                          className="text-[10px] rounded-full border border-[var(--color-pib-line)] bg-black/20 px-2 py-0.5 text-[var(--color-pib-text-muted)]"
+                          className="text-[10px] rounded-full border border-[var(--color-card-border)] bg-black/20 px-2 py-0.5 text-on-surface-variant"
                         >
                           {eventLabel(event)}
                         </span>
                       ))}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 text-[11px] text-[var(--color-pib-text-muted)] mb-3">
+                    <div className="grid grid-cols-2 gap-2 text-[11px] text-on-surface-variant mb-3">
                       <span>Last delivery: {formatDate(webhook.lastDeliveredAt)}</span>
                       <span>Failures: {webhook.failureCount ?? 0}</span>
                       <span>Last failure: {formatDate(webhook.lastFailureAt)}</span>
@@ -1085,8 +1085,8 @@ export function WebhookSettingsClient() {
 
                     {/* US-096: last 10 deliveries log */}
                     {expandedDeliveries === webhook.id && (
-                      <div className="mt-3 rounded-lg border border-[var(--color-pib-line)] bg-black/20 p-3">
-                        <p className="mb-2 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+                      <div className="mt-3 rounded-md border border-[var(--color-card-border)] bg-black/20 p-3">
+                        <p className="mb-2 text-[10px] uppercase tracking-widest text-on-surface-variant font-mono">
                           Last 10 deliveries
                         </p>
                         {deliveriesLoadingId === webhook.id ? (
@@ -1107,13 +1107,13 @@ export function WebhookSettingsClient() {
                             </button>
                           </div>
                         ) : (deliveriesByWebhook[webhook.id]?.length ?? 0) === 0 ? (
-                          <p className="text-[11px] text-[var(--color-pib-text-muted)]">
+                          <p className="text-[11px] text-on-surface-variant">
                             No deliveries recorded yet. Send a test or wait for a CRM event.
                           </p>
                         ) : (
                           <table className="w-full text-[11px]">
                             <thead>
-                              <tr className="text-left text-[var(--color-pib-text-muted)]">
+                              <tr className="text-left text-on-surface-variant">
                                 <th className="py-1 pr-2 font-mono font-normal uppercase tracking-wider">When</th>
                                 <th className="py-1 pr-2 font-mono font-normal uppercase tracking-wider">Event</th>
                                 <th className="py-1 pr-2 font-mono font-normal uppercase tracking-wider">Status</th>
@@ -1122,11 +1122,11 @@ export function WebhookSettingsClient() {
                             </thead>
                             <tbody>
                               {deliveriesByWebhook[webhook.id]!.map((d) => (
-                                <tr key={d.id} className="border-t border-[var(--color-pib-line)]">
-                                  <td className="py-1.5 pr-2 text-[var(--color-pib-text-muted)] whitespace-nowrap">
+                                <tr key={d.id} className="border-t border-[var(--color-card-border)]">
+                                  <td className="py-1.5 pr-2 text-on-surface-variant whitespace-nowrap">
                                     {formatDate(d.deliveredAt)}
                                   </td>
-                                  <td className="py-1.5 pr-2 text-[var(--color-pib-text)]">{eventLabel(d.event)}</td>
+                                  <td className="py-1.5 pr-2 text-on-surface">{eventLabel(d.event)}</td>
                                   <td className="py-1.5 pr-2">
                                     <span
                                       className={`rounded-full px-2 py-0.5 text-[10px] ${
@@ -1139,7 +1139,7 @@ export function WebhookSettingsClient() {
                                       {d.success ? 'Delivered' : 'Failed'}
                                     </span>
                                   </td>
-                                  <td className="py-1.5 text-right font-mono text-[var(--color-pib-text-muted)]">
+                                  <td className="py-1.5 text-right font-mono text-on-surface-variant">
                                     {d.responseStatus ?? '—'}
                                   </td>
                                 </tr>

@@ -157,7 +157,7 @@ export function CompanyRowsPanel<Row extends CompanyRowsPanelRow>({
                   key={row.id}
                   href={href}
                   aria-label={rowAriaLabel?.(row, rowTitle)}
-                  className="flex items-start justify-between gap-3 px-3 py-2 transition-colors hover:bg-white/[0.04] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-v2)] focus:ring-offset-2 focus:ring-offset-[var(--color-pib-bg)]"
+                  className="flex items-start justify-between gap-3 px-3 py-2 transition-colors hover:bg-white/[0.04] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-v2)] focus:ring-offset-2 focus:ring-offset-[var(--color-surface)]"
                 >
                   {rowContent}
                 </Link>

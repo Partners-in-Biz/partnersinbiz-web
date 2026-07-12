@@ -747,7 +747,7 @@ export default function DealsPage() {
           </button>
         </div>
       </header>
-      <p className="sr-only">
+      <p className="px-1 text-xs leading-5 text-on-surface-variant">
         Track shared opportunities and forecasts with the same workspace controls as admin, limited to client-safe CRM actions.
       </p>
 

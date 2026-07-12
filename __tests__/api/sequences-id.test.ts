@@ -5,9 +5,13 @@ const mockGet = jest.fn()
 const mockUpdate = jest.fn()
 const mockDoc = jest.fn()
 const mockCollection = jest.fn()
+const mockAssertEmailMarketingAgentAction = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
+}))
+jest.mock('@/lib/email-marketing/agent-governance', () => ({
+  assertEmailMarketingAgentAction: mockAssertEmailMarketingAgentAction,
 }))
 jest.mock('@/lib/auth/middleware', () => ({
   withAuth: (_role: string, handler: (...args: unknown[]) => unknown) => handler,
@@ -19,6 +23,7 @@ const params = { params: Promise.resolve({ id: 'seq1' }) }
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockAssertEmailMarketingAgentAction.mockReturnValue({ ok: true, gateRequired: false })
   mockDoc.mockReturnValue({ get: mockGet, update: mockUpdate })
   mockCollection.mockReturnValue({ doc: mockDoc })
 })
@@ -55,6 +60,26 @@ describe('PUT /api/v1/sequences/[id]', () => {
     })
     const res = await PUT(req, params)
     expect(res.status).toBe(200)
+    expect(mockUpdate).toHaveBeenCalledWith(expect.not.objectContaining({ orgId: expect.anything() }))
+  })
+
+  it('never allows request fields to change organisation ownership', async () => {
+    mockGet.mockResolvedValue({ exists: true, id: 'seq1', data: () => ({ orgId: 'org-test', name: 'Old', status: 'draft', steps: [], deleted: false }) })
+    mockUpdate.mockResolvedValue({})
+    const { PUT } = await import('@/app/api/v1/sequences/[id]/route')
+    const req = new NextRequest('http://localhost/api/v1/sequences/seq1', {
+      method: 'PUT',
+      headers: { ...authHeader, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'New', orgId: 'org-attacker', createdBy: 'attacker', deleted: true }),
+    })
+    const res = await PUT(req, params)
+
+    expect(res.status).toBe(200)
+    expect(mockUpdate).toHaveBeenCalledWith(expect.not.objectContaining({
+      orgId: expect.anything(),
+      createdBy: expect.anything(),
+      deleted: expect.anything(),
+    }))
   })
 
   it('rejects activation when an email step has no body copy', async () => {
@@ -84,6 +109,25 @@ describe('PUT /api/v1/sequences/[id]', () => {
     expect(res.status).toBe(400)
     expect(body.error).toMatch(/Step 1/i)
     expect(body.error).toMatch(/body/i)
+    expect(mockUpdate).not.toHaveBeenCalled()
+  })
+
+  it('blocks sequence activation when agent approval governance fails', async () => {
+    mockGet.mockResolvedValue({
+      exists: true,
+      id: 'seq1',
+      data: () => ({
+        orgId: 'org-test', status: 'draft', steps: [{ stepNumber: 0, delayDays: 0, subject: 'Hi', bodyText: 'Hi' }], deleted: false,
+      }),
+    })
+    mockAssertEmailMarketingAgentAction.mockImplementation(() => { throw new Error('human approval required') })
+    const { PUT } = await import('@/app/api/v1/sequences/[id]/route')
+    const req = new NextRequest('http://localhost/api/v1/sequences/seq1', {
+      method: 'PUT', headers: { ...authHeader, 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'active' }),
+    })
+    const res = await PUT(req, params)
+
+    expect(res.status).toBe(403)
     expect(mockUpdate).not.toHaveBeenCalled()
   })
 })

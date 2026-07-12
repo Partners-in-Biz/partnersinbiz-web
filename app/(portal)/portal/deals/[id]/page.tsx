@@ -469,16 +469,16 @@ export default function DealDetailPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-8 w-48" />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="space-y-4">
-            <Skeleton className="h-24" />
-            <Skeleton className="h-48" />
+      <div className="space-y-2">
+        <Skeleton className="h-11 w-full rounded-xl" />
+        <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
+          <div className="space-y-2">
+            <Skeleton className="h-20 rounded-xl" />
+            <Skeleton className="h-40 rounded-xl" />
           </div>
-          <div className="lg:col-span-2 space-y-4">
-            <Skeleton className="h-48" />
-            <Skeleton className="h-64" />
+          <div className="space-y-2 lg:col-span-2">
+            <Skeleton className="h-40 rounded-xl" />
+            <Skeleton className="h-52 rounded-xl" />
           </div>
         </div>
       </div>
@@ -491,8 +491,8 @@ export default function DealDetailPage() {
         <span className="material-symbols-outlined block text-[19px] text-on-surface-variant">
           monetization_on
         </span>
-        <p className="text-[var(--color-pib-text-muted)]">{error || 'Deal not found'}</p>
-        <Link href={dealListHref} className="text-sm text-[var(--color-pib-accent)] hover:underline">
+        <p className="text-on-surface-variant">{error || 'Deal not found'}</p>
+        <Link href={dealListHref} className="text-sm text-primary hover:underline">
           ← Back to Deals
         </Link>
       </div>

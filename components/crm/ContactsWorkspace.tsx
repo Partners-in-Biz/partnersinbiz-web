@@ -1336,7 +1336,7 @@ export function ContactsWorkspace({
                 checked={allSelected}
                 ref={el => { if (el) el.indeterminate = someSelected }}
                 onChange={toggleSelectAll}
-                className="w-4 h-4 rounded cursor-pointer accent-[var(--color-pib-accent)]"
+                className="w-4 h-4 rounded cursor-pointer accent-[var(--color-accent-v2)]"
                 aria-label="Select all contacts"
               />
             </div>
@@ -1373,7 +1373,7 @@ export function ContactsWorkspace({
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => toggleSelect(c.id)}
-                      className="h-5 w-5 rounded cursor-pointer accent-[var(--color-pib-accent)] md:h-4 md:w-4"
+                      className="h-5 w-5 rounded cursor-pointer accent-[var(--color-accent-v2)] md:h-4 md:w-4"
                       aria-label={`Select ${contactName}`}
                     />
                   </div>

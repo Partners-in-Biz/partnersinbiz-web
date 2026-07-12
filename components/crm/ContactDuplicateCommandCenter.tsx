@@ -99,7 +99,7 @@ function DuplicateGroupResolver({
                 value={contact.id}
                 checked={isWinner}
                 onChange={() => setWinnerId(contact.id)}
-                className="mt-0.5 accent-[var(--color-pib-accent)]"
+                className="mt-0.5 accent-[var(--color-accent-v2)]"
               />
               <span className="min-w-0">
                 <span className="block truncate text-xs font-medium text-on-surface">

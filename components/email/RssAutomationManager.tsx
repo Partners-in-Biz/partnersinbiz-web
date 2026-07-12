@@ -156,14 +156,14 @@ export default function RssAutomationManager({ orgScope }: Props) {
 
   if (loading) {
     return (
-      <div className="bento-card !p-6">
+      <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
         <p className="text-sm text-[var(--color-pib-text-muted)]">Loading RSS automations…</p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-4">
+    <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
       {error && (
         <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
           {error}
@@ -174,7 +174,7 @@ export default function RssAutomationManager({ orgScope }: Props) {
       )}
 
       {!draft && (
-        <button type="button" onClick={() => setDraft(emptyDraft())} className="btn-pib-accent flex w-fit items-center gap-1.5 text-sm">
+        <button type="button" onClick={() => setDraft(emptyDraft())} className="flex h-8 w-fit items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black">
           <span className="material-symbols-outlined text-[16px]">add</span>
           New RSS digest
         </button>
@@ -182,7 +182,7 @@ export default function RssAutomationManager({ orgScope }: Props) {
 
       {/* Editor */}
       {draft && (
-        <div className="bento-card !p-5 space-y-4">
+        <div className="mt-3 space-y-3 border-t border-[var(--color-card-border)] pt-3">
           <h3 className="text-sm font-semibold">{draft.id ? 'Edit RSS digest' : 'New RSS digest'}</h3>
 
           <div className="grid gap-3 md:grid-cols-2">
@@ -353,10 +353,10 @@ export default function RssAutomationManager({ orgScope }: Props) {
 
           {saveError && <p className="text-xs text-red-300">{saveError}</p>}
           <div className="flex items-center gap-2">
-            <button type="button" onClick={save} disabled={saving} className="btn-pib-accent text-sm disabled:opacity-50">
+            <button type="button" onClick={save} disabled={saving} className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black disabled:opacity-50">
               {saving ? 'Saving…' : 'Save digest'}
             </button>
-            <button type="button" onClick={() => setDraft(null)} className="btn-pib-secondary text-sm">
+            <button type="button" onClick={() => setDraft(null)} className="h-8 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant hover:bg-white/[0.05] hover:text-on-surface">
               Cancel
             </button>
           </div>
@@ -365,14 +365,14 @@ export default function RssAutomationManager({ orgScope }: Props) {
 
       {/* List */}
       {list.length === 0 && !draft ? (
-        <div className="bento-card !p-6 text-center">
-          <span className="material-symbols-outlined mb-2 block text-3xl text-[var(--color-pib-text-muted)]">rss_feed</span>
+        <div className="mt-3 border-t border-[var(--color-card-border)] p-3 text-center">
+          <span className="material-symbols-outlined mb-2 block text-[18px] text-[var(--color-pib-text-muted)]">rss_feed</span>
           <p className="text-sm text-[var(--color-pib-text-muted)]">No RSS digests yet. Create one to auto-email new posts.</p>
         </div>
       ) : (
         <div className="space-y-2">
           {list.map((item) => (
-            <article key={item.id} className="bento-card !p-4">
+            <article key={item.id} className="border-t border-[var(--color-card-border)] px-2 py-3">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="mb-1 flex items-center gap-2">

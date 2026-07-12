@@ -381,7 +381,7 @@ function SourceCard({
         </div>
       </div>
 
-      {error && <p className="px-4 pb-2 text-sm text-[#FCA5A5]">{error}</p>}
+      {error && <p className="px-4 pb-2 text-sm text-red-300">{error}</p>}
 
       {expanded && (
         <div className="border-t border-[var(--color-pib-line)] p-4 space-y-5">
@@ -410,7 +410,7 @@ function SourceCard({
                 role="alertdialog"
                 aria-labelledby={`capture-source-rotate-title-${source.id}`}
                 aria-describedby={`capture-source-rotate-description-${source.id}`}
-                className="mt-3 rounded-lg border border-amber-300/30 bg-amber-400/10 px-4 py-3 shadow-xl"
+                className="mt-3 rounded-md border border-amber-300/30 bg-amber-400/10 px-3 py-2"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex gap-3">
@@ -431,7 +431,7 @@ function SourceCard({
                     <button
                       type="button"
                       onClick={() => setRotateConfirmOpen(false)}
-                      className="btn-pib-secondary text-xs"
+                      className="h-8 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant hover:bg-white/[0.05] hover:text-on-surface"
                       disabled={busy}
                       aria-label={`Cancel key rotation for capture source ${displayName}`}
                     >
@@ -611,7 +611,7 @@ function SourceCard({
                 role="alertdialog"
                 aria-labelledby={`capture-source-delete-title-${source.id}`}
                 aria-describedby={`capture-source-delete-description-${source.id}`}
-                className="rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-3 shadow-xl"
+                className="rounded-md border border-red-400/30 bg-red-500/10 px-3 py-2"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex gap-3">
@@ -632,7 +632,7 @@ function SourceCard({
                     <button
                       type="button"
                       onClick={() => setDeleteConfirmOpen(false)}
-                      className="btn-pib-secondary text-xs"
+                      className="h-8 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant hover:bg-white/[0.05] hover:text-on-surface"
                       disabled={busy}
                       aria-label={`Cancel delete for capture source ${displayName}`}
                     >
@@ -658,7 +658,7 @@ function SourceCard({
               <button
                 onClick={() => setDeleteConfirmOpen(true)}
                 disabled={busy}
-                className="px-3 py-1.5 rounded-lg bg-white/[0.04] text-[#FCA5A5] text-sm border border-[var(--color-pib-line)] hover:bg-red-500/10 disabled:opacity-50 transition-colors"
+                className="h-8 rounded-md border border-[var(--color-card-border)] bg-white/[0.04] px-2.5 text-xs text-red-300 transition-colors hover:bg-red-500/10 disabled:opacity-50"
                 type="button"
                 aria-label={`Delete capture source ${displayName}`}
               >
@@ -848,12 +848,12 @@ export function CaptureSourcesWorkspace({
   }
 
   return (
-    <div className="space-y-8">
-      <header className="flex items-start justify-between gap-4 flex-wrap">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+      <header className="flex min-h-11 items-center justify-between gap-3 border-b border-[var(--color-card-border)] px-3 py-2">
         <div>
           <p className="eyebrow">{orgName || 'CRM'}</p>
-          <h1 className="pib-page-title mt-2">Capture command center</h1>
-          <p className="pib-page-sub max-w-2xl">
+          <h1 className="mt-0.5 text-base font-semibold text-on-surface">Capture command center</h1>
+          <p className="max-w-2xl text-xs leading-4 text-on-surface-variant">
             {surface === 'admin-org'
               ? 'Internal operator surface for this client: manage every path that feeds contacts into the CRM while every read and write carries explicit organisation scope.'
               : 'Manage every path that feeds contacts into the CRM, from embedded forms to partner APIs and CSV imports. Keep each channel measurable, tagged, and ready for follow-up.'}
@@ -861,7 +861,7 @@ export function CaptureSourcesWorkspace({
         </div>
         <Link
           href={importHref}
-          className="btn-pib-secondary !py-2 !px-4 !text-sm"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
         >
           <span className="material-symbols-outlined text-base" aria-hidden="true">
             upload_file
@@ -870,7 +870,7 @@ export function CaptureSourcesWorkspace({
         </Link>
       </header>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 border-b border-[var(--color-card-border)] p-3 sm:grid-cols-4">
         <MetricCard
           label="Total captures"
           value={metrics.totalCaptures}
@@ -897,8 +897,8 @@ export function CaptureSourcesWorkspace({
         />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="rounded-xl bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] p-4">
+      <div className="grid border-b border-[var(--color-card-border)] xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="p-3 xl:border-r xl:border-[var(--color-card-border)]">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Create an intake channel</h2>
@@ -913,14 +913,14 @@ export function CaptureSourcesWorkspace({
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Source name (e.g. Homepage form)"
-              className="px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] text-[var(--color-pib-text)] text-sm"
+              className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface"
               disabled={submitting}
               autoComplete="off"
             />
             <select
               value={newType}
               onChange={(e) => setNewType(e.target.value as CaptureSourceType)}
-              className="px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] text-[var(--color-pib-text)] text-sm"
+              className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface"
               disabled={submitting}
               aria-label="Capture source type"
             >
@@ -931,15 +931,15 @@ export function CaptureSourcesWorkspace({
             <button
               type="submit"
               disabled={submitting || !newName.trim()}
-              className="btn-pib-accent !py-2 !px-4 !text-sm disabled:opacity-50"
+              className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black disabled:opacity-50"
             >
               {submitting ? 'Creating...' : 'Create'}
             </button>
           </form>
-          {formError && <p className="mt-2 text-sm text-[#FCA5A5]">{formError}</p>}
+          {formError && <p className="mt-2 text-xs text-red-300">{formError}</p>}
         </div>
 
-        <div className="rounded-xl bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] p-4">
+        <div className="p-3">
           <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Channel mix</h2>
           <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
             Balance high-intent forms with imports and partner APIs so CRM growth is not trapped in one channel.
@@ -976,7 +976,7 @@ export function CaptureSourcesWorkspace({
             <button
               type="button"
               onClick={loadSources}
-              className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant hover:bg-white/[0.05] hover:text-on-surface"
               aria-label="Retry loading capture sources"
             >
               <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
@@ -1004,7 +1004,7 @@ export function CaptureSourcesWorkspace({
                 <button
                   type="button"
                   onClick={focusFirstFormSource}
-                  className="btn-pib-accent inline-flex items-center gap-1.5 text-sm"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black"
                 >
                   <span className="material-symbols-outlined text-[16px]" aria-hidden>
                     dynamic_form
@@ -1013,7 +1013,7 @@ export function CaptureSourcesWorkspace({
                 </button>
                 <Link
                   href={importHref}
-                  className="btn-pib-secondary inline-flex items-center gap-1.5 text-sm"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant hover:bg-white/[0.05] hover:text-on-surface"
                 >
                   <span className="material-symbols-outlined text-[16px]" aria-hidden>
                     upload_file

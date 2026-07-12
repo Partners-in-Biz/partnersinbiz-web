@@ -8,6 +8,7 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import type { ApiUser } from '@/lib/api/types'
 import { evaluateSequenceReentry } from '@/lib/email-marketing/automation-policy'
 import type { SequenceEnrollment, SequenceReentryPolicy } from '@/lib/sequences/types'
+import { assertEmailMarketingAgentAction } from '@/lib/email-marketing/agent-governance'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,6 +29,12 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
 
   const scope = resolveOrgScope(user, seqOrgId)
   if (!scope.ok) return apiError(scope.error, scope.status)
+
+  try {
+    assertEmailMarketingAgentAction(user, 'email_marketing_send', seq.approvalState)
+  } catch (error) {
+    return apiError(error instanceof Error ? error.message : 'Sequence enrollment is not authorised', 403)
+  }
 
   const campaignId: string = typeof body.campaignId === 'string' ? body.campaignId : ''
 

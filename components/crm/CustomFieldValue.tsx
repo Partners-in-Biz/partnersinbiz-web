@@ -19,13 +19,13 @@ function isEmpty(v: unknown): boolean {
 }
 
 function MissingValue({ label = 'Not captured' }: { label?: string }) {
-  return <span className="text-sm text-[var(--color-pib-text-muted)]">{label}</span>
+  return <span className="text-sm text-on-surface-variant">{label}</span>
 }
 
 function Chip({ label, color }: { label: string; color?: string }) {
   return (
     <span
-      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border border-[var(--color-pib-line)]"
+      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border border-[var(--color-card-border)]"
       style={color ? { backgroundColor: color + '22', borderColor: color, color } : undefined}
     >
       {label}
@@ -50,7 +50,7 @@ export function CustomFieldValue({ definition, value }: CustomFieldValueProps) {
 
   // ── text / longtext / phone ─────────────────────────────────────────────────
   if (type === 'text' || type === 'longtext' || type === 'phone') {
-    return <span className="text-sm text-[var(--color-pib-text)]">{String(value)}</span>
+    return <span className="text-sm text-on-surface">{String(value)}</span>
   }
 
   // ── url ─────────────────────────────────────────────────────────────────────
@@ -83,7 +83,7 @@ export function CustomFieldValue({ definition, value }: CustomFieldValueProps) {
   if (type === 'number') {
     if (value === undefined || value === null) return <MissingValue />
     return (
-      <span className="text-sm text-[var(--color-pib-text)]">
+      <span className="text-sm text-on-surface">
         {(value as number).toLocaleString()}
       </span>
     )
@@ -103,7 +103,7 @@ export function CustomFieldValue({ definition, value }: CustomFieldValueProps) {
     } catch {
       formatted = `${cv.currency ?? ''} ${cv.amount}`
     }
-    return <span className="text-sm text-[var(--color-pib-text)]">{formatted}</span>
+    return <span className="text-sm text-on-surface">{formatted}</span>
   }
 
   // ── date ────────────────────────────────────────────────────────────────────
@@ -111,7 +111,7 @@ export function CustomFieldValue({ definition, value }: CustomFieldValueProps) {
     if (isEmpty(value)) return <MissingValue />
     const parsed = parseValidDate(value)
     if (!parsed) return <MissingValue label={`Invalid ${definition.label} date`} />
-    return <span className="text-sm text-[var(--color-pib-text)]">{parsed.toLocaleDateString()}</span>
+    return <span className="text-sm text-on-surface">{parsed.toLocaleDateString()}</span>
   }
 
   // ── datetime ────────────────────────────────────────────────────────────────
@@ -119,7 +119,7 @@ export function CustomFieldValue({ definition, value }: CustomFieldValueProps) {
     if (isEmpty(value)) return <MissingValue />
     const parsed = parseValidDate(value)
     if (!parsed) return <MissingValue label={`Invalid ${definition.label} time`} />
-    return <span className="text-sm text-[var(--color-pib-text)]">{parsed.toLocaleString()}</span>
+    return <span className="text-sm text-on-surface">{parsed.toLocaleString()}</span>
   }
 
   // ── dropdown ────────────────────────────────────────────────────────────────
@@ -151,7 +151,7 @@ export function CustomFieldValue({ definition, value }: CustomFieldValueProps) {
   // ── checkbox ────────────────────────────────────────────────────────────────
   if (type === 'checkbox') {
     return (
-      <span className="text-sm text-[var(--color-pib-text)]">
+      <span className="text-sm text-on-surface">
         {value ? 'Yes' : 'No'}
       </span>
     )

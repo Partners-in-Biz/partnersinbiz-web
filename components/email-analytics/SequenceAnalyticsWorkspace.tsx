@@ -85,7 +85,7 @@ export function SequenceAnalyticsWorkspace({
 
   const shellClass =
     surface === 'portal'
-      ? 'mx-auto max-w-5xl space-y-6'
+      ? 'mx-auto max-w-5xl overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3'
       : 'p-6 max-w-5xl mx-auto space-y-6'
 
   if (loading) {
@@ -117,10 +117,10 @@ export function SequenceAnalyticsWorkspace({
       <BackLink href={backHref} surface={surface} />
       <header>
         {surface === 'portal' && <p className="eyebrow">Email nurture</p>}
-        <h1 className={surface === 'portal' ? 'pib-page-title mt-2' : 'text-2xl font-semibold text-on-surface'}>
+        <h1 className={surface === 'portal' ? 'mt-0.5 text-base font-semibold text-on-surface' : 'text-2xl font-semibold text-on-surface'}>
           {sequenceName} performance
         </h1>
-        <p className={surface === 'portal' ? 'pib-page-sub mt-2' : 'mt-2 text-sm text-on-surface-variant'}>
+        <p className={surface === 'portal' ? 'mt-1 text-xs leading-4 text-on-surface-variant' : 'mt-2 text-sm text-on-surface-variant'}>
           {sequenceDescription}
         </p>
         <p className={surface === 'portal' ? 'mt-2 text-xs text-[var(--color-pib-text-muted)]' : 'mt-2 text-xs text-on-surface-variant'}>
@@ -161,7 +161,7 @@ export function SequenceAnalyticsWorkspace({
         </Section>
       )}
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-2">
         <Section surface={surface} title="Enrollment status">
           {statusData.length === 0 ? <Empty surface={surface}>No enrollments yet.</Empty> : <Donut data={statusData} />}
         </Section>

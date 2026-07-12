@@ -859,7 +859,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
               </div>
               <div className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.03] px-4 py-3 text-right">
                 <p className="eyebrow !text-[10px]">Profile strength</p>
-                <p className="mt-1 text-2xl font-semibold text-[var(--color-pib-accent)]">{profileScore}%</p>
+                <p className="mt-1 text-2xl font-semibold text-[var(--color-accent-v2)]">{profileScore}%</p>
               </div>
             </div>
 

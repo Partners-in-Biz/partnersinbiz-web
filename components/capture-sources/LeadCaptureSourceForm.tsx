@@ -327,7 +327,7 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
           Could not load this capture source
         </h2>
         <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{loadError}</p>
-        <button type="button" onClick={loadSource} className="btn-pib-secondary mt-4 text-sm">
+        <button type="button" onClick={loadSource} className="mt-3 h-8 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant hover:bg-white/[0.05] hover:text-on-surface">
           Retry
         </button>
       </section>
@@ -335,12 +335,12 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
   }
 
   return (
-    <form onSubmit={handleSave} className="space-y-6">
-      <header className="flex items-start justify-between gap-4 flex-wrap">
+    <form onSubmit={handleSave} className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+      <header className="flex min-h-11 items-center justify-between gap-3 border-b border-[var(--color-card-border)] px-3 py-2">
         <div>
           <p className="eyebrow">{surface === 'admin-org' ? 'Client lead capture' : 'Lead capture'}</p>
-          <h1 className="pib-page-title mt-2">{isEdit ? 'Edit capture source' : 'New capture source'}</h1>
-          <p className="pib-page-sub max-w-2xl">
+          <h1 className="mt-0.5 text-base font-semibold text-on-surface">{isEdit ? 'Edit capture source' : 'New capture source'}</h1>
+          <p className="max-w-2xl text-xs leading-4 text-on-surface-variant">
             Configure how this source collects leads — opt-in mode, the fields it asks for, theming,
             auto-applied tags, and an optional outbound webhook.
           </p>
@@ -549,7 +549,7 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
                   <button
                     type="button"
                     onClick={() => removeField(idx)}
-                    className="px-2.5 py-1 rounded-md text-xs text-[#FCA5A5] bg-white/[0.04] hover:bg-red-500/10 border border-[var(--color-pib-line)] transition-colors"
+                    className="rounded-md border border-[var(--color-card-border)] bg-white/[0.04] px-2.5 py-1 text-xs text-red-300 transition-colors hover:bg-red-500/10"
                   >
                     Remove
                   </button>
@@ -740,7 +740,7 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
                       </span>
                     </div>
                     {d.lastError && (
-                      <p className="mt-1 text-xs text-[#FCA5A5] break-all">{d.lastError}</p>
+                      <p className="mt-1 break-all text-xs text-red-300">{d.lastError}</p>
                     )}
                     {Array.isArray(d.attempts) && d.attempts.length > 1 && (
                       <div className="mt-2 space-y-0.5">
@@ -764,18 +764,18 @@ export function LeadCaptureSourceForm({ orgId, sourceId, listHref, surface = 'po
         )}
       </div>
 
-      {error && <p className="text-sm text-[#FCA5A5]">{error}</p>}
+      {error && <p className="text-xs text-red-300">{error}</p>}
 
       <div className="flex items-center justify-end gap-2">
         <button
           type="button"
           onClick={() => router.push(listHref)}
-          className="btn-pib-secondary !py-2 !px-4 !text-sm"
+          className="h-8 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant hover:bg-white/[0.05] hover:text-on-surface"
           disabled={saving}
         >
           Cancel
         </button>
-        <button type="submit" disabled={saving || !name.trim()} className="btn-pib-accent !py-2 !px-4 !text-sm disabled:opacity-50">
+        <button type="submit" disabled={saving || !name.trim()} className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black disabled:opacity-50">
           {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create source'}
         </button>
       </div>

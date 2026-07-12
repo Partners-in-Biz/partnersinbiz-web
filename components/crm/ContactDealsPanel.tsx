@@ -263,7 +263,7 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '', orgScope
             <span>Loading relationship pipeline for {contactLabel}...</span>
           </div>
           {[...Array(2)].map((_, i) => (
-            <div key={i} className="pib-skeleton h-10" />
+            <div key={i} className="pib-skeleton h-10 rounded-md" />
           ))}
         </div>
       ) : loadError ? (

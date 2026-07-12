@@ -1142,7 +1142,7 @@ export default function PortalContactDetailPage() {
           ].map(([title, body]) => (
             <div key={title} className="border-t border-[var(--color-card-border)] p-3 md:border-l md:border-t-0">
               <div className="mb-4 h-2 overflow-hidden rounded-full bg-white/10">
-                <div className="h-full w-2/3 rounded-full bg-[var(--color-pib-accent)]" />
+                <div className="h-full w-2/3 rounded-full bg-[var(--color-accent-v2)]" />
               </div>
               <h2 className="font-display text-lg text-on-surface">{title}</h2>
               <p className="mt-2 text-xs leading-5 text-on-surface-variant">{body}</p>
@@ -1200,7 +1200,7 @@ export default function PortalContactDetailPage() {
     return (
       <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center">
         <h2 className="font-display text-2xl">Contact not found.</h2>
-        <Link href={contactListHref} className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surfacemt-4">
+        <Link href={contactListHref} className="mt-4 inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface">
           <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
           Back to contacts
         </Link>
@@ -1707,7 +1707,7 @@ export default function PortalContactDetailPage() {
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-white/10">
               <div
-                className="h-full rounded-full bg-[var(--color-pib-accent)] transition-all duration-500"
+                className="h-full rounded-full bg-[var(--color-accent-v2)] transition-all duration-500"
                 style={{ width: fmtPercent(profileStrength) }}
               />
             </div>
