@@ -25,13 +25,13 @@ function timestamp(ms: number) {
   return { toMillis: () => ms }
 }
 
-function conversationDoc(id: string, updatedAtMs: number) {
+function conversationDoc(id: string, updatedAtMs: number, participantUids = ['admin-1']) {
   return {
     id,
     data: () => ({
       orgId: 'pib-platform-owner',
       startedBy: 'admin-1',
-      participantUids: ['admin-1'],
+      participantUids,
       participantAgentIds: ['pip'],
       participants: [],
       title: id,
@@ -52,6 +52,24 @@ beforeEach(() => {
 })
 
 describe('listConversations', () => {
+  it('does not list private conversations for a scoped administrator who was not invited', async () => {
+    mockIndexedGet.mockResolvedValue({
+      docs: [
+        conversationDoc('invited', 2000),
+        conversationDoc('not-invited', 3000, ['other-admin']),
+      ],
+    })
+
+    const { listConversations } = await import('@/lib/conversations/conversations')
+    const conversations = await listConversations(
+      'pib-platform-owner',
+      { uid: 'admin-1', role: 'admin' },
+      30,
+    )
+
+    expect(conversations.map((conversation) => conversation.id)).toEqual(['invited'])
+  })
+
   it('falls back to an org query and sorts in memory while the composite index is unavailable', async () => {
     mockIndexedGet.mockRejectedValue(Object.assign(new Error('The query requires an index.'), {
       code: 9,

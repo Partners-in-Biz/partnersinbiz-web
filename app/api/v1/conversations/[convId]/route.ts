@@ -3,7 +3,7 @@
  * PATCH /api/v1/conversations/[convId] — update metadata and Workspace access
  * DELETE /api/v1/conversations/[convId] — permanently delete a conversation
  *
- * Auth: participant in the conversation OR admin role
+ * Auth: explicit participant, or an organisation member for org-visible Workspace conversations
  */
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'

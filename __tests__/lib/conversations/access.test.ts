@@ -66,14 +66,18 @@ describe('Workspace conversation access', () => {
     expect(canAccessConversation(outsider, conversation('org'))).toBe(false)
   })
 
-  it('scopes administrators and requires AI callers to be participating agents', () => {
+  it('requires administrators and AI callers to be explicit participants in private conversations', () => {
     const restrictedAdmin = { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-2'] } as ApiUser
     const scopedAdmin = { uid: 'admin-2', role: 'admin', allowedOrgIds: ['org-1'] } as ApiUser
+    const participatingAdmin = { uid: 'admin-3', role: 'admin', allowedOrgIds: ['org-1'] } as ApiUser
     const pip = { uid: 'agent-user', role: 'ai', agentId: 'pip', orgId: 'org-1' } as ApiUser
     const crossOrgPip = { uid: 'agent-user', role: 'ai', agentId: 'pip', orgId: 'org-2' } as ApiUser
     const maya = { uid: 'agent-user-2', role: 'ai', agentId: 'maya', orgId: 'org-1' } as ApiUser
     expect(canAccessConversation(restrictedAdmin, conversation('private'))).toBe(false)
-    expect(canAccessConversation(scopedAdmin, conversation('private'))).toBe(true)
+    const privateConversation = conversation('private')
+    privateConversation.participantUids.push('admin-3')
+    expect(canAccessConversation(scopedAdmin, privateConversation)).toBe(false)
+    expect(canAccessConversation(participatingAdmin, privateConversation)).toBe(true)
     expect(canAccessConversation(pip, conversation('private'))).toBe(true)
     expect(canAccessConversation(crossOrgPip, conversation('private'))).toBe(false)
     expect(canAccessConversation(maya, conversation('org'))).toBe(false)
