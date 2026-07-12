@@ -125,6 +125,11 @@ interface OrgWorkspaceSummary {
   defaultRuntimeTarget: string
 }
 
+interface WorkspaceProjectSummary {
+  id: string
+  name: string
+}
+
 interface WorkspaceRuntimePresence {
   id: string
   label: string
@@ -418,9 +423,11 @@ export default function UnifiedChat({
     scope ?? (projectId ? 'project' : 'general'),
   )
   const [workspaces, setWorkspaces] = useState<OrgWorkspaceSummary[]>([])
+  const [workspaceProjects, setWorkspaceProjects] = useState<WorkspaceProjectSummary[]>([])
   const [workspaceRuntimeTargets, setWorkspaceRuntimeTargets] = useState<WorkspaceRuntimePresence[]>([])
   const [workspacesLoading, setWorkspacesLoading] = useState(false)
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('')
+  const [selectedProjectId, setSelectedProjectId] = useState(projectId ?? '')
   const [selectedWorkspaceRuntime, setSelectedWorkspaceRuntime] = useState<'vps' | 'local'>('vps')
   const [selectedWorkspaceShareMode, setSelectedWorkspaceShareMode] = useState<'private' | 'shared' | 'org'>('private')
   const [creatingConv, setCreatingConv] = useState(false)
@@ -570,9 +577,14 @@ export default function UnifiedChat({
         const runtimes = Array.isArray(body?.data?.runtimeTargets)
           ? (body.data.runtimeTargets as WorkspaceRuntimePresence[])
           : []
+        const projects = Array.isArray(body?.data?.projects)
+          ? (body.data.projects as WorkspaceProjectSummary[])
+          : []
         setWorkspaces(next)
+        setWorkspaceProjects(projects)
         setWorkspaceRuntimeTargets(runtimes)
         setSelectedWorkspaceId((current) => current || next[0]?.workspaceId || '')
+        setSelectedProjectId((current) => current || projectId || projects[0]?.id || '')
         setSelectedWorkspaceRuntime((current) => {
           const currentTarget = runtimes.find((runtime) => runtime.id === current)
           if (currentTarget?.selectable) return current
@@ -582,6 +594,7 @@ export default function UnifiedChat({
       .catch(() => {
         if (!cancelled) {
           setWorkspaces([])
+          setWorkspaceProjects([])
           setWorkspaceRuntimeTargets([])
         }
       })
@@ -589,7 +602,7 @@ export default function UnifiedChat({
         if (!cancelled) setWorkspacesLoading(false)
       })
     return () => { cancelled = true }
-  }, [orgId])
+  }, [orgId, projectId])
 
   useEffect(() => {
     setPinnedConversationIds(readPinnedConversationIds(orgId))
@@ -1620,8 +1633,16 @@ export default function UnifiedChat({
         payload.runtimeTarget = selectedWorkspaceRuntime
         payload.shareMode = selectedWorkspaceShareMode
       }
+      if (newScope === 'project') {
+        if (!selectedProjectId) throw new Error('Select a project before starting a project chat.')
+        if (!selectedWorkspaceId) throw new Error('No organisation Workspace is available for this project.')
+        payload.scopeRefId = selectedProjectId
+        payload.workspaceId = selectedWorkspaceId
+        payload.runtimeTarget = selectedWorkspaceRuntime
+        payload.shareMode = selectedWorkspaceShareMode
+      }
       if (newScope === scope && scopeRefId) payload.scopeRefId = scopeRefId
-      if (newScope === 'project' && projectId) payload.scopeRefId = projectId
+      if (newScope === 'project' && projectId && !payload.scopeRefId) payload.scopeRefId = projectId
       if (contextRefs.length > 0) payload.contextRefs = contextRefs
 
       const res = await fetch('/api/v1/conversations', {
@@ -1647,7 +1668,7 @@ export default function UnifiedChat({
     } finally {
       setCreatingConv(false)
     }
-  }, [allowStartConversations, creatingConv, newParticipants, newTitle, newScope, orgId, projectId, scope, scopeRefId, contextRefs, selectedWorkspaceId, selectedWorkspaceRuntime, selectedWorkspaceShareMode])
+  }, [allowStartConversations, creatingConv, newParticipants, newTitle, newScope, orgId, projectId, scope, scopeRefId, contextRefs, selectedWorkspaceId, selectedWorkspaceRuntime, selectedWorkspaceShareMode, selectedProjectId])
 
   const send = useCallback(
     async (e: FormEvent) => {
@@ -1868,7 +1889,7 @@ export default function UnifiedChat({
   const availableConversationContexts = [
     { value: 'general' as const, label: `Workspace-wide${orgName ? `: ${orgName}` : ''}` },
     ...(workspaces.length > 0 ? [{ value: 'workspace' as const, label: 'Workspace' }] : []),
-    ...(projectId ? [{ value: 'project' as const, label: `Current project: ${projectId}` }] : []),
+    ...(workspaceProjects.length > 0 || projectId ? [{ value: 'project' as const, label: 'Project inside organisation' }] : []),
     ...(scope && scope !== 'general' && scope !== 'project' && scope !== 'workspace'
       ? [{ value: scope, label: `Current ${scope}: ${scopeRefId ?? 'selected item'}` }]
       : []),
@@ -2947,29 +2968,42 @@ export default function UnifiedChat({
                 </select>
               </div>
 
-              {newScope === 'workspace' && (
+              {(newScope === 'workspace' || newScope === 'project') && (
                 <div className="grid gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3 sm:grid-cols-[minmax(0,1fr)_160px]">
                   <div>
                     <label className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
-                      Workspace
+                      {newScope === 'project' ? 'Project folder' : 'Organisation Workspace'}
                     </label>
-                    <select
-                      value={selectedWorkspaceId}
-                      onChange={(e) => setSelectedWorkspaceId(e.target.value)}
-                      disabled={workspacesLoading || workspaces.length === 0}
-                      className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface outline-none focus:border-primary/60 disabled:opacity-60"
-                    >
-                      {workspaces.length === 0 ? (
-                        <option value="">{workspacesLoading ? 'Loading Workspaces…' : 'No Workspaces available'}</option>
-                      ) : workspaces.map((workspace) => (
-                        <option key={workspace.workspaceId} value={workspace.workspaceId}>
-                          {workspace.orgName}
-                        </option>
-                      ))}
-                    </select>
+                    {newScope === 'project' ? (
+                      <select
+                        value={selectedProjectId}
+                        onChange={(e) => setSelectedProjectId(e.target.value)}
+                        disabled={workspacesLoading || workspaceProjects.length === 0}
+                        className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface outline-none focus:border-primary/60 disabled:opacity-60"
+                      >
+                        {workspaceProjects.length === 0 ? (
+                          <option value="">{workspacesLoading ? 'Loading projects…' : 'No projects available'}</option>
+                        ) : workspaceProjects.map((project) => (
+                          <option key={project.id} value={project.id}>{project.name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <select
+                        value={selectedWorkspaceId}
+                        onChange={(e) => setSelectedWorkspaceId(e.target.value)}
+                        disabled={workspacesLoading || workspaces.length === 0}
+                        className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface outline-none focus:border-primary/60 disabled:opacity-60"
+                      >
+                        {workspaces.length === 0 ? (
+                          <option value="">{workspacesLoading ? 'Loading Workspaces…' : 'No Workspaces available'}</option>
+                        ) : workspaces.map((workspace) => (
+                          <option key={workspace.workspaceId} value={workspace.workspaceId}>{workspace.orgName}</option>
+                        ))}
+                      </select>
+                    )}
                     {selectedWorkspace && (
                       <div className="mt-1 truncate text-[11px] text-on-surface-variant">
-                        VPS truth · {selectedWorkspace.vpsPath}
+                        VPS truth · {selectedWorkspace.vpsPath}{newScope === 'project' && selectedProjectId ? `/projects/${selectedProjectId}` : ''}
                       </div>
                     )}
                   </div>
@@ -3043,7 +3077,7 @@ export default function UnifiedChat({
               <button
                 type="button"
                 onClick={handleCreateConversation}
-                disabled={!allowStartConversations || creatingConv || newParticipants.length === 0 || (newScope === 'workspace' && !selectedWorkspaceId)}
+                disabled={!allowStartConversations || creatingConv || newParticipants.length === 0 || (newScope === 'workspace' && !selectedWorkspaceId) || (newScope === 'project' && (!selectedProjectId || !selectedWorkspaceId))}
                 className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary disabled:opacity-50 hover:opacity-90"
               >
                 {creatingConv ? 'Creating…' : 'Start conversation'}

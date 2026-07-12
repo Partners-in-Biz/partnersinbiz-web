@@ -226,7 +226,22 @@ export const POST = withAuth(
     if (convScope === 'workspace' && !requestedWorkspaceId) {
       return apiError('workspaceId is required for workspace conversations', 400)
     }
-    const shouldBindWorkspace = convScope === 'workspace' || Boolean(requestedWorkspaceId)
+    let projectName: string | undefined
+    if (convScope === 'project') {
+      if (!scopeRefId) return apiError('scopeRefId is required for project conversations', 400)
+      const projectDoc = await adminDb.collection('projects').doc(scopeRefId).get()
+      if (!projectDoc.exists) return apiError('Project not found', 404)
+      const projectData = projectDoc.data() ?? {}
+      const projectOrgIds = [
+        projectData.orgId,
+        projectData.clientOrgId,
+        projectData.targetOrgId,
+        projectData.recipientOrgId,
+      ].filter((value): value is string => typeof value === 'string' && value.length > 0)
+      if (!projectOrgIds.includes(scope.orgId)) return apiError('Project is outside this organisation', 403)
+      projectName = typeof projectData.name === 'string' ? projectData.name.trim() : undefined
+    }
+    const shouldBindWorkspace = convScope === 'workspace' || convScope === 'project' || Boolean(requestedWorkspaceId)
     let runtimeLabel: string | undefined
     if (shouldBindWorkspace && runtimeTarget) {
       const dispatchDoc = await adminDb.collection('agent_dispatch_configs').doc('pip').get()
@@ -244,9 +259,11 @@ export const POST = withAuth(
           runtimeTarget,
           runtimeLabel,
           shareMode,
+          projectId: convScope === 'project' ? scopeRefId : undefined,
+          projectName,
         })
       : null
-    if (requestedWorkspaceId && !workspaceContext) return apiError('Workspace not found for this organisation', 404)
+    if (shouldBindWorkspace && !workspaceContext) return apiError('Workspace not found for this organisation', 404)
     const contextRefs = await resolveContextReferences(
       sanitizeContextReferenceSeeds((body as Record<string, unknown>).contextRefs),
       user,

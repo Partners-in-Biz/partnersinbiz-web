@@ -177,6 +177,17 @@ beforeEach(() => {
         }),
       }
     }
+    if (name === 'projects') {
+      return {
+        doc: (id: string) => ({
+          get: async () => ({
+            exists: id === 'project-1',
+            id,
+            data: () => ({ orgId: 'org-1', name: 'Website launch' }),
+          }),
+        }),
+      }
+    }
     throw new Error(`Unexpected collection: ${name}`)
   })
 })
@@ -341,6 +352,35 @@ describe('platform-scoped unified conversations', () => {
         shareMode: 'private',
         companyId: 'company-1',
         contactIds: ['contact-1'],
+      }),
+    }))
+  })
+
+  it('binds a project conversation to its concrete Workspace project folder', async () => {
+    const { POST } = await import('@/app/api/v1/conversations/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/conversations', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        scope: 'project',
+        scopeRefId: 'project-1',
+        workspaceId: 'acme',
+        runtimeTarget: 'vps',
+        participants: [{ kind: 'agent', agentId: 'pip' }],
+      }),
+    }))
+
+    expect(res.status).toBe(201)
+    expect(mockCreateConversation).toHaveBeenCalledWith(expect.objectContaining({
+      scope: 'project',
+      scopeRefId: 'project-1',
+      workspaceContext: expect.objectContaining({
+        folderScope: 'project',
+        folderRelativePath: 'projects/project-1',
+        projectId: 'project-1',
+        projectName: 'Website launch',
+        vpsWorkingPath: '/var/lib/hermes/Cowork/Acme/projects/project-1',
+        localWorkingPath: '~/Cowork/Acme/projects/project-1',
       }),
     }))
   })
