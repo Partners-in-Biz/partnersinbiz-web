@@ -347,6 +347,7 @@ describe('unified conversation message routing', () => {
   })
 
   it('does not create a Hermes request when an explicit local target is stale', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined)
     const update = jest.fn().mockResolvedValue(undefined)
     mockMessagesCollection.mockReturnValue({ doc: () => ({ update }) })
     mockGetAgentDispatchHermesProfileLink.mockRejectedValue(Object.assign(
@@ -369,6 +370,38 @@ describe('unified conversation message routing', () => {
       runtimeDispatchFailureCode: 'runtime_target_stale',
       requestedRuntimeTargetId: 'local',
     }))
+    expect(errorSpy).toHaveBeenCalledWith('[conversation-agent-dispatch-failed]', {
+      convId: 'conv-1', agentId: 'pip', code: 'runtime_target_stale', requestedRuntimeTargetId: 'local',
+    })
+    errorSpy.mockRestore()
+  })
+
+  it('does not reflect unsafe target or exception strings into logs or stored metadata', async () => {
+    const unsafe = 'https://evil.example/path\napiKey=super-secret'
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined)
+    const update = jest.fn().mockResolvedValue(undefined)
+    mockMessagesCollection.mockReturnValue({ doc: () => ({ update }) })
+    mockGetAgentDispatchHermesProfileLink.mockRejectedValue(Object.assign(new Error(unsafe), {
+      code: 'runtime_target_invalid_id', requestedTargetId: unsafe,
+    }))
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1', orgId: 'pib-platform-owner', participantUids: ['client-1'], participantAgentIds: ['pip'],
+      participants: [{ kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' }, { kind: 'agent', agentId: 'pip', name: 'Pip' }],
+      workspaceContext: { runtimeTarget: unsafe },
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    await POST(req(), { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(mockCreateHermesRun).not.toHaveBeenCalled()
+    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain('evil.example')
+    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain('super-secret')
+    expect(JSON.stringify(update.mock.calls)).not.toContain('evil.example')
+    expect(JSON.stringify(update.mock.calls)).not.toContain('super-secret')
+    expect(errorSpy).toHaveBeenCalledWith('[conversation-agent-dispatch-failed]', {
+      convId: 'conv-1', agentId: 'pip', code: 'runtime_target_invalid_id', requestedRuntimeTargetId: 'invalid',
+    })
+    errorSpy.mockRestore()
   })
 
   it('stores a typed safe failure when workspace directory authorization fails', async () => {

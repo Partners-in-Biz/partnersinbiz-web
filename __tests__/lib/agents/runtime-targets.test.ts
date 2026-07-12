@@ -30,7 +30,6 @@ describe('agent runtime targets', () => {
           priority: 1,
           capabilities: ['local-files'],
           lastSeenAt: '2026-07-08T09:59:00Z',
-          lastSeenAt: '2026-07-08T09:59:00Z',
         },
       },
     })).toMatchObject({ targetId: 'vps', baseUrl: 'https://hermes-api.example/profiles/pip', apiKey: 'vps-key' })
@@ -95,6 +94,7 @@ describe('agent runtime targets', () => {
     ['disabled', { local: { baseUrl: 'https://local.example', apiKey: 'key', enabled: false, capabilities: ['local-files'], lastSeenAt: '2026-07-08T09:59:00Z' } }, 'runtime_target_disabled'],
     ['stale', { local: { baseUrl: 'https://local.example', apiKey: 'key', enabled: true, capabilities: ['local-files'], lastSeenAt: '2026-07-08T09:00:00Z' } }, 'runtime_target_stale'],
     ['unhealthy', { local: { baseUrl: 'https://local.example', apiKey: 'key', enabled: true, capabilities: ['local-files'], lastSeenAt: '2026-07-08T09:59:00Z', lastHealthStatus: 'unreachable' } }, 'runtime_target_unhealthy'],
+    ['degraded', { local: { baseUrl: 'https://local.example', apiKey: 'key', enabled: true, capabilities: ['local-files'], lastSeenAt: '2026-07-08T09:59:00Z', lastHealthStatus: 'degraded' } }, 'runtime_target_unhealthy'],
     ['keyless', { local: { baseUrl: 'https://local.example', enabled: true, capabilities: ['local-files'], lastSeenAt: '2026-07-08T09:59:00Z' } }, 'runtime_target_missing_api_key'],
   ])('returns a typed error for an explicit %s target without falling back', (_case, localTarget, code) => {
     expect(selectAgentRuntimeTarget({
@@ -117,6 +117,33 @@ describe('agent runtime targets', () => {
         local: { baseUrl: 'https://local.example', apiKey: 'key', enabled: true, capabilities: ['local-files'], lastSeenAt: '2026-07-08T09:00:00Z' },
       },
     })).toMatchObject({ targetId: 'vps' })
+  })
+
+  it('rejects unsafe explicit IDs instead of reflecting them or selecting another runtime', () => {
+    expect(selectAgentRuntimeTarget({
+      preference: 'https://evil.example/path\napiKey=secret',
+      runtimeTargets: { vps: { baseUrl: 'https://vps.example', apiKey: 'vps-key', enabled: true } },
+    })).toEqual({ ok: false, code: 'runtime_target_invalid_id', requestedTargetId: 'invalid' })
+  })
+
+  it('drops unsafe configured IDs and sanitizes labels used as machine metadata', () => {
+    const targets = {
+      'https://evil.example/path': {
+        id: 'apiKey=super-secret', baseUrl: 'https://evil.example', apiKey: 'secret', enabled: true,
+      },
+      local: {
+        baseUrl: 'https://local.example', apiKey: 'key', enabled: true, capabilities: ['local-files'],
+        lastSeenAt: '2026-07-08T09:59:00Z', label: 'Local\napiKey=secret/../../etc/passwd', hostId: 'bad\nhost/path',
+      },
+    }
+
+    expect(publicRuntimeTargetPresence(targets, { nowMs: now })).toEqual([
+      expect.objectContaining({ id: 'local', label: 'Local' }),
+    ])
+    expect(selectAgentRuntimeTarget({ preference: 'local', runtimeTargets: targets, nowMs: now })).toMatchObject({
+      targetId: 'local', machineLabel: 'Local',
+    })
+    expect(JSON.stringify(publicRuntimeTargetPresence(targets, { nowMs: now }))).not.toMatch(/apiKey|secret|\.\.\/|evil\.example/)
   })
 
   it('returns sanitized, presence-aware runtime targets for the Workspace UI', () => {

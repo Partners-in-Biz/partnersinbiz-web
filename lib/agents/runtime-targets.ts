@@ -39,6 +39,7 @@ export interface AgentDispatchTarget {
 }
 
 export type RuntimeTargetSelectionErrorCode =
+  | 'runtime_target_invalid_id'
   | 'runtime_target_not_found'
   | 'runtime_target_disabled'
   | 'runtime_target_stale'
@@ -75,6 +76,19 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 
 function cleanString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+const SAFE_RUNTIME_TARGET_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/i
+const SAFE_RUNTIME_LABEL = /^[a-z0-9][a-z0-9 ._'()-]{0,79}$/i
+
+export function safeRuntimeTargetId(value: unknown): string | undefined {
+  const cleaned = cleanString(value)
+  return cleaned && SAFE_RUNTIME_TARGET_ID.test(cleaned) ? cleaned.toLowerCase() : undefined
+}
+
+function safeRuntimeLabel(value: unknown): string | undefined {
+  const cleaned = cleanString(value)
+  return cleaned && SAFE_RUNTIME_LABEL.test(cleaned) ? cleaned : undefined
 }
 
 function numberOrDefault(value: unknown, fallback: number): number {
@@ -114,18 +128,18 @@ export function timestampToMs(value: unknown): number | null {
 function normalizeTarget(id: string, value: unknown, fallbackPriority: number): AgentRuntimeTarget | null {
   const record = asRecord(value)
   if (!record) return null
-  const targetId = cleanString(record.id) ?? id
+  const targetId = safeRuntimeTargetId(record.id) ?? safeRuntimeTargetId(id)
   const baseUrl = cleanString(record.baseUrl) ?? cleanString(record.base_url)
   if (!targetId || !baseUrl) return null
   return {
     id: targetId,
-    label: cleanString(record.label),
+    label: safeRuntimeLabel(record.label),
     baseUrl: baseUrl.replace(/\/+$/, ''),
     apiKey: cleanString(record.apiKey) ?? cleanString(record.api_key),
     enabled: record.enabled !== false,
     priority: numberOrDefault(record.priority, fallbackPriority),
     capabilities: stringArray(record.capabilities),
-    hostId: cleanString(record.hostId) ?? cleanString(record.host_id),
+    hostId: safeRuntimeTargetId(record.hostId) ?? safeRuntimeTargetId(record.host_id),
     lastSeenAt: record.lastSeenAt ?? record.last_seen_at,
     lastHealthStatus: cleanString(record.lastHealthStatus) ?? cleanString(record.last_health_status),
   }
@@ -164,7 +178,7 @@ function usableTarget(target: AgentRuntimeTarget, nowMs: number, staleAfterMs: n
 
 function isRuntimeTargetHealthy(target: AgentRuntimeTarget): boolean {
   const status = target.lastHealthStatus?.trim().toLowerCase()
-  return !status || !['unreachable', 'offline', 'error', 'failed'].includes(status)
+  return !status || !['degraded', 'unreachable', 'offline', 'error', 'failed'].includes(status)
 }
 
 function humanizeHostId(hostId: string): string {
@@ -186,8 +200,7 @@ export function publicRuntimeTargetPresence(
       const isLocal = isLocalRuntimeTarget(target)
       const seenMs = timestampToMs(target.lastSeenAt)
       const isFresh = isRuntimeTargetFresh(target, nowMs, staleAfterMs)
-      const healthStatus = target.lastHealthStatus?.trim().toLowerCase()
-      const isHealthy = !healthStatus || !['unreachable', 'offline', 'error', 'failed'].includes(healthStatus)
+      const isHealthy = isRuntimeTargetHealthy(target)
       const hostLabel = target.hostId ? humanizeHostId(target.hostId) : undefined
       const label = isLocal
         ? `Local${hostLabel ? `: ${hostLabel}` : ''}`
@@ -222,7 +235,9 @@ function toDispatchTarget(target: AgentRuntimeTarget): AgentDispatchTarget {
     apiKey: target.apiKey ?? '',
     source: 'runtimeTargets',
     runtimeKind,
-    machineLabel: target.hostId ? humanizeHostId(target.hostId) : target.label?.trim() || target.id,
+    machineLabel: target.hostId
+      ? humanizeHostId(target.hostId)
+      : target.label?.trim() || (runtimeKind === 'local' ? 'Local' : runtimeKind === 'vps' ? 'VPS' : target.id),
   }
 }
 
@@ -257,8 +272,13 @@ export function buildRuntimeTargetMap(target: {
 export function selectAgentRuntimeTarget(input: RuntimeTargetSelectionInput): RuntimeTargetResolution {
   const nowMs = input.nowMs ?? Date.now()
   const staleAfterMs = input.staleAfterMs ?? DEFAULT_RUNTIME_STALE_AFTER_MS
-  const preference = cleanString(input.preference)?.toLowerCase() ?? 'auto'
+  const rawPreference = cleanString(input.preference)?.toLowerCase() ?? 'auto'
+  const preference = rawPreference === 'auto' ? 'auto' : safeRuntimeTargetId(rawPreference)
   const targets = normalizeRuntimeTargets(input.runtimeTargets)
+
+  if (!preference) {
+    return { ok: false, code: 'runtime_target_invalid_id', requestedTargetId: 'invalid' }
+  }
 
   if (preference && preference !== 'auto') {
     const exact = targets.find((target) => target.id.toLowerCase() === preference)

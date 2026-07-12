@@ -21,6 +21,7 @@ import {
 } from '@/lib/conversations/conversations'
 import { createHermesRun } from '@/lib/hermes/server'
 import { getAgentDispatchHermesProfileLink } from '@/lib/agents/team'
+import { safeRuntimeTargetId, type RuntimeTargetSelectionErrorCode } from '@/lib/agents/runtime-targets'
 import { cleanAgentEffort, VALID_AGENT_EFFORTS, type AgentEffort } from '@/lib/agents/runRouting'
 import { buildAttachedContextBlock, resolveContextReferences } from '@/lib/context-references/registry'
 import {
@@ -419,19 +420,27 @@ export const POST = withAuth(
         })
         if (!agentLink) throw new Error(`No reachable runtime target configured for agent_team/${agentId}`)
       } catch (err) {
-        console.error('[conversation-agent-dispatch-failed]', {
-          convId,
-          agentId,
-          error: err instanceof Error ? err.message : String(err),
-        })
         const error = 'Agent dispatch is not configured for this Preview environment.'
         const runtimeFailure = err && typeof err === 'object'
           ? err as { code?: unknown; requestedTargetId?: unknown }
           : null
-        const runtimeDispatchFailureCode = typeof runtimeFailure?.code === 'string' ? runtimeFailure.code : undefined
-        const requestedRuntimeTargetId = typeof runtimeFailure?.requestedTargetId === 'string'
-          ? runtimeFailure.requestedTargetId
-          : conversation.workspaceContext?.runtimeTarget
+        const allowedFailureCodes: RuntimeTargetSelectionErrorCode[] = [
+          'runtime_target_invalid_id', 'runtime_target_not_found', 'runtime_target_disabled',
+          'runtime_target_stale', 'runtime_target_unhealthy', 'runtime_target_missing_api_key',
+        ]
+        const runtimeDispatchFailureCode = typeof runtimeFailure?.code === 'string'
+          && allowedFailureCodes.includes(runtimeFailure.code as RuntimeTargetSelectionErrorCode)
+          ? runtimeFailure.code as RuntimeTargetSelectionErrorCode
+          : undefined
+        const requestedRuntimeTargetId = safeRuntimeTargetId(runtimeFailure?.requestedTargetId)
+          ?? safeRuntimeTargetId(conversation.workspaceContext?.runtimeTarget)
+          ?? (runtimeDispatchFailureCode === 'runtime_target_invalid_id' ? 'invalid' : undefined)
+        console.error('[conversation-agent-dispatch-failed]', {
+          convId,
+          agentId,
+          code: runtimeDispatchFailureCode ?? 'agent_dispatch_unavailable',
+          ...(requestedRuntimeTargetId ? { requestedRuntimeTargetId } : {}),
+        })
         await messagesCollection(convId).doc(assistantMessage.id).update({
           content: '',
           status: 'failed',
