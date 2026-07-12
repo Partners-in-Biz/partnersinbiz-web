@@ -20,6 +20,7 @@ import { interpolate, varsFromContact } from '@/lib/email/template'
 import { isSuppressed } from '@/lib/email/suppressions'
 import { shouldSendToContact } from '@/lib/preferences/store'
 import { isWithinFrequencyCap, logFrequencySkip } from '@/lib/email/frequency'
+import { resolveCanonicalEmailConsent } from '@/lib/consent-ledger/decision'
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const authHeader = req.headers.get('authorization') ?? ''
@@ -124,6 +125,17 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             await markSkipped(reason)
             continue
           }
+        }
+      }
+
+      if (orgId && contactId && email.to) {
+        const consent = await resolveCanonicalEmailConsent({
+          orgId, contactId, email: email.to, topicId,
+          transactional: topicId === 'transactional',
+        })
+        if (!consent.allowed) {
+          await markSkipped(consent.reason ?? 'blocked by consent ledger')
+          continue
         }
       }
 

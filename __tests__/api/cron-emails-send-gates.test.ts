@@ -11,6 +11,7 @@ const mockWhere = jest.fn()
 const mockCollection = jest.fn()
 const mockSendCampaignEmail = jest.fn()
 const mockResolveFrom = jest.fn()
+const mockResolveCanonicalEmailConsent = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
@@ -35,6 +36,9 @@ jest.mock('@/lib/preferences/store', () => ({
 jest.mock('@/lib/email/frequency', () => ({
   isWithinFrequencyCap: jest.fn().mockResolvedValue({ allowed: true }),
   logFrequencySkip: jest.fn().mockResolvedValue(undefined),
+}))
+jest.mock('@/lib/consent-ledger/decision', () => ({
+  resolveCanonicalEmailConsent: (...args: unknown[]) => mockResolveCanonicalEmailConsent(...args),
 }))
 
 process.env.CRON_SECRET = 'cron-secret'
@@ -87,6 +91,22 @@ describe('GET /api/cron/emails send gates', () => {
     ;(isSuppressed as jest.Mock).mockResolvedValue(false)
     ;(shouldSendToContact as jest.Mock).mockResolvedValue({ allowed: true })
     ;(isWithinFrequencyCap as jest.Mock).mockResolvedValue({ allowed: true })
+    mockResolveCanonicalEmailConsent.mockResolvedValue({ allowed: true, precedence: 'default-allow' })
+  })
+
+  it('blocks provider dispatch when the canonical ledger changes after scheduling', async () => {
+    mockResolveCanonicalEmailConsent.mockResolvedValue({
+      allowed: false, reason: 'global consent revoked', precedence: 'global-consent',
+    })
+    await runCron()
+    expect(mockResolveCanonicalEmailConsent).toHaveBeenCalledWith({
+      orgId: 'org-1', contactId: 'contact-1', email: 'Ada@Example.com', topicId: 'newsletter',
+      transactional: false,
+    })
+    expect(mockSendCampaignEmail).not.toHaveBeenCalled()
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'skipped', skippedReason: 'global consent revoked',
+    }))
   })
 
   it('skips scheduled campaign/one-off email when recipient is suppressed before provider dispatch', async () => {

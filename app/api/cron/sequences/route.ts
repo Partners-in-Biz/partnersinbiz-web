@@ -27,6 +27,7 @@ import { randomUUID } from 'crypto'
 import { getSenderPolicy } from '@/lib/email-marketing/sender-store'
 import { resolveSenderForRecipient } from '@/lib/email-marketing/sender-resolution'
 import { buildSenderRecipientContext } from '@/lib/email-marketing/sender-context'
+import { resolveCanonicalEmailConsent } from '@/lib/consent-ledger/decision'
 
 export const dynamic = 'force-dynamic'
 
@@ -572,6 +573,22 @@ export async function GET(req: NextRequest) {
           },
           variantPick.variant,
         )
+
+        const consent = await resolveCanonicalEmailConsent({
+          orgId: enrollmentOrgId,
+          contactId: enrollment.contactId,
+          email: contact.email,
+          topicId: sequenceTopicId,
+          transactional: sequenceTopicId === 'transactional',
+        })
+        if (!consent.allowed) {
+          await enrollDoc.ref.update({
+            nextSendAt: Timestamp.fromMillis(nowDate.getTime() + DAY_MS),
+            lastDeliveryError: consent.reason ?? 'blocked by consent ledger',
+            updatedAt: FieldValue.serverTimestamp(),
+          })
+          continue
+        }
 
         // Send via Resend
         const sendResult = await sendCampaignEmail({

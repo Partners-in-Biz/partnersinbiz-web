@@ -31,6 +31,7 @@ import {
 import { appendEmailEvent } from '@/lib/email-events/store'
 import type { EmailEventType } from '@/lib/email-events/types'
 import { appendConsentEvent } from '@/lib/consent-ledger/store'
+import { resolveProviderEventTarget } from '@/lib/email-events/provider-target'
 
 // SNS signing cert must come from an amazonaws.com subdomain
 const SNS_CERT_URL_RE = /^https:\/\/sns\.[a-z0-9-]+\.amazonaws\.com\//
@@ -193,14 +194,23 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // the schema migration still resolve.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const coll = adminDb.collection('emails') as any
-  let snapshot = await coll.where('providerMessageId', '==', sesMessageId).limit(1).get()
+  let snapshot = await coll.where('providerMessageId', '==', sesMessageId).limit(2).get()
   if (snapshot.empty) {
-    snapshot = await coll.where('resendId', '==', sesMessageId).limit(1).get()
+    snapshot = await coll.where('resendId', '==', sesMessageId).limit(2).get()
   }
   if (snapshot.empty) {
     return NextResponse.json({ ok: true, note: 'email not found' })
   }
 
+  try {
+    resolveProviderEventTarget(snapshot.docs.map((doc: { id: string; data(): { orgId?: string } }) => ({
+      id: doc.id,
+      data: doc.data(),
+    })))
+  } catch (error) {
+    console.error('[email/webhook/ses] unsafe provider target', error)
+    return NextResponse.json({ error: 'Provider event target is not tenant-safe' }, { status: 409 })
+  }
   const docRef = snapshot.docs[0].ref
   const emailData =
     typeof snapshot.docs[0].data === 'function'

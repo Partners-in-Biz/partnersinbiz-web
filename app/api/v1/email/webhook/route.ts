@@ -39,6 +39,7 @@ import { appendEmailEvent } from '@/lib/email-events/store'
 import type { EmailEventType } from '@/lib/email-events/types'
 import { classifyOpenPrivacy } from '@/lib/email-events/privacy-classifier'
 import { appendConsentEvent } from '@/lib/consent-ledger/store'
+import { resolveProviderEventTarget } from '@/lib/email-events/provider-target'
 
 // Resend webhook signature verification uses svix.
 // Set RESEND_WEBHOOK_SECRET (format: whsec_xxxx) in env to verify signatures.
@@ -128,13 +129,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const snapshot = await (adminDb.collection('emails') as any)
     .where('resendId', '==', resendEmailId)
-    .limit(1)
+    .limit(2)
     .get()
 
   if (snapshot.empty) {
     return NextResponse.json({ ok: true, note: 'email not found' })
   }
 
+  let target
+  try {
+    target = resolveProviderEventTarget(snapshot.docs.map((doc: { id: string; data(): { orgId?: string } }) => ({
+      id: doc.id,
+      data: doc.data(),
+    })))
+  } catch (error) {
+    console.error('[email/webhook] unsafe provider target', error)
+    return NextResponse.json({ error: 'Provider event target is not tenant-safe' }, { status: 409 })
+  }
+  if (!target) return NextResponse.json({ ok: true, note: 'email not found' })
   const docRef = snapshot.docs[0].ref
   const emailData =
     typeof snapshot.docs[0].data === 'function'

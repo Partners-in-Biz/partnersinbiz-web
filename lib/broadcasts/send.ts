@@ -40,6 +40,7 @@ import type {
   SenderResolution,
 } from '@/lib/email-marketing/sender-types'
 import { buildSenderRecipientContext } from '@/lib/email-marketing/sender-context'
+import { resolveCanonicalEmailConsent } from '@/lib/consent-ledger/decision'
 
 export interface BroadcastSendContext {
   broadcast: Broadcast
@@ -410,6 +411,15 @@ export async function sendBroadcastToContact(
   subject = effective.subject
   html = effective.bodyHtml
   text = effective.bodyText
+  const consent = await resolveCanonicalEmailConsent({
+    orgId: broadcast.orgId,
+    contactId,
+    email: contact.email,
+    topicId,
+    transactional: topicId === 'transactional',
+  })
+  if (!consent.allowed) return { contactId, status: 'skipped' }
+
   const senderResolution = await resolveBroadcastSender(ctx, contact)
   if (senderResolution && senderResolution.status !== 'resolved') {
     return {

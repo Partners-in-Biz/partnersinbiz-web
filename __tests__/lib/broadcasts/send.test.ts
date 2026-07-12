@@ -1,3 +1,7 @@
+jest.mock('@/lib/consent-ledger/decision', () => ({
+  resolveCanonicalEmailConsent: jest.fn().mockResolvedValue({ allowed: true, precedence: 'default-allow' }),
+}))
+
 describe('broadcast send pipeline', () => {
   const ORIGINAL_RESEND_API_KEY = process.env.RESEND_API_KEY
 

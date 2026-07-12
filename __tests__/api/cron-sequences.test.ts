@@ -14,6 +14,7 @@ let activeLeaseToken: string | undefined
 const mockResendSend = jest.fn()
 const mockSendCampaignEmail = jest.fn()
 const mockResolveFrom = jest.fn()
+const mockResolveCanonicalEmailConsent = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: {
@@ -52,6 +53,9 @@ jest.mock('@/lib/email/frequency', () => ({
   isWithinFrequencyCap: jest.fn().mockResolvedValue({ allowed: true }),
   logFrequencySkip: jest.fn().mockResolvedValue(undefined),
 }))
+jest.mock('@/lib/consent-ledger/decision', () => ({
+  resolveCanonicalEmailConsent: (...args: unknown[]) => mockResolveCanonicalEmailConsent(...args),
+}))
 
 process.env.CRON_SECRET = 'cron-secret'
 
@@ -78,6 +82,7 @@ beforeEach(() => {
     isFallback: true,
   })
   mockSendCampaignEmail.mockResolvedValue({ ok: true, resendId: 'resend-1' })
+  mockResolveCanonicalEmailConsent.mockResolvedValue({ allowed: true, precedence: 'default-allow' })
 })
 
 describe('GET /api/cron/sequences', () => {
