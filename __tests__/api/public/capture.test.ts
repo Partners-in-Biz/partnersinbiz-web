@@ -257,4 +257,52 @@ describe('POST /api/public/capture/[publicKey]', () => {
       deleted: false,
     }))
   })
+
+  it('honours after-exit re-entry policy for capture auto-enrollment', async () => {
+    mockSourceLookup({ ...enabledSource, autoSequenceIds: ['seq-1'] })
+    mockExistingContactLookup(null)
+    mockAdd.mockResolvedValueOnce({ id: 'contact-new' })
+    mockGet
+      .mockResolvedValueOnce({
+        exists: true,
+        data: () => ({
+          orgId: 'org-1', status: 'active', name: 'Lead nurture',
+          steps: [{ delayDays: 0, subject: 'Welcome', bodyText: 'Hi' }],
+          reentryPolicy: { mode: 'after_exit' }, deleted: false,
+        }),
+      })
+      .mockResolvedValueOnce({
+        empty: false,
+        docs: [{ id: 'old-enrollment', data: () => ({ orgId: 'org-1', sequenceId: 'seq-1', contactId: 'contact-new', status: 'exited' }) }],
+      })
+
+    const res = await POST(makeReq({ email: 'jane@x.com' }), params)
+
+    expect(res.status).toBe(201)
+    expect(mockAdd.mock.calls.some((c) => c[0]?.sequenceId === 'seq-1')).toBe(true)
+  })
+
+  it('honours never re-entry policy for capture auto-enrollment', async () => {
+    mockSourceLookup({ ...enabledSource, autoSequenceIds: ['seq-1'] })
+    mockExistingContactLookup(null)
+    mockAdd.mockResolvedValueOnce({ id: 'contact-new' })
+    mockGet
+      .mockResolvedValueOnce({
+        exists: true,
+        data: () => ({
+          orgId: 'org-1', status: 'active', name: 'Lead nurture',
+          steps: [{ delayDays: 0, subject: 'Welcome', bodyText: 'Hi' }],
+          reentryPolicy: { mode: 'never' }, deleted: false,
+        }),
+      })
+      .mockResolvedValueOnce({
+        empty: false,
+        docs: [{ id: 'old-enrollment', data: () => ({ orgId: 'org-1', sequenceId: 'seq-1', contactId: 'contact-new', status: 'exited' }) }],
+      })
+
+    const res = await POST(makeReq({ email: 'jane@x.com' }), params)
+
+    expect(res.status).toBe(201)
+    expect(mockAdd.mock.calls.some((c) => c[0]?.sequenceId === 'seq-1')).toBe(false)
+  })
 })

@@ -1,6 +1,7 @@
 import {
   EmailMarketingApprovalError,
   assertEmailMarketingAgentAction,
+  validateEmailMarketingApprovalTask,
 } from '@/lib/email-marketing/agent-governance'
 
 const maya = {
@@ -56,5 +57,28 @@ describe('email-marketing agent governance', () => {
       'email_marketing_send',
       approved,
     )).toThrow("is not allowed to perform 'email_marketing_send'")
+  })
+})
+
+describe('email-marketing approval task evidence', () => {
+  const evidence = {
+    status: 'approved', approvedBy: 'human-1', approvedByType: 'user', approvalTaskId: 'task-1',
+  }
+
+  it('accepts only a completed, human-approved task from the same organisation linked to the resource', () => {
+    expect(validateEmailMarketingApprovalTask(evidence, {
+      orgId: 'org-1', status: 'done', approvalStatus: 'approved', deleted: false,
+      linkedResource: { type: 'email_broadcast', id: 'broadcast-1' },
+    }, { orgId: 'org-1', resourceType: 'email_broadcast', resourceId: 'broadcast-1' })).toEqual(evidence)
+  })
+
+  it.each([
+    ['different organisation', { orgId: 'org-2', status: 'done', approvalStatus: 'approved', linkedResource: { type: 'email_broadcast', id: 'broadcast-1' } }],
+    ['unapproved task', { orgId: 'org-1', status: 'todo', approvalStatus: 'pending', linkedResource: { type: 'email_broadcast', id: 'broadcast-1' } }],
+    ['arbitrary task', { orgId: 'org-1', status: 'done', approvalStatus: 'approved', linkedResource: { type: 'email_broadcast', id: 'another' } }],
+  ])('rejects %s evidence', (_label, task) => {
+    expect(() => validateEmailMarketingApprovalTask(evidence, task, {
+      orgId: 'org-1', resourceType: 'email_broadcast', resourceId: 'broadcast-1',
+    })).toThrow(EmailMarketingApprovalError)
   })
 })
