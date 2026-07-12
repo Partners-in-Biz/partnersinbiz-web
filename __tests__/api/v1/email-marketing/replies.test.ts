@@ -65,3 +65,15 @@ it('does not expose a reply from another tenant during correction', async () => 
   )
   expect(response.status).toBe(404)
 })
+
+it('uses the empty reply id when dynamic route context is malformed', async () => {
+  correctReplyClassification.mockResolvedValue(null)
+
+  const response = await correctionRoute.PATCH(
+    request('/api/v1/email-marketing/replies/classification', 'PATCH', { classification: 'neutral' }),
+    { params: 'not-a-params-promise' },
+  )
+
+  expect(response.status).toBe(404)
+  expect(correctReplyClassification).toHaveBeenCalledWith('org-1', '', 'neutral', 'user-1', '')
+})

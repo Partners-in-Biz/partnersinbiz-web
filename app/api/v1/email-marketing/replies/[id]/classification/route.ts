@@ -7,10 +7,24 @@ import type { SalesReplyClassification } from '@/lib/email-marketing/reply-class
 
 const CLASSIFICATIONS = new Set(['positive', 'negative', 'out_of_office', 'neutral'])
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+  return isRecord(value) && typeof value.then === 'function'
+}
+
+async function routeIdFromContext(context?: Record<string, unknown>): Promise<string> {
+  const params = context?.params
+  if (!isPromiseLike(params)) return ''
+  const resolved = await params
+  return isRecord(resolved) && typeof resolved.id === 'string' ? resolved.id : ''
+}
+
 export const PATCH = withAuth('client', withTenant(async (req: NextRequest, user, orgId, context) => {
   try {
-    const params = context?.params as Promise<{ id: string }> | undefined
-    const { id } = await (params ?? Promise.resolve({ id: '' }))
+    const id = await routeIdFromContext(context)
     const body = await req.json().catch(() => ({})) as Record<string, unknown>
     const classification = typeof body.classification === 'string' ? body.classification : ''
     if (!CLASSIFICATIONS.has(classification)) return apiError('Invalid classification', 400)
