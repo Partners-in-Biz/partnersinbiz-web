@@ -2306,7 +2306,7 @@ export default function PortalContactDetailPage() {
               onClick={downloadGdprExport}
               disabled={gdprDownloading}
               aria-label={`Download GDPR data export for ${contactName}`}
-              className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface shrink-0 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface disabled:cursor-not-allowed disabled:opacity-50"
             >
               <span className="material-symbols-outlined text-[14px]" aria-hidden="true">download</span>
               {gdprDownloading ? 'Exporting…' : 'Download GDPR data'}
