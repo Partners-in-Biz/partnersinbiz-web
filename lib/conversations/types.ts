@@ -117,5 +117,6 @@ export interface ConversationMessage {
   authorId: string
   authorDisplayName: string
   dispatchAgentId?: AgentId
+  acceptedDevice?: { machineLabel: string; runtimeVersion: string; acceptedAt: string }
   createdAt?: Timestamp
 }

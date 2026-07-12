@@ -618,9 +618,11 @@ export const POST = withAuth(
           try {
             const payload = runResult.data && typeof runResult.data === 'object' ? runResult.data as Record<string, unknown> : {}
             const runId = String(payload.runId ?? payload.run_id ?? payload.id ?? '')
-            requireMatchingExecutionReceipt(linkedComputerBinding, runResult.executionReceipt as never, {
+            const acceptedDevice = requireMatchingExecutionReceipt(linkedComputerBinding, runResult.executionReceipt as never, {
               runId, requestId: assistantMessage.id,
             })
+            await messagesCollection(convId).doc(assistantMessage.id).update({ acceptedDevice })
+            Object.assign(assistantMessage, { acceptedDevice })
           } catch {
             await messagesCollection(convId).doc(assistantMessage.id).update({
               content: '', status: 'failed', error: 'The linked computer returned an invalid execution receipt.',

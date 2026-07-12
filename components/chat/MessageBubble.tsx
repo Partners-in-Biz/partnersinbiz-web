@@ -36,6 +36,7 @@ export interface ConversationMessage {
   authorId: string
   authorDisplayName: string
   dispatchAgentId?: string
+  acceptedDevice?: { machineLabel: string; runtimeVersion: string; acceptedAt: string }
   createdAt?: { seconds?: number; _seconds?: number } | string
 }
 

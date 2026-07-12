@@ -434,6 +434,7 @@ export default function UnifiedChat({
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('')
   const [selectedProjectId, setSelectedProjectId] = useState(projectId ?? '')
   const [selectedWorkspaceRuntime, setSelectedWorkspaceRuntime] = useState<string>('vps')
+  const workspaceRuntimeExplicitRef = useRef(false)
   const [selectedWorkspaceShareMode, setSelectedWorkspaceShareMode] = useState<'private' | 'shared' | 'org'>('private')
   const [creatingConv, setCreatingConv] = useState(false)
 
@@ -512,11 +513,16 @@ export default function UnifiedChat({
   )
   useEffect(() => {
     if (workspaceRuntimeTargets.length === 0) return
-    if (!workspaceRuntimeTargets.some((runtime) => runtime.id === selectedWorkspaceRuntime && runtime.selectable)) {
+    if (!workspaceRuntimeExplicitRef.current && !workspaceRuntimeTargets.some((runtime) => runtime.id === selectedWorkspaceRuntime && runtime.selectable)) {
       setSelectedWorkspaceRuntime(workspaceRuntimeTargets.find((runtime) => runtime.selectable)?.id ?? 'vps')
     }
   }, [selectedWorkspaceRuntime, workspaceRuntimeTargets])
   const activeWorkspaceContext = activeConversation?.workspaceContext
+  const unavailableActiveRuntime = activeWorkspaceContext
+    ? (workspaceRuntimeTargetsByWorkspace[activeWorkspaceContext.workspaceId] ?? []).find(
+        runtime => runtime.id === activeWorkspaceContext.runtimeTarget && !runtime.selectable,
+      )
+    : undefined
   const activeRuntimeLabel = activeWorkspaceContext?.runtimeLabel
     ?? (activeWorkspaceContext?.runtimeTarget === 'local'
       ? 'Local'
@@ -2451,6 +2457,12 @@ export default function UnifiedChat({
                     onQuoteSelection={addSelectionToComposer}
                     onUiAction={handleUiAction}
                   />
+                  {m.acceptedDevice && (
+                    <div className="ml-10 mt-1 flex flex-wrap items-center gap-2 text-[11px] text-on-surface-variant" aria-label="Linked computer execution receipt">
+                      <span className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-2 py-0.5 text-emerald-300">Accepted by {m.acceptedDevice.machineLabel}</span>
+                      <span>Runtime {m.acceptedDevice.runtimeVersion}</span>
+                    </div>
+                  )}
 
                   {(projectChat.tasksByResponseMessageId.get(m.id)?.length ?? 0) > 0 && (
                     <LivingTaskBundle
@@ -2517,6 +2529,11 @@ export default function UnifiedChat({
         </div>
 
         {/* Error bar */}
+        {unavailableActiveRuntime && (
+          <div role="alert" className="border-t border-red-500/30 bg-red-500/10 px-4 py-2 text-xs text-red-300">
+            {unavailableActiveRuntime.label} is unavailable. Select another computer or try again when it is online. No other runtime was selected.
+          </div>
+        )}
         {error && (
           <div className="px-4 py-2 text-xs text-red-300 border-t border-red-500/30 bg-red-500/10">
             {error}
@@ -3064,6 +3081,7 @@ export default function UnifiedChat({
                   Conversation context
                 </label>
                 <select
+                  aria-label="Conversation context"
                   value={newScope}
                   onChange={(e) => setNewScope(e.target.value as ConversationScope)}
                   className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface outline-none focus:border-primary/60"
@@ -3118,18 +3136,20 @@ export default function UnifiedChat({
                     )}
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                    <label htmlFor="workspace-runtime" className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
                       Runtime
                     </label>
                     <select
+                      id="workspace-runtime"
+                      aria-label="Runtime"
                       value={selectedWorkspaceRuntime}
-                      onChange={(e) => setSelectedWorkspaceRuntime(e.target.value)}
+                      onChange={(e) => { workspaceRuntimeExplicitRef.current = true; setSelectedWorkspaceRuntime(e.target.value) }}
                       className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface outline-none focus:border-primary/60"
                     >
                       {(workspaceRuntimeTargets.length > 0
                         ? workspaceRuntimeTargets
                         : [{ id: 'vps', label: 'VPS', selectable: true, isLocal: false, isFresh: true, isHealthy: true, enabled: true, lastSeenAt: null, ageSeconds: null, lastHealthStatus: null }]
-                      ).map((runtime) => {
+                      ).filter((runtime) => runtime.selectable || runtime.id === selectedWorkspaceRuntime).map((runtime) => {
                         const status = runtime.isLocal
                           ? runtime.isFresh && runtime.isHealthy
                             ? runtime.ageSeconds != null
@@ -3144,8 +3164,13 @@ export default function UnifiedChat({
                         )
                       })}
                     </select>
+                    {workspaceRuntimeExplicitRef.current && workspaceRuntimeTargets.some(runtime => runtime.id === selectedWorkspaceRuntime && !runtime.selectable) && (
+                      <p role="alert" className="mt-2 text-xs text-red-300">
+                        {workspaceRuntimeTargets.find(runtime => runtime.id === selectedWorkspaceRuntime)?.label ?? 'This computer'} is unavailable. Select another computer or try again when it is online.
+                      </p>
+                    )}
                     <div className="mt-1 text-[11px] text-on-surface-variant">
-                      Stale local runtimes are unavailable; VPS remains the canonical fallback.
+                      Only healthy computers mapped to this Workspace can run files here.
                     </div>
                   </div>
                   <div>

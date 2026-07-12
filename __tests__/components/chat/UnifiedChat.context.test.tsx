@@ -172,6 +172,47 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     expect(screen.queryByText(/\/var\/lib\/hermes/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/~\/Cowork/i)).not.toBeInTheDocument()
   })
+
+  it('keeps an unavailable explicit target visible as an error and never falls back', async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents') || url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: {
+        workspaces: [{ workspaceId: 'acme', orgId: 'org-1', orgSlug: 'acme', orgName: 'Acme', agentDomain: 'acme', sourceOfTruth: 'vps', syncMode: 'hybrid', defaultRuntimeTarget: 'vps', folderVersion: 1 }],
+        runtimeTargetsByWorkspace: { acme: [
+          { id: 'device-offline', label: 'Studio Mac', selectable: false, enabled: true, isLocal: true, isFresh: false, isHealthy: false, lastSeenAt: null },
+          { id: 'device-healthy', label: 'Office PC', selectable: true, enabled: true, isLocal: true, isFresh: true, isHealthy: true, lastSeenAt: null },
+        ] }, projects: [],
+      } })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [{ ...baseConversation, workspaceContext: { workspaceId: 'acme', orgName: 'Acme', runtimeTarget: 'device-offline', runtimeLabel: 'Studio Mac' } }] } })
+      if (url === '/api/v1/conversations/conv-1/messages') return jsonResponse({ data: { messages: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" initialConvId="conv-1" />)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Studio Mac is unavailable. Select another computer or try again when it is online.')
+    expect(screen.getByRole('alert')).toHaveTextContent('No other runtime was selected.')
+    expect(screen.queryByText(/Office PC was selected/i)).not.toBeInTheDocument()
+  })
+
+  it('renders the accepted computer receipt instead of the requested target echo', async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [] } })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [{ ...baseConversation, workspaceContext: { workspaceId: 'acme', runtimeTarget: 'requested-device', runtimeLabel: 'Requested Mac' } }] } })
+      if (url === '/api/v1/conversations/conv-1/messages') return jsonResponse({ data: { messages: [{
+        id: 'm-2', conversationId: 'conv-1', role: 'assistant', content: 'Done', authorKind: 'agent', authorId: 'pip', authorDisplayName: 'Pip', status: 'completed', createdAt: '2026-07-13T09:00:00.000Z',
+        acceptedDevice: { machineLabel: 'Actual Office PC', runtimeVersion: '2.4.1', acceptedAt: '2026-07-13T08:59:59.000Z' },
+      }] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" initialConvId="conv-1" />)
+    expect(await screen.findByText('Accepted by Actual Office PC')).toBeInTheDocument()
+    expect(screen.getByText(/Runtime 2.4.1/)).toBeInTheDocument()
+    expect(screen.queryByText('Accepted by Requested Mac')).not.toBeInTheDocument()
+  })
 })
 
 describe('UnifiedChat project pulse integration', () => {
