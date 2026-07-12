@@ -126,12 +126,12 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
     { label: 'Docs', value: stats?.documents ?? 0, icon: 'description' },
   ]
   const setupButtonClass =
-    'inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-pib-text)] transition-colors hover:bg-white/10'
+    'inline-flex items-center gap-1 rounded-md border border-[var(--color-card-border)] px-1.5 py-0.5 text-[10px] font-medium text-on-surface transition-colors hover:bg-white/[0.05]'
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex min-w-0 items-start gap-4">
+    <div className="flex flex-col">
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 border-b border-[var(--color-card-border)] px-3 py-2">
+        <div className="flex min-w-0 flex-1 items-start gap-2.5">
           {/* Logo / initials */}
           {company.logoUrl ? (
             <Image
@@ -140,19 +140,58 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
               width={64}
               height={64}
               unoptimized
-              className="h-16 w-16 shrink-0 rounded-2xl object-cover"
+              className="mt-0.5 h-9 w-9 shrink-0 rounded-lg object-cover"
             />
           ) : (
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-surface-container)] text-xl font-label text-on-surface-variant">
+            <div className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[var(--color-surface-container)] text-xs font-label text-on-surface-variant">
               {initials(company.name)}
             </div>
           )}
 
           {/* Name + chips */}
           <div className="min-w-0 flex-1">
-            <p className="eyebrow !text-[10px]">Account command center</p>
-            <h1 className="mt-1 truncate text-3xl font-display leading-tight text-[var(--color-pib-text)]">{company.name}</h1>
-            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-[var(--color-pib-text-muted)]">
+            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Account command center</p>
+            <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+              <h1 className="truncate text-base font-semibold leading-tight text-on-surface">{company.name}</h1>
+              {tierLabel && (
+                <button
+                  type="button"
+                  onClick={onEdit}
+                  aria-label={`Edit account tier ${tierLabel} for ${company.name}`}
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-label uppercase tracking-wide transition-opacity hover:opacity-80 ${tierCls}`}
+                >
+                  {tierLabel}
+                </button>
+              )}
+              {lifecycleLabel && (
+                <button
+                  type="button"
+                  onClick={onEdit}
+                  aria-label={`Edit lifecycle stage ${lifecycleLabel} for ${company.name}`}
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-label uppercase tracking-wide transition-opacity hover:opacity-80 ${lcCls}`}
+                >
+                  {lifecycleLabel}
+                </button>
+              )}
+              {company.size && (
+                <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
+                  {company.size}
+                </span>
+              )}
+              {am && (
+                <div className="flex items-center gap-1.5 text-[11px] text-on-surface-variant">
+                  {am.avatarUrl ? (
+                    <Image src={am.avatarUrl} alt={am.displayName} width={20} height={20} unoptimized className="h-4 w-4 rounded-full object-cover" />
+                  ) : (
+                    <div className="grid h-4 w-4 place-items-center rounded-full bg-[var(--color-surface-container)] text-[8px] font-label text-on-surface-variant">
+                      {initials(am.displayName)}
+                    </div>
+                  )}
+                  <span>{am.displayName}</span>
+                </div>
+              )}
+            </div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-on-surface-variant">
               <span>{company.domain || company.website || company.legalName || 'No domain captured'}</span>
               {missingIdentity && (
                 <button
@@ -179,57 +218,17 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
                 </button>
               )}
             </div>
-
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              {tierLabel && (
-                <button
-                  type="button"
-                  onClick={onEdit}
-                  aria-label={`Edit account tier ${tierLabel} for ${company.name}`}
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-label uppercase tracking-wide transition-transform hover:-translate-y-0.5 ${tierCls}`}
-                >
-                  {tierLabel}
-                </button>
-              )}
-              {lifecycleLabel && (
-                <button
-                  type="button"
-                  onClick={onEdit}
-                  aria-label={`Edit lifecycle stage ${lifecycleLabel} for ${company.name}`}
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-label uppercase tracking-wide transition-transform hover:-translate-y-0.5 ${lcCls}`}
-                >
-                  {lifecycleLabel}
-                </button>
-              )}
-              {company.size && (
-                <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
-                  {company.size}
-                </span>
-              )}
-              {am && (
-                <div className="flex items-center gap-1.5 text-xs text-[var(--color-pib-text-muted)]">
-                  {am.avatarUrl ? (
-                    <Image src={am.avatarUrl} alt={am.displayName} width={20} height={20} unoptimized className="h-5 w-5 rounded-full object-cover" />
-                  ) : (
-                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-surface-container)] text-[9px] font-label text-on-surface-variant">
-                      {initials(am.displayName)}
-                    </div>
-                  )}
-                  <span>{am.displayName}</span>
-                </div>
-              )}
-            </div>
           </div>
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5">
           {siteHref && (
             <a
               href={siteHref}
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`Open website for ${company.name}`}
-              className="btn-pib-secondary inline-flex items-center gap-1.5"
+              className="flex h-8 items-center gap-1 rounded-md px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
             >
               <span aria-hidden="true" className="material-symbols-outlined text-[16px]">open_in_new</span>
               Website
@@ -239,7 +238,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
             <a
               href={`mailto:${company.billingEmail || company.accountsContact?.email}`}
               aria-label={`Email billing contact for ${company.name}`}
-              className="btn-pib-secondary inline-flex items-center gap-1.5"
+              className="flex h-8 items-center gap-1 rounded-md px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
             >
               <span aria-hidden="true" className="material-symbols-outlined text-[16px]">mail</span>
               Billing
@@ -249,7 +248,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
             <a
               href={`tel:${company.phone}`}
               aria-label={`Call ${company.name}`}
-              className="btn-pib-secondary inline-flex items-center gap-1.5"
+              className="flex h-8 items-center gap-1 rounded-md px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
             >
               <span aria-hidden="true" className="material-symbols-outlined text-[16px]">call</span>
               Call
@@ -259,7 +258,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
             type="button"
             onClick={onEdit}
             aria-label={`Edit account profile for ${company.name}`}
-            className="cursor-pointer btn-pib-secondary flex items-center gap-1.5 shrink-0"
+            className="flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-md border border-[var(--color-card-border)] bg-primary/10 px-2.5 text-xs font-medium text-primary transition hover:bg-primary/15"
           >
             <span aria-hidden="true" className="material-symbols-outlined text-[16px]">edit</span>
             Edit
@@ -270,7 +269,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
               onClick={onDelete}
               disabled={deleting}
               aria-label={deleting ? `Archiving account ${company.name}` : `Archive account ${company.name}`}
-              className="pib-btn-danger shrink-0"
+              className="flex h-8 shrink-0 items-center rounded-md border border-red-400/30 bg-red-500/10 px-2.5 text-xs text-red-200 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {deleting ? 'Archiving...' : 'Archive'}
             </button>
@@ -279,12 +278,12 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
       </div>
 
       {missingAccountManager && (
-        <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="eyebrow !text-[10px] text-amber-200">Account owner missing</p>
-              <h2 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">Assign account ownership</h2>
-              <p className="mt-1 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
+        <div className="border-b border-amber-400/30 bg-amber-400/10 px-3 py-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-[10px] font-label uppercase tracking-[0.22em] text-amber-200">Account owner missing</p>
+              <h2 className="mt-0.5 text-xs font-semibold text-on-surface">Assign account ownership</h2>
+              <p className="mt-0.5 max-w-3xl text-xs leading-5 text-on-surface-variant">
                 No team member owns this account yet. Assign a manager so renewals, escalations, and delivery handoffs stay visible to leadership.
               </p>
             </div>
@@ -292,7 +291,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
               type="button"
               onClick={onEdit}
               aria-label={`Assign account manager for ${company.name}`}
-              className="btn-pib-secondary inline-flex shrink-0 items-center justify-center gap-1.5"
+              className="flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
             >
               <span aria-hidden="true" className="material-symbols-outlined text-[16px]">person_add</span>
               Assign manager
@@ -301,16 +300,16 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
         </div>
       )}
 
-      <div className="grid gap-3 lg:grid-cols-[minmax(220px,1.2fr)_2fr]">
-        <div className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
+      <div className="grid gap-2 border-b border-[var(--color-card-border)] px-3 py-2 sm:grid-cols-2 lg:grid-cols-[minmax(200px,1.2fr)_repeat(4,minmax(0,1fr))]">
+        <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Profile health</p>
-            <span className="font-mono text-sm" style={{ color: strengthColor }}>{strength}%</span>
+            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Profile health</p>
+            <span className="font-mono text-xs" style={{ color: strengthColor }}>{strength}%</span>
           </div>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
+          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10">
             <div className="h-full rounded-full" style={{ width: `${strength}%`, background: strengthColor }} />
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--color-pib-text-muted)]">
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] leading-4 text-on-surface-variant">
             <span>{formatCurrency(company.annualRevenue, company.currency)}</span>
             <span aria-hidden="true">·</span>
             <span>{company.employeeCount != null ? `${company.employeeCount.toLocaleString()} people` : 'No size data'}</span>
@@ -328,31 +327,29 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
           </div>
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          {statTiles.map((tile) => (
-            <div key={tile.label} className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] px-3 py-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] text-[var(--color-pib-text-muted)]">{tile.label}</span>
-                <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">{tile.icon}</span>
-              </div>
-              <p className="mt-1 font-mono text-lg text-[var(--color-pib-text)]">{tile.value}</p>
+        {statTiles.map((tile) => (
+          <div key={tile.label} className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] leading-4 text-on-surface-variant">{tile.label}</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-on-surface-variant">{tile.icon}</span>
             </div>
-          ))}
-        </div>
+            <p className="mt-1 text-lg font-semibold leading-none text-on-surface">{tile.value}</p>
+          </div>
+        ))}
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2">
         {signals.length > 0 ? signals.map((signal) => (
-          <span key={signal} className="rounded-full bg-white/5 px-2.5 py-1 text-xs text-[var(--color-pib-text-muted)]">
+          <span key={signal} className="flex h-7 shrink-0 items-center rounded-full border border-[var(--color-card-border)] px-2.5 text-[11px] text-on-surface-variant">
             {signal}
           </span>
         )) : (
-          <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-xs text-amber-200">
+          <span className="flex h-7 shrink-0 items-center rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 text-[11px] text-amber-200">
             Setup gaps: add billing, owner, legal, and relationship details.
           </span>
         )}
         {typeof stats?.activity === 'number' && (
-          <span className="rounded-full bg-white/5 px-2.5 py-1 text-xs text-[var(--color-pib-text-muted)]">
+          <span className="flex h-7 shrink-0 items-center rounded-full border border-[var(--color-card-border)] px-2.5 text-[11px] text-on-surface-variant">
             {stats.activity} recent activities
           </span>
         )}

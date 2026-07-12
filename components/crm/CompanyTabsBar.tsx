@@ -94,7 +94,7 @@ export function CompanyTabsBar({ activeTab, onChange, counts, includeWorkspace =
   const visibleTabs = COMPANY_TABS.filter((tab) => visibleKeys.has(tab.key) && (includeWorkspace || tab.key !== 'workspace'))
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-2">
+    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
       <PageTabs
         ariaLabel="Company detail tabs"
         value={activeTab}
@@ -116,16 +116,16 @@ export function CompanyTabsBar({ activeTab, onChange, counts, includeWorkspace =
           className="pib-tab"
           onClick={() => setMoreOpen((open) => !open)}
         >
-          <span aria-hidden="true" className="material-symbols-outlined text-[18px]">apps</span>
+          <span aria-hidden="true" className="material-symbols-outlined text-[16px]">apps</span>
           <span>More</span>
-          <span aria-hidden="true" className="material-symbols-outlined text-[18px]">{moreOpen ? 'expand_less' : 'expand_more'}</span>
+          <span aria-hidden="true" className="material-symbols-outlined text-[16px]">{moreOpen ? 'expand_less' : 'expand_more'}</span>
         </button>
 
         {moreOpen ? (
           <div
             role="menu"
             aria-label="More company sections"
-            className="absolute left-0 z-30 mt-2 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[var(--color-pib-line-strong)] bg-[var(--color-pib-surface)] p-2 shadow-2xl shadow-black/50 sm:left-auto sm:right-0"
+            className="absolute left-0 z-30 mt-1.5 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-pib-surface)] p-1.5 shadow-2xl shadow-black/50 sm:left-auto sm:right-0"
           >
             {OVERFLOW_GROUPS.map((group) => {
               const groupTabs = group.tabs
@@ -138,9 +138,9 @@ export function CompanyTabsBar({ activeTab, onChange, counts, includeWorkspace =
               if (groupTabs.length === 0) return null
 
               return (
-                <div key={group.label} className="border-b border-[var(--color-pib-line)] py-2 last:border-b-0">
-                  <p className="px-3 pb-1 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{group.label}</p>
-                  <div className="grid gap-1">
+                <div key={group.label} className="border-b border-[var(--color-card-border)] py-1.5 last:border-b-0">
+                  <p className="px-2.5 pb-1 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">{group.label}</p>
+                  <div className="grid gap-0.5">
                     {groupTabs.map((tab) => {
                       const selected = tab.key === activeTab
                       return (
@@ -150,15 +150,15 @@ export function CompanyTabsBar({ activeTab, onChange, counts, includeWorkspace =
                           role="menuitemradio"
                           aria-checked={selected}
                           className={cn(
-                            'flex min-h-10 w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/5 hover:text-[var(--color-pib-text)]',
-                            selected && 'bg-white/10 text-[var(--color-pib-text)]',
+                            'flex h-8 w-full items-center gap-2 rounded-md px-2.5 text-left text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface',
+                            selected && 'bg-primary/10 text-primary',
                           )}
                           onClick={() => {
                             onChange(tab.key)
                             setMoreOpen(false)
                           }}
                         >
-                          <span aria-hidden="true" className="material-symbols-outlined text-[18px]">{tab.icon}</span>
+                          <span aria-hidden="true" className="material-symbols-outlined text-[16px]">{tab.icon}</span>
                           <span className="min-w-0 flex-1 truncate">{tab.label}</span>
                           {counts?.[tab.key] ? <span className="pib-tabs-badge">{counts[tab.key]}</span> : null}
                         </button>

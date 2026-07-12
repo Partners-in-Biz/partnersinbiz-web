@@ -47,7 +47,7 @@ export function PipelineSelector({
         value={effectiveValue}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className="pib-input w-full cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+        className="h-8 w-full cursor-pointer rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface transition disabled:cursor-not-allowed disabled:opacity-60"
       >
         {includeAll && (
           <option value={PIPELINE_ALL_SENTINEL}>All pipelines</option>

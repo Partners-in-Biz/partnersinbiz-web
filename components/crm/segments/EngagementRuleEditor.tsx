@@ -3,6 +3,10 @@
 
 import type { EngagementScoreRule } from '@/lib/crm/segments'
 
+const FIELD_LABEL_CLS = 'text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant'
+const INPUT_CLS =
+  'h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface outline-none transition focus:border-[var(--color-accent-v2)]'
+
 interface EngagementRuleEditorProps {
   rule: EngagementScoreRule | null
   onChange: (rule: EngagementScoreRule | null) => void
@@ -34,15 +38,15 @@ export function EngagementRuleEditor({ rule, onChange }: EngagementRuleEditorPro
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <div className="flex items-center justify-between">
         <div>
-          <p className="eyebrow !text-[10px]">Engagement score</p>
-          <p className="text-[11px] text-[var(--color-pib-text-muted)] mt-1">
+          <p className={FIELD_LABEL_CLS}>Engagement score</p>
+          <p className="mt-1 text-[11px] leading-4 text-on-surface-variant">
             Score = opens × 5 + clicks × 15 − bounces × 30 − days-since-engaged × 0.5 (capped 0-100).
           </p>
         </div>
-        <label className="flex items-center gap-2 text-[11px] text-[var(--color-pib-text-muted)]">
+        <label className="flex items-center gap-2 text-[11px] text-on-surface-variant">
           <input
             type="checkbox"
             checked={enabled}
@@ -59,12 +63,12 @@ export function EngagementRuleEditor({ rule, onChange }: EngagementRuleEditorPro
       </div>
 
       {enabled && (
-        <div className="border border-[var(--color-pib-line)] rounded p-3 space-y-3 bg-[var(--color-pib-surface,rgba(255,255,255,0.02))]">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="space-y-2 rounded-md border border-[var(--color-card-border)] bg-black/10 p-2">
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
             <div className="space-y-1">
-              <label className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono flex justify-between">
+              <label className={`${FIELD_LABEL_CLS} flex justify-between`}>
                 <span>Min score</span>
-                <span className="text-[var(--color-pib-accent)]">{min}</span>
+                <span className="text-primary">{min}</span>
               </label>
               <input
                 type="range"
@@ -76,9 +80,9 @@ export function EngagementRuleEditor({ rule, onChange }: EngagementRuleEditorPro
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono flex justify-between">
+              <label className={`${FIELD_LABEL_CLS} flex justify-between`}>
                 <span>Max score</span>
-                <span className="text-[var(--color-pib-accent)]">{max}</span>
+                <span className="text-primary">{max}</span>
               </label>
               <input
                 type="range"
@@ -90,9 +94,9 @@ export function EngagementRuleEditor({ rule, onChange }: EngagementRuleEditorPro
               />
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+              <label className={FIELD_LABEL_CLS}>
                 Last engaged within N days
               </label>
               <input
@@ -104,11 +108,11 @@ export function EngagementRuleEditor({ rule, onChange }: EngagementRuleEditorPro
                   patch({ lastEngagedWithinDays: Number.isFinite(n) && n > 0 ? n : undefined })
                 }}
                 placeholder="any time"
-                className="pib-input"
+                className={INPUT_CLS}
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+              <label className={FIELD_LABEL_CLS}>
                 NOT engaged within N days (dormant)
               </label>
               <input
@@ -120,7 +124,7 @@ export function EngagementRuleEditor({ rule, onChange }: EngagementRuleEditorPro
                   patch({ notEngagedWithinDays: Number.isFinite(n) && n > 0 ? n : undefined })
                 }}
                 placeholder="never"
-                className="pib-input"
+                className={INPUT_CLS}
               />
             </div>
           </div>

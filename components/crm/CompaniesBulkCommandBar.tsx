@@ -16,6 +16,9 @@ const LIFECYCLE_STAGES = ['lead', 'prospect', 'customer', 'churned'] as const
 const TIERS = ['enterprise', 'mid-market', 'smb'] as const
 const SIZES = ['1-10', '11-50', '51-200', '201-1000', '1000+'] as const
 
+const LABEL_CLS = 'text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant'
+const CONTROL_CLS = 'h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface focus:outline-none'
+
 interface Props {
   selectedCount: number
   totalCount: number
@@ -64,20 +67,20 @@ export function CompaniesBulkCommandBar({
 
   return (
     <section
-      className="pib-card-section p-4 space-y-4 shadow-xl"
+      className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 p-3 space-y-3"
       aria-label="Account bulk command center"
     >
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="eyebrow">Account bulk command center</p>
-          <h2 className="font-display text-xl mt-1">Move selected accounts as one governed set.</h2>
-          <p className="text-sm text-[var(--color-pib-text-muted)] mt-1 max-w-2xl">
+      <div className="flex flex-wrap items-start justify-between gap-2 border-b border-[var(--color-card-border)] pb-2">
+        <div className="min-w-0">
+          <p className={LABEL_CLS}>Account bulk command center</p>
+          <h2 className="mt-1 text-sm font-semibold text-on-surface">Move selected accounts as one governed set.</h2>
+          <p className="mt-1 max-w-2xl text-xs leading-5 text-on-surface-variant">
             Standardise lifecycle, tier, size, industry, owner, or tags without opening each company record.
           </p>
         </div>
         <button
           onClick={onClear}
-          className="btn-pib-secondary !text-xs"
+          className="flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
           aria-label="Clear selected companies"
         >
           <span className="material-symbols-outlined text-[16px]">close</span>
@@ -85,33 +88,33 @@ export function CompaniesBulkCommandBar({
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-        <div className="rounded-[var(--radius-card)] border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-          <p className="eyebrow !text-[10px]">Selected accounts</p>
-          <p className="font-display text-2xl mt-1">{selectedCount} selected</p>
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+        <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+          <p className={LABEL_CLS}>Selected accounts</p>
+          <p className="mt-1 text-lg font-semibold text-on-surface">{selectedCount} selected</p>
         </div>
-        <div className="rounded-[var(--radius-card)] border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-          <p className="eyebrow !text-[10px]">Coverage</p>
-          <p className="font-display text-2xl mt-1">{coverage}%</p>
+        <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+          <p className={LABEL_CLS}>Coverage</p>
+          <p className="mt-1 text-lg font-semibold text-on-surface">{coverage}%</p>
         </div>
-        <div className="rounded-[var(--radius-card)] border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-          <p className="eyebrow !text-[10px]">Next operation</p>
-          <p className="text-sm mt-1 text-[var(--color-pib-text)]">{actionLabel}</p>
+        <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+          <p className={LABEL_CLS}>Next operation</p>
+          <p className="mt-1 text-xs text-on-surface">{actionLabel}</p>
         </div>
-        <div className="rounded-[var(--radius-card)] border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-          <p className="eyebrow !text-[10px]">Safety</p>
-          <p className="text-sm mt-1 text-[var(--color-pib-text-muted)]">No destructive action in this panel.</p>
+        <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+          <p className={LABEL_CLS}>Safety</p>
+          <p className="mt-1 text-xs text-on-surface-variant">No destructive action in this panel.</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(180px,240px)_1fr_auto] gap-3 items-end">
+      <div className="grid grid-cols-1 items-end gap-2 lg:grid-cols-[minmax(180px,240px)_1fr_auto]">
         <label className="space-y-1">
-          <span className="eyebrow !text-[10px]">Operation</span>
+          <span className={LABEL_CLS}>Operation</span>
           <select
             aria-label="Company bulk action"
             value={bulkAction}
             onChange={(event) => onActionChange(event.target.value as CompanyBulkActionKey)}
-            className="pib-input !w-full !py-2 !text-sm"
+            className={CONTROL_CLS}
           >
             {COMPANY_BULK_ACTIONS.map(action => (
               <option key={action} value={action} className="bg-black">
@@ -124,8 +127,8 @@ export function CompaniesBulkCommandBar({
         <div>
           {bulkAction === 'lifecycleStage' && (
             <label className="space-y-1 block">
-              <span className="eyebrow !text-[10px]">Lifecycle stage</span>
-              <select value={lifecycleStage} onChange={(event) => onLifecycleStageChange(event.target.value)} className="pib-input !w-full !py-2 !text-sm">
+              <span className={LABEL_CLS}>Lifecycle stage</span>
+              <select value={lifecycleStage} onChange={(event) => onLifecycleStageChange(event.target.value)} className={CONTROL_CLS}>
                 {LIFECYCLE_STAGES.map(stage => <option key={stage} value={stage} className="bg-black">{stage}</option>)}
               </select>
             </label>
@@ -133,8 +136,8 @@ export function CompaniesBulkCommandBar({
 
           {bulkAction === 'tier' && (
             <label className="space-y-1 block">
-              <span className="eyebrow !text-[10px]">Tier</span>
-              <select value={tier} onChange={(event) => onTierChange(event.target.value)} className="pib-input !w-full !py-2 !text-sm">
+              <span className={LABEL_CLS}>Tier</span>
+              <select value={tier} onChange={(event) => onTierChange(event.target.value)} className={CONTROL_CLS}>
                 {TIERS.map(value => <option key={value} value={value} className="bg-black">{value}</option>)}
               </select>
             </label>
@@ -142,8 +145,8 @@ export function CompaniesBulkCommandBar({
 
           {bulkAction === 'size' && (
             <label className="space-y-1 block">
-              <span className="eyebrow !text-[10px]">Size</span>
-              <select value={size} onChange={(event) => onSizeChange(event.target.value)} className="pib-input !w-full !py-2 !text-sm">
+              <span className={LABEL_CLS}>Size</span>
+              <select value={size} onChange={(event) => onSizeChange(event.target.value)} className={CONTROL_CLS}>
                 {SIZES.map(value => <option key={value} value={value} className="bg-black">{value}</option>)}
               </select>
             </label>
@@ -151,22 +154,22 @@ export function CompaniesBulkCommandBar({
 
           {bulkAction === 'industry' && (
             <label className="space-y-1 block">
-              <span className="eyebrow !text-[10px]">Industry</span>
-              <input value={industry} onChange={(event) => onIndustryChange(event.target.value)} placeholder="SaaS, legal, property..." className="pib-input !w-full !py-2 !text-sm" />
+              <span className={LABEL_CLS}>Industry</span>
+              <input value={industry} onChange={(event) => onIndustryChange(event.target.value)} placeholder="SaaS, legal, property..." className={CONTROL_CLS} />
             </label>
           )}
 
           {bulkAction === 'tags' && (
             <label className="space-y-1 block">
-              <span className="eyebrow !text-[10px]">Tags</span>
-              <input value={tagsInput} onChange={(event) => onTagsInputChange(event.target.value)} placeholder="priority, retained..." className="pib-input !w-full !py-2 !text-sm" />
+              <span className={LABEL_CLS}>Tags</span>
+              <input value={tagsInput} onChange={(event) => onTagsInputChange(event.target.value)} placeholder="priority, retained..." className={CONTROL_CLS} />
             </label>
           )}
 
           {bulkAction === 'accountManagerUid' && (
             <label className="space-y-1 block">
-              <span className="eyebrow !text-[10px]">Account manager UID</span>
-              <input value={accountManagerUid} onChange={(event) => onAccountManagerUidChange(event.target.value)} placeholder="User UID..." className="pib-input !w-full !py-2 !text-sm" />
+              <span className={LABEL_CLS}>Account manager UID</span>
+              <input value={accountManagerUid} onChange={(event) => onAccountManagerUidChange(event.target.value)} placeholder="User UID..." className={CONTROL_CLS} />
             </label>
           )}
         </div>
@@ -174,7 +177,7 @@ export function CompaniesBulkCommandBar({
         <button
           onClick={onApply}
           disabled={bulkPending}
-          className="btn-pib-accent !py-2.5 !text-sm justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex h-8 items-center justify-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
           aria-label="Apply company bulk updates"
         >
           <span className="material-symbols-outlined text-[16px]">done_all</span>

@@ -52,13 +52,13 @@ function isPipelineSetupArtifact(pipeline?: Pipeline): boolean {
 
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
   return (
-    <div className="pib-stat-card">
-      <div className="flex items-start justify-between gap-3">
-        <p className="eyebrow !text-[10px]">{label}</p>
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
+    <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">{label}</p>
+        <span className="material-symbols-outlined text-[16px] text-on-surface-variant">{icon}</span>
       </div>
-      <p className="mt-3 font-display text-3xl leading-none text-[var(--color-pib-text)]">{value}</p>
-      <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">{sub}</p>
+      <p className="mt-1 text-lg font-semibold leading-none text-on-surface">{value}</p>
+      <p className="mt-1 text-[11px] leading-4 text-on-surface-variant">{sub}</p>
     </div>
   )
 }
@@ -267,20 +267,21 @@ export default function PipelinesPage() {
   const canClearFilters = Boolean(search) || healthFilter !== 'all'
 
   return (
-    <div className="space-y-8">
-      <header className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <p className="eyebrow">CRM settings</p>
-          <h1 className="pib-page-title mt-2">Pipeline command center</h1>
-          <p className="pib-page-sub max-w-2xl">
-            Design the sales paths that drive deal stages, forecasts, win/loss analytics, and automation triggers.
-          </p>
+    <div className="space-y-2">
+      <header className="flex h-11 items-center gap-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 px-3">
+        <span className="material-symbols-outlined grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-[15px] text-primary" aria-hidden="true">account_tree</span>
+        <div className="min-w-0">
+          <p className="truncate text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">CRM settings</p>
+          <h1 className="truncate text-sm font-semibold leading-tight text-on-surface">Pipeline command center</h1>
         </div>
+        <p className="ml-2 hidden min-w-0 truncate text-xs text-on-surface-variant lg:block">
+          Design the sales paths that drive deal stages, forecasts, win/loss analytics, and automation triggers.
+        </p>
         {isAdmin && (
           <button
             type="button"
             onClick={openCreate}
-            className="cursor-pointer btn-pib-accent flex items-center gap-1.5 text-sm shrink-0"
+            className="ml-auto flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
             New pipeline
@@ -289,7 +290,7 @@ export default function PipelinesPage() {
       </header>
 
       {!fetchError && (
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <section className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard label="Active pipelines" value={String(activePipelines.length)} sub={`${archivedPipelines.length} archived definitions hidden by default`} icon="account_tree" />
           <StatCard label="Default route" value={defaultPipeline ? 'Set' : 'Missing'} sub={defaultPipeline ? pipelineDisplayName(defaultPipeline) : 'Choose a default path for new deals'} icon="star" />
           <StatCard label="Stage coverage" value={String(totalStages)} sub={`${openStageCount} open, ${wonStageCount} won, ${lostStageCount} lost`} icon="schema" />
@@ -301,22 +302,22 @@ export default function PipelinesPage() {
         <section
           role="region"
           aria-label="Default pipeline route review"
-          className="rounded-[var(--radius-card)] border border-amber-400/25 bg-amber-400/[0.08] p-5 shadow-[0_18px_40px_rgba(146,64,14,0.14)]"
+          className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3"
         >
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex gap-3">
-              <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">alt_route</span>
-              <div>
-                <p className="eyebrow !text-[10px] text-amber-200">Revenue routing</p>
-                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Default route is missing</h2>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex gap-2">
+              <span className="material-symbols-outlined mt-0.5 text-[16px] text-amber-200" aria-hidden="true">alt_route</span>
+              <div className="min-w-0">
+                <p className="text-[10px] font-label uppercase tracking-[0.22em] text-amber-200">Revenue routing</p>
+                <h2 className="mt-0.5 text-sm font-semibold text-on-surface">Default route is missing</h2>
+                <p className="mt-1 max-w-2xl text-xs leading-5 text-on-surface-variant">
                   New deals need a default revenue path before the team scales pipeline entry.
                 </p>
-                <div className="mt-4 flex flex-wrap items-center gap-2">
-                  <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1 text-xs font-semibold text-amber-50">
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="flex h-7 items-center rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 text-[11px] font-semibold text-amber-100">
                     {pipelineDisplayName(defaultCandidatePipeline)}
                   </span>
-                  <span className="text-xs text-[var(--color-pib-text-muted)]">
+                  <span className="text-[11px] text-on-surface-variant">
                     {defaultCandidateReady
                       ? 'Ready to become the first route for new deals.'
                       : 'Needs setup before it can carry new deals confidently.'}
@@ -330,9 +331,9 @@ export default function PipelinesPage() {
                   type="button"
                   onClick={() => handleSetDefault(defaultCandidatePipeline)}
                   aria-label={`Set ${pipelineDisplayName(defaultCandidatePipeline)} as default pipeline route`}
-                  className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+                  className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
                 >
-                  <span className="material-symbols-outlined text-base" aria-hidden="true">star</span>
+                  <span className="material-symbols-outlined text-[16px]" aria-hidden="true">star</span>
                   Set default route
                 </button>
               ) : (
@@ -340,9 +341,9 @@ export default function PipelinesPage() {
                   type="button"
                   onClick={() => openEdit(defaultCandidatePipeline)}
                   aria-label={`Review ${pipelineDisplayName(defaultCandidatePipeline)} before setting a default pipeline route`}
-                  className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+                  className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
                 >
-                  <span className="material-symbols-outlined text-base" aria-hidden="true">edit_note</span>
+                  <span className="material-symbols-outlined text-[16px]" aria-hidden="true">edit_note</span>
                   Review setup
                 </button>
               )
@@ -353,33 +354,33 @@ export default function PipelinesPage() {
 
       {/* Read-only banner for non-admins */}
       {role !== null && !isAdmin && (
-        <div className="mb-6 px-4 py-3 rounded-lg bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line)] text-sm text-[var(--color-pib-text-muted)]">
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 px-3 py-2 text-xs text-on-surface-variant">
           <span className="material-symbols-outlined text-[16px] align-middle mr-1.5">info</span>
           Only admins can manage pipelines.
         </div>
       )}
 
       {!fetchError && (
-        <section className="grid gap-4 lg:grid-cols-[1fr_340px]">
-          <div className="space-y-4">
-            <div className="flex flex-wrap gap-3">
+        <section className="grid gap-2 lg:grid-cols-[1fr_340px]">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/65 px-2 py-1.5">
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                className="pib-input min-w-[220px] flex-1"
+                className="h-8 min-w-[220px] flex-1 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface placeholder:text-on-surface-variant"
                 placeholder="Search pipeline, stage, or outcome..."
               />
               <select
                 aria-label="Filter pipelines by health"
                 value={healthFilter}
                 onChange={(event) => setHealthFilter(event.target.value as HealthFilter)}
-                className="pib-input !w-auto"
+                className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface"
               >
                 <option value="all">All health</option>
                 <option value="ready">Ready</option>
                 <option value="needs-work">Needs work</option>
               </select>
-              <label className="flex min-h-10 items-center gap-2 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-3 text-sm text-[var(--color-pib-text-muted)]">
+              <label className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant">
                 <input
                   type="checkbox"
                   checked={showArchived}
@@ -388,39 +389,38 @@ export default function PipelinesPage() {
                 />
                 Show archived
               </label>
+              {canClearFilters ? (
+                <button
+                  type="button"
+                  onClick={() => { setSearch(''); setHealthFilter('all') }}
+                  className="flex h-8 items-center gap-1.5 rounded-md px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                >
+                  <span className="material-symbols-outlined text-[14px]" aria-hidden="true">filter_alt_off</span>
+                  Clear filters
+                </button>
+              ) : null}
             </div>
-
-            {canClearFilters ? (
-              <button
-                type="button"
-                onClick={() => { setSearch(''); setHealthFilter('all') }}
-                className="btn-pib-secondary text-xs inline-flex items-center gap-1.5"
-              >
-                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">filter_alt_off</span>
-                Clear filters
-              </button>
-            ) : null}
           </div>
 
-          <div className="bento-card !p-5 space-y-4">
+          <div className="space-y-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
             <div>
-              <p className="eyebrow !text-[10px]">Pipeline focus</p>
-              <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
+              <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Pipeline focus</p>
+              <p className="mt-1 text-xs leading-5 text-on-surface-variant">
                 Every live path should include open work, a won close, and a lost close so reports and automations can trust the outcome.
               </p>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-                <p className="font-display text-xl text-[var(--color-pib-text)]">{averageStages.toFixed(1)}</p>
-                <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">Avg stages</p>
+              <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+                <p className="text-lg font-semibold text-on-surface">{averageStages.toFixed(1)}</p>
+                <p className="text-[11px] leading-4 text-on-surface-variant">Avg stages</p>
               </div>
-              <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-                <p className="font-display text-xl text-[var(--color-pib-text)]">{wonStageCount}</p>
-                <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">Won exits</p>
+              <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+                <p className="text-lg font-semibold text-on-surface">{wonStageCount}</p>
+                <p className="text-[11px] leading-4 text-on-surface-variant">Won exits</p>
               </div>
-              <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-                <p className="font-display text-xl text-[var(--color-pib-text)]">{lostStageCount}</p>
-                <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">Lost exits</p>
+              <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+                <p className="text-lg font-semibold text-on-surface">{lostStageCount}</p>
+                <p className="text-[11px] leading-4 text-on-surface-variant">Lost exits</p>
               </div>
             </div>
           </div>
@@ -428,7 +428,7 @@ export default function PipelinesPage() {
       )}
 
       {deleteError && (
-        <div className="rounded-lg border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-100">
+        <div className="rounded-lg border border-red-400/40 bg-red-400/10 px-3 py-2 text-xs text-red-100">
           <span className="material-symbols-outlined mr-1.5 align-middle text-[16px]" aria-hidden="true">error</span>
           {deleteError}
         </div>
@@ -438,13 +438,13 @@ export default function PipelinesPage() {
         <section
           role="status"
           aria-label="Pipeline action failed"
-          className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-4 py-3"
+          className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2"
         >
-          <div className="flex gap-3">
-            <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">warning</span>
+          <div className="flex gap-2">
+            <span className="material-symbols-outlined mt-0.5 text-[16px] text-amber-200" aria-hidden="true">warning</span>
             <div>
-              <p className="text-sm font-medium text-amber-100">{actionError}</p>
-              <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+              <p className="text-xs font-medium text-amber-100">{actionError}</p>
+              <p className="mt-0.5 text-[11px] leading-4 text-on-surface-variant">
                 No pipeline changes were applied. Review permissions or retry the action from this workspace.
               </p>
             </div>
@@ -458,17 +458,17 @@ export default function PipelinesPage() {
           aria-modal="false"
           aria-labelledby="pipeline-delete-confirm-title"
           aria-describedby="pipeline-delete-confirm-description"
-          className="rounded-lg border border-red-400/25 bg-red-500/10 p-5 shadow-[0_18px_40px_rgba(127,29,29,0.18)]"
+          className="rounded-xl border border-red-400/40 bg-red-400/10 p-3"
         >
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div className="flex gap-3">
-              <span className="material-symbols-outlined mt-0.5 text-red-200" aria-hidden="true">warning</span>
-              <div>
-                <p className="eyebrow !text-[10px] !text-red-100/80">Pipeline delete</p>
-                <h2 id="pipeline-delete-confirm-title" className="mt-1 font-display text-lg text-red-50">
+          <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+            <div className="flex gap-2">
+              <span className="material-symbols-outlined mt-0.5 text-[16px] text-red-200" aria-hidden="true">warning</span>
+              <div className="min-w-0">
+                <p className="text-[10px] font-label uppercase tracking-[0.22em] text-red-200">Pipeline delete</p>
+                <h2 id="pipeline-delete-confirm-title" className="mt-0.5 text-sm font-semibold text-red-50">
                   Delete pipeline &quot;{pipelineDisplayName(pendingDeletePipeline)}&quot;?
                 </h2>
-                <p id="pipeline-delete-confirm-description" className="mt-2 max-w-2xl text-sm text-red-100/90">
+                <p id="pipeline-delete-confirm-description" className="mt-1 max-w-2xl text-xs leading-5 text-red-100/90">
                   This removes the revenue path with {pipelineStages(pendingDeletePipeline).length} stage{pipelineStages(pendingDeletePipeline).length === 1 ? '' : 's'}. Existing deal history stays available for audit.
                 </p>
               </div>
@@ -481,7 +481,7 @@ export default function PipelinesPage() {
                   setPendingDeletePipeline(null)
                   setDeleteError(null)
                 }}
-                className="btn-pib-secondary text-xs"
+                className="flex h-8 cursor-pointer items-center rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
                 disabled={deletingId === pendingDeletePipeline.id}
               >
                 Cancel
@@ -490,7 +490,7 @@ export default function PipelinesPage() {
                 type="button"
                 onClick={confirmDeletePipeline}
                 aria-label={`Confirm delete pipeline ${pipelineDisplayName(pendingDeletePipeline)}`}
-                className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-red-300/30 bg-red-500/20 px-3 py-2 text-xs font-semibold text-red-50 transition-colors hover:border-red-200/60 hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-red-400/40 bg-red-400/10 px-2 text-xs font-semibold text-red-100 transition hover:bg-red-400/20 disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={deletingId === pendingDeletePipeline.id}
               >
                 <span className="material-symbols-outlined text-[15px]" aria-hidden="true">delete</span>
@@ -503,43 +503,43 @@ export default function PipelinesPage() {
 
       {/* Content */}
       {loading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 4 }).map((_, index) => <div key={index} className="pib-skeleton h-24" />)}
+        <div className="space-y-2">
+          {Array.from({ length: 4 }).map((_, index) => <div key={index} className="pib-skeleton h-20" />)}
         </div>
       ) : fetchError ? (
-        <section className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-5">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div className="flex gap-3">
-              <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">warning</span>
-              <div>
-                <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
-                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+        <section className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3">
+          <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+            <div className="flex gap-2">
+              <span className="material-symbols-outlined mt-0.5 text-[16px] text-amber-200" aria-hidden="true">warning</span>
+              <div className="min-w-0">
+                <p className="text-[10px] font-label uppercase tracking-[0.22em] text-amber-200">Source health</p>
+                <h2 className="mt-0.5 text-sm font-semibold text-on-surface">
                   Pipeline definitions could not load
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{fetchError}</p>
+                <p className="mt-1 text-xs leading-5 text-on-surface-variant">{fetchError}</p>
               </div>
             </div>
             <button
               type="button"
               onClick={() => fetchPipelines(showArchived)}
-              className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
               aria-label="Retry loading pipelines"
             >
-              <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
               Retry
             </button>
           </div>
         </section>
       ) : pipelines.length > 0 && filteredPipelines.length === 0 ? (
-        <div className="bento-card !p-8 text-center">
-          <span className="material-symbols-outlined text-[34px] text-[var(--color-pib-text-muted)] mb-3 block" aria-hidden="true">search_off</span>
-          <p className="eyebrow !text-[10px]">Filtered revenue path</p>
-          <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">No pipelines match this view.</h2>
-          <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Clear the pipeline filters to return to every revenue path.</p>
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-6 text-center">
+          <span className="material-symbols-outlined mb-2 block text-[19px] text-on-surface-variant" aria-hidden="true">search_off</span>
+          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Filtered revenue path</p>
+          <h2 className="mt-1 text-sm font-semibold text-on-surface">No pipelines match this view.</h2>
+          <p className="mt-1 text-xs text-on-surface-variant">Clear the pipeline filters to return to every revenue path.</p>
           <button
             type="button"
             onClick={clearPipelineFilters}
-            className="btn-pib-secondary mt-5 inline-flex items-center gap-1.5 text-xs"
+            className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
             aria-label="Show all pipelines"
           >
             <span className="material-symbols-outlined text-[15px]" aria-hidden="true">filter_alt_off</span>

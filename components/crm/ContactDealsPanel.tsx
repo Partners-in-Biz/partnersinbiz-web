@@ -202,18 +202,18 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '', orgScope
   }
 
   return (
-    <div className="pib-card-section">
-      <div className="px-5 py-3.5 border-b border-[var(--color-pib-line)] bg-white/[0.02] flex items-center justify-between">
-        <p className="eyebrow !text-[10px]">Deals</p>
-        <div className="flex items-center gap-3">
-          <span className="text-[11px] text-[var(--color-pib-text-muted)] font-mono">
+    <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+      <div className="flex h-9 items-center justify-between border-b border-[var(--color-card-border)] bg-black/[0.08] px-3">
+        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Deals</p>
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[11px] text-on-surface-variant">
             {loading ? '…' : `${deals.length} record${deals.length === 1 ? '' : 's'}`}
           </span>
           <button
             type="button"
             aria-label={`New deal for ${contactLabel}`}
             onClick={openNewDealDrawer}
-            className="btn-pib-secondary text-xs flex items-center gap-1"
+            className="flex h-7 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
           >
             <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add</span>
             New deal
@@ -222,31 +222,31 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '', orgScope
       </div>
 
       {!loading && deals.length > 0 && (
-        <div className="border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]/45 px-5 py-4">
-          <p className="eyebrow !text-[10px]">Relationship pipeline</p>
-          <div className="mt-3 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
-              <p className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Open deals</p>
-              <p className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">{dealStats.open}</p>
-              <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">{dealStats.won} won / {dealStats.lost} lost</p>
+        <div className="border-b border-[var(--color-card-border)] px-3 py-2">
+          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Relationship pipeline</p>
+          <div className="mt-2 grid gap-2 sm:grid-cols-3">
+            <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+              <p className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Open deals</p>
+              <p className="mt-1 text-lg font-semibold text-on-surface">{dealStats.open}</p>
+              <p className="text-[11px] leading-4 text-on-surface-variant">{dealStats.won} won / {dealStats.lost} lost</p>
             </div>
-            <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
-              <p className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Total value</p>
-              <p className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">
+            <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+              <p className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Total value</p>
+              <p className="mt-1 text-lg font-semibold text-on-surface">
                 {dealStats.priced > 0 ? fmtMoney(dealStats.totalValue, primaryCurrency) : 'No priced deals'}
               </p>
-              <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">
+              <p className="text-[11px] leading-4 text-on-surface-variant">
                 {dealStats.priced > 0
                   ? `${dealStats.unpriced} unpriced ${dealStats.unpriced === 1 ? 'deal' : 'deals'}`
                   : 'Capture deal value to unlock linked pipeline totals'}
               </p>
             </div>
-            <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
-              <p className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Weighted value</p>
-              <p className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">
+            <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+              <p className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Weighted value</p>
+              <p className="mt-1 text-lg font-semibold text-on-surface">
                 {dealStats.priced > 0 ? fmtMoney(dealStats.weightedValue, primaryCurrency) : 'Forecast value needed'}
               </p>
-              <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">
+              <p className="text-[11px] leading-4 text-on-surface-variant">
                 {dealStats.priced > 0 ? 'open probability forecast' : 'Price at least one open deal to forecast this contact'}
               </p>
             </div>
@@ -255,27 +255,27 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '', orgScope
       )}
 
       {loading ? (
-        <div className="p-5 space-y-3" role="status" aria-live="polite">
-          <div className="flex items-center gap-2 text-xs text-[var(--color-pib-text-muted)]">
+        <div className="space-y-2 p-3" role="status" aria-live="polite">
+          <div className="flex items-center gap-2 text-xs text-on-surface-variant">
             <span className="material-symbols-outlined text-[16px] text-[var(--color-accent-v2)]" aria-hidden="true">
               progress_activity
             </span>
             <span>Loading relationship pipeline for {contactLabel}...</span>
           </div>
           {[...Array(2)].map((_, i) => (
-            <div key={i} className="pib-skeleton h-12" />
+            <div key={i} className="pib-skeleton h-10" />
           ))}
         </div>
       ) : loadError ? (
-        <div className="p-10 text-center">
-          <span className="material-symbols-outlined text-4xl text-amber-300" aria-hidden="true">
+        <div className="p-5 text-center">
+          <span className="material-symbols-outlined text-[19px] text-amber-300" aria-hidden="true">
             sync_problem
           </span>
-          <p className="eyebrow !text-[10px] mt-3">Relationship pipeline</p>
-          <h3 className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">
+          <p className="mt-2 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Relationship pipeline</p>
+          <h3 className="mt-1 text-sm font-semibold text-on-surface">
             Deal pipeline unavailable
           </h3>
-          <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--color-pib-text-muted)]">
+          <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-on-surface-variant">
             We could not load linked deals for {contactLabel}. Retry before treating this relationship as having no open opportunity.
           </p>
           <button
@@ -286,46 +286,46 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '', orgScope
               setLoadError(false)
               setReloadToken((value) => value + 1)
             }}
-            className="btn-pib-secondary mx-auto mt-5 inline-flex items-center gap-1.5 text-xs"
+            className="mx-auto mt-3 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
           >
             <span className="material-symbols-outlined text-[14px]" aria-hidden="true">refresh</span>
             Retry linked deals
           </button>
         </div>
       ) : deals.length === 0 ? (
-        <div className="p-10 text-center">
-          <span className="material-symbols-outlined text-4xl text-[var(--color-accent-v2)]" aria-hidden="true">
+        <div className="p-5 text-center">
+          <span className="material-symbols-outlined text-[19px] text-[var(--color-accent-v2)]" aria-hidden="true">
             monetization_on
           </span>
-          <p className="eyebrow !text-[10px] mt-3">Relationship pipeline</p>
-          <h3 className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">
+          <p className="mt-2 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Relationship pipeline</p>
+          <h3 className="mt-1 text-sm font-semibold text-on-surface">
             {opportunityHeadline}
           </h3>
-          <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--color-pib-text-muted)]">
+          <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-on-surface-variant">
             Create a deal from this contact so pipeline value, quotes, close dates, and next steps stay connected to the relationship.
           </p>
-          <div className="mx-auto mt-4 grid max-w-lg gap-2 sm:grid-cols-2">
-            <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] px-3 py-2 text-left">
-              <p className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Contact anchored</p>
-              <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">The new deal opens with this relationship already attached.</p>
+          <div className="mx-auto mt-3 grid max-w-lg gap-2 sm:grid-cols-2">
+            <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2 text-left">
+              <p className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Contact anchored</p>
+              <p className="mt-1 text-[11px] leading-4 text-on-surface-variant">The new deal opens with this relationship already attached.</p>
             </div>
-            <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] px-3 py-2 text-left">
-              <p className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Forecast ready</p>
-              <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Capture value, probability, close date, and stage in one pass.</p>
+            <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2 text-left">
+              <p className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Forecast ready</p>
+              <p className="mt-1 text-[11px] leading-4 text-on-surface-variant">Capture value, probability, close date, and stage in one pass.</p>
             </div>
           </div>
           <button
             type="button"
             aria-label={`Create first deal for ${contactLabel}`}
             onClick={openNewDealDrawer}
-            className="btn-pib-secondary mx-auto mt-5 inline-flex items-center gap-1.5 text-xs"
+            className="mx-auto mt-3 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
           >
             <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add</span>
             Create first deal
           </button>
         </div>
       ) : (
-        <div className="divide-y divide-[var(--color-pib-line)]">
+        <div className="divide-y divide-[var(--color-card-border)]">
           {deals.map((deal) => {
             const closeDateLabel = closeDateReadinessLabel(deal.expectedCloseDate)
             const titleLabel = dealTitleLabel(deal)
@@ -333,34 +333,34 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '', orgScope
             const hasValue = deal.value !== null && deal.value !== undefined && !Number.isNaN(deal.value)
             const closeDateAction = closeDateLabel === 'Close date missing' ? 'Add close date' : 'Edit close date'
             return (
-              <div key={deal.id} className="px-5 py-3 flex items-center gap-4">
+              <div key={deal.id} className="flex items-center gap-3 px-3 py-2 transition hover:bg-white/[0.04]">
                 <span
-                  className="material-symbols-outlined text-[18px] shrink-0 text-[var(--color-pib-text-muted)]"
+                  className="material-symbols-outlined shrink-0 text-[16px] text-on-surface-variant"
                 >
                   monetization_on
                 </span>
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1">
                   <Link
                     href={dealHref(deal.id)}
-                    className="text-sm font-medium text-[var(--color-pib-text)] hover:underline truncate block"
+                    className="block truncate text-sm font-medium text-on-surface hover:underline"
                   >
                     {titleLabel}
                   </Link>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-mono">
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[11px]">
                     <button
                       type="button"
                       onClick={() => openDealEditor(deal)}
                       aria-label={`${hasValue ? 'Edit' : 'Add'} value for ${titleLabel} from contact deal row`}
-                      className="text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-accent)]"
+                      className="text-on-surface-variant transition hover:text-primary"
                     >
                       {fmtValue(deal)}
                     </button>
-                    <span className="text-[var(--color-pib-text-muted)]" aria-hidden="true">·</span>
+                    <span className="text-on-surface-variant" aria-hidden="true">·</span>
                     <button
                       type="button"
                       onClick={() => openDealEditor(deal)}
                       aria-label={`${closeDateAction} for ${titleLabel} from contact deal row`}
-                      className="text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-accent)]"
+                      className="text-on-surface-variant transition hover:text-primary"
                     >
                       {closeDateLabel}
                     </button>
@@ -370,7 +370,7 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '', orgScope
                   type="button"
                   onClick={() => openDealEditor(deal)}
                   aria-label={`Edit stage for ${titleLabel} from contact deal row`}
-                  className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0 transition-opacity hover:opacity-80"
+                  className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-label uppercase tracking-wide transition-opacity hover:opacity-80"
                   style={{
                     background: `${stageColor}20`,
                     color: stageColor,

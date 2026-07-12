@@ -139,12 +139,12 @@ export function CrmSearchBar({ className, orgScope }: Props) {
     <div ref={containerRef} className={['relative', className].filter(Boolean).join(' ')}>
       {/* Input */}
       <div
-        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] focus-within:border-[var(--color-pib-accent)] transition-colors"
+        className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 transition-colors focus-within:border-primary/40"
       >
         {loading ? (
-          <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)] animate-spin">progress_activity</span>
+          <span className="material-symbols-outlined animate-spin text-[15px] text-on-surface-variant">progress_activity</span>
         ) : (
-          <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">search</span>
+          <span className="material-symbols-outlined text-[15px] text-on-surface-variant">search</span>
         )}
         <input
           ref={inputRef}
@@ -153,14 +153,14 @@ export function CrmSearchBar({ className, orgScope }: Props) {
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           placeholder="Search CRM…"
-          className="flex-1 bg-transparent text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] outline-none min-w-0"
+          className="min-w-0 flex-1 bg-transparent text-xs text-on-surface outline-none placeholder:text-on-surface-variant"
           aria-label="Search contacts, companies, and deals"
           autoComplete="off"
         />
         {query && (
           <button
             onClick={clearAndClose}
-            className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
+            className="text-on-surface-variant transition-colors hover:text-on-surface"
             aria-label="Clear search"
           >
             <span className="material-symbols-outlined text-[14px]">close</span>
@@ -171,28 +171,28 @@ export function CrmSearchBar({ className, orgScope }: Props) {
       {/* Dropdown */}
       {open && (
         <div
-          className="absolute top-full left-0 right-0 mt-1.5 rounded-[var(--radius-card)] border border-[var(--color-pib-line)] shadow-xl z-50 overflow-hidden"
-          style={{ background: 'var(--color-sidebar, var(--color-pib-surface))' }}
+          className="absolute top-full left-0 right-0 z-50 mt-1 overflow-hidden rounded-lg border border-[var(--color-card-border)] shadow-xl"
+          style={{ background: 'var(--color-sidebar, var(--color-surface-container))' }}
         >
           {!hasResults ? (
-            <p className="text-xs text-[var(--color-pib-text-muted)] px-4 py-3 text-center">
+            <p className="px-3 py-2.5 text-center text-xs text-on-surface-variant">
               No results for &ldquo;{query}&rdquo;
             </p>
           ) : (
-            <div className="py-1.5 max-h-[400px] overflow-y-auto">
+            <div className="max-h-[400px] overflow-y-auto py-1">
               {contacts.length > 0 && (
                 <section>
-                  <p className="eyebrow !text-[10px] px-4 py-1.5">Contacts</p>
+                  <p className="px-3 py-1 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Contacts</p>
                   {contacts.map(c => (
                     <Link
                       key={c.id}
                       href={crmPortalPath(`/portal/contacts/${c.id}`)}
                       onClick={clearAndClose}
-                      className="flex items-center gap-2.5 px-4 py-2 hover:bg-[var(--color-pib-surface-2)] transition-colors"
+                      className="flex items-center gap-2 px-3 py-1.5 transition-colors hover:bg-white/[0.05]"
                     >
-                      <span className="material-symbols-outlined text-[14px] text-[var(--color-pib-text-muted)] shrink-0">person</span>
-                      <span className="text-sm flex-1 truncate">{contactResultLabel(c)}</span>
-                      <span className="text-xs text-[var(--color-pib-text-muted)] shrink-0">Contact</span>
+                      <span className="material-symbols-outlined shrink-0 text-[14px] text-on-surface-variant">person</span>
+                      <span className="flex-1 truncate text-xs text-on-surface">{contactResultLabel(c)}</span>
+                      <span className="shrink-0 text-[11px] text-on-surface-variant">Contact</span>
                     </Link>
                   ))}
                 </section>
@@ -200,18 +200,18 @@ export function CrmSearchBar({ className, orgScope }: Props) {
 
               {companies.length > 0 && (
                 <section>
-                  {contacts.length > 0 && <div className="h-px bg-[var(--color-pib-line)] mx-4 my-1" />}
-                  <p className="eyebrow !text-[10px] px-4 py-1.5">Companies</p>
+                  {contacts.length > 0 && <div className="mx-3 my-1 h-px bg-[var(--color-card-border)]" />}
+                  <p className="px-3 py-1 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Companies</p>
                   {companies.map(co => (
                     <Link
                       key={co.id}
                       href={crmPortalPath(`/portal/companies/${co.id}`)}
                       onClick={clearAndClose}
-                      className="flex items-center gap-2.5 px-4 py-2 hover:bg-[var(--color-pib-surface-2)] transition-colors"
+                      className="flex items-center gap-2 px-3 py-1.5 transition-colors hover:bg-white/[0.05]"
                     >
-                      <span className="material-symbols-outlined text-[14px] text-[var(--color-pib-text-muted)] shrink-0">business</span>
-                      <span className="text-sm flex-1 truncate">{co.name}</span>
-                      <span className="text-xs text-[var(--color-pib-text-muted)] shrink-0">Company</span>
+                      <span className="material-symbols-outlined shrink-0 text-[14px] text-on-surface-variant">business</span>
+                      <span className="flex-1 truncate text-xs text-on-surface">{co.name}</span>
+                      <span className="shrink-0 text-[11px] text-on-surface-variant">Company</span>
                     </Link>
                   ))}
                 </section>
@@ -219,18 +219,18 @@ export function CrmSearchBar({ className, orgScope }: Props) {
 
               {deals.length > 0 && (
                 <section>
-                  {(contacts.length > 0 || companies.length > 0) && <div className="h-px bg-[var(--color-pib-line)] mx-4 my-1" />}
-                  <p className="eyebrow !text-[10px] px-4 py-1.5">Deals</p>
+                  {(contacts.length > 0 || companies.length > 0) && <div className="mx-3 my-1 h-px bg-[var(--color-card-border)]" />}
+                  <p className="px-3 py-1 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Deals</p>
                   {deals.map(d => (
                     <Link
                       key={d.id}
                       href={crmPortalPath(`/portal/deals/${d.id}`)}
                       onClick={clearAndClose}
-                      className="flex items-center gap-2.5 px-4 py-2 hover:bg-[var(--color-pib-surface-2)] transition-colors"
+                      className="flex items-center gap-2 px-3 py-1.5 transition-colors hover:bg-white/[0.05]"
                     >
-                      <span className="material-symbols-outlined text-[14px] text-[var(--color-pib-text-muted)] shrink-0">handshake</span>
-                      <span className="text-sm flex-1 truncate">{d.title}</span>
-                      <span className="text-xs text-[var(--color-pib-text-muted)] shrink-0">
+                      <span className="material-symbols-outlined shrink-0 text-[14px] text-on-surface-variant">handshake</span>
+                      <span className="flex-1 truncate text-xs text-on-surface">{d.title}</span>
+                      <span className="shrink-0 text-[11px] text-on-surface-variant">
                         Deal{d.value != null ? ` · ${d.currency ?? ''} ${d.value.toLocaleString()}` : ''}
                       </span>
                     </Link>

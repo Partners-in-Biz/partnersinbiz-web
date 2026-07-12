@@ -15,13 +15,13 @@ interface CompanyMigrationCommandCenterProps {
 
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
   return (
-    <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
-      <div className="flex items-start justify-between gap-3">
-        <p className="eyebrow !text-[10px]">{label}</p>
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
+    <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">{label}</p>
+        <span className="material-symbols-outlined text-[15px] text-on-surface-variant">{icon}</span>
       </div>
-      <p className="mt-3 font-display text-3xl leading-none text-[var(--color-pib-text)]">{value}</p>
-      <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">{sub}</p>
+      <p className="mt-1 text-lg font-semibold leading-none text-on-surface">{value}</p>
+      <p className="mt-1 text-[11px] leading-4 text-on-surface-variant">{sub}</p>
     </div>
   )
 }
@@ -37,14 +37,14 @@ export function CompanyMigrationCommandCenter({ matches, selected, names }: Comp
   }).length
 
   return (
-    <section className="pib-card-section overflow-hidden">
-      <div className="border-b border-[var(--color-pib-line)] bg-white/[0.02] px-5 py-3.5">
-        <p className="eyebrow">Migration command center</p>
-        <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
+    <section className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+      <div className="border-b border-[var(--color-card-border)] px-3 py-2">
+        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Migration command center</p>
+        <p className="mt-1 text-xs text-on-surface-variant">
           Review the account cleanup before applying changes to contact records.
         </p>
       </div>
-      <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-2 p-2 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Selected groups"
           value={`${selectedMatches.length}/${matches.length}`}

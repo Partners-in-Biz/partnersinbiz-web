@@ -86,13 +86,13 @@ function fieldDisplayName(def: CustomFieldDefinition): string {
 
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
   return (
-    <div className="pib-stat-card">
-      <div className="flex items-start justify-between gap-3">
-        <p className="eyebrow !text-[10px]">{label}</p>
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
+    <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">{label}</p>
+        <span className="material-symbols-outlined text-[16px] text-on-surface-variant">{icon}</span>
       </div>
-      <p className="mt-3 font-display text-3xl leading-none text-[var(--color-pib-text)]">{value}</p>
-      <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">{sub}</p>
+      <p className="mt-1 text-lg font-semibold leading-none text-on-surface">{value}</p>
+      <p className="mt-1 text-[11px] leading-4 text-on-surface-variant">{sub}</p>
     </div>
   )
 }
@@ -292,20 +292,21 @@ export default function CustomFieldsPage() {
   const hasFilters = Boolean(search) || Boolean(typeFilter) || readinessFilter !== 'all'
 
   return (
-    <div className="space-y-8">
-      <header className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <p className="eyebrow">CRM settings</p>
-          <h1 className="pib-page-title mt-2">Custom field command center</h1>
-          <p className="pib-page-sub max-w-2xl">
-            Shape the extra contact, deal, and company data that powers qualification, reporting, segmentation, and handover quality.
-          </p>
+    <div className="space-y-2">
+      <header className="flex h-11 items-center gap-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 px-3">
+        <span className="material-symbols-outlined grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-[15px] text-primary" aria-hidden="true">data_object</span>
+        <div className="min-w-0">
+          <p className="truncate text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">CRM settings</p>
+          <h1 className="truncate text-sm font-semibold leading-tight text-on-surface">Custom field command center</h1>
         </div>
+        <p className="ml-2 hidden min-w-0 truncate text-xs text-on-surface-variant lg:block">
+          Shape the extra contact, deal, and company data that powers qualification, reporting, segmentation, and handover quality.
+        </p>
         {isAdmin && (
           <button
             type="button"
             onClick={openCreate}
-            className="cursor-pointer btn-pib-accent flex items-center gap-1.5 text-sm shrink-0"
+            className="ml-auto flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
             New field
@@ -314,7 +315,7 @@ export default function CustomFieldsPage() {
       </header>
 
       {!fetchError && (
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <section className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard label="Schema fields" value={String(definitions.length)} sub={`${currentTab.label.toLowerCase()} records in this workspace`} icon="data_object" />
           <StatCard label="Required data" value={String(requiredCount)} sub={`${definitions.length - requiredCount} optional fields`} icon="rule" />
           <StatCard label="Field health" value={`${readyCount}/${definitions.length || 0}`} sub={`${needsWorkCount} field${needsWorkCount === 1 ? '' : 's'} need setup detail`} icon="monitoring" />
@@ -324,7 +325,7 @@ export default function CustomFieldsPage() {
 
       {/* Read-only banner for non-admins */}
       {role !== null && !isAdmin && (
-        <div className="mb-6 px-4 py-3 rounded-lg bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line)] text-sm text-[var(--color-pib-text-muted)]">
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 px-3 py-2 text-xs text-on-surface-variant">
           <span className="material-symbols-outlined text-[16px] align-middle mr-1.5">info</span>
           Only admins can manage custom fields.
         </div>
@@ -340,20 +341,20 @@ export default function CustomFieldsPage() {
       )}
 
       {!fetchError && (
-        <section className="grid gap-4 lg:grid-cols-[1fr_340px]">
-          <div className="space-y-4">
-            <div className="flex flex-wrap gap-3">
+        <section className="grid gap-2 lg:grid-cols-[1fr_340px]">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/65 px-2 py-1.5">
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                className="pib-input min-w-[220px] flex-1"
+                className="h-8 min-w-[220px] flex-1 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface placeholder:text-on-surface-variant"
                 placeholder="Search label, key, group, help..."
               />
               <select
                 aria-label="Filter custom fields by type"
                 value={typeFilter}
                 onChange={(event) => setTypeFilter(event.target.value)}
-                className="pib-input !w-auto"
+                className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface"
               >
                 <option value="">All types</option>
                 {typeOptions.map((type) => (
@@ -364,49 +365,48 @@ export default function CustomFieldsPage() {
                 aria-label="Filter custom fields by health"
                 value={readinessFilter}
                 onChange={(event) => setReadinessFilter(event.target.value as ReadinessFilter)}
-                className="pib-input !w-auto"
+                className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface"
               >
                 <option value="all">All health</option>
                 <option value="ready">Ready</option>
                 <option value="needs-work">Needs work</option>
               </select>
+              {hasFilters ? (
+                <button
+                  type="button"
+                  onClick={() => { setSearch(''); setTypeFilter(''); setReadinessFilter('all') }}
+                  className="flex h-8 items-center gap-1.5 rounded-md px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                >
+                  <span className="material-symbols-outlined text-[14px]" aria-hidden="true">filter_alt_off</span>
+                  Clear filters
+                </button>
+              ) : null}
             </div>
-
-            {hasFilters ? (
-              <button
-                type="button"
-                onClick={() => { setSearch(''); setTypeFilter(''); setReadinessFilter('all') }}
-                className="btn-pib-secondary text-xs inline-flex items-center gap-1.5"
-              >
-                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">filter_alt_off</span>
-                Clear filters
-              </button>
-            ) : null}
           </div>
 
-          <div className="bento-card !p-5 space-y-4">
+          <div className="space-y-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
             <div>
-              <p className="eyebrow !text-[10px]">Schema focus</p>
-              <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
+              <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Schema focus</p>
+              <p className="mt-1 text-xs leading-5 text-on-surface-variant">
                 Healthy CRM fields have a clear group, help text, and guardrail so users know why the data matters.
               </p>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-                <p className="font-display text-xl text-[var(--color-pib-text)]">{groupedCount}</p>
-                <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">Grouped</p>
+              <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+                <p className="text-lg font-semibold text-on-surface">{groupedCount}</p>
+                <p className="text-[11px] leading-4 text-on-surface-variant">Grouped</p>
               </div>
-              <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-                <p className="font-display text-xl text-[var(--color-pib-text)]">{missingHelpCount}</p>
-                <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">No help</p>
+              <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+                <p className="text-lg font-semibold text-on-surface">{missingHelpCount}</p>
+                <p className="text-[11px] leading-4 text-on-surface-variant">No help</p>
               </div>
-              <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-                <p className="font-display text-xl text-[var(--color-pib-text)]">{choiceCount}</p>
-                <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">Choices</p>
+              <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+                <p className="text-lg font-semibold text-on-surface">{choiceCount}</p>
+                <p className="text-[11px] leading-4 text-on-surface-variant">Choices</p>
               </div>
             </div>
             {hasFilters && isAdmin ? (
-              <p className="text-xs text-amber-200">
+              <p className="text-[11px] text-amber-200">
                 Reordering is available after filters are cleared so hidden fields keep their order.
               </p>
             ) : null}
@@ -415,57 +415,57 @@ export default function CustomFieldsPage() {
       )}
 
       {/* Tab content */}
-      <div className="space-y-4">
-        <div>
-          <h2 className="text-base font-semibold text-[var(--color-pib-text)]">
+      <div className="space-y-2">
+        <div className="px-1">
+          <h2 className="text-xs font-semibold text-on-surface">
             Custom fields for {currentTab.label.toLowerCase()}s
           </h2>
-          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+          <p className="mt-0.5 text-[11px] text-on-surface-variant">
             {filteredDefinitions.length} of {definitions.length} fields visible in this view.
           </p>
         </div>
 
         {loading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 4 }).map((_, index) => <div key={index} className="pib-skeleton h-24" />)}
+          <div className="space-y-2">
+            {Array.from({ length: 4 }).map((_, index) => <div key={index} className="pib-skeleton h-20" />)}
           </div>
         ) : fetchError ? (
-          <section className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-5">
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-              <div className="flex gap-3">
-                <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">warning</span>
-                <div>
-                  <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
-                  <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+          <section className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3">
+            <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+              <div className="flex gap-2">
+                <span className="material-symbols-outlined mt-0.5 text-[16px] text-amber-200" aria-hidden="true">warning</span>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-label uppercase tracking-[0.22em] text-amber-200">Source health</p>
+                  <h2 className="mt-0.5 text-sm font-semibold text-on-surface">
                     Custom field schema could not load
                   </h2>
-                  <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{fetchError}</p>
+                  <p className="mt-1 text-xs leading-5 text-on-surface-variant">{fetchError}</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => fetchDefs(activeTab)}
-                className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
                 aria-label="Retry loading custom field schema"
               >
-                <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
+                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
                 Retry
               </button>
             </div>
           </section>
         ) : definitions.length === 0 ? (
-          <div className="bento-card !p-0 overflow-hidden">
+          <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
             <div className="grid gap-0 lg:grid-cols-[minmax(0,0.9fr)_minmax(320px,1.1fr)]">
-              <div className="flex flex-col justify-between gap-8 border-b border-[var(--color-pib-line)] p-6 lg:border-b-0 lg:border-r">
+              <div className="flex flex-col justify-between gap-4 border-b border-[var(--color-card-border)] p-4 lg:border-b-0 lg:border-r">
                 <div>
-                  <span className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--color-pib-accent)]/25 bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
-                    <span className="material-symbols-outlined text-[22px]">data_object</span>
+                  <span className="mb-2 grid h-6 w-6 place-items-center rounded-md bg-primary/10 text-primary">
+                    <span className="material-symbols-outlined text-[15px]">data_object</span>
                   </span>
-                  <p className="eyebrow !text-[10px]">Schema setup</p>
-                  <h3 className="mt-3 text-2xl font-semibold tracking-normal text-[var(--color-pib-text)]">
+                  <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Schema setup</p>
+                  <h3 className="mt-1 text-base font-semibold text-on-surface">
                     Design your first CRM data field
                   </h3>
-                  <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                  <p className="mt-2 max-w-xl text-xs leading-5 text-on-surface-variant">
                     Start with the missing {currentTab.label.toLowerCase()} detail that would improve qualification, reporting, segmentation, or employee handover. A useful field has a clear group, help text, and a data guardrail before the team relies on it.
                   </p>
                 </div>
@@ -473,46 +473,46 @@ export default function CustomFieldsPage() {
                   <button
                     type="button"
                     onClick={openCreate}
-                    className="cursor-pointer btn-pib-accent flex w-fit items-center gap-1.5 text-sm"
+                    className="flex h-8 w-fit cursor-pointer items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition"
                   >
                     <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
                     Create the first {currentTab.label.toLowerCase()} field
                   </button>
                 ) : (
-                  <p className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
+                  <p className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2.5 py-1.5 text-[11px] text-on-surface-variant">
                     Ask an admin to create the first {currentTab.label.toLowerCase()} field before teams standardise this schema.
                   </p>
                 )}
               </div>
 
-              <div className="grid gap-3 p-4 sm:grid-cols-2">
+              <div className="grid gap-2 p-3 sm:grid-cols-2">
                 {FIELD_SETUP_BLUEPRINT.map((item) => (
-                  <div key={item.label} className="rounded-xl border border-[var(--color-pib-line)] bg-black/10 p-4">
-                    <div className="mb-4 flex items-start justify-between gap-3">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-[var(--color-pib-text)]">
-                        <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
+                  <div key={item.label} className="rounded-md border border-[var(--color-card-border)] bg-black/10 p-2.5">
+                    <div className="mb-2 flex items-start justify-between gap-2">
+                      <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-white/[0.04] text-on-surface">
+                        <span className="material-symbols-outlined text-[15px]">{item.icon}</span>
                       </span>
-                      <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)]">
+                      <span className="rounded-full border border-[var(--color-card-border)] px-2 py-0.5 text-[10px] text-on-surface-variant">
                         {item.value}
                       </span>
                     </div>
-                    <h4 className="text-sm font-semibold text-[var(--color-pib-text)]">{item.label}</h4>
-                    <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">{item.copy}</p>
+                    <h4 className="text-xs font-semibold text-on-surface">{item.label}</h4>
+                    <p className="mt-1 text-[11px] leading-4 text-on-surface-variant">{item.copy}</p>
                   </div>
                 ))}
               </div>
             </div>
           </div>
         ) : filteredDefinitions.length === 0 ? (
-          <div className="bento-card !p-8 text-center">
-            <span className="material-symbols-outlined text-[34px] text-[var(--color-pib-text-muted)] mb-3 block" aria-hidden="true">search_off</span>
-            <p className="eyebrow !text-[10px]">Filtered schema view</p>
-            <h3 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">No fields match this view.</h3>
-            <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Clear the field filters to return to the full CRM schema.</p>
+          <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-6 text-center">
+            <span className="material-symbols-outlined mb-2 block text-[19px] text-on-surface-variant" aria-hidden="true">search_off</span>
+            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Filtered schema view</p>
+            <h3 className="mt-1 text-sm font-semibold text-on-surface">No fields match this view.</h3>
+            <p className="mt-1 text-xs text-on-surface-variant">Clear the field filters to return to the full CRM schema.</p>
             <button
               type="button"
               onClick={clearFieldFilters}
-              className="btn-pib-secondary mt-5 inline-flex items-center gap-1.5 text-xs"
+              className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
               aria-label="Show all fields"
             >
               <span className="material-symbols-outlined text-[15px]" aria-hidden="true">filter_alt_off</span>
@@ -546,19 +546,19 @@ export default function CustomFieldsPage() {
           role="alertdialog"
           aria-labelledby="delete-field-title"
           aria-describedby="delete-field-description"
-          className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-4xl rounded-lg border border-red-400/30 bg-[var(--color-pib-surface)] p-4 shadow-2xl md:bottom-6"
+          className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-4xl rounded-xl border border-red-400/40 bg-[var(--color-card)] p-3 md:bottom-6"
         >
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex gap-3">
-              <span className="material-symbols-outlined mt-0.5 text-red-300" aria-hidden="true">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex gap-2">
+              <span className="material-symbols-outlined mt-0.5 text-[16px] text-red-300" aria-hidden="true">
                 warning
               </span>
-              <div>
-                <p className="eyebrow !text-[10px] text-red-200">Schema delete confirmation</p>
-                <h2 id="delete-field-title" className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
+              <div className="min-w-0">
+                <p className="text-[10px] font-label uppercase tracking-[0.22em] text-red-200">Schema delete confirmation</p>
+                <h2 id="delete-field-title" className="mt-0.5 text-sm font-semibold text-on-surface">
                   Delete custom field &quot;{fieldDisplayName(pendingDeleteDef)}&quot;?
                 </h2>
-                <p id="delete-field-description" className="mt-2 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
+                <p id="delete-field-description" className="mt-1 max-w-3xl text-xs leading-5 text-on-surface-variant">
                   This removes the field from future {currentTab.label.toLowerCase()} records and schema views. Existing saved values may remain in historical records for audit and cleanup.
                 </p>
               </div>
@@ -567,7 +567,7 @@ export default function CustomFieldsPage() {
               <button
                 type="button"
                 onClick={closeDeleteConfirmation}
-                className="btn-pib-secondary text-xs"
+                className="flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
                 disabled={deletingId === pendingDeleteDef.id}
                 aria-label={`Cancel delete for custom field ${fieldDisplayName(pendingDeleteDef)}`}
               >
@@ -576,7 +576,7 @@ export default function CustomFieldsPage() {
               <button
                 type="button"
                 onClick={confirmDelete}
-                className="inline-flex items-center gap-1.5 rounded-md border border-red-300/30 bg-red-400/15 px-3 py-2 text-xs font-semibold text-red-100 transition-colors hover:bg-red-400/25 disabled:opacity-50"
+                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-red-400/40 bg-red-400/10 px-2 text-xs font-semibold text-red-100 transition hover:bg-red-400/20 disabled:opacity-50"
                 disabled={deletingId === pendingDeleteDef.id}
                 aria-label={`Confirm delete custom field ${fieldDisplayName(pendingDeleteDef)}`}
               >

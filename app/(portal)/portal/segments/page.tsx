@@ -25,6 +25,10 @@ const STAGES = ['', 'new', 'contacted', 'replied', 'demo', 'proposal', 'won', 'l
 const TYPES = ['', 'lead', 'prospect', 'client', 'churned']
 const SOURCES = ['', 'manual', 'form', 'import', 'outreach']
 
+const FIELD_LABEL_CLS = 'text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant'
+const INPUT_CLS =
+  'h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface outline-none transition focus:border-[var(--color-accent-v2)]'
+
 interface SegmentFilters {
   tags?: string[]
   capturedFromIds?: string[]
@@ -320,10 +324,10 @@ export default function PortalSegmentsPage() {
     submitLabel: string,
     target: 'new' | 'edit',
   ) => (
-    <form onSubmit={onSubmit} className="space-y-5">
+    <form onSubmit={onSubmit} className="space-y-3">
       {/* Template picker */}
       <div className="space-y-1">
-        <label className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+        <label className={FIELD_LABEL_CLS}>
           Use template
         </label>
         <select
@@ -332,7 +336,7 @@ export default function PortalSegmentsPage() {
             if (e.target.value) applyTemplate(e.target.value, target)
             e.target.value = ''
           }}
-          className="pib-input w-full md:w-72"
+          className={`${INPUT_CLS} md:w-72`}
         >
           <option value="" className="bg-black">
             — Choose a recipe —
@@ -345,49 +349,49 @@ export default function PortalSegmentsPage() {
         </select>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
         <div className="flex flex-col gap-1">
-          <label className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+          <label className={FIELD_LABEL_CLS}>
             Name *
           </label>
           <input
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="pib-input"
+            className={INPUT_CLS}
             required
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+          <label className={FIELD_LABEL_CLS}>
             Description
           </label>
           <input
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
-            className="pib-input"
+            className={INPUT_CLS}
           />
         </div>
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+        <label className={FIELD_LABEL_CLS}>
           Tags (comma separated)
         </label>
         <input
           value={form.tags}
           onChange={(e) => setForm({ ...form, tags: e.target.value })}
           placeholder="vip, newsletter"
-          className="pib-input"
+          className={INPUT_CLS}
         />
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
         <div className="flex flex-col gap-1">
-          <label className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+          <label className={FIELD_LABEL_CLS}>
             Stage
           </label>
           <select
             value={form.stage}
             onChange={(e) => setForm({ ...form, stage: e.target.value })}
-            className="pib-input"
+            className={INPUT_CLS}
           >
             {STAGES.map((s) => (
               <option key={s || '_'} value={s} className="bg-black">
@@ -397,13 +401,13 @@ export default function PortalSegmentsPage() {
           </select>
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+          <label className={FIELD_LABEL_CLS}>
             Type
           </label>
           <select
             value={form.type}
             onChange={(e) => setForm({ ...form, type: e.target.value })}
-            className="pib-input"
+            className={INPUT_CLS}
           >
             {TYPES.map((t) => (
               <option key={t || '_'} value={t} className="bg-black">
@@ -413,13 +417,13 @@ export default function PortalSegmentsPage() {
           </select>
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+          <label className={FIELD_LABEL_CLS}>
             Source
           </label>
           <select
             value={form.source}
             onChange={(e) => setForm({ ...form, source: e.target.value })}
-            className="pib-input"
+            className={INPUT_CLS}
           >
             {SOURCES.map((s) => (
               <option key={s || '_'} value={s} className="bg-black">
@@ -446,15 +450,23 @@ export default function PortalSegmentsPage() {
       />
 
       {error && (
-        <p className="text-[11px]" style={{ color: 'var(--color-pib-danger, #FCA5A5)' }}>
+        <p className="text-[11px] text-red-300">
           {error}
         </p>
       )}
-      <div className="flex gap-3 pt-2">
-        <button type="submit" disabled={saving} className="btn-pib-accent disabled:opacity-40">
+      <div className="flex gap-2 pt-1">
+        <button
+          type="submit"
+          disabled={saving}
+          className="flex h-8 items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition disabled:opacity-40"
+        >
           {saving ? 'Saving…' : submitLabel}
         </button>
-        <button type="button" onClick={onCancel} className="btn-pib-secondary">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+        >
           Cancel
         </button>
       </div>
@@ -462,24 +474,32 @@ export default function PortalSegmentsPage() {
   )
 
   return (
-    <div className="space-y-8">
-      <header>
-        <p className="eyebrow">CRM</p>
-        <div className="flex items-end justify-between gap-4 flex-wrap mt-2">
-          <div>
-            <h1 className="pib-page-title">Segments</h1>
-            <p className="pib-page-sub max-w-2xl">
-              Save reusable filters across your contact base — slice by tag, stage, type, source,
-              or email engagement.
-            </p>
+    <div className="flex min-h-0 flex-col gap-2">
+      <header className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 px-3 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">filter_alt</span>
+            </span>
+            <div className="min-w-0">
+              <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">CRM</p>
+              <h1 className="text-sm font-semibold text-on-surface">Segments</h1>
+            </div>
           </div>
           {!showNew && (
-            <button onClick={() => setShowNew(true)} className="btn-pib-accent">
-              <span className="material-symbols-outlined text-base" aria-hidden="true">add</span>
+            <button
+              onClick={() => setShowNew(true)}
+              className="flex h-8 shrink-0 items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition"
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
               New segment
             </button>
           )}
         </div>
+        <p className="mt-1.5 max-w-2xl text-xs leading-5 text-on-surface-variant">
+          Save reusable filters across your contact base — slice by tag, stage, type, source,
+          or email engagement.
+        </p>
       </header>
 
       {!loading && segments.length > 0 && (
@@ -494,7 +514,7 @@ export default function PortalSegmentsPage() {
       )}
 
       {deleteError && (
-        <div className="rounded-lg border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-100">
+        <div className="rounded-lg border border-red-400/40 bg-red-400/10 px-3 py-2 text-xs text-red-100">
           <span className="material-symbols-outlined mr-1.5 align-middle text-[16px]" aria-hidden="true">error</span>
           {deleteError}
         </div>
@@ -506,17 +526,17 @@ export default function PortalSegmentsPage() {
           aria-modal="false"
           aria-labelledby="segment-delete-confirm-title"
           aria-describedby="segment-delete-confirm-description"
-          className="rounded-lg border border-red-400/25 bg-red-500/10 p-5 shadow-[0_18px_40px_rgba(127,29,29,0.18)]"
+          className="rounded-xl border border-red-400/40 bg-red-400/10 p-3"
         >
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div className="flex gap-3">
-              <span className="material-symbols-outlined mt-0.5 text-red-200" aria-hidden="true">warning</span>
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div className="flex gap-2.5">
+              <span className="material-symbols-outlined mt-0.5 text-[18px] text-red-200" aria-hidden="true">warning</span>
               <div>
-                <p className="eyebrow !text-[10px] !text-red-100/80">Saved audience delete</p>
-                <h2 id="segment-delete-confirm-title" className="mt-1 font-display text-lg text-red-50">
+                <p className="text-[10px] font-label uppercase tracking-[0.22em] text-red-100/80">Saved audience delete</p>
+                <h2 id="segment-delete-confirm-title" className="mt-1 text-sm font-semibold text-red-50">
                   Delete segment &quot;{segmentDisplayName(pendingDeleteSegment)}&quot;?
                 </h2>
-                <p id="segment-delete-confirm-description" className="mt-2 max-w-2xl text-sm text-red-100/90">
+                <p id="segment-delete-confirm-description" className="mt-1 max-w-2xl text-xs leading-5 text-red-100/90">
                   This removes the saved audience lens for {counts[pendingDeleteSegment.id] ?? 'unresolved'} contact{counts[pendingDeleteSegment.id] === 1 ? '' : 's'}. Existing contact records and campaign history stay available for audit.
                 </p>
               </div>
@@ -528,7 +548,7 @@ export default function PortalSegmentsPage() {
                   setPendingDeleteSegment(null)
                   setDeleteError('')
                 }}
-                className="btn-pib-secondary text-xs"
+                className="flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={deletingId === pendingDeleteSegment.id}
                 aria-label={`Cancel delete for segment ${segmentDisplayName(pendingDeleteSegment)}`}
               >
@@ -538,7 +558,7 @@ export default function PortalSegmentsPage() {
                 type="button"
                 onClick={confirmDeleteSegment}
                 aria-label={`Confirm delete segment ${segmentDisplayName(pendingDeleteSegment)}`}
-                className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-red-300/30 bg-red-500/20 px-3 py-2 text-xs font-semibold text-red-50 transition-colors hover:border-red-200/60 hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-red-400/40 bg-red-400/10 px-3 text-xs font-medium text-red-100 transition hover:bg-red-400/20 disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={deletingId === pendingDeleteSegment.id}
               >
                 <span className="material-symbols-outlined text-[15px]" aria-hidden="true">delete</span>
@@ -551,22 +571,26 @@ export default function PortalSegmentsPage() {
 
       {/* New segment inline form */}
       {showNew && (
-        <section className="bento-card !p-6 space-y-4">
-          <p className="eyebrow !text-[10px]">New segment</p>
-          {renderForm(
-            newForm,
-            setNewForm,
-            createSegment,
-            () => {
-              setShowNew(false)
-              setNewForm(EMPTY_FORM)
-              setNewError('')
-            },
-            savingNew,
-            newError,
-            'Create segment',
-            'new',
-          )}
+        <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+          <div className="flex h-11 items-center gap-2 border-b border-[var(--color-card-border)] px-3">
+            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">New segment</p>
+          </div>
+          <div className="p-3">
+            {renderForm(
+              newForm,
+              setNewForm,
+              createSegment,
+              () => {
+                setShowNew(false)
+                setNewForm(EMPTY_FORM)
+                setNewError('')
+              },
+              savingNew,
+              newError,
+              'Create segment',
+              'new',
+            )}
+          </div>
         </section>
       )}
 
@@ -574,51 +598,54 @@ export default function PortalSegmentsPage() {
       {loading ? (
         <div className="space-y-2">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="pib-skeleton h-20" />
+            <div key={i} className="pib-skeleton h-14" />
           ))}
         </div>
       ) : loadError ? (
-        <section className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-5">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div className="flex gap-3">
-              <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">warning</span>
+        <section className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div className="flex gap-2.5">
+              <span className="material-symbols-outlined mt-0.5 text-[18px] text-amber-200" aria-hidden="true">warning</span>
               <div>
-                <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
-                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Segments could not load</h2>
-                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{loadError}</p>
+                <p className="text-[10px] font-label uppercase tracking-[0.22em] text-amber-200">Source health</p>
+                <h2 className="mt-1 text-sm font-semibold text-on-surface">Segments could not load</h2>
+                <p className="mt-1 text-xs leading-5 text-on-surface-variant">{loadError}</p>
               </div>
             </div>
             <button
               type="button"
               onClick={fetchSegments}
-              className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+              className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
               aria-label="Retry loading segments"
             >
-              <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
               Retry
             </button>
           </div>
         </section>
       ) : segments.length === 0 ? (
-        <div className="bento-card p-10 text-center">
-          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]" aria-hidden="true">filter_alt</span>
-          <h2 className="font-display text-2xl mt-4">No segments yet.</h2>
-          <p className="text-sm text-[var(--color-pib-text-muted)] mt-2">
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-6 text-center">
+          <span className="material-symbols-outlined text-[19px] text-primary" aria-hidden="true">filter_alt</span>
+          <h2 className="mt-2 text-sm font-semibold text-on-surface">No segments yet.</h2>
+          <p className="mt-1 text-xs text-on-surface-variant">
             Build a saved filter to target the right people each time.
           </p>
           {!showNew && (
-            <button onClick={() => setShowNew(true)} className="btn-pib-accent mt-6">
-              <span className="material-symbols-outlined text-base" aria-hidden="true">add</span>
+            <button
+              onClick={() => setShowNew(true)}
+              className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition"
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
               Create first segment
             </button>
           )}
         </div>
       ) : filteredSegments.length === 0 ? (
-        <div className="bento-card p-10 text-center">
-          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]">search_off</span>
-          <p className="eyebrow !text-[10px] mt-2">Filtered audience view</p>
-          <h2 className="font-display text-2xl mt-3">No saved audiences match this view.</h2>
-          <p className="text-sm text-[var(--color-pib-text-muted)] mt-2">
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-6 text-center">
+          <span className="material-symbols-outlined text-[19px] text-primary">search_off</span>
+          <p className="mt-2 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Filtered audience view</p>
+          <h2 className="mt-2 text-sm font-semibold text-on-surface">No saved audiences match this view.</h2>
+          <p className="mt-1 text-xs text-on-surface-variant">
             Clear the segment search and focus filters to return to every saved audience.
           </p>
           <button
@@ -627,14 +654,14 @@ export default function PortalSegmentsPage() {
               setSearch('')
               setFocus('all')
             }}
-            className="btn-pib-secondary mt-6"
+            className="mt-4 inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
           >
             Show all segments
           </button>
         </div>
       ) : (
-        <div className="space-y-3">
-          {filteredSegments.map((s) => {
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+          {filteredSegments.map((s, index) => {
             const isEditing = editingId === s.id
             const count = counts[s.id]
             const displayName = segmentDisplayName(s)
@@ -654,10 +681,13 @@ export default function PortalSegmentsPage() {
             }
 
             return (
-              <div key={s.id} className="bento-card !p-5">
+              <div
+                key={s.id}
+                className={`p-3 transition hover:bg-white/[0.04] ${index > 0 ? 'border-t border-[var(--color-card-border)]' : ''}`}
+              >
                 {isEditing ? (
-                  <div className="space-y-4">
-                    <p className="eyebrow !text-[10px]">Edit segment</p>
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Edit segment</p>
                     {renderForm(
                       editForm,
                       setEditForm,
@@ -670,23 +700,23 @@ export default function PortalSegmentsPage() {
                     )}
                   </div>
                 ) : (
-                  <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <h3 className="font-display text-xl">{displayName}</h3>
-                        <span className="pill">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-sm font-semibold text-on-surface">{displayName}</h3>
+                        <span className="flex h-7 shrink-0 items-center rounded-full border border-[var(--color-card-border)] px-2.5 text-[11px] text-on-surface-variant">
                           {count === undefined || count === null ? '…' : `${count} contact${count === 1 ? '' : 's'}`}
                         </span>
                       </div>
                       {s.description && (
-                        <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">{s.description}</p>
+                        <p className="mt-1 text-xs text-on-surface-variant">{s.description}</p>
                       )}
                       {filterChips.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-3">
+                        <div className="mt-2 flex flex-wrap gap-1.5">
                           {filterChips.map((c) => (
                             <span
                               key={c}
-                              className="text-[11px] font-mono text-[var(--color-pib-text-muted)] border border-[var(--color-pib-line)] rounded-full px-2 py-0.5"
+                              className="rounded-full border border-[var(--color-card-border)] px-2 py-0.5 text-[11px] text-on-surface-variant"
                             >
                               {c}
                             </span>
@@ -694,9 +724,12 @@ export default function PortalSegmentsPage() {
                         </div>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => startEdit(s)} className="btn-pib-secondary !py-2 !px-3 !text-sm">
-                        <span className="material-symbols-outlined text-base">edit</span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => startEdit(s)}
+                        className="flex h-8 items-center gap-1 rounded-md px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">edit</span>
                         Edit
                       </button>
                       <button
@@ -704,10 +737,10 @@ export default function PortalSegmentsPage() {
                           setPendingDeleteSegment(s)
                           setDeleteError('')
                         }}
-                        className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-danger,#FCA5A5)] transition-colors p-2"
+                        className="grid h-8 w-8 place-items-center rounded-md text-on-surface-variant transition hover:bg-white/[0.05] hover:text-red-300"
                         aria-label={`Delete segment ${displayName}`}
                       >
-                        <span className="material-symbols-outlined text-[18px]">delete</span>
+                        <span className="material-symbols-outlined text-[16px]">delete</span>
                       </button>
                     </div>
                   </div>
@@ -781,7 +814,7 @@ function BehavioralBlock({
   }, [JSON.stringify(filters), segmentEndpoint])
 
   return (
-    <div className="space-y-5 pt-2 border-t border-[var(--color-pib-line)]">
+    <div className="space-y-3 border-t border-[var(--color-card-border)] pt-3">
       <BehavioralRuleEditor
         rules={rules}
         onChange={onRulesChange}
@@ -848,13 +881,13 @@ function AdvancedRuleBlock({ group, segmentEndpoint, onChange }: AdvancedRuleBlo
   }, [serialized, segmentEndpoint])
 
   return (
-    <div className="space-y-3 pt-2 border-t border-[var(--color-pib-line)]">
+    <div className="space-y-2 border-t border-[var(--color-card-border)] pt-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">
             Advanced rule builder
           </p>
-          <p className="text-[11px] text-[var(--color-pib-text-muted)] mt-0.5 max-w-md">
+          <p className="mt-0.5 max-w-md text-[11px] leading-4 text-on-surface-variant">
             Combine any contact field with AND/OR groups. When enabled this takes
             precedence over the simple tag/stage/type filters above.
           </p>
@@ -863,9 +896,9 @@ function AdvancedRuleBlock({ group, segmentEndpoint, onChange }: AdvancedRuleBlo
           <button
             type="button"
             onClick={() => onChange(emptyRuleGroup())}
-            className="btn-pib-secondary !py-2 !px-3 !text-sm"
+            className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
           >
-            <span className="material-symbols-outlined text-base" aria-hidden="true">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
               tune
             </span>
             Build advanced rules
@@ -873,14 +906,14 @@ function AdvancedRuleBlock({ group, segmentEndpoint, onChange }: AdvancedRuleBlo
         ) : (
           <div className="flex items-center gap-2">
             {(liveLoading || liveCount !== null) && (
-              <span className="pill text-[11px]">
+              <span className="flex h-7 shrink-0 items-center rounded-full border border-primary/30 bg-primary/10 px-2.5 text-[11px] text-primary">
                 {liveLoading ? '…' : `${liveCount} match${liveCount === 1 ? '' : 'es'}`}
               </span>
             )}
             <button
               type="button"
               onClick={() => onChange(null)}
-              className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-danger,#FCA5A5)] transition-colors p-1"
+              className="flex h-8 items-center rounded-md px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-red-300"
             >
               Clear
             </button>

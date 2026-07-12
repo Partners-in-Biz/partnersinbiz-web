@@ -127,14 +127,14 @@ function OperatingActionControl({
   href?: string
   onOpenTab?: (tab: CompanyTab) => void
 }) {
-  const className = `rounded-xl border p-4 text-left transition-transform hover:-translate-y-0.5 ${toneClass[action.tone]}`
+  const className = `rounded-md border p-3 text-left transition-colors hover:bg-white/[0.04] ${toneClass[action.tone]}`
   const content = (
     <>
       <div className="flex items-center justify-between gap-3">
-        <span className="text-[10px] font-label uppercase tracking-widest opacity-80">{action.label}</span>
-        <span className="material-symbols-outlined text-[18px]" aria-hidden="true">{action.icon}</span>
+        <span className="text-[10px] font-label uppercase tracking-[0.22em] opacity-80">{action.label}</span>
+        <span className="material-symbols-outlined text-[16px]" aria-hidden="true">{action.icon}</span>
       </div>
-      <p className="mt-3 text-sm font-semibold">{action.value}</p>
+      <p className="mt-2 text-xs font-semibold">{action.value}</p>
     </>
   )
 
@@ -186,31 +186,31 @@ export function CompanyAnalyticsPanel({
   const riskActionAriaLabel = riskClearActionAriaLabel ?? `Review invoices, orders, and inventory for ${companyName}`
 
   return (
-    <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+      <div className="grid grid-cols-2 gap-2 border-b border-[var(--color-card-border)] p-2 sm:grid-cols-3 xl:grid-cols-6">
         {tiles.map((tile) => (
-          <div key={tile.label} className="pib-stat-card">
-            <div className="flex items-start justify-between gap-3">
-              <p className="eyebrow !text-[10px]">{tile.label}</p>
-              <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{tile.icon}</span>
+          <div key={tile.label} className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-[11px] leading-4 text-on-surface-variant">{tile.label}</p>
+              <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-on-surface-variant">{tile.icon}</span>
             </div>
-            <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">{tile.value}</p>
+            <p className="mt-1 truncate text-lg font-semibold text-on-surface">{tile.value}</p>
           </div>
         ))}
       </div>
 
       {showOperatingBrief ? (
-        <div className="bento-card p-5">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <p className="eyebrow !text-[10px]">Account operating brief</p>
-              <h3 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Where the team should act next</h3>
+        <div className="border-b border-[var(--color-card-border)] px-3 py-2.5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Account operating brief</p>
+              <h3 className="mt-0.5 text-sm font-semibold text-on-surface">Where the team should act next</h3>
             </div>
-            <span className="rounded-full border border-[var(--color-pib-line)] px-2.5 py-1 text-xs text-[var(--color-pib-text-muted)]">
+            <span className="flex h-7 shrink-0 items-center rounded-full border border-[var(--color-card-border)] px-2.5 text-[11px] text-on-surface-variant">
               {riskSignals.length > 0 ? `${riskSignals.length} active signal${riskSignals.length === 1 ? '' : 's'}` : 'No active risks'}
             </span>
           </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
             {operatingActions.map((action) => (
               <OperatingActionControl
                 key={action.label}
@@ -223,20 +223,20 @@ export function CompanyAnalyticsPanel({
         </div>
       ) : null}
 
-      <div className="bento-card p-5">
-        <p className="eyebrow !text-[10px]">Risk signals</p>
+      <div className="px-3 py-2.5">
+        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Risk signals</p>
         {riskSignals.length === 0 ? (
-          <div className="mt-3 rounded-lg border border-emerald-400/20 bg-emerald-400/10 p-4">
-            <p className="eyebrow !text-[10px] text-emerald-200">Risk watch clear</p>
-            <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Keep leadership risk reviewable</h3>
-            <p className="mt-1 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+          <div className="mt-2 rounded-md border border-emerald-400/20 bg-emerald-400/10 p-3">
+            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-emerald-200">Risk watch clear</p>
+            <h3 className="mt-1 text-xs font-semibold text-on-surface">Keep leadership risk reviewable</h3>
+            <p className="mt-1 text-xs leading-5 text-on-surface-variant">
               {clearBody}
             </p>
             {riskClearActionHref ? (
               <Link
                 href={riskClearActionHref}
                 aria-label={riskActionAriaLabel}
-                className="btn-pib-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
+                className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
               >
                 <span aria-hidden="true" className="material-symbols-outlined text-[14px]">{riskClearActionIcon}</span>
                 {riskClearActionLabel}
@@ -246,7 +246,7 @@ export function CompanyAnalyticsPanel({
                 type="button"
                 onClick={() => onOpenTab('invoices')}
                 aria-label={riskActionAriaLabel}
-                className="btn-pib-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
+                className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
               >
                 <span aria-hidden="true" className="material-symbols-outlined text-[14px]">{riskClearActionIcon}</span>
                 {riskClearActionLabel}
@@ -254,9 +254,9 @@ export function CompanyAnalyticsPanel({
             ) : null}
           </div>
         ) : (
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-2 flex flex-wrap gap-1.5">
             {riskSignals.map((signal) => (
-              <span key={signal} className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-xs text-amber-200">
+              <span key={signal} className="flex h-7 shrink-0 items-center rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 text-[11px] text-amber-200">
                 {signal}
               </span>
             ))}

@@ -6,6 +6,7 @@ const config: Config = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
   },
+  modulePathIgnorePatterns: ['<rootDir>/.hermes/tmp/'],
   // Run *.test.tsx files (React component tests) in a jsdom environment so
   // @testing-library/react can render. Node remains the default for *.test.ts.
   projects: [
@@ -17,6 +18,7 @@ const config: Config = {
       moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/$1',
       },
+      modulePathIgnorePatterns: ['<rootDir>/.hermes/tmp/'],
       // @react-pdf/renderer and its @react-pdf/* dependencies ship as native
       // ESM ("type": "module") with no CJS build, so they must be
       // transpiled rather than skipped like the rest of node_modules. There's
@@ -44,6 +46,7 @@ const config: Config = {
       moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/$1',
       },
+      modulePathIgnorePatterns: ['<rootDir>/.hermes/tmp/'],
       setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
     },
   ],

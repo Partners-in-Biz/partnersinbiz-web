@@ -67,30 +67,30 @@ function DuplicateGroupResolver({
   const remainingMergeCount = Math.max(0, group.contacts.length - 1)
 
   return (
-    <article className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="eyebrow !text-[10px]">Matched by {group.reason}</p>
-          <p className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">
+    <article className="rounded-md border border-[var(--color-card-border)] bg-black/10 p-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Matched by {group.reason}</p>
+          <p className="mt-0.5 text-xs font-semibold text-on-surface">
             {group.contacts.length} records need {remainingMergeCount} merge{remainingMergeCount === 1 ? '' : 's'}
           </p>
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-pib-line)] px-2.5 py-1 text-[11px] text-[var(--color-pib-text-muted)]">
+        <span className="flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-[var(--color-card-border)] px-2.5 text-[11px] text-on-surface-variant">
           <span className="material-symbols-outlined text-[14px]">data_check</span>
           One merge at a time
         </span>
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
         {group.contacts.map((contact) => {
           const isWinner = winnerId === contact.id
           return (
             <label
               key={contact.id}
-              className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
+              className={`flex cursor-pointer items-start gap-2 rounded-md border p-2 transition ${
                 isWinner
-                  ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent)]/10'
-                  : 'border-[var(--color-pib-line)] hover:border-[var(--color-pib-line-strong)]'
+                  ? 'border-primary/30 bg-primary/10'
+                  : 'border-[var(--color-card-border)] hover:bg-white/[0.04]'
               }`}
             >
               <input
@@ -102,19 +102,19 @@ function DuplicateGroupResolver({
                 className="mt-0.5 accent-[var(--color-pib-accent)]"
               />
               <span className="min-w-0">
-                <span className="block truncate text-sm font-medium text-[var(--color-pib-text)]">
+                <span className="block truncate text-xs font-medium text-on-surface">
                   {duplicateContactIdentityLabel(contact)}
                 </span>
-                <span className="mt-1 block truncate text-xs text-[var(--color-pib-text-muted)]">
+                <span className="mt-0.5 block truncate text-[11px] text-on-surface-variant">
                   {contact.email || 'No email'}
                 </span>
                 {(contact.company || contact.stage) && (
-                  <span className="mt-1 block truncate text-xs text-[var(--color-pib-text-muted)]">
+                  <span className="mt-0.5 block truncate text-[11px] text-on-surface-variant">
                     {[contact.company, readableDuplicateContactLabel(contact.stage)].filter(Boolean).join(' · ')}
                   </span>
                 )}
                 {isWinner && (
-                  <span className="mt-2 inline-flex text-xs font-medium text-[var(--color-pib-accent)]">
+                  <span className="mt-1 inline-flex text-[11px] font-medium text-primary">
                     Keep as canonical
                   </span>
                 )}
@@ -124,8 +124,8 @@ function DuplicateGroupResolver({
         })}
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-[var(--color-pib-text-muted)]">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[11px] text-on-surface-variant">
           {loser
             ? `Next merge will archive ${duplicateContactIdentityLabel(loser)} into the selected canonical contact.`
             : 'Select a canonical contact to continue.'}
@@ -134,7 +134,7 @@ function DuplicateGroupResolver({
           type="button"
           onClick={() => loser && onMerge(groupIndex, winnerId, loser.id)}
           disabled={isMerging || !loser}
-          className="btn-pib-accent text-xs disabled:opacity-50"
+          className="flex h-8 items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition disabled:opacity-50"
         >
           <span className="material-symbols-outlined text-[14px]" aria-hidden="true">merge</span>
           {isMerging ? 'Merging…' : 'Merge next duplicate'}
@@ -150,66 +150,66 @@ export function ContactDuplicateCommandCenter({ groups, mergingGroup, onClose, o
   const queuedMerges = groups.reduce((sum, group) => sum + Math.max(0, group.contacts.length - 1), 0)
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="eyebrow">Duplicate hygiene</p>
-          <h2 className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">Resolve contact conflicts</h2>
-          <p className="mt-2 max-w-xl text-sm text-[var(--color-pib-text-muted)]">
+    <div className="space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Duplicate hygiene</p>
+          <h2 className="mt-0.5 text-sm font-semibold text-on-surface">Resolve contact conflicts</h2>
+          <p className="mt-1 max-w-xl text-xs leading-5 text-on-surface-variant">
             Pick the canonical record, merge one duplicate at a time, and keep reviewing until each match group is clean.
           </p>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="btn-pib-secondary !p-2"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-[var(--color-card-border)] text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
           aria-label="Close duplicate contacts"
         >
-          <span className="material-symbols-outlined text-[18px]">close</span>
+          <span className="material-symbols-outlined text-[16px]">close</span>
         </button>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
-          <p className="eyebrow !text-[10px]">Groups</p>
-          <p className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+          <p className="text-lg font-semibold leading-6 text-on-surface">
             {groupCount} match group{groupCount === 1 ? '' : 's'}
           </p>
+          <p className="text-[11px] leading-4 text-on-surface-variant">Groups</p>
         </div>
-        <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
-          <p className="eyebrow !text-[10px]">Records</p>
-          <p className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">
+        <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+          <p className="text-lg font-semibold leading-6 text-on-surface">
             {recordCount} record{recordCount === 1 ? '' : 's'}
           </p>
+          <p className="text-[11px] leading-4 text-on-surface-variant">Records</p>
         </div>
-        <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
-          <p className="eyebrow !text-[10px]">Queue</p>
-          <p className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">
+        <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+          <p className="text-lg font-semibold leading-6 text-on-surface">
             {queuedMerges} merge{queuedMerges === 1 ? '' : 's'} queued
           </p>
+          <p className="text-[11px] leading-4 text-on-surface-variant">Queue</p>
         </div>
       </div>
 
       {groups.length === 0 ? (
-        <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-5">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-4">
+        <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 p-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-2">
               <span
-                className="material-symbols-outlined rounded-lg border border-emerald-400/30 bg-emerald-400/10 p-3 text-3xl text-emerald-300"
+                className="material-symbols-outlined mt-0.5 grid h-6 w-6 place-items-center rounded-md border border-emerald-400/40 bg-emerald-400/10 text-[16px] text-emerald-100"
                 aria-hidden="true"
               >
                 verified
               </span>
-              <div>
-                <p className="eyebrow !text-[10px]">Scan complete</p>
-                <h3 className="mt-2 font-display text-xl text-[var(--color-pib-text)]">Contact data is clean</h3>
-                <p className="mt-2 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
+              <div className="min-w-0">
+                <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Scan complete</p>
+                <h3 className="mt-0.5 text-sm font-semibold text-on-surface">Contact data is clean</h3>
+                <p className="mt-1 max-w-2xl text-xs leading-5 text-on-surface-variant">
                   No duplicate contacts need review right now. Keep the team moving with clean owner, stage, and
                   follow-up lists.
                 </p>
               </div>
             </div>
-            <button type="button" onClick={onClose} className="btn-pib-secondary shrink-0 text-xs">
+            <button type="button" onClick={onClose} className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface">
               <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
                 arrow_back
               </span>
@@ -217,23 +217,23 @@ export function ContactDuplicateCommandCenter({ groups, mergingGroup, onClose, o
             </button>
           </div>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/40 p-3">
-              <p className="eyebrow !text-[10px]">Backlog</p>
-              <p className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">0 merge backlog</p>
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+              <p className="text-xs font-semibold leading-5 text-on-surface">0 merge backlog</p>
+              <p className="text-[11px] leading-4 text-on-surface-variant">Backlog</p>
             </div>
-            <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/40 p-3">
-              <p className="eyebrow !text-[10px]">Team impact</p>
-              <p className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">Lists stay trustworthy</p>
+            <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+              <p className="text-xs font-semibold leading-5 text-on-surface">Lists stay trustworthy</p>
+              <p className="text-[11px] leading-4 text-on-surface-variant">Team impact</p>
             </div>
-            <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]/40 p-3">
-              <p className="eyebrow !text-[10px]">Next check</p>
-              <p className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">Run after imports</p>
+            <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+              <p className="text-xs font-semibold leading-5 text-on-surface">Run after imports</p>
+              <p className="text-[11px] leading-4 text-on-surface-variant">Next check</p>
             </div>
           </div>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {groups.map((group, index) => (
             <DuplicateGroupResolver
               key={`${group.reason}-${group.contacts.map((contact) => contact.id).join('-')}`}

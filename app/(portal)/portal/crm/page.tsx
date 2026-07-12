@@ -372,13 +372,13 @@ function DashboardMetric({
   icon: string
 }) {
   return (
-    <div className="pib-card min-h-[126px] p-4">
-      <div className="flex items-center justify-between gap-3">
-        <p className="eyebrow !text-[10px]">{label}</p>
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]" aria-hidden="true">{icon}</span>
+    <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">{label}</p>
+        <span className="material-symbols-outlined text-[15px] text-on-surface-variant" aria-hidden="true">{icon}</span>
       </div>
-      <p className="mt-3 text-2xl font-display leading-none text-[var(--color-pib-text)]">{value}</p>
-      <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{sub}</p>
+      <p className="mt-1.5 text-lg font-semibold leading-none text-on-surface">{value}</p>
+      <p className="mt-1 text-[11px] leading-4 text-on-surface-variant">{sub}</p>
     </div>
   )
 }
@@ -394,31 +394,29 @@ function CrmLeadershipRiskBrief({
   const riskCopy = `${risks.length} CRM ${risks.length === 1 ? 'risk needs' : 'risks need'} leadership attention before this workspace is board-ready.`
 
   return (
-    <section className="pib-card-section overflow-hidden">
-      <div className="grid gap-5 border-b border-[var(--color-pib-line)] bg-white/[0.02] px-5 py-4 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
-        <div>
-          <p className="eyebrow !text-[10px]">Executive controls</p>
-          <h2 className="mt-2 font-display text-2xl leading-tight text-[var(--color-pib-text)]">CRM leadership risk brief</h2>
-        </div>
-        <p className="text-sm leading-6 text-[var(--color-pib-text-muted)]">{riskCopy}</p>
+    <section className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+      <div className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 border-b border-[var(--color-card-border)] px-3 py-1.5">
+        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Executive controls</p>
+        <h2 className="text-sm font-semibold text-on-surface">CRM leadership risk brief</h2>
+        <p className="min-w-0 text-xs leading-5 text-on-surface-variant">{riskCopy}</p>
       </div>
-      <div className="grid divide-y divide-[var(--color-pib-line)] lg:grid-cols-2 lg:divide-x lg:divide-y-0">
+      <div className="grid divide-y divide-[var(--color-card-border)] lg:grid-cols-2 lg:divide-x lg:divide-y-0">
         {risks.map((risk) => (
           <Link
             key={`${risk.href}-${risk.label}`}
             href={buildHref(risk.href)}
             aria-label={`${risk.actionLabel} to fix CRM risk: ${risk.label}`}
-            className="group flex min-h-[132px] gap-4 p-5 transition-colors hover:bg-[var(--color-pib-surface-2)]"
+            className="group flex gap-2.5 p-3 transition-colors hover:bg-white/[0.04]"
           >
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
-              <span className="material-symbols-outlined text-[22px]" aria-hidden="true">{risk.icon}</span>
+            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">{risk.icon}</span>
             </span>
             <span className="min-w-0">
-              <span className="block text-sm font-semibold text-[var(--color-pib-text)]">{risk.label}</span>
-              <span className="mt-1 block text-sm leading-6 text-[var(--color-pib-text-muted)]">{risk.description}</span>
-              <span className="mt-3 inline-flex items-center gap-1 text-xs font-label text-[var(--color-pib-accent)]">
+              <span className="block text-sm font-semibold text-on-surface">{risk.label}</span>
+              <span className="mt-0.5 block text-xs leading-5 text-on-surface-variant">{risk.description}</span>
+              <span className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-[var(--color-accent-text)]">
                 {risk.actionLabel}
-                <span className="material-symbols-outlined text-sm transition-transform group-hover:translate-x-0.5" aria-hidden="true">arrow_forward</span>
+                <span className="material-symbols-outlined text-[13px]" aria-hidden="true">arrow_forward</span>
               </span>
             </span>
           </Link>
@@ -439,14 +437,14 @@ function ActivityAttributionReview({
   const itemCopy = `${count} recent CRM activity ${count === 1 ? 'item is' : 'items are'} missing visible contact or deal names.`
 
   return (
-    <div className="border-b border-[var(--color-pib-line)] bg-amber-500/[0.07] px-5 py-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex gap-3">
-          <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">hub</span>
+    <div className="border-b border-[var(--color-card-border)] bg-amber-400/10 px-3 py-2.5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex gap-2.5">
+          <span className="material-symbols-outlined mt-0.5 text-[16px] text-amber-100" aria-hidden="true">hub</span>
           <div>
-            <p className="eyebrow !text-[10px] text-amber-200">Activity hygiene</p>
-            <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Activity attribution needs review</h2>
-            <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-amber-100">Activity hygiene</p>
+            <h2 className="mt-0.5 text-sm font-semibold text-on-surface">Activity attribution needs review</h2>
+            <p className="mt-1 text-xs leading-5 text-on-surface-variant">
               {itemCopy} Managers need those touches clearly attributed before activity can drive accountable follow-up.
             </p>
           </div>
@@ -454,9 +452,9 @@ function ActivityAttributionReview({
         <Link
           href={buildHref('/portal/contacts?followUp=stale')}
           aria-label="Review unlinked CRM activity from command center"
-          className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
         >
-          <span className="material-symbols-outlined text-base" aria-hidden="true">contacts</span>
+          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">contacts</span>
           Review follow-up
         </Link>
       </div>
@@ -513,39 +511,51 @@ export default function PortalCrmPage() {
   )
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8">
-      <header className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-        <div className="max-w-3xl">
-          <p className="eyebrow">CRM command center</p>
-          <h1 className="pib-page-title mt-2">CRM</h1>
-          <p className="pib-page-sub mt-2">
+    <div className="mx-auto flex max-w-7xl min-w-0 flex-col gap-2">
+      <header className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55">
+        <div className="flex min-h-11 flex-wrap items-center gap-2 px-3 py-1.5">
+          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+            <span className="material-symbols-outlined text-[15px]" aria-hidden="true">hub</span>
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">CRM command center</p>
+            <h1 className="truncate text-sm font-semibold leading-tight text-on-surface">CRM</h1>
+          </div>
+          <p className="hidden min-w-0 flex-1 truncate text-xs text-on-surface-variant lg:block">
             Sales movement, customer context, capture quality, and follow-up work for this workspace.
           </p>
-        </div>
-        <div className="flex w-full flex-col gap-3 md:w-[min(100%,28rem)]">
-          <CrmSearchBar orgScope={routeScope} className="w-full" />
-          <div className="flex flex-wrap gap-2 md:justify-end">
-            <Link href={crmPortalPath('/portal/contacts')} className="btn-pib-secondary">
-              <span className="material-symbols-outlined text-base" aria-hidden="true">contacts</span>
+          <div className="ml-auto flex min-w-0 flex-wrap items-center gap-1.5">
+            <CrmSearchBar orgScope={routeScope} className="w-56" />
+            <Link
+              href={crmPortalPath('/portal/contacts')}
+              className="flex h-8 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">contacts</span>
               Contacts
             </Link>
-            <Link href={crmPortalPath('/portal/deals')} className="btn-pib-accent">
-              <span className="material-symbols-outlined text-base" aria-hidden="true">view_kanban</span>
+            <Link
+              href={crmPortalPath('/portal/deals')}
+              className="flex h-8 items-center gap-1 rounded-md bg-[var(--color-accent-v2)] px-2.5 text-xs font-medium text-black transition-colors hover:opacity-90"
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">view_kanban</span>
               Pipeline
             </Link>
           </div>
         </div>
+        <p className="border-t border-[var(--color-card-border)] px-3 py-1.5 text-xs text-on-surface-variant lg:hidden">
+          Sales movement, customer context, capture quality, and follow-up work for this workspace.
+        </p>
       </header>
 
       {error && (
-        <div className="rounded-lg border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-200">
+        <div className="rounded-lg border border-red-400/40 bg-red-400/10 px-3 py-2 text-xs text-red-100">
           {error}
         </div>
       )}
 
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
         {loading ? (
-          Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-[126px]" />)
+          Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-16" />)
         ) : (
           <>
             <DashboardMetric
@@ -574,11 +584,8 @@ export default function PortalCrmPage() {
             />
           </>
         )}
-      </section>
-
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {loading ? (
-          Array.from({ length: 4 }).map((_, index) => <Skeleton key={`contact-metric-${index}`} className="h-[126px]" />)
+          Array.from({ length: 4 }).map((_, index) => <Skeleton key={`contact-metric-${index}`} className="h-16" />)
         ) : (
           <>
             <DashboardMetric
@@ -609,58 +616,58 @@ export default function PortalCrmPage() {
         )}
       </section>
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="grid divide-y divide-[var(--color-card-border)] overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
         <Link
           href={crmPortalPath('/portal/contacts?create=contact')}
           aria-label="Add a new contact"
-          className="pib-card group flex items-center gap-3 p-4 transition-colors hover:border-[var(--color-pib-accent)] hover:bg-white/[0.03]"
+          className="group flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-white/[0.04]"
         >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
-            <span className="material-symbols-outlined text-[22px]" aria-hidden="true">person_add</span>
+          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
           </span>
           <span className="min-w-0">
-            <span className="block text-sm font-medium text-[var(--color-pib-text)]">Add contact</span>
-            <span className="block text-xs text-[var(--color-pib-text-muted)]">Capture a new person in CRM</span>
+            <span className="block text-sm font-medium text-on-surface">Add contact</span>
+            <span className="block text-[11px] leading-4 text-on-surface-variant">Capture a new person in CRM</span>
           </span>
         </Link>
         <Link
           href={crmPortalPath('/portal/email?compose=1')}
           aria-label="Send an email"
-          className="pib-card group flex items-center gap-3 p-4 transition-colors hover:border-[var(--color-pib-accent)] hover:bg-white/[0.03]"
+          className="group flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-white/[0.04]"
         >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
-            <span className="material-symbols-outlined text-[22px]" aria-hidden="true">mail</span>
+          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">mail</span>
           </span>
           <span className="min-w-0">
-            <span className="block text-sm font-medium text-[var(--color-pib-text)]">Send email</span>
-            <span className="block text-xs text-[var(--color-pib-text-muted)]">Reach a contact or audience</span>
+            <span className="block text-sm font-medium text-on-surface">Send email</span>
+            <span className="block text-[11px] leading-4 text-on-surface-variant">Reach a contact or audience</span>
           </span>
         </Link>
         <Link
           href={crmPortalPath('/portal/segments?create=segment')}
           aria-label="Create a segment"
-          className="pib-card group flex items-center gap-3 p-4 transition-colors hover:border-[var(--color-pib-accent)] hover:bg-white/[0.03]"
+          className="group flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-white/[0.04]"
         >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
-            <span className="material-symbols-outlined text-[22px]" aria-hidden="true">group_work</span>
+          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">group_work</span>
           </span>
           <span className="min-w-0">
-            <span className="block text-sm font-medium text-[var(--color-pib-text)]">Create segment</span>
-            <span className="block text-xs text-[var(--color-pib-text-muted)]">Build a targeted audience</span>
+            <span className="block text-sm font-medium text-on-surface">Create segment</span>
+            <span className="block text-[11px] leading-4 text-on-surface-variant">Build a targeted audience</span>
           </span>
         </Link>
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[1.4fr_0.6fr]">
-        <div className="pib-card-section overflow-hidden">
-          <div className="border-b border-[var(--color-pib-line)] bg-white/[0.02] px-5 py-3.5">
-            <p className="eyebrow !text-[10px]">Contact growth</p>
+      <section className="grid gap-2 xl:grid-cols-[1.4fr_0.6fr]">
+        <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+          <div className="flex h-9 items-center border-b border-[var(--color-card-border)] px-3">
+            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Contact growth</p>
           </div>
-          <div className="p-5">
+          <div className="p-3">
             {loading ? (
               <Skeleton className="h-[200px]" />
             ) : (dashboard?.contactGrowth?.length ?? 0) === 0 ? (
-              <p className="py-10 text-center text-sm text-[var(--color-pib-text-muted)]">
+              <p className="py-8 text-center text-xs text-on-surface-variant">
                 No contact history yet for this workspace.
               </p>
             ) : (
@@ -669,15 +676,15 @@ export default function PortalCrmPage() {
           </div>
         </div>
 
-        <div className="pib-card-section overflow-hidden">
-          <div className="border-b border-[var(--color-pib-line)] bg-white/[0.02] px-5 py-3.5">
-            <p className="eyebrow !text-[10px]">Source breakdown</p>
+        <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+          <div className="flex h-9 items-center border-b border-[var(--color-card-border)] px-3">
+            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Source breakdown</p>
           </div>
-          <div className="p-5">
+          <div className="p-3">
             {loading ? (
               <Skeleton className="h-[220px]" />
             ) : (dashboard?.sourceBreakdown?.length ?? 0) === 0 ? (
-              <p className="py-10 text-center text-sm text-[var(--color-pib-text-muted)]">
+              <p className="py-8 text-center text-xs text-on-surface-variant">
                 No contacts to attribute yet.
               </p>
             ) : (
@@ -695,33 +702,33 @@ export default function PortalCrmPage() {
 
       {!loading && <CrmLeadershipRiskBrief risks={leadershipRisks} buildHref={crmPortalPath} />}
 
-      <section className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
-        <div className="pib-card-section overflow-hidden">
-          <div className="border-b border-[var(--color-pib-line)] bg-white/[0.02] px-5 py-3.5">
-            <p className="eyebrow !text-[10px]">Top open deals</p>
+      <section className="grid gap-2 xl:grid-cols-[1.15fr_0.85fr]">
+        <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+          <div className="flex h-9 items-center border-b border-[var(--color-card-border)] px-3">
+            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Top open deals</p>
           </div>
           {loading ? (
-            <div className="space-y-2 p-5">
-              {Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="h-12" />)}
+            <div className="space-y-2 p-3">
+              {Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="h-10" />)}
             </div>
           ) : !dashboard?.topOpenDeals?.length ? (
-            <div className="p-10 text-center">
-              <span className="material-symbols-outlined text-4xl text-[var(--color-accent-v2)]" aria-hidden="true">monetization_on</span>
-              <h2 className="mt-3 font-display text-2xl text-[var(--color-pib-text)]">Build the first active pipeline.</h2>
-              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--color-pib-text-muted)]">
+            <div className="p-6 text-center">
+              <span className="material-symbols-outlined text-[19px] text-[var(--color-accent-text)]" aria-hidden="true">monetization_on</span>
+              <h2 className="mt-2 text-sm font-semibold text-on-surface">Build the first active pipeline.</h2>
+              <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-on-surface-variant">
                 Create a deal so leadership can see value, owner, and next-step accountability from this command center.
               </p>
               <Link
                 href={crmPortalPath('/portal/deals?create=deal')}
                 aria-label="Create first deal from CRM command center"
-                className="pib-btn-primary mt-4 inline-flex items-center gap-1.5 text-sm"
+                className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90"
               >
-                <span className="material-symbols-outlined text-base">add_circle</span>
+                <span className="material-symbols-outlined text-[16px]">add_circle</span>
                 Create first deal
               </Link>
             </div>
           ) : (
-            <div className="divide-y divide-[var(--color-pib-line)]">
+            <div className="divide-y divide-[var(--color-card-border)]">
               {dashboard.topOpenDeals.map((deal) => {
                 const actionLabel = topDealActionLabel(deal)
                 return (
@@ -729,16 +736,16 @@ export default function PortalCrmPage() {
                     key={deal.id}
                     href={topDealHref(deal, crmPortalPath)}
                     aria-label={actionLabel}
-                    className="grid gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--color-pib-surface-2)] md:grid-cols-[1fr_120px_90px]"
+                    className="grid gap-2 px-3 py-2 transition-colors hover:bg-white/[0.04] md:grid-cols-[1fr_120px_90px]"
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{deal.title}</p>
-                      <p className="mt-0.5 truncate text-xs text-[var(--color-pib-text-muted)]">
+                      <p className="truncate text-sm font-medium text-on-surface">{deal.title}</p>
+                      <p className="mt-0.5 truncate text-[11px] leading-4 text-on-surface-variant">
                         {topDealContactLabel(deal)}
                       </p>
                     </div>
-                    <p className="text-sm font-medium text-[var(--color-pib-text)]">{formatCurrency(deal.value, deal.currency)}</p>
-                    <p className="text-xs text-[var(--color-pib-text-muted)]">{deal.probability ?? 50}%</p>
+                    <p className="text-sm font-medium text-on-surface">{formatCurrency(deal.value, deal.currency)}</p>
+                    <p className="text-xs text-on-surface-variant">{deal.probability ?? 50}%</p>
                   </Link>
                 )
               })}
@@ -746,54 +753,54 @@ export default function PortalCrmPage() {
           )}
         </div>
 
-        <div className="pib-card-section overflow-hidden">
-          <div className="border-b border-[var(--color-pib-line)] bg-white/[0.02] px-5 py-3.5">
-            <p className="eyebrow !text-[10px]">Recent CRM activity</p>
+        <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+          <div className="flex h-9 items-center border-b border-[var(--color-card-border)] px-3">
+            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Recent CRM activity</p>
           </div>
           {loading ? (
-            <div className="space-y-2 p-5">
-              {Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="h-11" />)}
+            <div className="space-y-2 p-3">
+              {Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="h-9" />)}
             </div>
           ) : !dashboard?.recentActivities?.length ? (
-            <div className="p-10 text-center">
-              <span className="material-symbols-outlined text-4xl text-[var(--color-accent-v2)]" aria-hidden="true">history</span>
-              <h2 className="mt-3 font-display text-2xl text-[var(--color-pib-text)]">Relationship activity missing</h2>
-              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--color-pib-text-muted)]">
+            <div className="p-6 text-center">
+              <span className="material-symbols-outlined text-[19px] text-[var(--color-accent-text)]" aria-hidden="true">history</span>
+              <h2 className="mt-2 text-sm font-semibold text-on-surface">Relationship activity missing</h2>
+              <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-on-surface-variant">
                 Open the stale follow-up lens so managers can assign calls, emails, meetings, and notes before accounts go quiet.
               </p>
               <Link
                 href={crmPortalPath('/portal/contacts?followUp=stale')}
                 aria-label="Open stale contacts from CRM command center"
-                className="pib-btn-primary mt-4 inline-flex items-center gap-1.5 text-sm"
+                className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90"
               >
-                <span className="material-symbols-outlined text-base">contacts</span>
+                <span className="material-symbols-outlined text-[16px]">contacts</span>
                 Open contacts
               </Link>
             </div>
           ) : (
-            <div className="divide-y divide-[var(--color-pib-line)]">
+            <div className="divide-y divide-[var(--color-card-border)]">
               <ActivityAttributionReview count={activityAttributionGapCount} buildHref={crmPortalPath} />
               {dashboard.recentActivities.map((activity) => {
                 const href = activityHref(activity, crmPortalPath)
                 const content = (
                   <>
-                    <span className="material-symbols-outlined mt-0.5 text-[17px] text-[var(--color-pib-text-muted)]">radio_button_checked</span>
+                    <span className="material-symbols-outlined mt-0.5 text-[15px] text-on-surface-variant">radio_button_checked</span>
                     <div className="min-w-0">
-                      <p className="truncate text-sm text-[var(--color-pib-text)]">{activitySummary(activity)}</p>
-                      <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">
+                      <p className="truncate text-sm text-on-surface">{activitySummary(activity)}</p>
+                      <p className="mt-0.5 text-[11px] leading-4 text-on-surface-variant">
                         {activityContactLabel(activity.contactName)} · {' '}
                         {formatRelative(activity.createdAt)}
                       </p>
                     </div>
                   </>
                 )
-                const className = 'flex gap-3 px-5 py-3.5 transition-colors hover:bg-[var(--color-pib-surface-2)]'
+                const className = 'flex gap-2.5 px-3 py-2 transition-colors hover:bg-white/[0.04]'
                 return href ? (
                   <Link key={activity.id} href={href} className={className}>
                     {content}
                   </Link>
                 ) : (
-                  <div key={activity.id} className="flex gap-3 px-5 py-3.5">
+                  <div key={activity.id} className="flex gap-2.5 px-3 py-2">
                     {content}
                   </div>
                 )
@@ -804,29 +811,37 @@ export default function PortalCrmPage() {
       </section>
 
       {SECTIONS.map((section) => (
-        <section key={section.title} className="space-y-3">
-          <h2 className="text-sm font-label font-semibold uppercase tracking-widest text-[var(--color-pib-text-muted)]">
-            {section.title}
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <section key={section.title} className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+          <div className="flex h-9 items-center border-b border-[var(--color-card-border)] px-3">
+            <h2 className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">
+              {section.title}
+            </h2>
+          </div>
+          <div className="divide-y divide-[var(--color-card-border)]">
             {section.actions.map((action) => (
               <Link
                 key={`${section.title}-${action.href}-${action.label}`}
                 href={crmPortalPath(action.href)}
                 aria-label={hubActionLabel(action.label)}
-                className="pib-card group min-h-[152px] p-5 transition-colors hover:border-[var(--color-pib-accent)] hover:bg-white/[0.03]"
+                className="group flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-white/[0.04]"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
-                    <span className="material-symbols-outlined text-[22px]" aria-hidden="true">{action.icon}</span>
+                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+                  <span className="material-symbols-outlined text-[16px]" aria-hidden="true">{action.icon}</span>
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <h3 className="truncate text-sm font-medium text-on-surface">{action.label}</h3>
+                    {action.eyebrow && (
+                      <span className="flex h-5 shrink-0 items-center rounded-full border border-[var(--color-card-border)] px-2 text-[10px] text-on-surface-variant">
+                        {action.eyebrow}
+                      </span>
+                    )}
                   </span>
-                  {action.eyebrow && <span className="pill !px-2 !py-0.5 !text-[10px]">{action.eyebrow}</span>}
-                </div>
-                <h3 className="mt-4 text-base font-display leading-snug text-[var(--color-pib-text)]">{action.label}</h3>
-                <p className="mt-1 text-sm leading-relaxed text-[var(--color-pib-text-muted)]">{action.description}</p>
-                <span className="mt-4 inline-flex items-center gap-1 text-xs font-label text-[var(--color-pib-accent)]">
+                  <span className="mt-0.5 block truncate text-[11px] leading-4 text-on-surface-variant">{action.description}</span>
+                </span>
+                <span className="ml-auto inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-[var(--color-accent-text)]">
                   Open
-                  <span className="material-symbols-outlined text-sm transition-transform group-hover:translate-x-0.5" aria-hidden="true">arrow_forward</span>
+                  <span className="material-symbols-outlined text-[13px]" aria-hidden="true">arrow_forward</span>
                 </span>
               </Link>
             ))}

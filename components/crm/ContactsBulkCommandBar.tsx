@@ -94,69 +94,69 @@ export function ContactsBulkCommandBar({
 
   return (
     <section
-      className="sticky top-4 z-40 pib-card-section p-4 space-y-4 shadow-xl"
+      className="sticky top-4 z-40 space-y-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 shadow-[0_24px_80px_rgba(0,0,0,0.24)]"
       aria-label="Bulk command center"
     >
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="eyebrow">Bulk command center</p>
-          <h2 className="font-display text-xl mt-1">Shape this contact set in one controlled move.</h2>
-          <p className="text-sm text-[var(--color-pib-text-muted)] mt-1 max-w-2xl">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Bulk command center</p>
+          <h2 className="truncate text-xs font-semibold text-on-surface">Shape this contact set in one controlled move.</h2>
+          <p className="sr-only">
             Apply ownership, lifecycle, type, or tag updates to the selected contacts without leaving the list.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {onExportSelected && (
             <button
               onClick={onExportSelected}
               disabled={bulkPending}
-              className="btn-pib-secondary !text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label="Export selected contacts as CSV"
             >
-              <span className="material-symbols-outlined text-[16px]">file_download</span>
+              <span className="material-symbols-outlined text-[14px]">file_download</span>
               Export selected
             </button>
           )}
           <button
             onClick={onClear}
-            className="btn-pib-secondary !text-xs"
+            className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
             aria-label="Clear selected contacts"
           >
-            <span className="material-symbols-outlined text-[16px]">close</span>
+            <span className="material-symbols-outlined text-[14px]">close</span>
             Clear selection
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-        <div className="rounded-[var(--radius-card)] border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-          <p className="eyebrow !text-[10px]">Selected records</p>
-          <p className="font-display text-2xl mt-1">{selectedCount} selected</p>
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+        <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+          <p className="text-lg font-semibold leading-6 text-on-surface">{selectedCount} selected</p>
+          <p className="text-[11px] leading-4 text-on-surface-variant">Selected records</p>
         </div>
-        <div className="rounded-[var(--radius-card)] border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-          <p className="eyebrow !text-[10px]">Coverage</p>
-          <p className="font-display text-2xl mt-1">{coverage}%</p>
+        <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+          <p className="text-lg font-semibold leading-6 text-on-surface">{coverage}%</p>
+          <p className="text-[11px] leading-4 text-on-surface-variant">Coverage</p>
         </div>
-        <div className="rounded-[var(--radius-card)] border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-          <p className="eyebrow !text-[10px]">Next operation</p>
-          <p className="text-sm mt-1 text-[var(--color-pib-text)]">{actionLabel}</p>
+        <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+          <p className="text-xs leading-6 text-on-surface">{actionLabel}</p>
+          <p className="text-[11px] leading-4 text-on-surface-variant">Next operation</p>
         </div>
-        <div className="rounded-[var(--radius-card)] border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-          <p className="eyebrow !text-[10px]">Safety</p>
-          <p className="text-sm mt-1 text-[var(--color-pib-text-muted)]">
+        <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+          <p className="text-xs leading-6 text-on-surface-variant">
             {isDestructive ? 'Tag removal only. Delete stays separate.' : 'Delete is isolated from updates.'}
           </p>
+          <p className="text-[11px] leading-4 text-on-surface-variant">Safety</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(180px,240px)_1fr_auto_auto] gap-3 items-end">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(180px,240px)_1fr_auto_auto] gap-2 items-end">
         <label className="space-y-1">
-          <span className="eyebrow !text-[10px]">Operation</span>
+          <span className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Operation</span>
           <select
             aria-label="Bulk action"
             value={bulkAction}
             onChange={(event) => onActionChange(event.target.value as BulkActionKey)}
-            className="pib-input !w-full !py-2 !text-sm"
+            className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface"
           >
             {BULK_ACTIONS.map(action => (
               <option key={action} value={action} className="bg-black">
@@ -169,13 +169,13 @@ export function ContactsBulkCommandBar({
         <div>
           {bulkAction === 'assign' && (
             <label className="space-y-1 block">
-              <span className="eyebrow !text-[10px]">Owner</span>
+              <span className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Owner</span>
               {teamMembers.length > 0 ? (
                 <select
                   aria-label="Assign selected contacts to owner"
                   value={bulkAssignUid}
                   onChange={(event) => onAssignUidChange(event.target.value)}
-                  className="pib-input !w-full !py-2 !text-sm"
+                  className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface"
                 >
                   <option value="" className="bg-black">Select member...</option>
                   {teamMembers.map(member => (
@@ -189,7 +189,7 @@ export function ContactsBulkCommandBar({
                   placeholder="User UID..."
                   value={bulkAssignUid}
                   onChange={(event) => onAssignUidChange(event.target.value)}
-                  className="pib-input !py-2 !text-sm w-full"
+                  className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface placeholder:text-on-surface-variant"
                 />
               )}
             </label>
@@ -197,11 +197,11 @@ export function ContactsBulkCommandBar({
 
           {bulkAction === 'stage' && (
             <label className="space-y-1 block">
-              <span className="eyebrow !text-[10px]">Stage</span>
+              <span className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Stage</span>
               <select
                 value={bulkStage}
                 onChange={(event) => onStageChange(event.target.value)}
-                className="pib-input !w-full !py-2 !text-sm"
+                className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface"
               >
                 {stages.map(stage => (
                   <option key={stage} value={stage} className="bg-black">{readableBulkContactLabel(stage)}</option>
@@ -212,11 +212,11 @@ export function ContactsBulkCommandBar({
 
           {bulkAction === 'type' && (
             <label className="space-y-1 block">
-              <span className="eyebrow !text-[10px]">Type</span>
+              <span className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Type</span>
               <select
                 value={bulkType}
                 onChange={(event) => onTypeChange(event.target.value)}
-                className="pib-input !w-full !py-2 !text-sm"
+                className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface"
               >
                 {types.map(type => (
                   <option key={type} value={type} className="bg-black">{readableBulkContactLabel(type)}</option>
@@ -227,25 +227,25 @@ export function ContactsBulkCommandBar({
 
           {(bulkAction === 'add-tags' || bulkAction === 'remove-tags') && (
             <label className="space-y-1 block">
-              <span className="eyebrow !text-[10px]">Tags</span>
+              <span className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Tags</span>
               <input
                 placeholder="tag1, tag2..."
                 value={bulkTagsInput}
                 onChange={(event) => onTagsInputChange(event.target.value)}
-                className="pib-input !py-2 !text-sm w-full"
+                className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface placeholder:text-on-surface-variant"
               />
             </label>
           )}
 
           {bulkAction === 'assign-segment' && (
             <label className="space-y-1 block">
-              <span className="eyebrow !text-[10px]">Segment</span>
+              <span className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Segment</span>
               {segments.length > 0 ? (
                 <select
                   aria-label="Assign selected contacts to a segment"
                   value={bulkSegmentId}
                   onChange={(event) => onSegmentChange?.(event.target.value)}
-                  className="pib-input !w-full !py-2 !text-sm"
+                  className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface"
                 >
                   <option value="" className="bg-black">Select segment...</option>
                   {segments.map((segment) => (
@@ -255,7 +255,7 @@ export function ContactsBulkCommandBar({
                   ))}
                 </select>
               ) : (
-                <p className="text-xs text-[var(--color-pib-text-muted)] py-2">
+                <p className="py-2 text-xs text-on-surface-variant">
                   No segments yet. Create one in the Segments workspace first.
                 </p>
               )}
@@ -267,19 +267,19 @@ export function ContactsBulkCommandBar({
           onClick={onApply}
           disabled={bulkPending}
           aria-label="Apply updates"
-          className="btn-pib-accent !py-2.5 !text-sm justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex h-8 items-center justify-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <span className="material-symbols-outlined text-[16px]">done_all</span>
+          <span className="material-symbols-outlined text-[14px]">done_all</span>
           {bulkPending ? 'Applying...' : 'Apply updates'}
         </button>
 
         <button
           onClick={onDelete}
           disabled={bulkPending}
-          className="text-sm text-red-300 hover:text-red-200 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-[var(--radius-card)] border border-red-400/30 hover:bg-red-400/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex h-8 items-center justify-center gap-1.5 rounded-md border border-red-400/40 px-2 text-xs text-red-200 transition hover:bg-red-400/10 hover:text-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
           aria-label="Delete selected contacts"
         >
-          <span className="material-symbols-outlined text-[16px]">delete</span>
+          <span className="material-symbols-outlined text-[14px]">delete</span>
           Delete selected
         </button>
       </div>

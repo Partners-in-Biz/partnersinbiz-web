@@ -102,14 +102,14 @@ export function ProductPicker({ orgId, orgScope, onSelect, onAdHoc, placeholder 
           onKeyDown={handleKeyDown}
           placeholder={loading ? 'Loading products…' : placeholder}
           disabled={loading}
-          className="pib-input w-full pr-8 text-sm"
+          className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 pr-8 text-xs text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
         />
         {query && (
           <button
             type="button"
             aria-label="Clear"
             onClick={clear}
-            className="cursor-pointer absolute right-2 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
+            className="cursor-pointer absolute right-2 text-on-surface-variant hover:text-on-surface transition-colors"
           >
             <span className="material-symbols-outlined text-[16px]">close</span>
           </button>
@@ -121,7 +121,7 @@ export function ProductPicker({ orgId, orgScope, onSelect, onAdHoc, placeholder 
       )}
 
       {open && !loading && (
-        <div className="absolute z-50 top-full mt-1 left-0 right-0 pib-card rounded-lg shadow-lg overflow-hidden max-h-56 overflow-y-auto">
+        <div className="absolute z-50 top-full mt-1 left-0 right-0 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] overflow-hidden max-h-56 overflow-y-auto">
           {filtered.length > 0 ? (
             <ul role="listbox">
               {filtered.map(product => {
@@ -133,10 +133,10 @@ export function ProductPicker({ orgId, orgScope, onSelect, onAdHoc, placeholder 
                     type="button"
                     onClick={() => selectProduct(product)}
                     aria-label={`Select product ${displayName}`}
-                    className="cursor-pointer w-full text-left px-3 py-2 hover:bg-white/[0.05] transition-colors"
+                    className="cursor-pointer w-full text-left px-2.5 py-1.5 hover:bg-white/[0.05] transition-colors"
                   >
-                    <p className="text-sm font-medium text-[var(--color-pib-text)]">{displayName}</p>
-                    <p className="text-[11px] text-[var(--color-pib-text-muted)] font-mono">
+                    <p className="text-xs font-medium text-on-surface">{displayName}</p>
+                    <p className="text-[11px] text-on-surface-variant font-mono">
                       {product.currency} {product.unitPrice.toFixed(2)}
                       {product.unit ? ` / ${product.unit}` : ''}
                     </p>
@@ -146,8 +146,8 @@ export function ProductPicker({ orgId, orgScope, onSelect, onAdHoc, placeholder 
               })}
             </ul>
           ) : (
-            <div className="px-3 py-2">
-              <p className="text-xs text-[var(--color-pib-text-muted)]">
+            <div className="px-2.5 py-2">
+              <p className="text-xs text-on-surface-variant">
                 {query.trim() ? 'No matching products' : 'No products set up yet'}
               </p>
               {!query.trim() && (
@@ -168,7 +168,7 @@ export function ProductPicker({ orgId, orgScope, onSelect, onAdHoc, placeholder 
             <button
               type="button"
               onClick={() => { setOpen(false); onAdHoc(query.trim()) }}
-              className="cursor-pointer w-full text-left text-xs px-3 py-2 text-[var(--color-accent-v2)] hover:bg-white/[0.05] transition-colors flex items-center gap-1.5 border-t border-[var(--color-pib-line)]"
+              className="cursor-pointer w-full text-left text-xs px-2.5 py-1.5 text-[var(--color-accent-v2)] hover:bg-white/[0.05] transition-colors flex items-center gap-1.5 border-t border-[var(--color-card-border)]"
             >
               <span className="material-symbols-outlined text-[14px]">add</span>
               Add &quot;{query.trim()}&quot; as ad-hoc item

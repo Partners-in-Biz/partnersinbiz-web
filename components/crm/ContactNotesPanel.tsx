@@ -185,173 +185,178 @@ export function ContactNotesPanel({
   }
 
   return (
-    <section className="bento-card !p-5" aria-label={`Notes for ${label}`}>
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <p className="eyebrow !text-[10px]">Notes</p>
-        <span className="text-xs text-[var(--color-pib-text-muted)]">
+    <section
+      className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45"
+      aria-label={`Notes for ${label}`}
+    >
+      <div className="flex h-9 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black/[0.08] px-3">
+        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Notes</p>
+        <span className="text-[11px] text-on-surface-variant">
           {notes.length === 0 ? 'No notes yet' : notes.length === 1 ? '1 note' : `${notes.length} notes`}
         </span>
       </div>
 
-      {/* Composer */}
-      <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
-        <label htmlFor="contact-note-composer" className="sr-only">
-          {`Add a note for ${label}`}
-        </label>
-        <textarea
-          id="contact-note-composer"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          rows={3}
-          placeholder={`Add a relationship note, handoff, or context for ${label}…`}
-          className="input-pib w-full resize-y text-sm"
-          aria-label={`Add a note for ${label}`}
-        />
-        {saveError && <p className="mt-2 text-xs text-red-400">{saveError}</p>}
-        <div className="mt-2 flex justify-end">
-          <button
-            type="button"
-            onClick={addNote}
-            disabled={saving || !draft.trim()}
-            aria-label={`Save note for ${label}`}
-            className="btn-pib-primary inline-flex items-center gap-1.5 text-xs disabled:opacity-50"
-          >
-            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add_comment</span>
-            {saving ? 'Saving…' : 'Add note'}
-          </button>
-        </div>
-      </div>
-
-      {rowError && <p className="mt-3 text-xs text-red-400">{rowError}</p>}
-
-      {/* List */}
-      <div className="mt-4">
-        {loading ? (
-          <div className="space-y-3" role="status" aria-label="Loading notes">
-            {Array.from({ length: 2 }).map((_, i) => (
-              <div key={i} className="pib-skeleton h-12 rounded-lg" />
-            ))}
-          </div>
-        ) : loadError ? (
-          <div className="rounded-lg border border-amber-400/25 bg-amber-400/[0.07] p-3">
-            <p className="text-sm text-[var(--color-pib-text-muted)]">{loadError}</p>
+      <div className="p-3">
+        {/* Composer */}
+        <div className="rounded-md border border-[var(--color-card-border)] bg-white/[0.02] p-2">
+          <label htmlFor="contact-note-composer" className="sr-only">
+            {`Add a note for ${label}`}
+          </label>
+          <textarea
+            id="contact-note-composer"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={3}
+            placeholder={`Add a relationship note, handoff, or context for ${label}…`}
+            className="w-full resize-y rounded-md border border-[var(--color-card-border)] bg-transparent p-2 text-xs text-on-surface outline-none"
+            aria-label={`Add a note for ${label}`}
+          />
+          {saveError && <p className="mt-1.5 text-xs text-red-400">{saveError}</p>}
+          <div className="mt-1.5 flex justify-end">
             <button
               type="button"
-              onClick={() => void loadNotes()}
-              className="btn-pib-secondary mt-2 inline-flex items-center gap-1.5 text-xs"
-              aria-label="Retry loading notes"
+              onClick={addNote}
+              disabled={saving || !draft.trim()}
+              aria-label={`Save note for ${label}`}
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-primary/25 bg-primary/10 px-2.5 text-xs font-medium text-primary transition hover:bg-primary/15 disabled:opacity-50"
             >
-              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">refresh</span>
-              Retry
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add_comment</span>
+              {saving ? 'Saving…' : 'Add note'}
             </button>
           </div>
-        ) : notes.length === 0 ? (
-          <p className="text-sm leading-6 text-[var(--color-pib-text-muted)]">
-            No notes captured yet. Use the field above to record context the whole team can see.
-          </p>
-        ) : (
-          <ul className="space-y-3">
-            {notes.map((note) => {
-              const mutable = canMutate(note)
-              const isEditing = editingId === note.id
-              const isPendingDelete = pendingDeleteId === note.id
-              return (
-                <li
-                  key={note.id}
-                  className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-3"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="text-xs text-[var(--color-pib-text-muted)]">
-                      <span className="font-medium text-[var(--color-pib-text)]">{noteAuthorLabel(note)}</span>
-                      {' · '}
-                      {relativeTime(note.updatedAt || note.createdAt)}
-                    </p>
-                    {mutable && !isEditing && (
-                      <div className="flex shrink-0 items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => startEdit(note)}
-                          aria-label={`Edit note by ${noteAuthorLabel(note)}`}
-                          className="inline-flex items-center rounded-md border border-[var(--color-pib-line)] px-1.5 py-1 text-[11px] text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
-                        >
-                          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setPendingDeleteId(note.id)}
-                          aria-label={`Delete note by ${noteAuthorLabel(note)}`}
-                          className="inline-flex items-center rounded-md border border-[var(--color-pib-line)] px-1.5 py-1 text-[11px] text-[var(--color-pib-text-muted)] transition-colors hover:text-red-400"
-                        >
-                          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">delete</span>
-                        </button>
+        </div>
+
+        {rowError && <p className="mt-2 text-xs text-red-400">{rowError}</p>}
+
+        {/* List */}
+        <div className="mt-2">
+          {loading ? (
+            <div className="space-y-2" role="status" aria-label="Loading notes">
+              {Array.from({ length: 2 }).map((_, i) => (
+                <div key={i} className="pib-skeleton h-10 rounded-md" />
+              ))}
+            </div>
+          ) : loadError ? (
+            <div className="rounded-md border border-amber-400/25 bg-amber-400/[0.07] p-2.5">
+              <p className="text-xs text-on-surface-variant">{loadError}</p>
+              <button
+                type="button"
+                onClick={() => void loadNotes()}
+                className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                aria-label="Retry loading notes"
+              >
+                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">refresh</span>
+                Retry
+              </button>
+            </div>
+          ) : notes.length === 0 ? (
+            <p className="px-1 py-1 text-xs leading-5 text-on-surface-variant">
+              No notes captured yet. Use the field above to record context the whole team can see.
+            </p>
+          ) : (
+            <ul>
+              {notes.map((note) => {
+                const mutable = canMutate(note)
+                const isEditing = editingId === note.id
+                const isPendingDelete = pendingDeleteId === note.id
+                return (
+                  <li
+                    key={note.id}
+                    className="border-b border-[var(--color-card-border)] px-1 py-2 last:border-0"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-[11px] text-on-surface-variant">
+                        <span className="font-medium text-on-surface">{noteAuthorLabel(note)}</span>
+                        {' · '}
+                        {relativeTime(note.updatedAt || note.createdAt)}
+                      </p>
+                      {mutable && !isEditing && (
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => startEdit(note)}
+                            aria-label={`Edit note by ${noteAuthorLabel(note)}`}
+                            className="inline-flex h-6 items-center rounded-md px-1.5 text-[11px] text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                          >
+                            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPendingDeleteId(note.id)}
+                            aria-label={`Delete note by ${noteAuthorLabel(note)}`}
+                            className="inline-flex h-6 items-center rounded-md px-1.5 text-[11px] text-on-surface-variant transition hover:bg-white/[0.05] hover:text-red-400"
+                          >
+                            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">delete</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {isEditing ? (
+                      <div className="mt-1.5">
+                        <label htmlFor={`edit-note-${note.id}`} className="sr-only">Edit note</label>
+                        <textarea
+                          id={`edit-note-${note.id}`}
+                          value={editDraft}
+                          onChange={(e) => setEditDraft(e.target.value)}
+                          rows={3}
+                          className="w-full resize-y rounded-md border border-[var(--color-card-border)] bg-transparent p-2 text-xs text-on-surface outline-none"
+                        />
+                        <div className="mt-1.5 flex justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => { setEditingId(null); setEditDraft('') }}
+                            className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                            aria-label="Cancel note edit"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => saveEdit(note.id)}
+                            disabled={editSaving || !editDraft.trim()}
+                            className="inline-flex h-8 items-center rounded-md border border-primary/25 bg-primary/10 px-2.5 text-xs font-medium text-primary transition hover:bg-primary/15 disabled:opacity-50"
+                            aria-label="Save note edit"
+                          >
+                            {editSaving ? 'Saving…' : 'Save'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="mt-1 whitespace-pre-wrap text-sm leading-5 text-on-surface">
+                        {note.body?.trim() || 'Empty note'}
+                      </p>
+                    )}
+
+                    {isPendingDelete && (
+                      <div className="mt-1.5 flex items-center justify-between gap-3 rounded-md border border-red-400/25 bg-red-400/[0.06] px-2 py-1.5">
+                        <span className="text-xs text-on-surface-variant">Delete this note?</span>
+                        <div className="flex gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setPendingDeleteId(null)}
+                            className="inline-flex h-7 items-center rounded-md border border-[var(--color-card-border)] px-2 text-[11px] text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                            aria-label="Keep note"
+                          >
+                            Keep
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteNote(note.id)}
+                            className="inline-flex h-7 items-center gap-1 rounded-md border border-red-400/40 bg-red-400/10 px-2 text-[11px] font-medium text-red-200 transition hover:bg-red-400/20"
+                            aria-label="Confirm delete note"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
                     )}
-                  </div>
-
-                  {isEditing ? (
-                    <div className="mt-2">
-                      <label htmlFor={`edit-note-${note.id}`} className="sr-only">Edit note</label>
-                      <textarea
-                        id={`edit-note-${note.id}`}
-                        value={editDraft}
-                        onChange={(e) => setEditDraft(e.target.value)}
-                        rows={3}
-                        className="input-pib w-full resize-y text-sm"
-                      />
-                      <div className="mt-2 flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => { setEditingId(null); setEditDraft('') }}
-                          className="btn-pib-secondary text-xs"
-                          aria-label="Cancel note edit"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => saveEdit(note.id)}
-                          disabled={editSaving || !editDraft.trim()}
-                          className="btn-pib-primary text-xs disabled:opacity-50"
-                          aria-label="Save note edit"
-                        >
-                          {editSaving ? 'Saving…' : 'Save'}
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="mt-1.5 whitespace-pre-wrap text-sm leading-6 text-[var(--color-pib-text)]">
-                      {note.body?.trim() || 'Empty note'}
-                    </p>
-                  )}
-
-                  {isPendingDelete && (
-                    <div className="mt-2 flex items-center justify-between gap-3 rounded-md border border-red-400/25 bg-red-400/[0.06] p-2">
-                      <span className="text-xs text-[var(--color-pib-text-muted)]">Delete this note?</span>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setPendingDeleteId(null)}
-                          className="btn-pib-secondary text-[11px]"
-                          aria-label="Keep note"
-                        >
-                          Keep
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => deleteNote(note.id)}
-                          className="inline-flex items-center gap-1 rounded-md bg-red-500/90 px-2 py-1 text-[11px] font-medium text-white hover:bg-red-500"
-                          aria-label="Confirm delete note"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-        )}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
       </div>
     </section>
   )
