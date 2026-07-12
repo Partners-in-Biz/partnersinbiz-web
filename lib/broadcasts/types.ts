@@ -107,6 +107,15 @@ export interface Broadcast {
   updatedAt: Timestamp | null
   createdBy: string
   createdByType: 'user' | 'agent' | 'system'
+  approvalState?: {
+    status: 'pending' | 'approved' | 'rejected' | 'revoked'
+    approvedBy?: string | null
+    approvedByType?: 'user' | 'agent' | 'system' | null
+    approvedAt?: Timestamp | null
+    approvalTaskId?: string | null
+    invalidatedAt?: Timestamp | null
+    invalidatedReason?: string | null
+  }
   deleted?: boolean
 }
 

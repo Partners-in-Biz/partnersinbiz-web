@@ -8,7 +8,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import type { ApiUser } from '@/lib/api/types'
 import type { SequenceInput } from '@/lib/sequences/types'
 import { mergeSequenceForActivationValidation, validateSequenceActivation } from '@/lib/sequences/validation'
-import { assertEmailMarketingAgentAction } from '@/lib/email-marketing/agent-governance'
+import { assertEmailMarketingAgentActionWithTask } from '@/lib/email-marketing/agent-governance'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,7 +38,9 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
   }
   if (body.status === 'active' && snap.data()?.status !== 'active') {
     try {
-      assertEmailMarketingAgentAction(user, 'email_marketing_send', snap.data()?.approvalState)
+      await assertEmailMarketingAgentActionWithTask(user, 'email_marketing_send', snap.data()?.approvalState, {
+        orgId: scope.orgId, resourceType: 'email_sequence', resourceId: id,
+      })
     } catch (error) {
       return apiError(error instanceof Error ? error.message : 'Sequence activation is not authorised', 403)
     }
@@ -52,6 +54,11 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
   if (Array.isArray(body.goals)) update.goals = body.goals
   if (body.reentryPolicy && typeof body.reentryPolicy === 'object') update.reentryPolicy = body.reentryPolicy
   if (typeof body.maxActiveEnrollments === 'number') update.maxActiveEnrollments = Math.max(0, Math.floor(body.maxActiveEnrollments))
+  if (snap.data()?.approvalState?.status === 'approved' && (body.steps !== undefined || body.topicId !== undefined || body.goals !== undefined)) {
+    update.approvalState = {
+      status: 'revoked', approvedBy: null, approvedByType: null, approvedAt: null, approvalTaskId: null,
+    }
+  }
   await adminDb.collection('sequences').doc(id).update({ ...update, updatedAt: FieldValue.serverTimestamp() })
   return apiSuccess({ id, ...update })
 })

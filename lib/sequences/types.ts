@@ -120,6 +120,13 @@ export interface Sequence {
   reentryPolicy?: SequenceReentryPolicy
   // Operational guardrail for simultaneous enrollments in this sequence.
   maxActiveEnrollments?: number
+  approvalState?: {
+    status: 'pending' | 'approved' | 'rejected' | 'revoked'
+    approvedBy?: string | null
+    approvedByType?: 'user' | 'agent' | 'system' | null
+    approvedAt?: Timestamp | null
+    approvalTaskId?: string | null
+  }
   createdAt: Timestamp | null
   updatedAt: Timestamp | null
   deleted?: boolean

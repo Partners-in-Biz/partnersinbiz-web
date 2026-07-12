@@ -8,6 +8,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { getSequence, updateSequence, deleteSequence } from '@/lib/sequences/store'
 import type { SequenceInput } from '@/lib/sequences/types'
 import { mergeSequenceForActivationValidation, validateSequenceActivation } from '@/lib/sequences/validation'
+import { assertEmailMarketingAgentActionWithTask } from '@/lib/email-marketing/agent-governance'
 
 export const dynamic = 'force-dynamic'
 
@@ -70,6 +71,17 @@ export const PUT = withCrmAuth<RouteCtx>('admin', async (req, ctx, routeCtx) => 
         mergeSequenceForActivationValidation(existing, patch),
       )
       if (activationError) return apiError(activationError, 400)
+      if (patch.status === 'active' && existing.status !== 'active' && ctx.user) {
+        try {
+          await assertEmailMarketingAgentActionWithTask(
+            { uid: ctx.user.uid, role: 'ai', authKind: ctx.user.authKind, agentId: ctx.user.agentId },
+            'email_marketing_send', existing.approvalState,
+            { orgId: ctx.orgId, resourceType: 'email_sequence', resourceId: id },
+          )
+        } catch (error) {
+          return apiError(error instanceof Error ? error.message : 'Sequence activation is not authorised', 403)
+        }
+      }
     }
 
     const sequence = await updateSequence(ctx.orgId, id, patch, ctx.actor)

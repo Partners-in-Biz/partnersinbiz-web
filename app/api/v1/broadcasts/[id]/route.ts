@@ -95,6 +95,19 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
     }
   }
 
+  const materialFields = ['content', 'audience', 'fromDomainId', 'fromName', 'fromLocal', 'replyTo']
+  if (current.approvalState?.status === 'approved' && materialFields.some((field) => Object.prototype.hasOwnProperty.call(update, field))) {
+    update.approvalState = {
+      status: 'revoked',
+      approvedBy: null,
+      approvedByType: null,
+      approvedAt: null,
+      approvalTaskId: null,
+      invalidatedAt: FieldValue.serverTimestamp(),
+      invalidatedReason: 'Material broadcast content, audience, or sender settings changed',
+    }
+  }
+
   await snap.ref.update({ ...update, ...lastActorFrom(user) })
   return apiSuccess({ id })
 })

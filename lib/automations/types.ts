@@ -70,6 +70,12 @@ export interface AutomationRule {
   updatedAt: Timestamp | null
   createdByRef?: MemberRef
   updatedByRef?: MemberRef
+  approvalState?: {
+    status: 'pending' | 'approved' | 'rejected' | 'revoked'
+    approvedBy?: string | null
+    approvedByType?: 'user' | 'agent' | 'system' | null
+    approvalTaskId?: string | null
+  }
 }
 
 export type AutomationRuleInput = Omit<AutomationRule, 'id' | 'orgId' | 'createdAt' | 'updatedAt'>

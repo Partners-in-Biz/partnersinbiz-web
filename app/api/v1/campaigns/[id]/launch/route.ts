@@ -13,7 +13,7 @@ import type { Campaign } from '@/lib/campaigns/types'
 import type { ApiUser } from '@/lib/api/types'
 import { launchCampaign } from '@/lib/campaigns/launch'
 import { logActivity } from '@/lib/activity/log'
-import { assertEmailMarketingAgentAction } from '@/lib/email-marketing/agent-governance'
+import { assertEmailMarketingAgentActionWithTask } from '@/lib/email-marketing/agent-governance'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -36,7 +36,9 @@ export const POST = withAuth('client', async (_req: NextRequest, user: ApiUser, 
     }
   }).approvalState
   try {
-    assertEmailMarketingAgentAction(user, 'email_marketing_send', approvalState)
+    await assertEmailMarketingAgentActionWithTask(user, 'email_marketing_send', approvalState, {
+      orgId: scope.orgId, resourceType: 'email_campaign', resourceId: id,
+    })
   } catch (error) {
     return apiError(error instanceof Error ? error.message : 'Email launch is not authorised', 403)
   }

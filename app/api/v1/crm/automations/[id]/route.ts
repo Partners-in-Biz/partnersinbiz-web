@@ -4,9 +4,10 @@
  */
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError } from '@/lib/api/response'
-import { updateRule, deleteRule } from '@/lib/automations/store'
+import { updateRule, deleteRule, getRule } from '@/lib/automations/store'
 import type { AutomationAction, AutomationRuleInput } from '@/lib/automations/types'
 import { validateAutomationActionsForSave } from '@/lib/automations/validation'
+import { assertEmailMarketingAgentActionWithTask } from '@/lib/email-marketing/agent-governance'
 
 export const dynamic = 'force-dynamic'
 
@@ -61,6 +62,20 @@ export const PUT = withCrmAuth<RouteCtx>('admin', async (req, ctx, routeCtx) => 
   if (patch.actions !== undefined) {
     const actionError = await validateAutomationActionsForSave(ctx.orgId, patch.actions as AutomationAction[])
     if (actionError) return apiError(actionError, 400)
+  }
+
+  if (patch.enabled === true && ctx.user) {
+    const existing = await getRule(ctx.orgId, id)
+    if (!existing) return apiError('Not found', 404)
+    try {
+      await assertEmailMarketingAgentActionWithTask(
+        { uid: ctx.user.uid, role: 'ai', authKind: ctx.user.authKind, agentId: ctx.user.agentId },
+        'email_marketing_send', existing.approvalState,
+        { orgId: ctx.orgId, resourceType: 'email_automation', resourceId: id },
+      )
+    } catch (error) {
+      return apiError(error instanceof Error ? error.message : 'Automation activation is not authorised', 403)
+    }
   }
 
   try {

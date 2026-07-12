@@ -96,7 +96,9 @@ export interface Campaign {
   approvalState?: {
     status: 'not_required' | 'pending' | 'approved' | 'rejected' | 'revoked'
     approvedBy?: string | null
+    approvedByType?: 'user' | 'agent' | 'system' | null
     approvedAt?: Timestamp | null
+    approvalTaskId?: string | null
   }
   deleted?: boolean
 }

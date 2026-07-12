@@ -30,7 +30,7 @@ import {
 } from '@/lib/broadcasts/send'
 import type { Broadcast } from '@/lib/broadcasts/types'
 import type { ApiUser } from '@/lib/api/types'
-import { assertEmailMarketingAgentAction } from '@/lib/email-marketing/agent-governance'
+import { assertEmailMarketingAgentActionWithTask } from '@/lib/email-marketing/agent-governance'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -52,10 +52,11 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   if (!scope.ok) return apiError(scope.error, scope.status)
 
   try {
-    assertEmailMarketingAgentAction(
+    await assertEmailMarketingAgentActionWithTask(
       user,
       'email_marketing_send',
       (broadcast as Broadcast & { approvalState?: Record<string, string | null> }).approvalState,
+      { orgId: scope.orgId, resourceType: 'email_broadcast', resourceId: id },
     )
   } catch (error) {
     return apiError(error instanceof Error ? error.message : 'Broadcast sending is not authorised', 403)

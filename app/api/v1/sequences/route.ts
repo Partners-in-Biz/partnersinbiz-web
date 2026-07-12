@@ -8,6 +8,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import type { ApiUser } from '@/lib/api/types'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import { validateSequenceActivation } from '@/lib/sequences/validation'
+import { assertEmailMarketingAgentAction } from '@/lib/email-marketing/agent-governance'
 
 export const dynamic = 'force-dynamic'
 
@@ -82,6 +83,13 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
 
   const activationError = validateSequenceActivation({ status, steps })
   if (activationError) return apiError(activationError, 400)
+  if (status === 'active') {
+    try {
+      assertEmailMarketingAgentAction(user, 'email_marketing_send', null)
+    } catch (error) {
+      return apiError(error instanceof Error ? error.message : 'Agent-created sequences must remain draft until human approval', 403)
+    }
+  }
 
   const ref = await adminDb.collection('sequences').add({
     orgId,

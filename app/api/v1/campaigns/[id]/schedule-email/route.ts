@@ -20,7 +20,7 @@ import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { logActivity } from '@/lib/activity/log'
 import type { ApiUser } from '@/lib/api/types'
-import { assertEmailMarketingAgentAction } from '@/lib/email-marketing/agent-governance'
+import { assertEmailMarketingAgentActionWithTask } from '@/lib/email-marketing/agent-governance'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,7 +47,9 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   if (!scope.ok) return apiError(scope.error, scope.status)
 
   try {
-    assertEmailMarketingAgentAction(user, 'email_marketing_send', campaign.approvalState)
+    await assertEmailMarketingAgentActionWithTask(user, 'email_marketing_send', campaign.approvalState, {
+      orgId: scope.orgId, resourceType: 'email_campaign', resourceId: id,
+    })
   } catch (error) {
     return apiError(error instanceof Error ? error.message : 'Email scheduling is not authorised', 403)
   }

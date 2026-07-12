@@ -15,7 +15,7 @@ jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
 }))
 jest.mock('@/lib/email-marketing/agent-governance', () => ({
-  assertEmailMarketingAgentAction: mockAssertEmailMarketingAgentAction,
+  assertEmailMarketingAgentActionWithTask: mockAssertEmailMarketingAgentAction,
 }))
 jest.mock('@/lib/auth/middleware', () => ({
   withAuth: (_role: string, handler: (...args: unknown[]) => unknown) => handler,

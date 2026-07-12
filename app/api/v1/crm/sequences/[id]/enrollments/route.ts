@@ -6,6 +6,7 @@ import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { listEnrollments, enrollContact, SequenceEnrollmentError } from '@/lib/sequences/enrollment'
 import { getSequence } from '@/lib/sequences/store'
+import { assertEmailMarketingAgentActionWithTask } from '@/lib/email-marketing/agent-governance'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,6 +47,17 @@ export const POST = withCrmAuth<RouteCtx>('member', async (req, ctx, routeCtx) =
     if (!sequence) return apiError('Not found', 404)
     if (sequence.status !== 'active') {
       return apiError('Sequence must be active before enrollment', 400)
+    }
+    if (ctx.user) {
+      try {
+        await assertEmailMarketingAgentActionWithTask(
+          { uid: ctx.user.uid, role: 'ai', authKind: ctx.user.authKind, agentId: ctx.user.agentId },
+          'email_marketing_send', sequence.approvalState,
+          { orgId: ctx.orgId, resourceType: 'email_sequence', resourceId: id },
+        )
+      } catch (error) {
+        return apiError(error instanceof Error ? error.message : 'Sequence enrollment is not authorised', 403)
+      }
     }
 
     const firstStepDelayDays = sequence.steps[0]?.delayDays ?? 0
