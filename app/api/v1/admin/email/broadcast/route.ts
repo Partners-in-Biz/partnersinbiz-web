@@ -27,7 +27,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { actorFrom } from '@/lib/api/actor'
 import type { ApiUser } from '@/lib/api/types'
-import { assertEmailMarketingAgentAction } from '@/lib/email-marketing/agent-governance'
+import { assertEmailMarketingAgentAction, organizationRequiresEmailApproval } from '@/lib/email-marketing/agent-governance'
 import {
   sendCampaignEmail,
   htmlToPlainText,
@@ -142,6 +142,9 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser) =>
   if (!subject) return apiError('subject is required')
   if (!html.trim()) return apiError('html content is required')
   if (!filter) return apiError('A valid recipientFilter is required')
+  if (filter.source === 'by_org' && filter.orgId && await organizationRequiresEmailApproval(filter.orgId)) {
+    return apiError('This organisation requires maker-checker approval; create and approve a governed broadcast before sending.', 403)
+  }
 
   let scheduledForMs: number | null = null
   if (mode === 'schedule') {

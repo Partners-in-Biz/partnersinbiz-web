@@ -15,6 +15,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import type { Campaign } from '@/lib/campaigns/types'
 import { launchCampaign } from '@/lib/campaigns/launch'
 import { logActivity } from '@/lib/activity/log'
+import { assertEmailMarketingDispatchApproval } from '@/lib/email-marketing/agent-governance'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -42,6 +43,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const campaign = { id: doc.id, ...data } as Campaign
 
     try {
+      await assertEmailMarketingDispatchApproval(campaign as unknown as Record<string, unknown>, {
+        orgId: campaign.orgId, resourceType: 'email_campaign', resourceId: campaign.id,
+      })
       const result = await launchCampaign(campaign, doc.ref)
       if (result.ok) {
         logActivity({

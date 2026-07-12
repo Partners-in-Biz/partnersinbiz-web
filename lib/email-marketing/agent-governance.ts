@@ -15,12 +15,17 @@ export interface EmailMarketingApprovalEvidence {
   approvedSnapshotHash?: string | null
 }
 
-export async function organizationRequiresEmailApproval(orgId: string): Promise<boolean> {
+export async function getOrganizationEmailApprovalPolicy(orgId: string): Promise<{ required: boolean; makerChecker: boolean }> {
   const snap = await adminDb.collection('organizations').doc(orgId).get()
   const data = snap.exists ? snap.data() as Record<string, unknown> : {}
   const settings = (data.settings && typeof data.settings === 'object' ? data.settings : {}) as Record<string, unknown>
   const policy = (settings.emailMarketing && typeof settings.emailMarketing === 'object' ? settings.emailMarketing : {}) as Record<string, unknown>
-  return policy.approvalRequired === true || policy.makerChecker === true
+  const makerChecker = policy.makerChecker === true
+  return { required: policy.approvalRequired === true || makerChecker, makerChecker }
+}
+
+export async function organizationRequiresEmailApproval(orgId: string): Promise<boolean> {
+  return (await getOrganizationEmailApprovalPolicy(orgId)).required
 }
 
 export async function assertEmailMarketingDispatchApproval(
@@ -28,15 +33,17 @@ export async function assertEmailMarketingDispatchApproval(
   context: EmailMarketingApprovalContext,
   options: { forceRequired?: boolean } = {},
 ): Promise<void> {
-  const required = options.forceRequired === true
-    || resource.createdByType === 'agent'
-    || await organizationRequiresEmailApproval(context.orgId)
+  const policy = await getOrganizationEmailApprovalPolicy(context.orgId)
+  const required = options.forceRequired === true || resource.createdByType === 'agent' || policy.required
   if (!required) return
   const evidence = resource.approvalState as EmailMarketingApprovalEvidence | undefined
   const taskId = evidence?.approvalTaskId?.trim()
   if (!taskId) throw new EmailMarketingApprovalError('Email dispatch requires persisted human approval evidence.')
   const taskSnap = await adminDb.collection('tasks').doc(taskId).get()
-  validateEmailMarketingApprovalTask(evidence, taskSnap.exists ? taskSnap.data() as ApprovalTaskLike : null, context)
+  validateEmailMarketingApprovalTask(evidence, taskSnap.exists ? taskSnap.data() as ApprovalTaskLike : null, {
+    ...context, makerChecker: policy.makerChecker,
+    resourceCreatorUid: typeof resource.createdBy === 'string' ? resource.createdBy : null,
+  })
   if (!approvalSnapshotMatches(resource, evidence?.approvedSnapshotHash)) {
     throw new EmailMarketingApprovalError('Email approval snapshot no longer matches content, audience, sender, or schedule.')
   }
@@ -48,12 +55,16 @@ interface ApprovalTaskLike {
   approvalStatus?: string | null
   deleted?: boolean
   linkedResource?: { type?: string | null; id?: string | null } | null
+  createdBy?: string | null
+  requestedBy?: string | null
 }
 
 export interface EmailMarketingApprovalContext {
   orgId: string
   resourceType: 'email_broadcast' | 'email_campaign' | 'email_sequence' | 'email_automation'
   resourceId: string
+  makerChecker?: boolean
+  resourceCreatorUid?: string | null
 }
 
 export class EmailMarketingApprovalError extends AgentCapabilityError {
@@ -107,6 +118,13 @@ export function validateEmailMarketingApprovalTask(
   }
   if (task.linkedResource?.type !== context.resourceType || task.linkedResource?.id !== context.resourceId) {
     throw new EmailMarketingApprovalError('Approval task must be linked to this exact email resource.')
+  }
+  if (context.makerChecker) {
+    const approver = evidence?.approvedBy?.trim()
+    const makers = [context.resourceCreatorUid, task.createdBy, task.requestedBy].filter(Boolean)
+    if (!approver || makers.includes(approver)) {
+      throw new EmailMarketingApprovalError('Maker-checker policy requires an independent human approver.')
+    }
   }
   return evidence!
 }

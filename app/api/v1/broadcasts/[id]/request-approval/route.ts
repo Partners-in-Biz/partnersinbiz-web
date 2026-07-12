@@ -40,14 +40,14 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
     ])
     const latest = latestBroadcast.data() as Broadcast | undefined
     if (latest?.approvalState?.status === 'pending' && latest.approvalState.approvalTaskId) return
-    if (!existingTask.exists || existingTask.data()?.status === 'cancelled' || existingTask.data()?.deleted) {
+    if (!existingTask.exists || existingTask.data()?.status !== 'todo' || existingTask.data()?.approvalStatus !== 'pending') {
       transaction.set(taskRef, {
         orgId: scope.orgId,
         title: `Approve email broadcast: ${broadcast.name}`,
         description: 'Review the broadcast content, audience, sender, and schedule before client-visible delivery.',
         status: 'todo', approvalStatus: 'pending', approvalGate: 'client-visible',
         linkedResource: { type: 'email_broadcast', id },
-        createdBy: user.uid, createdByType: user.authKind === 'agent_api_key' ? 'agent' : 'user',
+        createdBy: user.uid, requestedBy: user.uid, createdByType: user.authKind === 'agent_api_key' ? 'agent' : 'user',
         deleted: false, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(),
       })
     }

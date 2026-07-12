@@ -4,7 +4,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiError, apiSuccess } from '@/lib/api/response'
-import { validateEmailMarketingApprovalTask } from '@/lib/email-marketing/agent-governance'
+import { getOrganizationEmailApprovalPolicy, validateEmailMarketingApprovalTask } from '@/lib/email-marketing/agent-governance'
 import type { ApiUser } from '@/lib/api/types'
 import type { Broadcast } from '@/lib/broadcasts/types'
 import { buildEmailApprovalSnapshotHash } from '@/lib/email-marketing/approval-snapshot'
@@ -25,11 +25,12 @@ export const POST = withAuth('client', async (_req: NextRequest, user: ApiUser, 
   const taskId = broadcast.approvalState?.approvalTaskId?.trim()
   if (!taskId) return apiError('Request approval before approving this broadcast', 409)
   const taskSnap = await adminDb.collection('tasks').doc(taskId).get()
+  const policy = await getOrganizationEmailApprovalPolicy(scope.orgId)
   try {
     validateEmailMarketingApprovalTask(
       { status: 'approved', approvedBy: user.uid, approvedByType: 'user', approvalTaskId: taskId },
       taskSnap.exists ? taskSnap.data() : null,
-      { orgId: scope.orgId, resourceType: 'email_broadcast', resourceId: id },
+      { orgId: scope.orgId, resourceType: 'email_broadcast', resourceId: id, makerChecker: policy.makerChecker, resourceCreatorUid: broadcast.createdBy },
     )
   } catch (error) {
     return apiError(error instanceof Error ? error.message : 'Approval task evidence is invalid', 409)

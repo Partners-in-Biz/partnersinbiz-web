@@ -81,4 +81,17 @@ describe('email-marketing approval task evidence', () => {
       orgId: 'org-1', resourceType: 'email_broadcast', resourceId: 'broadcast-1',
     })).toThrow(EmailMarketingApprovalError)
   })
+
+  it('maker-checker rejects the resource creator, requester, or task creator as approver', () => {
+    for (const approvedBy of ['resource-maker', 'requester', 'task-maker']) {
+      expect(() => validateEmailMarketingApprovalTask({ ...evidence, approvedBy }, {
+        orgId: 'org-1', status: 'done', approvalStatus: 'approved',
+        createdBy: 'task-maker', requestedBy: 'requester',
+        linkedResource: { type: 'email_broadcast', id: 'broadcast-1' },
+      }, {
+        orgId: 'org-1', resourceType: 'email_broadcast', resourceId: 'broadcast-1',
+        makerChecker: true, resourceCreatorUid: 'resource-maker',
+      })).toThrow('independent human approver')
+    }
+  })
 })

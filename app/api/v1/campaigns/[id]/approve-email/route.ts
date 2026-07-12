@@ -5,7 +5,7 @@ import { withAuth } from '@/lib/api/auth'
 import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
-import { validateEmailMarketingApprovalTask } from '@/lib/email-marketing/agent-governance'
+import { getOrganizationEmailApprovalPolicy, validateEmailMarketingApprovalTask } from '@/lib/email-marketing/agent-governance'
 import { buildEmailApprovalSnapshotHash } from '@/lib/email-marketing/approval-snapshot'
 
 export const dynamic = 'force-dynamic'
@@ -31,11 +31,12 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   const approvalTaskId = typeof body.approvalTaskId === 'string' ? body.approvalTaskId.trim() : ''
   if (!approvalTaskId) return apiError('approvalTaskId is required', 400)
   const taskSnap = await adminDb.collection('tasks').doc(approvalTaskId).get()
+  const policy = await getOrganizationEmailApprovalPolicy(scope.orgId)
   try {
     validateEmailMarketingApprovalTask(
       { status: 'approved', approvedBy: user.uid, approvedByType: 'user', approvalTaskId },
       taskSnap.exists ? taskSnap.data() : null,
-      { orgId: scope.orgId, resourceType: 'email_campaign', resourceId: id },
+      { orgId: scope.orgId, resourceType: 'email_campaign', resourceId: id, makerChecker: policy.makerChecker, resourceCreatorUid: typeof campaign.createdBy === 'string' ? campaign.createdBy : null },
     )
   } catch (error) {
     return apiError(error instanceof Error ? error.message : 'Approval task evidence is invalid', 409)

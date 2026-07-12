@@ -7,6 +7,11 @@ const mockSendBroadcastToContact = jest.fn()
 const mockSendBroadcastToContactWithVariant = jest.fn()
 const mockMaybeFinalizeWinner = jest.fn()
 const mockDispatchWinnerToRemaining = jest.fn()
+const mockAssertEmailMarketingDispatchApproval = jest.fn()
+
+jest.mock('@/lib/email-marketing/agent-governance', () => ({
+  assertEmailMarketingDispatchApproval: (...args: unknown[]) => mockAssertEmailMarketingDispatchApproval(...args),
+}))
 
 jest.mock('@/lib/broadcasts/audience', () => ({
   resolveBroadcastAudience: mockResolveBroadcastAudience,
@@ -25,6 +30,11 @@ jest.mock('@/lib/ab-testing/cronHelpers', () => ({
 }))
 
 const broadcastRecipientUpdate = jest.fn()
+
+beforeEach(() => {
+  jest.clearAllMocks()
+  mockAssertEmailMarketingDispatchApproval.mockResolvedValue(undefined)
+})
 
 function emptyQuery() {
   return {
