@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, realpath, rm, symlink } from 'node:fs/promises'
+import { access, mkdtemp, mkdir, realpath, rm, symlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
@@ -77,6 +77,7 @@ it('rejects a missing directory without creating it', async () => {
     workspaceContext: context({ localPath: missing, localWorkingPath: missing }),
   })
   expect(result).toEqual({ ok: false, code: 'workspace_directory_missing' })
+  await expect(access(missing)).rejects.toMatchObject({ code: 'ENOENT' })
 })
 
 it('rejects a sibling-prefix escape', async () => {
@@ -130,4 +131,14 @@ it('rejects a missing project', async () => {
   await expect(resolveAuthorizedWorkingDirectory({
     workspaceContext: context({ folderScope: 'project', projectId: 'project-1', localWorkingPath: project }),
   })).resolves.toEqual({ ok: false, code: 'workspace_project_missing' })
+})
+
+it('returns a typed safe failure when the project lookup fails', async () => {
+  const project = join(root, 'projects', 'project-1')
+  await mkdir(project, { recursive: true })
+  mockProjectGet.mockRejectedValue(new Error('Firestore unavailable at internal endpoint'))
+
+  await expect(resolveAuthorizedWorkingDirectory({
+    workspaceContext: context({ folderScope: 'project', projectId: 'project-1', localWorkingPath: project }),
+  })).resolves.toEqual({ ok: false, code: 'workspace_context_invalid' })
 })

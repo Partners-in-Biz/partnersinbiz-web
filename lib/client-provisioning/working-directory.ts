@@ -49,32 +49,32 @@ export async function resolveAuthorizedWorkingDirectory(input: {
   const lexicalDirectory = resolve(configuredDirectory)
   if (!isContained(lexicalRoot, lexicalDirectory)) return failure('workspace_directory_outside_root')
 
-  const pathClass = workspace.folderScope === 'project' ? 'project' : 'organisation'
-  if (pathClass === 'organisation' && lexicalDirectory !== lexicalRoot) {
-    return failure('workspace_directory_outside_root')
-  }
-
-  if (pathClass === 'project') {
-    const projectId = workspace.projectId?.trim()
-    if (!projectId || projectId.includes('/') || projectId.includes('\\')) {
-      return failure('workspace_project_missing')
-    }
-    if (lexicalDirectory !== resolve(lexicalRoot, 'projects', projectId)) {
+  try {
+    const pathClass = workspace.folderScope === 'project' ? 'project' : 'organisation'
+    if (pathClass === 'organisation' && lexicalDirectory !== lexicalRoot) {
       return failure('workspace_directory_outside_root')
     }
 
-    const projectDoc = await adminDb.collection('projects').doc(projectId).get()
-    if (!projectDoc.exists) return failure('workspace_project_missing')
-    const project = projectDoc.data() ?? {}
-    const projectOrgId = typeof project.orgId === 'string' ? project.orgId : ''
-    if (projectOrgId !== workspace.orgId) return failure('workspace_project_missing')
-    const status = typeof project.status === 'string' ? project.status.trim().toLowerCase() : ''
-    if (project.archived === true || ['archived', 'completed', 'cancelled'].includes(status)) {
-      return failure('workspace_project_archived')
-    }
-  }
+    if (pathClass === 'project') {
+      const projectId = workspace.projectId?.trim()
+      if (!projectId || projectId.includes('/') || projectId.includes('\\')) {
+        return failure('workspace_project_missing')
+      }
+      if (lexicalDirectory !== resolve(lexicalRoot, 'projects', projectId)) {
+        return failure('workspace_directory_outside_root')
+      }
 
-  try {
+      const projectDoc = await adminDb.collection('projects').doc(projectId).get()
+      if (!projectDoc.exists) return failure('workspace_project_missing')
+      const project = projectDoc.data() ?? {}
+      const projectOrgId = typeof project.orgId === 'string' ? project.orgId : ''
+      if (projectOrgId !== workspace.orgId) return failure('workspace_project_missing')
+      const status = typeof project.status === 'string' ? project.status.trim().toLowerCase() : ''
+      if (project.archived === true || ['archived', 'completed', 'cancelled'].includes(status)) {
+        return failure('workspace_project_archived')
+      }
+    }
+
     const rootStat = await lstat(lexicalRoot)
     if (!rootStat.isDirectory()) return failure('workspace_root_invalid')
     if (await containsSymlink(lexicalRoot, lexicalDirectory)) return failure('workspace_directory_symlink')
