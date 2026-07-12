@@ -1,7 +1,7 @@
 /**
  * POST /api/v1/conversations/[convId]/messages/[msgId]/stop
  *
- * Admin-only kill switch for an in-flight unified chat agent run.
+ * Kill switch for explicit conversation participants and scoped administrators.
  */
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
@@ -55,7 +55,7 @@ export const POST = withAuth('client', async (_req: NextRequest, user: ApiUser, 
     status: 'failed',
     error: upstream.response.status === 404
       ? 'The agent gateway no longer has this run.'
-      : 'Agent run stopped by admin',
+      : 'Agent run stopped by an authorised conversation actor',
     runId,
   })
 

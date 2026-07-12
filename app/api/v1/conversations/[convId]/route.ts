@@ -3,7 +3,8 @@
  * PATCH /api/v1/conversations/[convId] — update metadata and Workspace access
  * DELETE /api/v1/conversations/[convId] — permanently delete a conversation
  *
- * Auth: explicit participant, or an organisation member for org-visible Workspace conversations
+ * Read auth: explicit participant, or an organisation member for org-visible Workspace conversations.
+ * Mutation auth is purpose-specific: metadata/access and deletion require owner or scoped-admin authority.
  */
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
@@ -197,7 +198,7 @@ export const DELETE = withAuth(
       type: 'conversation_deleted',
       actorId: user.uid,
       actorName: user.uid,
-      actorRole: user.role === 'ai' ? 'ai' : 'admin',
+      actorRole: user.role,
       description: `Deleted conversation ${convId}`,
       entityId: convId,
       entityType: 'conversation',
