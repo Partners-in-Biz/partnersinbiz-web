@@ -48,7 +48,7 @@ describe('linked computers tenant domain', () => {
   it('binds a new device to the authenticated owner and writes a redacted audit event', async () => {
     const { db, rows } = fakeDb()
     await createDevice({
-      deviceId: 'device-a', actorUserId: 'user-a', ownerUserId: 'user-a', runtimeTargetId: 'target-a',
+      deviceId: 'device-a', actorUserId: 'user-a', runtimeTargetId: 'target-a',
       publicKeyFingerprint: 'sha256:public', label: 'Peet Mac', platform: 'macos',
       architecture: 'arm64', runtimeVersion: '1.0.0', capabilities: ['workspace.execute'],
     }, { db: db as never, now })
@@ -61,38 +61,45 @@ describe('linked computers tenant domain', () => {
   })
 
   it('hashes, expires, and atomically consumes a user-owned pairing challenge once', async () => {
-    const { db, rows } = fakeDb()
+    const { db, rows } = fakeDb({
+      'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'user-a', status: 'active' },
+    })
     const challenge = await createPairingChallenge({
-      challengeId: 'challenge-a', actorUserId: 'user-a', ownerUserId: 'user-a', secret: 'human-code',
+      challengeId: 'challenge-a', actorUserId: 'user-a', deviceId: 'device-a', secret: 'human-code',
     }, { db: db as never, now, nowMs: () => Date.parse('2026-07-12T10:00:00.000Z') })
     expect(challenge).toEqual({ challengeId: 'challenge-a', expiresAt: '2026-07-12T10:10:00.000Z' })
     expect(rows.get('linked_device_pairing_challenges/challenge-a')).not.toHaveProperty('secret')
     expect(rows.get('linked_device_pairing_challenges/challenge-a')).toMatchObject({ maxAttempts: 5 })
     expect([...rows.values()]).toContainEqual(expect.objectContaining({ action: 'pairing.created', challengeId: 'challenge-a' }))
 
-    await consumePairingChallenge({ challengeId: 'challenge-a', actorUserId: 'user-a', ownerUserId: 'user-a', secret: 'human-code' }, {
+    await consumePairingChallenge({ challengeId: 'challenge-a', secret: 'human-code' }, {
       db: db as never, now, nowMs: () => Date.parse('2026-07-12T10:01:00.000Z'),
     })
-    await expect(consumePairingChallenge({ challengeId: 'challenge-a', actorUserId: 'user-a', ownerUserId: 'user-a', secret: 'human-code' }, {
+    expect([...rows.values()]).toContainEqual(expect.objectContaining({ action: 'pairing.consumed', challengeId: 'challenge-a', deviceId: 'device-a' }))
+    await expect(consumePairingChallenge({ challengeId: 'challenge-a', secret: 'human-code' }, {
       db: db as never, now, nowMs: () => Date.parse('2026-07-12T10:02:00.000Z'),
     })).rejects.toThrow('already consumed')
   })
 
   it('persists failed pairing attempts before denying the exchange', async () => {
-    const { db, rows } = fakeDb()
+    const { db, rows } = fakeDb({
+      'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'user-a', status: 'active' },
+    })
     await createPairingChallenge({
-      challengeId: 'challenge-a', actorUserId: 'user-a', ownerUserId: 'user-a', secret: 'right-code',
+      challengeId: 'challenge-a', actorUserId: 'user-a', deviceId: 'device-a', secret: 'right-code',
     }, { db: db as never, now, nowMs: () => Date.parse('2026-07-12T10:00:00.000Z') })
-    await expect(consumePairingChallenge({ challengeId: 'challenge-a', actorUserId: 'user-a', ownerUserId: 'user-a', secret: 'wrong-code' }, {
+    await expect(consumePairingChallenge({ challengeId: 'challenge-a', secret: 'wrong-code' }, {
       db: db as never, now, nowMs: () => Date.parse('2026-07-12T10:01:00.000Z'),
     })).rejects.toThrow('invalid pairing secret')
     expect(rows.get('linked_device_pairing_challenges/challenge-a')).toMatchObject({ attempts: 1 })
   })
 
   it('ignores caller-controlled pairing expiry and attempt limits in favour of server bounds', async () => {
-    const { db, rows } = fakeDb()
+    const { db, rows } = fakeDb({
+      'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'user-a', status: 'active' },
+    })
     await createPairingChallenge({
-      challengeId: 'challenge-a', actorUserId: 'user-a', ownerUserId: 'user-a', secret: 'code',
+      challengeId: 'challenge-a', actorUserId: 'user-a', deviceId: 'device-a', secret: 'code',
       expiresAt: '2099-01-01T00:00:00.000Z', maxAttempts: 999999,
     } as never, { db: db as never, now, nowMs: () => Date.parse('2026-07-12T10:00:00.000Z') })
     expect(rows.get('linked_device_pairing_challenges/challenge-a')).toMatchObject({
@@ -100,18 +107,32 @@ describe('linked computers tenant domain', () => {
     })
   })
 
-  it('rejects owner spoofing and rolls back every write when audit persistence fails', async () => {
+  it('derives ownership from the trusted actor and allowlists browser-safe device fields', async () => {
     const spoof = fakeDb()
-    await expect(createDevice({
+    await createDevice({
       deviceId: 'device-a', actorUserId: 'attacker', ownerUserId: 'victim', runtimeTargetId: 'target-a',
       publicKeyFingerprint: 'sha256:public', label: 'Fake', platform: 'macos', architecture: 'arm64',
       runtimeVersion: '1.0.0', capabilities: ['workspace.execute'],
-    }, { db: spoof.db as never, now })).rejects.toThrow('authenticated actor')
-    expect(spoof.rows.size).toBe(0)
+      rawCredential: 'secret', localPath: '/Users/victim/private', internalUrl: 'http://internal.invalid',
+    } as never, { db: spoof.db as never, now })
+    expect(spoof.rows.get('linked_devices/device-a')).toMatchObject({ ownerUserId: 'attacker' })
+    expect(spoof.rows.get('linked_devices/device-a')).not.toHaveProperty('rawCredential')
+    expect(spoof.rows.get('linked_devices/device-a')).not.toHaveProperty('localPath')
+    expect(spoof.rows.get('linked_devices/device-a')).not.toHaveProperty('internalUrl')
+
+    const pairing = fakeDb({
+      'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'victim', status: 'active' },
+    })
+    await expect(createPairingChallenge({ challengeId: 'challenge-a', actorUserId: 'attacker', deviceId: 'device-a', secret: 'code' }, {
+      db: pairing.db as never, now, nowMs: () => Date.parse('2026-07-12T10:00:00.000Z'),
+    })).rejects.toThrow('device owner')
+  })
+
+  it('rolls back every write when audit persistence fails', async () => {
 
     const rollback = fakeDb({}, 'linked_computer_audit_events/')
     await expect(createDevice({
-      deviceId: 'device-a', actorUserId: 'user-a', ownerUserId: 'user-a', runtimeTargetId: 'target-a',
+      deviceId: 'device-a', actorUserId: 'user-a', runtimeTargetId: 'target-a',
       publicKeyFingerprint: 'sha256:public', label: 'Mac', platform: 'macos', architecture: 'arm64',
       runtimeVersion: '1.0.0', capabilities: ['workspace.execute'],
     }, { db: rollback.db as never, now })).rejects.toThrow('forced write failure')

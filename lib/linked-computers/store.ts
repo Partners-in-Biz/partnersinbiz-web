@@ -74,7 +74,6 @@ function membershipFrom(row: Record<string, unknown> | undefined, orgId: string,
 export async function createDevice(input: {
   deviceId: string
   actorUserId: string
-  ownerUserId: string
   runtimeTargetId: string
   publicKeyFingerprint: string
   label: string
@@ -85,15 +84,22 @@ export async function createDevice(input: {
 }, options: StoreOptions = {}): Promise<void> {
   const db = options.db ?? (adminDb as unknown as DbLike)
   const deviceId = required(input.deviceId, 'deviceId')
-  const actorUserId = required(input.actorUserId, 'actorUserId')
-  const ownerUserId = required(input.ownerUserId, 'ownerUserId')
-  if (actorUserId !== ownerUserId) throw new Error('linked computers: authenticated actor must be device owner')
+  const ownerUserId = required(input.actorUserId, 'actorUserId')
   const at = timestamp(options)
   await db.runTransaction(async (tx) => {
     const deviceRef = db.collection(DEVICES).doc(deviceId)
     if ((await tx.get(deviceRef)).exists) throw new Error('linked computers: device already exists')
     tx.create(deviceRef, {
-      ...input, deviceId, ownerUserId, status: 'active', credentialVersion: 1,
+      deviceId,
+      ownerUserId,
+      runtimeTargetId: required(input.runtimeTargetId, 'runtimeTargetId'),
+      publicKeyFingerprint: required(input.publicKeyFingerprint, 'publicKeyFingerprint'),
+      label: required(input.label, 'label'),
+      platform: input.platform,
+      architecture: input.architecture,
+      runtimeVersion: required(input.runtimeVersion, 'runtimeVersion'),
+      capabilities: input.capabilities,
+      status: 'active', credentialVersion: 1,
       createdAt: at, updatedAt: at, lastSeenAt: null,
     })
     tx.create(auditRef(db), {
@@ -105,26 +111,29 @@ export async function createDevice(input: {
 export async function createPairingChallenge(input: {
   challengeId: string
   actorUserId: string
-  ownerUserId: string
+  deviceId: string
   secret: string
 }, options: StoreOptions = {}): Promise<{ challengeId: string; expiresAt: string }> {
   const db = options.db ?? (adminDb as unknown as DbLike)
   required(input.secret, 'pairing secret')
   const actorUserId = required(input.actorUserId, 'actorUserId')
-  const ownerUserId = required(input.ownerUserId, 'ownerUserId')
-  if (actorUserId !== ownerUserId) throw new Error('linked computers: authenticated actor must be pairing owner')
+  const deviceId = required(input.deviceId, 'deviceId')
   const expiresAt = new Date((options.nowMs?.() ?? Date.now()) + PAIRING_TTL_MS).toISOString()
   const at = timestamp(options)
   await db.runTransaction(async (tx) => {
+    const deviceSnap = await tx.get(db.collection(DEVICES).doc(deviceId))
+    if (!deviceSnap.exists) throw new Error('linked computers: device not found')
+    const device = deviceSnap.data() as unknown as LinkedDevice
+    if (device.ownerUserId !== actorUserId) throw new Error('linked computers: device owner required')
     const ref = db.collection(CHALLENGES).doc(required(input.challengeId, 'challengeId'))
     if ((await tx.get(ref)).exists) throw new Error('linked computers: pairing challenge already exists')
     tx.create(ref, {
-      challengeId: input.challengeId, ownerUserId,
+      challengeId: input.challengeId, deviceId, ownerUserId: device.ownerUserId,
       secretHash: hashSecret(input.secret), expiresAt, attempts: 0,
       maxAttempts: PAIRING_MAX_ATTEMPTS, createdAt: at,
     })
     tx.create(auditRef(db), {
-      eventId: randomUUID(), action: 'pairing.created', actorUserId, challengeId: input.challengeId, createdAt: at,
+      eventId: randomUUID(), action: 'pairing.created', actorUserId, challengeId: input.challengeId, deviceId, createdAt: at,
     })
   })
   return { challengeId: input.challengeId, expiresAt }
@@ -132,20 +141,19 @@ export async function createPairingChallenge(input: {
 
 export async function consumePairingChallenge(input: {
   challengeId: string
-  actorUserId: string
-  ownerUserId: string
   secret: string
 }, options: StoreOptions = {}): Promise<void> {
   const db = options.db ?? (adminDb as unknown as DbLike)
-  if (required(input.actorUserId, 'actorUserId') !== required(input.ownerUserId, 'ownerUserId')) {
-    throw new Error('linked computers: authenticated actor must be pairing owner')
-  }
   const result = await db.runTransaction(async (tx): Promise<'consumed' | 'invalid-secret'> => {
     const ref = db.collection(CHALLENGES).doc(input.challengeId)
     const snapshot = await tx.get(ref)
     if (!snapshot.exists) throw new Error('linked computers: pairing challenge not found')
     const row = snapshot.data() ?? {}
-    if (row.ownerUserId !== input.ownerUserId) throw new Error('linked computers: pairing owner mismatch')
+    const deviceId = required(String(row.deviceId ?? ''), 'persisted deviceId')
+    const deviceSnap = await tx.get(db.collection(DEVICES).doc(deviceId))
+    if (!deviceSnap.exists) throw new Error('linked computers: paired device not found')
+    const device = deviceSnap.data() as unknown as LinkedDevice
+    if (row.ownerUserId !== device.ownerUserId) throw new Error('linked computers: persisted pairing owner mismatch')
     if (row.consumedAt) throw new Error('linked computers: pairing challenge already consumed')
     if ((options.nowMs?.() ?? Date.now()) >= Date.parse(String(row.expiresAt))) throw new Error('linked computers: pairing challenge expired')
     if (Number(row.attempts ?? 0) >= Number(row.maxAttempts ?? 5)) throw new Error('linked computers: pairing attempts exhausted')
@@ -155,7 +163,10 @@ export async function consumePairingChallenge(input: {
     }
     const at = timestamp(options)
     tx.update(ref, { consumedAt: at })
-    tx.create(auditRef(db), { eventId: randomUUID(), action: 'pairing.consumed', actorUserId: input.ownerUserId, createdAt: at })
+    tx.create(auditRef(db), {
+      eventId: randomUUID(), action: 'pairing.consumed', actorUserId: device.ownerUserId,
+      challengeId: input.challengeId, deviceId, createdAt: at,
+    })
     return 'consumed'
   })
   if (result === 'invalid-secret') throw new Error('linked computers: invalid pairing secret')

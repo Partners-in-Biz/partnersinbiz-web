@@ -27,6 +27,7 @@ export interface LinkedDevice {
 
 export interface PairingChallenge {
   challengeId: string
+  deviceId: string
   ownerUserId: string
   secretHash: string
   expiresAt: string
