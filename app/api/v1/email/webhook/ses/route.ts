@@ -32,6 +32,7 @@ import { appendEmailEvent, claimEmailEventProjection, completeEmailEventProjecti
 import type { EmailEventType } from '@/lib/email-events/types'
 import { appendConsentEvent } from '@/lib/consent-ledger/store'
 import { resolveProviderEventTarget } from '@/lib/email-events/provider-target'
+import { applyFirestoreProjectionEffect } from '@/lib/email-events/effects'
 
 // SNS signing cert must come from an amazonaws.com subdomain
 const SNS_CERT_URL_RE = /^https:\/\/sns\.[a-z0-9-]+\.amazonaws\.com\//
@@ -395,10 +396,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   if (campaignStatField && campaignId) {
     try {
-      await adminDb.collection('campaigns').doc(campaignId).update({
+      await applyFirestoreProjectionEffect({ eventId: ledgerEventId, effectId: `campaign:${campaignId}:${campaignStatField}`, targetRef: adminDb.collection('campaigns').doc(campaignId), update: {
         [campaignStatField]: FieldValue.increment(1),
         updatedAt: FieldValue.serverTimestamp(),
-      })
+      } })
     } catch (err) {
       console.error('[email/webhook/ses] failed to bump campaign stat', campaignId, campaignStatField, err)
     }
@@ -406,10 +407,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   if (campaignStatField && broadcastId) {
     try {
-      await adminDb.collection('broadcasts').doc(broadcastId).update({
+      await applyFirestoreProjectionEffect({ eventId: ledgerEventId, effectId: `broadcast:${broadcastId}:${campaignStatField}`, targetRef: adminDb.collection('broadcasts').doc(broadcastId), update: {
         [campaignStatField]: FieldValue.increment(1),
         updatedAt: FieldValue.serverTimestamp(),
-      })
+      } })
     } catch (err) {
       console.error('[email/webhook/ses] failed to bump broadcast stat', broadcastId, campaignStatField, err)
     }
