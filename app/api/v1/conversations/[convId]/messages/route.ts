@@ -425,10 +425,19 @@ export const POST = withAuth(
           error: err instanceof Error ? err.message : String(err),
         })
         const error = 'Agent dispatch is not configured for this Preview environment.'
+        const runtimeFailure = err && typeof err === 'object'
+          ? err as { code?: unknown; requestedTargetId?: unknown }
+          : null
+        const runtimeDispatchFailureCode = typeof runtimeFailure?.code === 'string' ? runtimeFailure.code : undefined
+        const requestedRuntimeTargetId = typeof runtimeFailure?.requestedTargetId === 'string'
+          ? runtimeFailure.requestedTargetId
+          : conversation.workspaceContext?.runtimeTarget
         await messagesCollection(convId).doc(assistantMessage.id).update({
           content: '',
           status: 'failed',
           error,
+          ...(runtimeDispatchFailureCode ? { runtimeDispatchFailureCode } : {}),
+          ...(requestedRuntimeTargetId ? { requestedRuntimeTargetId } : {}),
         })
         return apiSuccess({
           message,
@@ -490,6 +499,10 @@ export const POST = withAuth(
           ...(conversation.workspaceContext ? { workspaceContext: conversation.workspaceContext } : {}),
           ...(conversation.workspaceContext?.workspaceId ? { workspaceId: conversation.workspaceContext.workspaceId } : {}),
           ...(conversation.workspaceContext?.runtimeTarget ? { runtimeTarget: conversation.workspaceContext.runtimeTarget } : {}),
+          ...(conversation.workspaceContext?.runtimeTarget ? { requestedRuntimeTargetId: conversation.workspaceContext.runtimeTarget } : {}),
+          ...(agentLink.runtimeTargetId ? { runtimeTargetId: agentLink.runtimeTargetId } : {}),
+          ...(agentLink.runtimeKind ? { runtimeKind: agentLink.runtimeKind } : {}),
+          ...(agentLink.machineLabel ? { runtimeMachineLabel: agentLink.machineLabel } : {}),
           ...(conversation.workspaceContext?.vpsWorkingPath ? { vpsWorkingPath: conversation.workspaceContext.vpsWorkingPath } : {}),
           ...(conversation.workspaceContext?.localWorkingPath ? { localWorkingPath: conversation.workspaceContext.localWorkingPath } : {}),
           ...(conversation.workspaceContext?.projectId ? { projectId: conversation.workspaceContext.projectId } : {}),

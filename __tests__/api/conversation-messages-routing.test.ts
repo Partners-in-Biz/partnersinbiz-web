@@ -289,6 +289,12 @@ describe('unified conversation message routing', () => {
   })
 
   it('enforces the selected local project folder as the Hermes run working directory', async () => {
+    mockGetAgentDispatchHermesProfileLink.mockResolvedValue({
+      orgId: 'pib-platform-owner', profile: 'pip', baseUrl: 'https://local.example', apiKey: 'local-key', enabled: true,
+      runtimeTargetId: 'local', runtimeKind: 'local', machineLabel: "Peet's Mac",
+      capabilities: { runs: true, dashboard: false, cron: false, models: false, tools: true, files: false, terminal: false },
+      permissions: { superAdmin: false, restrictedAdmin: false, client: true, allowedUserIds: [] },
+    })
     mockGetConversation.mockResolvedValue({
       id: 'conv-1',
       orgId: 'pib-platform-owner',
@@ -331,6 +337,37 @@ describe('unified conversation message routing', () => {
     })
     expect(mockCreateHermesRun.mock.calls[0][2]).toEqual(expect.objectContaining({
       working_directory: '/Users/peetstander/Cowork/Partners in Biz/projects/website',
+      metadata: expect.objectContaining({
+        requestedRuntimeTargetId: 'local',
+        runtimeTargetId: 'local',
+        runtimeKind: 'local',
+        runtimeMachineLabel: "Peet's Mac",
+      }),
+    }))
+  })
+
+  it('does not create a Hermes request when an explicit local target is stale', async () => {
+    const update = jest.fn().mockResolvedValue(undefined)
+    mockMessagesCollection.mockReturnValue({ doc: () => ({ update }) })
+    mockGetAgentDispatchHermesProfileLink.mockRejectedValue(Object.assign(
+      new Error('Selected runtime target local is stale'),
+      { code: 'runtime_target_stale', requestedTargetId: 'local' },
+    ))
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1', orgId: 'pib-platform-owner', participantUids: ['client-1'], participantAgentIds: ['pip'],
+      participants: [{ kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' }, { kind: 'agent', agentId: 'pip', name: 'Pip' }],
+      workspaceContext: { runtimeTarget: 'local' },
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    const res = await POST(req(), { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockCreateHermesRun).not.toHaveBeenCalled()
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'failed',
+      runtimeDispatchFailureCode: 'runtime_target_stale',
+      requestedRuntimeTargetId: 'local',
     }))
   })
 

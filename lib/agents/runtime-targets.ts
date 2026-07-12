@@ -34,7 +34,24 @@ export interface AgentDispatchTarget {
   baseUrl: string
   apiKey: string
   source: 'runtimeTargets' | 'legacy'
+  runtimeKind: 'local' | 'vps' | 'remote' | 'legacy'
+  machineLabel: string
 }
+
+export type RuntimeTargetSelectionErrorCode =
+  | 'runtime_target_not_found'
+  | 'runtime_target_disabled'
+  | 'runtime_target_stale'
+  | 'runtime_target_unhealthy'
+  | 'runtime_target_missing_api_key'
+
+export interface RuntimeTargetSelectionError {
+  ok: false
+  code: RuntimeTargetSelectionErrorCode
+  requestedTargetId: string
+}
+
+export type RuntimeTargetResolution = AgentDispatchTarget | RuntimeTargetSelectionError | null
 
 export const DEFAULT_RUNTIME_STALE_AFTER_MS = 10 * 60 * 1000
 
@@ -141,7 +158,13 @@ export function isRuntimeTargetFresh(target: AgentRuntimeTarget, nowMs: number, 
 
 function usableTarget(target: AgentRuntimeTarget, nowMs: number, staleAfterMs: number, requireFreshLocal: boolean): boolean {
   if (!target.enabled || !target.baseUrl || !target.apiKey) return false
+  if (!isRuntimeTargetHealthy(target)) return false
   return !requireFreshLocal || isRuntimeTargetFresh(target, nowMs, staleAfterMs)
+}
+
+function isRuntimeTargetHealthy(target: AgentRuntimeTarget): boolean {
+  const status = target.lastHealthStatus?.trim().toLowerCase()
+  return !status || !['unreachable', 'offline', 'error', 'failed'].includes(status)
 }
 
 function humanizeHostId(hostId: string): string {
@@ -191,11 +214,15 @@ export function publicRuntimeTargetPresence(
 }
 
 function toDispatchTarget(target: AgentRuntimeTarget): AgentDispatchTarget {
+  const isLocal = isLocalRuntimeTarget(target)
+  const runtimeKind = isLocal ? 'local' : target.id.toLowerCase() === 'vps' ? 'vps' : 'remote'
   return {
     targetId: target.id,
     baseUrl: target.baseUrl,
     apiKey: target.apiKey ?? '',
     source: 'runtimeTargets',
+    runtimeKind,
+    machineLabel: target.hostId ? humanizeHostId(target.hostId) : target.label?.trim() || target.id,
   }
 }
 
@@ -227,7 +254,7 @@ export function buildRuntimeTargetMap(target: {
   }
 }
 
-export function selectAgentRuntimeTarget(input: RuntimeTargetSelectionInput): AgentDispatchTarget | null {
+export function selectAgentRuntimeTarget(input: RuntimeTargetSelectionInput): RuntimeTargetResolution {
   const nowMs = input.nowMs ?? Date.now()
   const staleAfterMs = input.staleAfterMs ?? DEFAULT_RUNTIME_STALE_AFTER_MS
   const preference = cleanString(input.preference)?.toLowerCase() ?? 'auto'
@@ -235,7 +262,14 @@ export function selectAgentRuntimeTarget(input: RuntimeTargetSelectionInput): Ag
 
   if (preference && preference !== 'auto') {
     const exact = targets.find((target) => target.id.toLowerCase() === preference)
-    if (exact && usableTarget(exact, nowMs, staleAfterMs, false)) return toDispatchTarget(exact)
+    if (!exact) return { ok: false, code: 'runtime_target_not_found', requestedTargetId: preference }
+    if (!exact.enabled) return { ok: false, code: 'runtime_target_disabled', requestedTargetId: preference }
+    if (!exact.apiKey) return { ok: false, code: 'runtime_target_missing_api_key', requestedTargetId: preference }
+    if (!isRuntimeTargetHealthy(exact)) return { ok: false, code: 'runtime_target_unhealthy', requestedTargetId: preference }
+    if (isLocalRuntimeTarget(exact) && !isRuntimeTargetFresh(exact, nowMs, staleAfterMs)) {
+      return { ok: false, code: 'runtime_target_stale', requestedTargetId: preference }
+    }
+    return toDispatchTarget(exact)
   }
 
   const freshTargets = targets.filter((target) => usableTarget(target, nowMs, staleAfterMs, true))
@@ -265,6 +299,8 @@ export function selectAgentRuntimeTarget(input: RuntimeTargetSelectionInput): Ag
       baseUrl: legacyBaseUrl,
       apiKey: legacyApiKey,
       source: 'legacy',
+      runtimeKind: 'legacy',
+      machineLabel: 'Legacy Hermes',
     }
   }
 

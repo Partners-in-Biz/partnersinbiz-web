@@ -14,7 +14,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { mergeAgentRegistry, normalizeAgentRegistryInput } from './registry'
 import { buildAgentSkillPolicyState } from './skill-policy'
-import { buildRuntimeTargetMap, selectAgentRuntimeTarget, type AgentDispatchTarget } from './runtime-targets'
+import { buildRuntimeTargetMap, selectAgentRuntimeTarget, type AgentDispatchTarget, type RuntimeTargetSelectionError } from './runtime-targets'
 import type { AgentId, AgentRegistryEntry, AgentTeamDoc, AgentTeamStoredDoc } from './types'
 import type { HermesProfileLink } from '@/lib/hermes/types'
 
@@ -145,7 +145,7 @@ async function resolveAgentDispatchTarget(
     dispatchData = {}
   }
 
-  return selectAgentRuntimeTarget({
+  const resolution = selectAgentRuntimeTarget({
     runtimeTargets: dispatchData.runtimeTargets,
     defaultTargetId: typeof dispatchData.defaultRuntimeTarget === 'string' ? dispatchData.defaultRuntimeTarget : undefined,
     preference: preferredRuntimeTarget(options),
@@ -156,6 +156,22 @@ async function resolveAgentDispatchTarget(
       enabled: dispatchData.enabled === false ? false : raw?.enabled,
     },
   })
+  if (resolution && 'ok' in resolution && resolution.ok === false) {
+    throw new RuntimeTargetResolutionError(resolution)
+  }
+  return resolution
+}
+
+export class RuntimeTargetResolutionError extends Error {
+  readonly code: RuntimeTargetSelectionError['code']
+  readonly requestedTargetId: string
+
+  constructor(resolution: RuntimeTargetSelectionError) {
+    super(`Selected runtime target ${resolution.requestedTargetId} failed: ${resolution.code}`)
+    this.name = 'RuntimeTargetResolutionError'
+    this.code = resolution.code
+    this.requestedTargetId = resolution.requestedTargetId
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -203,6 +219,9 @@ export async function getAgentDispatchHermesProfileLink(
     baseUrl: target.baseUrl,
     apiKey: target.apiKey,
     enabled: raw.enabled,
+    runtimeTargetId: target.targetId,
+    runtimeKind: target.runtimeKind,
+    machineLabel: target.machineLabel,
     capabilities: { runs: true, dashboard: false, cron: false, models: false, tools: true, files: false, terminal: false },
     permissions: { superAdmin: false, restrictedAdmin: false, client: true, allowedUserIds: [] },
   }
