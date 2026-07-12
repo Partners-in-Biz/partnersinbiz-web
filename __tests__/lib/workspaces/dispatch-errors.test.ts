@@ -36,4 +36,18 @@ describe('workspace dispatch safety', () => {
       error: 'Bearer super-secret', nested: { working_directory: '/Users/peet/private' },
     })).toEqual({ runId: 'run-1', status: 'started' })
   })
+
+  it('allowlists only the signed linked-runtime receipt contract', () => {
+    expect(safeHermesRunPayload({ run_id: 'run-1', execution_receipt: {
+      deviceId: 'device-a', runtimeTargetId: 'linked-device:device-a', credentialVersion: 2,
+      mappingId: 'map-a', runtimeVersion: '2.0.0', acceptedAt: '2026-07-12T12:00:00.000Z',
+      toolStartedAt: '2026-07-12T12:00:00.001Z', outcome: 'accepted', runId: 'run-1', requestId: 'assistant-1',
+      signature: 'Abcdefghijklmnop', apiKey: 'secret', endpoint: 'https://private.example',
+    } })).toEqual({ runId: 'run-1', executionReceipt: {
+      deviceId: 'device-a', runtimeTargetId: 'linked-device:device-a', credentialVersion: 2,
+      mappingId: 'map-a', runtimeVersion: '2.0.0', acceptedAt: '2026-07-12T12:00:00.000Z',
+      toolStartedAt: '2026-07-12T12:00:00.001Z', outcome: 'accepted', runId: 'run-1', requestId: 'assistant-1',
+      signature: 'Abcdefghijklmnop',
+    } })
+  })
 })

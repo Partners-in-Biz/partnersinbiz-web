@@ -8,6 +8,7 @@ import {
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import type { LinkedDeviceArchitecture, LinkedDevicePlatform } from './types'
+import { assertSafeLinkedRuntimeEndpoint, encryptLinkedTransportToken, LINKED_DEVICE_TRANSPORTS } from './transport'
 
 const CHALLENGES = 'linked_device_pairing_challenges'
 const DEVICES = 'linked_devices'
@@ -100,21 +101,24 @@ export interface PairingExchangeInput {
   platform: LinkedDevicePlatform
   architecture: LinkedDeviceArchitecture
   runtimeVersion: string
+  runtimeEndpoint?: string
 }
 
 export async function exchangePairing(
   input: PairingExchangeInput,
   options: Options = {},
-): Promise<{ deviceId: string; credential: string; credentialVersion: number }> {
+): Promise<{ deviceId: string; credential: string; credentialVersion: number; transportToken: string }> {
   const db = options.db ?? (adminDb as unknown as LinkedComputerPairingDb)
   const challengeId = required(input.challengeId, 'challengeId')
   const deviceId = typeof input.deviceId === 'string' ? input.deviceId.trim() : ''
   const deviceIdValid = /^[A-Za-z0-9_-]{1,128}$/.test(deviceId)
   const publicKey = typeof input.publicKey === 'string' ? input.publicKey.trim() : ''
   const credential = options.randomSecret?.() ?? randomBytes(32).toString('base64url')
+  const transportToken = randomBytes(32).toString('base64url')
+  const runtimeEndpoint = input.runtimeEndpoint ? assertSafeLinkedRuntimeEndpoint(input.runtimeEndpoint) : null
 
   const result = await db.runTransaction(async (tx): Promise<
-    | { ok: true; deviceId: string; credential: string; credentialVersion: number }
+    | { ok: true; deviceId: string; credential: string; credentialVersion: number; transportToken: string }
     | { ok: false }
   > => {
     const challengeRef = db.collection(CHALLENGES).doc(challengeId)
@@ -135,8 +139,10 @@ export async function exchangePairing(
     const persistedDeviceId = deviceIdValid ? deviceId : '__invalid_device__'
     const deviceRef = db.collection(DEVICES).doc(persistedDeviceId)
     const credentialRef = db.collection(CREDENTIALS).doc(persistedDeviceId)
+    const transportRef = db.collection(LINKED_DEVICE_TRANSPORTS).doc(persistedDeviceId)
     const deviceSnap = await tx.get(deviceRef)
     const credentialSnap = await tx.get(credentialRef)
+    const transportSnap = await tx.get(transportRef)
     const existing = deviceSnap.data() ?? {}
 
     const shapeValid = Boolean(deviceIdValid && publicKey && input.proof && input.label && input.runtimeVersion)
@@ -184,6 +190,14 @@ export async function exchangePairing(
     }
     if (credentialSnap.exists) tx.update(credentialRef, credentialRow)
     else tx.create(credentialRef, credentialRow)
+    if (runtimeEndpoint) {
+      const transportRow = {
+        deviceId, endpoint: runtimeEndpoint, encryptedOutboundToken: encryptLinkedTransportToken(transportToken, deviceId),
+        credentialVersion, enabled: true, state: 'active', updatedAt: at,
+      }
+      if (transportSnap.exists) tx.update(transportRef, transportRow)
+      else tx.create(transportRef, { ...transportRow, createdAt: at })
+    }
     tx.update(challengeRef, { consumedAt: at, deviceId })
     tx.create(auditRef(db), {
       eventId: randomUUID(), action: 'pairing.consumed', actorUserId: ownerUserId,
@@ -193,8 +207,8 @@ export async function exchangePairing(
       eventId: randomUUID(), action: 'device.paired', actorUserId: ownerUserId,
       deviceId, createdAt: at,
     })
-    return { ok: true, deviceId, credential, credentialVersion }
+    return { ok: true, deviceId, credential, credentialVersion, transportToken }
   })
   if (!result.ok) throw new Error('linked computers: pairing exchange denied')
-  return { deviceId: result.deviceId, credential: result.credential, credentialVersion: result.credentialVersion }
+  return { deviceId: result.deviceId, credential: result.credential, credentialVersion: result.credentialVersion, transportToken: result.transportToken }
 }

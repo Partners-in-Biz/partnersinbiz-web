@@ -311,13 +311,15 @@ export async function createHermesRun(link: HermesProfileLink, requestedBy: stri
     && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(dispatch.requestedRuntimeTargetId)
     ? dispatch.requestedRuntimeTargetId
     : acceptedRuntimeTargetId
-  const executionReceipt = {
-    requestedRuntimeTargetId,
-    acceptedRuntimeTargetId,
-    requestedAt,
-    acceptedAt,
-    outcome: 'accepted',
-  }
+  const executionReceipt = link.runtimeKind === 'linked-computer'
+    ? safePayload.executionReceipt ?? null
+    : {
+        requestedRuntimeTargetId,
+        acceptedRuntimeTargetId,
+        requestedAt,
+        acceptedAt,
+        outcome: 'accepted',
+      }
   const docRef = await adminDb.collection(HERMES_RUNS_COLLECTION).add({
     orgId: link.orgId,
     profile: link.profile,
@@ -328,7 +330,7 @@ export async function createHermesRun(link: HermesProfileLink, requestedBy: stri
     ...(messageId ? { messageId } : {}),
     ...(dispatchAgentId ? { dispatchAgentId } : {}),
     ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
-    executionReceipt,
+    ...(executionReceipt ? { executionReceipt } : {}),
     ...(request.model ? { model: request.model } : {}),
     ...(request.provider ? { provider: request.provider } : {}),
     ...(request.reasoning_effort ? { reasoningEffort: request.reasoning_effort } : {}),

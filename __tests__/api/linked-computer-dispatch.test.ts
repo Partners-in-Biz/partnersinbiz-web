@@ -1,8 +1,11 @@
 import {
   authorizeLinkedComputerDispatch,
   discoverAuthorizedRuntimeTargets,
+  linkedComputerReceiptPayload,
   requireMatchingExecutionReceipt,
 } from '@/lib/linked-computers/runtime-targets'
+import { generateKeyPairSync, sign } from 'node:crypto'
+import { decryptLinkedTransportToken, encryptLinkedTransportToken } from '@/lib/linked-computers/transport'
 
 type Row = Record<string, unknown>
 
@@ -51,7 +54,7 @@ describe('linked computer runtime authorization', () => {
   it('discovers only owned or explicitly shared, granted, fresh, healthy and mapped devices', async () => {
     const targets = await discoverAuthorizedRuntimeTargets({ userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a' }, { db: fakeDb(base), nowMs: () => now })
     expect(targets.map((target) => target.deviceId)).toEqual(['owned', 'shared'])
-    expect(targets[0]).toEqual(expect.objectContaining({ id: 'target-owned', mappingId: 'map-owned', selectable: true }))
+    expect(targets[0]).toEqual(expect.objectContaining({ id: 'target-owned', workspaceId: 'workspace-a', mappingId: 'map-owned', selectable: true }))
     expect(JSON.stringify(targets)).not.toMatch(/credentialVersion|ownerUserId|baseUrl|apiKey|publicKey|path/i)
   })
 
@@ -75,14 +78,32 @@ describe('linked computer runtime authorization', () => {
       .rejects.toMatchObject({ code: 'linked_device_mapping_required' })
   })
 
+  it('does not leak a device mapping from Workspace B into Workspace A discovery', async () => {
+    const rows = structuredClone(base)
+    rows.linked_device_workspace_mappings['map-owned'].workspaceId = 'workspace-b'
+    const targets = await discoverAuthorizedRuntimeTargets({ userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a' }, { db: fakeDb(rows), nowMs: () => now })
+    expect(targets.find((target) => target.deviceId === 'owned')).toBeUndefined()
+  })
+
   it('never falls back when an explicit device is unavailable', async () => {
     await expect(authorizeLinkedComputerDispatch({ userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a', runtimeTargetId: 'target-stale' }, { db: fakeDb(base), nowMs: () => now, compatibilityTargets: [{ id: 'vps', label: 'VPS', kind: 'platform-vps' }] }))
       .rejects.toMatchObject({ code: 'linked_device_stale' })
   })
 
-  it('requires the execution receipt to match the authorized device, target, credential and mapping', async () => {
+  it('requires a signed execution receipt to match device, target, credential, mapping, runtime and run/request binding', async () => {
+    const keys = generateKeyPairSync('ed25519')
     const authorized = await authorizeLinkedComputerDispatch({ userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a', runtimeTargetId: 'target-owned' }, { db: fakeDb(base), nowMs: () => now })
-    expect(requireMatchingExecutionReceipt(authorized, { deviceId: 'owned', runtimeTargetId: 'target-owned', credentialVersion: 3, mappingId: 'map-owned', acceptedAt: new Date(now).toISOString(), runtimeVersion: '2.0.0', outcome: 'accepted' })).toEqual(expect.objectContaining({ deviceId: 'owned', machineLabel: 'Office Mac' }))
-    expect(() => requireMatchingExecutionReceipt(authorized, { deviceId: 'shared', runtimeTargetId: 'target-owned', credentialVersion: 3, mappingId: 'map-owned', acceptedAt: new Date(now).toISOString(), runtimeVersion: '2.0.0', outcome: 'accepted' })).toThrow('linked computers: execution receipt mismatch')
+    const receipt = { deviceId: 'owned', runtimeTargetId: 'target-owned', credentialVersion: 3, mappingId: 'map-owned', acceptedAt: new Date(now).toISOString(), toolStartedAt: new Date(now + 1).toISOString(), runtimeVersion: '2.0.0', outcome: 'accepted', runId: 'run-1', requestId: 'assistant-1', signature: '' }
+    receipt.signature = sign(null, Buffer.from(linkedComputerReceiptPayload(receipt)), keys.privateKey).toString('base64url')
+    expect(requireMatchingExecutionReceipt(authorized, receipt, { publicKey: keys.publicKey.export({ type: 'spki', format: 'pem' }).toString(), runId: 'run-1', requestId: 'assistant-1', nowMs: () => now + 2 })).toEqual(expect.objectContaining({ deviceId: 'owned', machineLabel: 'Office Mac' }))
+    expect(() => requireMatchingExecutionReceipt(authorized, { ...receipt, mappingId: 'map-other' }, { publicKey: keys.publicKey.export({ type: 'spki', format: 'pem' }).toString(), runId: 'run-1', requestId: 'assistant-1', nowMs: () => now + 2 })).toThrow('linked computers: execution receipt mismatch')
+  })
+
+  it('encrypts private transport tokens with the shared master key and device context', () => {
+    process.env.SOCIAL_TOKEN_MASTER_KEY = 'test-linked-runtime-master-key'
+    const encrypted = encryptLinkedTransportToken('outbound-secret', 'owned')
+    expect(JSON.stringify(encrypted)).not.toContain('outbound-secret')
+    expect(decryptLinkedTransportToken(encrypted, 'owned')).toBe('outbound-secret')
+    expect(() => decryptLinkedTransportToken(encrypted, 'shared')).toThrow()
   })
 })

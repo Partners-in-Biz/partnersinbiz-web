@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { recordDeviceHeartbeat } from '@/lib/linked-computers/store'
 import { authenticateSignedDeviceRequest, lifecycleError, noStoreHeaders } from '@/lib/linked-computers/http'
+import { updateLinkedRuntimeTransportEndpoint } from '@/lib/linked-computers/transport'
 
 type Context = { params: Promise<{ deviceId: string }> }
-export async function handleDeviceHeartbeat(req: NextRequest, deviceId: string, auth = authenticateSignedDeviceRequest, record = recordDeviceHeartbeat): Promise<Response> {
+export async function handleDeviceHeartbeat(req: NextRequest, deviceId: string, auth = authenticateSignedDeviceRequest, record = recordDeviceHeartbeat, updateTransport = updateLinkedRuntimeTransportEndpoint): Promise<Response> {
   try {
     const rawBody = await req.text()
     const identity = await auth(req, deviceId, rawBody)
@@ -12,6 +13,9 @@ export async function handleDeviceHeartbeat(req: NextRequest, deviceId: string, 
     if (typeof body.runtimeVersion !== 'string' || !['ok', 'degraded'].includes(body.health)) throw new Error('linked computers: invalid heartbeat')
     const capabilities = Array.isArray(body.capabilities) && body.capabilities.includes('workspace.execute') ? ['workspace.execute'] as const : []
     await record({ deviceId, runtimeVersion: body.runtimeVersion, health: body.health, capabilities: [...capabilities] })
+    if (body.runtimeEndpoint !== undefined) {
+      await updateTransport({ deviceId, endpoint: body.runtimeEndpoint, credentialVersion: identity.credentialVersion })
+    }
     return NextResponse.json({ success: true, data: { acceptedAt: new Date().toISOString() } }, { headers: noStoreHeaders })
   } catch (error) { return lifecycleError(error) }
 }

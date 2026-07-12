@@ -47,7 +47,7 @@ describe('linked computer credential lifecycle', () => {
       'linked_device_credentials/device-a': { deviceId: 'device-a', credentialHash: require('@/lib/linked-computers/crypto').hashLinkedComputerSecret(oldCredential), credentialVersion: 1, revokedAt: null },
     })
     const rotated = await rotateDeviceCredential({ deviceId: 'device-a', actorUserId: 'user-a' }, { db: db as never, now: () => 'now', nowMs: () => 1_000_000 })
-    expect(rotated).toEqual(expect.objectContaining({ deviceId: 'device-a', credentialVersion: 2, credential: expect.any(String), overlapExpiresAt: '1970-01-01T00:21:40.000Z' }))
+    expect(rotated).toEqual(expect.objectContaining({ deviceId: 'device-a', credentialVersion: 2, credential: expect.any(String), transportToken: expect.any(String), overlapExpiresAt: '1970-01-01T00:21:40.000Z' }))
     await expect(authenticateDeviceRequest(request(oldCredential, 1, keys.privateKey, 'request-old-valid'), { db: db as never, nowMs: () => 1_000_001 })).resolves.toMatchObject({ credentialVersion: 1 })
     await expect(authenticateDeviceRequest(request(oldCredential, 1, keys.privateKey, 'request-old-expired', '1360001'), { db: db as never, nowMs: () => 1_360_001 })).rejects.toThrow('version mismatch')
     expect(rows.get('linked_devices/device-a')).toMatchObject({ credentialVersion: 2 })
@@ -104,9 +104,9 @@ describe('linked computer lifecycle HTTP boundaries', () => {
   })
 
   it('returns only one-time credential rotation fields under no-store', async () => {
-    const response = await handleCredentialRotation({ uid: 'owner-a' }, 'device-a', async () => ({ deviceId: 'device-a', credential: 'one-time', credentialVersion: 2, overlapExpiresAt: 'expiry' }))
+    const response = await handleCredentialRotation({ uid: 'owner-a' }, 'device-a', async () => ({ deviceId: 'device-a', credential: 'one-time', transportToken: 'transport-once', credentialVersion: 2, overlapExpiresAt: 'expiry' }))
     expect(response.headers.get('cache-control')).toBe('no-store')
-    expect(Object.keys((await response.json()).data).sort()).toEqual(['credential', 'credentialVersion', 'deviceId', 'overlapExpiresAt'].sort())
+    expect(Object.keys((await response.json()).data).sort()).toEqual(['credential', 'credentialVersion', 'deviceId', 'overlapExpiresAt', 'transportToken'].sort())
   })
 
   it('binds DELETE removal to the route device and authenticated owner', async () => {
@@ -138,5 +138,13 @@ describe('linked computer lifecycle HTTP boundaries', () => {
     const denied = new NextRequest('https://test/api/v1/linked-computers/device-a/heartbeat', { method: 'POST', body: '{"runtimeVersion":"1","health":"ok"}' })
     const response = await handleDeviceHeartbeat(denied, 'device-a', async () => ({ deviceId: 'device-b', ownerUserId: 'user-b', credentialVersion: 1 }), record)
     expect(response.status).toBe(403)
+  })
+
+  it('updates the private runtime endpoint only after signed device authentication', async () => {
+    const auth = jest.fn(async () => ({ deviceId: 'device-a', ownerUserId: 'user-a', credentialVersion: 3 }))
+    const updateTransport = jest.fn(async () => undefined)
+    const req = new NextRequest('https://test/api/v1/linked-computers/device-a/heartbeat', { method: 'POST', body: '{"runtimeVersion":"2.0.0","health":"ok","runtimeEndpoint":"https://device.example"}' })
+    expect((await handleDeviceHeartbeat(req, 'device-a', auth as never, jest.fn(async () => undefined), updateTransport)).status).toBe(200)
+    expect(updateTransport).toHaveBeenCalledWith({ deviceId: 'device-a', endpoint: 'https://device.example', credentialVersion: 3 })
   })
 })

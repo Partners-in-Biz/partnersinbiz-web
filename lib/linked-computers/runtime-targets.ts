@@ -1,4 +1,5 @@
 import { adminDb } from '@/lib/firebase/admin'
+import { verify } from 'node:crypto'
 import { timestampToMs } from '@/lib/agents/runtime-targets'
 import type { LinkedDevice, LinkedDeviceGrant, LinkedDeviceWorkspaceMapping } from './types'
 
@@ -26,6 +27,7 @@ export interface PublicAuthorizedRuntimeTarget {
   platform: 'macos' | 'windows'
   runtimeVersion: string
   mappingId: string
+  workspaceId: string
   kind: 'linked-computer'
   selectable: true
   lastSeenAt: string
@@ -37,10 +39,12 @@ export interface AuthorizedLinkedComputerDispatch {
   runtimeTargetId: string
   machineLabel: string
   mappingId: string
+  workspaceId: string
   credentialVersion: number
   runtimeVersion: string
   platform: 'macos' | 'windows'
   lastSeenAt: string
+  publicKey: string
 }
 
 export interface LinkedComputerExecutionReceipt {
@@ -51,7 +55,10 @@ export interface LinkedComputerExecutionReceipt {
   acceptedAt: string
   runtimeVersion: string
   outcome: string
-  toolStartedAt?: string
+  toolStartedAt: string
+  runId: string
+  requestId: string
+  signature: string
 }
 
 export class LinkedComputerDispatchError extends Error {
@@ -113,6 +120,7 @@ async function resolveCandidates(input: ResolveInput, options: ResolveOptions): 
       kind: 'linked-computer', deviceId: device.deviceId, runtimeTargetId: device.runtimeTargetId,
       machineLabel: device.label, mappingId: mapping.mappingId, credentialVersion: device.credentialVersion,
       runtimeVersion: device.runtimeVersion, platform: device.platform, lastSeenAt: new Date(seen).toISOString(),
+      workspaceId: mapping.workspaceId, publicKey: String((device as LinkedDevice & { publicKey?: string }).publicKey ?? ''),
     })
   }
   return candidates
@@ -123,6 +131,7 @@ export async function discoverAuthorizedRuntimeTargets(input: ResolveInput, opti
   return candidates.map((target) => ({
     id: target.runtimeTargetId, deviceId: target.deviceId, label: target.machineLabel,
     platform: target.platform, runtimeVersion: target.runtimeVersion, mappingId: target.mappingId,
+    workspaceId: target.workspaceId,
     kind: 'linked-computer', selectable: true,
     lastSeenAt: target.lastSeenAt,
   }))
@@ -149,13 +158,31 @@ export async function authorizeLinkedComputerDispatch(input: ResolveInput & { ru
   throw new LinkedComputerDispatchError('linked_device_not_authorized')
 }
 
-export function requireMatchingExecutionReceipt(binding: AuthorizedLinkedComputerDispatch, receipt: LinkedComputerExecutionReceipt) {
+export function linkedComputerReceiptPayload(receipt: Omit<LinkedComputerExecutionReceipt, 'signature'> | LinkedComputerExecutionReceipt): string {
+  return [receipt.deviceId, receipt.runtimeTargetId, String(receipt.credentialVersion), receipt.mappingId,
+    receipt.runtimeVersion, receipt.acceptedAt, receipt.toolStartedAt, receipt.outcome, receipt.runId, receipt.requestId].join('\n')
+}
+
+export function requireMatchingExecutionReceipt(
+  binding: AuthorizedLinkedComputerDispatch,
+  receipt: LinkedComputerExecutionReceipt,
+  options: { publicKey?: string; runId: string; requestId: string; nowMs?: () => number },
+) {
   if (receipt.deviceId !== binding.deviceId || receipt.runtimeTargetId !== binding.runtimeTargetId
-    || receipt.credentialVersion !== binding.credentialVersion || receipt.mappingId !== binding.mappingId) {
+    || receipt.credentialVersion !== binding.credentialVersion || receipt.mappingId !== binding.mappingId
+    || receipt.runtimeVersion !== binding.runtimeVersion || receipt.runId !== options.runId || receipt.requestId !== options.requestId) {
     throw new Error('linked computers: execution receipt mismatch')
   }
-  if (!Number.isFinite(Date.parse(receipt.acceptedAt)) || !receipt.runtimeVersion || !receipt.outcome) {
+  const acceptedMs = Date.parse(receipt.acceptedAt)
+  const toolStartedMs = Date.parse(receipt.toolStartedAt)
+  const now = options.nowMs?.() ?? Date.now()
+  if (!Number.isFinite(acceptedMs) || !Number.isFinite(toolStartedMs) || acceptedMs > now + 60_000
+    || acceptedMs < now - 10 * 60_000 || toolStartedMs < acceptedMs || toolStartedMs > acceptedMs + 10 * 60_000
+    || !['accepted', 'started'].includes(receipt.outcome) || !/^[A-Za-z0-9_-]{16,1024}$/.test(receipt.signature)) {
     throw new Error('linked computers: invalid execution receipt')
   }
+  let valid = false
+  try { valid = verify(null, Buffer.from(linkedComputerReceiptPayload(receipt)), options.publicKey ?? binding.publicKey, Buffer.from(receipt.signature, 'base64url')) } catch { valid = false }
+  if (!valid) throw new Error('linked computers: invalid execution receipt signature')
   return { deviceId: binding.deviceId, runtimeTargetId: binding.runtimeTargetId, machineLabel: binding.machineLabel, runtimeVersion: receipt.runtimeVersion, acceptedAt: receipt.acceptedAt, outcome: receipt.outcome }
 }

@@ -13,6 +13,7 @@ import type {
   LinkedDeviceStatus,
   WorkspaceMappingStatus,
 } from './types'
+import { encryptLinkedTransportToken, LINKED_DEVICE_TRANSPORTS } from './transport'
 
 const DEVICES = 'linked_devices'
 const CHALLENGES = 'linked_device_pairing_challenges'
@@ -238,7 +239,8 @@ export async function transitionDeviceStatus(input: {
   const db = options.db ?? (adminDb as unknown as DbLike)
   await db.runTransaction(async (tx) => {
     const ref = db.collection(DEVICES).doc(input.deviceId)
-    const snapshot = await tx.get(ref)
+    const transportRef = db.collection(LINKED_DEVICE_TRANSPORTS).doc(input.deviceId)
+    const [snapshot, transportSnap] = await Promise.all([tx.get(ref), tx.get(transportRef)])
     if (!snapshot.exists) throw new Error('linked computers: device not found')
     const device = snapshot.data() as unknown as LinkedDevice
     if (device.ownerUserId !== input.actorUserId) throw new Error('linked computers: device owner required')
@@ -248,6 +250,9 @@ export async function transitionDeviceStatus(input: {
       : input.status === 'revoked' ? { revokedAt: at }
         : input.status === 'removed' ? { removedAt: at } : {}
     tx.update(ref, { status: input.status, updatedAt: at, ...statusAt })
+    if (transportSnap.exists) tx.update(transportRef, {
+      enabled: input.status === 'active', state: input.status === 'active' ? 'active' : input.status === 'paused' ? 'paused' : 'revoked', updatedAt: at,
+    })
     tx.create(auditRef(db), {
       eventId: randomUUID(), action: 'device.status_changed', actorUserId: input.actorUserId,
       deviceId: input.deviceId, fromStatus: device.status, toStatus: input.status, createdAt: at,
@@ -258,14 +263,16 @@ export async function transitionDeviceStatus(input: {
 export async function rotateDeviceCredential(input: {
   deviceId: string
   actorUserId: string
-}, options: StoreOptions = {}): Promise<{ deviceId: string; credential: string; credentialVersion: number; overlapExpiresAt: string }> {
+}, options: StoreOptions = {}): Promise<{ deviceId: string; credential: string; transportToken: string; credentialVersion: number; overlapExpiresAt: string }> {
   const db = options.db ?? (adminDb as unknown as DbLike)
   const credential = randomBytes(32).toString('base64url')
+  const transportToken = randomBytes(32).toString('base64url')
   const overlapExpiresAt = new Date((options.nowMs?.() ?? Date.now()) + CREDENTIAL_ROTATION_OVERLAP_MS).toISOString()
   return db.runTransaction(async (tx) => {
     const deviceRef = db.collection(DEVICES).doc(input.deviceId)
     const credentialRef = db.collection('linked_device_credentials').doc(input.deviceId)
-    const [deviceSnap, credentialSnap] = await Promise.all([tx.get(deviceRef), tx.get(credentialRef)])
+    const transportRef = db.collection(LINKED_DEVICE_TRANSPORTS).doc(input.deviceId)
+    const [deviceSnap, credentialSnap, transportSnap] = await Promise.all([tx.get(deviceRef), tx.get(credentialRef), tx.get(transportRef)])
     if (!deviceSnap.exists || !credentialSnap.exists) throw new Error('linked computers: device credential not found')
     const device = deviceSnap.data() as unknown as LinkedDevice
     const old = credentialSnap.data() ?? {}
@@ -280,8 +287,11 @@ export async function rotateDeviceCredential(input: {
       previousCredentialHash: old.credentialHash, previousCredentialVersion: old.credentialVersion,
       previousCredentialExpiresAt: overlapExpiresAt,
     })
+    if (transportSnap.exists) tx.update(transportRef, {
+      encryptedOutboundToken: encryptLinkedTransportToken(transportToken, input.deviceId), credentialVersion, updatedAt: at,
+    })
     tx.create(auditRef(db), { eventId: randomUUID(), action: 'credential.rotated', actorUserId: input.actorUserId, deviceId: input.deviceId, createdAt: at })
-    return { deviceId: input.deviceId, credential, credentialVersion, overlapExpiresAt }
+    return { deviceId: input.deviceId, credential, transportToken, credentialVersion, overlapExpiresAt }
   })
 }
 
@@ -293,12 +303,14 @@ export async function revokeDeviceCredential(input: {
   await db.runTransaction(async (tx) => {
     const deviceRef = db.collection(DEVICES).doc(input.deviceId)
     const credentialRef = db.collection('linked_device_credentials').doc(input.deviceId)
-    const [deviceSnap, credentialSnap] = await Promise.all([tx.get(deviceRef), tx.get(credentialRef)])
+    const transportRef = db.collection(LINKED_DEVICE_TRANSPORTS).doc(input.deviceId)
+    const [deviceSnap, credentialSnap, transportSnap] = await Promise.all([tx.get(deviceRef), tx.get(credentialRef), tx.get(transportRef)])
     if (!deviceSnap.exists || !credentialSnap.exists) throw new Error('linked computers: device credential not found')
     const device = deviceSnap.data() as unknown as LinkedDevice
     if (device.ownerUserId !== input.actorUserId) throw new Error('linked computers: device owner required')
     const at = timestamp(options)
     tx.update(credentialRef, { revokedAt: at, previousCredentialHash: null, previousCredentialVersion: null, previousCredentialExpiresAt: null })
+    if (transportSnap.exists) tx.update(transportRef, { enabled: false, state: 'revoked', updatedAt: at })
     tx.create(auditRef(db), { eventId: randomUUID(), action: 'credential.revoked', actorUserId: input.actorUserId, deviceId: input.deviceId, createdAt: at })
   })
 }
@@ -308,8 +320,10 @@ export async function removeOwnedDevice(input: { deviceId: string; actorUserId: 
   await db.runTransaction(async (tx: any) => {
     const deviceRef = db.collection(DEVICES).doc(input.deviceId)
     const credentialRef = db.collection('linked_device_credentials').doc(input.deviceId)
-    const [deviceSnap, credentialSnap, mappings, grants] = await Promise.all([
+    const transportRef = db.collection(LINKED_DEVICE_TRANSPORTS).doc(input.deviceId)
+    const [deviceSnap, credentialSnap, transportSnap, mappings, grants] = await Promise.all([
       tx.get(deviceRef), tx.get(credentialRef),
+      tx.get(transportRef),
       tx.get(db.collection(MAPPINGS).where('deviceId', '==', input.deviceId)),
       tx.get(db.collection(GRANTS).where('deviceId', '==', input.deviceId)),
     ])
@@ -323,6 +337,7 @@ export async function removeOwnedDevice(input: { deviceId: string; actorUserId: 
       tx.update(credentialRef, { revokedAt: at, previousCredentialHash: null, previousCredentialVersion: null, previousCredentialExpiresAt: null })
       tx.create(auditRef(db), { eventId: randomUUID(), action: 'credential.revoked', actorUserId: input.actorUserId, deviceId: input.deviceId, createdAt: at })
     }
+    if (transportSnap.exists) tx.update(transportRef, { enabled: false, state: 'revoked', updatedAt: at })
     for (const doc of mappings.docs) {
       const mapping = doc.data()
       if (mapping.status === 'removed') continue

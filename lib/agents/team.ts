@@ -14,7 +14,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { mergeAgentRegistry, normalizeAgentRegistryInput } from './registry'
 import { buildAgentSkillPolicyState } from './skill-policy'
-import { buildRuntimeTargetMap, selectAgentRuntimeTarget, type AgentDispatchTarget, type RuntimeTargetSelectionError } from './runtime-targets'
+import { buildRuntimeTargetMap, normalizeRuntimeTargets, selectAgentRuntimeTarget, type AgentDispatchTarget, type RuntimeTargetSelectionError } from './runtime-targets'
 import type { AgentId, AgentRegistryEntry, AgentTeamDoc, AgentTeamStoredDoc } from './types'
 import type { HermesProfileLink } from '@/lib/hermes/types'
 
@@ -91,9 +91,9 @@ export interface AgentRuntimeCallOptions {
   runtimeTarget?: string | null
 }
 
-/** Platform-owned targets retained during linked-computer migration. */
-export function isCompatibilityRuntimeTarget(runtimeTarget: string | null | undefined): boolean {
-  return runtimeTarget === 'vps' || runtimeTarget === 'local' || runtimeTarget === 'auto' || !runtimeTarget
+export async function isConfiguredCompatibilityRuntimeTarget(agentId: AgentId, runtimeTarget: string): Promise<boolean> {
+  const snap = await adminDb.collection(DISPATCH_COLLECTION).doc(agentId).get()
+  return normalizeRuntimeTargets(snap.data()?.runtimeTargets).some((target) => target.id === runtimeTarget)
 }
 
 function preferredRuntimeTarget(options?: AgentRuntimeCallOptions): string | null {

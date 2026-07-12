@@ -25,7 +25,7 @@ export interface HermesProfileLink {
   dashboardSessionToken?: string
   enabled: boolean
   runtimeTargetId?: string
-  runtimeKind?: 'local' | 'vps' | 'remote' | 'legacy'
+  runtimeKind?: 'local' | 'vps' | 'remote' | 'legacy' | 'linked-computer'
   machineLabel?: string
   capabilities: HermesCapabilities
   permissions: HermesProfilePermissions

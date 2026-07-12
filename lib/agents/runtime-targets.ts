@@ -78,7 +78,7 @@ function cleanString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined
 }
 
-const SAFE_RUNTIME_TARGET_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/i
+const SAFE_RUNTIME_TARGET_ID = /^[a-z0-9][a-z0-9_:-]{0,127}$/i
 const SAFE_RUNTIME_LABEL = /^[a-z0-9][a-z0-9 ._'()-]{0,79}$/i
 
 export function safeRuntimeTargetId(value: unknown): string | undefined {

@@ -21,7 +21,8 @@ import {
 } from '@/lib/conversations/conversations'
 import { createHermesRun } from '@/lib/hermes/server'
 import { authorizeLinkedComputerDispatch, requireMatchingExecutionReceipt, type AuthorizedLinkedComputerDispatch } from '@/lib/linked-computers/runtime-targets'
-import { getAgentDispatchHermesProfileLink } from '@/lib/agents/team'
+import { getLinkedComputerHermesProfileLink } from '@/lib/linked-computers/transport'
+import { getAgentDispatchHermesProfileLink, isConfiguredCompatibilityRuntimeTarget } from '@/lib/agents/team'
 import { safeRuntimeTargetId, type RuntimeTargetSelectionErrorCode } from '@/lib/agents/runtime-targets'
 import { cleanAgentEffort, VALID_AGENT_EFFORTS, type AgentEffort } from '@/lib/agents/runRouting'
 import { buildAttachedContextBlock, resolveContextReferences } from '@/lib/context-references/registry'
@@ -448,7 +449,10 @@ export const POST = withAuth(
       let linkedComputerBinding: AuthorizedLinkedComputerDispatch | null = null
       try {
         const requestedTarget = conversation.workspaceContext?.runtimeTarget ?? null
-        if (requestedTarget && safeRuntimeTargetId(requestedTarget) && !['vps', 'local', 'auto'].includes(requestedTarget)) {
+        const compatibilityTarget = requestedTarget
+          ? await isConfiguredCompatibilityRuntimeTarget(agentId, requestedTarget)
+          : true
+        if (requestedTarget && safeRuntimeTargetId(requestedTarget) && !compatibilityTarget) {
           if (!conversation.workspaceContext) throw new Error('Linked computer dispatch requires a Workspace')
           linkedComputerBinding = await authorizeLinkedComputerDispatch({
             userId: user.uid,
@@ -457,9 +461,9 @@ export const POST = withAuth(
             runtimeTargetId: requestedTarget!,
           })
         }
-        agentLink = await getAgentDispatchHermesProfileLink(agentId, conversation.orgId, {
-          runtimeTarget: requestedTarget,
-        })
+        agentLink = linkedComputerBinding
+          ? await getLinkedComputerHermesProfileLink(linkedComputerBinding, conversation.orgId, agentId)
+          : await getAgentDispatchHermesProfileLink(agentId, conversation.orgId, { runtimeTarget: requestedTarget })
         if (!agentLink) throw new Error(`No reachable runtime target configured for agent_team/${agentId}`)
       } catch (err) {
         const error = 'Agent dispatch is not configured for this Preview environment.'
@@ -612,7 +616,11 @@ export const POST = withAuth(
       if (runResult.ok) {
         if (linkedComputerBinding) {
           try {
-            requireMatchingExecutionReceipt(linkedComputerBinding, runResult.executionReceipt as never)
+            const payload = runResult.data && typeof runResult.data === 'object' ? runResult.data as Record<string, unknown> : {}
+            const runId = String(payload.runId ?? payload.run_id ?? payload.id ?? '')
+            requireMatchingExecutionReceipt(linkedComputerBinding, runResult.executionReceipt as never, {
+              runId, requestId: assistantMessage.id,
+            })
           } catch {
             await messagesCollection(convId).doc(assistantMessage.id).update({
               content: '', status: 'failed', error: 'The linked computer returned an invalid execution receipt.',

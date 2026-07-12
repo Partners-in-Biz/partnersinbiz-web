@@ -75,7 +75,11 @@ export function sanitizeDispatchMetadata(input: unknown): Record<string, unknown
   return output
 }
 
-export type SafeHermesRunPayload = { runId?: string; status?: string }
+export type SafeRuntimeExecutionReceipt = {
+  deviceId: string; runtimeTargetId: string; credentialVersion: number; mappingId: string; runtimeVersion: string
+  acceptedAt: string; toolStartedAt: string; outcome: 'accepted' | 'started'; runId: string; requestId: string; signature: string
+}
+export type SafeHermesRunPayload = { runId?: string; status?: string; executionReceipt?: SafeRuntimeExecutionReceipt }
 
 export const SAFE_HERMES_LIFECYCLE_STATUSES = [
   'queued', 'submitted', 'started', 'running', 'waiting_for_approval', 'approval_required',
@@ -95,5 +99,25 @@ export function safeHermesRunPayload(input: unknown): SafeHermesRunPayload {
   const rawRunId = payload.run_id ?? payload.runId ?? payload.id
   const runId = typeof rawRunId === 'string' && SAFE_VALUE.test(rawRunId) ? rawRunId : undefined
   const status = isSafeHermesLifecycleStatus(payload.status) ? payload.status : undefined
-  return { ...(runId ? { runId } : {}), ...(status ? { status } : {}) }
+  const rawReceipt = payload.execution_receipt ?? payload.executionReceipt
+  let executionReceipt: SafeRuntimeExecutionReceipt | undefined
+  if (rawReceipt && typeof rawReceipt === 'object' && !Array.isArray(rawReceipt)) {
+    const row = rawReceipt as Record<string, unknown>
+    const safeText = (value: unknown, max = 200) => typeof value === 'string' && value.length <= max && SAFE_VALUE.test(value) ? value : null
+    const deviceId = safeText(row.deviceId)
+    const runtimeTargetId = safeText(row.runtimeTargetId)
+    const mappingId = safeText(row.mappingId)
+    const runtimeVersion = safeText(row.runtimeVersion)
+    const acceptedAt = typeof row.acceptedAt === 'string' && row.acceptedAt.length <= 40 ? row.acceptedAt : null
+    const toolStartedAt = typeof row.toolStartedAt === 'string' && row.toolStartedAt.length <= 40 ? row.toolStartedAt : null
+    const receiptRunId = safeText(row.runId)
+    const requestId = safeText(row.requestId)
+    const signature = typeof row.signature === 'string' && /^[A-Za-z0-9_-]{16,1024}$/.test(row.signature) ? row.signature : null
+    const credentialVersion = typeof row.credentialVersion === 'number' && Number.isSafeInteger(row.credentialVersion) && row.credentialVersion > 0 ? row.credentialVersion : null
+    const outcome = row.outcome === 'accepted' || row.outcome === 'started' ? row.outcome : null
+    if (deviceId && runtimeTargetId && mappingId && runtimeVersion && acceptedAt && toolStartedAt && receiptRunId && requestId && signature && credentialVersion && outcome) {
+      executionReceipt = { deviceId, runtimeTargetId, credentialVersion, mappingId, runtimeVersion, acceptedAt, toolStartedAt, outcome, runId: receiptRunId, requestId, signature }
+    }
+  }
+  return { ...(runId ? { runId } : {}), ...(status ? { status } : {}), ...(executionReceipt ? { executionReceipt } : {}) }
 }
