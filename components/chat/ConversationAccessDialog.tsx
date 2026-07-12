@@ -34,7 +34,7 @@ const OPTIONS: Array<{ value: ShareMode; label: string; description: string; ico
   {
     value: 'private',
     label: 'Private',
-    description: 'Only the owner and participating agents can open it. Authorised platform operators retain operational access.',
+    description: 'Only the owner and explicitly invited participants can open it.',
     icon: 'lock',
   },
   {

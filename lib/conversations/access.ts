@@ -4,7 +4,8 @@ import type { Conversation, ConversationAttachment, ConversationMessage } from '
 
 /**
  * Conversation access semantics:
- * - platform administrators retain operational access only inside their org scope;
+ * - human callers, including administrators, need explicit participation for
+ *   private/shared conversations;
  * - AI callers must be an explicit agent participant;
  * - participants can access private/shared conversations;
  * - org-visible Workspace conversations are available to any caller whose
@@ -17,7 +18,6 @@ export function canAccessConversation(user: ApiUser, conversation: Conversation)
     return (conversation.participantAgentIds ?? []).includes(agentId as Conversation['participantAgentIds'][number])
   }
   if (!canAccessOrg(user, conversation.orgId)) return false
-  if (user.role === 'admin') return true
   if ((conversation.participantUids ?? []).includes(user.uid)) return true
   if (conversation.workspaceContext?.shareMode !== 'org') return false
   return true
