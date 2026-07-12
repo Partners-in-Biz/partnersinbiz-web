@@ -20,6 +20,7 @@ import {
   messagesCollection,
 } from '@/lib/conversations/conversations'
 import { createHermesRun } from '@/lib/hermes/server'
+import { authorizeLinkedComputerDispatch, requireMatchingExecutionReceipt, type AuthorizedLinkedComputerDispatch } from '@/lib/linked-computers/runtime-targets'
 import { getAgentDispatchHermesProfileLink } from '@/lib/agents/team'
 import { safeRuntimeTargetId, type RuntimeTargetSelectionErrorCode } from '@/lib/agents/runtime-targets'
 import { cleanAgentEffort, VALID_AGENT_EFFORTS, type AgentEffort } from '@/lib/agents/runRouting'
@@ -444,9 +445,20 @@ export const POST = withAuth(
       })
 
       let agentLink: Awaited<ReturnType<typeof getAgentDispatchHermesProfileLink>>
+      let linkedComputerBinding: AuthorizedLinkedComputerDispatch | null = null
       try {
+        const requestedTarget = conversation.workspaceContext?.runtimeTarget ?? null
+        if (requestedTarget && safeRuntimeTargetId(requestedTarget) && !['vps', 'local', 'auto'].includes(requestedTarget)) {
+          if (!conversation.workspaceContext) throw new Error('Linked computer dispatch requires a Workspace')
+          linkedComputerBinding = await authorizeLinkedComputerDispatch({
+            userId: user.uid,
+            orgId: conversation.orgId,
+            workspaceId: conversation.workspaceContext.workspaceId,
+            runtimeTargetId: requestedTarget!,
+          })
+        }
         agentLink = await getAgentDispatchHermesProfileLink(agentId, conversation.orgId, {
-          runtimeTarget: conversation.workspaceContext?.runtimeTarget ?? null,
+          runtimeTarget: requestedTarget,
         })
         if (!agentLink) throw new Error(`No reachable runtime target configured for agent_team/${agentId}`)
       } catch (err) {
@@ -505,7 +517,7 @@ export const POST = withAuth(
       const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + projectChatOrchestrationContext + agentSkillsContext + decisionDataRuleContext + attachedContext + conversationHistory + commandContext + content + attachmentContext
       let selectedWorkingDirectory: string | undefined
       let workspacePathClass: 'organisation' | 'project' | undefined
-      if (conversation.workspaceContext) {
+      if (conversation.workspaceContext && !linkedComputerBinding) {
         const workingDirectory = await resolveAuthorizedWorkingDirectory({
           workspaceContext: conversation.workspaceContext,
         })
@@ -547,6 +559,11 @@ export const POST = withAuth(
           messageId: assistantMessage.id,
           orgId: conversation.orgId,
           ...(conversation.workspaceContext?.workspaceId ? { workspaceId: conversation.workspaceContext.workspaceId } : {}),
+          ...(linkedComputerBinding ? {
+            linkedDeviceId: linkedComputerBinding.deviceId,
+            linkedDeviceMappingId: linkedComputerBinding.mappingId,
+            linkedDeviceCredentialVersion: linkedComputerBinding.credentialVersion,
+          } : {}),
           ...(conversation.workspaceContext?.runtimeTarget ? { runtimeTarget: conversation.workspaceContext.runtimeTarget } : {}),
           ...(conversation.workspaceContext?.runtimeTarget ? { requestedRuntimeTargetId: conversation.workspaceContext.runtimeTarget } : {}),
           ...(agentLink.runtimeTargetId ? { runtimeTargetId: agentLink.runtimeTargetId } : {}),
@@ -593,6 +610,19 @@ export const POST = withAuth(
 
       // Store runId on the pending message if run started
       if (runResult.ok) {
+        if (linkedComputerBinding) {
+          try {
+            requireMatchingExecutionReceipt(linkedComputerBinding, runResult.executionReceipt as never)
+          } catch {
+            await messagesCollection(convId).doc(assistantMessage.id).update({
+              content: '', status: 'failed', error: 'The linked computer returned an invalid execution receipt.',
+            })
+            return apiSuccess({
+              message,
+              assistantMessage: { ...assistantMessage, status: 'failed', error: 'The linked computer returned an invalid execution receipt.' },
+            }, 201)
+          }
+        }
         const payload =
           runResult.data && typeof runResult.data === 'object'
             ? (runResult.data as Record<string, unknown>)

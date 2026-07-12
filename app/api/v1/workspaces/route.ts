@@ -8,6 +8,7 @@ import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { ORG_WORKSPACES_COLLECTION, type OrgWorkspaceRecord } from '@/lib/client-provisioning/workspace-context'
 import { publicRuntimeTargetPresence } from '@/lib/agents/runtime-targets'
+import { discoverAuthorizedRuntimeTargets } from '@/lib/linked-computers/runtime-targets'
 
 export const dynamic = 'force-dynamic'
 
@@ -65,7 +66,12 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
     .sort((a, b) => a.orgName.localeCompare(b.orgName))
     .map(toPublicWorkspaceSummary)
 
-  const runtimeTargets = publicRuntimeTargetPresence(runtimeDoc.data()?.runtimeTargets)
+  const compatibilityRuntimeTargets = publicRuntimeTargetPresence(runtimeDoc.data()?.runtimeTargets)
+  const linkedRuntimeTargets = (await Promise.all(workspaces.map((workspace) =>
+    discoverAuthorizedRuntimeTargets({ userId: user.uid, orgId: orgScope.orgId, workspaceId: workspace.workspaceId })
+      .catch(() => []),
+  ))).flat()
+  const runtimeTargets = [...compatibilityRuntimeTargets, ...linkedRuntimeTargets]
   const projectsById = new Map<string, { id: string; name: string }>()
   for (const projectSnap of [ownProjects, clientProjects, targetProjects, recipientProjects]) {
     for (const projectDoc of projectSnap.docs) {

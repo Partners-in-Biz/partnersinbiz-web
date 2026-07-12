@@ -91,6 +91,11 @@ export interface AgentRuntimeCallOptions {
   runtimeTarget?: string | null
 }
 
+/** Platform-owned targets retained during linked-computer migration. */
+export function isCompatibilityRuntimeTarget(runtimeTarget: string | null | undefined): boolean {
+  return runtimeTarget === 'vps' || runtimeTarget === 'local' || runtimeTarget === 'auto' || !runtimeTarget
+}
+
 function preferredRuntimeTarget(options?: AgentRuntimeCallOptions): string | null {
   return options?.runtimeTarget
     ?? process.env.PIB_HERMES_RUNTIME_TARGET

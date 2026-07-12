@@ -23,6 +23,7 @@ import { isSuperAdmin } from '@/lib/api/platformAdmin'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import { resolveConversationWorkspaceContext } from '@/lib/client-provisioning/workspace-context'
 import { publicRuntimeTargetPresence } from '@/lib/agents/runtime-targets'
+import { authorizeLinkedComputerDispatch } from '@/lib/linked-computers/runtime-targets'
 import { publicConversationView } from '@/lib/conversations/access'
 import { organizationMemberUids } from '@/lib/conversations/participant-access'
 import type { AgentId, Participant, Conversation, ConversationScope } from '@/lib/conversations/types'
@@ -247,9 +248,22 @@ export const POST = withAuth(
       const dispatchDoc = await adminDb.collection('agent_dispatch_configs').doc('pip').get()
       const target = publicRuntimeTargetPresence(dispatchDoc.data()?.runtimeTargets)
         .find((candidate) => candidate.id === runtimeTarget)
-      if (!target) return apiError(`Runtime target ${runtimeTarget} is not configured`, 400)
-      if (!target.selectable) return apiError(`Runtime target ${target.label} is currently unavailable`, 409)
-      runtimeLabel = target.label
+      if (target) {
+        // Existing platform VPS/operator-local records are explicit compatibility
+        // adapters. Linked computers never enter this fallback path.
+        if (!target.selectable) return apiError(`Runtime target ${target.label} is currently unavailable`, 409)
+        runtimeLabel = target.label
+      } else {
+        if (!requestedWorkspaceId) return apiError('workspaceId is required for linked computer dispatch', 400)
+        try {
+          const linked = await authorizeLinkedComputerDispatch({
+            userId: user.uid, orgId: scope.orgId, workspaceId: requestedWorkspaceId, runtimeTargetId: runtimeTarget,
+          })
+          runtimeLabel = linked.machineLabel
+        } catch {
+          return apiError('Linked computer is unavailable or not authorized', 400)
+        }
+      }
     }
     const workspaceContext = shouldBindWorkspace
       ? await resolveConversationWorkspaceContext({
