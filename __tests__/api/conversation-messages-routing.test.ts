@@ -342,8 +342,35 @@ describe('unified conversation message routing', () => {
         runtimeTargetId: 'local',
         runtimeKind: 'local',
         runtimeMachineLabel: "Peet's Mac",
+        workspacePathClass: 'project',
       }),
     }))
+    const metadata = mockCreateHermesRun.mock.calls[0][2].metadata
+    expect(metadata).not.toHaveProperty('vpsWorkingPath')
+    expect(metadata).not.toHaveProperty('localWorkingPath')
+    expect(metadata).not.toHaveProperty('workspaceContext')
+  })
+
+  it('returns a stable safe dispatch failure without reflecting an exception', async () => {
+    const unsafe = 'POST https://gateway.example/v1/runs apiKey=super-secret /Users/peet/private'
+    const update = jest.fn().mockResolvedValue(undefined)
+    mockMessagesCollection.mockReturnValue({ doc: () => ({ update }) })
+    mockCreateHermesRun.mockRejectedValue(new Error(unsafe))
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1', orgId: 'pib-platform-owner', participantUids: ['client-1'], participantAgentIds: ['pip'],
+      participants: [{ kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' }, { kind: 'agent', agentId: 'pip', name: 'Pip' }],
+    })
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined)
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    const res = await POST(req(), { params: Promise.resolve({ convId: 'conv-1' }) })
+    const serialized = JSON.stringify(await readJson(res)) + JSON.stringify(update.mock.calls) + JSON.stringify(errorSpy.mock.calls)
+    expect(serialized).not.toMatch(/gateway\.example|super-secret|Users\/peet/)
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceDispatchFailureCode: 'dispatch_unavailable',
+      error: 'Agent run could not be started on the gateway.',
+    }))
+    errorSpy.mockRestore()
   })
 
   it('does not create a Hermes request when an explicit local target is stale', async () => {
