@@ -305,6 +305,7 @@ export async function processInboundEmail(
           bodyText: inbound.bodyText,
           fromEmail: inbound.fromEmail,
           receivedAt: inbound.receivedAt,
+          salesClassification,
         })
         replyOwnerUserId = routed.ownerUserId
         replyQueueId = routed.queueId

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
+import type { ClassifiedSalesReply } from './reply-classification'
 
 export type ReplyResolutionSource = 'sender_snapshot' | 'fallback_user' | 'fallback_queue' | 'unassigned'
 
@@ -27,6 +28,7 @@ export interface ReplyRoutingInput {
   bodyText: string
   fromEmail: string
   receivedAt: unknown
+  salesClassification?: ClassifiedSalesReply
 }
 
 export interface ReplyMember {
@@ -162,6 +164,7 @@ export async function routeReplyToSales(
     fromEmail: clean(input.fromEmail).toLowerCase(),
     receivedAt: input.receivedAt,
     slaMinutes: Math.max(1, Math.min(10_080, Math.floor(slaMinutes || 60))),
+    ...(input.salesClassification ? { classification: input.salesClassification } : {}),
   })
 }
 
