@@ -2,15 +2,15 @@
 set -euo pipefail
 
 LABEL="com.partnersinbiz.runtime"
-ROOT="/Library/PartnersInBiz"
+ROOT="$HOME/Library/Application Support/PartnersInBiz"
 BIN="$ROOT/bin/pib-runtime"
-PLIST="/Library/LaunchDaemons/$LABEL.plist"
+PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 API_BASE="${PIB_API_BASE:-https://partnersinbiz.online}"
 METADATA_URL="${PIB_RUNTIME_METADATA_URL:-$API_BASE/runtime/macos/stable.json}"
 PUBLIC_KEY="${PIB_RUNTIME_UPDATE_PUBLIC_KEY:-}"
 
 usage() { echo "usage: install.sh install|pair|update|rollback|uninstall|revoke [challengeId]"; }
-require_root() { [[ $EUID -eq 0 ]] || { echo "Run with sudo." >&2; exit 1; }; }
+require_root() { [[ $EUID -ne 0 ]] || { echo "Run as the paired desktop user, not root." >&2; exit 1; }; }
 
 # Runtime credentials (device credential, transport token and signing private key)
 # are written/read by the runtime through Keychain. They never enter files,
@@ -47,9 +47,9 @@ install_runtime() {
   if [[ -e "$BIN" ]]; then cp "$BIN" "$ROOT/pib-runtime.previous"; fi
   mkdir -p "$ROOT/bin"; cp "$stage/pib-runtime" "$BIN"
   "$BIN" enforce-minimum-version --metadata "$stage/metadata.json" # minimumVersion gate
-  cp "$(dirname "$0")/$LABEL.plist" "$PLIST"; chown root:wheel "$PLIST"; chmod 0644 "$PLIST"
-  launchctl bootout system "$PLIST" >/dev/null 2>&1 || true
-  launchctl bootstrap system "$PLIST"; launchctl kickstart -k "system/$LABEL"
+  mkdir -p "$(dirname "$PLIST")"; sed "s|__PIB_RUNTIME_BINARY__|$BIN|g" "$(dirname "$0")/$LABEL.plist" > "$PLIST"; chmod 0644 "$PLIST"
+  launchctl bootout "gui/$(id -u)" "$PLIST" >/dev/null 2>&1 || true
+  launchctl bootstrap "gui/$(id -u)" "$PLIST"; launchctl kickstart -k "gui/$(id -u)/$LABEL"
 }
 
 pair_runtime() {
@@ -62,9 +62,9 @@ pair_runtime() {
 }
 
 update_runtime() { install_runtime; }
-rollback_runtime() { require_root; [[ -x "$ROOT/pib-runtime.previous" ]]; cp "$ROOT/pib-runtime.previous" "$BIN"; launchctl kickstart -k "system/$LABEL"; }
+rollback_runtime() { require_root; [[ -x "$ROOT/pib-runtime.previous" ]] || { echo 'No verified previous release.' >&2; return 1; }; cp "$ROOT/pib-runtime.previous" "$BIN"; launchctl kickstart -k "gui/$(id -u)/$LABEL"; }
 revoke_runtime() { [[ -x "$BIN" ]] && "$BIN" revoke --signed-request --execution-receipt; delete_credentials; }
-uninstall_runtime() { require_root; revoke_runtime; launchctl bootout system "$PLIST" >/dev/null 2>&1 || true; rm -f "$PLIST"; rm -rf "$ROOT"; }
+uninstall_runtime() { require_root; revoke_runtime; launchctl bootout "gui/$(id -u)" "$PLIST" >/dev/null 2>&1 || true; rm -f "$PLIST"; rm -rf "$ROOT"; }
 
 case "${1:-}" in
   install) install_runtime;; pair) pair_runtime "${2:-}";; update) update_runtime;; rollback) rollback_runtime;;

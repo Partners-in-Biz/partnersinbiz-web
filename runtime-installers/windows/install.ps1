@@ -47,9 +47,8 @@ function Install-Runtime {
     New-Item -ItemType Directory -Force $Root | Out-Null
     if (Test-Path $Binary) { Copy-Item -Force $Binary $Previous }
     Copy-Item -Force $payload $Binary
-    $xml = Join-Path $PSScriptRoot 'PartnersInBizRuntime.xml'
-    Register-ScheduledTask -TaskName 'PartnersInBizRuntime' -Xml (Get-Content -Raw $xml) -Force | Out-Null
-    Start-ScheduledTask -TaskName 'PartnersInBizRuntime'
+    & sc.exe create PartnersInBizRuntime binPath= "`"$Root\PartnersInBizRuntimeService.exe`"" start= auto obj= LocalSystem
+    & sc.exe start PartnersInBizRuntime
   } finally { Remove-Item -Recurse -Force $stage -ErrorAction SilentlyContinue }
 }
 
@@ -61,8 +60,8 @@ function Pair-Runtime {
   & $Binary pair --challenge $ChallengeId --platform windows --prompt-code --credential-store credwrite
 }
 function Update-Runtime { Install-Runtime }
-function Rollback-Runtime { Assert-Administrator; Copy-Item -Force $Previous $Binary; Start-ScheduledTask -TaskName 'PartnersInBizRuntime' }
+function Rollback-Runtime { Assert-Administrator; if(-not(Test-Path $Previous)){throw 'No verified previous release.'}; Copy-Item -Force $Previous $Binary; & sc.exe start PartnersInBizRuntime }
 function Revoke-Runtime { if (Test-Path $Binary) { & $Binary revoke --signed-request --execution-receipt }; Remove-RuntimeCredential }
-function Uninstall-Runtime { Assert-Administrator; Revoke-Runtime; Unregister-ScheduledTask -TaskName 'PartnersInBizRuntime' -Confirm:$false -ErrorAction SilentlyContinue; Remove-Item -Recurse -Force $Root -ErrorAction SilentlyContinue }
+function Uninstall-Runtime { Assert-Administrator; Revoke-Runtime; & sc.exe stop PartnersInBizRuntime; & sc.exe delete PartnersInBizRuntime; Remove-Item -Recurse -Force $Root -ErrorAction SilentlyContinue }
 
 switch ($Action) { 'Install' { Install-Runtime }; 'Pair' { Pair-Runtime }; 'Update' { Update-Runtime }; 'Rollback' { Rollback-Runtime }; 'Revoke' { Revoke-Runtime }; 'Uninstall' { Uninstall-Runtime } }

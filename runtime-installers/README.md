@@ -1,6 +1,6 @@
 # Partners in Biz linked runtime installers
 
-These foundations install an architecture-specific `pib-runtime` payload, pair it with a one-time browser challenge, and keep a background bridge connected to local Hermes. Pairing commands contain only `challengeId` and `platform`; the runtime privately prompts for the one-time code. It creates the device signing key locally and stores the private key, device credential, and transport token in macOS Keychain or Windows Credential Manager. Heartbeats bootstrap transport and every accepted execution produces a signed execution receipt.
+This directory includes the TypeScript `pib-runtime` source, cryptographic core, native credential helpers, a per-user macOS LaunchAgent, and a buildable Windows SCM service wrapper. It pairs with a one-time browser challenge and keeps a loopback bridge connected to local Hermes. Pairing commands contain only `challengeId` and `platform`; the runtime privately prompts for the one-time code. It creates the Ed25519 device signing key locally and stores the private key, device credential, and transport token in macOS Keychain or Windows Credential Manager. Heartbeats bootstrap transport and every accepted execution produces a canonical signed execution receipt.
 
 Production metadata names `version`, `minimumVersion`, `payloadUrl`, `sha256`, and an Ed25519 `signature`. Install/update verifies authenticated metadata and payload before activation, enforces the minimum version, and retains one prior verified binary for rollback. Missing or invalid signatures fail closed.
 
@@ -17,4 +17,4 @@ pib-runtime pair --challenge <challengeId> --platform macos
 pib-runtime pair --challenge <challengeId> --platform windows
 ```
 
-The runtime payload contract must implement `pair`, `bridge`, `verify-update`, `enforce-minimum-version`, `revoke`, and credential deletion. No secret may be accepted through command arguments or logged.
+Build shared source with `runtime-installers/build-runtime.sh`. Packaging still needs release-owned compilation of the native helpers/service, architecture fixtures, and signing.
