@@ -2404,6 +2404,12 @@
   ],
   "fieldOverrides": [
     {
+      "collectionGroup": "linked_device_run_jobs",
+      "fieldPath": "cleanupAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
       "collectionGroup": "linked_device_request_nonces",
       "fieldPath": "expiresAt",
       "ttl": true,

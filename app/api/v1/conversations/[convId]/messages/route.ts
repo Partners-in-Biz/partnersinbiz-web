@@ -20,8 +20,8 @@ import {
   messagesCollection,
 } from '@/lib/conversations/conversations'
 import { createHermesRun } from '@/lib/hermes/server'
-import { authorizeLinkedComputerDispatch, requireMatchingExecutionReceipt, type AuthorizedLinkedComputerDispatch } from '@/lib/linked-computers/runtime-targets'
-import { getLinkedComputerHermesProfileLink } from '@/lib/linked-computers/transport'
+import { authorizeLinkedComputerDispatch, type AuthorizedLinkedComputerDispatch } from '@/lib/linked-computers/runtime-targets'
+import { cancelLinkedRun, enqueueLinkedRun, waitForLinkedRunClaim } from '@/lib/linked-computers/run-queue-store'
 import { getAgentDispatchHermesProfileLink, isConfiguredCompatibilityRuntimeTarget } from '@/lib/agents/team'
 import { safeRuntimeTargetId, type RuntimeTargetSelectionErrorCode } from '@/lib/agents/runtime-targets'
 import { cleanAgentEffort, VALID_AGENT_EFFORTS, type AgentEffort } from '@/lib/agents/runRouting'
@@ -445,7 +445,7 @@ export const POST = withAuth(
         status: 'pending',
       })
 
-      let agentLink: Awaited<ReturnType<typeof getAgentDispatchHermesProfileLink>>
+      let agentLink: Awaited<ReturnType<typeof getAgentDispatchHermesProfileLink>> | null = null
       let linkedComputerBinding: AuthorizedLinkedComputerDispatch | null = null
       try {
         const requestedTarget = conversation.workspaceContext?.runtimeTarget ?? null
@@ -461,10 +461,10 @@ export const POST = withAuth(
             runtimeTargetId: requestedTarget!,
           })
         }
-        agentLink = linkedComputerBinding
-          ? await getLinkedComputerHermesProfileLink(linkedComputerBinding, conversation.orgId, agentId)
-          : await getAgentDispatchHermesProfileLink(agentId, conversation.orgId, { runtimeTarget: requestedTarget })
-        if (!agentLink) throw new Error(`No reachable runtime target configured for agent_team/${agentId}`)
+        if (!linkedComputerBinding) {
+          agentLink = await getAgentDispatchHermesProfileLink(agentId, conversation.orgId, { runtimeTarget: requestedTarget })
+          if (!agentLink) throw new Error(`No reachable runtime target configured for agent_team/${agentId}`)
+        }
       } catch (err) {
         const error = 'Agent dispatch is not configured for this Preview environment.'
         const runtimeFailure = err && typeof err === 'object'
@@ -519,6 +519,47 @@ export const POST = withAuth(
         ? `\n\n[Attachments]\n${attachments.map((attachment) => `- ${attachment.name}: ${attachment.url} (${attachment.contentType}, ${attachment.sizeBytes} bytes)`).join('\n')}`
         : ''
       const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + projectChatOrchestrationContext + agentSkillsContext + decisionDataRuleContext + attachedContext + conversationHistory + commandContext + content + attachmentContext
+      if (linkedComputerBinding) {
+        const projectId = conversation.workspaceContext?.projectId
+        const queued = await enqueueLinkedRun({
+          requestId: assistantMessage.id,
+          deviceId: linkedComputerBinding.deviceId,
+          runtimeTargetId: linkedComputerBinding.runtimeTargetId,
+          orgId: conversation.orgId,
+          workspaceId: linkedComputerBinding.workspaceId,
+          ...(projectId ? { projectId } : {}),
+          mappingId: linkedComputerBinding.mappingId,
+          relativeFolder: projectId ? `Projects/${projectId}` : '.',
+          credentialVersion: linkedComputerBinding.credentialVersion,
+          payload: { prompt: hermesInput, ...(modelSelection?.model ? { model: modelSelection.model } : {}), ...(modelSelection?.provider ? { provider: modelSelection.provider } : {}) },
+          conversationId: convId,
+          assistantMessageId: assistantMessage.id,
+          agentId,
+        })
+        try {
+          const claimed = await waitForLinkedRunClaim(queued)
+          const acceptedDevice = {
+            deviceId: linkedComputerBinding.deviceId,
+            runtimeTargetId: linkedComputerBinding.runtimeTargetId,
+            machineLabel: linkedComputerBinding.machineLabel,
+            runtimeVersion: linkedComputerBinding.runtimeVersion,
+            acceptedAt: new Date(claimed.claimedAtMs ?? Date.now()).toISOString(),
+            outcome: 'accepted',
+          }
+          await messagesCollection(convId).doc(assistantMessage.id).update({
+            runId: queued.jobId, dispatchAgentId: agentId, acceptedDevice,
+            linkedDeviceId: linkedComputerBinding.deviceId,
+            linkedDeviceMappingId: linkedComputerBinding.mappingId,
+            linkedDeviceCredentialVersion: linkedComputerBinding.credentialVersion,
+          })
+          return apiSuccess({ message, assistantMessage: { ...assistantMessage, runId: queued.jobId, dispatchAgentId: agentId, acceptedDevice }, runId: queued.jobId, dispatchAgentId: agentId }, 201)
+        } catch {
+          await cancelLinkedRun(queued.jobId, 'claim timeout')
+          const error = 'The linked computer did not accept the run before the secure dispatch timeout.'
+          await messagesCollection(convId).doc(assistantMessage.id).update({ content: '', status: 'failed', error, workspaceDispatchFailureCode: 'linked_device_claim_timeout' })
+          return apiSuccess({ message, assistantMessage: { ...assistantMessage, status: 'failed', error, workspaceDispatchFailureCode: 'linked_device_claim_timeout' } }, 201)
+        }
+      }
       let selectedWorkingDirectory: string | undefined
       let workspacePathClass: 'organisation' | 'project' | undefined
       if (conversation.workspaceContext && !linkedComputerBinding) {
@@ -548,7 +589,9 @@ export const POST = withAuth(
       }
 
       // Dispatch Hermes run
-      const runResult = await createHermesRun(agentLink, user.uid, {
+      const dispatchLink = agentLink
+      if (!dispatchLink) throw new Error(`No reachable runtime target configured for agent_team/${agentId}`)
+      const runResult = await createHermesRun(dispatchLink, user.uid, {
         prompt: hermesInput,
         conversation_id: convId,
         ...(selectedWorkingDirectory ? { working_directory: selectedWorkingDirectory } : {}),
@@ -556,23 +599,18 @@ export const POST = withAuth(
         ...(modelSelection?.provider ? { provider: modelSelection.provider } : {}),
         ...(agentEffort ? { reasoning_effort: agentEffort } : {}),
         dispatch: {
-          requestedRuntimeTargetId: conversation.workspaceContext?.runtimeTarget ?? agentLink.runtimeTargetId,
+          requestedRuntimeTargetId: conversation.workspaceContext?.runtimeTarget ?? dispatchLink.runtimeTargetId,
         },
         metadata: {
           conversationId: convId,
           messageId: assistantMessage.id,
           orgId: conversation.orgId,
           ...(conversation.workspaceContext?.workspaceId ? { workspaceId: conversation.workspaceContext.workspaceId } : {}),
-          ...(linkedComputerBinding ? {
-            linkedDeviceId: linkedComputerBinding.deviceId,
-            linkedDeviceMappingId: linkedComputerBinding.mappingId,
-            linkedDeviceCredentialVersion: linkedComputerBinding.credentialVersion,
-          } : {}),
           ...(conversation.workspaceContext?.runtimeTarget ? { runtimeTarget: conversation.workspaceContext.runtimeTarget } : {}),
           ...(conversation.workspaceContext?.runtimeTarget ? { requestedRuntimeTargetId: conversation.workspaceContext.runtimeTarget } : {}),
-          ...(agentLink.runtimeTargetId ? { runtimeTargetId: agentLink.runtimeTargetId } : {}),
-          ...(agentLink.runtimeKind ? { runtimeKind: agentLink.runtimeKind } : {}),
-          ...(agentLink.machineLabel ? { runtimeMachineLabel: agentLink.machineLabel } : {}),
+          ...(dispatchLink.runtimeTargetId ? { runtimeTargetId: dispatchLink.runtimeTargetId } : {}),
+          ...(dispatchLink.runtimeKind ? { runtimeKind: dispatchLink.runtimeKind } : {}),
+          ...(dispatchLink.machineLabel ? { runtimeMachineLabel: dispatchLink.machineLabel } : {}),
           ...(workspacePathClass ? { workspacePathClass } : {}),
           ...(conversation.workspaceContext?.projectId ? { projectId: conversation.workspaceContext.projectId } : {}),
           dispatchAgentId: agentId,
@@ -614,25 +652,6 @@ export const POST = withAuth(
 
       // Store runId on the pending message if run started
       if (runResult.ok) {
-        if (linkedComputerBinding) {
-          try {
-            const payload = runResult.data && typeof runResult.data === 'object' ? runResult.data as Record<string, unknown> : {}
-            const runId = String(payload.runId ?? payload.run_id ?? payload.id ?? '')
-            const acceptedDevice = requireMatchingExecutionReceipt(linkedComputerBinding, runResult.executionReceipt as never, {
-              runId, requestId: assistantMessage.id,
-            })
-            await messagesCollection(convId).doc(assistantMessage.id).update({ acceptedDevice })
-            Object.assign(assistantMessage, { acceptedDevice })
-          } catch {
-            await messagesCollection(convId).doc(assistantMessage.id).update({
-              content: '', status: 'failed', error: 'The linked computer returned an invalid execution receipt.',
-            })
-            return apiSuccess({
-              message,
-              assistantMessage: { ...assistantMessage, status: 'failed', error: 'The linked computer returned an invalid execution receipt.' },
-            }, 201)
-          }
-        }
         const payload =
           runResult.data && typeof runResult.data === 'object'
             ? (runResult.data as Record<string, unknown>)
