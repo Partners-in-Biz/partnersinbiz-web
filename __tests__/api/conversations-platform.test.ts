@@ -114,34 +114,36 @@ beforeEach(() => {
       }
     }
     if (name === 'org_workspaces') {
+      const workspaceData = {
+        workspaceId: 'acme',
+        orgId: 'org-1',
+        orgSlug: 'acme',
+        orgName: 'Acme',
+        agentDomain: 'acme',
+        agentName: 'Ava',
+        vpsPath: '/var/lib/hermes/Cowork/Acme',
+        localPath: '~/Cowork/Acme',
+        agentDomainPath: '/var/lib/hermes/Cowork/Cowork/agents/acme',
+        localAgentDomainPath: '~/Cowork/Cowork/agents/acme',
+        sourceOfTruth: 'vps',
+        syncMode: 'hybrid',
+        defaultRuntimeTarget: 'vps',
+        status: 'active',
+        folderVersion: 1,
+        companyId: 'company-1',
+        contactIds: ['contact-1'],
+      }
       return {
         doc: (id: string) => ({
           get: async () => ({
             exists: id === 'acme',
             id,
-            data: () => ({
-              workspaceId: 'acme',
-              orgId: 'org-1',
-              orgSlug: 'acme',
-              orgName: 'Acme',
-              agentDomain: 'acme',
-              agentName: 'Ava',
-              vpsPath: '/var/lib/hermes/Cowork/Acme',
-              localPath: '~/Cowork/Acme',
-              agentDomainPath: '/var/lib/hermes/Cowork/Cowork/agents/acme',
-              localAgentDomainPath: '~/Cowork/Cowork/agents/acme',
-              sourceOfTruth: 'vps',
-              syncMode: 'hybrid',
-              defaultRuntimeTarget: 'vps',
-              status: 'active',
-              folderVersion: 1,
-              companyId: 'company-1',
-              contactIds: ['contact-1'],
-            }),
+            data: () => workspaceData,
           }),
         }),
         where: () => ({
           where: () => ({
+            get: async () => ({ docs: [{ id: 'acme', data: () => workspaceData }] }),
             limit: () => ({ get: async () => ({ docs: [] }) }),
           }),
         }),
@@ -186,6 +188,9 @@ beforeEach(() => {
             data: () => ({ orgId: 'org-1', name: 'Website launch' }),
           }),
         }),
+        where: () => ({
+          get: async () => ({ docs: [] }),
+        }),
       }
     }
     throw new Error(`Unexpected collection: ${name}`)
@@ -197,6 +202,28 @@ async function readJson(res: Response) {
 }
 
 describe('platform-scoped unified conversations', () => {
+  it('returns browser-safe Workspace summaries without physical filesystem paths', async () => {
+    mockUser = { uid: 'admin-1', role: 'admin', orgId: 'pib-platform-owner', allowedOrgIds: [] }
+    const { GET } = await import('@/app/api/v1/workspaces/route')
+
+    const res = await GET(new NextRequest('http://localhost/api/v1/workspaces?orgId=org-1'))
+
+    expect(res.status).toBe(200)
+    const body = await readJson(res)
+    expect(body.data.workspaces[0]).toEqual(expect.objectContaining({
+      workspaceId: 'acme',
+      sourceOfTruth: 'vps',
+      syncMode: 'hybrid',
+      folderVersion: 1,
+    }))
+    expect(body.data.workspaces[0]).not.toHaveProperty('vpsPath')
+    expect(body.data.workspaces[0]).not.toHaveProperty('localPath')
+    expect(body.data.workspaces[0]).not.toHaveProperty('agentDomainPath')
+    expect(body.data.workspaces[0]).not.toHaveProperty('localAgentDomainPath')
+    expect(JSON.stringify(body.data.workspaces)).not.toContain('/var/lib/hermes')
+    expect(JSON.stringify(body.data.workspaces)).not.toContain('~/Cowork')
+  })
+
   it('lets a super admin create a top-level platform conversation without a client org document', async () => {
     const { POST } = await import('@/app/api/v1/conversations/route')
 

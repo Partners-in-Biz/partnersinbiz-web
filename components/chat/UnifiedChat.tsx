@@ -118,11 +118,10 @@ interface OrgWorkspaceSummary {
   orgSlug: string
   orgName: string
   agentDomain: string
-  vpsPath: string
-  localPath: string
   sourceOfTruth: 'vps'
   syncMode: string
   defaultRuntimeTarget: string
+  folderVersion: number
 }
 
 interface WorkspaceProjectSummary {
@@ -3003,7 +3002,9 @@ export default function UnifiedChat({
                     )}
                     {selectedWorkspace && (
                       <div className="mt-1 truncate text-[11px] text-on-surface-variant">
-                        VPS truth · {selectedWorkspace.vpsPath}{newScope === 'project' && selectedProjectId ? `/projects/${selectedProjectId}` : ''}
+                        {newScope === 'project'
+                          ? 'VPS-canonical project scope'
+                          : 'VPS-canonical organisation Workspace'}
                       </div>
                     )}
                   </div>

@@ -11,6 +11,38 @@ import { publicRuntimeTargetPresence } from '@/lib/agents/runtime-targets'
 
 export const dynamic = 'force-dynamic'
 
+export interface PublicWorkspaceSummary {
+  id: string
+  workspaceId: string
+  orgId: string
+  orgSlug: string
+  orgName: string
+  agentDomain: string
+  sourceOfTruth: OrgWorkspaceRecord['sourceOfTruth']
+  syncMode: OrgWorkspaceRecord['syncMode']
+  defaultRuntimeTarget: OrgWorkspaceRecord['defaultRuntimeTarget']
+  folderVersion: number
+  companyId: string | null
+  contactIds: string[]
+}
+
+function toPublicWorkspaceSummary(workspace: OrgWorkspaceRecord): PublicWorkspaceSummary {
+  return {
+    id: workspace.id,
+    workspaceId: workspace.workspaceId,
+    orgId: workspace.orgId,
+    orgSlug: workspace.orgSlug,
+    orgName: workspace.orgName,
+    agentDomain: workspace.agentDomain,
+    sourceOfTruth: workspace.sourceOfTruth,
+    syncMode: workspace.syncMode,
+    defaultRuntimeTarget: workspace.defaultRuntimeTarget,
+    folderVersion: workspace.folderVersion,
+    companyId: workspace.companyId ?? null,
+    contactIds: workspace.contactIds ?? [],
+  }
+}
+
 export const GET = withAuth('client', async (req: NextRequest, user) => {
   const { searchParams } = new URL(req.url)
   const orgScope = resolveOrgScope(user, searchParams.get('orgId'))
@@ -31,24 +63,7 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
   const workspaces = snap.docs
     .map((doc) => ({ id: doc.id, ...doc.data() }) as OrgWorkspaceRecord)
     .sort((a, b) => a.orgName.localeCompare(b.orgName))
-    .map((workspace) => ({
-      id: workspace.id,
-      workspaceId: workspace.workspaceId,
-      orgId: workspace.orgId,
-      orgSlug: workspace.orgSlug,
-      orgName: workspace.orgName,
-      agentDomain: workspace.agentDomain,
-      vpsPath: workspace.vpsPath,
-      localPath: workspace.localPath,
-      agentDomainPath: workspace.agentDomainPath,
-      localAgentDomainPath: workspace.localAgentDomainPath,
-      sourceOfTruth: workspace.sourceOfTruth,
-      syncMode: workspace.syncMode,
-      defaultRuntimeTarget: workspace.defaultRuntimeTarget,
-      folderVersion: workspace.folderVersion,
-      companyId: workspace.companyId ?? null,
-      contactIds: workspace.contactIds ?? [],
-    }))
+    .map(toPublicWorkspaceSummary)
 
   const runtimeTargets = publicRuntimeTargetPresence(runtimeDoc.data()?.runtimeTargets)
   const projectsById = new Map<string, { id: string; name: string }>()

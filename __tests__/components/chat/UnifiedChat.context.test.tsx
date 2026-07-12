@@ -109,6 +109,62 @@ describe('UnifiedChat upload and finalize error handling', () => {
   })
 })
 
+describe('UnifiedChat Workspace catalogue privacy', () => {
+  it('renders friendly VPS-canonical scope copy without raw filesystem paths', async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents')) return jsonResponse({ data: [] })
+      if (url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) {
+        return jsonResponse({
+          data: {
+            workspaces: [{
+              workspaceId: 'acme',
+              orgId: 'org-1',
+              orgSlug: 'acme',
+              orgName: 'Acme',
+              agentDomain: 'acme',
+              vpsPath: '/var/lib/hermes/Cowork/Acme',
+              localPath: '~/Cowork/Acme',
+              sourceOfTruth: 'vps',
+              syncMode: 'hybrid',
+              defaultRuntimeTarget: 'vps',
+              folderVersion: 1,
+            }],
+            runtimeTargets: [],
+            projects: [],
+          },
+        })
+      }
+      if (url.startsWith('/api/v1/conversations?')) {
+        return jsonResponse({ data: { conversations: [baseConversation] } })
+      }
+      if (url === '/api/v1/conversations/conv-1/messages') {
+        return jsonResponse({ data: { messages: [] } })
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        initialConvId="conv-1"
+      />,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: /new conversation/i }))
+    const workspaceContextOption = screen.getByRole('option', { name: 'Organisation Workspace folder' })
+    fireEvent.change(workspaceContextOption.parentElement as HTMLSelectElement, { target: { value: 'workspace' } })
+
+    expect(await screen.findByText(/VPS-canonical organisation Workspace/i)).toBeInTheDocument()
+    expect(screen.queryByText(/\/var\/lib\/hermes/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/~\/Cowork/i)).not.toBeInTheDocument()
+  })
+})
+
 describe('UnifiedChat message scrolling', () => {
   let originalRequestAnimationFrame: typeof window.requestAnimationFrame
   let originalCancelAnimationFrame: typeof window.cancelAnimationFrame
