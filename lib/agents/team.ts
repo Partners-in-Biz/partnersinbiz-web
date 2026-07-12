@@ -156,7 +156,7 @@ async function resolveAgentDispatchTarget(
       enabled: dispatchData.enabled === false ? false : raw?.enabled,
     },
   })
-  if (resolution && 'ok' in resolution && resolution.ok === false) {
+  if (resolution && 'ok' in resolution) {
     throw new RuntimeTargetResolutionError(resolution)
   }
   return resolution
