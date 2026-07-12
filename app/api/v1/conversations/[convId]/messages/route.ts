@@ -448,11 +448,15 @@ export const POST = withAuth(
         ? `\n\n[Attachments]\n${attachments.map((attachment) => `- ${attachment.name}: ${attachment.url} (${attachment.contentType}, ${attachment.sizeBytes} bytes)`).join('\n')}`
         : ''
       const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + agentSkillsContext + decisionDataRuleContext + attachedContext + conversationHistory + commandContext + content + attachmentContext
+      const selectedWorkingDirectory = conversation.workspaceContext?.runtimeTarget === 'local'
+        ? conversation.workspaceContext.localWorkingPath
+        : conversation.workspaceContext?.vpsWorkingPath
 
       // Dispatch Hermes run
       const runResult = await createHermesRun(agentLink, user.uid, {
         prompt: hermesInput,
         conversation_id: convId,
+        ...(selectedWorkingDirectory ? { working_directory: selectedWorkingDirectory } : {}),
         ...(modelSelection?.model ? { model: modelSelection.model } : {}),
         ...(modelSelection?.provider ? { provider: modelSelection.provider } : {}),
         ...(agentEffort ? { reasoning_effort: agentEffort } : {}),

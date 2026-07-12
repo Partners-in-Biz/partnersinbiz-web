@@ -2,10 +2,15 @@ import { classifyWorkspaceBackfill, parseFlags } from '@/scripts/backfill-client
 
 describe('backfill-client-workspaces helpers', () => {
   it('is dry-run by default and parses commit/targeting flags', () => {
-    expect(parseFlags([])).toEqual({ dryRun: true, skipVps: false })
-    expect(parseFlags(['--commit', '--org-id', 'org-1', '--limit', '5', '--skip-vps'])).toEqual({
+    expect(parseFlags([])).toEqual({ dryRun: true, skipVps: false, includePlatform: false })
+    expect(parseFlags([
+      '--commit', '--org-id', 'pib-platform-owner', '--workspace-domain', 'partners',
+      '--include-platform', '--limit', '5', '--skip-vps',
+    ])).toEqual({
       dryRun: false,
-      orgId: 'org-1',
+      orgId: 'pib-platform-owner',
+      workspaceDomain: 'partners',
+      includePlatform: true,
       limit: 5,
       skipVps: true,
     })

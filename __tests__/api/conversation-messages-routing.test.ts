@@ -278,6 +278,49 @@ describe('unified conversation message routing', () => {
     expect(body.data.dispatchAgentId).toBe('pip')
   })
 
+  it('enforces the selected local project folder as the Hermes run working directory', async () => {
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'pib-platform-owner',
+      participantUids: ['client-1'],
+      participantAgentIds: ['pip'],
+      participants: [
+        { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
+        { kind: 'agent', agentId: 'pip', name: 'Pip' },
+      ],
+      workspaceContext: {
+        runtimeTarget: 'local',
+        runtimeLabel: 'Local',
+        workspaceId: 'partners',
+        orgId: 'pib-platform-owner',
+        orgSlug: 'partners',
+        orgName: 'Partners in Biz',
+        agentDomain: 'partners',
+        vpsPath: '/var/lib/hermes/Cowork/Partners in Biz',
+        localPath: '/Users/peetstander/Cowork/Partners in Biz',
+        agentDomainPath: '/var/lib/hermes/Cowork/Cowork/agents/partners',
+        localAgentDomainPath: '/Users/peetstander/Cowork/Cowork/agents/partners',
+        sourceOfTruth: 'vps',
+        shareMode: 'private',
+        ownerUserId: 'client-1',
+        companyId: null,
+        contactIds: [],
+        folderScope: 'project',
+        projectId: 'website',
+        vpsWorkingPath: '/var/lib/hermes/Cowork/Partners in Biz/projects/website',
+        localWorkingPath: '/Users/peetstander/Cowork/Partners in Biz/projects/website',
+      },
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    const res = await POST(req(), { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockCreateHermesRun.mock.calls[0][2]).toEqual(expect.objectContaining({
+      working_directory: '/Users/peetstander/Cowork/Partners in Biz/projects/website',
+    }))
+  })
+
   it('includes the CEO data-first dashboard rule in every agent prompt', async () => {
     mockGetConversation.mockResolvedValue({
       id: 'conv-1',
