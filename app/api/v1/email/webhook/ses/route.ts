@@ -28,7 +28,7 @@ import {
   temporaryExpiryFromNow,
   type SuppressionReason,
 } from '@/lib/email/suppressions'
-import { appendEmailEvent } from '@/lib/email-events/store'
+import { appendEmailEvent, claimEmailEventProjection } from '@/lib/email-events/store'
 import type { EmailEventType } from '@/lib/email-events/types'
 import { appendConsentEvent } from '@/lib/consent-ledger/store'
 import { resolveProviderEventTarget } from '@/lib/email-events/provider-target'
@@ -276,7 +276,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       })
     }
 
-    if (!ledger.created) {
+    if (!(await claimEmailEventProjection(ledger.id))) {
       return NextResponse.json({ ok: true, replayed: true, eventId: ledger.id })
     }
   }

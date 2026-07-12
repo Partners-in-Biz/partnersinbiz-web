@@ -97,7 +97,7 @@ export async function resolveCanonicalEmailConsent(
       suppression,
       ...facts,
       transactional: input.transactional,
-      requireConsent: input.requireConsent,
+      requireConsent: input.requireConsent ?? !input.transactional,
     })
   } catch {
     return { allowed: false, reason: 'consent-ledger-unavailable', precedence: 'default-deny' }

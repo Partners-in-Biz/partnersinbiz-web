@@ -53,6 +53,13 @@ describe('appendEmailEvent', () => {
     })
   })
 
+  it('rejects a replay whose immutable canonical payload differs', async () => {
+    const { db } = fakeDb()
+    await appendEmailEvent(input, { db: db as never, now: () => 'received-ts' as never })
+    await expect(appendEmailEvent({ ...input, contactId: 'other-contact' }, { db: db as never }))
+      .rejects.toThrow('immutable payload collision')
+  })
+
   it('rejects missing tenant lineage', async () => {
     const { db } = fakeDb()
     await expect(appendEmailEvent({ ...input, orgId: '' }, { db: db as never })).rejects.toThrow(

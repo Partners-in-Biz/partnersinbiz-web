@@ -21,6 +21,7 @@ if (!orgId) throw new Error('Required: --org <organisation-id>')
 
 async function main() {
   const snapshot = await adminDb.collection('email_events').where('orgId', '==', orgId).get()
+  const existingRollups = await adminDb.collection('email_event_rollups').where('orgId', '==', orgId).get()
   const groups = new Map<string, Array<Record<string, unknown>>>()
   for (const doc of snapshot.docs) {
     const data = doc.data()
@@ -29,6 +30,11 @@ async function main() {
     const rows = groups.get(programId) ?? []
     rows.push({ id: doc.id, ...data })
     groups.set(programId, rows)
+  }
+  for (const doc of existingRollups.docs) {
+    const data = doc.data()
+    const programId = typeof data.programId === 'string' && data.programId ? data.programId : '_unattributed'
+    if (!groups.has(programId)) groups.set(programId, [])
   }
 
   const reports = []

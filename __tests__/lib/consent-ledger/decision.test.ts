@@ -50,4 +50,14 @@ describe('canonical consent decision', () => {
     }, { db: db as never, lookupSuppression: jest.fn().mockResolvedValue({ active: false }) })
     expect(decision).toEqual(expect.objectContaining({ allowed: false, reason: 'consent-ledger-unavailable' }))
   })
+
+  it('requires affirmative consent for marketing while transactional bypass is explicit', async () => {
+    const get = jest.fn().mockResolvedValue({ docs: [] })
+    const where = jest.fn(() => ({ where, get }))
+    const options = { db: { collection: () => ({ where }) } as never, lookupSuppression: jest.fn().mockResolvedValue({ active: false }) }
+    await expect(resolveCanonicalEmailConsent({ orgId: 'org-1', contactId: 'c1', email: 'a@b.test', topicId: 'news' }, options))
+      .resolves.toEqual(expect.objectContaining({ allowed: false, precedence: 'default-deny' }))
+    await expect(resolveCanonicalEmailConsent({ orgId: 'org-1', contactId: 'c1', email: 'a@b.test', topicId: 'transactional', transactional: true }, options))
+      .resolves.toEqual(expect.objectContaining({ allowed: true, precedence: 'transactional' }))
+  })
 })

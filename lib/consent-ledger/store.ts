@@ -64,6 +64,10 @@ export async function appendConsentEvent(
   required(input.occurredAt, 'occurredAt')
   const normalizedInput = { ...input, orgId, contactId, topicId }
   const identity = buildConsentEventIdentity(normalizedInput)
+  const payloadHash = sha256(canonicalizeEventMetadata({
+    ...normalizedInput,
+    metadata: normalizedInput.metadata ?? {},
+  }))
   const db = options.db ?? (adminDb as unknown as DatabaseLike)
   const ref = db.collection('contact_consent_events').doc(identity.id)
 
@@ -78,6 +82,9 @@ export async function appendConsentEvent(
       ) {
         throw new Error(`appendConsentEvent: immutable identity collision for ${identity.id}`)
       }
+      if (row.payloadHash && row.payloadHash !== payloadHash) {
+        throw new Error(`appendConsentEvent: immutable payload collision for ${identity.id}`)
+      }
       return false
     }
     tx.create(ref, {
@@ -86,6 +93,7 @@ export async function appendConsentEvent(
       metadata: normalizedInput.metadata ?? {},
       schemaVersion: 1,
       immutable: true,
+      payloadHash,
       receivedAt: options.now ? options.now() : FieldValue.serverTimestamp(),
     })
     return true

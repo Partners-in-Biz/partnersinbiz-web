@@ -411,15 +411,6 @@ export async function sendBroadcastToContact(
   subject = effective.subject
   html = effective.bodyHtml
   text = effective.bodyText
-  const consent = await resolveCanonicalEmailConsent({
-    orgId: broadcast.orgId,
-    contactId,
-    email: contact.email,
-    topicId,
-    transactional: topicId === 'transactional',
-  })
-  if (!consent.allowed) return { contactId, status: 'skipped' }
-
   const senderResolution = await resolveBroadcastSender(ctx, contact)
   if (senderResolution && senderResolution.status !== 'resolved') {
     return {
@@ -450,6 +441,11 @@ export async function sendBroadcastToContact(
   let sendProvider: 'resend' | 'ses' | '' = ''
   let sendOk = true
   let sendError: string | undefined
+  const consent = await resolveCanonicalEmailConsent({
+    orgId: broadcast.orgId, contactId, email: contact.email, topicId,
+    transactional: topicId === 'transactional',
+  })
+  if (!consent.allowed) return { contactId, status: 'skipped' }
   if (RESEND_KEY_SET) {
     const result = await sendCampaignEmail({
       from: effectiveSender.from,

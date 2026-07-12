@@ -35,7 +35,7 @@ import {
   recordSoftBounce,
   SOFT_BOUNCE_ESCALATION_THRESHOLD,
 } from '@/lib/email/bounceTracking'
-import { appendEmailEvent } from '@/lib/email-events/store'
+import { appendEmailEvent, claimEmailEventProjection } from '@/lib/email-events/store'
 import type { EmailEventType } from '@/lib/email-events/types'
 import { classifyOpenPrivacy } from '@/lib/email-events/privacy-classifier'
 import { appendConsentEvent } from '@/lib/consent-ledger/store'
@@ -217,7 +217,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       })
     }
 
-    if (!ledger.created) {
+    if (!(await claimEmailEventProjection(ledger.id))) {
       return NextResponse.json({ ok: true, replayed: true, eventId: ledger.id })
     }
   }

@@ -1,6 +1,8 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { buildEmailEventIdentity } from './identity'
+import { canonicalizeEventMetadata } from './identity'
+import { createHash } from 'crypto'
 import type { EmailEventInput } from './types'
 
 interface DocumentRefLike { id: string }
@@ -26,6 +28,24 @@ export interface AppendEmailEventResult {
   created: boolean
 }
 
+/** Claim projection work independently from append so a replay repairs an append-only crash. */
+export async function claimEmailEventProjection(
+  eventId: string,
+  options: AppendEmailEventOptions = {},
+): Promise<boolean> {
+  const db = options.db ?? (adminDb as unknown as DatabaseLike)
+  const ref = db.collection('email_event_projections').doc(eventId)
+  return db.runTransaction(async (tx) => {
+    if ((await tx.get(ref)).exists) return false
+    tx.create(ref, {
+      eventId,
+      schemaVersion: 1,
+      claimedAt: options.now ? options.now() : FieldValue.serverTimestamp(),
+    })
+    return true
+  })
+}
+
 function required(value: string | undefined, field: string): string {
   const clean = value?.trim()
   if (!clean) throw new Error(`appendEmailEvent: ${field} is required`)
@@ -45,6 +65,10 @@ export async function appendEmailEvent(
   const providerMessageId = required(input.providerMessageId, 'providerMessageId')
   const normalizedInput = { ...input, orgId, messageId, providerMessageId }
   const identity = buildEmailEventIdentity(normalizedInput)
+  const payloadHash = createHash('sha256').update(canonicalizeEventMetadata({
+    ...normalizedInput,
+    metadata: normalizedInput.metadata ?? {},
+  })).digest('hex')
   const db = options.db ?? (adminDb as unknown as DatabaseLike)
   const ref = db.collection('email_events').doc(identity.id)
 
@@ -59,6 +83,9 @@ export async function appendEmailEvent(
       ) {
         throw new Error(`appendEmailEvent: immutable identity collision for ${identity.id}`)
       }
+      if (row.payloadHash && row.payloadHash !== payloadHash) {
+        throw new Error(`appendEmailEvent: immutable payload collision for ${identity.id}`)
+      }
       return false
     }
 
@@ -68,6 +95,7 @@ export async function appendEmailEvent(
       metadata: normalizedInput.metadata ?? {},
       schemaVersion: 1,
       immutable: true,
+      payloadHash,
       receivedAt: options.now ? options.now() : FieldValue.serverTimestamp(),
     })
     return true
