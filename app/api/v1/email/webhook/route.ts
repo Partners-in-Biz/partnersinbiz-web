@@ -413,6 +413,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       } })
     } catch (err) {
       console.error('[email/webhook] failed to bump campaign stat', campaignId, campaignStatField, err)
+      throw err
     }
   }
 
@@ -426,6 +427,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       } })
     } catch (err) {
       console.error('[email/webhook] failed to bump broadcast stat', broadcastId, campaignStatField, err)
+      throw err
     }
   }
 
@@ -462,9 +464,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       console.error('[email/webhook] failed to bump variant stat', {
         broadcastId, sequenceId, sequenceStep, variantId, variantStatField, err,
       })
+      throw err
     }
   }
 
-  if (ledgerEventId && projectionLeaseToken) await completeEmailEventProjection(ledgerEventId, projectionLeaseToken)
+  if (ledgerEventId && projectionLeaseToken) {
+    const completed = await completeEmailEventProjection(ledgerEventId, projectionLeaseToken)
+    if (!completed) throw new Error(`Email event projection lease lost for ${ledgerEventId}`)
+  }
   return NextResponse.json({ ok: true, ...(ledgerEventId ? { eventId: ledgerEventId } : {}) })
 }

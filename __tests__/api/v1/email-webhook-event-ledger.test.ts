@@ -4,6 +4,7 @@ const appendEmailEvent = jest.fn()
 const claimEmailEventProjection = jest.fn()
 const completeEmailEventProjection = jest.fn()
 const appendConsentEvent = jest.fn()
+const applyFirestoreProjectionEffect = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: {
@@ -44,7 +45,7 @@ jest.mock('@/lib/email/bounceTracking', () => ({
   SOFT_BOUNCE_ESCALATION_THRESHOLD: 3,
 }))
 jest.mock('@/lib/ab-testing/cronHelpers', () => ({ incrementVariantStat: jest.fn() }))
-jest.mock('@/lib/email-events/effects', () => ({ applyFirestoreProjectionEffect: jest.fn().mockResolvedValue(true), applyVariantProjectionEffect: jest.fn().mockResolvedValue(true) }))
+jest.mock('@/lib/email-events/effects', () => ({ applyFirestoreProjectionEffect: (...args: unknown[]) => applyFirestoreProjectionEffect(...args), applyVariantProjectionEffect: jest.fn().mockResolvedValue(true) }))
 
 import { NextRequest } from 'next/server'
 import { POST } from '@/app/api/v1/email/webhook/route'
@@ -57,6 +58,18 @@ describe('Resend email event ledger integration', () => {
     delete process.env.VERCEL_ENV
     claimEmailEventProjection.mockResolvedValue('lease-1')
     completeEmailEventProjection.mockResolvedValue(true)
+    applyFirestoreProjectionEffect.mockResolvedValue(true)
+  })
+
+  it('does not complete projection when a required counter effect fails', async () => {
+    appendEmailEvent.mockResolvedValue({ id: 'evt-fail', created: true })
+    claimEmailEventProjection.mockResolvedValue('lease-fail')
+    applyFirestoreProjectionEffect.mockRejectedValue(new Error('transaction failed'))
+    await expect(POST(new NextRequest('http://localhost/api/v1/email/webhook', {
+      method: 'POST', headers: { 'content-type': 'application/json', 'svix-id': 'svix-fail' },
+      body: JSON.stringify({ type: 'email.delivered', data: { email_id: 'provider-1' } }),
+    }))).rejects.toThrow('transaction failed')
+    expect(completeEmailEventProjection).not.toHaveBeenCalled()
   })
 
   it('returns replay success without mutating projections for a duplicate provider event', async () => {
