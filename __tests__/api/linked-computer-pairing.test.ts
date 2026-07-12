@@ -202,6 +202,17 @@ describe('linked computer device authentication', () => {
     expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1)
   })
 
+  it('retains a maximum-future-skew request nonce for a full window after its signed timestamp', async () => {
+    const { db, rows, base, m } = authFixture()
+    const futureTimestamp = String(nowMs + 5 * 60 * 1000)
+    const future = { ...base, timestamp: futureTimestamp, requestId: 'future-request-1234', signature: '' }
+    future.signature = sign(null, Buffer.from(deviceRequestPayload(future)), m.privateKey).toString('base64url')
+    await authenticateDeviceRequest(future, { db, nowMs: () => nowMs })
+    const nonceKey = [...rows.keys()].find((key) => key.startsWith('linked_device_request_nonces/'))
+    const expiresAt = rows.get(nonceKey!)?.expiresAt as { toMillis: () => number }
+    expect(expiresAt.toMillis()).toBeGreaterThanOrEqual(Number(futureTimestamp) + 5 * 60 * 1000)
+  })
+
   it('rejects a wrong credential', async () => {
     const { db, base } = authFixture()
     await expect(authenticateDeviceRequest({ ...base, credential: 'wrong' }, { db, nowMs: () => nowMs })).rejects.toThrow('authentication failed')
