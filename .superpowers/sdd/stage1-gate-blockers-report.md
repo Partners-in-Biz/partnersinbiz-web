@@ -65,3 +65,29 @@ Result: exit 0, no diagnostics.
 - The repair changes types/narrowing only; it does not alter Workspace selection, project context, task linking, approval behavior, or reconciliation behavior.
 - Existing project-chat changes remain uncommitted work owned by the concurrent shared-tree task and were not staged in the email fix commit.
 - The UnifiedChat failure was not reproducible on the inspected tree. Its focused regression and the combined focused run are green, but this repair intentionally claims verification rather than authorship of the concurrent project-chat fix.
+
+## Reviewer follow-up: dynamic route context validation
+
+The reviewer correctly identified that the original use-site assertion still trusted `context.params` without runtime proof.
+
+RED regression:
+
+```text
+npm test -- --runInBand __tests__/api/v1/email-marketing/replies.test.ts
+```
+
+The new malformed-context test failed as intended: `correctReplyClassification` received `undefined` instead of the required empty-ID fallback.
+
+The route now uses structural `isRecord` and `isPromiseLike` guards, awaits only a validated thenable, validates the resolved object and string ID, and otherwise returns `''`. There is no unchecked route-parameter assertion.
+
+GREEN evidence:
+
+- Focused reply route suite: 1 suite passed, 5 tests passed.
+- Raised-heap typecheck: exit 0, no diagnostics.
+- Scoped diff check for the route and regression test: exit 0, no diagnostics.
+
+Follow-up commit:
+
+- `ea24bf4f008d8cd728baa90e5dc3f693b418089d` - `fix(email): validate dynamic route context`
+
+Self-review: malformed, absent, non-thenable, non-object resolved values, and resolved objects without a string `id` all retain the empty-ID fallback. Valid Next.js promised params preserve the existing route behavior.
