@@ -13,6 +13,7 @@ export interface PullWorkspaceOptions {
   localCoworkRoot: string
   remoteCoworkRoot: string
   remoteAgentRoot: string
+  skipAgentDomain: boolean
 }
 
 function requiredValue(argv: string[], index: number, flag: string): string {
@@ -55,6 +56,7 @@ export function parsePullWorkspaceArgs(argv: string[]): PullWorkspaceOptions {
   let host = process.env.HERMES_VPS_HOST?.trim() || 'hermes-api.partnersinbiz.online'
   let apply = false
   let planOnly = false
+  let skipAgentDomain = false
   let localCoworkRoot = process.env.COWORK_ROOT?.trim() || path.join(homedir(), 'Cowork')
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -66,6 +68,7 @@ export function parsePullWorkspaceArgs(argv: string[]): PullWorkspaceOptions {
     else if (arg === '--apply') apply = true
     else if (arg === '--dry-run') apply = false
     else if (arg === '--plan') planOnly = true
+    else if (arg === '--skip-agent-domain') skipAgentDomain = true
     else if (arg === '--help' || arg === '-h') {
       throw new Error('HELP')
     } else {
@@ -86,6 +89,7 @@ export function parsePullWorkspaceArgs(argv: string[]): PullWorkspaceOptions {
     localCoworkRoot: path.resolve(localCoworkRoot),
     remoteCoworkRoot: '/var/lib/hermes/Cowork',
     remoteAgentRoot: '/var/lib/hermes/cowork-wiki/agents',
+    skipAgentDomain,
   }
 }
 
@@ -111,7 +115,7 @@ export function buildPullCommands(options: PullWorkspaceOptions): string[][] {
   const agentDestination = path.join(options.localCoworkRoot, 'Cowork', 'agents', options.agentDomain, path.sep)
   return [
     ['rsync', ...common, workspaceSource, workspaceDestination],
-    ['rsync', ...common, agentSource, agentDestination],
+    ...(!options.skipAgentDomain ? [['rsync', ...common, agentSource, agentDestination]] : []),
   ]
 }
 
@@ -125,6 +129,7 @@ function usage(): string {
     '  --local-root <path>    Local Cowork root (default: ~/Cowork)',
     '  --dry-run              Preview rsync changes (default)',
     '  --plan                 Print the safe command plan without connecting',
+    '  --skip-agent-domain    Pull only the Workspace; preserve the existing local Obsidian domain',
     '  --apply                Pull from canonical VPS; backups replaceable local files',
     '',
     'The command never uses --delete and never pushes local files to the VPS.',
@@ -157,7 +162,9 @@ export function runPullWorkspace(argv: string[]): number {
   }
 
   mkdirSync(path.join(options.localCoworkRoot, options.workspaceName), { recursive: true })
-  mkdirSync(path.join(options.localCoworkRoot, 'Cowork', 'agents', options.agentDomain), { recursive: true })
+  if (!options.skipAgentDomain) {
+    mkdirSync(path.join(options.localCoworkRoot, 'Cowork', 'agents', options.agentDomain), { recursive: true })
+  }
   for (const [command, ...args] of commands) {
     const result = spawnSync(command, args, { stdio: 'inherit' })
     if (result.error) {

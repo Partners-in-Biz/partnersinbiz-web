@@ -21,8 +21,10 @@ import { slugify } from '@/lib/organizations/helpers'
 export interface CliFlags {
   dryRun: boolean
   orgId?: string
+  workspaceDomain?: string
   limit?: number
   skipVps: boolean
+  includePlatform: boolean
 }
 
 export interface CrmWorkspaceLinks {
@@ -53,14 +55,20 @@ function isActiveClientOrg(orgId: string, org: Record<string, unknown>, platform
 }
 
 export function parseFlags(argv: string[]): CliFlags {
-  const flags: CliFlags = { dryRun: true, skipVps: false }
+  const flags: CliFlags = { dryRun: true, skipVps: false, includePlatform: false }
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
     if (arg === '--commit' || arg === '--apply') flags.dryRun = false
     else if (arg === '--dry-run') flags.dryRun = true
     else if (arg === '--org-id') flags.orgId = argv[++i]
+    else if (arg === '--workspace-domain') flags.workspaceDomain = argv[++i]
+    else if (arg === '--include-platform') flags.includePlatform = true
     else if (arg === '--limit') flags.limit = Number.parseInt(argv[++i] ?? '', 10)
     else if (arg === '--skip-vps') flags.skipVps = true
+  }
+  if (flags.workspaceDomain && !flags.orgId) throw new Error('--workspace-domain requires --org-id')
+  if (flags.workspaceDomain && !/^[a-z0-9][a-z0-9-]{0,62}$/.test(flags.workspaceDomain)) {
+    throw new Error('--workspace-domain must be a lowercase slug')
   }
   return flags
 }
@@ -217,10 +225,11 @@ export async function run(flags: CliFlags): Promise<ClientWorkspaceBackfillRow[]
   for (const orgDoc of orgDocs) {
     const orgId = orgDoc.id
     const org = orgDoc.data() ?? {}
-    if (!isActiveClientOrg(orgId, org, platformOrgId)) continue
+    const isPlatformOrg = orgId === platformOrgId
+    if (!isActiveClientOrg(orgId, org, platformOrgId) && !(flags.includePlatform && isPlatformOrg)) continue
 
     const orgName = cleanString(org.name) || cleanString(org.displayName) || orgId
-    const orgSlug = cleanString(org.slug) || slugify(orgName)
+    const orgSlug = flags.workspaceDomain || cleanString(org.slug) || slugify(orgName)
     if (!orgSlug) {
       rows.push({
         orgId,
@@ -238,7 +247,9 @@ export async function run(flags: CliFlags): Promise<ClientWorkspaceBackfillRow[]
 
     const workspaceDoc = await db.collection(ORG_WORKSPACES_COLLECTION).doc(orgSlug).get()
     const classification = classifyWorkspaceBackfill({ org, workspaceDocExists: workspaceDoc.exists, expectedWorkspaceId: orgSlug })
-    const links = await resolveCrmWorkspaceLinks(db, platformOrgId, orgId)
+    const links = isPlatformOrg
+      ? { companyId: null, contactIds: [] }
+      : await resolveCrmWorkspaceLinks(db, platformOrgId, orgId)
     const rowBase = {
       orgId,
       orgName,
@@ -250,6 +261,10 @@ export async function run(flags: CliFlags): Promise<ClientWorkspaceBackfillRow[]
 
     if (classification.action === 'skip') {
       rows.push({ ...rowBase, action: 'skip', wouldCallVps: false, reason: classification.reason })
+      continue
+    }
+    if (classification.action === 'review_required') {
+      rows.push({ ...rowBase, action: 'review_required', wouldCallVps: false, reason: classification.reason })
       continue
     }
 

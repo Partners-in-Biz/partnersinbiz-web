@@ -18,7 +18,7 @@ export type OrgWorkspaceManifest = {
   sourceOfTruth: 'vps'
   syncMode: 'git-private-repo' | 'vps-only' | 'hybrid'
   defaultRuntimeTarget: 'vps'
-  folderVersion: 1
+  folderVersion: number
   folders: string[]
   linked: {
     companyId: string | null
@@ -43,7 +43,7 @@ export type OrgWorkspaceRecord = {
   syncMode: OrgWorkspaceManifest['syncMode']
   defaultRuntimeTarget: 'vps'
   status: 'active' | 'archived' | 'needs_repair'
-  folderVersion: 1
+  folderVersion: number
   manifest: OrgWorkspaceManifest
   companyId: string | null
   contactIds: string[]

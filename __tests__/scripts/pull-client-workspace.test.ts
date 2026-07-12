@@ -46,6 +46,17 @@ describe('pull-client-workspace', () => {
     expect(command).not.toContain('--delete')
   })
 
+  it('can pull only the Workspace when the local Obsidian domain is already authoritative', () => {
+    const options = parsePullWorkspaceArgs([
+      '--workspace', 'Partners in Biz',
+      '--agent-domain', 'partners',
+      '--local-root', '/tmp/Cowork',
+      '--skip-agent-domain',
+    ])
+    expect(options.skipAgentDomain).toBe(true)
+    expect(buildPullCommands(options)).toHaveLength(1)
+  })
+
   it('rejects traversal and unsafe host input', () => {
     expect(() => validateWorkspaceName('../Client')).toThrow('single safe folder name')
     expect(() => parsePullWorkspaceArgs(['--workspace', 'Acme', '--host', 'host;rm'])).toThrow('Host')

@@ -65,8 +65,9 @@ const VPS_COWORK_ROOT = '/var/lib/hermes/Cowork'
 const VPS_OBSIDIAN_ROOT = `${VPS_COWORK_ROOT}/Cowork`
 const LOCAL_COWORK_ROOT = '~/Cowork'
 const LOCAL_OBSIDIAN_ROOT = `${LOCAL_COWORK_ROOT}/Cowork`
-const WORKSPACE_FOLDER_VERSION = 1
+const WORKSPACE_FOLDER_VERSION = 2
 const DEFAULT_WORKSPACE_FOLDERS = [
+  'projects',
   'docs',
   'briefs',
   'assets',
