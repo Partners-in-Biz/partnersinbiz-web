@@ -14,6 +14,7 @@ const mockListMessages = jest.fn()
 const mockTouchConversation = jest.fn()
 const mockMessagesCollection = jest.fn()
 const mockCreateHermesRun = jest.fn()
+const mockResolveAuthorizedWorkingDirectory = jest.fn()
 const mockGetAgentDispatchHermesProfileLink = jest.fn()
 const mockCallAgentPath = jest.fn()
 
@@ -40,6 +41,10 @@ jest.mock('@/lib/conversations/conversations', () => ({
 
 jest.mock('@/lib/hermes/server', () => ({
   createHermesRun: mockCreateHermesRun,
+}))
+
+jest.mock('@/lib/client-provisioning/working-directory', () => ({
+  resolveAuthorizedWorkingDirectory: mockResolveAuthorizedWorkingDirectory,
 }))
 
 jest.mock('@/lib/agents/team', () => ({
@@ -164,6 +169,11 @@ beforeEach(() => {
     response: { ok: true },
     data: { run_id: 'run-1' },
     runDocId: 'run-doc-1',
+  })
+  mockResolveAuthorizedWorkingDirectory.mockResolvedValue({
+    ok: true,
+    directory: '/Users/peetstander/Cowork/Partners in Biz/projects/website',
+    pathClass: 'project',
   })
 })
 
@@ -316,9 +326,63 @@ describe('unified conversation message routing', () => {
     const res = await POST(req(), { params: Promise.resolve({ convId: 'conv-1' }) })
 
     expect(res.status).toBe(201)
+    expect(mockResolveAuthorizedWorkingDirectory).toHaveBeenCalledWith({
+      workspaceContext: expect.objectContaining({ projectId: 'website', runtimeTarget: 'local' }),
+    })
     expect(mockCreateHermesRun.mock.calls[0][2]).toEqual(expect.objectContaining({
       working_directory: '/Users/peetstander/Cowork/Partners in Biz/projects/website',
     }))
+  })
+
+  it('stores a typed safe failure when workspace directory authorization fails', async () => {
+    const update = jest.fn().mockResolvedValue(undefined)
+    mockMessagesCollection.mockReturnValue({ doc: () => ({ update }) })
+    mockResolveAuthorizedWorkingDirectory.mockResolvedValue({
+      ok: false,
+      code: 'workspace_directory_outside_root',
+    })
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'pib-platform-owner',
+      participantUids: ['client-1'],
+      participantAgentIds: ['pip'],
+      participants: [
+        { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
+        { kind: 'agent', agentId: 'pip', name: 'Pip' },
+      ],
+      workspaceContext: {
+        runtimeTarget: 'local',
+        runtimeLabel: 'Local',
+        workspaceId: 'partners',
+        localPath: '/authorized/root',
+        localWorkingPath: '/secret/path',
+        vpsPath: '/authorized/root',
+        vpsWorkingPath: '/secret/path',
+        orgId: 'pib-platform-owner',
+        orgSlug: 'partners',
+        orgName: 'Partners in Biz',
+        agentDomain: 'partners',
+        agentDomainPath: '/agents/partners',
+        localAgentDomainPath: '/agents/partners',
+        sourceOfTruth: 'vps',
+        shareMode: 'private',
+        ownerUserId: 'client-1',
+        companyId: null,
+        contactIds: [],
+      },
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    const res = await POST(req(), { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockCreateHermesRun).not.toHaveBeenCalled()
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'failed',
+      error: 'The selected workspace directory is unavailable or not authorized.',
+      workspaceDispatchFailureCode: 'workspace_directory_outside_root',
+    }))
+    expect(JSON.stringify(await readJson(res))).not.toContain('/secret/path')
   })
 
   it('includes the CEO data-first dashboard rule in every agent prompt', async () => {

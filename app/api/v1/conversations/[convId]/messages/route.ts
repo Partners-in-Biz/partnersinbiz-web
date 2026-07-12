@@ -34,6 +34,7 @@ import { buildAgentSkillsPromptBlock } from '@/lib/chat/agent-skills'
 import { CEO_APPROVAL_CARD_RULE_LINES, buildCeoDataDecisionOperatingRuleLines } from '@/lib/agent/ceo-operating-rule'
 import { validateMessageModelSelection } from '@/lib/messages/model-catalog'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
+import { resolveAuthorizedWorkingDirectory } from '@/lib/client-provisioning/working-directory'
 import type { ApiUser } from '@/lib/api/types'
 import { canAccessConversation, canReplyConversation, publicConversationMessageView } from '@/lib/conversations/access'
 import type { AgentTeamDoc } from '@/lib/agents/types'
@@ -448,9 +449,31 @@ export const POST = withAuth(
         ? `\n\n[Attachments]\n${attachments.map((attachment) => `- ${attachment.name}: ${attachment.url} (${attachment.contentType}, ${attachment.sizeBytes} bytes)`).join('\n')}`
         : ''
       const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + agentSkillsContext + decisionDataRuleContext + attachedContext + conversationHistory + commandContext + content + attachmentContext
-      const selectedWorkingDirectory = conversation.workspaceContext?.runtimeTarget === 'local'
-        ? conversation.workspaceContext.localWorkingPath
-        : conversation.workspaceContext?.vpsWorkingPath
+      let selectedWorkingDirectory: string | undefined
+      if (conversation.workspaceContext) {
+        const workingDirectory = await resolveAuthorizedWorkingDirectory({
+          workspaceContext: conversation.workspaceContext,
+        })
+        if (!workingDirectory.ok) {
+          const error = 'The selected workspace directory is unavailable or not authorized.'
+          await messagesCollection(convId).doc(assistantMessage.id).update({
+            content: '',
+            status: 'failed',
+            error,
+            workspaceDispatchFailureCode: workingDirectory.code,
+          })
+          return apiSuccess({
+            message,
+            assistantMessage: {
+              ...assistantMessage,
+              status: 'failed',
+              error,
+              workspaceDispatchFailureCode: workingDirectory.code,
+            },
+          }, 201)
+        }
+        selectedWorkingDirectory = workingDirectory.directory
+      }
 
       // Dispatch Hermes run
       const runResult = await createHermesRun(agentLink, user.uid, {
