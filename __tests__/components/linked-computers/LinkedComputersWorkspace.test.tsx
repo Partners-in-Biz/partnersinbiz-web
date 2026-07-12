@@ -35,6 +35,28 @@ describe('LinkedComputersWorkspace', () => {
     expect(card).not.toHaveTextContent(/\/var\/|~\/|token|credential|endpoint/i)
   })
 
+  it('traps and restores focus while dialogs and action menus support Escape dismissal', async () => {
+    render(<LinkedComputersWorkspace />)
+    await screen.findByText('Studio Mac')
+    const pairTrigger = screen.getByRole('button', { name: 'Pair a computer' })
+    pairTrigger.focus()
+    fireEvent.click(pairTrigger)
+    const pairDialog = screen.getByRole('dialog', { name: 'Pair a computer' })
+    expect(pairDialog).toContainElement(document.activeElement as HTMLElement)
+    fireEvent.keyDown(pairDialog, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: 'Pair a computer' })).not.toBeInTheDocument()
+    expect(pairTrigger).toHaveFocus()
+
+    const more = screen.getByRole('button', { name: 'More actions for Studio Mac' })
+    more.focus()
+    fireEvent.click(more)
+    const menu = screen.getByRole('menu', { name: 'Actions for Studio Mac' })
+    expect(within(menu).getAllByRole('menuitem')).toHaveLength(4)
+    fireEvent.keyDown(menu, { key: 'Escape' })
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(more).toHaveFocus()
+  })
+
   it('pairs, names, grants, maps, rotates, pauses, revokes, and removes through safe lifecycle APIs', async () => {
     const fetchMock = global.fetch as jest.Mock
     render(<LinkedComputersWorkspace />)
@@ -44,6 +66,7 @@ describe('LinkedComputersWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create pairing code' }))
     expect(await screen.findByText('PAIR-123')).toBeInTheDocument()
     expect(screen.getByText(/expires in 10 minutes/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
 
     fireEvent.click(screen.getByRole('button', { name: 'Rename Studio Mac' }))
     fireEvent.change(screen.getByLabelText('Computer name'), { target: { value: 'Office Mac' } })
@@ -58,7 +81,7 @@ describe('LinkedComputersWorkspace', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'More actions for Studio Mac' }))
     for (const label of ['Rotate credential', 'Pause computer', 'Revoke computer', 'Remove computer']) {
-      fireEvent.click(screen.getByRole('button', { name: label }))
+      fireEvent.click(screen.getByRole('menuitem', { name: label }))
       if (label === 'Remove computer') fireEvent.click(screen.getByRole('button', { name: 'Confirm remove' }))
     }
 
