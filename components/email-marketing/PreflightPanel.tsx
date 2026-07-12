@@ -14,16 +14,16 @@ export function PreflightPanel({ result }: { result: EmailPreflightResult }) {
             {errors ? `${errors} blocking` : 'Ready to review'}{warnings ? ` · ${warnings} warnings` : ''}
           </p>
         </div>
-        <span className={[
+        <span aria-label={`Preflight score ${result.score} out of 100`} className={[
           'text-sm font-semibold tabular-nums',
           errors ? 'text-rose-300' : warnings ? 'text-amber-300' : 'text-emerald-300',
-        ].join(' ')}>{result.score}</span>
+        ].join(' ')}>{result.score}<span className="sr-only"> out of 100</span></span>
       </div>
       {result.issues.length > 0 && (
         <ul className="max-h-56 space-y-2 overflow-y-auto">
           {result.issues.map((issue, index) => (
             <li key={`${issue.code}-${issue.blockId ?? index}`} className="flex items-start gap-2 text-xs text-[var(--color-pib-text-muted)]">
-              <span className={[
+              <span aria-hidden="true" className={[
                 'mt-1 h-1.5 w-1.5 shrink-0 rounded-full',
                 issue.severity === 'error' ? 'bg-rose-400' : issue.severity === 'warning' ? 'bg-amber-400' : 'bg-sky-400',
               ].join(' ')} />
@@ -32,6 +32,9 @@ export function PreflightPanel({ result }: { result: EmailPreflightResult }) {
           ))}
         </ul>
       )}
+      <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
+        Preflight checks campaign content and configured delivery records. It does not predict inbox placement.
+      </p>
     </div>
   )
 }

@@ -1,5 +1,16 @@
 import { render, screen } from '@testing-library/react'
 import { MarketingStudioDashboard } from '@/components/email-marketing/MarketingStudioDashboard'
+import { MarketingStudioEntry } from '@/components/email-marketing/MarketingStudioEntry'
+
+jest.mock('@/components/portal/FeatureFlagsProvider', () => ({
+  useFeatureFlag: jest.fn(),
+  useFeatureFlags: jest.fn(),
+}))
+
+import { useFeatureFlag, useFeatureFlags } from '@/components/portal/FeatureFlagsProvider'
+
+const mockUseFeatureFlag = useFeatureFlag as jest.MockedFunction<typeof useFeatureFlag>
+const mockUseFeatureFlags = useFeatureFlags as jest.MockedFunction<typeof useFeatureFlags>
 
 const scope = {
   orgId: 'client-org',
@@ -53,5 +64,28 @@ describe('MarketingStudioDashboard', () => {
 
     expect(screen.queryByText(/revenue/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/qualified leads/i)).not.toBeInTheDocument()
+  })
+
+  it('keeps the legacy marketing hub while the organisation V2 flag is off', () => {
+    mockUseFeatureFlag.mockReturnValue(false)
+    mockUseFeatureFlags.mockReturnValue({ flags: {} as never, loading: false })
+
+    render(<MarketingStudioEntry scope={scope} />)
+
+    expect(screen.getByRole('heading', { name: 'Marketing' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Marketing Studio' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Campaigns See content campaigns/ })).toHaveAttribute(
+      'href',
+      expect.stringContaining('sourceCompanyId=company-1'),
+    )
+  })
+
+  it('shows Marketing Studio only for opted-in organisations', () => {
+    mockUseFeatureFlag.mockReturnValue(true)
+    mockUseFeatureFlags.mockReturnValue({ flags: {} as never, loading: false })
+
+    render(<MarketingStudioEntry scope={scope} />)
+
+    expect(screen.getByRole('heading', { name: 'Marketing Studio' })).toBeInTheDocument()
   })
 })

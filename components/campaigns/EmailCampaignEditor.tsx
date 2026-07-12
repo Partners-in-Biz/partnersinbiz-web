@@ -43,6 +43,7 @@ import {
 import { CampaignReviewPanel } from '@/components/campaigns/CampaignReviewPanel'
 import { MergeFieldBrowser } from '@/components/email-marketing/MergeFieldBrowser'
 import { PreflightPanel } from '@/components/email-marketing/PreflightPanel'
+import { SenderPolicyEditor } from '@/components/email-marketing/SenderPolicyEditor'
 import { runEmailPreflight } from '@/lib/email-marketing/preflight'
 
 const BLOCK_TYPES: BlockType[] = ['hero', 'heading', 'paragraph', 'button', 'image', 'divider', 'spacer', 'columns', 'footer']
@@ -73,6 +74,8 @@ interface CampaignSeed {
   scheduledAtIso: string | null
   postalAddress: string
   hasVerifiedDomain: boolean
+  senderPolicyId: string
+  replyPolicyId: string
 }
 
 interface Props {
@@ -180,6 +183,7 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
   const [statusMsg, setStatusMsg] = useState<string | null>(null)
   const [status, setStatus] = useState(campaign.status)
   const [scheduledAtIso, setScheduledAtIso] = useState<string | null>(campaign.scheduledAtIso)
+  const [senderPolicyId, setSenderPolicyId] = useState(campaign.senderPolicyId)
 
   const [testOpen, setTestOpen] = useState(false)
   const [reviewOpen, setReviewOpen] = useState(false)
@@ -287,6 +291,7 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
           subject,
           previewText,
           emailDocument: liveDoc,
+          senderPolicyId,
         }),
       })
       const body = await res.json().catch(() => null)
@@ -379,6 +384,15 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
           </div>
 
           <div className="pib-card">
+            <SenderPolicyEditor
+              orgId={campaign.orgId}
+              value={senderPolicyId}
+              onChange={setSenderPolicyId}
+              disabled={readOnly}
+            />
+          </div>
+
+          <div className="pib-card">
             <MergeFieldBrowser
               fallbacks={doc.mergeTagFallbacks ?? {}}
               onFallbackChange={updateFallback}
@@ -428,7 +442,7 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
               <span className="text-xs text-[var(--color-pib-text-muted)]">Preview:</span>
               <button onClick={() => setPreviewMode('desktop')} className={`text-xs px-2 py-1 rounded ${previewMode === 'desktop' ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]' : 'text-[var(--color-pib-text-muted)]'}`}>Desktop</button>
               <button onClick={() => setPreviewMode('mobile')} className={`text-xs px-2 py-1 rounded ${previewMode === 'mobile' ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]' : 'text-[var(--color-pib-text-muted)]'}`}>Mobile</button>
-              <button onClick={() => setPreviewMode('inbox')} className={`text-xs px-2 py-1 rounded ${previewMode === 'inbox' ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]' : 'text-[var(--color-pib-text-muted)]'}`}>Inbox preview</button>
+              <button onClick={() => setPreviewMode('inbox')} className={`text-xs px-2 py-1 rounded ${previewMode === 'inbox' ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]' : 'text-[var(--color-pib-text-muted)]'}`}>Client compatibility</button>
             </div>
             {previewMode === 'inbox' ? (
               <InboxPreview campaignId={campaign.id} doc={liveDoc} />
@@ -597,6 +611,9 @@ function InboxPreview({ campaignId, doc }: { campaignId: string; doc: EmailDocum
 
   return (
     <div className="bg-zinc-950/40">
+      <p className="border-b border-[var(--color-pib-line)] px-4 py-2 text-xs text-[var(--color-pib-text-muted)]">
+        Code-based compatibility previews highlight known client constraints. They are not screenshots and cannot promise inbox placement.
+      </p>
       <div className="flex flex-wrap items-center gap-1 border-b border-[var(--color-pib-line)] px-4 py-2">
         {renders.map((r) => (
           <button

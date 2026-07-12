@@ -30,6 +30,7 @@ export const KNOWN_FEATURE_FLAGS: Array<{ key: string; label: string; descriptio
   { key: 'adsManager', label: 'Ads manager', description: 'Paid advertising campaigns across Meta, Google, LinkedIn, TikTok.' },
   { key: 'seoSprints', label: 'SEO sprints', description: '90-day SEO sprint manager and audits.' },
   { key: 'emailOutreach', label: 'Email & SMS outreach', description: 'Sequences, broadcasts, drip campaigns.' },
+  { key: 'emailMarketingStudioV2', label: 'Marketing Studio V2', description: 'Opt this organisation into the unified email Marketing Studio.' },
   { key: 'analyticsPro', label: 'Analytics pro', description: 'Advanced product analytics, funnels, cohorts.' },
   { key: 'agentAccess', label: 'Agent access', description: 'Hermes AI agent access for this workspace.' },
   { key: 'whatsappChannel', label: 'WhatsApp channel', description: 'WhatsApp omnichannel messaging.' },

@@ -1,4 +1,4 @@
-import { MarketingStudioDashboard } from '@/components/email-marketing/MarketingStudioDashboard'
+import { MarketingStudioEntry } from '@/components/email-marketing/MarketingStudioEntry'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,7 +17,7 @@ export default async function PortalMarketingPage({
   const params = await searchParams
 
   return (
-    <MarketingStudioDashboard
+    <MarketingStudioEntry
       scope={{
         orgId: params?.orgId,
         orgSlug: params?.orgSlug,
