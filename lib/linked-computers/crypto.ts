@@ -35,8 +35,8 @@ interface Options {
   randomSecret?: () => string
 }
 
-function required(value: string, field: string): string {
-  const clean = value.trim()
+function required(value: unknown, field: string): string {
+  const clean = typeof value === 'string' ? value.trim() : ''
   if (!clean) throw new Error(`linked computers: ${field} is required`)
   return clean
 }
@@ -108,15 +108,15 @@ export async function exchangePairing(
 ): Promise<{ deviceId: string; credential: string; credentialVersion: number }> {
   const db = options.db ?? (adminDb as unknown as LinkedComputerPairingDb)
   const challengeId = required(input.challengeId, 'challengeId')
-  const deviceId = required(input.deviceId, 'deviceId')
-  const publicKey = required(input.publicKey, 'publicKey')
-  if (!['macos', 'windows'].includes(input.platform)) throw new Error('linked computers: invalid platform')
-  if (!['arm64', 'x64'].includes(input.architecture)) throw new Error('linked computers: invalid architecture')
-  if (publicKey.length > 8_192) throw new Error('linked computers: invalid publicKey')
-  if (input.proof.length > 2_048) throw new Error('linked computers: invalid pairing proof')
+  const deviceId = typeof input.deviceId === 'string' ? input.deviceId.trim() : ''
+  const deviceIdValid = /^[A-Za-z0-9_-]{1,128}$/.test(deviceId)
+  const publicKey = typeof input.publicKey === 'string' ? input.publicKey.trim() : ''
   const credential = options.randomSecret?.() ?? randomBytes(32).toString('base64url')
 
-  return db.runTransaction(async (tx) => {
+  const result = await db.runTransaction(async (tx): Promise<
+    | { ok: true; deviceId: string; credential: string; credentialVersion: number }
+    | { ok: false }
+  > => {
     const challengeRef = db.collection(CHALLENGES).doc(challengeId)
     const challengeSnap = await tx.get(challengeRef)
     if (!challengeSnap.exists) throw new Error('linked computers: pairing challenge not found')
@@ -129,13 +129,26 @@ export async function exchangePairing(
     if (attempts >= Number(challenge.maxAttempts ?? MAX_ATTEMPTS)) {
       throw new Error('linked computers: pairing attempts exhausted')
     }
-    if (!constantTimeSecretMatch(input.secret, String(challenge.secretHash ?? ''))) {
-      tx.update(challengeRef, { attempts: attempts + 1 })
-      return { error: 'linked computers: invalid pairing secret' } as never
-    }
+
+    // Firestore transactions require every read to occur before the first
+    // write. Read both prospective records even when validation will fail.
+    const persistedDeviceId = deviceIdValid ? deviceId : '__invalid_device__'
+    const deviceRef = db.collection(DEVICES).doc(persistedDeviceId)
+    const credentialRef = db.collection(CREDENTIALS).doc(persistedDeviceId)
+    const deviceSnap = await tx.get(deviceRef)
+    const credentialSnap = await tx.get(credentialRef)
+    const existing = deviceSnap.data() ?? {}
+
+    const shapeValid = Boolean(deviceIdValid && publicKey && input.proof && input.label && input.runtimeVersion)
+      && ['macos', 'windows'].includes(input.platform)
+      && ['arm64', 'x64'].includes(input.architecture)
+      && publicKey.length <= 8_192
+      && input.proof.length <= 2_048
+    const secretValid = constantTimeSecretMatch(String(input.secret ?? ''), String(challenge.secretHash ?? ''))
 
     let proofValid = false
     try {
+      if (!shapeValid || !secretValid) throw new Error('invalid exchange')
       proofValid = verify(
         null,
         Buffer.from(pairingProofPayload({ challengeId, secret: input.secret, deviceId, publicKey })),
@@ -145,17 +158,12 @@ export async function exchangePairing(
     } catch {
       proofValid = false
     }
-    if (!proofValid) throw new Error('linked computers: invalid pairing proof')
-
     const ownerUserId = required(String(challenge.ownerUserId ?? ''), 'persisted ownerUserId')
-    const deviceRef = db.collection(DEVICES).doc(deviceId)
-    const deviceSnap = await tx.get(deviceRef)
-    const existing = deviceSnap.data() ?? {}
-    if (deviceSnap.exists && existing.ownerUserId !== ownerUserId) {
-      throw new Error('linked computers: device owner mismatch')
-    }
-    if (deviceSnap.exists && existing.status !== 'active') {
-      throw new Error('linked computers: active device required for re-pairing')
+    const existingDeviceValid = !deviceSnap.exists
+      || (existing.ownerUserId === ownerUserId && existing.status === 'active')
+    if (!shapeValid || !secretValid || !proofValid || !existingDeviceValid) {
+      tx.update(challengeRef, { attempts: attempts + 1 })
+      return { ok: false }
     }
     const credentialVersion = deviceSnap.exists ? Number(existing.credentialVersion ?? 0) + 1 : 1
     const at = timestamp(options)
@@ -170,12 +178,11 @@ export async function exchangePairing(
     }
     if (deviceSnap.exists) tx.update(deviceRef, device)
     else tx.create(deviceRef, device)
-    const credentialRef = db.collection(CREDENTIALS).doc(deviceId)
     const credentialRow = {
       deviceId, credentialHash: hashLinkedComputerSecret(credential), credentialVersion,
       issuedAt: at, revokedAt: null,
     }
-    if ((await tx.get(credentialRef)).exists) tx.update(credentialRef, credentialRow)
+    if (credentialSnap.exists) tx.update(credentialRef, credentialRow)
     else tx.create(credentialRef, credentialRow)
     tx.update(challengeRef, { consumedAt: at, deviceId })
     tx.create(auditRef(db), {
@@ -186,11 +193,8 @@ export async function exchangePairing(
       eventId: randomUUID(), action: 'device.paired', actorUserId: ownerUserId,
       deviceId, createdAt: at,
     })
-    return { deviceId, credential, credentialVersion }
-  }).then((result) => {
-    if ('error' in (result as unknown as Record<string, unknown>)) {
-      throw new Error(String((result as unknown as { error: string }).error))
-    }
-    return result
+    return { ok: true, deviceId, credential, credentialVersion }
   })
+  if (!result.ok) throw new Error('linked computers: pairing exchange denied')
+  return { deviceId: result.deviceId, credential: result.credential, credentialVersion: result.credentialVersion }
 }

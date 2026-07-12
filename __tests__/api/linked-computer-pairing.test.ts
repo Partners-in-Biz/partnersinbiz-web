@@ -2,35 +2,50 @@ import { generateKeyPairSync, sign } from 'node:crypto'
 import {
   createPairing,
   exchangePairing,
+  hashLinkedComputerSecret,
   type LinkedComputerPairingDb,
 } from '@/lib/linked-computers/crypto'
-import { authenticateDeviceRequest } from '@/lib/linked-computers/device-auth'
+import { authenticateDeviceRequest, deviceRequestPayload } from '@/lib/linked-computers/device-auth'
 
 type Row = Record<string, unknown>
 
 function fakeDb(seed: Record<string, Row> = {}) {
   const rows = new Map(Object.entries(seed))
   const ref = (path: string) => ({ path, id: path.split('/').at(-1)! })
-  const db = {
-    collection: jest.fn((name: string) => ({ doc: (id: string) => ref(`${name}/${id}`) })),
-    runTransaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
+  let transactionTail = Promise.resolve()
+  const runTransaction = jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
+    const previous = transactionTail
+    let release!: () => void
+    transactionTail = new Promise<void>((resolve) => { release = resolve })
+    await previous
+    try {
       const pending = new Map(rows)
+      let hasWritten = false
       const result = await fn({
-        get: async (document: { path: string }) => ({
-          exists: pending.has(document.path), data: () => pending.get(document.path),
-        }),
+        get: async (document: { path: string }) => {
+          if (hasWritten) throw new Error('firestore: reads must precede writes')
+          return { exists: pending.has(document.path), data: () => pending.get(document.path) }
+        },
         create: (document: { path: string }, value: Row) => {
+          hasWritten = true
           if (pending.has(document.path)) throw new Error('already exists')
           pending.set(document.path, value)
         },
         update: (document: { path: string }, value: Row) => {
+          hasWritten = true
           if (!pending.has(document.path)) throw new Error('missing')
           pending.set(document.path, { ...pending.get(document.path), ...value })
         },
       })
       rows.clear(); pending.forEach((value, key) => rows.set(key, value))
       return result
-    }),
+    } finally {
+      release()
+    }
+  })
+  const db = {
+    collection: jest.fn((name: string) => ({ doc: (id: string) => ref(`${name}/${id}`) })),
+    runTransaction,
   }
   return { db: db as unknown as LinkedComputerPairingDb, rows }
 }
@@ -74,13 +89,13 @@ describe('linked computer one-time pairing', () => {
       architecture: 'arm64' as const, runtimeVersion: '1.0.0' }
     await expect(exchangePairing(input, { db, now, nowMs: () => nowMs + 10 * 60 * 1000 })).rejects.toThrow('expired')
     for (let attempt = 1; attempt <= 5; attempt += 1) {
-      await expect(exchangePairing(input, { db, now, nowMs: () => nowMs + 1 })).rejects.toThrow('invalid pairing')
+      await expect(exchangePairing(input, { db, now, nowMs: () => nowMs + 1 })).rejects.toThrow('pairing exchange denied')
       expect(rows.get(`linked_device_pairing_challenges/${pairing.challengeId}`)?.attempts).toBe(attempt)
     }
     await expect(exchangePairing(input, { db, now, nowMs: () => nowMs + 1 })).rejects.toThrow('attempts exhausted')
   })
 
-  it('requires proof of the submitted machine private key and does not consume on invalid proof', async () => {
+  it('counts invalid proof and malformed payload failures without revealing which check failed', async () => {
     const { db, rows } = fakeDb()
     const pairing = await createPairing({ actorUserId: 'user-a' }, { db, now, nowMs: () => nowMs })
     const m = machine(); const attacker = machine()
@@ -88,7 +103,13 @@ describe('linked computer one-time pairing', () => {
       challengeId: pairing.challengeId, secret: pairing.secret, deviceId: 'device-a', publicKey: m.publicKey,
       proof: proof(attacker.privateKey, pairing.challengeId, pairing.secret, 'device-a', m.publicKey),
       label: 'Mac', platform: 'macos', architecture: 'arm64', runtimeVersion: '1.0.0',
-    }, { db, now, nowMs: () => nowMs + 1 })).rejects.toThrow('invalid pairing proof')
+    }, { db, now, nowMs: () => nowMs + 1 })).rejects.toThrow('pairing exchange denied')
+    expect(rows.get(`linked_device_pairing_challenges/${pairing.challengeId}`)?.attempts).toBe(1)
+    await expect(exchangePairing({
+      challengeId: pairing.challengeId, secret: pairing.secret, deviceId: 'device-a', publicKey: '', proof: '',
+      label: '', platform: 'linux' as never, architecture: 'x86' as never, runtimeVersion: '',
+    }, { db, now, nowMs: () => nowMs + 1 })).rejects.toThrow('pairing exchange denied')
+    expect(rows.get(`linked_device_pairing_challenges/${pairing.challengeId}`)?.attempts).toBe(2)
     expect(rows.get(`linked_device_pairing_challenges/${pairing.challengeId}`)).not.toHaveProperty('consumedAt')
     expect(rows.has('linked_devices/device-a')).toBe(false)
   })
@@ -110,6 +131,22 @@ describe('linked computer one-time pairing', () => {
     await expect(exchangePairing(input, { db, now, nowMs: () => nowMs + 2 })).rejects.toThrow('already consumed')
   })
 
+  it('allows exactly one winner when identical valid exchanges race', async () => {
+    const { db, rows } = fakeDb()
+    const pairing = await createPairing({ actorUserId: 'user-a' }, { db, now, nowMs: () => nowMs })
+    const m = machine()
+    const input = { challengeId: pairing.challengeId, secret: pairing.secret, deviceId: 'device-a', publicKey: m.publicKey,
+      proof: proof(m.privateKey, pairing.challengeId, pairing.secret, 'device-a', m.publicKey), label: 'Mac', platform: 'macos' as const,
+      architecture: 'arm64' as const, runtimeVersion: '1.0.0' }
+    const results = await Promise.allSettled([
+      exchangePairing(input, { db, now, nowMs: () => nowMs + 1 }),
+      exchangePairing(input, { db, now, nowMs: () => nowMs + 1 }),
+    ])
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
+    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1)
+    expect(rows.get(`linked_device_pairing_challenges/${pairing.challengeId}`)).toHaveProperty('consumedAt')
+  })
+
   it.each(['revoked', 'removed', 'paused'])('rejects %s existing-device re-pairing', async (status) => {
     const { db } = fakeDb({
       'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'user-a', status, credentialVersion: 4 },
@@ -118,7 +155,7 @@ describe('linked computer one-time pairing', () => {
     const m = machine()
     await expect(exchangePairing({ challengeId: pairing.challengeId, secret: pairing.secret, deviceId: 'device-a', publicKey: m.publicKey,
       proof: proof(m.privateKey, pairing.challengeId, pairing.secret, 'device-a', m.publicKey), label: 'Mac', platform: 'macos',
-      architecture: 'arm64', runtimeVersion: '1.0.0' }, { db, now, nowMs: () => nowMs + 1 })).rejects.toThrow('active device required')
+      architecture: 'arm64', runtimeVersion: '1.0.0' }, { db, now, nowMs: () => nowMs + 1 })).rejects.toThrow('pairing exchange denied')
   })
 
   it('denies re-pairing a device owned by another user', async () => {
@@ -127,42 +164,67 @@ describe('linked computer one-time pairing', () => {
     const m = machine()
     await expect(exchangePairing({ challengeId: pairing.challengeId, secret: pairing.secret, deviceId: 'device-a', publicKey: m.publicKey,
       proof: proof(m.privateKey, pairing.challengeId, pairing.secret, 'device-a', m.publicKey), label: 'Mac', platform: 'macos',
-      architecture: 'arm64', runtimeVersion: '1.0.0' }, { db, now, nowMs: () => nowMs + 1 })).rejects.toThrow('device owner mismatch')
+      architecture: 'arm64', runtimeVersion: '1.0.0' }, { db, now, nowMs: () => nowMs + 1 })).rejects.toThrow('pairing exchange denied')
   })
 })
 
 describe('linked computer device authentication', () => {
-  it('enforces credential, version, request timestamp/signature, and active device state', async () => {
-    const m = machine(); const timestamp = String(nowMs)
-    const credential = 'device-credential'
+  function authFixture(overrides: { status?: string; revokedAt?: unknown } = {}) {
+    const m = machine(); const credential = 'right-credential'
     const { db, rows } = fakeDb({
-      'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'user-a', status: 'active', credentialVersion: 2, publicKey: m.publicKey },
+      'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'user-a', status: overrides.status ?? 'active', credentialVersion: 3, publicKey: m.publicKey },
+      'linked_device_credentials/device-a': { deviceId: 'device-a', credentialHash: hashLinkedComputerSecret(credential), credentialVersion: 3, revokedAt: overrides.revokedAt ?? null },
     })
-    const pairing = await createPairing({ actorUserId: 'user-a' }, { db, now, nowMs: () => nowMs })
-    const fresh = machine()
-    const exchanged = await exchangePairing({ challengeId: pairing.challengeId, secret: pairing.secret, deviceId: 'device-a', publicKey: fresh.publicKey,
-      proof: proof(fresh.privateKey, pairing.challengeId, pairing.secret, 'device-a', fresh.publicKey), label: 'Mac', platform: 'macos',
-      architecture: 'arm64', runtimeVersion: '1.0.0' }, { db, now, nowMs: () => nowMs })
-    const body = '{"health":"ok"}'
-    const canonical = `POST\n/api/v1/linked-computers/device-a/heartbeat\n${timestamp}\n${body}`
-    const signature = sign(null, Buffer.from(canonical), fresh.privateKey).toString('base64url')
-    await expect(authenticateDeviceRequest({ deviceId: 'device-a', credential: exchanged.credential,
-      credentialVersion: exchanged.credentialVersion, timestamp, signature, method: 'POST',
-      path: '/api/v1/linked-computers/device-a/heartbeat', body }, { db, nowMs: () => nowMs })).resolves.toMatchObject({ ownerUserId: 'user-a' })
-    rows.set('linked_devices/device-a', { ...rows.get('linked_devices/device-a'), status: 'revoked' })
-    await expect(authenticateDeviceRequest({ deviceId: 'device-a', credential: exchanged.credential,
-      credentialVersion: exchanged.credentialVersion, timestamp, signature, method: 'POST',
-      path: '/api/v1/linked-computers/device-a/heartbeat', body }, { db, nowMs: () => nowMs })).rejects.toThrow('active device required')
+    const base = { deviceId: 'device-a', credential, credentialVersion: 3, timestamp: String(nowMs), requestId: 'request-1234567890',
+      method: 'POST', path: '/api/v1/linked-computers/device-a/heartbeat', body: '{"health":"ok"}', signature: '' }
+    base.signature = sign(null, Buffer.from(deviceRequestPayload(base)), m.privateKey).toString('base64url')
+    return { db, rows, base, m }
+  }
+
+  it('authenticates once and atomically denies an identical signed request replay', async () => {
+    const { db, rows, base } = authFixture()
+    await expect(authenticateDeviceRequest(base, { db, nowMs: () => nowMs })).resolves.toMatchObject({ ownerUserId: 'user-a' })
+    expect([...rows.keys()].filter((key) => key.startsWith('linked_device_request_nonces/'))).toHaveLength(1)
+    await expect(authenticateDeviceRequest(base, { db, nowMs: () => nowMs })).rejects.toThrow('request replay')
   })
 
-  it('rejects stale timestamps, wrong versions, credentials, and signatures', async () => {
-    const m = machine(); const credential = 'right'; const timestamp = String(nowMs)
-    const { db } = fakeDb({
-      'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'user-a', status: 'active', credentialVersion: 3, publicKey: m.publicKey },
-      'linked_device_credentials/device-a': { deviceId: 'device-a', credentialHash: 'not-right', credentialVersion: 3, revokedAt: null },
-    })
-    const base = { deviceId: 'device-a', credential, credentialVersion: 2, timestamp, signature: 'bad', method: 'GET', path: '/x', body: '' }
-    await expect(authenticateDeviceRequest(base, { db, nowMs: () => nowMs })).rejects.toThrow()
+  it('allows exactly one winner when identical device requests race', async () => {
+    const { db, base } = authFixture()
+    const results = await Promise.allSettled([
+      authenticateDeviceRequest(base, { db, nowMs: () => nowMs }),
+      authenticateDeviceRequest(base, { db, nowMs: () => nowMs }),
+    ])
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
+    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1)
+  })
+
+  it('rejects a wrong credential', async () => {
+    const { db, base } = authFixture()
+    await expect(authenticateDeviceRequest({ ...base, credential: 'wrong' }, { db, nowMs: () => nowMs })).rejects.toThrow('authentication failed')
+  })
+
+  it('rejects a wrong credential version', async () => {
+    const { db, base } = authFixture()
+    await expect(authenticateDeviceRequest({ ...base, credentialVersion: 2 }, { db, nowMs: () => nowMs })).rejects.toThrow('version mismatch')
+  })
+
+  it('rejects a stale timestamp', async () => {
+    const { db, base } = authFixture()
     await expect(authenticateDeviceRequest({ ...base, timestamp: String(nowMs - 6 * 60 * 1000) }, { db, nowMs: () => nowMs })).rejects.toThrow('stale')
+  })
+
+  it('rejects a bad signature', async () => {
+    const { db, base } = authFixture()
+    await expect(authenticateDeviceRequest({ ...base, signature: 'bad' }, { db, nowMs: () => nowMs })).rejects.toThrow('invalid device signature')
+  })
+
+  it.each(['paused', 'revoked', 'removed'])('rejects a %s device', async (status) => {
+    const { db, base } = authFixture({ status })
+    await expect(authenticateDeviceRequest(base, { db, nowMs: () => nowMs })).rejects.toThrow('active device required')
+  })
+
+  it('rejects a revoked credential', async () => {
+    const { db, base } = authFixture({ revokedAt: 'revoked' })
+    await expect(authenticateDeviceRequest(base, { db, nowMs: () => nowMs })).rejects.toThrow('credential revoked')
   })
 })

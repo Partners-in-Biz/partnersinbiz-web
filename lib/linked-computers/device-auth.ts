@@ -1,4 +1,4 @@
-import { verify } from 'node:crypto'
+import { createHash, verify } from 'node:crypto'
 import { adminDb } from '@/lib/firebase/admin'
 import {
   constantTimeSecretMatch,
@@ -12,14 +12,15 @@ interface DeviceAuthInput {
   credential: string
   credentialVersion: number
   timestamp: string
+  requestId: string
   signature: string
   method: string
   path: string
   body: string
 }
 
-export function deviceRequestPayload(input: Pick<DeviceAuthInput, 'method' | 'path' | 'timestamp' | 'body'>): string {
-  return `${input.method.toUpperCase()}\n${input.path}\n${input.timestamp}\n${input.body}`
+export function deviceRequestPayload(input: Pick<DeviceAuthInput, 'method' | 'path' | 'timestamp' | 'requestId' | 'body'>): string {
+  return `${input.method.toUpperCase()}\n${input.path}\n${input.timestamp}\n${input.requestId}\n${input.body}`
 }
 
 export async function authenticateDeviceRequest(
@@ -27,13 +28,23 @@ export async function authenticateDeviceRequest(
   options: { db?: LinkedComputerPairingDb; nowMs?: () => number } = {},
 ): Promise<{ deviceId: string; ownerUserId: string; credentialVersion: number }> {
   const db = options.db ?? (adminDb as unknown as LinkedComputerPairingDb)
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(input.deviceId)) {
+    throw new Error('linked computers: invalid deviceId')
+  }
+  const currentTime = options.nowMs?.() ?? Date.now()
   const requestTime = Number(input.timestamp)
-  if (!Number.isFinite(requestTime) || Math.abs((options.nowMs?.() ?? Date.now()) - requestTime) > MAX_CLOCK_SKEW_MS) {
+  if (!Number.isFinite(requestTime) || Math.abs(currentTime - requestTime) > MAX_CLOCK_SKEW_MS) {
     throw new Error('linked computers: stale device request timestamp')
+  }
+  if (!/^[A-Za-z0-9_-]{16,128}$/.test(input.requestId)) {
+    throw new Error('linked computers: invalid device requestId')
   }
   return db.runTransaction(async (tx) => {
     const deviceSnap = await tx.get(db.collection('linked_devices').doc(input.deviceId))
     const credentialSnap = await tx.get(db.collection('linked_device_credentials').doc(input.deviceId))
+    const nonceId = createHash('sha256').update(`${input.deviceId}\n${input.requestId}`).digest('hex')
+    const nonceRef = db.collection('linked_device_request_nonces').doc(nonceId)
+    const nonceSnap = await tx.get(nonceRef)
     if (!deviceSnap.exists || !credentialSnap.exists) throw new Error('linked computers: device authentication failed')
     const device = deviceSnap.data() ?? {}
     const storedCredential = credentialSnap.data() ?? {}
@@ -52,6 +63,12 @@ export async function authenticateDeviceRequest(
       validSignature = false
     }
     if (!validSignature) throw new Error('linked computers: invalid device signature')
+    if (nonceSnap.exists) throw new Error('linked computers: device request replay')
+    tx.create(nonceRef, {
+      deviceId: input.deviceId, requestIdHash: createHash('sha256').update(input.requestId).digest('hex'),
+      credentialVersion: input.credentialVersion, requestTimestamp: requestTime,
+      expiresAt: new Date(currentTime + MAX_CLOCK_SKEW_MS).toISOString(),
+    })
     return { deviceId: input.deviceId, ownerUserId: String(device.ownerUserId), credentialVersion: input.credentialVersion }
   })
 }
