@@ -429,11 +429,11 @@ export default function UnifiedChat({
   )
   const [workspaces, setWorkspaces] = useState<OrgWorkspaceSummary[]>([])
   const [workspaceProjects, setWorkspaceProjects] = useState<WorkspaceProjectSummary[]>([])
-  const [workspaceRuntimeTargets, setWorkspaceRuntimeTargets] = useState<WorkspaceRuntimePresence[]>([])
+  const [workspaceRuntimeTargetsByWorkspace, setWorkspaceRuntimeTargetsByWorkspace] = useState<Record<string, WorkspaceRuntimePresence[]>>({})
   const [workspacesLoading, setWorkspacesLoading] = useState(false)
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('')
   const [selectedProjectId, setSelectedProjectId] = useState(projectId ?? '')
-  const [selectedWorkspaceRuntime, setSelectedWorkspaceRuntime] = useState<'vps' | 'local'>('vps')
+  const [selectedWorkspaceRuntime, setSelectedWorkspaceRuntime] = useState<string>('vps')
   const [selectedWorkspaceShareMode, setSelectedWorkspaceShareMode] = useState<'private' | 'shared' | 'org'>('private')
   const [creatingConv, setCreatingConv] = useState(false)
 
@@ -506,6 +506,16 @@ export default function UnifiedChat({
     () => workspaces.find((workspace) => workspace.workspaceId === selectedWorkspaceId) ?? null,
     [workspaces, selectedWorkspaceId],
   )
+  const workspaceRuntimeTargets = useMemo(
+    () => workspaceRuntimeTargetsByWorkspace[selectedWorkspaceId] ?? [],
+    [workspaceRuntimeTargetsByWorkspace, selectedWorkspaceId],
+  )
+  useEffect(() => {
+    if (workspaceRuntimeTargets.length === 0) return
+    if (!workspaceRuntimeTargets.some((runtime) => runtime.id === selectedWorkspaceRuntime && runtime.selectable)) {
+      setSelectedWorkspaceRuntime(workspaceRuntimeTargets.find((runtime) => runtime.selectable)?.id ?? 'vps')
+    }
+  }, [selectedWorkspaceRuntime, workspaceRuntimeTargets])
   const activeWorkspaceContext = activeConversation?.workspaceContext
   const activeRuntimeLabel = activeWorkspaceContext?.runtimeLabel
     ?? (activeWorkspaceContext?.runtimeTarget === 'local'
@@ -583,25 +593,30 @@ export default function UnifiedChat({
         const runtimes = Array.isArray(body?.data?.runtimeTargets)
           ? (body.data.runtimeTargets as WorkspaceRuntimePresence[])
           : []
+        const runtimeTargetsByWorkspace = body?.data?.runtimeTargetsByWorkspace && typeof body.data.runtimeTargetsByWorkspace === 'object'
+          ? body.data.runtimeTargetsByWorkspace as Record<string, WorkspaceRuntimePresence[]>
+          : Object.fromEntries(next.map((workspace) => [workspace.workspaceId, runtimes]))
         const projects = Array.isArray(body?.data?.projects)
           ? (body.data.projects as WorkspaceProjectSummary[])
           : []
         setWorkspaces(next)
         setWorkspaceProjects(projects)
-        setWorkspaceRuntimeTargets(runtimes)
-        setSelectedWorkspaceId((current) => current || next[0]?.workspaceId || '')
+        setWorkspaceRuntimeTargetsByWorkspace(runtimeTargetsByWorkspace)
+        const initialWorkspaceId = next[0]?.workspaceId || ''
+        setSelectedWorkspaceId((current) => current || initialWorkspaceId)
         setSelectedProjectId((current) => current || projectId || projects[0]?.id || '')
         setSelectedWorkspaceRuntime((current) => {
-          const currentTarget = runtimes.find((runtime) => runtime.id === current)
+          const initialRuntimes = runtimeTargetsByWorkspace[initialWorkspaceId] ?? runtimes
+          const currentTarget = initialRuntimes.find((runtime) => runtime.id === current)
           if (currentTarget?.selectable) return current
-          return runtimes.some((runtime) => runtime.id === 'vps' && runtime.selectable) ? 'vps' : current
+          return initialRuntimes.find((runtime) => runtime.selectable)?.id ?? current
         })
       })
       .catch(() => {
         if (!cancelled) {
           setWorkspaces([])
           setWorkspaceProjects([])
-          setWorkspaceRuntimeTargets([])
+          setWorkspaceRuntimeTargetsByWorkspace({})
         }
       })
       .finally(() => {
@@ -3108,7 +3123,7 @@ export default function UnifiedChat({
                     </label>
                     <select
                       value={selectedWorkspaceRuntime}
-                      onChange={(e) => setSelectedWorkspaceRuntime(e.target.value as 'vps' | 'local')}
+                      onChange={(e) => setSelectedWorkspaceRuntime(e.target.value)}
                       className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface outline-none focus:border-primary/60"
                     >
                       {(workspaceRuntimeTargets.length > 0

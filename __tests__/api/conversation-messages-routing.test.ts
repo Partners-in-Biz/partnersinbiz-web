@@ -1,9 +1,13 @@
 import { NextRequest } from 'next/server'
+import { generateKeyPairSync, sign } from 'node:crypto'
 
 type MockUser = {
   uid: string
   role: 'admin' | 'client' | 'ai'
   orgId?: string
+}
+function receiptPayload(receipt: Record<string, unknown>): string {
+  return [receipt.deviceId, receipt.runtimeTargetId, receipt.credentialVersion, receipt.mappingId, receipt.runtimeVersion, receipt.acceptedAt, receipt.toolStartedAt, receipt.outcome, receipt.runId, receipt.requestId].join('\n')
 }
 type MockHandler = (req: NextRequest, user: MockUser, ctx?: unknown) => Promise<Response>
 
@@ -19,7 +23,6 @@ const mockGetAgentDispatchHermesProfileLink = jest.fn()
 const mockIsConfiguredCompatibilityRuntimeTarget = jest.fn()
 const mockGetLinkedComputerHermesProfileLink = jest.fn()
 const mockAuthorizeLinkedComputerDispatch = jest.fn()
-const mockRequireMatchingExecutionReceipt = jest.fn()
 const mockCallAgentPath = jest.fn()
 
 let mockUser: MockUser = { uid: 'client-1', role: 'client', orgId: 'pib-platform-owner' }
@@ -62,8 +65,8 @@ jest.mock('@/lib/linked-computers/transport', () => ({
 }))
 
 jest.mock('@/lib/linked-computers/runtime-targets', () => ({
+  ...jest.requireActual('@/lib/linked-computers/runtime-targets'),
   authorizeLinkedComputerDispatch: mockAuthorizeLinkedComputerDispatch,
-  requireMatchingExecutionReceipt: mockRequireMatchingExecutionReceipt,
 }))
 
 beforeEach(() => {
@@ -397,12 +400,15 @@ describe('unified conversation message routing', () => {
   })
 
   it('dispatches an authorized linked target through its private transport and validates the signed receipt', async () => {
+    const keys = generateKeyPairSync('ed25519')
     mockIsConfiguredCompatibilityRuntimeTarget.mockResolvedValue(false)
-    const binding = { kind: 'linked-computer', deviceId: 'device-a', runtimeTargetId: 'linked-device:device-a', machineLabel: 'Office Mac', mappingId: 'map-a', workspaceId: 'partners', credentialVersion: 2, runtimeVersion: '2.0.0', platform: 'macos', lastSeenAt: '2026-07-12T12:00:00.000Z', publicKey: 'public-key' }
+    const binding = { kind: 'linked-computer', deviceId: 'device-a', runtimeTargetId: 'linked-device:device-a', machineLabel: 'Office Mac', mappingId: 'map-a', workspaceId: 'partners', credentialVersion: 2, runtimeVersion: '2.0.0', platform: 'macos', lastSeenAt: new Date().toISOString(), publicKey: keys.publicKey.export({ type: 'spki', format: 'pem' }).toString() }
     mockAuthorizeLinkedComputerDispatch.mockResolvedValue(binding)
     const transportLink = { orgId: 'pib-platform-owner', profile: 'pip', baseUrl: 'https://device.example', apiKey: 'private-token', enabled: true, runtimeTargetId: binding.runtimeTargetId, runtimeKind: 'linked-computer', machineLabel: 'Office Mac', capabilities: { runs: true }, permissions: { client: true } }
     mockGetLinkedComputerHermesProfileLink.mockResolvedValue(transportLink)
-    const receipt = { deviceId: 'device-a', runtimeTargetId: binding.runtimeTargetId, credentialVersion: 2, mappingId: 'map-a', runtimeVersion: '2.0.0', acceptedAt: '2026-07-12T12:00:00.000Z', outcome: 'accepted', runId: 'run-1', requestId: 'assistant-1', signature: 'signed-receipt-value' }
+    const acceptedAt = new Date().toISOString()
+    const receipt = { deviceId: 'device-a', runtimeTargetId: binding.runtimeTargetId, credentialVersion: 2, mappingId: 'map-a', runtimeVersion: '2.0.0', acceptedAt, toolStartedAt: acceptedAt, outcome: 'accepted', runId: 'run-1', requestId: 'assistant-1', signature: '' }
+    receipt.signature = sign(null, Buffer.from(receiptPayload(receipt)), keys.privateKey).toString('base64url')
     mockCreateHermesRun.mockResolvedValue({ ok: true, status: 202, data: { runId: 'run-1' }, runDocId: 'run-doc-1', executionReceipt: receipt })
     mockGetConversation.mockResolvedValue({ id: 'conv-1', orgId: 'pib-platform-owner', participantUids: ['client-1'], participantAgentIds: ['pip'], participants: [{ kind: 'user', uid: 'client-1', role: 'client' }, { kind: 'agent', agentId: 'pip', name: 'Pip' }], workspaceContext: { runtimeTarget: binding.runtimeTargetId, runtimeLabel: 'Office Mac', workspaceId: 'partners', orgId: 'pib-platform-owner', orgSlug: 'partners', orgName: 'Partners in Biz', agentDomain: 'partners', sourceOfTruth: 'vps', shareMode: 'private', ownerUserId: 'client-1', companyId: null, contactIds: [] } })
     const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
@@ -411,7 +417,6 @@ describe('unified conversation message routing', () => {
     expect(mockGetLinkedComputerHermesProfileLink).toHaveBeenCalledWith(binding, 'pib-platform-owner', 'pip')
     expect(mockGetAgentDispatchHermesProfileLink).not.toHaveBeenCalled()
     expect(mockCreateHermesRun).toHaveBeenCalledWith(transportLink, 'client-1', expect.any(Object))
-    expect(mockRequireMatchingExecutionReceipt).toHaveBeenCalledWith(binding, receipt, { runId: 'run-1', requestId: 'assistant-1' })
   })
 
   it('fails closed when a linked runtime omits or returns an invalid signed receipt', async () => {
@@ -420,7 +425,22 @@ describe('unified conversation message routing', () => {
     mockAuthorizeLinkedComputerDispatch.mockResolvedValue(binding)
     mockGetLinkedComputerHermesProfileLink.mockResolvedValue({ orgId: 'pib-platform-owner', profile: 'pip', baseUrl: 'https://device.example', apiKey: 'private-token', enabled: true })
     mockCreateHermesRun.mockResolvedValue({ ok: true, status: 202, data: { runId: 'run-1' }, runDocId: 'run-doc-1', executionReceipt: null })
-    mockRequireMatchingExecutionReceipt.mockImplementation(() => { throw new Error('missing receipt') })
+    mockGetConversation.mockResolvedValue({ id: 'conv-1', orgId: 'pib-platform-owner', participantUids: ['client-1'], participantAgentIds: ['pip'], participants: [{ kind: 'user', uid: 'client-1', role: 'client' }, { kind: 'agent', agentId: 'pip', name: 'Pip' }], workspaceContext: { runtimeTarget: binding.runtimeTargetId, runtimeLabel: 'Office Mac', workspaceId: 'partners', orgId: 'pib-platform-owner', orgSlug: 'partners', orgName: 'Partners in Biz', agentDomain: 'partners', sourceOfTruth: 'vps', shareMode: 'private', ownerUserId: 'client-1', companyId: null, contactIds: [] } })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+    const response = await POST(req(), { params: Promise.resolve({ convId: 'conv-1' }) })
+    expect(JSON.stringify(await response.json())).toContain('invalid execution receipt')
+  })
+
+  it.each(['invalid-signature', 'stale', 'future', 'invalid-outcome', 'run-mismatch', 'request-mismatch'])('rejects a real signed linked receipt with %s', async (failure) => {
+    const keys = generateKeyPairSync('ed25519')
+    mockIsConfiguredCompatibilityRuntimeTarget.mockResolvedValue(false)
+    const binding = { kind: 'linked-computer', deviceId: 'device-a', runtimeTargetId: 'linked-device:device-a', machineLabel: 'Office Mac', mappingId: 'map-a', workspaceId: 'partners', credentialVersion: 2, runtimeVersion: '2.0.0', platform: 'macos', lastSeenAt: new Date().toISOString(), publicKey: keys.publicKey.export({ type: 'spki', format: 'pem' }).toString() }
+    mockAuthorizeLinkedComputerDispatch.mockResolvedValue(binding)
+    mockGetLinkedComputerHermesProfileLink.mockResolvedValue({ orgId: 'pib-platform-owner', profile: 'pip', baseUrl: 'https://device.example', apiKey: 'private-token', enabled: true })
+    const at = failure === 'stale' ? new Date(Date.now() - 11 * 60_000).toISOString() : failure === 'future' ? new Date(Date.now() + 2 * 60_000).toISOString() : new Date().toISOString()
+    const receipt = { deviceId: 'device-a', runtimeTargetId: binding.runtimeTargetId, credentialVersion: 2, mappingId: 'map-a', runtimeVersion: '2.0.0', acceptedAt: at, toolStartedAt: at, outcome: failure === 'invalid-outcome' ? 'completed' : 'accepted', runId: failure === 'run-mismatch' ? 'run-other' : 'run-1', requestId: failure === 'request-mismatch' ? 'assistant-other' : 'assistant-1', signature: '' }
+    receipt.signature = failure === 'invalid-signature' ? 'invalid-signature-value' : sign(null, Buffer.from(receiptPayload(receipt)), keys.privateKey).toString('base64url')
+    mockCreateHermesRun.mockResolvedValue({ ok: true, status: 202, data: { runId: 'run-1' }, runDocId: 'run-doc-1', executionReceipt: receipt })
     mockGetConversation.mockResolvedValue({ id: 'conv-1', orgId: 'pib-platform-owner', participantUids: ['client-1'], participantAgentIds: ['pip'], participants: [{ kind: 'user', uid: 'client-1', role: 'client' }, { kind: 'agent', agentId: 'pip', name: 'Pip' }], workspaceContext: { runtimeTarget: binding.runtimeTargetId, runtimeLabel: 'Office Mac', workspaceId: 'partners', orgId: 'pib-platform-owner', orgSlug: 'partners', orgName: 'Partners in Biz', agentDomain: 'partners', sourceOfTruth: 'vps', shareMode: 'private', ownerUserId: 'client-1', companyId: null, contactIds: [] } })
     const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
     const response = await POST(req(), { params: Promise.resolve({ convId: 'conv-1' }) })

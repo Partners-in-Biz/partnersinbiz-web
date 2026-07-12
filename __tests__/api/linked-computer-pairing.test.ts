@@ -116,13 +116,14 @@ describe('linked computer one-time pairing', () => {
 
   it('atomically consumes once, binds a new active device to the challenge owner, and returns one credential', async () => {
     process.env.SOCIAL_TOKEN_MASTER_KEY = 'pairing-transport-test-key'
+    process.env.LINKED_RUNTIME_ALLOWED_HOSTS = 'runtime.example.test'
     const { db, rows } = fakeDb()
     const pairing = await createPairing({ actorUserId: 'user-a' }, { db, now, nowMs: () => nowMs })
     const m = machine()
     const input = { challengeId: pairing.challengeId, secret: pairing.secret, deviceId: 'device-a', publicKey: m.publicKey,
       proof: proof(m.privateKey, pairing.challengeId, pairing.secret, 'device-a', m.publicKey), label: 'Mac', platform: 'macos' as const,
       architecture: 'arm64' as const, runtimeVersion: '1.0.0', runtimeEndpoint: 'https://runtime.example.test' }
-    const result = await exchangePairing(input, { db, now, nowMs: () => nowMs + 1 })
+    const result = await exchangePairing(input, { db, now, nowMs: () => nowMs + 1, resolveHost: async () => ['8.8.8.8'] })
     expect(result).toMatchObject({ deviceId: 'device-a', credentialVersion: 1 })
     expect(Object.keys(result).sort()).toEqual(['credential', 'credentialVersion', 'deviceId', 'transportToken'])
     expect(result.credential).toBeTruthy()
@@ -131,7 +132,7 @@ describe('linked computer one-time pairing', () => {
     expect(rows.get('linked_device_runtime_transports/device-a')).toMatchObject({ deviceId: 'device-a', endpoint: 'https://runtime.example.test', enabled: true, state: 'active' })
     expect(JSON.stringify(rows.get('linked_device_runtime_transports/device-a'))).not.toContain(result.transportToken)
     expect(JSON.stringify([...rows.values()])).not.toContain(result.credential)
-    await expect(exchangePairing(input, { db, now, nowMs: () => nowMs + 2 })).rejects.toThrow('already consumed')
+    await expect(exchangePairing(input, { db, now, nowMs: () => nowMs + 2, resolveHost: async () => ['8.8.8.8'] })).rejects.toThrow('already consumed')
   })
 
   it('allows exactly one winner when identical valid exchanges race', async () => {

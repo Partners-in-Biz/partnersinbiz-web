@@ -8,7 +8,7 @@ import {
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import type { LinkedDeviceArchitecture, LinkedDevicePlatform } from './types'
-import { assertSafeLinkedRuntimeEndpoint, encryptLinkedTransportToken, LINKED_DEVICE_TRANSPORTS } from './transport'
+import { encryptLinkedTransportToken, LINKED_DEVICE_TRANSPORTS, validateLinkedRuntimeEndpoint } from './transport'
 
 const CHALLENGES = 'linked_device_pairing_challenges'
 const DEVICES = 'linked_devices'
@@ -34,6 +34,7 @@ interface Options {
   nowMs?: () => number
   randomId?: () => string
   randomSecret?: () => string
+  resolveHost?: (hostname: string) => Promise<string[]>
 }
 
 function required(value: unknown, field: string): string {
@@ -115,7 +116,7 @@ export async function exchangePairing(
   const publicKey = typeof input.publicKey === 'string' ? input.publicKey.trim() : ''
   const credential = options.randomSecret?.() ?? randomBytes(32).toString('base64url')
   const transportToken = randomBytes(32).toString('base64url')
-  const runtimeEndpoint = input.runtimeEndpoint ? assertSafeLinkedRuntimeEndpoint(input.runtimeEndpoint) : null
+  const runtimeEndpoint = input.runtimeEndpoint ? await validateLinkedRuntimeEndpoint(input.runtimeEndpoint, { resolveHost: options.resolveHost }) : null
 
   const result = await db.runTransaction(async (tx): Promise<
     | { ok: true; deviceId: string; credential: string; credentialVersion: number; transportToken: string }

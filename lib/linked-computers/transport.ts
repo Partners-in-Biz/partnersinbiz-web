@@ -1,4 +1,6 @@
 import crypto from 'node:crypto'
+import { isIP } from 'node:net'
+import { lookup } from 'node:dns/promises'
 import { adminDb } from '@/lib/firebase/admin'
 import { validateHermesBaseUrl } from '@/lib/hermes/server'
 import type { HermesProfileLink } from '@/lib/hermes/types'
@@ -46,18 +48,63 @@ export function assertSafeLinkedRuntimeEndpoint(endpoint: unknown): string {
   if (!clean || clean.length > 2048 || validateHermesBaseUrl(clean)) throw new Error('linked computers: invalid runtime endpoint')
   const url = new URL(clean)
   const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, '')
-  const ipv4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)?.slice(1).map(Number)
-  const privateV4 = ipv4 && (ipv4[0] === 10 || ipv4[0] === 127 || (ipv4[0] === 172 && ipv4[1] >= 16 && ipv4[1] <= 31) || (ipv4[0] === 192 && ipv4[1] === 168))
   if (url.protocol !== 'https:' || url.username || url.password || url.pathname !== '/' || url.search || url.hash
-    || host === 'localhost' || host === '::1' || /^f[cd][0-9a-f]:/.test(host) || privateV4) {
-    throw new Error('linked computers: invalid runtime endpoint')
+    || isIP(host) !== 0) {
+    throw new Error('linked computers: invalid runtime hostname or endpoint')
   }
+  const allowlist = (process.env.LINKED_RUNTIME_ALLOWED_HOSTS ?? '').split(',').map((item) => item.trim().toLowerCase()).filter(Boolean)
+  if (allowlist.length === 0) throw new Error('linked computers: runtime hostname allowlist is not configured')
+  const allowed = allowlist.some((entry) => entry.startsWith('*.') ? host.endsWith(entry.slice(1)) && host !== entry.slice(2) : host === entry)
+  if (!allowed) throw new Error('linked computers: runtime hostname is not allowlisted')
+  return clean
+}
+
+function ipv4InCidr(address: string, base: string, bits: number): boolean {
+  const toInt = (value: string) => value.split('.').reduce((n, part) => (n * 256 + Number(part)) >>> 0, 0)
+  const mask = bits === 0 ? 0 : (0xffffffff << (32 - bits)) >>> 0
+  return (toInt(address) & mask) === (toInt(base) & mask)
+}
+
+export function isGloballyRoutableLinkedRuntimeAddress(address: string): boolean {
+  const family = isIP(address)
+  if (family === 4) {
+    const blocked: Array<[string, number]> = [
+      ['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8], ['169.254.0.0', 16],
+      ['172.16.0.0', 12], ['192.0.0.0', 24], ['192.0.2.0', 24], ['192.88.99.0', 24], ['192.168.0.0', 16],
+      ['198.18.0.0', 15], ['198.51.100.0', 24], ['203.0.113.0', 24], ['224.0.0.0', 4], ['240.0.0.0', 4],
+    ]
+    return !blocked.some(([base, bits]) => ipv4InCidr(address, base, bits))
+  }
+  if (family === 6) {
+    const clean = address.toLowerCase()
+    if (clean.includes('.')) return false
+    if (!/^[23][0-9a-f]{3}:/.test(clean)) return false
+    return !clean.startsWith('2001:0:') && !clean.startsWith('2001:2:') && !/^2001:0?2[0-9a-f]:/.test(clean)
+      && !clean.startsWith('2001:db8:') && !clean.startsWith('2002:') && !/^3fff:[0-9a-f]{0,3}:/.test(clean)
+  }
+  return false
+}
+
+export async function validateLinkedRuntimeEndpoint(
+  endpoint: unknown,
+  options: { resolveHost?: (hostname: string) => Promise<string[]> } = {},
+): Promise<string> {
+  const clean = assertSafeLinkedRuntimeEndpoint(endpoint)
+  const hostname = new URL(clean).hostname.toLowerCase()
+  const resolveHost = options.resolveHost ?? (async (host: string) => (await lookup(host, { all: true, verbatim: true })).map((row) => row.address))
+  const addresses = await resolveHost(hostname)
+  if (addresses.length === 0 || addresses.some((address) => !isGloballyRoutableLinkedRuntimeAddress(address))) {
+    throw new Error('linked computers: runtime hostname resolved to a non-global address')
+  }
+  // Node fetch does not expose a portable pinned-lookup hook. The exact/suffix
+  // allowlist is therefore a controlled-host assumption; DNS is still checked
+  // immediately before token decryption/dispatch and redirects are forbidden.
   return clean
 }
 
 export async function updateLinkedRuntimeTransportEndpoint(
   input: { deviceId: string; endpoint: string; credentialVersion: number },
-  options: { db?: typeof adminDb } = {},
+  options: { db?: typeof adminDb; resolveHost?: (hostname: string) => Promise<string[]> } = {},
 ): Promise<void> {
   const db = options.db ?? adminDb
   const ref = db.collection(LINKED_DEVICE_TRANSPORTS).doc(input.deviceId)
@@ -67,14 +114,37 @@ export async function updateLinkedRuntimeTransportEndpoint(
   if (row.deviceId !== input.deviceId || row.state === 'revoked' || row.credentialVersion !== input.credentialVersion) {
     throw new Error('linked computers: transport unavailable')
   }
-  await ref.update({ endpoint: assertSafeLinkedRuntimeEndpoint(input.endpoint), updatedAt: new Date() })
+  await ref.update({ endpoint: await validateLinkedRuntimeEndpoint(input.endpoint, options), updatedAt: new Date() })
+}
+
+export async function bindLinkedRuntimeTransport(
+  input: { deviceId: string; endpoint: string; credentialVersion: number },
+  options: { db?: typeof adminDb; resolveHost?: (hostname: string) => Promise<string[]> } = {},
+): Promise<{ transportToken: string }> {
+  const db = options.db ?? adminDb
+  const endpoint = await validateLinkedRuntimeEndpoint(input.endpoint, options)
+  const transportToken = crypto.randomBytes(32).toString('base64url')
+  await db.runTransaction(async (tx) => {
+    const deviceRef = db.collection('linked_devices').doc(input.deviceId)
+    const transportRef = db.collection(LINKED_DEVICE_TRANSPORTS).doc(input.deviceId)
+    const [deviceSnap, transportSnap] = await Promise.all([tx.get(deviceRef), tx.get(transportRef)])
+    const device = deviceSnap.data() ?? {}
+    if (!deviceSnap.exists || device.deviceId !== input.deviceId || device.status !== 'active'
+      || Number(device.credentialVersion) !== input.credentialVersion) {
+      throw new Error('linked computers: active current device required')
+    }
+    const row = { deviceId: input.deviceId, endpoint, encryptedOutboundToken: encryptLinkedTransportToken(transportToken, input.deviceId), credentialVersion: input.credentialVersion, enabled: true, state: 'active', updatedAt: new Date() }
+    if (transportSnap.exists) tx.update(transportRef, row)
+    else tx.create(transportRef, { ...row, createdAt: new Date() })
+  })
+  return { transportToken }
 }
 
 export async function getLinkedComputerHermesProfileLink(
   binding: AuthorizedLinkedComputerDispatch,
   orgId: string,
   profile: string,
-  options: { db?: typeof adminDb } = {},
+  options: { db?: typeof adminDb; resolveHost?: (hostname: string) => Promise<string[]> } = {},
 ): Promise<HermesProfileLink> {
   const db = options.db ?? adminDb
   const snap = await db.collection(LINKED_DEVICE_TRANSPORTS).doc(binding.deviceId).get()
@@ -83,7 +153,7 @@ export async function getLinkedComputerHermesProfileLink(
   if (row.deviceId !== binding.deviceId || row.enabled !== true || row.state !== 'active' || row.credentialVersion !== binding.credentialVersion) {
     throw new Error('linked computers: transport unavailable')
   }
-  const baseUrl = assertSafeLinkedRuntimeEndpoint(row.endpoint)
+  const baseUrl = await validateLinkedRuntimeEndpoint(row.endpoint, options)
   const apiKey = decryptLinkedTransportToken(row.encryptedOutboundToken, binding.deviceId)
   return {
     orgId, profile, baseUrl, apiKey, enabled: true,

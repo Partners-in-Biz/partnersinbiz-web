@@ -67,11 +67,14 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
     .map(toPublicWorkspaceSummary)
 
   const compatibilityRuntimeTargets = publicRuntimeTargetPresence(runtimeDoc.data()?.runtimeTargets)
-  const linkedRuntimeTargets = (await Promise.all(workspaces.map((workspace) =>
-    discoverAuthorizedRuntimeTargets({ userId: user.uid, orgId: orgScope.orgId, workspaceId: workspace.workspaceId })
-      .catch(() => []),
-  ))).flat()
-  const runtimeTargets = [...compatibilityRuntimeTargets, ...linkedRuntimeTargets]
+  const runtimeTargetsByWorkspace = Object.fromEntries(await Promise.all(workspaces.map(async (workspace) => {
+    const linked = await discoverAuthorizedRuntimeTargets({ userId: user.uid, orgId: orgScope.orgId, workspaceId: workspace.workspaceId }).catch(() => [])
+    const deduped = new Map([...compatibilityRuntimeTargets, ...linked].map((target) => [target.id, target]))
+    return [workspace.workspaceId, Array.from(deduped.values())]
+  })))
+  // Compatibility-only legacy field. Linked targets are never exposed outside
+  // their exact Workspace bucket.
+  const runtimeTargets = compatibilityRuntimeTargets
   const projectsById = new Map<string, { id: string; name: string }>()
   for (const projectSnap of [ownProjects, clientProjects, targetProjects, recipientProjects]) {
     for (const projectDoc of projectSnap.docs) {
@@ -83,5 +86,5 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
   }
   const projects = Array.from(projectsById.values()).sort((a, b) => a.name.localeCompare(b.name))
 
-  return apiSuccess({ workspaces, runtimeTargets, projects })
+  return apiSuccess({ workspaces, runtimeTargets, runtimeTargetsByWorkspace, projects })
 })

@@ -209,7 +209,7 @@ export async function callHermesJson(link: HermesProfileLink, path: string, init
   }
   if (link.apiKey) headers['Authorization'] = `Bearer ${link.apiKey}`
 
-  const response = await fetch(url, { ...init, headers })
+  const response = await fetch(url, { ...init, headers, ...(link.runtimeKind === 'linked-computer' ? { redirect: 'error' as const } : {}) })
   const text = await response.text()
   let data: unknown = null
   if (text) {

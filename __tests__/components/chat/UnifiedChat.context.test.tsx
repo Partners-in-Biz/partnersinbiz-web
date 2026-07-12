@@ -131,8 +131,15 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
               syncMode: 'hybrid',
               defaultRuntimeTarget: 'vps',
               folderVersion: 1,
+            }, {
+              workspaceId: 'beta', orgId: 'org-1', orgSlug: 'beta', orgName: 'Beta', agentDomain: 'beta',
+              sourceOfTruth: 'vps', syncMode: 'hybrid', defaultRuntimeTarget: 'vps', folderVersion: 1,
             }],
             runtimeTargets: [],
+            runtimeTargetsByWorkspace: {
+              acme: [{ id: 'device-a', label: 'Acme Mac', selectable: true, enabled: true, isLocal: true, isFresh: true, isHealthy: true, lastSeenAt: null }],
+              beta: [{ id: 'device-b', label: 'Beta PC', selectable: true, enabled: true, isLocal: true, isFresh: true, isHealthy: true, lastSeenAt: null }],
+            },
             projects: [],
           },
         })
@@ -160,6 +167,8 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     fireEvent.change(workspaceContextOption.parentElement as HTMLSelectElement, { target: { value: 'workspace' } })
 
     expect(await screen.findByText(/VPS-canonical organisation Workspace/i)).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Acme Mac · online' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /Beta PC/ })).not.toBeInTheDocument()
     expect(screen.queryByText(/\/var\/lib\/hermes/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/~\/Cowork/i)).not.toBeInTheDocument()
   })

@@ -147,4 +147,14 @@ describe('linked computer lifecycle HTTP boundaries', () => {
     expect((await handleDeviceHeartbeat(req, 'device-a', auth as never, jest.fn(async () => undefined), updateTransport)).status).toBe(200)
     expect(updateTransport).toHaveBeenCalledWith({ deviceId: 'device-a', endpoint: 'https://device.example', credentialVersion: 3 })
   })
+
+  it('bootstraps a Stage 1 device transport once through the signed heartbeat action', async () => {
+    const auth = jest.fn(async () => ({ deviceId: 'device-a', ownerUserId: 'user-a', credentialVersion: 3 }))
+    const bindTransport = jest.fn(async () => ({ transportToken: 'returned-once' }))
+    const req = new NextRequest('https://test/api/v1/linked-computers/device-a/heartbeat', { method: 'POST', body: '{"runtimeVersion":"2.0.0","health":"ok","runtimeEndpoint":"https://device.example","bootstrapTransport":true}' })
+    const response = await handleDeviceHeartbeat(req, 'device-a', auth as never, jest.fn(async () => undefined), jest.fn(async () => undefined), bindTransport)
+    expect(response.headers.get('cache-control')).toBe('no-store')
+    expect((await response.json()).data.transportToken).toBe('returned-once')
+    expect(bindTransport).toHaveBeenCalledWith({ deviceId: 'device-a', endpoint: 'https://device.example', credentialVersion: 3 })
+  })
 })
