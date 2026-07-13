@@ -1,81 +1,97 @@
-# Task 3 report: Strict runtime selection and execution identity
+# Stage 2 Task 3 report: Linked computer lifecycle APIs
 
 ## Status
 
-Complete.
+Complete. Source commit: `5a5ab0cc4d5017328e8aba0b410b1b23041589c4` (`feat(devices): add grants mappings and credential lifecycle`).
 
 ## Red evidence
 
 Command:
 
-`npx jest __tests__/lib/agents/runtime-targets.test.ts __tests__/api/conversation-messages-routing.test.ts --runInBand`
+`npm test -- --runInBand __tests__/api/linked-computer-lifecycle.test.ts`
 
-Result before implementation: 2 suites failed, 7 tests failed, 23 passed. The failures proved that missing, disabled, stale, unhealthy, and keyless explicit local selections fell through to VPS/local, accepted runtime identity was absent from run metadata, and typed stale-selection failure details were not stored.
+Initial result: 1 suite failed, 2 tests failed because `rotateDeviceCredential` and `revokeDeviceCredential` did not exist. This established the credential overlap and immediate-revocation boundary before implementation.
 
 ## Green evidence
 
-Commands:
+Commands and results:
 
-- `npx jest __tests__/lib/agents/runtime-targets.test.ts __tests__/api/conversation-messages-routing.test.ts --runInBand`
-- `npx tsc --noEmit --pretty false`
-- `git diff --check -- <Task 3 files>`
-
-Results: 2 suites passed, 30 tests passed; TypeScript passed; diff check passed.
-
-## Files
-
-- `lib/agents/runtime-targets.ts`
-- `lib/agents/team.ts`
-- `lib/hermes/types.ts`
-- `app/api/v1/conversations/[convId]/messages/route.ts`
-- `__tests__/lib/agents/runtime-targets.test.ts`
-- `__tests__/api/conversation-messages-routing.test.ts`
+- `npm test -- --runInBand __tests__/api/linked-computer-lifecycle.test.ts __tests__/api/linked-computer-pairing.test.ts __tests__/api/linked-computer-pairing-http.test.ts __tests__/lib/linked-computers/store.test.ts` — 4 suites passed, 48 tests passed.
+- `npm run typecheck` — passed with no diagnostics.
+- Scoped ESLint across all Task 3 production files — passed with no warnings or errors.
+- `git diff --check` — passed.
 
 ## Implementation
 
-- Explicit target selection now returns typed errors for missing, disabled, stale local, unhealthy, and missing-key targets, without fallback.
-- Auto selection retains its VPS, priority, and legacy fallback behavior.
-- Dispatch targets and Hermes profile links preserve target ID, runtime kind, and a safe machine label.
-- Unified chat records requested and accepted runtime identities in safe run metadata.
-- Typed explicit-selection failures create no Hermes request and persist safe failure code/target fields on the assistant message.
-
-## Commit
-
-`fix(runtimes): enforce strict target selection`
+- Added authenticated user list/update, organisation grant, owner mapping, rotation, revoke/remove, and signed-device heartbeat APIs.
+- Heartbeat authentication signs the exact raw method/path/timestamp/request ID/body tuple and consumes the central replay nonce before parsing the payload.
+- Added a strict browser-safe device DTO. Responses omit runtime target IDs, public-key material/fingerprints, raw paths, credentials, internal URLs, and SSH details.
+- Reused central owner, active-membership, organisation-admin, tenant, grant, canonical Workspace, and mapping transition policies.
+- Added server-timestamped heartbeat freshness and allowlisted runtime/capability/health persistence.
+- Added five-minute server-controlled credential rotation overlap. Only the immediately prior version is accepted during overlap; expired versions fail. Revocation clears overlap material immediately.
+- Device removal revokes credentials and terminally removes mappings/revokes grants in the same transaction.
+- Tests cover safe DTO redaction, route-bound actor/device identity, grant and mapping allowlists, exact raw-body heartbeat authentication, cross-device denial, rotation overlap/expiry, immediate revocation, and the Task 1 membership/cross-tenant/status lifecycle suite.
 
 ## Self-review
 
-- No connection URL or API key is added to run metadata or failure metadata.
-- Explicit freshness is enforced only for local targets, matching the existing presence/freshness model.
-- Existing auto/legacy behavior remains covered.
-- Changes are confined to Task 3 files and this report.
+- User-controlled device IDs in request bodies cannot override route IDs.
+- Grant authority and owner membership are checked in the transactional store, not trusted from API role labels.
+- Device-facing heartbeat is not wrapped in browser auth; it requires scoped credential, version, Ed25519 signature, timestamp window, and one-time request nonce.
+- Rotation returns the new credential exactly once under `no-store`; stored credential material remains hashed.
+- No raw local path from heartbeat or mapping bodies is persisted or returned.
+- Existing pairing/auth tests remain green, including replay and future-skew nonce retention.
 
 ## Concerns
 
-None.
+- The lifecycle suite uses deterministic Firestore-compatible fakes; emulator-backed multi-user/multi-organisation acceptance remains a programme-level release gate.
+- List discovery currently returns owner-managed devices. Explicitly shared-device discovery is deliberately left to the dispatch/discovery policy slice so it can revalidate current membership and active grants at selection time.
+- No production deployment or promotion was performed.
 
-## Reviewer fix: degraded health and metadata hardening
+## Stage 2 review fix: ownership, containment, and cascade audit closure
+
+Commit: `c5b8c5f570541b8a66d25f6a61af0695edb0be79` (`fix(devices): enforce lifecycle ownership and cascade audits`).
 
 ### Red evidence
 
-`npx jest __tests__/lib/agents/runtime-targets.test.ts __tests__/api/conversation-messages-routing.test.ts --runInBand`
+`npm test -- --runInBand __tests__/lib/linked-computers/store.test.ts`
 
-Result before the reviewer fix: 2 suites failed, 5 tests failed, 29 passed. Failures showed that `degraded` was accepted, unsafe IDs and labels were reflected, and exception messages were logged.
+Result before the fix: 1 suite failed, 3 tests failed, 18 passed. The failures proved that a shared user could mutate an owner mapping, an administrator could not pause an existing grant after owner membership loss, and removal did not emit credential/grant/mapping cascade audits.
 
 ### Green evidence
 
-- Focused Jest: 2 suites passed, 34 tests passed.
-- TypeScript: the default-heap run exhausted Node's heap; `NODE_OPTIONS=--max-old-space-size=4096 npx tsc --noEmit --pretty false` passed with no diagnostics.
-- Task-file `git diff --check` passed.
+- Linked-computer verification: 4 suites passed, 55 tests passed.
+- `npm run typecheck`: passed with no diagnostics.
+- Scoped ESLint across all Task 3 production files: passed with no warnings or errors.
+- `git diff --check`: passed.
 
-### Fix commit
+### Review closure
 
-`cf862a2f` (`fix(runtimes): sanitize target execution identity`)
+- Mapping create/update/pause/resume/remove is now device-owner-only. Explicitly shared users remain consumers for the later dispatch slice and cannot administer mappings.
+- An active grant still requires current owner membership. A current same-organisation administrator may pause or revoke an existing grant after owner membership loss, but cannot create or reactivate access.
+- Device removal atomically revokes the credential, grants, and mappings and emits a credential audit plus one audit per affected grant and mapping, alongside the device transition audit.
+- The route/store matrix covers list/update, grant active/pause/revoke, owner-only mapping/shared denial, device pause/resume/revoke, remove cascade, membership loss, cross-tenant denial, rotation overlap/old-version denial/revocation, and signed heartbeat.
+- Collection `POST` is intentionally absent and tested as absent. Secure device creation remains exclusively in the one-time pairing exchange.
 
-### Reviewer-fix self-review
+## Final coverage closure: real store-backed lifecycle routes
 
-- Canonical `degraded` is unhealthy for explicit and auto selection; missing health remains compatible with existing targets.
-- Runtime IDs use a bounded safe charset; invalid explicit values become the non-reflective `invalid` identity.
-- Unsafe configured IDs are dropped, and friendly labels/host labels are restricted before they can become Hermes run metadata.
-- Dispatch failure logs contain only allowlisted typed codes and validated target IDs, never arbitrary exception messages.
-- Malicious URL, path traversal, newline, and key-like strings are covered across selection, presence output, stored failure metadata, and logs.
+Commit: `52fa8b41514e6ebe0319e75b2de5a14a9d0988a4` (`test(devices): cover store-backed lifecycle routes`).
+
+### Red/green evidence
+
+The new DELETE boundary test initially failed with HTTP 400 because the route handler could not inject the store-backed removal operation. After adding the same narrow dependency seam used by the other lifecycle handlers, the real `removeOwnedDevice` transaction ran through the route-bound owner identity and passed.
+
+Final verification:
+
+- Linked-computer verification: 4 suites passed, 61 tests passed.
+- `npm run typecheck`: passed with no diagnostics.
+- Scoped ESLint: passed with no warnings or errors.
+- `git diff --check`: passed.
+
+### Added coverage
+
+- `listOwnedDevices` filters out another owner's device and returns only the safe DTO.
+- `updateOwnedDevice` persists the owner label while ignoring injected path and credential fields.
+- `recordDeviceHeartbeat` uses the server-controlled timestamp for both freshness fields, ignores caller time, and denies paused devices.
+- Mapping owner denial is exercised for active creation plus paused and removed transitions.
+- `handleLinkedComputerRemove` drives the real store transaction with the route device and authenticated owner, proving device removal, credential revocation, grant revocation, and mapping removal.
+- A forced cascade audit write failure proves the transaction rolls back every device, credential, grant, and mapping mutation.
