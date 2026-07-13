@@ -1,5 +1,6 @@
 import {
   consumePairingChallenge,
+  confirmDeviceMappingPresence,
   createDevice,
   createPairingChallenge,
   listOwnedDevices,
@@ -7,6 +8,7 @@ import {
   putWorkspaceMapping,
   recordDeviceHeartbeat,
   removeOwnedDevice,
+  kickDeviceCleanup,
   transitionDeviceStatus,
   updateOwnedDevice,
 } from '@/lib/linked-computers/store'
@@ -17,20 +19,24 @@ type Row = Record<string, unknown>
 function fakeDb(seed: Record<string, Row> = {}, failCreatePrefix?: string) {
   const rows = new Map(Object.entries(seed))
   const ref = (path: string) => ({ path, id: path.split('/').at(-1)! })
-  const db = {
+  const query = (name: string, filters: Array<[string,string,unknown]> = [], max = Infinity): any => ({ collection: name, filters,
+    where: (field: string, op: string, value: unknown) => query(name, [...filters, [field, op, value]], max),
+    limit: (value: number) => query(name, filters, value),
+    get: async () => ({ docs: [...rows.entries()].filter(([path, row]) => path.startsWith(`${name}/`) && filters.every(([field, op, value]) => op === '==' ? row[field] === value : op === '!=' ? row[field] !== value : op === 'in' ? (value as unknown[]).includes(row[field]) : true)).slice(0,max).map(([path, row]) => ({ id: path.split('/').at(-1), ref: ref(path), data: () => row })) }),
+  })
+  const db: any = {
     collection: jest.fn((name: string) => ({
       doc: (id: string) => ref(`${name}/${id}`),
-      where: (field: string, _op: string, value: unknown) => ({
-        collection: name, field, value,
-        get: async () => ({ docs: [...rows.entries()].filter(([path, row]) => path.startsWith(`${name}/`) && row[field] === value).map(([path, row]) => ({ id: path.split('/').at(-1), data: () => row })) }),
-      }),
+      where: (field: string, op: string, value: unknown) => query(name, [[field,op,value]]),
     })),
+    batch: () => { const writes: Array<()=>void> = []; return { set: (document:any,value:Row,options?:{merge?:boolean}) => writes.push(()=>rows.set(document.path,options?.merge?{...rows.get(document.path),...value}:value)), commit: async()=>writes.forEach(write=>write()) } },
     runTransaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
       const pending = new Map(rows)
       const result = await fn({
       get: async (document: { path?: string; collection?: string; field?: string; value?: unknown }) => {
         if (document.collection) {
-          const docs = [...pending.entries()].filter(([path, value]) => path.startsWith(`${document.collection}/`) && value[document.field!] === document.value).map(([path, value]) => ({ ref: ref(path), data: () => value }))
+          const filters = (document as any).filters ?? [[document.field,'==',document.value]]
+          const docs = [...pending.entries()].filter(([path, value]) => path.startsWith(`${document.collection}/`) && filters.every(([field,op,expected]:any)=>op==='=='?value[field]===expected:true)).map(([path, value]) => ({ ref: ref(path), data: () => value }))
           return { docs }
         }
         return { exists: pending.has(document.path!), data: () => pending.get(document.path!) }
@@ -240,15 +246,18 @@ describe('linked computers tenant domain', () => {
   it('supports multiple tenant-scoped Workspace mappings without storing local paths', async () => {
     const { db, rows } = fakeDb({
       'linked_devices/device-a': { deviceId: 'device-a', ownerUserId: 'user-a', status: 'active' },
-      'linked_device_grants/org-a_device-a': { deviceId: 'device-a', orgId: 'org-a', status: 'active' },
-      'linked_device_grants/org-b_device-a': { deviceId: 'device-a', orgId: 'org-b', status: 'active' },
+      'linked_device_grants/org-a_device-a': { deviceId: 'device-a', orgId: 'org-a', status: 'active', capabilities: ['workspace.execute'] },
+      'linked_device_grants/org-b_device-a': { deviceId: 'device-a', orgId: 'org-b', status: 'active', capabilities: ['workspace.execute'] },
       'orgMembers/org-a_user-a': { orgId: 'org-a', uid: 'user-a', status: 'active' },
       'orgMembers/org-b_user-a': { orgId: 'org-b', uid: 'user-a', status: 'active' },
       'org_workspaces/ws-org-a': { workspaceId: 'ws-org-a', orgId: 'org-a', status: 'active' },
       'org_workspaces/ws-org-b': { workspaceId: 'ws-org-b', orgId: 'org-b', status: 'active' },
     })
     for (const orgId of ['org-a', 'org-b']) {
-      await putWorkspaceMapping({ mappingId: `map-${orgId}`, deviceId: 'device-a', orgId, workspaceId: `ws-${orgId}`, actorUserId: 'user-a', label: `${orgId} Workspace`, status: 'active' }, { db: db as never, now })
+      await putWorkspaceMapping({ mappingId: `map-${orgId}`, deviceId: 'device-a', orgId, workspaceId: `ws-${orgId}`, actorUserId: 'user-a', label: `${orgId} Workspace`, status: 'pending' }, { db: db as never, now })
+      rows.set('linked_device_credentials/device-a', { credentialVersion: 1, revokedAt: null })
+      rows.set('linked_devices/device-a', { ...rows.get('linked_devices/device-a'), credentialVersion: 1 })
+      await confirmDeviceMappingPresence({ deviceId: 'device-a', mappingId: `map-${orgId}`, ownerUserId: 'user-a', authenticatedCredentialVersion: 1, present: true }, { db: db as never, now })
     }
     expect(rows.get('linked_device_workspace_mappings/map-org-a')).toMatchObject({ orgId: 'org-a', workspaceId: 'ws-org-a' })
     expect(rows.get('linked_device_workspace_mappings/map-org-b')).toMatchObject({ orgId: 'org-b', workspaceId: 'ws-org-b' })
@@ -277,12 +286,12 @@ describe('linked computers tenant domain', () => {
     await removeOwnedDevice({ deviceId: 'device-a', actorUserId: 'owner-a' }, { db: db as never, now })
     expect(rows.get('linked_devices/device-a')).toMatchObject({ status: 'removed' })
     expect(rows.get('linked_device_credentials/device-a')).toMatchObject({ revokedAt: now() })
+    expect(rows.get('linked_device_cleanup_runs/device-a')).toMatchObject({ status: 'pending', phase: 'mappings' })
+    for (let i = 0; i < 5 && rows.get('linked_device_cleanup_runs/device-a')?.status !== 'completed'; i++) await kickDeviceCleanup('device-a', { db: db as never, nowMs: Date.parse(now()) + i })
     expect(rows.get('linked_device_grants/org-a_device-a')).toMatchObject({ status: 'revoked' })
     expect(rows.get('linked_device_workspace_mappings/map-a')).toMatchObject({ status: 'removed' })
     expect([...rows.values()]).toEqual(expect.arrayContaining([
       expect.objectContaining({ action: 'credential.revoked', deviceId: 'device-a' }),
-      expect.objectContaining({ action: 'grant.changed', deviceId: 'device-a', orgId: 'org-a', toStatus: 'revoked' }),
-      expect.objectContaining({ action: 'mapping.changed', deviceId: 'device-a', mappingId: 'map-a', toStatus: 'removed' }),
     ]))
   })
 

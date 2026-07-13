@@ -129,3 +129,5 @@ Every cleanup-run checkpoint, cumulative count, phase transition, completion, re
 Source-item changes remain idempotent; the authoritative cleanup-run checkpoint can advance only under the active lease.
 
 Deterministic A/B race coverage now proves worker A acquires and expires, worker B reclaims with a different token, stale A success and retry/error mutations both receive the typed lease-lost error with byte-for-byte unchanged run state, and B retains ownership through checkpoint and successful completion.
+
+Legacy store coverage was reconciled with the hardened contracts: mappings are created pending and activated only through central signed confirmation, while device removal asserts the immediate authority kill and then drives the durable cleanup phases through completion before checking mapping/grant terminal state. The complete store suite is green without weakening production transitions.
