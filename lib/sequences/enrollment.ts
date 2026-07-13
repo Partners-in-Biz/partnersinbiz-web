@@ -4,6 +4,7 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import type { SequenceEnrollment, SequenceReentryPolicy } from './types'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 import { evaluateSequenceReentry } from '@/lib/email-marketing/automation-policy'
+import { workflowEnrollmentFields } from './workflow-version'
 
 const ENROLLMENTS = 'sequence_enrollments'
 
@@ -101,6 +102,12 @@ export async function enrollContact(
     if (existing) return existing
   }
 
+  const sequenceSnap = await adminDb.collection('sequences').doc(sequenceId).get()
+  const sequence = sequenceSnap.exists ? sequenceSnap.data() : null
+  const versionFields = sequence?.orgId === orgId && sequence.status === 'active'
+    ? workflowEnrollmentFields(sequence)
+    : {}
+
   const ref = await adminDb.collection(ENROLLMENTS).add({
     orgId,
     sequenceId,
@@ -112,6 +119,7 @@ export async function enrollContact(
     nextSendAt: Timestamp.fromMillis(Date.now() + firstStepDelayDays * 86_400_000),
     createdByRef: actor,
     updatedByRef: actor,
+    ...versionFields,
   })
   const snap = await ref.get()
   return { ...snap.data(), id: ref.id } as SequenceEnrollment

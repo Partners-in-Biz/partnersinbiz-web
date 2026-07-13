@@ -29,6 +29,10 @@ import { resolveSenderForRecipient } from '@/lib/email-marketing/sender-resoluti
 import { buildSenderRecipientContext } from '@/lib/email-marketing/sender-context'
 import { resolveCanonicalEmailConsent } from '@/lib/consent-ledger/decision'
 import { assertEmailMarketingDispatchApproval } from '@/lib/email-marketing/agent-governance'
+import { runtimeSequenceForEnrollment } from '@/lib/sequences/workflow-version'
+import { evaluateQuietHours } from '@/lib/sequences/scheduling'
+import { deliveryFailureState } from '@/lib/sequences/delivery'
+import { goalCompletionState } from '@/lib/sequences/goals'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,7 +41,6 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://partnersinbiz.onli
 const HOUR_MS = 60 * 60 * 1000
 const DAY_MS = 24 * HOUR_MS
 const LEASE_MS = 10 * 60 * 1000
-const MAX_DELIVERY_ATTEMPTS = 5
 
 export async function GET(req: NextRequest) {
   const auth = req.headers.get('authorization')
@@ -65,10 +68,10 @@ export async function GET(req: NextRequest) {
 
       const seqSnap = await adminDb.collection('sequences').doc(enrollment.sequenceId).get()
       if (!seqSnap.exists) continue
-      const seq = seqSnap.data()!
-      if (seq.orgId !== enrollmentOrgId) throw new Error('Sequence organisation mismatch')
+      const editableSequence = { id: enrollment.sequenceId, ...(seqSnap.data() ?? {}) } as import('@/lib/sequences/types').Sequence
+      if (editableSequence.orgId !== enrollmentOrgId) throw new Error('Sequence organisation mismatch')
       try {
-        await assertEmailMarketingDispatchApproval(seq, {
+        await assertEmailMarketingDispatchApproval(editableSequence as unknown as Record<string, unknown>, {
           orgId: enrollmentOrgId, resourceType: 'email_sequence', resourceId: enrollment.sequenceId,
         })
       } catch (error) {
@@ -79,6 +82,7 @@ export async function GET(req: NextRequest) {
         })
         continue
       }
+      const seq = runtimeSequenceForEnrollment(editableSequence, enrollment)
       const steps: SequenceStep[] = seq.steps ?? []
       const goals: SequenceGoal[] | undefined = seq.goals
 
@@ -339,6 +343,30 @@ export async function GET(req: NextRequest) {
       const orgTimezone = orgMeta.orgTimezone
       const preferredHourLocal = orgMeta.preferredHourLocal
       const preferredDaysOfWeek = orgMeta.preferredDaysOfWeek
+
+      const quietHoursDecision = evaluateQuietHours({
+        nowUtc: nowDate,
+        orgTimezone: orgTimezone || 'UTC',
+        contactTimezone:
+          typeof contact.timezone === 'string' && contact.timezone.trim()
+            ? contact.timezone.trim()
+            : undefined,
+        quietHours: seq.quietHours,
+      })
+      if (!quietHoursDecision.allowed) {
+        const nextAllowedAt = quietHoursDecision.nextAllowedAt ?? new Date(nowDate.getTime() + DAY_MS)
+        await enrollDoc.ref.update({
+          nextSendAt: Timestamp.fromDate(nextAllowedAt),
+          lastScheduleDecision: {
+            reason: 'quiet-hours',
+            timezone: quietHoursDecision.timezone,
+            evaluatedAt: now,
+            nextAllowedAt: Timestamp.fromDate(nextAllowedAt),
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        })
+        continue
+      }
 
       // Look up the campaign if linked. Honor pause / completed / deleted states.
       type CampaignLite = {
@@ -649,15 +677,30 @@ export async function GET(req: NextRequest) {
         })
 
         if (!sendResult.ok) {
-          const attempts = Number(enrollment.deliveryAttempts ?? 0) + 1
-          const terminalFailure = attempts >= MAX_DELIVERY_ATTEMPTS
-          const retryDelayMs = Math.min(24 * HOUR_MS, 2 ** attempts * 15 * 60 * 1000)
+          const failure = deliveryFailureState({
+            attemptsBefore: Number(enrollment.deliveryAttempts ?? 0),
+            error: sendResult.error ?? 'Email provider rejected the send',
+            stepNumber: enrollment.currentStep,
+            channel: 'email',
+            nowMs: nowDate.getTime(),
+          })
           await enrollDoc.ref.update({
-            status: terminalFailure ? 'exited' : 'active',
-            exitReason: terminalFailure ? 'delivery-failed' : FieldValue.delete(),
-            deliveryAttempts: attempts,
-            lastDeliveryError: sendResult.error ?? 'Email provider rejected the send',
-            nextSendAt: terminalFailure ? null : Timestamp.fromMillis(nowDate.getTime() + retryDelayMs),
+            status: failure.status,
+            exitReason: failure.exitReason ?? FieldValue.delete(),
+            deliveryAttempts: failure.deliveryAttempts,
+            lastDeliveryError: failure.lastDeliveryError,
+            lastDeliveryAttemptAt: Timestamp.fromMillis(failure.lastDeliveryAttemptAtMs),
+            nextSendAt: failure.retryAtMs === null ? null : Timestamp.fromMillis(failure.retryAtMs),
+            deadLetter: failure.deadLetter
+              ? {
+                  stepNumber: failure.deadLetter.stepNumber,
+                  attempts: failure.deadLetter.attempts,
+                  reason: failure.deadLetter.reason,
+                  channel: failure.deadLetter.channel,
+                  replayable: failure.deadLetter.replayable,
+                  failedAt: Timestamp.fromMillis(failure.deadLetter.failedAtMs),
+                }
+              : FieldValue.delete(),
             updatedAt: FieldValue.serverTimestamp(),
           })
           continue
@@ -780,7 +823,7 @@ export async function GET(req: NextRequest) {
             continue
           }
           const nextDelayMs = steps[nextStepIdx].delayDays * DAY_MS
-          const baseNext = new Date(Date.now() + nextDelayMs)
+          const baseNext = new Date(nowDate.getTime() + nextDelayMs)
           const sendCtx: SendTimeContext = {
             orgTimezone: orgTimezone || 'UTC',
             contactTimezone:
@@ -912,15 +955,17 @@ async function exitWithGoal(
   existingPath: EnrollmentPathEntry[] | undefined,
 ): Promise<void> {
   const now = Timestamp.now()
+  const completion = goalCompletionState(goal)
   await adminDb.collection('sequence_enrollments').doc(enrollmentId).update({
-    status: 'exited',
-    exitReason: 'goal-hit',
+    ...completion,
+    completedGoalId: goal.id,
+    completedGoalLabel: goal.label,
     completedAt: FieldValue.serverTimestamp(),
     pendingBranchEvalAt: null,
     waitingSince: null,
     path: appendPath(existingPath, {
       stepNumber: -1,
-      goalHit: { goalId: goal.id, label: goal.label },
+      goalHit: { goalId: goal.id, label: goal.label, outcome: completion.goalOutcome },
       at: now,
     }),
     updatedAt: FieldValue.serverTimestamp(),
@@ -930,7 +975,7 @@ async function exitWithGoal(
     contactId,
     type: 'sequence_goal_hit',
     summary: `Goal hit: ${goal.label}`,
-    metadata: { goalId: goal.id, exitReason: goal.exitReason ?? 'goal-hit' },
+    metadata: { goalId: goal.id, exitReason: goal.exitReason ?? 'goal-hit', outcome: completion.goalOutcome },
     createdAt: FieldValue.serverTimestamp(),
   })
 }

@@ -61,6 +61,7 @@ export const PUT = withCrmAuth<RouteCtx>('admin', async (req, ctx, routeCtx) => 
   if (rest.steps !== undefined) patch.steps = rest.steps as SequenceInput['steps']
   if (rest.topicId !== undefined) patch.topicId = rest.topicId as string
   if (rest.goals !== undefined) patch.goals = rest.goals as SequenceInput['goals']
+  if (rest.quietHours !== undefined) patch.quietHours = rest.quietHours as SequenceInput['quietHours']
   if (rest.deleted !== undefined) patch.deleted = rest.deleted as boolean
 
   try {

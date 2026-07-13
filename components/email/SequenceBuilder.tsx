@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { scopedApiPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
-import type { SequenceStep, SequenceStatus } from '@/lib/sequences/types'
+import type { SequenceQuietHours, SequenceStep, SequenceStatus } from '@/lib/sequences/types'
 import SequenceStepBuilder from './SequenceStepBuilder'
 import EnrollmentPreview from './EnrollmentPreview'
 import TriggerConfigPanel, { type SequenceTrigger } from './TriggerConfigPanel'
@@ -24,6 +24,7 @@ interface SequenceDoc {
   steps: SequenceStep[]
   topicId?: string
   trigger?: SequenceTrigger
+  quietHours?: SequenceQuietHours
 }
 
 interface Props {
@@ -46,6 +47,7 @@ export default function SequenceBuilder({ sequenceId, orgScope, onDone }: Props)
   const [status, setStatus] = useState<SequenceStatus>('draft')
   const [steps, setSteps] = useState<SequenceStep[]>([])
   const [trigger, setTrigger] = useState<SequenceTrigger>({ type: 'manual' })
+  const [quietHours, setQuietHours] = useState<SequenceQuietHours>({ enabled: false, startMinuteLocal: 20 * 60, endMinuteLocal: 8 * 60, timezoneMode: 'recipient' })
 
   const [loading, setLoading] = useState(Boolean(sequenceId))
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -71,6 +73,7 @@ export default function SequenceBuilder({ sequenceId, orgScope, onDone }: Props)
         setStatus(seq.status ?? 'draft')
         setSteps(Array.isArray(seq.steps) ? seq.steps : [])
         if (seq.trigger) setTrigger(seq.trigger)
+        if (seq.quietHours) setQuietHours(seq.quietHours)
       })
       .catch((err: unknown) => {
         if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load sequence.')
@@ -97,6 +100,7 @@ export default function SequenceBuilder({ sequenceId, orgScope, onDone }: Props)
       status: nextStatus ?? status,
       steps: stepsForSave,
       trigger,
+      quietHours,
     }
     if (orgScope.orgId) (payload as SequenceDoc & { orgId?: string }).orgId = orgScope.orgId
 
@@ -184,6 +188,27 @@ export default function SequenceBuilder({ sequenceId, orgScope, onDone }: Props)
           >
             {status}
           </span>
+        </div>
+        <div className="grid gap-2 rounded-lg border border-[var(--color-card-border)] p-2 md:grid-cols-4">
+          <label className="flex items-center gap-2 text-[11px] text-on-surface-variant">
+            <input type="checkbox" checked={quietHours.enabled} onChange={(e) => setQuietHours((value) => ({ ...value, enabled: e.target.checked }))} />
+            Quiet hours
+          </label>
+          <label className="text-[11px] text-on-surface-variant">
+            Starts
+            <input aria-label="Quiet hours start" type="time" value={`${String(Math.floor(quietHours.startMinuteLocal / 60)).padStart(2, '0')}:${String(quietHours.startMinuteLocal % 60).padStart(2, '0')}`} onChange={(e) => { const [hour, minute] = e.target.value.split(':').map(Number); setQuietHours((value) => ({ ...value, startMinuteLocal: hour * 60 + minute })) }} className="mt-1 h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs" />
+          </label>
+          <label className="text-[11px] text-on-surface-variant">
+            Ends
+            <input aria-label="Quiet hours end" type="time" value={`${String(Math.floor(quietHours.endMinuteLocal / 60)).padStart(2, '0')}:${String(quietHours.endMinuteLocal % 60).padStart(2, '0')}`} onChange={(e) => { const [hour, minute] = e.target.value.split(':').map(Number); setQuietHours((value) => ({ ...value, endMinuteLocal: hour * 60 + minute })) }} className="mt-1 h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs" />
+          </label>
+          <label className="text-[11px] text-on-surface-variant">
+            Timezone
+            <select aria-label="Quiet hours timezone" value={quietHours.timezoneMode} onChange={(e) => setQuietHours((value) => ({ ...value, timezoneMode: e.target.value as SequenceQuietHours['timezoneMode'] }))} className="mt-1 h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs">
+              <option value="recipient">Each recipient</option>
+              <option value="organization">Organisation</option>
+            </select>
+          </label>
         </div>
       </div>
 

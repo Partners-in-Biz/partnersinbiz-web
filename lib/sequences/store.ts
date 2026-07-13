@@ -3,6 +3,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { FieldValue } from 'firebase-admin/firestore'
 import type { Sequence, SequenceInput } from './types'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
+import { persistSequenceUpdateWithVersion } from './workflow-version-store'
 
 const SEQUENCES = 'sequences'
 
@@ -53,10 +54,14 @@ export async function updateSequence(
   if (!snap.exists) throw new Error(`Sequence not found: ${sequenceId}`)
   const existing = snap.data() as Sequence
   if (existing.orgId !== orgId) throw new Error(`Sequence not found: ${sequenceId}`)
-  await ref.update({
+  await persistSequenceUpdateWithVersion({
+    sequenceId,
+    existing: { ...existing, id: sequenceId },
+    patch: {
     ...patch,
     updatedAt: FieldValue.serverTimestamp(),
     updatedByRef: actor,
+    },
   })
   const updated = await ref.get()
   return { ...updated.data(), id: ref.id } as Sequence

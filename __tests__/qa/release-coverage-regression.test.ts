@@ -58,7 +58,7 @@ describe('cross-surface QA release coverage contracts', () => {
     expect(conditions).toContain('if (seen.has(goalId)) return false')
     expect(conditions).toContain('return evaluateCondition(goal.condition')
     expect(cron).toContain('const preHit = await findHitGoal(goals, evalCtx)')
-    expect(cron).toContain("exitReason: 'goal-hit'")
+    expect(cron).toContain('const completion = goalCompletionState(goal)')
     expect(cron).toContain('metadata: { goalId: goal.id')
 
     expect(editor).toContain('+ Add exit goal')

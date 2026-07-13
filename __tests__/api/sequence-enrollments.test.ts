@@ -43,7 +43,8 @@ beforeEach(() => {
 
 describe('POST /api/v1/sequences/[id]/enroll', () => {
   it('enrolls contacts into an active sequence', async () => {
-    const seqData = { orgId: 'org-test', name: 'Welcome', status: 'active', steps: [{ stepNumber: 1, delayDays: 0, subject: 'Hi', bodyHtml: '<p>Hi</p>', bodyText: 'Hi' }], deleted: false }
+    const workflowSnapshot = { id: 'seq1:v2:hash', sequenceId: 'seq1', orgId: 'org-test', schemaVersion: 1, version: 2, contentHash: 'hash', activatedAtIso: '2026-07-13T08:00:00.000Z', steps: [{ stepNumber: 1, delayDays: 0, subject: 'Hi', bodyHtml: '<p>Hi</p>', bodyText: 'Hi' }], goals: [], topicId: 'newsletter' }
+    const seqData = { orgId: 'org-test', name: 'Welcome', status: 'active', steps: workflowSnapshot.steps, activeWorkflowVersion: 2, activeWorkflowVersionId: workflowSnapshot.id, activeWorkflowSnapshot: workflowSnapshot, deleted: false }
     const contactData = { orgId: 'org-test', name: 'Alice', email: 'alice@example.com', deleted: false }
 
     mockGet
@@ -63,6 +64,12 @@ describe('POST /api/v1/sequences/[id]/enroll', () => {
     expect(res.status).toBe(201)
     const body = await res.json()
     expect(body.data.enrolled).toHaveLength(1)
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      workflowVersionId: workflowSnapshot.id,
+      workflowVersion: 2,
+      workflowContentHash: 'hash',
+      workflowSnapshot,
+    }))
   })
 
   it('returns an existing active enrollment instead of creating a duplicate', async () => {

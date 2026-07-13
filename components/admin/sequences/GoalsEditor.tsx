@@ -28,6 +28,7 @@ export default function GoalsEditor({ goals, onChange }: Props) {
         label: 'New goal',
         condition: { kind: 'replied' },
         exitReason: '',
+        outcome: 'complete',
       },
     ])
   }
@@ -78,6 +79,17 @@ export default function GoalsEditor({ goals, onChange }: Props) {
             placeholder="Exit reason label (e.g. converted)"
             className="w-full px-2 py-1 rounded border border-outline-variant bg-surface text-on-surface text-xs"
           />
+          <label className="block text-xs text-on-surface-variant">
+            Goal outcome
+            <select
+              value={goal.outcome ?? 'exit'}
+              onChange={(e) => updateGoal(i, { outcome: e.target.value as 'complete' | 'exit' })}
+              className="mt-1 w-full rounded border border-outline-variant bg-surface px-2 py-1 text-xs text-on-surface"
+            >
+              <option value="complete">Complete journey successfully</option>
+              <option value="exit">Exit journey early</option>
+            </select>
+          </label>
         </div>
       ))}
       <button

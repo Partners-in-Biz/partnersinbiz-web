@@ -84,6 +84,10 @@ describe('enrollContact', () => {
       })
       .mockResolvedValueOnce({ docs: [] })
       .mockResolvedValueOnce({
+        exists: true,
+        data: () => ({ orgId: 'org-a', status: 'active' }),
+      })
+      .mockResolvedValueOnce({
         data: () => ({
           orgId: 'org-a',
           sequenceId: 'seq-1',
@@ -122,6 +126,10 @@ describe('enrollContact', () => {
         data: () => ({ orgId: 'org-a', deleted: false }),
       })
       .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({
+        exists: true,
+        data: () => ({ orgId: 'org-a', status: 'active' }),
+      })
       .mockResolvedValueOnce({
         data: () => ({ orgId: 'org-a', sequenceId: 'seq-1', contactId: 'con-1', campaignId: '', status: 'active', currentStep: 0 }),
       })

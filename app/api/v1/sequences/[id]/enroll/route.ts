@@ -9,6 +9,7 @@ import type { ApiUser } from '@/lib/api/types'
 import { evaluateSequenceReentry } from '@/lib/email-marketing/automation-policy'
 import type { SequenceEnrollment, SequenceReentryPolicy } from '@/lib/sequences/types'
 import { assertEmailMarketingAgentActionWithTask } from '@/lib/email-marketing/agent-governance'
+import { workflowEnrollmentFields } from '@/lib/sequences/workflow-version'
 
 export const dynamic = 'force-dynamic'
 
@@ -101,6 +102,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
       enrolledAt: FieldValue.serverTimestamp(),
       nextSendAt,
       deleted: false,
+      ...workflowEnrollmentFields(seq),
     })
 
     await adminDb.collection('activities').add({
