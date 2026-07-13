@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 const mockUpdateCreativeCanvasNodeReview = jest.fn()
 const mockGetCreativeCanvas = jest.fn()
 const mockUpdateCreativeCanvasGraph = jest.fn()
+const mockAuthorizeMarketingStudioMutation = jest.fn()
 
 // Mutable auth identity so individual tests can flip role between client/admin.
 const mockAuthUser: { uid: string; role: string; orgId: string; orgIds: string[] } = {
@@ -24,6 +25,10 @@ jest.mock('@/lib/creative-canvas/collaboration', () => ({
 jest.mock('@/lib/creative-canvas/store', () => ({
   getCreativeCanvas: mockGetCreativeCanvas,
   updateCreativeCanvasGraph: mockUpdateCreativeCanvasGraph,
+}))
+
+jest.mock('@/lib/chat-context/marketingMutationAccess', () => ({
+  authorizeMarketingStudioMutation: mockAuthorizeMarketingStudioMutation,
 }))
 
 function buildCanvas(overrides: Record<string, unknown> = {}) {
@@ -73,7 +78,28 @@ describe('creative canvas node client-review route', () => {
     jest.clearAllMocks()
     mockAuthUser.uid = 'client-1'
     mockAuthUser.role = 'client'
+    mockAuthorizeMarketingStudioMutation.mockResolvedValue({ ok: true })
     mockUpdateCreativeCanvasGraph.mockResolvedValue({ id: 'canvas-1', activeVersion: 5 })
+  })
+
+  it('returns the Marketing Studio policy denial before loading the canvas', async () => {
+    const { PUT } = await import('@/app/api/v1/creative-canvas/[id]/nodes/[nodeId]/review/route')
+    mockAuthorizeMarketingStudioMutation.mockResolvedValue({
+      ok: false,
+      status: 403,
+      error: 'Marketing module is disabled for this organisation member',
+    })
+
+    const res = await PUT(reviewRequest({ action: 'approve' }), routeContext())
+    const body = await res.json()
+
+    expect(res.status).toBe(403)
+    expect(body).toMatchObject({
+      success: false,
+      error: 'Marketing module is disabled for this organisation member',
+    })
+    expect(mockGetCreativeCanvas).not.toHaveBeenCalled()
+    expect(mockUpdateCreativeCanvasGraph).not.toHaveBeenCalled()
   })
 
   it('approves a node and persists via updateCreativeCanvasGraph with client_review reason', async () => {

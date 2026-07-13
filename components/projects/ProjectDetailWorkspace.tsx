@@ -792,7 +792,7 @@ export function ProjectDetailWorkspace({
 
       {activeTab === 'agent' && (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden -mx-4 -my-8 md:mx-0 md:my-0 h-[calc(100dvh-56px)] lg:h-[calc(100dvh-120px)]">
-          <div className="pib-card mb-4 hidden shrink-0 p-5 lg:block">
+          <div className="pib-card mb-4 hidden shrink-0 rounded-[var(--radius-card)] p-5 lg:block">
             <p className="pib-label mb-1">
               {isAdmin ? 'Operator task-bus chat' : 'Project / Agent chat'}
             </p>

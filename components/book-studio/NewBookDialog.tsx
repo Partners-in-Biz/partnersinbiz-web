@@ -113,16 +113,17 @@ export function NewBookDialog({ orgId, surface, open, onClose, onCreated }: NewB
   }
 
   return (
-    <div role="dialog" aria-label="New book" className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-2xl rounded-2xl border border-[var(--color-pib-border)] bg-[var(--color-pib-surface)] p-6 shadow-xl">
-        <div className="mb-4 flex items-center justify-between">
+    <div role="dialog" aria-label="New book" className="fixed inset-0 z-50 flex items-end justify-center overflow-hidden bg-black/50 p-2 sm:items-center sm:p-4">
+      <div data-testid="new-book-panel" className="flex max-h-[calc(100dvh-1rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[var(--color-pib-border)] bg-[var(--color-pib-surface)] shadow-xl sm:max-h-[calc(100dvh-2rem)]">
+        <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-pib-border)] px-4 py-3 sm:px-6 sm:py-4">
           <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">New book</h2>
           <button type="button" className="btn-secondary" onClick={onClose}>
             Cancel
           </button>
         </div>
 
-        {!format ? (
+        <div data-testid="new-book-scroll-body" className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6">
+          {!format ? (
           <div className="space-y-6">
             {FORMAT_GROUPS.map((group) => (
               <div key={group.label}>
@@ -235,7 +236,8 @@ export function NewBookDialog({ orgId, surface, open, onClose, onCreated }: NewB
               </button>
             </div>
           </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   )

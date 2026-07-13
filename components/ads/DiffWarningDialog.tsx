@@ -34,18 +34,20 @@ export function DiffWarningDialog({
       role="dialog"
       aria-modal="true"
       aria-labelledby="diff-warning-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/70 p-4 backdrop-blur-sm"
     >
-      <div className="w-full max-w-lg rounded-lg border border-white/10 bg-[#0A0A0B] p-6 shadow-2xl">
-        <h2 id="diff-warning-title" className="text-lg font-semibold">
-          {title}
-        </h2>
-        <p className="mt-1 text-sm text-white/60">
-          {warnings.length} {warnings.length === 1 ? 'issue' : 'issues'} found
-          {hasErrors ? ' — errors must be resolved before launching' : ''}.
-        </p>
+      <div data-testid="diff-warning-panel" className="flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-white/10 bg-[#0A0A0B] shadow-2xl">
+        <div className="shrink-0 px-4 pt-4 sm:px-6 sm:pt-6">
+          <h2 id="diff-warning-title" className="text-lg font-semibold">
+            {title}
+          </h2>
+          <p className="mt-1 text-sm text-white/60">
+            {warnings.length} {warnings.length === 1 ? 'issue' : 'issues'} found
+            {hasErrors ? ' — errors must be resolved before launching' : ''}.
+          </p>
+        </div>
 
-        <ul className="mt-4 space-y-2">
+        <ul data-testid="diff-warning-list" className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-4 sm:px-6">
           {warnings.map((w, i) => (
             <li
               key={i}
@@ -65,7 +67,7 @@ export function DiffWarningDialog({
           ))}
         </ul>
 
-        <div className="mt-6 flex justify-end gap-2">
+        <div className="mt-4 flex shrink-0 justify-end gap-2 border-t border-white/10 p-4 sm:px-6">
           <button type="button" className="btn-pib-ghost text-sm" onClick={onCancel}>
             {cancelLabel}
           </button>

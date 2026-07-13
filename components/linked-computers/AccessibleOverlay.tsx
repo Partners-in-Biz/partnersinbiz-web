@@ -22,7 +22,7 @@ export function AccessibleDialog({ label, onClose, children, className = 'w-full
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
   }
-  return <div ref={ref} role="dialog" aria-modal="true" aria-label={label} onKeyDown={keyDown} onMouseDown={event => { if (event.target === event.currentTarget) onClose() }} className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4"><div className={className}>{children}</div></div>
+  return <div ref={ref} role="dialog" aria-modal="true" aria-label={label} onKeyDown={keyDown} onMouseDown={event => { if (event.target === event.currentTarget) onClose() }} className="fixed inset-0 z-50 grid place-items-center overflow-hidden bg-black/60 p-4"><div data-testid="accessible-dialog-panel" className={`max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain ${className}`}>{children}</div></div>
 }
 
 export function AccessibleMenu({ id, label, onClose, children }: { id: string; label: string; onClose(): void; children: ReactNode }) {

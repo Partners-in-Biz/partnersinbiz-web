@@ -42,6 +42,7 @@ interface ModelProviderPickerProps {
   selectedProvider?: string
   disabled?: boolean
   compact?: boolean
+  placement?: 'top' | 'bottom'
   onSelect: (selection: ModelRuntimeSelection | null) => void
   onRefresh?: () => void
 }
@@ -76,6 +77,7 @@ export function ModelProviderPicker({
   selectedProvider,
   disabled = false,
   compact = false,
+  placement = 'bottom',
   onSelect,
   onRefresh,
 }: ModelProviderPickerProps) {
@@ -166,8 +168,15 @@ export function ModelProviderPicker({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-40 mt-2 w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] shadow-2xl">
-          <div className="border-b border-[var(--color-card-border)] p-3">
+        <div
+          role="dialog"
+          aria-label="Choose model and provider"
+          className={[
+            'absolute right-0 z-40 flex max-h-[min(560px,calc(100dvh-5rem))] w-[min(360px,calc(100vw-1rem))] flex-col overflow-hidden rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] shadow-2xl',
+            placement === 'top' ? 'bottom-full mb-2' : 'top-full mt-2',
+          ].join(' ')}
+        >
+          <div className="shrink-0 border-b border-[var(--color-card-border)] p-3">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-xs font-semibold text-[var(--color-pib-text)]">Model & provider</div>
@@ -207,7 +216,7 @@ export function ModelProviderPicker({
             )}
           </div>
 
-          <div className="max-h-[360px] overflow-y-auto p-1.5">
+          <div data-testid="model-provider-options" className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1.5">
             <button
               type="button"
               disabled={!canSelect}
@@ -286,7 +295,7 @@ export function ModelProviderPicker({
             ))}
           </div>
 
-          <div className="flex items-center justify-between gap-2 border-t border-[var(--color-card-border)] px-3 py-2 text-[11px]">
+          <div className="flex shrink-0 items-center justify-between gap-2 border-t border-[var(--color-card-border)] px-3 py-2 text-[11px]">
             <button
               type="button"
               onClick={onRefresh}

@@ -50,7 +50,7 @@ export function HermesMessagesShell({
   return (
     <div
       data-testid="hermes-messages-shell"
-      className="flex h-[calc(100dvh-88px)] min-h-[640px] min-w-0 flex-col overflow-hidden rounded-[22px] border border-[var(--color-card-border)] bg-[var(--color-card)]/55 shadow-[0_24px_80px_rgba(0,0,0,0.24)]"
+      className="flex h-[calc(100dvh-88px)] min-h-0 min-w-0 flex-col overflow-hidden rounded-[22px] border border-[var(--color-card-border)] bg-[var(--color-card)]/55 shadow-[0_24px_80px_rgba(0,0,0,0.24)] lg:min-h-[640px]"
     >
       <header
         data-testid="hermes-messages-shell-topbar"

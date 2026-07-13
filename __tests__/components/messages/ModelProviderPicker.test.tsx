@@ -104,4 +104,20 @@ describe('ModelProviderPicker', () => {
 
     expect(onSelect).toHaveBeenCalledWith(null)
   })
+
+  it('can open upward with a viewport-bounded list when used in the bottom composer bar', () => {
+    render(
+      <ModelProviderPicker
+        catalog={catalog}
+        selected={null}
+        placement="top"
+        onSelect={jest.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /Auto model/i }))
+
+    expect(screen.getByRole('dialog', { name: 'Choose model and provider' })).toHaveClass('bottom-full')
+    expect(screen.getByTestId('model-provider-options')).toHaveClass('min-h-0', 'flex-1', 'overflow-y-auto')
+  })
 })

@@ -48,6 +48,14 @@ describe('ConversationAccessDialog', () => {
     })
   })
 
+  it('keeps the access footer reachable in short phone and tablet viewports', () => {
+    render(<ConversationAccessDialog conversation={conversation} onClose={jest.fn()} onUpdated={jest.fn()} />)
+
+    expect(screen.getByRole('dialog', { name: 'Manage conversation access' })).toHaveClass('max-h-[calc(100dvh-2rem)]', 'flex-col')
+    expect(screen.getByTestId('conversation-access-scroll-body')).toHaveClass('min-h-0', 'flex-1', 'overflow-y-auto')
+    expect(screen.getByRole('button', { name: 'Save access' }).closest('footer')).toHaveClass('shrink-0')
+  })
+
   it('requires another person for selected-people access', async () => {
     render(<ConversationAccessDialog conversation={conversation} onClose={jest.fn()} onUpdated={jest.fn()} />)
     fireEvent.click(screen.getByText('Selected people'))

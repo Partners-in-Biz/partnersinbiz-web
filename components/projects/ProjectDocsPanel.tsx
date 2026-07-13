@@ -99,7 +99,7 @@ export function ProjectDocsPanel({
 
   return (
     <div className="flex-1 overflow-auto space-y-6 pb-6">
-      <div className="pib-card p-5">
+      <div className="pib-card rounded-[var(--radius-card)] p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="pib-label">Project docs</p>

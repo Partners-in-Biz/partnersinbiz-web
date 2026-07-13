@@ -2955,13 +2955,13 @@ export default function PortalContactDetailPage() {
 
       {/* C3: Enroll modal */}
       {showEnrollModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 z-50 flex items-end justify-center overflow-hidden bg-black/50 p-2 sm:items-center sm:p-4">
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="portal-contact-enroll-title"
             aria-describedby="portal-contact-enroll-description"
-            className="w-full max-w-sm space-y-3 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3"
+            className="max-h-[calc(100dvh-1rem)] w-full max-w-sm space-y-3 overflow-y-auto overscroll-contain rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3 sm:max-h-[calc(100dvh-2rem)]"
           >
             <div>
               <p className="eyebrow !text-[10px]">Nurture workflow</p>
