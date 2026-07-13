@@ -46,6 +46,7 @@ import { checkFormRateLimit } from '@/lib/forms/ratelimit'
 import { checkQuota } from '@/lib/platform/quotas'
 import type { CaptureSource } from '@/lib/crm/captureSources'
 import type { Campaign } from '@/lib/campaigns/types'
+import { assertEmailMarketingDispatchApproval } from '@/lib/email-marketing/agent-governance'
 import type { Sequence, SequenceEnrollment } from '@/lib/sequences/types'
 import { evaluateSequenceReentry } from '@/lib/email-marketing/automation-policy'
 import { appendConsentEvent } from '@/lib/consent-ledger/store'
@@ -268,6 +269,9 @@ export async function POST(req: NextRequest, context: Params) {
       const campaign = campSnap.data() as Campaign
       if (campaign.deleted || campaign.status !== 'active') continue
       if (campaign.orgId !== source.orgId) continue
+      await assertEmailMarketingDispatchApproval(campaign as unknown as Record<string, unknown>, {
+        orgId: source.orgId, resourceType: 'email_campaign', resourceId: campaignId,
+      })
 
       // Idempotency
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -282,6 +286,9 @@ export async function POST(req: NextRequest, context: Params) {
       if (!seqSnap.exists) continue
       const sequence = seqSnap.data() as Sequence
       if (!sequence.steps?.length) continue
+      await assertEmailMarketingDispatchApproval(sequence as unknown as Record<string, unknown>, {
+        orgId: source.orgId, resourceType: 'email_sequence', resourceId: campaign.sequenceId,
+      })
 
       const firstStep = sequence.steps[0]
       const delayMs = (firstStep.delayDays ?? 0) * 24 * 60 * 60 * 1000
@@ -329,6 +336,9 @@ export async function POST(req: NextRequest, context: Params) {
       if (sequence.deleted || sequence.status !== 'active') continue
       if (sequence.orgId !== source.orgId) continue
       if (!sequence.steps?.length) continue
+      await assertEmailMarketingDispatchApproval(sequence as unknown as Record<string, unknown>, {
+        orgId: source.orgId, resourceType: 'email_sequence', resourceId: sequenceId,
+      })
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const existing = await (adminDb.collection('sequence_enrollments') as any)
