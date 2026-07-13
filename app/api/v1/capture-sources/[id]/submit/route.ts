@@ -398,7 +398,7 @@ export async function POST(req: NextRequest, context: Params) {
   }
   const resolvedFields = resolveCaptureFields(source.fields ?? [], rawData, attributionContext)
   if (!resolvedFields.ok) return jsonError(resolvedFields.errors.join('; '), 400)
-  const data = resolvedFields.data
+  const data = resolvedFields.data as Record<string, string>
 
   // 3. Find or create contact
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -485,7 +485,7 @@ export async function POST(req: NextRequest, context: Params) {
   const schemaVersion = await publishCaptureSchemaVersion(
     adminDb as never,
     adminDb.collection(LEAD_CAPTURE_SOURCES).doc(source.id) as never,
-    { orgId: source.orgId, sourceId: source.id, fields: source.fields ?? [] },
+    { orgId: source.orgId, sourceId: source.id, fields: source.fields ?? [], display: source.display },
   )
 
   await submissionRef.set({

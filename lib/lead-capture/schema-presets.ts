@@ -19,11 +19,9 @@ export function formCaptureSchemaFields(fields: FormField[]): CaptureField[] {
   return sanitizeCaptureFields(fields.filter((field) => field.type !== 'hidden').map((field) => ({
     key: field.id,
     label: field.label,
-    type: field.type === 'phone' ? 'tel'
-      : field.type === 'textarea' || field.type === 'select' || field.type === 'email'
-          ? field.type
-          : 'text',
+    type: field.type === 'phone' ? 'tel' : field.type,
     required: field.required,
     options: field.options,
+    validation: field.validation,
   })))
 }

@@ -4,6 +4,7 @@ import type {
   CaptureField,
   CaptureFieldCondition,
   CaptureFieldConditionOperator,
+  WidgetDisplayConfig,
 } from '@/lib/lead-capture/types'
 import { VALID_FIELD_TYPES } from '@/lib/lead-capture/types'
 
@@ -88,6 +89,12 @@ export function parseCaptureFields(input: unknown): {
         .filter(Boolean)
         .slice(0, 100)
     }
+    if (raw.validation && typeof raw.validation === 'object') {
+      const validation = raw.validation as Record<string, unknown>
+      field.validation = Object.fromEntries(
+        Object.entries(validation).filter(([, value]) => typeof value === 'number' || typeof value === 'string'),
+      ) as CaptureField['validation']
+    }
     if (
       type === 'hidden' &&
       typeof raw.attributionKey === 'string' &&
@@ -146,9 +153,9 @@ export function resolveCaptureFields(
   attribution: CaptureAttributionContext,
   options: { progressiveStep?: number; priorData?: Record<string, string>; allowedFieldKeys?: string[] } = {},
 ):
-  | { ok: true; data: Record<string, string>; visibleFieldKeys: string[] }
-  | { ok: false; data: Record<string, string>; errors: string[]; visibleFieldKeys: string[] } {
-  const data: Record<string, string> = {}
+  | { ok: true; data: Record<string, unknown>; visibleFieldKeys: string[] }
+  | { ok: false; data: Record<string, unknown>; errors: string[]; visibleFieldKeys: string[] } {
+  const data: Record<string, unknown> = {}
   const errors: string[] = []
   const visibleFieldKeys: string[] = []
 
@@ -181,13 +188,9 @@ export function resolveCaptureFields(
     if (field.showWhen && !conditionMatches(field.showWhen, resolvedForConditions)) continue
     visibleFieldKeys.push(field.key)
     const raw = submitted[field.key]
-    const value = typeof raw === 'string' ? raw.trim() : ''
-    if (field.required && !value) errors.push(`Field "${field.label}" is required`)
-    if (value && field.type === 'select' && field.options?.length && !field.options.includes(value)) {
-      errors.push(`Field "${field.label}" has an invalid option`)
-    } else if (value) {
-      data[field.key] = value.slice(0, 5000)
-    }
+    const resolved = resolveFieldValue(field, raw)
+    if (!resolved.ok) errors.push(resolved.error)
+    else if (resolved.value !== undefined) data[field.key] = resolved.value
   }
 
   return errors.length > 0
@@ -195,7 +198,7 @@ export function resolveCaptureFields(
     : { ok: true, data, visibleFieldKeys }
 }
 
-export function captureSchemaFingerprint(fields: CaptureField[]): string {
+export function captureSchemaFingerprint(fields: CaptureField[], display?: WidgetDisplayConfig): string {
   const canonical = fields.map((field) => ({
     key: field.key,
     label: field.label,
@@ -206,19 +209,60 @@ export function captureSchemaFingerprint(fields: CaptureField[]): string {
     ...(field.attributionKey ? { attributionKey: field.attributionKey } : {}),
     ...(field.progressiveStep ? { progressiveStep: field.progressiveStep } : {}),
     ...(field.showWhen ? { showWhen: field.showWhen } : {}),
+    ...(field.validation ? { validation: field.validation } : {}),
   }))
-  return `schema_${createHash('sha256').update(JSON.stringify(canonical)).digest('hex').slice(0, 24)}`
+  return `schema_${createHash('sha256').update(JSON.stringify({ fields: canonical, display: display ?? null })).digest('hex').slice(0, 24)}`
+}
+
+function resolveFieldValue(field: CaptureField, raw: unknown):
+  | { ok: true; value?: unknown }
+  | { ok: false; error: string } {
+  const empty = raw === undefined || raw === null || raw === '' || (Array.isArray(raw) && raw.length === 0)
+  if (empty) return field.required
+    ? { ok: false, error: `Field "${field.label}" is required` }
+    : { ok: true }
+  if (field.type === 'number') {
+    const value = typeof raw === 'number' ? raw : Number(raw)
+    if (!Number.isFinite(value)) return { ok: false, error: `Field "${field.label}" must be a number` }
+    if (field.validation?.min !== undefined && value < field.validation.min) return { ok: false, error: `Field "${field.label}" must be at least ${field.validation.min}` }
+    if (field.validation?.max !== undefined && value > field.validation.max) return { ok: false, error: `Field "${field.label}" must be at most ${field.validation.max}` }
+    return { ok: true, value }
+  }
+  if (field.type === 'checkbox') {
+    const value = typeof raw === 'boolean' ? raw : ['true', '1', 'yes', 'on'].includes(String(raw).toLowerCase())
+    return { ok: true, value }
+  }
+  if (field.type === 'multiselect') {
+    if (!Array.isArray(raw)) return { ok: false, error: `Field "${field.label}" must be an array` }
+    const values = raw.map(String)
+    if (field.options?.length && values.some((value) => !field.options!.includes(value))) return { ok: false, error: `Field "${field.label}" has an invalid option` }
+    return { ok: true, value: values }
+  }
+  const value = typeof raw === 'string' ? raw.trim() : String(raw)
+  if (field.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return { ok: false, error: `Field "${field.label}" must be a valid email` }
+  if (field.type === 'date' && Number.isNaN(Date.parse(value))) return { ok: false, error: `Field "${field.label}" must be a valid date` }
+  if ((field.type === 'select' || field.type === 'radio') && field.options?.length && !field.options.includes(value)) return { ok: false, error: `Field "${field.label}" has an invalid option` }
+  if (field.validation?.minLength !== undefined && value.length < field.validation.minLength) return { ok: false, error: `Field "${field.label}" is too short` }
+  if (field.validation?.maxLength !== undefined && value.length > field.validation.maxLength) return { ok: false, error: `Field "${field.label}" is too long` }
+  if (field.validation?.pattern) {
+    try {
+      if (!new RegExp(field.validation.pattern).test(value)) return { ok: false, error: `Field "${field.label}" format is invalid` }
+    } catch { /* invalid stored patterns do not block submissions */ }
+  }
+  return { ok: true, value: value.slice(0, 5000) }
 }
 
 export function buildCaptureSchemaVersion(input: {
   orgId: string
   sourceId: string
   fields: CaptureField[]
-}): { id: string; orgId: string; captureSourceId: string; fields: CaptureField[] } {
+  display?: WidgetDisplayConfig
+}): { id: string; orgId: string; captureSourceId: string; fields: CaptureField[]; display?: WidgetDisplayConfig } {
   return {
-    id: captureSchemaFingerprint(input.fields),
+    id: captureSchemaFingerprint(input.fields, input.display),
     orgId: input.orgId,
     captureSourceId: input.sourceId,
     fields: input.fields,
+    ...(input.display ? { display: input.display } : {}),
   }
 }

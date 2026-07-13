@@ -213,6 +213,7 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
   if (typeof body.successMessage === 'string') patch.successMessage = body.successMessage
   if (typeof body.successRedirectUrl === 'string') patch.successRedirectUrl = body.successRedirectUrl
   let schemaFields: CaptureField[] | null = null
+  let schemaDisplay = existing.display
   if (body.fields !== undefined) {
     const parsed = parseCaptureFields(body.fields)
     if (!parsed.ok) return apiError(parsed.errors.join('; '), 400)
@@ -237,7 +238,8 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
   // Display & triggers config
   if (body.display !== undefined) {
     const cleaned = sanitizeDisplay(body.display)
-    patch.display = cleaned ?? { mode: 'inline' }
+    schemaDisplay = cleaned ?? { mode: 'inline' }
+    if (!schemaFields) schemaFields = existing.fields ?? []
   }
 
   // Outbound webhook (US-091)
@@ -258,8 +260,9 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
         orgId: existing.orgId,
         sourceId: id,
         fields: schemaFields,
+        display: schemaDisplay,
         createdBy: user.uid,
-        sourcePatch: { fields: schemaFields },
+        sourcePatch: { fields: schemaFields, display: schemaDisplay },
       },
     )
   }

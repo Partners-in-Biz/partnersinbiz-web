@@ -215,6 +215,7 @@ export const POST = withAuth(
     const parsedFields = parseCaptureFields(body.fields ?? [])
     if (!parsedFields.ok) return apiError(parsedFields.errors.join('; '), 400)
     const fields = parsedFields.fields
+    const display = sanitizeDisplay(body.display)
     const docData = {
       orgId,
       name,
@@ -243,7 +244,7 @@ export const POST = withAuth(
       blockDisposableEmails: body.blockDisposableEmails === false ? false : true,
       rateLimit: sanitizeRateLimit(body.rateLimit),
       stats: { blocked: { ...DEFAULT_BLOCK_STATS } },
-      display: sanitizeDisplay(body.display),
+      display,
       // Outbound webhook (US-091)
       webhookUrl: sanitizeWebhookUrl(body.webhookUrl),
       webhookSecret: typeof body.webhookSecret === 'string' ? body.webhookSecret.trim() : '',
@@ -255,7 +256,7 @@ export const POST = withAuth(
 
     const ref = await adminDb.collection(LEAD_CAPTURE_SOURCES).add(docData)
     await publishCaptureSchemaVersion(adminDb as never, ref as never, {
-      orgId, sourceId: ref.id, fields, createdBy: user.uid,
+      orgId, sourceId: ref.id, fields, display, createdBy: user.uid,
     })
     const created = await ref.get()
     return apiSuccess({ id: ref.id, ...created.data() }, 201)

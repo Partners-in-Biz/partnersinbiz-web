@@ -28,7 +28,9 @@ export type CaptureSourceType =
 
 export type DoubleOptInMode = 'off' | 'on'
 
-export type CaptureFieldType = 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'hidden'
+export type CaptureFieldType =
+  | 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'hidden'
+  | 'number' | 'date' | 'radio' | 'multiselect' | 'checkbox' | 'file'
 
 export type CaptureAttributionKey =
   | 'utm_source'
@@ -63,6 +65,13 @@ export interface CaptureField {
   attributionKey?: CaptureAttributionKey // hidden fields are resolved server-side from trusted request provenance
   progressiveStep?: number   // 1-based editor step; absent means available on every relevant submit
   showWhen?: CaptureFieldCondition
+  validation?: {
+    minLength?: number
+    maxLength?: number
+    min?: number
+    max?: number
+    pattern?: string
+  }
 }
 
 export interface CaptureWidgetTheme {
@@ -289,6 +298,12 @@ export const VALID_FIELD_TYPES: CaptureFieldType[] = [
   'textarea',
   'select',
   'hidden',
+  'number',
+  'date',
+  'radio',
+  'multiselect',
+  'checkbox',
+  'file',
 ]
 
 export const LEAD_CAPTURE_SOURCES = 'lead_capture_sources'

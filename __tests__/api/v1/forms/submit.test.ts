@@ -198,6 +198,39 @@ beforeEach(() => {
 })
 
 describe('POST /api/v1/forms/[id]/submit — attribution', () => {
+  it('rejects caller-supplied hidden fields', async () => {
+    const form = makeForm({ fields: [
+      { id: 'email', label: 'Email', type: 'email', required: true },
+      { id: 'internalCampaign', label: 'Internal campaign', type: 'hidden', required: false },
+    ] })
+    stageDb(form, { existingContact: null })
+    const { POST } = await import('@/app/api/v1/forms/[id]/submit/route')
+    const res = await POST(submitReq('contact-us', 'org-1', {
+      email: 'bob@example.com', internalCampaign: 'spoofed',
+    }), { params: Promise.resolve({ id: 'contact-us' }) })
+    expect(res.status).toBe(400)
+    expect(mockFormSubmissionsAdd).not.toHaveBeenCalled()
+  })
+
+  it('persists canonical number, checkbox and multiselect values under the exact version', async () => {
+    const form = makeForm({ fields: [
+      { id: 'email', label: 'Email', type: 'email', required: true },
+      { id: 'amount', label: 'Amount', type: 'number', required: true, validation: { min: 1 } },
+      { id: 'agree', label: 'Agree', type: 'checkbox', required: true },
+      { id: 'topics', label: 'Topics', type: 'multiselect', required: true, options: ['growth', 'sales'] },
+    ] })
+    stageDb(form, { existingContact: null })
+    const { POST } = await import('@/app/api/v1/forms/[id]/submit/route')
+    const res = await POST(submitReq('contact-us', 'org-1', {
+      email: 'bob@example.com', amount: '12', agree: 'true', topics: ['growth'],
+    }), { params: Promise.resolve({ id: 'contact-us' }) })
+    expect(res.status).toBe(200)
+    expect(mockFormSubmissionsAdd).toHaveBeenCalledWith(expect.objectContaining({
+      data: { email: 'bob@example.com', amount: 12, agree: true, topics: ['growth'] },
+      schemaVersionId: expect.stringMatching(/^schema_/),
+    }))
+  })
+
   it('persists referrer, campaign and UTM attribution on the submission', async () => {
     const form = makeForm()
     stageDb(form, { existingContact: null })

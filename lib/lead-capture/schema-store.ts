@@ -1,5 +1,5 @@
 import { FieldValue } from 'firebase-admin/firestore'
-import type { CaptureField } from '@/lib/lead-capture/types'
+import type { CaptureField, WidgetDisplayConfig } from '@/lib/lead-capture/types'
 import { LEAD_CAPTURE_SCHEMA_VERSIONS } from '@/lib/lead-capture/types'
 import { buildCaptureSchemaVersion } from '@/lib/lead-capture/schema'
 
@@ -20,13 +20,14 @@ function immutableContent(value: Record<string, unknown> | undefined) {
     orgId: value?.orgId,
     captureSourceId: value?.captureSourceId,
     fields: value?.fields,
+    display: value?.display,
   })
 }
 
 export async function publishCaptureSchemaVersion(
   db: Db,
   sourceRef: Ref,
-  input: { orgId: string; sourceId: string; fields: CaptureField[]; createdBy?: string; sourcePatch?: Record<string, unknown> },
+  input: { orgId: string; sourceId: string; fields: CaptureField[]; display?: WidgetDisplayConfig; createdBy?: string; sourcePatch?: Record<string, unknown> },
 ) {
   const version = buildCaptureSchemaVersion(input)
   const versionRef = db.collection(LEAD_CAPTURE_SCHEMA_VERSIONS).doc(`${input.sourceId}_${version.id}`)
@@ -47,4 +48,26 @@ export async function publishCaptureSchemaVersion(
     transaction.update(sourceRef, { ...(input.sourcePatch ?? {}), activeSchemaVersionId: version.id })
   })
   return version
+}
+
+export async function loadCaptureSchemaVersion(
+  db: Pick<Db, 'collection'>,
+  sourceId: string,
+  versionId: string,
+) {
+  if (!/^schema_[a-f0-9]{24}$/.test(versionId)) throw new Error('Invalid capture schema version id')
+  const ref = db.collection(LEAD_CAPTURE_SCHEMA_VERSIONS).doc(`${sourceId}_${versionId}`) as Ref & { get?: () => Promise<Snapshot> }
+  if (!ref.get) throw new Error('Capture schema version store is unavailable')
+  const snap = await ref.get()
+  if (!snap.exists) throw new Error('Capture schema version not found')
+  const record = snap.data()
+  if (!record || record.captureSourceId !== sourceId) throw new Error('Capture schema version does not belong to this source')
+  const expected = buildCaptureSchemaVersion({
+    orgId: String(record.orgId ?? ''),
+    sourceId,
+    fields: record.fields as CaptureField[],
+    display: record.display as WidgetDisplayConfig | undefined,
+  })
+  if (expected.id !== versionId) throw new Error('Capture schema version failed integrity verification')
+  return record as unknown as ReturnType<typeof buildCaptureSchemaVersion>
 }
