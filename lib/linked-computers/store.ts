@@ -239,6 +239,7 @@ const GRANT_TRANSITIONS: Record<DeviceGrantStatus, DeviceGrantStatus[]> = {
   active: ['paused', 'revoked'], paused: ['active', 'revoked'], revoked: [],
 }
 const MAPPING_TRANSITIONS: Record<WorkspaceMappingStatus, WorkspaceMappingStatus[]> = {
+  pending: ['active','paused','removed'],
   active: ['stale', 'missing', 'paused', 'removed'],
   stale: ['active', 'missing', 'paused', 'removed'],
   missing: ['active', 'stale', 'paused', 'removed'],
@@ -379,11 +380,12 @@ export async function removeOwnedDevice(input: { deviceId: string; actorUserId: 
     const deviceRef = db.collection(DEVICES).doc(input.deviceId)
     const credentialRef = db.collection('linked_device_credentials').doc(input.deviceId)
     const deliveryRef = db.collection(ROTATION_DELIVERIES).doc(input.deviceId)
-    const [deviceSnap, credentialSnap, deliverySnap, mappings, grants] = await Promise.all([
+    const [deviceSnap, credentialSnap, deliverySnap, mappings, grants, jobs] = await Promise.all([
       tx.get(deviceRef), tx.get(credentialRef),
       tx.get(deliveryRef),
       tx.get(db.collection(MAPPINGS).where('deviceId', '==', input.deviceId)),
       tx.get(db.collection(GRANTS).where('deviceId', '==', input.deviceId)),
+      tx.get(db.collection('linked_device_run_jobs').where('deviceId', '==', input.deviceId)),
     ])
     if (!deviceSnap.exists) throw new Error('linked computers: device not found')
     const device = deviceSnap.data() as LinkedDevice
@@ -408,6 +410,7 @@ export async function removeOwnedDevice(input: { deviceId: string; actorUserId: 
       tx.update(doc.ref, { status: 'revoked', revokedAt: at, updatedAt: at })
       tx.create(auditRef(db), { eventId: randomUUID(), action: 'grant.changed', actorUserId: input.actorUserId, deviceId: input.deviceId, orgId: grant.orgId, fromStatus: grant.status, toStatus: 'revoked', createdAt: at })
     }
+    for(const doc of jobs.docs){const job=doc.data();if(!['completed','failed','cancelled','expired'].includes(job.status))tx.update(doc.ref,{status:'cancelled',encryptedPayload:null,error:'Linked computer revoked',completedAt:at,updatedAt:at})}
     tx.create(auditRef(db), { eventId: randomUUID(), action: 'device.status_changed', actorUserId: input.actorUserId, deviceId: input.deviceId, fromStatus: device.status, toStatus: 'removed', createdAt: at })
   })
 }
@@ -489,7 +492,7 @@ export async function putWorkspaceMapping(input: {
       if (old.deviceId !== input.deviceId || old.orgId !== input.orgId) throw new Error('linked computers: mapping tenant scope mismatch')
     }
     const fromStatus = existing.exists ? existing.data()?.status as WorkspaceMappingStatus : undefined
-    if (fromStatus ? !MAPPING_TRANSITIONS[fromStatus]?.includes(input.status) : input.status !== 'active') {
+    if (fromStatus ? !MAPPING_TRANSITIONS[fromStatus]?.includes(input.status) : input.status !== 'pending') {
       throw new Error('linked computers: invalid mapping status transition')
     }
     const at = timestamp(options)

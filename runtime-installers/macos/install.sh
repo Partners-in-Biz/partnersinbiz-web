@@ -64,7 +64,7 @@ pair_runtime() {
   [[ -x "$BIN" ]] || { echo "Install the runtime first." >&2; exit 1; }
   # pib-runtime prompts privately for the one-time code, creates its device key,
   # exchanges the challenge, stores all results in Keychain, then sends a signed
-  # heartbeat with bootstrapTransport=true and starts the local Hermes bridge.
+  # heartbeat and starts the outbound local Hermes worker.
   "$BIN" pair --challenge "$challengeId" --platform macos --prompt-code --credential-store keychain
 }
 

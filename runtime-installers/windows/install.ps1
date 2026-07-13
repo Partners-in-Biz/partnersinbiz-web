@@ -16,7 +16,7 @@ function Assert-Administrator { if (-not ([Security.Principal.WindowsPrincipal][
 function Wait-ServiceStopped { for($i=0;$i -lt 60;$i++){ $state=(& sc.exe query PartnersInBizRuntime | Select-String 'STATE').ToString();if($state -match 'STOPPED'){return};Start-Sleep -Milliseconds 250 };throw 'Runtime service did not reach SERVICE_STOPPED.' }
 
 # The runtime uses CredWrite/CredRead through Windows Credential Manager for its
-# device credential, transport token and signing private key. Secrets are passed
+# device credential and signing private key. Secrets are passed
 # in memory only and never as process arguments, files, environment, or logs.
 function Remove-RuntimeCredential { if (Test-Path $Binary) { & $Binary credential-delete --store 'Credential Manager' | Out-Null } }
 

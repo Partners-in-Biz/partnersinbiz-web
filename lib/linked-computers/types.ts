@@ -3,7 +3,7 @@ export type LinkedDevicePlatform = 'macos' | 'windows'
 export type LinkedDeviceArchitecture = 'arm64' | 'x64'
 export type LinkedDeviceCapability = 'workspace.execute'
 export type DeviceGrantStatus = 'active' | 'paused' | 'revoked'
-export type WorkspaceMappingStatus = 'active' | 'stale' | 'missing' | 'paused' | 'removed'
+export type WorkspaceMappingStatus = 'pending' | 'active' | 'stale' | 'missing' | 'paused' | 'removed'
 
 export interface LinkedDevice {
   deviceId: string

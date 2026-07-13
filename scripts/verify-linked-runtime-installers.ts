@@ -17,12 +17,12 @@ const win = read('runtime-installers/windows/install.ps1')
 const docs = read('runtime-installers/README.md')
 const structural = validatePowerShellStructure(win); if(structural) errors.push(`Windows PowerShell: ${structural}`)
 
-const runtime=['cli.ts','client.ts','worker.ts','core.ts','bridge.ts','release-manager.ts'].map(file=>read(`runtime-installers/runtime/${file}`)).join('\n')
+const runtimeCli=read('runtime-installers/runtime/cli.ts')
+const runtime=['client.ts','worker.ts','core.ts','bridge.ts','release-manager.ts'].map(file=>read(`runtime-installers/runtime/${file}`)).concat(runtimeCli).join('\n')
 for (const [name, source] of [['macOS', mac+runtime], ['Windows', win+runtime]] as const) {
   requireText(name, source, /challengeId/i)
   requireText(name, source, /pair/i)
   requireText(name, source, /heartbeat/i)
-  requireText(name, source, /bootstrapTransport/i)
   requireText(name, source, /execution[- ]receipt|receipt/i)
   requireText(name, source, /update/i)
   requireText(name, source, /minimumVersion/i)
@@ -33,6 +33,7 @@ for (const [name, source] of [['macOS', mac+runtime], ['Windows', win+runtime]] 
   rejectText(name, source, /(?:api[_-]?key|device[_-]?credential|transport[_-]?token)\s*=\s*["'][A-Za-z0-9_\/-]{16,}/i)
   rejectText(name, source, /(?:--credential(?!-store)|--transport-token|--private-key|--pairing-code)\b/i)
 }
+rejectText('runtime heartbeat',runtimeCli,/bootstrapTransport/)
 
 requireText('macOS', mac, /security (?:add|find)-generic-password/)
 requireText('macOS', mac, /launchctl (?:bootstrap|bootout|kickstart)/)

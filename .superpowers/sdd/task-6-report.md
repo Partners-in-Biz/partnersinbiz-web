@@ -106,3 +106,9 @@ Tests simulate failed writes, torn-write/crash readback, failed acknowledgement 
 ## Atomic macOS Keychain replacement (2026-07-13)
 
 Keychain credential writes now update the existing generic-password item with `SecItemUpdate`, preserving its service/account/access attributes. Only `errSecItemNotFound` falls back to `SecItemAdd`; there is no delete-before-add credential-loss window. The helper reads the item back and compares the exact data before reporting success. Source regression coverage rejects delete/add replacement and requires update, not-found fallback, and readback. The Swift helper compiles successfully. Final focused result: 4 suites / 23 tests, full typecheck, runtime typecheck, verifier, and diff check pass.
+
+## Transport removal, signed revoke, and mapping confirmation (2026-07-13)
+
+Pairing and heartbeat no longer send `bootstrapTransport` or use transport tokens; the runtime is outbound queue-only. Device revoke now uses an exact signed device-auth route, atomically removes the device credential and access, pauses/removes mappings and grants, and cancels outstanding jobs. Runtime revoke writes a nonsecret `0600` pending marker before the remote attempt, retries with the credential while available, guarantees local secure-store cleanup, and reports pending remote cleanup safely.
+
+Workspace mapping creation now returns a server-generated logical ID in `pending` state. The portal shows a path-free, platform-specific local command; the folder is entered only on the computer. `pib-runtime map` writes the canonical local mapping before signed confirmation activates it, while `unmap` confirms pause. Runtime discovery and dispatch continue to require `active`, excluding pending mappings. Relevant API, UI, dispatch, runtime and installer verification is green: 10 suites / 61 tests, full typecheck, targeted ESLint, Bash syntax, verifier and diff check.
