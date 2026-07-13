@@ -46,34 +46,35 @@ export default function PortalNewPropertyPage() {
   }
 
   return (
-    <div className="max-w-xl mx-auto space-y-6">
-      <div className="flex items-center gap-3">
-        <button onClick={() => router.push('/portal/properties')} className="text-on-surface-variant hover:text-on-surface text-sm">
+    <div className="max-w-xl mx-auto space-y-8">
+      <header>
+        <button onClick={() => router.push('/portal/properties')} className="btn-pib-ghost text-sm">
           ← Properties
         </button>
-        <h1 className="text-xl font-headline font-bold text-on-surface">New Property</h1>
-      </div>
+        <p className="eyebrow mt-4">CRM · Properties</p>
+        <h1 className="pib-page-title mt-2">New Property</h1>
+      </header>
 
-      <form className="pib-card p-5 space-y-4" onSubmit={e => { e.preventDefault(); handleCreate() }}>
+      <form className="pib-card space-y-4" onSubmit={e => { e.preventDefault(); handleCreate() }}>
         <div>
-          <label className="text-xs text-on-surface-variant font-label block mb-1">Client *</label>
-          <select value={orgId} onChange={e => setOrgId(e.target.value)} className="pib-input text-sm w-full">
+          <label className="pib-label">Client *</label>
+          <select value={orgId} onChange={e => setOrgId(e.target.value)} className="pib-select text-sm w-full">
             <option value="">Select a client…</option>
             {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
           </select>
         </div>
         <div>
-          <label className="text-xs text-on-surface-variant font-label block mb-1">Name *</label>
+          <label className="pib-label">Name *</label>
           <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Scrolled Brain" className="pib-input text-sm w-full" />
         </div>
         <div>
-          <label className="text-xs text-on-surface-variant font-label block mb-1">Domain *</label>
+          <label className="pib-label">Domain *</label>
           <input type="text" value={domain} onChange={e => setDomain(e.target.value)} placeholder="scrolledbrain.com" className="pib-input text-sm w-full" />
         </div>
         <div className="flex gap-4">
           <div className="flex-1">
-            <label className="text-xs text-on-surface-variant font-label block mb-1">Type</label>
-            <select value={type} onChange={e => setType(e.target.value as PropertyType)} className="pib-input text-sm w-full">
+            <label className="pib-label">Type</label>
+            <select value={type} onChange={e => setType(e.target.value as PropertyType)} className="pib-select text-sm w-full">
               <option value="web">Web</option>
               <option value="ios">iOS</option>
               <option value="android">Android</option>
@@ -81,8 +82,8 @@ export default function PortalNewPropertyPage() {
             </select>
           </div>
           <div className="flex-1">
-            <label className="text-xs text-on-surface-variant font-label block mb-1">Status</label>
-            <select value={status} onChange={e => setStatus(e.target.value as PropertyStatus)} className="pib-input text-sm w-full">
+            <label className="pib-label">Status</label>
+            <select value={status} onChange={e => setStatus(e.target.value as PropertyStatus)} className="pib-select text-sm w-full">
               <option value="draft">Draft</option>
               <option value="active">Active</option>
               <option value="paused">Paused</option>
@@ -90,8 +91,8 @@ export default function PortalNewPropertyPage() {
             </select>
           </div>
         </div>
-        {error && <p className="text-sm text-red-400 font-label">{error}</p>}
-        <button type="submit" disabled={saving} className="pib-btn-primary text-sm font-label w-full">
+        {error && <p className="text-sm text-[var(--color-error)]">{error}</p>}
+        <button type="submit" disabled={saving} className="btn-pib-primary text-sm w-full">
           {saving ? 'Creating…' : 'Create Property'}
         </button>
       </form>

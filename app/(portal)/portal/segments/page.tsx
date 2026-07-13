@@ -25,9 +25,8 @@ const STAGES = ['', 'new', 'contacted', 'replied', 'demo', 'proposal', 'won', 'l
 const TYPES = ['', 'lead', 'prospect', 'client', 'churned']
 const SOURCES = ['', 'manual', 'form', 'import', 'outreach']
 
-const FIELD_LABEL_CLS = 'text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant'
-const INPUT_CLS =
-  'h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface outline-none transition focus:border-[var(--color-accent-v2)]'
+const FIELD_LABEL_CLS = 'pib-label mb-0'
+const INPUT_CLS = 'pib-input h-8 px-2 text-xs'
 
 interface SegmentFilters {
   tags?: string[]
@@ -450,7 +449,7 @@ export default function PortalSegmentsPage() {
       />
 
       {error && (
-        <p className="text-[11px] text-red-300">
+        <p className="text-[11px] text-[var(--color-error)]">
           {error}
         </p>
       )}
@@ -458,14 +457,14 @@ export default function PortalSegmentsPage() {
         <button
           type="submit"
           disabled={saving}
-          className="flex h-8 items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition disabled:opacity-40"
+          className="btn-pib-primary text-xs"
         >
           {saving ? 'Saving…' : submitLabel}
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+          className="btn-pib-secondary text-xs"
         >
           Cancel
         </button>
@@ -474,32 +473,30 @@ export default function PortalSegmentsPage() {
   )
 
   return (
-    <div className="flex min-h-0 flex-col gap-2">
-      <header className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 px-3 py-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-2.5">
-            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">filter_alt</span>
-            </span>
-            <div className="min-w-0">
-              <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">CRM</p>
-              <h1 className="text-sm font-semibold text-on-surface">Segments</h1>
-            </div>
+    <div className="flex min-h-0 flex-col space-y-8">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div className="flex min-w-0 items-start gap-4">
+          <span className="pib-icon-tint" aria-hidden="true">
+            <span className="material-symbols-outlined text-[18px]">filter_alt</span>
+          </span>
+          <div className="min-w-0">
+            <p className="eyebrow">CRM</p>
+            <h1 className="pib-page-title mt-2">Segments</h1>
+            <p className="pib-page-sub max-w-2xl">
+              Save reusable filters across your contact base — slice by tag, stage, type, source,
+              or email engagement.
+            </p>
           </div>
-          {!showNew && (
-            <button
-              onClick={() => setShowNew(true)}
-              className="flex h-8 shrink-0 items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition"
-            >
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
-              New segment
-            </button>
-          )}
         </div>
-        <p className="mt-1.5 max-w-2xl text-xs leading-5 text-on-surface-variant">
-          Save reusable filters across your contact base — slice by tag, stage, type, source,
-          or email engagement.
-        </p>
+        {!showNew && (
+          <button
+            onClick={() => setShowNew(true)}
+            className="btn-pib-primary text-xs shrink-0"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+            New segment
+          </button>
+        )}
       </header>
 
       {!loading && segments.length > 0 && (
@@ -514,7 +511,7 @@ export default function PortalSegmentsPage() {
       )}
 
       {deleteError && (
-        <div className="rounded-lg border border-red-400/40 bg-red-400/10 px-3 py-2 text-xs text-red-100">
+        <div className="rounded-lg border border-[var(--color-error)]/40 bg-[var(--color-error-container)] px-3 py-2 text-xs text-[var(--color-error)]">
           <span className="material-symbols-outlined mr-1.5 align-middle text-[16px]" aria-hidden="true">error</span>
           {deleteError}
         </div>
@@ -526,17 +523,17 @@ export default function PortalSegmentsPage() {
           aria-modal="false"
           aria-labelledby="segment-delete-confirm-title"
           aria-describedby="segment-delete-confirm-description"
-          className="rounded-xl border border-red-400/40 bg-red-400/10 p-3"
+          className="pib-card border-[var(--color-error)]/40 bg-[var(--color-error-container)]"
         >
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="flex gap-2.5">
-              <span className="material-symbols-outlined mt-0.5 text-[18px] text-red-200" aria-hidden="true">warning</span>
+              <span className="material-symbols-outlined mt-0.5 text-[18px] text-[var(--color-error)]" aria-hidden="true">warning</span>
               <div>
-                <p className="text-[10px] font-label uppercase tracking-[0.22em] text-red-100/80">Saved audience delete</p>
-                <h2 id="segment-delete-confirm-title" className="mt-1 text-sm font-semibold text-red-50">
+                <p className="eyebrow text-[var(--color-error)]">Saved audience delete</p>
+                <h2 id="segment-delete-confirm-title" className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">
                   Delete segment &quot;{segmentDisplayName(pendingDeleteSegment)}&quot;?
                 </h2>
-                <p id="segment-delete-confirm-description" className="mt-1 max-w-2xl text-xs leading-5 text-red-100/90">
+                <p id="segment-delete-confirm-description" className="mt-1 max-w-2xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
                   This removes the saved audience lens for {counts[pendingDeleteSegment.id] ?? 'unresolved'} contact{counts[pendingDeleteSegment.id] === 1 ? '' : 's'}. Existing contact records and campaign history stay available for audit.
                 </p>
               </div>
@@ -548,7 +545,7 @@ export default function PortalSegmentsPage() {
                   setPendingDeleteSegment(null)
                   setDeleteError('')
                 }}
-                className="flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface disabled:cursor-not-allowed disabled:opacity-60"
+                className="btn-pib-secondary text-xs"
                 disabled={deletingId === pendingDeleteSegment.id}
                 aria-label={`Cancel delete for segment ${segmentDisplayName(pendingDeleteSegment)}`}
               >
@@ -558,7 +555,7 @@ export default function PortalSegmentsPage() {
                 type="button"
                 onClick={confirmDeleteSegment}
                 aria-label={`Confirm delete segment ${segmentDisplayName(pendingDeleteSegment)}`}
-                className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-red-400/40 bg-red-400/10 px-3 text-xs font-medium text-red-100 transition hover:bg-red-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                className="btn-pib-danger text-xs"
                 disabled={deletingId === pendingDeleteSegment.id}
               >
                 <span className="material-symbols-outlined text-[15px]" aria-hidden="true">delete</span>
@@ -571,11 +568,11 @@ export default function PortalSegmentsPage() {
 
       {/* New segment inline form */}
       {showNew && (
-        <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
-          <div className="flex h-11 items-center gap-2 border-b border-[var(--color-card-border)] px-3">
-            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">New segment</p>
+        <section className="pib-surface">
+          <div className="pib-surface-header">
+            <p className="pib-label mb-0">New segment</p>
           </div>
-          <div className="p-3">
+          <div className="pib-surface-body">
             {renderForm(
               newForm,
               setNewForm,
@@ -602,20 +599,20 @@ export default function PortalSegmentsPage() {
           ))}
         </div>
       ) : loadError ? (
-        <section className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3">
+        <section className="pib-card border-[var(--color-pib-accent)]/40 bg-[var(--color-pib-accent-soft)]">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-            <div className="flex gap-2.5">
-              <span className="material-symbols-outlined mt-0.5 text-[18px] text-amber-200" aria-hidden="true">warning</span>
+            <div className="flex gap-3">
+              <span className="material-symbols-outlined mt-0.5 text-[18px] text-[var(--color-pib-accent-hover)]" aria-hidden="true">warning</span>
               <div>
-                <p className="text-[10px] font-label uppercase tracking-[0.22em] text-amber-200">Source health</p>
-                <h2 className="mt-1 text-sm font-semibold text-on-surface">Segments could not load</h2>
-                <p className="mt-1 text-xs leading-5 text-on-surface-variant">{loadError}</p>
+                <p className="eyebrow text-[var(--color-pib-accent-hover)]">Source health</p>
+                <h2 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Segments could not load</h2>
+                <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{loadError}</p>
               </div>
             </div>
             <button
               type="button"
               onClick={fetchSegments}
-              className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+              className="btn-pib-secondary text-xs shrink-0"
               aria-label="Retry loading segments"
             >
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
@@ -624,16 +621,16 @@ export default function PortalSegmentsPage() {
           </div>
         </section>
       ) : segments.length === 0 ? (
-        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center">
-          <span className="material-symbols-outlined text-[19px] text-primary" aria-hidden="true">filter_alt</span>
-          <h2 className="mt-2 text-sm font-semibold text-on-surface">No segments yet.</h2>
-          <p className="mt-1 text-xs text-on-surface-variant">
+        <div className="pib-empty-state">
+          <span className="material-symbols-outlined pib-empty-state-icon" aria-hidden="true">filter_alt</span>
+          <h2 className="pib-empty-state-title">No segments yet.</h2>
+          <p className="pib-empty-state-description">
             Build a saved filter to target the right people each time.
           </p>
           {!showNew && (
             <button
               onClick={() => setShowNew(true)}
-              className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition"
+              className="btn-pib-primary text-xs mt-5"
             >
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
               Create first segment
@@ -641,11 +638,11 @@ export default function PortalSegmentsPage() {
           )}
         </div>
       ) : filteredSegments.length === 0 ? (
-        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center">
-          <span className="material-symbols-outlined text-[19px] text-primary">search_off</span>
-          <p className="mt-2 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Filtered audience view</p>
-          <h2 className="mt-2 text-sm font-semibold text-on-surface">No saved audiences match this view.</h2>
-          <p className="mt-1 text-xs text-on-surface-variant">
+        <div className="pib-empty-state">
+          <span className="material-symbols-outlined pib-empty-state-icon" aria-hidden="true">search_off</span>
+          <p className="eyebrow">Filtered audience view</p>
+          <h2 className="pib-empty-state-title mt-2">No saved audiences match this view.</h2>
+          <p className="pib-empty-state-description">
             Clear the segment search and focus filters to return to every saved audience.
           </p>
           <button
@@ -654,13 +651,13 @@ export default function PortalSegmentsPage() {
               setSearch('')
               setFocus('all')
             }}
-            className="mt-4 inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+            className="btn-pib-secondary text-xs mt-5"
           >
             Show all segments
           </button>
         </div>
       ) : (
-        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+        <div className="pib-surface pib-surface-list">
           {filteredSegments.map((s, index) => {
             const isEditing = editingId === s.id
             const count = counts[s.id]
@@ -683,11 +680,11 @@ export default function PortalSegmentsPage() {
             return (
               <div
                 key={s.id}
-                className={`p-3 transition hover:bg-white/[0.04] ${index > 0 ? 'border-t border-[var(--color-card-border)]' : ''}`}
+                className={`p-4 transition hover:bg-[var(--color-row-hover)] ${index > 0 ? 'border-t border-[var(--color-pib-line)]' : ''}`}
               >
                 {isEditing ? (
                   <div className="space-y-3">
-                    <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Edit segment</p>
+                    <p className="pib-label mb-0">Edit segment</p>
                     {renderForm(
                       editForm,
                       setEditForm,
@@ -703,20 +700,20 @@ export default function PortalSegmentsPage() {
                   <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="text-sm font-semibold text-on-surface">{displayName}</h3>
-                        <span className="flex h-7 shrink-0 items-center rounded-full border border-[var(--color-card-border)] px-2.5 text-[11px] text-on-surface-variant">
+                        <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{displayName}</h3>
+                        <span className="pib-pill pib-pill-accent">
                           {count === undefined || count === null ? '…' : `${count} contact${count === 1 ? '' : 's'}`}
                         </span>
                       </div>
                       {s.description && (
-                        <p className="mt-1 text-xs text-on-surface-variant">{s.description}</p>
+                        <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{s.description}</p>
                       )}
                       {filterChips.length > 0 && (
                         <div className="mt-2 flex flex-wrap gap-1.5">
                           {filterChips.map((c) => (
                             <span
                               key={c}
-                              className="rounded-full border border-[var(--color-card-border)] px-2 py-0.5 text-[11px] text-on-surface-variant"
+                              className="pib-pill"
                             >
                               {c}
                             </span>
@@ -727,7 +724,7 @@ export default function PortalSegmentsPage() {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => startEdit(s)}
-                        className="flex h-8 items-center gap-1 rounded-md px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                        className="btn-pib-ghost text-xs"
                       >
                         <span className="material-symbols-outlined text-[16px]">edit</span>
                         Edit
@@ -737,7 +734,7 @@ export default function PortalSegmentsPage() {
                           setPendingDeleteSegment(s)
                           setDeleteError('')
                         }}
-                        className="grid h-8 w-8 place-items-center rounded-md text-on-surface-variant transition hover:bg-white/[0.05] hover:text-red-300"
+                        className="grid h-8 w-8 place-items-center rounded-full text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-pib-surface-soft)] hover:text-[var(--color-error)]"
                         aria-label={`Delete segment ${displayName}`}
                       >
                         <span className="material-symbols-outlined text-[16px]">delete</span>
@@ -814,7 +811,7 @@ function BehavioralBlock({
   }, [JSON.stringify(filters), segmentEndpoint])
 
   return (
-    <div className="space-y-3 border-t border-[var(--color-card-border)] pt-3">
+    <div className="space-y-3 border-t border-[var(--color-pib-line)] pt-3">
       <BehavioralRuleEditor
         rules={rules}
         onChange={onRulesChange}
@@ -881,13 +878,13 @@ function AdvancedRuleBlock({ group, segmentEndpoint, onChange }: AdvancedRuleBlo
   }, [serialized, segmentEndpoint])
 
   return (
-    <div className="space-y-2 border-t border-[var(--color-card-border)] pt-3">
+    <div className="space-y-2 border-t border-[var(--color-pib-line)] pt-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">
+          <p className="pib-label mb-0">
             Advanced rule builder
           </p>
-          <p className="mt-0.5 max-w-md text-[11px] leading-4 text-on-surface-variant">
+          <p className="mt-0.5 max-w-md text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
             Combine any contact field with AND/OR groups. When enabled this takes
             precedence over the simple tag/stage/type filters above.
           </p>
@@ -896,7 +893,7 @@ function AdvancedRuleBlock({ group, segmentEndpoint, onChange }: AdvancedRuleBlo
           <button
             type="button"
             onClick={() => onChange(emptyRuleGroup())}
-            className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+            className="btn-pib-secondary text-xs"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
               tune
@@ -906,14 +903,14 @@ function AdvancedRuleBlock({ group, segmentEndpoint, onChange }: AdvancedRuleBlo
         ) : (
           <div className="flex items-center gap-2">
             {(liveLoading || liveCount !== null) && (
-              <span className="flex h-7 shrink-0 items-center rounded-full border border-primary/30 bg-primary/10 px-2.5 text-[11px] text-primary">
+              <span className="pib-pill pib-pill-accent">
                 {liveLoading ? '…' : `${liveCount} match${liveCount === 1 ? '' : 'es'}`}
               </span>
             )}
             <button
               type="button"
               onClick={() => onChange(null)}
-              className="flex h-8 items-center rounded-md px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-red-300"
+              className="btn-pib-ghost text-xs"
             >
               Clear
             </button>

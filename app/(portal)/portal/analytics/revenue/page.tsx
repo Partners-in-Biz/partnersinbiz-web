@@ -77,17 +77,20 @@ export default function RevenuePage() {
   const breakEven = hasSpend ? trackedRevenue >= spendNum : null
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
+    <div className="max-w-6xl mx-auto p-6 space-y-8">
       <AnalyticsNav active="revenue" propertyId={propertyId} />
-      <h1 className="text-xl font-headline font-bold text-on-surface">Revenue</h1>
+      <header>
+        <p className="eyebrow">Analytics · Revenue</p>
+        <h1 className="pib-page-title mt-2">Revenue</h1>
+      </header>
 
-      <div className="pib-card p-4 space-y-3">
+      <div className="pib-card space-y-4">
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
         {propertyId && (
           <>
             <div>
-              <label className="text-xs text-on-surface-variant font-label block mb-1">Goal</label>
-              <select value={goalId} onChange={e => setGoalId(e.target.value)} className="pib-input text-sm w-72">
+              <label className="pib-label mb-1">Goal</label>
+              <select value={goalId} onChange={e => setGoalId(e.target.value)} className="pib-select text-sm w-72">
                 <option value="">Select a goal…</option>
                 {goals.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
@@ -98,40 +101,45 @@ export default function RevenuePage() {
       </div>
 
       {!propertyId && (
-        <div className="pib-card p-8 text-center text-on-surface-variant text-sm">
-          Select a client and property to see revenue.
+        <div className="pib-empty-state">
+          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">payments</span>
+          <p className="pib-empty-state-description">Select a client and property to see revenue.</p>
         </div>
       )}
 
       {propertyId && !goalId && (
-        <div className="pib-card p-8 text-center text-on-surface-variant text-sm">
-          Select a goal to see its revenue.
+        <div className="pib-empty-state">
+          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">flag</span>
+          <p className="pib-empty-state-description">Select a goal to see its revenue.</p>
         </div>
       )}
 
-      {goalId && loading && <div className="pib-skeleton h-24 rounded-lg" />}
+      {goalId && loading && <div className="pib-skeleton h-24" />}
 
       {goalId && !loading && results && (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <KpiCard label="Total Value" value={`R${results.totalValue.toLocaleString()}`} accent />
             <KpiCard label="Completions" value={results.completions.toLocaleString()} />
             <KpiCard label="Completion Rate" value={`${results.completionRate}%`} />
             <KpiCard label="Revenue / session" value={revPerSession} sub="totalValue ÷ sessions" />
           </div>
 
-          <div className="pib-card p-4 space-y-4">
-            <div>
-              <h2 className="text-sm font-label font-semibold text-on-surface">ROI calculator</h2>
-              <p className="text-xs text-on-surface-variant mt-0.5">
-                Enter your ad spend for this range to compare it against the tracked goal revenue.
-              </p>
+          <div className="pib-card space-y-4">
+            <div className="flex items-start gap-3">
+              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">calculate</span></span>
+              <div>
+                <h2 className="pib-label mb-0">ROI calculator</h2>
+                <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">
+                  Enter your ad spend for this range to compare it against the tracked goal revenue.
+                </p>
+              </div>
             </div>
             <div className="flex flex-wrap items-end gap-4">
               <div>
-                <label className="text-xs text-on-surface-variant font-label block mb-1">Ad spend (R)</label>
+                <label className="pib-label mb-1">Ad spend (R)</label>
                 <div className="flex items-center">
-                  <span className="text-sm text-on-surface-variant mr-1">R</span>
+                  <span className="text-sm text-[var(--color-pib-text-muted)] mr-1">R</span>
                   <input
                     type="number"
                     min="0"
@@ -145,12 +153,12 @@ export default function RevenuePage() {
                 </div>
               </div>
               <div>
-                <p className="text-xs text-on-surface-variant font-label mb-1">Tracked revenue</p>
-                <p className="text-sm font-semibold text-on-surface">R{trackedRevenue.toLocaleString()}</p>
+                <p className="pib-label mb-1">Tracked revenue</p>
+                <p className="text-sm font-semibold text-[var(--color-pib-text)]">R{trackedRevenue.toLocaleString()}</p>
               </div>
             </div>
             {hasSpend ? (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <KpiCard
                   label="ROI"
                   value={`${roiPct! >= 0 ? '+' : ''}${roiPct!.toFixed(0)}%`}
@@ -165,22 +173,28 @@ export default function RevenuePage() {
                 <KpiCard label="Status" value={breakEven ? 'Profitable' : 'Below break-even'} />
               </div>
             ) : (
-              <p className="text-xs text-on-surface-variant">Enter an ad spend above to calculate ROI and ROAS.</p>
+              <p className="text-xs text-[var(--color-pib-text-muted)]">Enter an ad spend above to calculate ROI and ROAS.</p>
             )}
           </div>
 
-          <div className="pib-card p-4">
-            <h2 className="text-sm font-label font-semibold text-on-surface mb-3">Revenue trend</h2>
+          <div className="pib-card">
+            <div className="mb-3 flex items-center gap-3">
+              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">trending_up</span></span>
+              <h2 className="pib-label mb-0">Revenue trend</h2>
+            </div>
             <LineSeries data={results.series} xKey="date" yKey="value" label="Value (R)" />
           </div>
 
-          <div className="pib-card p-4">
-            <h2 className="text-sm font-label font-semibold text-on-surface mb-3">Revenue by channel</h2>
+          <div className="pib-card">
+            <div className="mb-3 flex items-center gap-3">
+              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">bar_chart</span></span>
+              <h2 className="pib-label mb-0">Revenue by channel</h2>
+            </div>
             <BarSeries data={results.revenueByChannel} xKey="channel" yKey="value" label="Value (R)" />
           </div>
 
           <div>
-            <h2 className="text-sm font-label font-semibold text-on-surface mb-2">Revenue by channel</h2>
+            <h2 className="pib-label mb-2">Revenue by channel</h2>
             <SimpleTable
               columns={[
                 { key: 'channel', label: 'Channel' },

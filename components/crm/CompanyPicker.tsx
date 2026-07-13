@@ -132,10 +132,10 @@ export function CompanyPicker({ currentCompanyId, currentCompanyName, orgScope, 
           onChange={(e) => handleInput(e.target.value)}
           onFocus={() => { if (results.length > 0) setOpen(true) }}
           placeholder="Search companies…"
-          className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none pr-8"
+          className="pib-input h-9 w-full text-sm pr-8"
         />
         {loading && (
-          <span className="absolute right-8 material-symbols-outlined text-[16px] text-on-surface-variant animate-spin">
+          <span className="absolute right-8 material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)] animate-spin">
             progress_activity
           </span>
         )}
@@ -144,7 +144,7 @@ export function CompanyPicker({ currentCompanyId, currentCompanyName, orgScope, 
             type="button"
             aria-label={clearLabel}
             onClick={clearSelection}
-            className="cursor-pointer absolute right-2 text-on-surface-variant hover:text-on-surface transition-colors"
+            className="cursor-pointer absolute right-2 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
           >
             <span className="material-symbols-outlined text-[18px]">close</span>
           </button>
@@ -152,7 +152,7 @@ export function CompanyPicker({ currentCompanyId, currentCompanyName, orgScope, 
       </div>
 
       {open && (
-        <div className="absolute z-50 top-full mt-1 left-0 right-0 overflow-hidden rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)]">
+        <div className="absolute z-50 top-full mt-1 left-0 right-0 overflow-hidden rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-card)]">
           {results.length > 0 ? (
             <ul id="company-picker-results" role="listbox">
               {results.map((company) => (
@@ -160,18 +160,18 @@ export function CompanyPicker({ currentCompanyId, currentCompanyName, orgScope, 
                   <button
                     type="button"
                     onClick={() => selectCompany(company)}
-                    className="cursor-pointer w-full text-left px-2.5 py-1.5 hover:bg-white/[0.05] transition-colors"
+                    className="cursor-pointer w-full text-left px-2.5 py-1.5 hover:bg-[var(--color-row-hover)] transition-colors"
                   >
-                    <p className="text-xs font-medium text-on-surface">{company.name}</p>
+                    <p className="text-xs font-medium text-[var(--color-pib-text)]">{company.name}</p>
                     {company.domain && (
-                      <p className="text-[11px] text-on-surface-variant font-mono">{company.domain}</p>
+                      <p className="text-[11px] text-[var(--color-pib-text-muted)] font-mono">{company.domain}</p>
                     )}
                   </button>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-xs text-on-surface-variant px-2.5 py-1.5">No results</p>
+            <p className="text-xs text-[var(--color-pib-text-muted)] px-2.5 py-1.5">No results</p>
           )}
 
           {/* Create new */}
@@ -179,41 +179,41 @@ export function CompanyPicker({ currentCompanyId, currentCompanyName, orgScope, 
             <button
               type="button"
               onClick={() => { setShowCreateForm(true); setOpen(true) }}
-              className="cursor-pointer w-full text-left text-xs px-2.5 py-1.5 text-primary hover:bg-white/[0.05] transition-colors flex items-center gap-1.5 border-t border-[var(--color-card-border)]"
+              className="cursor-pointer w-full text-left text-xs px-2.5 py-1.5 text-[var(--color-pib-accent)] hover:bg-[var(--color-row-hover)] transition-colors flex items-center gap-1.5 border-t border-[var(--color-pib-line)]"
             >
               <span className="material-symbols-outlined text-[14px]">add</span>
               Create new company
             </button>
           ) : (
-            <div className="border-t border-[var(--color-card-border)] p-2 space-y-1.5">
+            <div className="border-t border-[var(--color-pib-line)] p-2 space-y-1.5">
               <input
                 autoFocus
                 type="text"
                 value={createForm.name}
                 onChange={(e) => setCreateForm((f) => ({ ...f, name: e.target.value }))}
                 placeholder="Company name *"
-                className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none"
+                className="pib-input h-8 w-full text-xs"
               />
               <input
                 type="text"
                 value={createForm.domain}
                 onChange={(e) => setCreateForm((f) => ({ ...f, domain: e.target.value }))}
                 placeholder="Domain (optional)"
-                className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none"
+                className="pib-input h-8 w-full text-xs"
               />
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={handleCreate}
                   disabled={creating || !createForm.name.trim()}
-                  className="flex h-8 flex-1 cursor-pointer items-center justify-center rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="btn-pib-primary h-8 flex-1 justify-center px-3 text-xs"
                 >
                   {creating ? '…' : 'Create'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowCreateForm(false)}
-                  className="flex h-8 cursor-pointer items-center rounded-md px-2 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
+                  className="btn-pib-ghost h-8 px-2 text-xs"
                 >
                   Cancel
                 </button>

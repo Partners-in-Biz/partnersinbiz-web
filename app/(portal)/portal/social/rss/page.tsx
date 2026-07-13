@@ -71,17 +71,17 @@ function fmtDateTime(ts: any) {
 
 function PlatformBadge({ platform }: { platform: string }) {
   const cfg = PLATFORM_COLORS[platform.toLowerCase()]
-  if (!cfg) return <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-surface-container-high text-on-surface-variant uppercase">{platform}</span>
+  if (!cfg) return <span className="pib-pill uppercase">{platform}</span>
   return <span className={`${cfg.bg} text-white text-[10px] px-2 py-0.5 rounded font-bold`}>{cfg.label}</span>
 }
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    active: 'bg-green-900/30 text-green-400',
-    paused: 'bg-yellow-900/30 text-yellow-400',
-    error: 'bg-red-900/30 text-red-400',
+    active: 'pib-pill-success',
+    paused: 'pib-pill-warn',
+    error: 'pib-pill-danger',
   }
-  return <span className={`text-[10px] px-2 py-0.5 rounded font-medium capitalize ${styles[status] ?? 'bg-surface-container-high text-on-surface-variant'}`}>{status}</span>
+  return <span className={`pib-pill capitalize ${styles[status] ?? ''}`}>{status}</span>
 }
 
 /* ------------------------------------------------------------------ */
@@ -188,15 +188,16 @@ export default function RssPage() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-on-surface">RSS Feeds</h1>
-          <p className="text-sm text-on-surface-variant mt-1">Auto-create social posts from RSS feeds</p>
-        </div>
+    <div className="p-6 max-w-5xl mx-auto space-y-8">
+      <div className="flex items-start justify-between gap-4">
+        <header>
+          <p className="eyebrow">Social · RSS</p>
+          <h1 className="pib-page-title mt-2">RSS Feeds</h1>
+          <p className="pib-page-sub">Auto-create social posts from RSS feeds</p>
+        </header>
         <button
           onClick={() => setShowCreate(!showCreate)}
-          className="px-4 py-2 rounded-lg bg-white text-black font-label text-sm font-medium hover:bg-white/90 transition-colors"
+          className="btn-pib-primary shrink-0"
         >
           {showCreate ? 'Cancel' : 'Add Feed'}
         </button>
@@ -204,46 +205,46 @@ export default function RssPage() {
 
       {/* Create form */}
       {showCreate && (
-        <div className="rounded-xl bg-surface-container p-5 space-y-4">
-          <h2 className="text-sm font-semibold text-on-surface">New RSS Feed</h2>
+        <div className="pib-card space-y-4">
+          <h2 className="pib-label">New RSS Feed</h2>
 
           {formError && (
-            <div className="px-4 py-2 rounded-lg bg-red-900/30 text-red-400 text-xs">{formError}</div>
+            <div className="rounded-lg border border-[var(--color-error)]/40 px-4 py-2 text-xs text-[var(--color-error)]">{formError}</div>
           )}
 
           <div>
-            <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-wide mb-1">Name</label>
+            <label className="pib-label block mb-1">Name</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="My Blog RSS"
-              className="w-full rounded-xl bg-surface px-4 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 outline-none border border-transparent focus:border-outline-variant transition-colors"
+              className="pib-input w-full"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-wide mb-1">Feed URL</label>
+            <label className="pib-label block mb-1">Feed URL</label>
             <input
               type="url"
               value={feedUrl}
               onChange={(e) => setFeedUrl(e.target.value)}
               placeholder="https://example.com/feed.xml"
-              className="w-full rounded-xl bg-surface px-4 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 outline-none border border-transparent focus:border-outline-variant transition-colors"
+              className="pib-input w-full"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-wide mb-1">Target Platforms</label>
+            <label className="pib-label block mb-1">Target Platforms</label>
             <div className="flex flex-wrap gap-2">
               {PLATFORMS.map((p) => (
                 <button
                   key={p.id}
                   onClick={() => togglePlatform(p.id)}
-                  className={`px-3 py-1.5 rounded-lg font-label text-xs font-medium transition-colors ${
+                  className={`px-3 py-1.5 rounded-full font-label text-xs font-medium transition-colors ${
                     targetPlatforms.includes(p.id)
-                      ? 'bg-white text-black'
-                      : 'bg-surface text-on-surface hover:bg-surface-container-high'
+                      ? 'bg-[var(--color-pib-text)] text-[var(--color-pib-bg)]'
+                      : 'border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)]'
                   }`}
                 >
                   {p.label}
@@ -253,36 +254,36 @@ export default function RssPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-wide mb-1">Post Template</label>
+            <label className="pib-label block mb-1">Post Template</label>
             <textarea
               rows={2}
               value={postTemplate}
               onChange={(e) => setPostTemplate(e.target.value)}
               placeholder="{{title}} {{url}}"
-              className="w-full rounded-xl bg-surface px-4 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 outline-none border border-transparent focus:border-outline-variant transition-colors resize-none"
+              className="pib-textarea w-full resize-none"
             />
-            <p className="text-[10px] text-on-surface-variant mt-1">
+            <p className="text-[10px] text-[var(--color-pib-text-muted)] mt-1">
               Variables: {'{{title}}'}, {'{{url}}'}, {'{{description}}'}, {'{{author}}'}, {'{{category}}'}
             </p>
           </div>
 
           <div className="flex items-center gap-6">
-            <label className="flex items-center gap-2 text-sm text-on-surface cursor-pointer">
+            <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text)] cursor-pointer">
               <input
                 type="checkbox"
                 checked={autoSchedule}
                 onChange={(e) => setAutoSchedule(e.target.checked)}
-                className="accent-white"
+                className="accent-[var(--color-accent-v2)]"
               />
               Auto-schedule posts
             </label>
 
             <div className="flex items-center gap-2">
-              <label className="text-xs text-on-surface-variant">Check every</label>
+              <label className="text-xs text-[var(--color-pib-text-muted)]">Check every</label>
               <select
                 value={checkInterval}
                 onChange={(e) => setCheckInterval(Number(e.target.value))}
-                className="rounded-lg bg-surface px-2 py-1 text-xs text-on-surface outline-none"
+                className="pib-select text-xs"
               >
                 <option value={15}>15 min</option>
                 <option value={30}>30 min</option>
@@ -296,7 +297,7 @@ export default function RssPage() {
           <button
             onClick={handleCreate}
             disabled={submitting}
-            className="px-4 py-2 rounded-lg bg-white text-black font-label text-sm font-medium hover:bg-white/90 transition-colors disabled:opacity-50"
+            className="btn-pib-primary disabled:opacity-50"
           >
             {submitting ? 'Creating…' : 'Create Feed'}
           </button>
@@ -307,24 +308,31 @@ export default function RssPage() {
       {loading ? (
         <div className="space-y-2">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-16 rounded-xl bg-surface-container animate-pulse" />
+            <div key={i} className="pib-skeleton h-16" />
           ))}
         </div>
       ) : feeds.length === 0 ? (
-        <div className="py-16 text-center text-on-surface-variant text-sm">
-          No RSS feeds configured yet. Add one to auto-create social posts from your content.
+        <div className="pib-empty-state">
+          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">rss_feed</span>
+          <h2 className="pib-empty-state-title">No RSS feeds configured yet</h2>
+          <p className="pib-empty-state-description">Add one to auto-create social posts from your content.</p>
         </div>
       ) : (
         <div className="space-y-3">
           {feeds.map((feed) => (
-            <div key={feed.id} className="rounded-xl bg-surface-container p-4 space-y-2">
+            <div key={feed.id} className="pib-card space-y-2">
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-sm font-semibold text-on-surface">{feed.name}</h3>
-                    <StatusBadge status={feed.status} />
+                <div className="flex min-w-0 flex-1 items-start gap-3">
+                  <span className="pib-icon-tint-rose shrink-0">
+                    <span aria-hidden="true" className="material-symbols-outlined text-[18px]">rss_feed</span>
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{feed.name}</h3>
+                      <StatusBadge status={feed.status} />
+                    </div>
+                    <p className="text-xs text-[var(--color-pib-text-muted)] truncate mt-0.5">{feed.feedUrl}</p>
                   </div>
-                  <p className="text-xs text-on-surface-variant truncate mt-0.5">{feed.feedUrl}</p>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   {feed.targetPlatforms?.map((p) => (
@@ -333,22 +341,22 @@ export default function RssPage() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 text-[11px] text-on-surface-variant">
+              <div className="flex items-center gap-4 text-[11px] text-[var(--color-pib-text-muted)]">
                 <span>{feed.itemsPublished ?? 0} posts created</span>
                 <span>Every {feed.checkIntervalMinutes}m</span>
                 <span>Last checked: {fmtDateTime(feed.lastCheckedAt)}</span>
-                {feed.autoSchedule && <span className="text-green-400">Auto-schedule</span>}
+                {feed.autoSchedule && <span className="text-[var(--color-pib-success)]">Auto-schedule</span>}
               </div>
 
               {feed.lastError && (
-                <p className="text-xs text-red-400">Error: {feed.lastError}</p>
+                <p className="text-xs text-[var(--color-error)]">Error: {feed.lastError}</p>
               )}
 
               <div className="flex gap-2 pt-1">
                 <button
                   onClick={() => handleAction(feed.id, 'check')}
                   disabled={actionLoading === feed.id}
-                  className="px-3 py-1.5 rounded-lg bg-surface-container-high text-on-surface font-label text-xs font-medium hover:bg-surface-container transition-colors disabled:opacity-50"
+                  className="btn-pib-secondary text-xs disabled:opacity-50"
                 >
                   Check Now
                 </button>
@@ -356,7 +364,7 @@ export default function RssPage() {
                   <button
                     onClick={() => handleAction(feed.id, 'pause')}
                     disabled={actionLoading === feed.id}
-                    className="px-3 py-1.5 rounded-lg bg-yellow-900/20 text-yellow-400 font-label text-xs font-medium hover:bg-yellow-900/30 transition-colors disabled:opacity-50"
+                    className="btn-pib-ghost text-xs disabled:opacity-50"
                   >
                     Pause
                   </button>
@@ -364,7 +372,7 @@ export default function RssPage() {
                   <button
                     onClick={() => handleAction(feed.id, 'resume')}
                     disabled={actionLoading === feed.id}
-                    className="px-3 py-1.5 rounded-lg bg-green-900/20 text-green-400 font-label text-xs font-medium hover:bg-green-900/30 transition-colors disabled:opacity-50"
+                    className="btn-pib-ghost text-xs text-[var(--color-pib-success)] disabled:opacity-50"
                   >
                     Resume
                   </button>
@@ -372,7 +380,7 @@ export default function RssPage() {
                 <button
                   onClick={() => handleDelete(feed.id)}
                   disabled={actionLoading === feed.id}
-                  className="px-3 py-1.5 rounded-lg bg-red-900/20 text-red-400 font-label text-xs font-medium hover:bg-red-900/30 transition-colors disabled:opacity-50"
+                  className="btn-pib-ghost text-xs text-[var(--color-error)] disabled:opacity-50"
                 >
                   Delete
                 </button>

@@ -18,12 +18,12 @@ interface LiveEvent {
 }
 
 const EVENT_COLORS: Record<string, string> = {
-  '$pageview': 'text-blue-400',
-  '$identify': 'text-purple-400',
-  'signup': 'text-green-400',
-  'signup_completed': 'text-green-400',
+  '$pageview': 'text-[var(--color-pib-blue)]',
+  '$identify': 'text-[var(--color-pib-violet)]',
+  'signup': 'text-[var(--color-pib-success)]',
+  'signup_completed': 'text-[var(--color-pib-success)]',
 }
-const defaultColor = 'text-amber-400'
+const defaultColor = 'text-[var(--color-pib-accent-hover)]'
 
 function formatLiveTime(value: unknown): string {
   if (!value) return 'now'
@@ -72,48 +72,54 @@ export default function LivePage() {
   }, [])
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-8">
       <AnalyticsNav active="live" propertyId={propertyId} />
-      <div className="flex items-center gap-4">
-        <h1 className="text-2xl font-headline font-bold text-on-surface">Live</h1>
-        {active && (
-          <span className="flex items-center gap-1.5 text-green-400 text-xs font-medium">
-            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-            Live — last 5 min
-          </span>
-        )}
-      </div>
+      <header>
+        <p className="eyebrow">Analytics · Live</p>
+        <div className="mt-2 flex items-center gap-4">
+          <h1 className="pib-page-title">Live</h1>
+          {active && (
+            <span className="pib-pill pib-pill-success">
+              <span className="pib-status-dot pib-status-dot-success animate-pulse" />
+              Live — last 5 min
+            </span>
+          )}
+        </div>
+      </header>
 
-      <div className="pib-card p-4 space-y-3">
+      <div className="pib-card space-y-4">
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} disabled={active} />
         <div className="flex justify-end">
           {!active
-            ? <button className="pib-btn-primary" onClick={start} disabled={!propertyId}>Start</button>
-            : <button className="pib-btn-secondary" onClick={stop}>Stop</button>
+            ? <button className="btn-pib-primary" onClick={start} disabled={!propertyId}>Start</button>
+            : <button className="btn-pib-secondary" onClick={stop}>Stop</button>
           }
         </div>
       </div>
 
       {events.length === 0 && active && (
-        <p className="text-on-surface-variant text-sm">Waiting for events in the last 5 minutes…</p>
+        <div className="pib-empty-state">
+          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">sensors</span>
+          <p className="pib-empty-state-description">Waiting for events in the last 5 minutes…</p>
+        </div>
       )}
 
       {events.length > 0 && (
-        <div className="pib-card divide-y divide-[var(--color-card-border)]">
+        <div className="pib-surface pib-surface-list divide-y divide-[var(--color-pib-line)]">
           {events.map((ev, i) => (
-            <div key={ev.id ?? i} className="p-3 flex items-start gap-4 text-sm">
+            <div key={ev.id ?? i} className="p-3 flex items-start gap-4 text-sm hover:bg-[var(--color-row-hover)]">
               <span className={`font-mono text-xs whitespace-nowrap pt-0.5 ${EVENT_COLORS[ev.event] ?? defaultColor}`}>
                 {ev.event}
               </span>
               <div className="flex-1 min-w-0">
-                <p className="text-on-surface-variant text-xs truncate">
+                <p className="text-[var(--color-pib-text-muted)] text-xs truncate">
                   {ev.pageUrl ?? (ev.properties?.['$current_url'] as string) ?? '—'}
                 </p>
-                <p className="text-on-surface-variant text-xs">
+                <p className="text-[var(--color-pib-text-muted)] text-xs">
                   {ev.distinctId?.slice(0, 12)}… · {ev.device ?? '?'} · {ev.country ?? '?'}
                 </p>
               </div>
-              <span className="text-on-surface-variant text-xs whitespace-nowrap">
+              <span className="text-[var(--color-pib-text-muted)] text-xs whitespace-nowrap">
                 {formatLiveTime(ev.serverTime)}
               </span>
             </div>

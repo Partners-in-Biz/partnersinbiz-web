@@ -317,8 +317,9 @@ export default function PortalDocumentDetail({ params }: Props) {
           <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
           Back to Documents
         </Link>
-        <div className="bento-card p-10 text-center">
-          <h2 className="font-display text-2xl">Document not found.</h2>
+        <div className="pib-empty-state">
+          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">description</span>
+          <h2 className="pib-empty-state-title">Document not found.</h2>
         </div>
       </div>
     )
@@ -347,7 +348,7 @@ export default function PortalDocumentDetail({ params }: Props) {
         </Link>
         <div className="flex items-center gap-3">
           {(doc as { signedByExternal?: { signerName?: string } }).signedByExternal && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
+            <span className="pib-pill pib-pill-success">
               <span className="material-symbols-outlined text-[14px]" aria-hidden="true">verified</span>
               Signed
             </span>
@@ -363,7 +364,7 @@ export default function PortalDocumentDetail({ params }: Props) {
           <button
             type="button"
             onClick={() => setShowVersionHistory(true)}
-            className="flex items-center gap-1.5 rounded-md border border-white/10 px-3 py-1.5 text-xs font-medium hover:bg-white/5"
+            className="btn-pib-secondary"
           >
             <span className="material-symbols-outlined text-sm" aria-hidden="true">history</span>
             Version history
@@ -392,7 +393,7 @@ export default function PortalDocumentDetail({ params }: Props) {
               <button
                 type="button"
                 onClick={() => setShowShare((v) => !v)}
-                className="flex items-center gap-1.5 rounded-md border border-white/10 px-3 py-1.5 text-xs font-medium hover:bg-white/5"
+                className="btn-pib-secondary"
               >
                 <span className="material-symbols-outlined text-sm" aria-hidden="true">share</span>
                 {showShare ? 'Hide share' : 'Share'}
@@ -409,16 +410,21 @@ export default function PortalDocumentDetail({ params }: Props) {
           )}
 
           {/* PDF Export — US-174 */}
-          <div className="pib-card p-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium text-[var(--color-pib-text)]">Export document</p>
-              <p className="text-xs text-[var(--color-pib-text-muted)]">Download as PDF</p>
+          <div className="pib-card flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="pib-icon-tint pib-icon-tint-cyan" aria-hidden="true">
+                <span className="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+              </span>
+              <div>
+                <p className="text-xs font-medium">Export document</p>
+                <p className="text-xs text-[var(--color-pib-text-muted)]">Download as PDF</p>
+              </div>
             </div>
             <button
               type="button"
               onClick={handleExportPdf}
               disabled={exportingPdf}
-              className="flex items-center gap-1.5 rounded-md border border-[var(--color-pib-line)] px-3 py-1.5 text-xs font-medium hover:bg-white/5 disabled:opacity-50"
+              className="btn-pib-secondary"
             >
               <span className="material-symbols-outlined text-sm">download</span>
               {exportingPdf ? 'Generating…' : 'PDF'}
@@ -442,8 +448,8 @@ export default function PortalDocumentDetail({ params }: Props) {
 
           {/* Recent views — US-188 */}
           {accessLog.length > 0 && (
-            <section className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4 space-y-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-pib-text-muted)]">Recent views</h3>
+            <section className="pib-card space-y-2">
+              <h3 className="pib-label">Recent views</h3>
               {accessLog.slice(0, 5).map((entry) => (
                 <div key={entry.id} className="flex items-center gap-2 text-xs text-[var(--color-pib-text-muted)]">
                   <span className="material-symbols-outlined text-sm">person</span>
@@ -457,12 +463,12 @@ export default function PortalDocumentDetail({ params }: Props) {
           <DocumentTaskList documentId={id} />
 
           {canComment && (
-            <div className="pib-card p-4 space-y-3">
-              <p className="text-xs uppercase tracking-[0.18em] text-on-surface-variant">General note</p>
+            <div className="pib-card space-y-3">
+              <p className="pib-label">General note</p>
               <button
                 type="button"
                 onClick={() => setPendingAnchor({ kind: 'general' })}
-                className="w-full rounded-md border border-white/10 px-3 py-2 text-sm hover:bg-white/5"
+                className="btn-pib-secondary w-full justify-center"
               >
                 Leave a general comment
               </button>
@@ -470,13 +476,12 @@ export default function PortalDocumentDetail({ params }: Props) {
           )}
 
           {canApprove && (
-            <div className="pib-card p-4">
+            <div className="pib-card">
               <button
                 type="button"
                 onClick={handleApprove}
                 disabled={approving}
-                className="w-full rounded-md px-3 py-2.5 text-sm font-semibold disabled:opacity-50"
-                style={{ background: 'var(--color-pib-accent)', color: '#000' }}
+                className="btn-pib-primary w-full justify-center"
               >
                 {approving ? 'Approving…' : 'Approve Document'}
               </button>
@@ -484,8 +489,8 @@ export default function PortalDocumentDetail({ params }: Props) {
           )}
 
           {approved && (
-            <div className="pib-card p-4 text-center">
-              <span className="material-symbols-outlined text-2xl text-green-400">check_circle</span>
+            <div className="pib-card text-center">
+              <span className="material-symbols-outlined text-2xl text-[var(--color-pib-success)]">check_circle</span>
               <p className="mt-1 text-sm font-medium">Document approved — thank you!</p>
             </div>
           )}
@@ -515,8 +520,8 @@ export default function PortalDocumentDetail({ params }: Props) {
       )}
 
       {showApproveModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-          <div className="pib-card w-full max-w-md space-y-4 p-6">
+        <div className="pib-dialog-backdrop flex items-center justify-center px-4">
+          <div className="pib-card w-full max-w-md space-y-4">
             <h2 className="font-display text-xl">Formal acceptance</h2>
             <p className="text-sm text-[var(--color-pib-text-muted)]">
               By signing below, you confirm that you have read and accept the document in full.
@@ -531,20 +536,20 @@ export default function PortalDocumentDetail({ params }: Props) {
               <span className="text-sm">I have read and agree to the terms above</span>
             </label>
             <div className="space-y-1">
-              <label className="text-xs text-[var(--color-pib-text-muted)]">Type your full name to confirm</label>
+              <label className="pib-label">Type your full name to confirm</label>
               <input
                 type="text"
                 value={typedName}
                 onChange={(e) => setTypedName(e.target.value)}
                 placeholder="Your full name"
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-[var(--color-pib-accent)]"
+                className="pib-input w-full"
               />
             </div>
             <div className="flex gap-3">
               <button
                 type="button"
                 onClick={() => setShowApproveModal(false)}
-                className="flex-1 rounded-md border border-white/10 px-3 py-2 text-sm"
+                className="btn-pib-ghost flex-1 justify-center"
               >
                 Cancel
               </button>
@@ -552,8 +557,7 @@ export default function PortalDocumentDetail({ params }: Props) {
                 type="button"
                 onClick={handleFormalAccept}
                 disabled={!agreed || !typedName.trim() || approving}
-                className="flex-1 rounded-md px-3 py-2 text-sm font-semibold disabled:opacity-50"
-                style={{ background: 'var(--color-pib-accent)', color: '#000' }}
+                className="btn-pib-primary flex-1 justify-center"
               >
                 {approving ? 'Submitting…' : 'Accept document'}
               </button>

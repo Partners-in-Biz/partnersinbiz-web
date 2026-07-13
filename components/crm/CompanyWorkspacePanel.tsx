@@ -257,23 +257,23 @@ export function CompanyWorkspacePanel({ companyName, companyId, mode, workspace 
     ]
 
     return (
-      <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
-        <div className="border-b border-[var(--color-card-border)] p-4 text-center">
-          <span aria-hidden="true" className="material-symbols-outlined text-[22px] text-on-surface-variant">link_off</span>
-          <p className="mt-2 text-[10px] font-label uppercase tracking-[0.22em] text-amber-200">Lead workspace</p>
-          <h2 className="mt-1 text-sm font-semibold text-on-surface">CRM-only company workspace</h2>
-          <p className="mx-auto mt-1 max-w-2xl text-xs leading-5 text-on-surface-variant">
+      <div className="pib-surface overflow-hidden">
+        <div className="border-b border-[var(--color-pib-line)] p-4 text-center">
+          <span aria-hidden="true" className="material-symbols-outlined text-[22px] text-[var(--color-pib-text-muted)]">link_off</span>
+          <p className="pib-label mt-2 text-[var(--color-pib-accent)]">Lead workspace</p>
+          <h2 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">CRM-only company workspace</h2>
+          <p className="mx-auto mt-1 max-w-2xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
             {companyName} is available as a CRM company, but it is not linked to a selected organisation command surface yet. Keep pre-client context here; convert or link the organisation before running delivery work.
           </p>
         </div>
-        <div className="grid gap-2 p-2 md:grid-cols-3">
+        <div className="grid gap-3 p-4 md:grid-cols-3">
           {leadWorkspaceItems.map((item) => (
-            <div key={item.title} className="rounded-md border border-[var(--color-card-border)] bg-black/10 p-3">
+            <div key={item.title} className="pib-card p-3">
               <div className="flex items-center gap-2">
-                <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-primary">{item.icon}</span>
-                <h3 className="text-xs font-semibold text-on-surface">{item.title}</h3>
+                <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-[var(--color-pib-accent)]">{item.icon}</span>
+                <h3 className="text-xs font-semibold text-[var(--color-pib-text)]">{item.title}</h3>
               </div>
-              <p className="mt-1.5 text-[11px] leading-4 text-on-surface-variant">{item.description}</p>
+              <p className="mt-1.5 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{item.description}</p>
             </div>
           ))}
         </div>
@@ -291,13 +291,13 @@ export function CompanyWorkspacePanel({ companyName, companyId, mode, workspace 
     : adminOrgPath(workspace.slug, '/dashboard')
 
   return (
-    <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
-      <div className="border-b border-[var(--color-card-border)] px-3 py-2">
+    <div className="pib-surface overflow-hidden">
+      <div className="pib-surface-header">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0">
-            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">{eyebrow}</p>
-            <h2 className="mt-0.5 truncate text-sm font-semibold text-on-surface">{workspace.name} workspace</h2>
-            <p className="mt-0.5 max-w-3xl text-xs leading-5 text-on-surface-variant">
+            <p className="pib-label">{eyebrow}</p>
+            <h2 className="mt-0.5 truncate text-sm font-semibold text-[var(--color-pib-text)]">{workspace.name} workspace</h2>
+            <p className="mt-0.5 max-w-3xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
               {mode === 'portal'
                 ? 'Run the client organisation work from this CRM company record. Work opened here stays inside the linked organisation workspace.'
                 : 'Run PiB operator work for this selected client org. Links stay inside the admin command surface with the slug scope visible in the URL.'}
@@ -306,7 +306,7 @@ export function CompanyWorkspacePanel({ companyName, companyId, mode, workspace 
           <Link
             href={dashboardHref}
             aria-label={`Open ${workspace.name} dashboard for ${companyName}`}
-            className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md bg-primary/10 px-2.5 text-xs font-medium text-primary transition hover:bg-primary/15"
+            className="btn-pib-primary h-8 shrink-0 gap-1.5 px-2.5 text-xs"
           >
             <span aria-hidden="true" className="material-symbols-outlined text-[16px]">dashboard</span>
             Dashboard
@@ -314,22 +314,22 @@ export function CompanyWorkspacePanel({ companyName, companyId, mode, workspace 
         </div>
       </div>
 
-      <div className="grid gap-2 p-2 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-4">
         {actions.map((action) => (
           <Link
             key={`${action.title}-${action.href}`}
             href={action.href}
             aria-label={`Open ${action.title === 'SEO' ? 'SEO' : action.title.toLowerCase()} workspace for ${companyName}`}
-            className="group rounded-md border border-[var(--color-card-border)] bg-black/10 p-3 transition-colors hover:bg-white/[0.04] focus:outline-none focus:ring-2 focus:ring-primary/40"
+            className="pib-card pib-card-hover group p-3 focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)]"
           >
             <div className="flex items-center justify-between gap-2">
               <div className="flex min-w-0 items-center gap-2">
-                <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-primary">{action.icon}</span>
-                <h3 className="truncate text-xs font-semibold text-on-surface">{action.title}</h3>
+                <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-[var(--color-pib-accent)]">{action.icon}</span>
+                <h3 className="truncate text-xs font-semibold text-[var(--color-pib-text)]">{action.title}</h3>
               </div>
-              <span aria-hidden="true" className="material-symbols-outlined text-[14px] text-on-surface-variant transition-colors group-hover:text-on-surface">open_in_new</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[14px] text-[var(--color-pib-text-muted)] transition-colors group-hover:text-[var(--color-pib-text)]">open_in_new</span>
             </div>
-            <p className="mt-1.5 line-clamp-3 text-[11px] leading-4 text-on-surface-variant">{action.description}</p>
+            <p className="mt-1.5 line-clamp-3 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{action.description}</p>
           </Link>
         ))}
       </div>

@@ -16,8 +16,9 @@ const LIFECYCLE_STAGES = ['lead', 'prospect', 'customer', 'churned'] as const
 const TIERS = ['enterprise', 'mid-market', 'smb'] as const
 const SIZES = ['1-10', '11-50', '51-200', '201-1000', '1000+'] as const
 
-const LABEL_CLS = 'text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant'
-const CONTROL_CLS = 'h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface focus:outline-none'
+const LABEL_CLS = 'pib-label'
+const CONTROL_CLS = 'pib-input h-8 w-full text-xs'
+const SELECT_CLS = 'pib-select h-8 w-full text-xs'
 
 interface Props {
   selectedCount: number
@@ -67,20 +68,20 @@ export function CompaniesBulkCommandBar({
 
   return (
     <section
-      className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 p-3 space-y-3"
+      className="pib-card space-y-4"
       aria-label="Account bulk command center"
     >
-      <div className="flex flex-wrap items-start justify-between gap-2 border-b border-[var(--color-card-border)] pb-2">
+      <div className="flex flex-wrap items-start justify-between gap-2 border-b border-[var(--color-pib-line)] pb-3">
         <div className="min-w-0">
           <p className={LABEL_CLS}>Account bulk command center</p>
-          <h2 className="mt-1 text-sm font-semibold text-on-surface">Move selected accounts as one governed set.</h2>
-          <p className="mt-1 max-w-2xl text-xs leading-5 text-on-surface-variant">
+          <h2 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Move selected accounts as one governed set.</h2>
+          <p className="mt-1 max-w-2xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
             Standardise lifecycle, tier, size, industry, owner, or tags without opening each company record.
           </p>
         </div>
         <button
           onClick={onClear}
-          className="flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+          className="btn-pib-ghost h-8 shrink-0 gap-1 px-2 text-xs"
           aria-label="Clear selected companies"
         >
           <span className="material-symbols-outlined text-[16px]">close</span>
@@ -89,21 +90,21 @@ export function CompaniesBulkCommandBar({
       </div>
 
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-        <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+        <div className="pib-stat-card">
           <p className={LABEL_CLS}>Selected accounts</p>
-          <p className="mt-1 text-lg font-semibold text-on-surface">{selectedCount} selected</p>
+          <p className="mt-1 text-lg font-semibold text-[var(--color-pib-text)]">{selectedCount} selected</p>
         </div>
-        <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+        <div className="pib-stat-card">
           <p className={LABEL_CLS}>Coverage</p>
-          <p className="mt-1 text-lg font-semibold text-on-surface">{coverage}%</p>
+          <p className="mt-1 text-lg font-semibold text-[var(--color-pib-text)]">{coverage}%</p>
         </div>
-        <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+        <div className="pib-stat-card">
           <p className={LABEL_CLS}>Next operation</p>
-          <p className="mt-1 text-xs text-on-surface">{actionLabel}</p>
+          <p className="mt-1 text-xs text-[var(--color-pib-text)]">{actionLabel}</p>
         </div>
-        <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+        <div className="pib-stat-card">
           <p className={LABEL_CLS}>Safety</p>
-          <p className="mt-1 text-xs text-on-surface-variant">No destructive action in this panel.</p>
+          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">No destructive action in this panel.</p>
         </div>
       </div>
 
@@ -114,10 +115,10 @@ export function CompaniesBulkCommandBar({
             aria-label="Company bulk action"
             value={bulkAction}
             onChange={(event) => onActionChange(event.target.value as CompanyBulkActionKey)}
-            className={CONTROL_CLS}
+            className={SELECT_CLS}
           >
             {COMPANY_BULK_ACTIONS.map(action => (
-              <option key={action} value={action} className="bg-black">
+              <option key={action} value={action}>
                 {ACTION_LABELS[action]}
               </option>
             ))}
@@ -128,8 +129,8 @@ export function CompaniesBulkCommandBar({
           {bulkAction === 'lifecycleStage' && (
             <label className="space-y-1 block">
               <span className={LABEL_CLS}>Lifecycle stage</span>
-              <select value={lifecycleStage} onChange={(event) => onLifecycleStageChange(event.target.value)} className={CONTROL_CLS}>
-                {LIFECYCLE_STAGES.map(stage => <option key={stage} value={stage} className="bg-black">{stage}</option>)}
+              <select value={lifecycleStage} onChange={(event) => onLifecycleStageChange(event.target.value)} className={SELECT_CLS}>
+                {LIFECYCLE_STAGES.map(stage => <option key={stage} value={stage}>{stage}</option>)}
               </select>
             </label>
           )}
@@ -137,8 +138,8 @@ export function CompaniesBulkCommandBar({
           {bulkAction === 'tier' && (
             <label className="space-y-1 block">
               <span className={LABEL_CLS}>Tier</span>
-              <select value={tier} onChange={(event) => onTierChange(event.target.value)} className={CONTROL_CLS}>
-                {TIERS.map(value => <option key={value} value={value} className="bg-black">{value}</option>)}
+              <select value={tier} onChange={(event) => onTierChange(event.target.value)} className={SELECT_CLS}>
+                {TIERS.map(value => <option key={value} value={value}>{value}</option>)}
               </select>
             </label>
           )}
@@ -146,8 +147,8 @@ export function CompaniesBulkCommandBar({
           {bulkAction === 'size' && (
             <label className="space-y-1 block">
               <span className={LABEL_CLS}>Size</span>
-              <select value={size} onChange={(event) => onSizeChange(event.target.value)} className={CONTROL_CLS}>
-                {SIZES.map(value => <option key={value} value={value} className="bg-black">{value}</option>)}
+              <select value={size} onChange={(event) => onSizeChange(event.target.value)} className={SELECT_CLS}>
+                {SIZES.map(value => <option key={value} value={value}>{value}</option>)}
               </select>
             </label>
           )}
@@ -177,7 +178,7 @@ export function CompaniesBulkCommandBar({
         <button
           onClick={onApply}
           disabled={bulkPending}
-          className="flex h-8 items-center justify-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="btn-pib-primary h-8 gap-1.5 px-3 text-xs"
           aria-label="Apply company bulk updates"
         >
           <span className="material-symbols-outlined text-[16px]">done_all</span>

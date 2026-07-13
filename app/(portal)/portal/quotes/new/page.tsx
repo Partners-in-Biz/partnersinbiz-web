@@ -135,15 +135,15 @@ function NewQuoteForm() {
   const inputClass = 'pib-input'
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <div>
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">Quotes / New</p>
-        <h1 className="text-2xl font-headline font-bold text-on-surface">New Quote</h1>
-      </div>
+    <div className="max-w-3xl mx-auto space-y-8">
+      <header>
+        <p className="eyebrow">Quotes / New</p>
+        <h1 className="pib-page-title mt-2">New Quote</h1>
+      </header>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="pib-card space-y-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Quote Details</p>
+          <p className="pib-label mb-0">Quote Details</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="pib-label">Client Organisation *</label>
@@ -174,15 +174,15 @@ function NewQuoteForm() {
         </div>
 
         <div className="pib-card space-y-3">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Line Items</p>
-          <div className="hidden sm:grid grid-cols-12 gap-2 text-[9px] font-label uppercase tracking-widest text-on-surface-variant">
+          <p className="pib-label mb-0">Line Items</p>
+          <div className="hidden sm:grid grid-cols-12 gap-2 pib-label mb-0">
             <span className="col-span-6">Description</span>
             <span className="col-span-2">Qty</span>
             <span className="col-span-2">Unit Price</span>
             <span className="col-span-2">Amount</span>
           </div>
           {lineItems.map((item, idx) => (
-            <div key={idx} className="grid grid-cols-2 sm:grid-cols-12 gap-2 sm:items-center pb-3 sm:pb-0 border-b border-[var(--color-card-border)] sm:border-0 last:border-b-0">
+            <div key={idx} className="grid grid-cols-2 sm:grid-cols-12 gap-2 sm:items-center pb-3 sm:pb-0 border-b border-[var(--color-pib-line)] sm:border-0 last:border-b-0">
               <div className="col-span-2 sm:col-span-6">
                 <label className="pib-label sm:hidden">Description</label>
                 <input value={item.description} onChange={e => updateLineItem(idx, 'description', e.target.value)} className={inputClass} placeholder="Description" />
@@ -196,36 +196,36 @@ function NewQuoteForm() {
                 <input type="number" min="0" step="0.01" value={item.unitPrice} onChange={e => updateLineItem(idx, 'unitPrice', e.target.value)} className={inputClass} />
               </div>
               <div className="col-span-2 sm:col-span-2 flex items-center justify-between sm:justify-start gap-2">
-                <div className="text-sm text-on-surface">
-                  <span className="sm:hidden text-xs text-on-surface-variant mr-2 uppercase tracking-widest">Amount:</span>
+                <div className="text-sm text-[var(--color-pib-text)]">
+                  <span className="sm:hidden text-xs text-[var(--color-pib-text-muted)] mr-2 uppercase tracking-widest">Amount:</span>
                   {fmtCurrency(Number(item.quantity) * Number(item.unitPrice), currency)}
                 </div>
-                <button type="button" onClick={() => removeLineItem(idx)} className="text-on-surface-variant hover:text-red-400 transition-colors text-lg leading-none sm:ml-auto" aria-label="Remove line">×</button>
+                <button type="button" onClick={() => removeLineItem(idx)} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-error)] transition-colors text-lg leading-none sm:ml-auto" aria-label="Remove line">×</button>
               </div>
             </div>
           ))}
-          <button type="button" onClick={addLineItem} className="pib-btn-secondary text-xs font-label">+ Add Line</button>
+          <button type="button" onClick={addLineItem} className="btn-pib-secondary text-xs">+ Add Line</button>
 
-          <div className="border-t border-[var(--color-card-border)] pt-3 space-y-1 text-right">
-            <p className="text-sm text-on-surface-variant">Subtotal: <span className="text-on-surface">{fmtCurrency(subtotal, currency)}</span></p>
-            {taxRate > 0 && <p className="text-sm text-on-surface-variant">Tax ({taxRate}%): <span className="text-on-surface">{fmtCurrency(taxAmount, currency)}</span></p>}
-            <p className="text-base font-bold text-on-surface">Total: {fmtCurrency(total, currency)}</p>
+          <div className="border-t border-[var(--color-pib-line)] pt-3 space-y-1 text-right">
+            <p className="text-sm text-[var(--color-pib-text-muted)]">Subtotal: <span className="text-[var(--color-pib-text)]">{fmtCurrency(subtotal, currency)}</span></p>
+            {taxRate > 0 && <p className="text-sm text-[var(--color-pib-text-muted)]">Tax ({taxRate}%): <span className="text-[var(--color-pib-text)]">{fmtCurrency(taxAmount, currency)}</span></p>}
+            <p className="text-base font-bold text-[var(--color-pib-text)]">Total: {fmtCurrency(total, currency)}</p>
           </div>
         </div>
 
         <div className="pib-card">
-          <label className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant block mb-2">Notes / Terms</label>
+          <label className="pib-label">Notes / Terms</label>
           <textarea value={notes} onChange={e => setNotes(e.target.value)} className="pib-textarea" rows={3} placeholder="Payment terms, validity, etc." />
         </div>
 
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p className="text-sm text-[var(--color-error)]">{error}</p>}
 
         <div className="flex flex-wrap gap-3">
-          <button type="submit" disabled={saving} className="pib-btn-primary font-label flex-1 sm:flex-none justify-center">
+          <button type="submit" disabled={saving} className="btn-pib-primary flex-1 sm:flex-none justify-center">
             {saving ? 'Creating…' : 'Create Quote'}
           </button>
-          <button type="button" onClick={handlePreview} className="pib-btn-secondary font-label flex-1 sm:flex-none justify-center">Preview</button>
-          <button type="button" onClick={() => router.back()} className="pib-btn-secondary font-label flex-1 sm:flex-none justify-center">Cancel</button>
+          <button type="button" onClick={handlePreview} className="btn-pib-secondary flex-1 sm:flex-none justify-center">Preview</button>
+          <button type="button" onClick={() => router.back()} className="btn-pib-secondary flex-1 sm:flex-none justify-center">Cancel</button>
         </div>
       </form>
 

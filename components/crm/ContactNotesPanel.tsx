@@ -186,19 +186,19 @@ export function ContactNotesPanel({
 
   return (
     <section
-      className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45"
+      className="pib-surface overflow-hidden"
       aria-label={`Notes for ${label}`}
     >
-      <div className="flex h-9 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black/[0.08] px-3">
-        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Notes</p>
-        <span className="text-[11px] text-on-surface-variant">
+      <div className="pib-surface-header flex items-center justify-between gap-3">
+        <p className="pib-label">Notes</p>
+        <span className="text-[11px] text-[var(--color-pib-text-muted)]">
           {notes.length === 0 ? 'No notes yet' : notes.length === 1 ? '1 note' : `${notes.length} notes`}
         </span>
       </div>
 
-      <div className="p-3">
+      <div className="pib-surface-body">
         {/* Composer */}
-        <div className="rounded-md border border-[var(--color-card-border)] bg-white/[0.02] p-2">
+        <div className="rounded-2xl border border-[var(--color-pib-line)] p-2">
           <label htmlFor="contact-note-composer" className="sr-only">
             {`Add a note for ${label}`}
           </label>
@@ -208,17 +208,17 @@ export function ContactNotesPanel({
             onChange={(e) => setDraft(e.target.value)}
             rows={3}
             placeholder={`Add a relationship note, handoff, or context for ${label}…`}
-            className="w-full resize-y rounded-md border border-[var(--color-card-border)] bg-transparent p-2 text-xs text-on-surface outline-none"
+            className="pib-textarea w-full resize-y text-xs"
             aria-label={`Add a note for ${label}`}
           />
-          {saveError && <p className="mt-1.5 text-xs text-red-400">{saveError}</p>}
+          {saveError && <p className="mt-1.5 text-xs text-[var(--color-error)]">{saveError}</p>}
           <div className="mt-1.5 flex justify-end">
             <button
               type="button"
               onClick={addNote}
               disabled={saving || !draft.trim()}
               aria-label={`Save note for ${label}`}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-primary/25 bg-primary/10 px-2.5 text-xs font-medium text-primary transition hover:bg-primary/15 disabled:opacity-50"
+              className="btn-pib-primary h-8 gap-1.5 px-2.5 text-xs"
             >
               <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add_comment</span>
               {saving ? 'Saving…' : 'Add note'}
@@ -226,7 +226,7 @@ export function ContactNotesPanel({
           </div>
         </div>
 
-        {rowError && <p className="mt-2 text-xs text-red-400">{rowError}</p>}
+        {rowError && <p className="mt-2 text-xs text-[var(--color-error)]">{rowError}</p>}
 
         {/* List */}
         <div className="mt-2">
@@ -237,12 +237,12 @@ export function ContactNotesPanel({
               ))}
             </div>
           ) : loadError ? (
-            <div className="rounded-md border border-amber-400/25 bg-amber-400/[0.07] p-2.5">
-              <p className="text-xs text-on-surface-variant">{loadError}</p>
+            <div className="rounded-2xl border border-[var(--color-pib-accent)] p-2.5">
+              <p className="text-xs text-[var(--color-pib-text-muted)]">{loadError}</p>
               <button
                 type="button"
                 onClick={() => void loadNotes()}
-                className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                className="btn-pib-secondary mt-2 h-8 gap-1.5 px-2.5 text-xs"
                 aria-label="Retry loading notes"
               >
                 <span className="material-symbols-outlined text-[14px]" aria-hidden="true">refresh</span>
@@ -250,7 +250,7 @@ export function ContactNotesPanel({
               </button>
             </div>
           ) : notes.length === 0 ? (
-            <p className="px-1 py-1 text-xs leading-5 text-on-surface-variant">
+            <p className="px-1 py-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
               No notes captured yet. Use the field above to record context the whole team can see.
             </p>
           ) : (
@@ -262,11 +262,11 @@ export function ContactNotesPanel({
                 return (
                   <li
                     key={note.id}
-                    className="border-b border-[var(--color-card-border)] px-1 py-2 last:border-0"
+                    className="border-b border-[var(--color-pib-line)] px-1 py-2 last:border-0"
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <p className="text-[11px] text-on-surface-variant">
-                        <span className="font-medium text-on-surface">{noteAuthorLabel(note)}</span>
+                      <p className="text-[11px] text-[var(--color-pib-text-muted)]">
+                        <span className="font-medium text-[var(--color-pib-text)]">{noteAuthorLabel(note)}</span>
                         {' · '}
                         {relativeTime(note.updatedAt || note.createdAt)}
                       </p>
@@ -276,7 +276,7 @@ export function ContactNotesPanel({
                             type="button"
                             onClick={() => startEdit(note)}
                             aria-label={`Edit note by ${noteAuthorLabel(note)}`}
-                            className="inline-flex h-6 items-center rounded-md px-1.5 text-[11px] text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                            className="inline-flex h-6 items-center rounded-full px-1.5 text-[11px] text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]"
                           >
                             <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit</span>
                           </button>
@@ -284,7 +284,7 @@ export function ContactNotesPanel({
                             type="button"
                             onClick={() => setPendingDeleteId(note.id)}
                             aria-label={`Delete note by ${noteAuthorLabel(note)}`}
-                            className="inline-flex h-6 items-center rounded-md px-1.5 text-[11px] text-on-surface-variant transition hover:bg-white/[0.05] hover:text-red-400"
+                            className="inline-flex h-6 items-center rounded-full px-1.5 text-[11px] text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-row-hover)] hover:text-[var(--color-error)]"
                           >
                             <span className="material-symbols-outlined text-[14px]" aria-hidden="true">delete</span>
                           </button>
@@ -300,13 +300,13 @@ export function ContactNotesPanel({
                           value={editDraft}
                           onChange={(e) => setEditDraft(e.target.value)}
                           rows={3}
-                          className="w-full resize-y rounded-md border border-[var(--color-card-border)] bg-transparent p-2 text-xs text-on-surface outline-none"
+                          className="pib-textarea w-full resize-y text-xs"
                         />
                         <div className="mt-1.5 flex justify-end gap-1.5">
                           <button
                             type="button"
                             onClick={() => { setEditingId(null); setEditDraft('') }}
-                            className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                            className="btn-pib-secondary h-8 px-2.5 text-xs"
                             aria-label="Cancel note edit"
                           >
                             Cancel
@@ -315,7 +315,7 @@ export function ContactNotesPanel({
                             type="button"
                             onClick={() => saveEdit(note.id)}
                             disabled={editSaving || !editDraft.trim()}
-                            className="inline-flex h-8 items-center rounded-md border border-primary/25 bg-primary/10 px-2.5 text-xs font-medium text-primary transition hover:bg-primary/15 disabled:opacity-50"
+                            className="btn-pib-primary h-8 px-2.5 text-xs"
                             aria-label="Save note edit"
                           >
                             {editSaving ? 'Saving…' : 'Save'}
@@ -323,19 +323,19 @@ export function ContactNotesPanel({
                         </div>
                       </div>
                     ) : (
-                      <p className="mt-1 whitespace-pre-wrap text-sm leading-5 text-on-surface">
+                      <p className="mt-1 whitespace-pre-wrap text-sm leading-5 text-[var(--color-pib-text)]">
                         {note.body?.trim() || 'Empty note'}
                       </p>
                     )}
 
                     {isPendingDelete && (
-                      <div className="mt-1.5 flex items-center justify-between gap-3 rounded-md border border-red-400/25 bg-red-400/[0.06] px-2 py-1.5">
-                        <span className="text-xs text-on-surface-variant">Delete this note?</span>
+                      <div className="mt-1.5 flex items-center justify-between gap-3 rounded-2xl border border-[var(--color-error)] bg-[var(--color-error-container)] px-2 py-1.5">
+                        <span className="text-xs text-[var(--color-pib-text-muted)]">Delete this note?</span>
                         <div className="flex gap-1.5">
                           <button
                             type="button"
                             onClick={() => setPendingDeleteId(null)}
-                            className="inline-flex h-7 items-center rounded-md border border-[var(--color-card-border)] px-2 text-[11px] text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                            className="btn-pib-secondary h-7 px-2 text-[11px]"
                             aria-label="Keep note"
                           >
                             Keep
@@ -343,7 +343,7 @@ export function ContactNotesPanel({
                           <button
                             type="button"
                             onClick={() => deleteNote(note.id)}
-                            className="inline-flex h-7 items-center gap-1 rounded-md border border-red-400/40 bg-red-400/10 px-2 text-[11px] font-medium text-red-200 transition hover:bg-red-400/20"
+                            className="btn-pib-danger h-7 gap-1 px-2 text-[11px]"
                             aria-label="Confirm delete note"
                           >
                             Delete

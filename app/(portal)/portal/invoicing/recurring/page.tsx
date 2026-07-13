@@ -27,10 +27,10 @@ function Skeleton({ className = '' }: { className?: string }) {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  active: '#4ade80',
-  paused: '#facc15',
-  cancelled: 'var(--color-outline)',
-  completed: '#60a5fa',
+  active: 'pib-pill pib-pill-success',
+  paused: 'pib-pill pib-pill-warn',
+  cancelled: 'pib-pill',
+  completed: 'pib-pill pib-pill-blue',
 }
 
 export default function RecurringSchedulesPage() {
@@ -61,48 +61,56 @@ export default function RecurringSchedulesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8">
+      <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <Link href="/portal/invoicing" className="text-xs text-on-surface-variant hover:text-on-surface transition-colors">← Invoicing</Link>
-          <h1 className="text-2xl font-headline font-bold text-on-surface mt-1">Recurring Schedules</h1>
+          <Link href="/portal/invoicing" className="text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]">← Invoicing</Link>
+          <p className="eyebrow mt-3">Invoicing · Recurring</p>
+          <h1 className="pib-page-title mt-2">Recurring Schedules</h1>
         </div>
-        <div className="flex gap-2">
+        <div role="tablist" aria-label="Schedule filter" className="pib-tabs pib-tabs-segmented">
           {(['active', 'all'] as const).map(f => (
             <button
               key={f}
+              type="button"
+              role="tab"
+              aria-selected={filter === f}
               onClick={() => setFilter(f)}
-              className={`text-xs font-label px-3 py-1.5 rounded-full capitalize transition-colors ${filter === f ? 'bg-[var(--color-accent-v2)] text-white' : 'pib-btn-secondary'}`}
+              className={`pib-tab capitalize ${filter === f ? 'pib-tab-active' : ''}`}
             >
               {f === 'all' ? 'All' : 'Active'}
             </button>
           ))}
         </div>
-      </div>
+      </header>
 
       {loading ? (
         <div className="space-y-2">
           {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-14" />)}
         </div>
       ) : schedules.length === 0 ? (
-        <div className="pib-card py-12 text-center">
-          <p className="text-on-surface-variant text-sm">No recurring schedules found.</p>
+        <div className="pib-empty-state">
+          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">event_repeat</span>
+          <h2 className="pib-empty-state-title">No recurring schedules found.</h2>
         </div>
       ) : (
-        <div className="pib-card divide-y divide-[var(--color-card-border)]">
+        <div className="pib-surface pib-surface-list divide-y divide-[var(--color-pib-line)]">
           {schedules.map(s => {
-            const color = STATUS_COLORS[s.status] ?? 'var(--color-outline)'
+            const pill = STATUS_COLORS[s.status] ?? 'pib-pill'
             return (
-              <div key={s.id} className="flex items-center justify-between py-3 px-1">
+              <div key={s.id} className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-[var(--color-row-hover)]">
                 <div className="flex items-center gap-4">
-                  <span className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full" style={{ background: `${color}20`, color }}>
+                  <span className="pib-icon-tint pib-icon-tint-cyan" aria-hidden="true">
+                    <span className="material-symbols-outlined text-[18px]">event_repeat</span>
+                  </span>
+                  <span className={pill}>
                     {s.status}
                   </span>
                   <div>
-                    <Link href={`/portal/invoicing/${s.invoiceId}`} className="text-sm font-medium text-on-surface hover:underline">
+                    <Link href={`/portal/invoicing/${s.invoiceId}`} className="text-sm font-medium hover:underline">
                       Invoice ↗
                     </Link>
-                    <p className="text-xs text-on-surface-variant">{INTERVAL_LABELS[s.interval] ?? s.interval} · Next: {formatDate(s.nextDueAt)}</p>
+                    <p className="text-xs text-[var(--color-pib-text-muted)]">{INTERVAL_LABELS[s.interval] ?? s.interval} · Next: {formatDate(s.nextDueAt)}</p>
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -110,7 +118,7 @@ export default function RecurringSchedulesPage() {
                     <button
                       onClick={() => updateScheduleStatus(s.id, 'paused')}
                       disabled={updating === s.id}
-                      className="pib-btn-secondary text-xs font-label"
+                      className="btn-pib-secondary"
                     >
                       Pause
                     </button>
@@ -119,7 +127,7 @@ export default function RecurringSchedulesPage() {
                     <button
                       onClick={() => updateScheduleStatus(s.id, 'active')}
                       disabled={updating === s.id}
-                      className="pib-btn-primary text-xs font-label"
+                      className="btn-pib-primary"
                     >
                       Resume
                     </button>
@@ -128,7 +136,7 @@ export default function RecurringSchedulesPage() {
                     <button
                       onClick={() => updateScheduleStatus(s.id, 'cancelled')}
                       disabled={updating === s.id}
-                      className="pib-btn-secondary text-xs font-label"
+                      className="btn-pib-ghost"
                     >
                       Cancel
                     </button>

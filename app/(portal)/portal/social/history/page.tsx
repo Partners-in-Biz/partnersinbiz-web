@@ -47,11 +47,12 @@ export default function PortalPostHistory() {
 
   if (resolvingOrg) {
     return (
-      <div className="w-full max-w-7xl mx-auto px-4 py-6 space-y-6">
-        <div>
-          <h1 className="font-headline text-2xl font-bold tracking-tighter text-[var(--color-on-surface)]">Post History</h1>
-          <p className="mt-1 text-sm text-[var(--color-on-surface-variant)]">View all your published and scheduled posts</p>
-        </div>
+      <div className="w-full max-w-7xl mx-auto px-4 py-6 space-y-8">
+        <header>
+          <p className="eyebrow">Social · History</p>
+          <h1 className="pib-page-title mt-2">Post History</h1>
+          <p className="pib-page-sub">View all your published and scheduled posts</p>
+        </header>
         <div className="space-y-3">
           {[...Array(5)].map((_, index) => (
             <div key={index} className="pib-skeleton h-24" />

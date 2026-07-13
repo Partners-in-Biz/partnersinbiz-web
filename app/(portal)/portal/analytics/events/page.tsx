@@ -60,15 +60,18 @@ export default function AnalyticsEventsPage() {
 
   return (
     <FeatureGate feature="analytics">
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-8">
       <AnalyticsNav active="events" propertyId={propertyId} />
-      <h1 className="text-xl font-headline font-bold text-on-surface">Events</h1>
+      <header>
+        <p className="eyebrow">Analytics · Events</p>
+        <h1 className="pib-page-title mt-2">Events</h1>
+      </header>
 
-      <div className="pib-card p-4 space-y-3">
+      <div className="pib-card space-y-4">
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
         <div className="flex flex-wrap gap-3 items-end">
         <div>
-          <label className="text-xs text-on-surface-variant font-label block mb-1">Event name</label>
+          <label className="pib-label mb-1">Event name</label>
           <input
             type="text"
             value={eventFilter}
@@ -78,26 +81,26 @@ export default function AnalyticsEventsPage() {
           />
         </div>
         <div>
-          <label className="text-xs text-on-surface-variant font-label block mb-1">From</label>
+          <label className="pib-label mb-1">From</label>
           <input type="date" value={from} onChange={e => setFrom(e.target.value)} className="pib-input text-sm" />
         </div>
         <div>
-          <label className="text-xs text-on-surface-variant font-label block mb-1">To</label>
+          <label className="pib-label mb-1">To</label>
           <input type="date" value={to} onChange={e => setTo(e.target.value)} className="pib-input text-sm" />
         </div>
-        <button onClick={fetchEvents} disabled={!propertyId || loading} className="pib-btn-primary text-sm font-label">
+        <button onClick={fetchEvents} disabled={!propertyId || loading} className="btn-pib-primary text-sm">
           {loading ? 'Loading…' : 'Search'}
         </button>
         </div>
       </div>
 
       {events.length > 0 && (
-        <div className="pib-card overflow-x-auto">
+        <div className="pib-surface pib-surface-table overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-[var(--color-outline-variant)]">
+              <tr className="border-b border-[var(--color-pib-line)]">
                 {['Time', 'Event', 'User', 'Session', 'Page', 'Device', 'Country'].map(h => (
-                  <th key={h} className="text-left px-3 py-2 text-on-surface-variant font-label">{h}</th>
+                  <th key={h} className="text-left px-3 py-2 pib-label mb-0">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -106,15 +109,15 @@ export default function AnalyticsEventsPage() {
                 <tr
                   key={ev.id}
                   onClick={() => router.push(`/portal/analytics/sessions/${ev.sessionId}`)}
-                  className="border-b border-[var(--color-outline-variant)] hover:bg-[var(--color-surface-container)] cursor-pointer"
+                  className="border-b border-[var(--color-pib-line)] hover:bg-[var(--color-row-hover)] cursor-pointer"
                 >
-                  <td className="px-3 py-2 text-on-surface-variant">{formatTs(ev.serverTime)}</td>
-                  <td className="px-3 py-2 font-mono text-on-surface">{ev.event}</td>
-                  <td className="px-3 py-2 text-on-surface-variant font-mono">{ev.distinctId.slice(0, 12)}…</td>
-                  <td className="px-3 py-2 text-on-surface-variant font-mono">{ev.sessionId.slice(0, 8)}…</td>
-                  <td className="px-3 py-2 text-on-surface-variant">{ev.pageUrl ? new URL(ev.pageUrl).pathname : '—'}</td>
-                  <td className="px-3 py-2 text-on-surface-variant">{ev.device ?? '—'}</td>
-                  <td className="px-3 py-2 text-on-surface-variant">{ev.country ?? '—'}</td>
+                  <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{formatTs(ev.serverTime)}</td>
+                  <td className="px-3 py-2 font-mono text-[var(--color-pib-text)]">{ev.event}</td>
+                  <td className="px-3 py-2 text-[var(--color-pib-text-muted)] font-mono">{ev.distinctId.slice(0, 12)}…</td>
+                  <td className="px-3 py-2 text-[var(--color-pib-text-muted)] font-mono">{ev.sessionId.slice(0, 8)}…</td>
+                  <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{ev.pageUrl ? new URL(ev.pageUrl).pathname : '—'}</td>
+                  <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{ev.device ?? '—'}</td>
+                  <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{ev.country ?? '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -123,7 +126,10 @@ export default function AnalyticsEventsPage() {
       )}
 
       {!loading && events.length === 0 && propertyId && (
-        <div className="pib-card p-8 text-center text-on-surface-variant text-sm">No events found.</div>
+        <div className="pib-empty-state">
+          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">bolt</span>
+          <p className="pib-empty-state-description">No events found.</p>
+        </div>
       )}
     </div>
     </FeatureGate>

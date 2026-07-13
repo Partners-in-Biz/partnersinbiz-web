@@ -90,14 +90,14 @@ export function CompanyPanel({ companyId, companyName, companyHref, companyApiPa
   // Neither set
   if (!companyId && !companyName) {
     return (
-      <div className="rounded-lg border border-dashed border-[var(--color-card-border)] bg-white/[0.015] p-3">
-        <p className="text-sm text-on-surface-variant">No company linked</p>
+      <div className="rounded-2xl border border-dashed border-[var(--color-pib-line)] p-3">
+        <p className="text-sm text-[var(--color-pib-text-muted)]">No company linked</p>
         {emptyAction && (
           <button
             type="button"
             aria-label={emptyAction.ariaLabel}
             onClick={emptyAction.onClick}
-            className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+            className="btn-pib-secondary mt-2 h-8 gap-1.5 px-2.5 text-xs"
           >
             {emptyAction.icon && (
               <span className="material-symbols-outlined text-[14px]" aria-hidden="true">{emptyAction.icon}</span>
@@ -112,17 +112,17 @@ export function CompanyPanel({ companyId, companyName, companyHref, companyApiPa
   // companyName only (hybrid fallback)
   if (!companyId && companyName) {
     return (
-      <div className="rounded-md border border-[var(--color-card-border)] bg-white/[0.015] p-3">
+      <div className="rounded-2xl border border-[var(--color-pib-line)] p-3">
         <div className="flex items-center gap-2">
-          <span className="material-symbols-outlined text-[18px] text-on-surface-variant">domain</span>
-          <p className="text-sm text-on-surface">{companyName}</p>
+          <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">domain</span>
+          <p className="text-sm text-[var(--color-pib-text)]">{companyName}</p>
         </div>
         {emptyAction && (
           <button
             type="button"
             aria-label={emptyAction.ariaLabel}
             onClick={emptyAction.onClick}
-            className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+            className="btn-pib-secondary mt-2 h-8 gap-1.5 px-2.5 text-xs"
           >
             {emptyAction.icon && (
               <span className="material-symbols-outlined text-[14px]" aria-hidden="true">{emptyAction.icon}</span>
@@ -138,19 +138,19 @@ export function CompanyPanel({ companyId, companyName, companyHref, companyApiPa
   if (loading) {
     const displayName = companyName?.trim() || 'Resolving company identity...'
     return (
-      <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3 flex items-start gap-3">
-        <div className="w-10 h-10 rounded-full bg-[var(--color-surface-container)] flex items-center justify-center text-xs font-label text-on-surface-variant shrink-0">
+      <div className="pib-card flex items-start gap-3 p-3">
+        <div className="pib-icon-tint w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-xs font-label">
           {initials(displayName)}
         </div>
         <div className="flex-1 min-w-0 space-y-1">
-          <p className="text-sm font-medium leading-snug text-on-surface break-words">{displayName}</p>
-          <p className="text-[11px] text-on-surface-variant">Resolving company profile...</p>
+          <p className="text-sm font-medium leading-snug text-[var(--color-pib-text)] break-words">{displayName}</p>
+          <p className="text-[11px] text-[var(--color-pib-text-muted)]">Resolving company profile...</p>
         </div>
         {companyId && (
           <Link
             href={resolvedCompanyHref}
             aria-label={openCompanyCardLabel(displayName)}
-            className="text-xs text-[var(--color-accent-v2)] hover:underline shrink-0 flex items-center gap-0.5"
+            className="text-xs text-[var(--color-pib-accent)] hover:underline shrink-0 flex items-center gap-0.5"
           >
             Open
             <span className="material-symbols-outlined text-[14px]" aria-hidden="true">arrow_forward</span>
@@ -170,7 +170,7 @@ export function CompanyPanel({ companyId, companyName, companyHref, companyApiPa
   const signals = [lifecycle, tier, health].filter(Boolean)
 
   return (
-    <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3 flex items-start gap-3">
+    <div className="pib-card flex items-start gap-3 p-3">
       {company?.logoUrl ? (
         <Image
           src={company.logoUrl}
@@ -180,22 +180,22 @@ export function CompanyPanel({ companyId, companyName, companyHref, companyApiPa
           className="w-10 h-10 rounded-full object-cover shrink-0"
         />
       ) : (
-        <div className="w-10 h-10 rounded-full bg-[var(--color-surface-container)] flex items-center justify-center text-xs font-label text-on-surface-variant shrink-0">
+        <div className="pib-icon-tint w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-xs font-label">
           {initials(displayName)}
         </div>
       )}
 
       <div className="flex-1 min-w-0 space-y-2">
-        <p className="text-sm font-medium leading-snug text-on-surface break-words">{displayName}</p>
+        <p className="text-sm font-medium leading-snug text-[var(--color-pib-text)] break-words">{displayName}</p>
         {accountManagerLabel && (
-          <p className="text-[11px] text-on-surface-variant truncate">{accountManagerLabel}</p>
+          <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{accountManagerLabel}</p>
         )}
         {signals.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {signals.map((signal) => (
               <span
                 key={signal}
-                className="rounded-full border border-[var(--color-card-border)] bg-white/[0.03] px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-on-surface-variant"
+                className="pib-pill px-2 py-0.5 text-[10px]"
               >
                 {signal}
               </span>
@@ -208,7 +208,7 @@ export function CompanyPanel({ companyId, companyName, companyHref, companyApiPa
         <Link
           href={resolvedCompanyHref}
           aria-label={openCompanyCardLabel(displayName)}
-          className="text-xs text-[var(--color-accent-v2)] hover:underline shrink-0 flex items-center gap-0.5"
+          className="text-xs text-[var(--color-pib-accent)] hover:underline shrink-0 flex items-center gap-0.5"
         >
           Open
           <span className="material-symbols-outlined text-[14px]" aria-hidden="true">arrow_forward</span>

@@ -20,6 +20,21 @@
   --color-pib-violet: #7C5CFF;
   --color-pib-success: #4ADE80;
 
+  /* === Module accent hues — the "pop of colour" layer. One signature hue per
+     product area, always used sparingly: icon tints, status dots, pills, and
+     chart strokes — never large fills. === */
+  --color-pib-amber: #F5A623;
+  --color-pib-amber-soft: rgba(245, 166, 35, 0.12);
+  --color-pib-violet-soft: rgba(124, 92, 255, 0.14);
+  --color-pib-green: #4ADE80;
+  --color-pib-green-soft: rgba(74, 222, 128, 0.12);
+  --color-pib-blue: #60A5FA;
+  --color-pib-blue-soft: rgba(96, 165, 250, 0.13);
+  --color-pib-cyan: #2DD4BF;
+  --color-pib-cyan-soft: rgba(45, 212, 191, 0.12);
+  --color-pib-rose: #FB7185;
+  --color-pib-rose-soft: rgba(251, 113, 133, 0.12);
+
   /* Editorial alt theme (off-white) — used on selected sections */
   --color-pib-cream: #F0EEE6;
   --color-pib-ink: #181818;
@@ -741,6 +756,45 @@
     background: rgba(124, 156, 255, 0.08);
     color: #A4B8FF;
   }
+  .pib-pill-violet {
+    border-color: rgba(124, 92, 255, 0.4);
+    background: var(--color-pib-violet-soft);
+    color: #A78BFA;
+  }
+  .pib-pill-cyan {
+    border-color: rgba(45, 212, 191, 0.35);
+    background: var(--color-pib-cyan-soft);
+    color: #5EEAD4;
+  }
+  .pib-pill-rose {
+    border-color: rgba(251, 113, 133, 0.35);
+    background: var(--color-pib-rose-soft);
+    color: #FDA4AF;
+  }
+  .pib-pill-blue {
+    border-color: rgba(96, 165, 250, 0.35);
+    background: var(--color-pib-blue-soft);
+    color: #93C5FD;
+  }
+
+  /* Icon tint chip — a rounded-square icon holder that carries the module's
+     signature hue. The standard way to add colour to cards and list rows. */
+  .pib-icon-tint {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    flex: 0 0 auto;
+    border-radius: 10px;
+    background: var(--color-pib-accent-soft);
+    color: var(--color-pib-accent-hover);
+  }
+  .pib-icon-tint-violet { background: var(--color-pib-violet-soft); color: #A78BFA; }
+  .pib-icon-tint-green { background: var(--color-pib-green-soft); color: #6FE7A2; }
+  .pib-icon-tint-blue { background: var(--color-pib-blue-soft); color: #93C5FD; }
+  .pib-icon-tint-cyan { background: var(--color-pib-cyan-soft); color: #5EEAD4; }
+  .pib-icon-tint-rose { background: var(--color-pib-rose-soft); color: #FDA4AF; }
 
   /* Page header — h1 + sub */
   .pib-page-title {
@@ -931,6 +985,10 @@
   .pib-status-dot-success { background: var(--color-pib-success); }
   .pib-status-dot-danger { background: #FCA5A5; }
   .pib-status-dot-info { background: #A4B8FF; }
+  .pib-status-dot-violet { background: #A78BFA; }
+  .pib-status-dot-blue { background: var(--color-pib-blue); }
+  .pib-status-dot-cyan { background: var(--color-pib-cyan); }
+  .pib-status-dot-rose { background: var(--color-pib-rose); }
   .pib-dialog-backdrop {
     position: fixed;
     inset: 0;

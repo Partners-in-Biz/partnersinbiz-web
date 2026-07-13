@@ -83,54 +83,61 @@ export default function ManageTemplatesPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-8">
       <header className="space-y-2">
-        <Link href="/portal/documents" className="text-xs text-on-surface-variant hover:text-on-surface">
+        <Link href="/portal/documents" className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]">
           ← Documents
         </Link>
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold">Saved templates</h1>
-            <p className="mt-1 text-sm text-on-surface-variant">
+            <p className="eyebrow">Documents · Templates</p>
+            <h1 className="pib-page-title mt-2">Saved templates</h1>
+            <p className="pib-page-sub">
               Reusable templates saved from your documents. Start a new document from any of these.
             </p>
           </div>
-          <Link
-            href="/portal/documents/new"
-            className="btn-pib-accent rounded-md px-4 py-2 text-sm font-medium"
-          >
+          <Link href="/portal/documents/new" className="btn-pib-primary shrink-0">
             New document
           </Link>
         </div>
       </header>
 
-      {error && <p className="rounded bg-red-900/30 px-3 py-2 text-sm text-red-400">{error}</p>}
+      {error && <p className="text-sm text-[var(--color-error)]">{error}</p>}
 
       {loading ? (
-        <p className="text-sm text-on-surface-variant">Loading templates…</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="pib-skeleton h-40" />
+          ))}
+        </div>
       ) : templates.length === 0 ? (
-        <div className="bento-card p-8 text-center">
-          <span className="material-symbols-outlined text-[40px] text-on-surface-variant">bookmarks</span>
-          <p className="mt-3 text-sm font-medium">No saved templates yet</p>
-          <p className="mt-1 text-xs text-on-surface-variant">
+        <div className="pib-empty-state">
+          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">bookmarks</span>
+          <h2 className="pib-empty-state-title">No saved templates yet</h2>
+          <p className="pib-empty-state-description">
             Open a document and use “Save as template” to create one.
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {templates.map((template) => (
-            <div key={template.id} className="bento-card flex flex-col gap-3 p-4">
+            <div key={template.id} className="pib-card flex flex-col gap-3">
               <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">{template.name}</p>
-                  <p className="mt-0.5 text-[11px] uppercase tracking-wider text-on-surface-variant">
-                    {TYPE_LABELS[template.type] ?? template.type}
-                  </p>
+                <div className="flex min-w-0 items-start gap-3">
+                  <span className="pib-icon-tint pib-icon-tint-cyan" aria-hidden="true">
+                    <span className="material-symbols-outlined text-[18px]">bookmark</span>
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">{template.name}</p>
+                    <p className="pib-label mt-0.5">
+                      {TYPE_LABELS[template.type] ?? template.type}
+                    </p>
+                  </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => handleDelete(template)}
                   disabled={deletingId === template.id}
                   aria-label="Delete template"
-                  className="rounded-md border border-white/10 p-1.5 text-on-surface-variant hover:bg-white/5 hover:text-red-400 disabled:opacity-50"
+                  className="rounded-full border border-[var(--color-pib-line)] p-1.5 text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-error)] disabled:opacity-50"
                 >
                   <span className="material-symbols-outlined text-[16px]">
                     {deletingId === template.id ? 'hourglass_empty' : 'delete'}
@@ -139,17 +146,17 @@ export default function ManageTemplatesPage() {
               </div>
 
               {template.description && (
-                <p className="text-xs leading-relaxed text-on-surface-variant">{template.description}</p>
+                <p className="text-xs leading-relaxed text-[var(--color-pib-text-muted)]">{template.description}</p>
               )}
 
-              <div className="mt-auto flex items-center justify-between gap-2 pt-2 text-[11px] text-on-surface-variant">
+              <div className="mt-auto flex items-center justify-between gap-2 pt-2 text-[11px] text-[var(--color-pib-text-muted)]">
                 <span>{(template.blocks?.length ?? 0)} block{(template.blocks?.length ?? 0) === 1 ? '' : 's'}</span>
                 {fmtDate(template.createdAt) && <span>Created {fmtDate(template.createdAt)}</span>}
               </div>
 
               <Link
                 href={`/portal/documents/new?templateId=${template.id}`}
-                className="flex items-center justify-center gap-1.5 rounded-md border border-white/10 px-3 py-2 text-xs font-medium text-on-surface hover:bg-white/5"
+                className="btn-pib-secondary justify-center"
               >
                 <span className="material-symbols-outlined text-[16px]">add</span>
                 Use this template

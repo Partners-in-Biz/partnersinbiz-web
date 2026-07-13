@@ -113,14 +113,14 @@ export default function SessionsSettingsPage() {
       <section data-testid="sessions-panel" className="pib-card-section">
         <div className="pib-card-section-header flex items-center justify-between gap-3">
           <div>
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Active sessions</p>
+            <p className="pib-label">Active sessions</p>
             <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Where you&apos;re signed in</h2>
           </div>
           <button
             type="button"
             onClick={revokeAll}
             disabled={revokingAll}
-            className="shrink-0 rounded-lg border border-red-500/30 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50"
+            className="btn-pib-danger shrink-0"
           >
             {revokingAll ? 'Revoking…' : 'Revoke all other sessions'}
           </button>
@@ -135,8 +135,10 @@ export default function SessionsSettingsPage() {
             sessions.map((s) => (
               <div key={s.id} data-testid={`session-row-${s.id}`} className="flex items-center justify-between gap-4 p-5 max-sm:flex-col max-sm:items-start">
                 <div className="flex min-w-0 items-start gap-3">
-                  <span className="material-symbols-outlined mt-0.5 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-2 text-[20px] text-[var(--color-pib-accent)]" aria-hidden="true">
-                    {/Mobile|iPhone|Android/.test(s.userAgent) ? 'smartphone' : 'computer'}
+                  <span className="pib-icon-tint-cyan mt-0.5 shrink-0">
+                    <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
+                      {/Mobile|iPhone|Android/.test(s.userAgent) ? 'smartphone' : 'computer'}
+                    </span>
                   </span>
                   <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -153,7 +155,7 @@ export default function SessionsSettingsPage() {
                     type="button"
                     onClick={() => revokeOne(s.id)}
                     disabled={busyId === s.id}
-                    className="shrink-0 rounded-lg border border-[var(--color-pib-line)] px-3 py-1.5 text-xs font-medium text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)] disabled:opacity-50"
+                    className="btn-pib-secondary shrink-0"
                   >
                     {busyId === s.id ? 'Revoking…' : 'Revoke'}
                   </button>
@@ -166,7 +168,7 @@ export default function SessionsSettingsPage() {
 
       <section data-testid="login-history-panel" className="pib-card-section">
         <div className="pib-card-section-header">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Login history</p>
+          <p className="pib-label">Login history</p>
           <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Recent activity</h2>
         </div>
         <div className="divide-y divide-[var(--color-pib-line)]">

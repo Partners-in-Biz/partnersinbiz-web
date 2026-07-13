@@ -374,11 +374,11 @@ function DashboardMetric({
   return (
     <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">{label}</p>
-        <span className="material-symbols-outlined text-[15px] text-on-surface-variant" aria-hidden="true">{icon}</span>
+        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">{label}</p>
+        <span className="material-symbols-outlined text-[15px] text-[var(--color-pib-text-muted)]" aria-hidden="true">{icon}</span>
       </div>
-      <p className="mt-1.5 text-lg font-semibold leading-none text-on-surface">{value}</p>
-      <p className="mt-1 text-[11px] leading-4 text-on-surface-variant">{sub}</p>
+      <p className="mt-1.5 text-lg font-semibold leading-none text-[var(--color-pib-text)]">{value}</p>
+      <p className="mt-1 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{sub}</p>
     </div>
   )
 }
@@ -396,9 +396,9 @@ function CrmLeadershipRiskBrief({
   return (
     <section className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
       <div className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 border-b border-[var(--color-card-border)] px-3 py-1.5">
-        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Executive controls</p>
-        <h2 className="text-sm font-semibold text-on-surface">CRM leadership risk brief</h2>
-        <p className="min-w-0 text-xs leading-5 text-on-surface-variant">{riskCopy}</p>
+        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Executive controls</p>
+        <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">CRM leadership risk brief</h2>
+        <p className="min-w-0 text-xs leading-5 text-[var(--color-pib-text-muted)]">{riskCopy}</p>
       </div>
       <div className="grid divide-y divide-[var(--color-card-border)] lg:grid-cols-2 lg:divide-x lg:divide-y-0">
         {risks.map((risk) => (
@@ -412,8 +412,8 @@ function CrmLeadershipRiskBrief({
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">{risk.icon}</span>
             </span>
             <span className="min-w-0">
-              <span className="block text-sm font-semibold text-on-surface">{risk.label}</span>
-              <span className="mt-0.5 block text-xs leading-5 text-on-surface-variant">{risk.description}</span>
+              <span className="block text-sm font-semibold text-[var(--color-pib-text)]">{risk.label}</span>
+              <span className="mt-0.5 block text-xs leading-5 text-[var(--color-pib-text-muted)]">{risk.description}</span>
               <span className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-[var(--color-accent-text)]">
                 {risk.actionLabel}
                 <span className="material-symbols-outlined text-[13px]" aria-hidden="true">arrow_forward</span>
@@ -443,8 +443,8 @@ function ActivityAttributionReview({
           <span className="material-symbols-outlined mt-0.5 text-[16px] text-amber-100" aria-hidden="true">hub</span>
           <div>
             <p className="text-[10px] font-label uppercase tracking-[0.22em] text-amber-100">Activity hygiene</p>
-            <h2 className="mt-0.5 text-sm font-semibold text-on-surface">Activity attribution needs review</h2>
-            <p className="mt-1 text-xs leading-5 text-on-surface-variant">
+            <h2 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">Activity attribution needs review</h2>
+            <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
               {itemCopy} Managers need those touches clearly attributed before activity can drive accountable follow-up.
             </p>
           </div>
@@ -452,7 +452,7 @@ function ActivityAttributionReview({
         <Link
           href={buildHref('/portal/contacts?followUp=stale')}
           aria-label="Review unlinked CRM activity from command center"
-          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
+          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
         >
           <span className="material-symbols-outlined text-[16px]" aria-hidden="true">contacts</span>
           Review follow-up
@@ -518,17 +518,17 @@ export default function PortalCrmPage() {
             <span className="material-symbols-outlined text-[15px]" aria-hidden="true">hub</span>
           </span>
           <div className="min-w-0">
-            <p className="truncate text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">CRM command center</p>
-            <h1 className="truncate text-sm font-semibold leading-tight text-on-surface">CRM</h1>
+            <p className="truncate text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">CRM command center</p>
+            <h1 className="truncate text-sm font-semibold leading-tight text-[var(--color-pib-text)]">CRM</h1>
           </div>
-          <p className="hidden min-w-0 flex-1 truncate text-xs text-on-surface-variant lg:block">
+          <p className="hidden min-w-0 flex-1 truncate text-xs text-[var(--color-pib-text-muted)] lg:block">
             Sales movement, customer context, capture quality, and follow-up work for this workspace.
           </p>
           <div className="ml-auto flex min-w-0 flex-wrap items-center gap-1.5">
             <CrmSearchBar orgScope={routeScope} className="w-56" />
             <Link
               href={crmPortalPath('/portal/contacts')}
-              className="flex h-8 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
+              className="flex h-8 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
             >
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">contacts</span>
               Contacts
@@ -542,7 +542,7 @@ export default function PortalCrmPage() {
             </Link>
           </div>
         </div>
-        <p className="border-t border-[var(--color-card-border)] px-3 py-1.5 text-xs text-on-surface-variant lg:hidden">
+        <p className="border-t border-[var(--color-card-border)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)] lg:hidden">
           Sales movement, customer context, capture quality, and follow-up work for this workspace.
         </p>
       </header>
@@ -626,8 +626,8 @@ export default function PortalCrmPage() {
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
           </span>
           <span className="min-w-0">
-            <span className="block text-sm font-medium text-on-surface">Add contact</span>
-            <span className="block text-[11px] leading-4 text-on-surface-variant">Capture a new person in CRM</span>
+            <span className="block text-sm font-medium text-[var(--color-pib-text)]">Add contact</span>
+            <span className="block text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Capture a new person in CRM</span>
           </span>
         </Link>
         <Link
@@ -639,8 +639,8 @@ export default function PortalCrmPage() {
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">mail</span>
           </span>
           <span className="min-w-0">
-            <span className="block text-sm font-medium text-on-surface">Send email</span>
-            <span className="block text-[11px] leading-4 text-on-surface-variant">Reach a contact or audience</span>
+            <span className="block text-sm font-medium text-[var(--color-pib-text)]">Send email</span>
+            <span className="block text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Reach a contact or audience</span>
           </span>
         </Link>
         <Link
@@ -652,8 +652,8 @@ export default function PortalCrmPage() {
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">group_work</span>
           </span>
           <span className="min-w-0">
-            <span className="block text-sm font-medium text-on-surface">Create segment</span>
-            <span className="block text-[11px] leading-4 text-on-surface-variant">Build a targeted audience</span>
+            <span className="block text-sm font-medium text-[var(--color-pib-text)]">Create segment</span>
+            <span className="block text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Build a targeted audience</span>
           </span>
         </Link>
       </section>
@@ -661,13 +661,13 @@ export default function PortalCrmPage() {
       <section className="grid gap-2 xl:grid-cols-[1.4fr_0.6fr]">
         <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
           <div className="flex h-9 items-center border-b border-[var(--color-card-border)] px-3">
-            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Contact growth</p>
+            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Contact growth</p>
           </div>
           <div className="p-3">
             {loading ? (
               <Skeleton className="h-[200px]" />
             ) : (dashboard?.contactGrowth?.length ?? 0) === 0 ? (
-              <p className="py-8 text-center text-xs text-on-surface-variant">
+              <p className="py-8 text-center text-xs text-[var(--color-pib-text-muted)]">
                 No contact history yet for this workspace.
               </p>
             ) : (
@@ -678,13 +678,13 @@ export default function PortalCrmPage() {
 
         <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
           <div className="flex h-9 items-center border-b border-[var(--color-card-border)] px-3">
-            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Source breakdown</p>
+            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Source breakdown</p>
           </div>
           <div className="p-3">
             {loading ? (
               <Skeleton className="h-[220px]" />
             ) : (dashboard?.sourceBreakdown?.length ?? 0) === 0 ? (
-              <p className="py-8 text-center text-xs text-on-surface-variant">
+              <p className="py-8 text-center text-xs text-[var(--color-pib-text-muted)]">
                 No contacts to attribute yet.
               </p>
             ) : (
@@ -705,7 +705,7 @@ export default function PortalCrmPage() {
       <section className="grid gap-2 xl:grid-cols-[1.15fr_0.85fr]">
         <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
           <div className="flex h-9 items-center border-b border-[var(--color-card-border)] px-3">
-            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Top open deals</p>
+            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Top open deals</p>
           </div>
           {loading ? (
             <div className="space-y-2 p-3">
@@ -714,8 +714,8 @@ export default function PortalCrmPage() {
           ) : !dashboard?.topOpenDeals?.length ? (
             <div className="p-4 text-center">
               <span className="material-symbols-outlined text-[19px] text-[var(--color-accent-text)]" aria-hidden="true">monetization_on</span>
-              <h2 className="mt-2 text-sm font-semibold text-on-surface">Build the first active pipeline.</h2>
-              <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-on-surface-variant">
+              <h2 className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">Build the first active pipeline.</h2>
+              <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-[var(--color-pib-text-muted)]">
                 Create a deal so leadership can see value, owner, and next-step accountability from this command center.
               </p>
               <Link
@@ -739,13 +739,13 @@ export default function PortalCrmPage() {
                     className="grid gap-2 px-3 py-2 transition-colors hover:bg-white/[0.04] md:grid-cols-[1fr_120px_90px]"
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-on-surface">{deal.title}</p>
-                      <p className="mt-0.5 truncate text-[11px] leading-4 text-on-surface-variant">
+                      <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{deal.title}</p>
+                      <p className="mt-0.5 truncate text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
                         {topDealContactLabel(deal)}
                       </p>
                     </div>
-                    <p className="text-sm font-medium text-on-surface">{formatCurrency(deal.value, deal.currency)}</p>
-                    <p className="text-xs text-on-surface-variant">{deal.probability ?? 50}%</p>
+                    <p className="text-sm font-medium text-[var(--color-pib-text)]">{formatCurrency(deal.value, deal.currency)}</p>
+                    <p className="text-xs text-[var(--color-pib-text-muted)]">{deal.probability ?? 50}%</p>
                   </Link>
                 )
               })}
@@ -755,7 +755,7 @@ export default function PortalCrmPage() {
 
         <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
           <div className="flex h-9 items-center border-b border-[var(--color-card-border)] px-3">
-            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Recent CRM activity</p>
+            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Recent CRM activity</p>
           </div>
           {loading ? (
             <div className="space-y-2 p-3">
@@ -764,8 +764,8 @@ export default function PortalCrmPage() {
           ) : !dashboard?.recentActivities?.length ? (
             <div className="p-4 text-center">
               <span className="material-symbols-outlined text-[19px] text-[var(--color-accent-text)]" aria-hidden="true">history</span>
-              <h2 className="mt-2 text-sm font-semibold text-on-surface">Relationship activity missing</h2>
-              <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-on-surface-variant">
+              <h2 className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">Relationship activity missing</h2>
+              <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-[var(--color-pib-text-muted)]">
                 Open the stale follow-up lens so managers can assign calls, emails, meetings, and notes before accounts go quiet.
               </p>
               <Link
@@ -784,10 +784,10 @@ export default function PortalCrmPage() {
                 const href = activityHref(activity, crmPortalPath)
                 const content = (
                   <>
-                    <span className="material-symbols-outlined mt-0.5 text-[15px] text-on-surface-variant">radio_button_checked</span>
+                    <span className="material-symbols-outlined mt-0.5 text-[15px] text-[var(--color-pib-text-muted)]">radio_button_checked</span>
                     <div className="min-w-0">
-                      <p className="truncate text-sm text-on-surface">{activitySummary(activity)}</p>
-                      <p className="mt-0.5 text-[11px] leading-4 text-on-surface-variant">
+                      <p className="truncate text-sm text-[var(--color-pib-text)]">{activitySummary(activity)}</p>
+                      <p className="mt-0.5 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
                         {activityContactLabel(activity.contactName)} · {' '}
                         {formatRelative(activity.createdAt)}
                       </p>
@@ -813,7 +813,7 @@ export default function PortalCrmPage() {
       {SECTIONS.map((section) => (
         <section key={section.title} className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
           <div className="flex h-9 items-center border-b border-[var(--color-card-border)] px-3">
-            <h2 className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">
+            <h2 className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">
               {section.title}
             </h2>
           </div>
@@ -830,14 +830,14 @@ export default function PortalCrmPage() {
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex min-w-0 items-center gap-2">
-                    <h3 className="truncate text-sm font-medium text-on-surface">{action.label}</h3>
+                    <h3 className="truncate text-sm font-medium text-[var(--color-pib-text)]">{action.label}</h3>
                     {action.eyebrow && (
-                      <span className="flex h-5 shrink-0 items-center rounded-full border border-[var(--color-card-border)] px-2 text-[10px] text-on-surface-variant">
+                      <span className="flex h-5 shrink-0 items-center rounded-full border border-[var(--color-card-border)] px-2 text-[10px] text-[var(--color-pib-text-muted)]">
                         {action.eyebrow}
                       </span>
                     )}
                   </span>
-                  <span className="mt-0.5 block truncate text-[11px] leading-4 text-on-surface-variant">{action.description}</span>
+                  <span className="mt-0.5 block truncate text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{action.description}</span>
                 </span>
                 <span className="ml-auto inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-[var(--color-accent-text)]">
                   Open

@@ -32,14 +32,17 @@ export default function AnalyticsUsersPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-8">
       <AnalyticsNav active="users" propertyId={propertyId} />
-      <h1 className="text-2xl font-headline font-bold text-on-surface">Users</h1>
+      <header>
+        <p className="eyebrow">Analytics · Users</p>
+        <h1 className="pib-page-title mt-2">Users</h1>
+      </header>
 
-      <div className="pib-card p-4 space-y-3">
+      <div className="pib-card space-y-4">
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
         <div className="flex justify-end">
-          <button className="pib-btn-primary" onClick={load} disabled={!propertyId || loading}>
+          <button className="btn-pib-primary" onClick={load} disabled={!propertyId || loading}>
             {loading ? 'Loading…' : 'Load'}
           </button>
         </div>
@@ -47,15 +50,15 @@ export default function AnalyticsUsersPage() {
 
       {loading && (
         <div className="space-y-2">
-          {[...Array(5)].map((_, i) => <div key={i} className="pib-skeleton h-10 rounded" />)}
+          {[...Array(5)].map((_, i) => <div key={i} className="pib-skeleton h-10" />)}
         </div>
       )}
 
       {!loading && users.length > 0 && (
-        <div className="pib-card overflow-hidden">
+        <div className="pib-surface pib-surface-table overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[var(--color-card-border)] text-on-surface-variant text-xs uppercase tracking-widest">
+              <tr className="border-b border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] text-xs uppercase tracking-widest">
                 <th className="text-left p-3">Distinct ID</th>
                 <th className="text-left p-3">User ID</th>
                 <th className="text-right p-3">Events</th>
@@ -65,17 +68,17 @@ export default function AnalyticsUsersPage() {
             </thead>
             <tbody>
               {users.map(u => (
-                <tr key={u.distinctId} className="border-b border-[var(--color-card-border)] hover:bg-surface-variant/30 transition-colors">
+                <tr key={u.distinctId} className="border-b border-[var(--color-pib-line)] hover:bg-[var(--color-row-hover)] transition-colors">
                   <td className="p-3 font-mono text-xs">
                     <Link href={`/portal/analytics/users/${encodeURIComponent(u.distinctId)}?propertyId=${encodeURIComponent(propertyId)}`}
-                      className="text-amber-400 hover:underline">
+                      className="text-[var(--color-pib-accent-hover)] hover:underline">
                       {u.distinctId.slice(0, 16)}…
                     </Link>
                   </td>
-                  <td className="p-3 text-on-surface-variant">{u.userId ?? '—'}</td>
+                  <td className="p-3 text-[var(--color-pib-text-muted)]">{u.userId ?? '—'}</td>
                   <td className="p-3 text-right font-mono">{u.eventCount.toLocaleString()}</td>
-                  <td className="p-3 text-on-surface-variant text-xs">{new Date(u.firstSeen).toLocaleString()}</td>
-                  <td className="p-3 text-on-surface-variant text-xs">{new Date(u.lastSeen).toLocaleString()}</td>
+                  <td className="p-3 text-[var(--color-pib-text-muted)] text-xs">{new Date(u.firstSeen).toLocaleString()}</td>
+                  <td className="p-3 text-[var(--color-pib-text-muted)] text-xs">{new Date(u.lastSeen).toLocaleString()}</td>
                 </tr>
               ))}
             </tbody>
@@ -84,7 +87,10 @@ export default function AnalyticsUsersPage() {
       )}
 
       {!loading && users.length === 0 && propertyId && (
-        <p className="text-on-surface-variant text-sm">No users found for this property.</p>
+        <div className="pib-empty-state">
+          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">group</span>
+          <p className="pib-empty-state-description">No users found for this property.</p>
+        </div>
       )}
     </div>
   )

@@ -19,13 +19,13 @@ interface RetentionResult {
 }
 
 function heatColor(pct: number | null): string {
-  if (pct === null) return 'bg-surface-variant/20 text-on-surface-variant/40'
-  if (pct >= 80) return 'bg-amber-500/80 text-amber-900 font-bold'
-  if (pct >= 60) return 'bg-amber-500/60 text-amber-100 font-semibold'
-  if (pct >= 40) return 'bg-amber-500/40 text-amber-200'
-  if (pct >= 20) return 'bg-amber-500/20 text-amber-300'
-  if (pct > 0)   return 'bg-amber-500/10 text-amber-400'
-  return 'bg-transparent text-on-surface-variant/50'
+  if (pct === null) return 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]/40'
+  if (pct >= 80) return 'bg-violet-500/80 text-violet-950 font-bold'
+  if (pct >= 60) return 'bg-violet-500/60 text-violet-100 font-semibold'
+  if (pct >= 40) return 'bg-violet-500/40 text-violet-200'
+  if (pct >= 20) return 'bg-violet-500/20 text-violet-300'
+  if (pct > 0)   return 'bg-violet-500/10 text-violet-400'
+  return 'bg-transparent text-[var(--color-pib-text-muted)]/50'
 }
 
 export default function RetentionPage() {
@@ -57,55 +57,61 @@ export default function RetentionPage() {
   const maxPeriods = result?.maxPeriods ?? 0
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-8">
       <AnalyticsNav active="retention" propertyId={propertyId} />
-      <h1 className="text-2xl font-headline font-bold text-on-surface">Retention</h1>
+      <header>
+        <p className="eyebrow">Analytics · Retention</p>
+        <h1 className="pib-page-title mt-2">Retention</h1>
+      </header>
 
-      <div className="pib-card p-4 space-y-3">
+      <div className="pib-card space-y-4">
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 items-end">
         <div>
-          <label className="text-xs font-label uppercase tracking-widest text-on-surface-variant block mb-1">Cohort Event</label>
+          <label className="pib-label mb-1">Cohort Event</label>
           <input className="pib-input w-full" value={cohortEvent} onChange={e => setCohortEvent(e.target.value)} />
         </div>
         <div>
-          <label className="text-xs font-label uppercase tracking-widest text-on-surface-variant block mb-1">Return Event</label>
+          <label className="pib-label mb-1">Return Event</label>
           <input className="pib-input w-full" value={returnEvent} onChange={e => setReturnEvent(e.target.value)} />
         </div>
         <div>
-          <label className="text-xs font-label uppercase tracking-widest text-on-surface-variant block mb-1">From</label>
+          <label className="pib-label mb-1">From</label>
           <input className="pib-input w-full" type="date" value={from} onChange={e => setFrom(e.target.value)} />
         </div>
         <div>
-          <label className="text-xs font-label uppercase tracking-widest text-on-surface-variant block mb-1">To</label>
+          <label className="pib-label mb-1">To</label>
           <input className="pib-input w-full" type="date" value={to} onChange={e => setTo(e.target.value)} />
         </div>
         <div>
-          <label className="text-xs font-label uppercase tracking-widest text-on-surface-variant block mb-1">Granularity</label>
-          <select className="pib-input w-full" value={granularity} onChange={e => setGranularity(e.target.value as 'day' | 'week')}>
+          <label className="pib-label mb-1">Granularity</label>
+          <select className="pib-select w-full" value={granularity} onChange={e => setGranularity(e.target.value as 'day' | 'week')}>
             <option value="day">Day</option>
             <option value="week">Week</option>
           </select>
         </div>
         <div className="md:col-span-3">
-          <button className="pib-btn-primary w-full" onClick={load} disabled={!propertyId || loading}>
+          <button className="btn-pib-primary w-full" onClick={load} disabled={!propertyId || loading}>
             {loading ? 'Computing…' : 'Compute Retention'}
           </button>
         </div>
         </div>
       </div>
 
-      {error && <p className="text-red-400 text-sm">{error}</p>}
+      {error && <p className="text-[var(--color-error)] text-sm">{error}</p>}
 
       {result && result.rows.length === 0 && (
-        <p className="text-on-surface-variant text-sm">No cohort data found for this range.</p>
+        <div className="pib-empty-state">
+          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">grid_on</span>
+          <p className="pib-empty-state-description">No cohort data found for this range.</p>
+        </div>
       )}
 
       {result && result.rows.length > 0 && (
         <div className="pib-card overflow-x-auto">
           <table className="text-xs w-full border-collapse">
             <thead>
-              <tr className="text-on-surface-variant">
+              <tr className="text-[var(--color-pib-text-muted)]">
                 <th className="text-left p-2 pr-4 font-label uppercase tracking-widest whitespace-nowrap">Cohort</th>
                 <th className="text-right p-2 font-label uppercase tracking-widest">Users</th>
                 {[...Array(maxPeriods)].map((_, i) => (
@@ -117,9 +123,9 @@ export default function RetentionPage() {
             </thead>
             <tbody>
               {result.rows.map(row => (
-                <tr key={row.cohortLabel} className="border-t border-[var(--color-card-border)]">
-                  <td className="p-2 pr-4 font-mono whitespace-nowrap text-on-surface">{row.cohortLabel}</td>
-                  <td className="p-2 text-right text-on-surface-variant">{row.cohortSize.toLocaleString()}</td>
+                <tr key={row.cohortLabel} className="border-t border-[var(--color-pib-line)]">
+                  <td className="p-2 pr-4 font-mono whitespace-nowrap text-[var(--color-pib-text)]">{row.cohortLabel}</td>
+                  <td className="p-2 text-right text-[var(--color-pib-text-muted)]">{row.cohortSize.toLocaleString()}</td>
                   {row.periods.map((pct, i) => (
                     <td key={i} className={`p-2 text-center rounded-sm m-0.5 ${heatColor(pct)}`}>
                       {pct !== null ? `${pct}%` : '—'}

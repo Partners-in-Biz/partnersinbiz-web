@@ -42,23 +42,27 @@ export default function UserTimelinePage() {
 
   if (notFound) return (
     <div className="p-6">
-      <Link href="/portal/analytics/users" className="pib-btn-secondary mb-6 inline-block">← Back</Link>
-      <p className="text-on-surface-variant">User not found.</p>
+      <Link href="/portal/analytics/users" className="btn-pib-secondary mb-6 inline-block">← Back</Link>
+      <div className="pib-empty-state">
+        <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">person_off</span>
+        <p className="pib-empty-state-description">User not found.</p>
+      </div>
     </div>
   )
 
   return (
-    <div className="p-6 space-y-6">
-      <Link href="/portal/analytics/users" className="pib-btn-secondary inline-block">← Users</Link>
-      <div>
-        <h1 className="text-2xl font-headline font-bold text-on-surface">User Timeline</h1>
-        <p className="text-on-surface-variant text-sm font-mono mt-1">{distinctId}</p>
-      </div>
+    <div className="p-6 space-y-8">
+      <Link href="/portal/analytics/users" className="btn-pib-secondary inline-block">← Users</Link>
+      <header>
+        <p className="eyebrow">Analytics · Users</p>
+        <h1 className="pib-page-title mt-2">User Timeline</h1>
+        <p className="pib-page-sub font-mono">{distinctId}</p>
+      </header>
 
-      <div className="pib-card overflow-hidden">
+      <div className="pib-surface pib-surface-table overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-[var(--color-card-border)] text-on-surface-variant text-xs uppercase tracking-widest">
+            <tr className="border-b border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] text-xs uppercase tracking-widest">
               <th className="text-left p-3">Event</th>
               <th className="text-left p-3">Page</th>
               <th className="text-left p-3">Device</th>
@@ -68,14 +72,14 @@ export default function UserTimelinePage() {
           </thead>
           <tbody>
             {events.map((ev, i) => (
-              <tr key={ev.id ?? i} className="border-b border-[var(--color-card-border)]">
-                <td className="p-3 font-mono text-xs text-amber-400">{ev.event}</td>
-                <td className="p-3 text-on-surface-variant text-xs truncate max-w-[200px]">
+              <tr key={ev.id ?? i} className="border-b border-[var(--color-pib-line)] hover:bg-[var(--color-row-hover)]">
+                <td className="p-3 font-mono text-xs text-[var(--color-pib-accent-hover)]">{ev.event}</td>
+                <td className="p-3 text-[var(--color-pib-text-muted)] text-xs truncate max-w-[200px]">
                   {ev.pageUrl ?? (ev.properties?.['$current_url'] as string) ?? '—'}
                 </td>
-                <td className="p-3 text-on-surface-variant">{ev.device ?? '—'}</td>
-                <td className="p-3 text-on-surface-variant">{ev.country ?? '—'}</td>
-                <td className="p-3 text-on-surface-variant text-xs">
+                <td className="p-3 text-[var(--color-pib-text-muted)]">{ev.device ?? '—'}</td>
+                <td className="p-3 text-[var(--color-pib-text-muted)]">{ev.country ?? '—'}</td>
+                <td className="p-3 text-[var(--color-pib-text-muted)] text-xs">
                   {(ev.serverTime as any)?.toDate
                     ? (ev.serverTime as any).toDate().toLocaleString()
                     : new Date(((ev.timestamp as any)?._seconds ?? 0) * 1000).toLocaleString()}

@@ -14,22 +14,22 @@ export default function EditSequencePage({ params }: { params: Promise<{ id: str
   const href = useCallback((path: string) => scopedPortalPath(path, orgScope), [orgScope])
 
   return (
-    <div className="max-w-6xl space-y-6">
-      <div>
+    <div className="max-w-6xl space-y-8">
+      <header>
         <button
           type="button"
           onClick={() => router.push(href('/portal/settings/automations'))}
-          className="cursor-pointer flex items-center gap-1 text-xs text-on-surface-variant hover:text-on-surface mb-4 transition-colors"
+          className="mb-4 flex cursor-pointer items-center gap-1 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
         >
           <span aria-hidden="true" className="material-symbols-outlined text-[14px]">arrow_back</span>
           Automations
         </button>
-        <p className="eyebrow !text-[10px]">Email sequence builder</p>
-        <h1 className="mt-1 text-base font-semibold text-on-surface">Edit email sequence</h1>
-        <p className="mt-1 max-w-2xl text-xs leading-5 text-on-surface-variant">
+        <p className="eyebrow">Settings · Email sequence builder</p>
+        <h1 className="pib-page-title mt-2">Edit email sequence</h1>
+        <p className="pib-page-sub max-w-2xl">
           Tune the send / wait / branch flow, trigger, and goals. Preview the path before saving.
         </p>
-      </div>
+      </header>
 
       <SequenceBuilder
         sequenceId={id}

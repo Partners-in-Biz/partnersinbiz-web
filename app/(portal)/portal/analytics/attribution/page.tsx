@@ -93,31 +93,34 @@ export default function AttributionPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
+    <div className="max-w-6xl mx-auto p-6 space-y-8">
       <AnalyticsNav active="attribution" propertyId={propertyId} />
-      <h1 className="text-xl font-headline font-bold text-on-surface">Attribution</h1>
+      <header>
+        <p className="eyebrow">Analytics · Attribution</p>
+        <h1 className="pib-page-title mt-2">Attribution</h1>
+      </header>
 
-      <div className="pib-card p-4 space-y-3">
+      <div className="pib-card space-y-4">
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
         {propertyId && (
           <>
             <div>
-              <label className="text-xs text-on-surface-variant font-label block mb-1">Goal (optional)</label>
-              <select value={goalId} onChange={e => setGoalId(e.target.value)} className="pib-input text-sm w-72">
+              <label className="pib-label mb-1">Goal (optional)</label>
+              <select value={goalId} onChange={e => setGoalId(e.target.value)} className="pib-select text-sm w-72">
                 <option value="">Default conversion ($identify)</option>
                 {goals.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-xs text-on-surface-variant font-label block mb-1">Attribution model</label>
-              <div className="flex gap-2 flex-wrap">
+              <label className="pib-label mb-1">Attribution model</label>
+              <div className="pib-tabs pib-tabs-segmented" role="tablist" aria-label="Attribution model">
                 {MODELS.map(m => (
                   <button
                     key={m.key}
+                    role="tab"
+                    aria-selected={model === m.key}
                     onClick={() => setModel(m.key)}
-                    className={`text-xs px-3 py-1.5 rounded font-label transition-colors ${
-                      model === m.key ? 'bg-amber-400/20 text-amber-400' : 'pib-btn-secondary'
-                    }`}
+                    className={`pib-tab ${model === m.key ? 'pib-tab-active' : ''}`}
                   >
                     {m.label}
                   </button>
@@ -126,7 +129,7 @@ export default function AttributionPage() {
             </div>
             <DateRangePicker value={range} onChange={setRange} />
             <div className="flex justify-end">
-              <a href={csvHref()} download className="pib-btn-secondary text-xs px-3 py-1.5">
+              <a href={csvHref()} download className="btn-pib-secondary text-xs px-3 py-1.5">
                 Export CSV
               </a>
             </div>
@@ -135,21 +138,22 @@ export default function AttributionPage() {
       </div>
 
       {!propertyId && (
-        <div className="pib-card p-8 text-center text-on-surface-variant text-sm">
-          Select a client and property to see attribution.
+        <div className="pib-empty-state">
+          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">call_split</span>
+          <p className="pib-empty-state-description">Select a client and property to see attribution.</p>
         </div>
       )}
 
-      {propertyId && loading && <div className="pib-skeleton h-24 rounded-lg" />}
+      {propertyId && loading && <div className="pib-skeleton h-24" />}
 
       {propertyId && !loading && data && (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <KpiCard label="Total Conversions" value={data.totalConversions.toLocaleString()} accent sub={`${data.model} model`} />
           </div>
 
           <div>
-            <h2 className="text-sm font-label font-semibold text-on-surface mb-2">Per-touchpoint credit</h2>
+            <h2 className="pib-label mb-2">Per-touchpoint credit</h2>
             <SimpleTable
               columns={[
                 { key: 'channel', label: 'Channel' },
@@ -164,7 +168,7 @@ export default function AttributionPage() {
           </div>
 
           <div>
-            <h2 className="text-sm font-label font-semibold text-on-surface mb-2">Top conversion paths</h2>
+            <h2 className="pib-label mb-2">Top conversion paths</h2>
             <SimpleTable
               columns={[
                 { key: 'path', label: 'Path' },
@@ -180,11 +184,14 @@ export default function AttributionPage() {
 
       {/* Contact journey viewer */}
       {propertyId && (
-        <div className="pib-card p-4 space-y-3">
-          <h2 className="text-sm font-label font-semibold text-on-surface">Contact journey</h2>
+        <div className="pib-card space-y-4">
+          <div className="flex items-center gap-3">
+            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">route</span></span>
+            <h2 className="pib-label mb-0">Contact journey</h2>
+          </div>
           <div className="flex gap-2 items-end">
             <div>
-              <label className="text-xs text-on-surface-variant font-label block mb-1">Distinct ID</label>
+              <label className="pib-label mb-1">Distinct ID</label>
               <input
                 type="text"
                 value={distinctId}
@@ -193,13 +200,13 @@ export default function AttributionPage() {
                 className="pib-input text-sm w-72"
               />
             </div>
-            <button onClick={loadJourney} disabled={!distinctId.trim() || journeyLoading} className="pib-btn-primary text-sm font-label">
+            <button onClick={loadJourney} disabled={!distinctId.trim() || journeyLoading} className="btn-pib-primary text-sm">
               {journeyLoading ? 'Loading…' : 'View Journey'}
             </button>
           </div>
           {journey && (
             <div className="space-y-2">
-              <p className="text-xs text-on-surface-variant">
+              <p className="text-xs text-[var(--color-pib-text-muted)]">
                 {journey.distinctId}{journey.userId ? ` · user: ${journey.userId}` : ''}
               </p>
               <SimpleTable

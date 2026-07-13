@@ -85,26 +85,25 @@ export default function QuotesPage() {
   const filtered = filter === 'all' ? quotes : quotes.filter(q => q.status === filter)
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8 max-w-5xl mx-auto">
+      <header className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Quotes</h1>
-          <p className="text-sm text-on-surface-variant mt-0.5">{loading ? '—' : `${quotes.length} quotes`}</p>
+          <p className="eyebrow">CRM · Sales</p>
+          <h1 className="pib-page-title mt-2">Quotes</h1>
+          <p className="pib-page-sub">{loading ? '—' : `${quotes.length} quotes`}</p>
         </div>
-        <Link href="/portal/quotes/new" className="pib-btn-primary text-sm font-label">+ New Quote</Link>
-      </div>
+        <Link href="/portal/quotes/new" className="btn-pib-primary text-sm shrink-0">+ New Quote</Link>
+      </header>
 
       {/* Filters */}
-      <div className="flex gap-2 flex-wrap">
+      <div className="pib-tabs pib-tabs-segmented" role="tablist" aria-label="Quote status filter">
         {(['all', 'draft', 'sent', 'accepted', 'declined', 'converted'] as const).map(s => (
           <button
             key={s}
+            role="tab"
+            aria-selected={filter === s}
             onClick={() => setFilter(s)}
-            className="text-xs font-label px-3 py-1.5 rounded-[var(--radius-btn)] transition-colors capitalize"
-            style={filter === s
-              ? { background: 'var(--color-accent-v2)', color: '#000' }
-              : { color: 'var(--color-on-surface-variant)' }
-            }
+            className={`pib-tab capitalize ${filter === s ? 'pib-tab-active' : ''}`}
           >
             {s === 'all' ? `All (${quotes.length})` : `${s} (${quotes.filter(q => q.status === s).length})`}
           </button>
@@ -112,52 +111,52 @@ export default function QuotesPage() {
       </div>
 
       {/* Table */}
-      <div className="pib-card overflow-hidden !p-0">
-        <div className="grid grid-cols-12 gap-4 px-5 py-3 border-b border-[var(--color-card-border)]">
-          <p className="col-span-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">#</p>
-          <p className="col-span-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Client</p>
-          <p className="col-span-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Status</p>
-          <p className="col-span-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Amount</p>
-          <p className="col-span-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Valid Until</p>
-          <p className="col-span-1 text-[10px] font-label uppercase tracking-widest text-on-surface-variant"></p>
+      <div className="pib-surface pib-surface-table">
+        <div className="grid grid-cols-12 gap-4 px-5 py-3 border-b border-[var(--color-pib-line)]">
+          <p className="col-span-2 pib-label mb-0">#</p>
+          <p className="col-span-3 pib-label mb-0">Client</p>
+          <p className="col-span-2 pib-label mb-0">Status</p>
+          <p className="col-span-2 pib-label mb-0">Amount</p>
+          <p className="col-span-2 pib-label mb-0">Valid Until</p>
+          <p className="col-span-1 pib-label mb-0"></p>
         </div>
 
         {loading ? (
-          <div className="divide-y divide-[var(--color-card-border)]">
+          <div className="divide-y divide-[var(--color-pib-line)]">
             {[1,2,3].map(i => <div key={i} className="px-5 py-4"><div className="pib-skeleton h-5 w-48" /></div>)}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="py-10 text-center">
-            <p className="text-on-surface-variant text-sm">No quotes found.</p>
-            <Link href="/portal/quotes/new" className="text-sm mt-2 inline-block" style={{ color: 'var(--color-accent-v2)' }}>
+          <div className="pib-empty-state border-0">
+            <p className="pib-empty-state-description">No quotes found.</p>
+            <Link href="/portal/quotes/new" className="btn-pib-secondary text-sm mt-4">
               Create your first quote →
             </Link>
           </div>
         ) : (
-          <div className="divide-y divide-[var(--color-card-border)]">
+          <div className="divide-y divide-[var(--color-pib-line)]">
             {filtered.map(q => {
               const status = STATUS_MAP[q.status] ?? { label: q.status, color: 'var(--color-outline)' }
               return (
                 <div key={q.id} className="grid grid-cols-12 gap-4 items-center px-5 py-3 hover:bg-[var(--color-row-hover)] transition-colors">
                   <div className="col-span-2">
-                    <p className="text-sm font-mono text-on-surface">{q.quoteNumber}</p>
+                    <p className="text-sm font-mono text-[var(--color-pib-text)]">{q.quoteNumber}</p>
                   </div>
                   <div className="col-span-3 min-w-0">
-                    <p className="text-sm text-on-surface truncate">{orgMap[q.orgId] ?? q.orgId}</p>
+                    <p className="text-sm text-[var(--color-pib-text)] truncate">{orgMap[q.orgId] ?? q.orgId}</p>
                   </div>
                   <div className="col-span-2">
-                    <span className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full" style={{ background: `${status.color}20`, color: status.color }}>
+                    <span className="pib-pill" style={{ background: `${status.color}20`, color: status.color, borderColor: `${status.color}40` }}>
                       {status.label}
                     </span>
                   </div>
                   <div className="col-span-2">
-                    <p className="text-sm font-medium text-on-surface">{formatCurrency(q.total ?? 0, q.currency ?? 'USD')}</p>
+                    <p className="text-sm font-medium text-[var(--color-pib-text)]">{formatCurrency(q.total ?? 0, q.currency ?? 'USD')}</p>
                   </div>
                   <div className="col-span-2">
-                    <p className="text-sm text-on-surface-variant">{formatDate(q.validUntil)}</p>
+                    <p className="text-sm text-[var(--color-pib-text-muted)]">{formatDate(q.validUntil)}</p>
                   </div>
                   <div className="col-span-1 flex justify-end">
-                    <Link href={`/portal/quotes/${q.id}`} className="text-[10px] font-label uppercase tracking-wide" style={{ color: 'var(--color-accent-v2)' }}>
+                    <Link href={`/portal/quotes/${q.id}`} className="pib-label mb-0 text-[var(--color-pib-accent-hover)]">
                       View →
                     </Link>
                   </div>

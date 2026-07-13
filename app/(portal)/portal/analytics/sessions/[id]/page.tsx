@@ -48,22 +48,25 @@ export default function SessionDetailPage() {
       .catch(() => { setLoading(false); router.push('/portal/analytics/sessions') })
   }, [id, router])
 
-  if (loading) return <div className="pib-skeleton h-40 rounded-xl max-w-4xl mx-auto" />
+  if (loading) return <div className="pib-skeleton h-40 max-w-4xl mx-auto" />
   if (!data) return null
 
   const { session, events } = data
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center gap-3">
-        <button onClick={() => router.push('/portal/analytics/sessions')} className="text-on-surface-variant hover:text-on-surface text-sm">
-          ← Sessions
-        </button>
-        <span className="text-on-surface-variant">/</span>
-        <h1 className="text-lg font-headline font-bold text-on-surface font-mono">{id.slice(0, 16)}…</h1>
-      </div>
+    <div className="max-w-4xl mx-auto space-y-8">
+      <header>
+        <div className="flex items-center gap-3">
+          <button onClick={() => router.push('/portal/analytics/sessions')} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] text-sm">
+            ← Sessions
+          </button>
+          <span className="text-[var(--color-pib-text-muted)]">/</span>
+        </div>
+        <p className="eyebrow mt-4">Analytics · Session</p>
+        <h1 className="pib-page-title mt-2 font-mono">{id.slice(0, 16)}…</h1>
+      </header>
 
-      <div className="pib-card p-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+      <div className="pib-card grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
         {[
           ['User', session.distinctId.slice(0, 16) + '…'],
           ['Events', session.eventCount],
@@ -75,27 +78,27 @@ export default function SessionDetailPage() {
           ['Last Active', formatTs(session.lastActivityAt)],
         ].map(([label, value]) => (
           <div key={label as string}>
-            <p className="text-xs text-on-surface-variant font-label mb-0.5">{label}</p>
-            <p className="text-on-surface font-medium text-xs">{value}</p>
+            <p className="pib-label mb-0.5">{label}</p>
+            <p className="text-[var(--color-pib-text)] font-medium text-xs">{value}</p>
           </div>
         ))}
       </div>
 
-      <div className="pib-card divide-y divide-[var(--color-outline-variant)]">
-        <div className="px-4 py-2 text-xs font-label text-on-surface-variant">
+      <div className="pib-surface pib-surface-list divide-y divide-[var(--color-pib-line)]">
+        <div className="px-4 py-2 pib-label mb-0">
           Event Timeline ({events.length})
         </div>
         {events.map(ev => (
-          <div key={ev.id} className="px-4 py-3 flex items-start gap-4 text-xs">
-            <span className="text-on-surface-variant shrink-0 w-40">{formatTs(ev.serverTime)}</span>
-            <span className="font-mono text-on-surface font-medium">{ev.event}</span>
+          <div key={ev.id} className="px-4 py-3 flex items-start gap-4 text-xs hover:bg-[var(--color-row-hover)]">
+            <span className="text-[var(--color-pib-text-muted)] shrink-0 w-40">{formatTs(ev.serverTime)}</span>
+            <span className="font-mono text-[var(--color-pib-text)] font-medium">{ev.event}</span>
             {ev.pageUrl && (
-              <span className="text-on-surface-variant truncate max-w-xs">
+              <span className="text-[var(--color-pib-text-muted)] truncate max-w-xs">
                 {new URL(ev.pageUrl).pathname}
               </span>
             )}
             {Object.keys(ev.properties).length > 0 && (
-              <span className="text-on-surface-variant truncate max-w-xs font-mono">
+              <span className="text-[var(--color-pib-text-muted)] truncate max-w-xs font-mono">
                 {JSON.stringify(ev.properties).slice(0, 80)}
               </span>
             )}

@@ -48,26 +48,30 @@ export default function OverviewPage() {
   const k = data?.kpis
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
+    <div className="max-w-6xl mx-auto p-6 space-y-8">
       <AnalyticsNav active="overview" propertyId={propertyId} />
-      <h1 className="text-xl font-headline font-bold text-on-surface">Overview</h1>
+      <header>
+        <p className="eyebrow">Analytics · Overview</p>
+        <h1 className="pib-page-title mt-2">Overview</h1>
+      </header>
 
-      <div className="pib-card p-4 space-y-3">
+      <div className="pib-card space-y-4">
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
         {propertyId && <DateRangePicker value={range} onChange={setRange} />}
       </div>
 
       {!propertyId && (
-        <div className="pib-card p-8 text-center text-on-surface-variant text-sm">
-          Select a client and property to see the overview.
+        <div className="pib-empty-state">
+          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">monitoring</span>
+          <p className="pib-empty-state-description">Select a client and property to see the overview.</p>
         </div>
       )}
 
-      {propertyId && loading && <div className="pib-skeleton h-24 rounded-lg" />}
+      {propertyId && loading && <div className="pib-skeleton h-24" />}
 
       {propertyId && k && (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <KpiCard label="Sessions" value={k.sessions.toLocaleString()} accent />
             <KpiCard label="Unique Visitors" value={k.uniqueVisitors.toLocaleString()} />
             <KpiCard label="Pageviews" value={k.pageviews.toLocaleString()} />
@@ -78,18 +82,24 @@ export default function OverviewPage() {
           </div>
 
           <div className="grid lg:grid-cols-3 gap-4">
-            <div className="pib-card p-4 lg:col-span-2">
-              <h2 className="text-sm font-label font-semibold text-on-surface mb-3">Sessions over time</h2>
+            <div className="pib-card lg:col-span-2">
+              <div className="mb-3 flex items-center gap-3">
+                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">show_chart</span></span>
+                <h2 className="pib-label mb-0">Sessions over time</h2>
+              </div>
               <LineSeries data={data!.sessionsSeries} xKey="date" yKey="sessions" />
             </div>
-            <div className="pib-card p-4">
-              <h2 className="text-sm font-label font-semibold text-on-surface mb-3">Traffic sources</h2>
+            <div className="pib-card">
+              <div className="mb-3 flex items-center gap-3">
+                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">alt_route</span></span>
+                <h2 className="pib-label mb-0">Traffic sources</h2>
+              </div>
               <DonutChart data={data!.trafficSources} />
             </div>
           </div>
 
           <div>
-            <h2 className="text-sm font-label font-semibold text-on-surface mb-2">Top pages</h2>
+            <h2 className="pib-label mb-2">Top pages</h2>
             <SimpleTable
               columns={[{ key: 'label', label: 'Page' }, { key: 'count', label: 'Views', align: 'right' }]}
               rows={data!.topPages}

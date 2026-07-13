@@ -57,55 +57,59 @@ export default function RealtimePage() {
   }, [])
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
+    <div className="max-w-6xl mx-auto p-6 space-y-8">
       <AnalyticsNav active="realtime" propertyId={propertyId} />
-      <div className="flex items-center gap-4">
-        <h1 className="text-xl font-headline font-bold text-on-surface">Realtime</h1>
-        {active && (
-          <span className="flex items-center gap-1.5 text-green-400 text-xs font-medium">
-            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-            Live{data ? ` — last ${data.activeWindowMin} min` : ''}
-          </span>
-        )}
-      </div>
+      <header>
+        <p className="eyebrow">Analytics · Realtime</p>
+        <div className="mt-2 flex items-center gap-4">
+          <h1 className="pib-page-title">Realtime</h1>
+          {active && (
+            <span className="pib-pill pib-pill-success">
+              <span className="pib-status-dot pib-status-dot-success animate-pulse" />
+              Live{data ? ` — last ${data.activeWindowMin} min` : ''}
+            </span>
+          )}
+        </div>
+      </header>
 
-      <div className="pib-card p-4 space-y-3">
+      <div className="pib-card space-y-4">
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} disabled={active} />
         <div className="flex justify-end">
           {!active
-            ? <button className="pib-btn-primary text-sm font-label" onClick={start} disabled={!propertyId}>Start</button>
-            : <button className="pib-btn-secondary text-sm font-label" onClick={stop}>Stop</button>
+            ? <button className="btn-pib-primary text-sm" onClick={start} disabled={!propertyId}>Start</button>
+            : <button className="btn-pib-secondary text-sm" onClick={stop}>Stop</button>
           }
         </div>
       </div>
 
       {!propertyId && (
-        <div className="pib-card p-8 text-center text-on-surface-variant text-sm">
-          Select a client and property to see realtime activity.
+        <div className="pib-empty-state">
+          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">monitoring</span>
+          <p className="pib-empty-state-description">Select a client and property to see realtime activity.</p>
         </div>
       )}
 
       {propertyId && data && (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="pib-card p-4">
-              <p className="text-xs text-on-surface-variant font-label flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="pib-stat-card">
+              <p className="pib-label flex items-center gap-1.5">
+                <span className="pib-status-dot pib-status-dot-success animate-pulse" />
                 Active visitors
               </p>
-              <p className="text-3xl font-bold mt-1 text-amber-400">{data.activeVisitors.toLocaleString()}</p>
-              <p className="text-xs text-on-surface-variant mt-0.5">last {data.activeWindowMin} min</p>
+              <p className="text-3xl font-semibold mt-1 text-[var(--color-pib-text)]">{data.activeVisitors.toLocaleString()}</p>
+              <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">last {data.activeWindowMin} min</p>
             </div>
           </div>
 
-          <div className="pib-card p-4">
-            <h2 className="text-sm font-label font-semibold text-on-surface mb-3">Last {data.activeWindowMin} minutes</h2>
+          <div className="pib-card">
+            <h2 className="pib-label mb-3">Last {data.activeWindowMin} minutes</h2>
             <LineSeries data={data.trend} xKey="minute" yKey="visitors" label="Visitors" />
           </div>
 
           <div className="grid lg:grid-cols-2 gap-4">
             <div>
-              <h2 className="text-sm font-label font-semibold text-on-surface mb-2">Top pages</h2>
+              <h2 className="pib-label mb-2">Top pages</h2>
               <SimpleTable
                 columns={[{ key: 'label', label: 'Page' }, { key: 'count', label: 'Active', align: 'right' }]}
                 rows={data.topPages}
@@ -113,7 +117,7 @@ export default function RealtimePage() {
               />
             </div>
             <div>
-              <h2 className="text-sm font-label font-semibold text-on-surface mb-2">Top sources</h2>
+              <h2 className="pib-label mb-2">Top sources</h2>
               <SimpleTable
                 columns={[{ key: 'label', label: 'Source' }, { key: 'count', label: 'Active', align: 'right' }]}
                 rows={data.topSources}

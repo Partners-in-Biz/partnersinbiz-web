@@ -282,8 +282,8 @@ function StatusBadge({ status }: { status: string }) {
   const s = map[status] ?? { label: status, color: 'var(--color-pib-text-muted)' }
   return (
     <span
-      className="rounded-full px-2 py-0.5 text-[10px] font-label uppercase tracking-wide"
-      style={{ background: `${s.color}20`, color: s.color }}
+      className="pib-pill"
+      style={{ background: `${s.color}20`, color: s.color, borderColor: `${s.color}40` }}
     >
       {s.label}
     </span>
@@ -508,10 +508,10 @@ export default function PortalDashboard() {
   const hasLast30DaysData = last30DaysData.some(point => point.value > 0)
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-8">
       <ProfileCompleteBanner />
 
-      <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-5 py-4">
+      <div className="pib-card px-5 py-4">
         <p className="eyebrow !text-[10px]">{getGreeting()}</p>
         <p className="mt-1 font-display text-2xl tracking-tight text-[var(--color-pib-text)]">
           {firstName ? `Welcome back, ${firstName}` : 'Welcome back'}
@@ -531,10 +531,10 @@ export default function PortalDashboard() {
           description={new Date().toLocaleDateString('en-ZA', { weekday: 'long', month: 'long', day: 'numeric' })}
           actions={(
             <>
-              <Link href={scopedHref('/portal/projects')} className="pib-btn-primary text-sm font-label">
+              <Link href={scopedHref('/portal/projects')} className="btn-pib-primary text-sm">
                 Request project
               </Link>
-              <Link href={scopedHref('/portal/properties')} className="pib-btn-secondary text-sm font-label">
+              <Link href={scopedHref('/portal/properties')} className="btn-pib-secondary text-sm">
                 Set properties
               </Link>
             </>
@@ -592,8 +592,8 @@ export default function PortalDashboard() {
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Surface className="space-y-3 lg:col-span-2">
             <div className="flex items-center justify-between">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Projects</p>
-              <Link href={scopedHref('/portal/projects')} className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-accent)]">
+              <p className="pib-label mb-0">Projects</p>
+              <Link href={scopedHref('/portal/projects')} className="pib-label mb-0 text-[var(--color-pib-accent-hover)]">
                 View all →
               </Link>
             </div>
@@ -618,9 +618,9 @@ export default function PortalDashboard() {
                     className="flex items-center gap-4 rounded-lg px-6 py-3 transition-colors hover:bg-[var(--color-row-hover)]"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-on-surface">{project.name}</p>
+                      <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{project.name}</p>
                       {project.description && (
-                        <p className="mt-0.5 truncate text-xs text-on-surface-variant">{project.description}</p>
+                        <p className="mt-0.5 truncate text-xs text-[var(--color-pib-text-muted)]">{project.description}</p>
                       )}
                     </div>
                     <StatusBadge status={project.status} />
@@ -631,7 +631,7 @@ export default function PortalDashboard() {
           </Surface>
 
           <Surface className="space-y-2">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+            <p className="pib-label mb-0">
               Post Status
             </p>
             {socialLoading ? (
@@ -639,7 +639,7 @@ export default function PortalDashboard() {
             ) : statusDonut.length > 0 ? (
               <DonutChart data={statusDonut} centerValue={socialStats?.total ?? 0} centerLabel="Total" />
             ) : (
-              <div className="py-8 text-center text-sm text-on-surface-variant">
+              <div className="py-8 text-center text-sm text-[var(--color-pib-text-muted)]">
                 No social posts yet.
               </div>
             )}
@@ -651,10 +651,10 @@ export default function PortalDashboard() {
             {platformBarData.length > 0 && (
               <Surface className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                  <p className="pib-label mb-0">
                     Platform Breakdown
                   </p>
-                  <Link href={scopedHref('/portal/social')} className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-accent)]">
+                  <Link href={scopedHref('/portal/social')} className="pib-label mb-0 text-[var(--color-pib-accent-hover)]">
                     View Social →
                   </Link>
                 </div>
@@ -665,21 +665,21 @@ export default function PortalDashboard() {
             <Surface className="space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                  <p className="pib-label mb-0">
                     Publishing Trend
                   </p>
-                  <p className="mt-0.5 text-lg font-headline font-bold text-on-surface">
+                  <p className="mt-0.5 text-lg font-headline font-bold text-[var(--color-pib-text)]">
                     {socialStats.last30Days} posts
                   </p>
                 </div>
-                <span className="rounded bg-[var(--color-surface-container)] px-2 py-1 text-[10px] text-on-surface-variant">
+                <span className="pib-pill">
                   Last 30 days
                 </span>
               </div>
               {hasLast30DaysData ? (
                 <TrendAreaChart data={last30DaysData} height={160} color="#4ade80" />
               ) : (
-                <div className="flex h-40 items-center justify-center text-sm text-on-surface-variant">
+                <div className="flex h-40 items-center justify-center text-sm text-[var(--color-pib-text-muted)]">
                   No posts in the last 30 days.
                 </div>
               )}
@@ -688,7 +688,7 @@ export default function PortalDashboard() {
         )}
 
         <Surface>
-          <p className="mb-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Quick Actions</p>
+          <p className="pib-label">Quick Actions</p>
           <div className="flex flex-wrap gap-2">
             {[
               { label: 'Projects', href: scopedHref('/portal/projects') },
@@ -698,7 +698,7 @@ export default function PortalDashboard() {
               { label: 'Marketing', href: scopedHref('/portal/marketing') },
               { label: 'Team', href: scopedHref('/portal/settings/team') },
             ].map(a => (
-              <Link key={a.href} href={a.href} className="pib-btn-secondary text-xs font-label">{a.label}</Link>
+              <Link key={a.href} href={a.href} className="btn-pib-secondary text-xs">{a.label}</Link>
             ))}
           </div>
         </Surface>
@@ -771,30 +771,30 @@ export default function PortalDashboard() {
 
           {/* 4 metric cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            <div className="bento-card !p-4">
+            <div className="pib-stat-card">
               <p className="eyebrow !text-[10px] mb-1">Open Deals</p>
               <p className="text-2xl font-bold">{crmData.openDealsCount}</p>
               <p className="text-xs text-[var(--color-pib-text-muted)]">{formatCurrency(crmData.openDealsValue)}</p>
             </div>
-            <div className="bento-card !p-4">
+            <div className="pib-stat-card">
               <p className="eyebrow !text-[10px] mb-1">Weighted Pipeline</p>
               <p className="text-2xl font-bold">{formatCurrency(crmData.weightedPipelineValue)}</p>
             </div>
-            <div className="bento-card !p-4">
+            <div className="pib-stat-card">
               <p className="eyebrow !text-[10px] mb-1">Won This Month</p>
-              <p className="text-2xl font-bold text-emerald-400">{crmData.wonThisMonth.count}</p>
+              <p className="text-2xl font-bold text-[var(--color-pib-success)]">{crmData.wonThisMonth.count}</p>
               <p className="text-xs text-[var(--color-pib-text-muted)]">{formatCurrency(crmData.wonThisMonth.value)}</p>
             </div>
-            <div className="bento-card !p-4">
+            <div className="pib-stat-card">
               <p className="eyebrow !text-[10px] mb-1">Lost This Month</p>
-              <p className="text-2xl font-bold text-red-400">{crmData.lostThisMonth.count}</p>
+              <p className="text-2xl font-bold text-[var(--color-error)]">{crmData.lostThisMonth.count}</p>
             </div>
           </div>
 
           {/* Activity feed + top deals row */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Recent activity feed */}
-            <div className="bento-card !p-5">
+            <div className="pib-card">
               <p className="eyebrow !text-[10px] mb-4">Recent Activity</p>
               {crmData.recentActivities.length === 0 ? (
                 <p className="text-sm text-[var(--color-pib-text-muted)]">No recent activity.</p>
@@ -831,7 +831,7 @@ export default function PortalDashboard() {
             </div>
 
             {/* Top open deals mini-table */}
-            <div className="bento-card !p-5">
+            <div className="pib-card">
               <p className="eyebrow !text-[10px] mb-4">Top Open Deals</p>
               <table className="w-full text-sm">
                 <thead>
@@ -918,14 +918,14 @@ export default function PortalDashboard() {
                   <span className="material-symbols-outlined text-sm">arrow_outward</span>
                 </Link>
               </div>
-              <div className="bento-card flex items-center justify-between gap-4 flex-wrap">
+              <div className="pib-card flex items-center justify-between gap-4 flex-wrap">
                 <div className="space-y-1">
                   <p className="font-display text-2xl">
                     {data.reports[0].period.start} → {data.reports[0].period.end}
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="pill">{data.reports[0].type}</span>
-                    <span className={`pill ${data.reports[0].status === 'sent' ? 'pill-accent' : ''}`}>
+                    <span className="pib-pill">{data.reports[0].type}</span>
+                    <span className={`pib-pill ${data.reports[0].status === 'sent' ? 'pib-pill-accent' : ''}`}>
                       {data.reports[0].status}
                     </span>
                     <span className="text-xs text-[var(--color-pib-text-muted)] font-mono">
@@ -938,7 +938,7 @@ export default function PortalDashboard() {
                     <Link
                       href={`/reports/${data.reports[0].publicToken}`}
                       target="_blank"
-                      className="btn-pib-accent !py-2 !px-4 !text-sm"
+                      className="btn-pib-primary !text-sm"
                     >
                       Open report
                       <span className="material-symbols-outlined text-base">arrow_outward</span>
@@ -963,7 +963,7 @@ export default function PortalDashboard() {
                 {data.properties.slice(0, 3).map((p) => {
                   const conns = data.connections.filter((c) => c.propertyId === p.id)
                   return (
-                    <div key={p.id} className="bento-card !p-5">
+                    <div key={p.id} className="pib-card">
                       <p className="eyebrow !text-[10px]">{p.type}</p>
                       <p className="font-display text-xl mt-2 leading-tight">{p.name}</p>
                       <p className="text-xs text-[var(--color-pib-text-muted)] mt-3 font-mono">

@@ -212,23 +212,23 @@ function Skeleton({ className = '' }: { className?: string }) {
 
 function HBarChart({ entries, formatLabel = (label) => label }: { entries: [string, number][], formatLabel?: (label: string) => string }) {
   if (entries.length === 0) {
-    return <p className="text-sm text-on-surface-variant">No data yet.</p>
+    return <p className="text-sm text-[var(--color-pib-text-muted)]">No data yet.</p>
   }
   const maxCount = Math.max(...entries.map(([, n]) => n), 1)
   return (
     <div className="space-y-2">
       {entries.map(([label, count]) => (
         <div key={label} className="flex items-center gap-3">
-          <span className="text-xs w-24 shrink-0 text-right text-on-surface-variant truncate" title={formatLabel(label)}>
+          <span className="text-xs w-24 shrink-0 text-right text-[var(--color-pib-text-muted)] truncate" title={formatLabel(label)}>
             {formatLabel(label)}
           </span>
-          <div className="flex-1 h-2 rounded-full bg-white/[0.08] overflow-hidden">
+          <div className="flex-1 h-2 rounded-full bg-[var(--color-pib-surface-soft)] overflow-hidden">
             <div
-              className="h-full rounded-full bg-[var(--color-accent-v2)] transition-all duration-500"
+              className="h-full rounded-full bg-[var(--color-pib-accent)] transition-all duration-500"
               style={{ width: `${(count / maxCount) * 100}%` }}
             />
           </div>
-          <span className="text-xs w-8 text-right font-mono text-on-surface">{count}</span>
+          <span className="text-xs w-8 text-right font-mono text-[var(--color-pib-text)]">{count}</span>
         </div>
       ))}
     </div>
@@ -239,15 +239,15 @@ function HBarChart({ entries, formatLabel = (label) => label }: { entries: [stri
 
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub?: string; icon?: string }) {
   return (
-    <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+    <div className="pib-stat-card">
       <div className="flex items-start justify-between gap-2">
-        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">{label}</p>
-        {icon && <span className="material-symbols-outlined text-[15px] text-on-surface-variant">{icon}</span>}
+        <p className="pib-label mb-0">{label}</p>
+        {icon && <span className="material-symbols-outlined text-[15px] text-[var(--color-pib-text-muted)]">{icon}</span>}
       </div>
-      <p className="mt-1.5 text-lg font-semibold leading-none text-on-surface">
+      <p className="mt-1.5 text-lg font-semibold leading-none text-[var(--color-pib-text)]">
         {value}
       </p>
-      {sub && <p className="mt-1 text-[11px] leading-4 text-on-surface-variant">{sub}</p>}
+      {sub && <p className="mt-1 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{sub}</p>}
     </div>
   )
 }
@@ -264,15 +264,15 @@ function EmptyState({
   action?: { href: string; label: string; ariaLabel: string; icon: string }
 }) {
   return (
-    <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 p-4 text-center">
-      <span className="material-symbols-outlined text-[19px] text-[var(--color-accent-text)]">{icon}</span>
-      <p className="mt-2 text-sm font-semibold text-on-surface">{title}</p>
-      <p className="mx-auto mt-1 max-w-md text-xs text-on-surface-variant">{body}</p>
+    <div className="pib-empty-state">
+      <span className="material-symbols-outlined pib-empty-state-icon">{icon}</span>
+      <p className="pib-empty-state-title">{title}</p>
+      <p className="pib-empty-state-description">{body}</p>
       {action && (
         <Link
           href={action.href}
           aria-label={action.ariaLabel}
-          className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90"
+          className="btn-pib-primary text-xs mt-5"
         >
           <span className="material-symbols-outlined text-[16px]">{action.icon}</span>
           {action.label}
@@ -299,23 +299,23 @@ function InsightCard({
 }) {
   const toneClass =
     tone === 'good'
-      ? 'border-emerald-400/40 bg-emerald-400/10'
+      ? 'border-[var(--color-pib-green)]/40 bg-[var(--color-pib-green-soft)]'
       : tone === 'warning'
-        ? 'border-amber-400/40 bg-amber-400/10'
-        : 'border-[var(--color-card-border)] bg-black/10'
+        ? 'border-[var(--color-pib-accent)]/40 bg-[var(--color-pib-accent-soft)]'
+        : 'border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)]'
   return (
-    <div className={`rounded-md border p-3 ${toneClass}`}>
+    <div className={`rounded-[16px] border p-4 ${toneClass}`}>
       <div className="flex items-start gap-2.5">
-        <span className="material-symbols-outlined mt-0.5 text-[16px] text-[var(--color-accent-text)]">{icon}</span>
+        <span className="material-symbols-outlined mt-0.5 text-[16px] text-[var(--color-pib-accent-hover)]">{icon}</span>
         <div className="min-w-0">
-          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">{label}</p>
-          <p className="mt-1 text-sm font-semibold text-on-surface">{title}</p>
-          <p className="mt-0.5 text-xs leading-5 text-on-surface-variant">{body}</p>
+          <p className="pib-label mb-0">{label}</p>
+          <p className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">{title}</p>
+          <p className="mt-0.5 text-xs leading-5 text-[var(--color-pib-text-muted)]">{body}</p>
           {action && (
             <Link
               href={action.href}
               aria-label={action.ariaLabel}
-              className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-[var(--color-accent-text)] hover:underline"
+              className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-[var(--color-pib-accent-hover)] hover:underline"
             >
               <span className="material-symbols-outlined text-[13px]">{action.icon}</span>
               {action.label}
@@ -330,14 +330,14 @@ function InsightCard({
 function ReportSourceWarning({ failures, reloadHref }: { failures: string[]; reloadHref: string }) {
   if (failures.length === 0) return null
   return (
-    <section className="rounded-lg border border-amber-400/40 bg-amber-400/10 p-3">
+    <section className="pib-card border-[var(--color-pib-accent)]/40 bg-[var(--color-pib-accent-soft)]">
       <div className="flex flex-col gap-2.5 md:flex-row md:items-start md:justify-between">
         <div className="flex gap-2.5">
-          <span className="material-symbols-outlined mt-0.5 text-[16px] text-amber-100" aria-hidden="true">warning</span>
+          <span className="material-symbols-outlined mt-0.5 text-[16px] text-[var(--color-pib-accent-hover)]" aria-hidden="true">warning</span>
           <div>
-            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-amber-100">Source health</p>
-            <h2 className="mt-0.5 text-sm font-semibold text-on-surface">CRM report data needs attention</h2>
-            <div className="mt-1 space-y-0.5 text-xs leading-5 text-on-surface-variant">
+            <p className="eyebrow text-[var(--color-pib-accent-hover)]">Source health</p>
+            <h2 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">CRM report data needs attention</h2>
+            <div className="mt-1 space-y-0.5 text-xs leading-5 text-[var(--color-pib-text-muted)]">
               {failures.map((failure) => (
                 <p key={failure}>{failure} report failed to load. Current analytics may be incomplete.</p>
               ))}
@@ -347,7 +347,7 @@ function ReportSourceWarning({ failures, reloadHref }: { failures: string[]; rel
         <Link
           href={reloadHref}
           aria-label="Reload CRM reports after source failure"
-          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
+          className="btn-pib-secondary text-xs shrink-0"
         >
           <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
           Reload reports
@@ -362,12 +362,12 @@ function HealthBar({ value, label }: { value: number; label: string }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs text-on-surface-variant">{label}</p>
-        <p className="font-mono text-xs text-on-surface">{fmtPercent(normalized)}</p>
+        <p className="text-xs text-[var(--color-pib-text-muted)]">{label}</p>
+        <p className="font-mono text-xs text-[var(--color-pib-text)]">{fmtPercent(normalized)}</p>
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-white/[0.08]">
+      <div className="h-2 overflow-hidden rounded-full bg-[var(--color-pib-surface-soft)]">
         <div
-          className="h-full rounded-full bg-[var(--color-accent-v2)] transition-all duration-500"
+          className="h-full rounded-full bg-[var(--color-pib-accent)] transition-all duration-500"
           style={{ width: `${normalized * 100}%` }}
         />
       </div>
@@ -379,9 +379,9 @@ function HealthBar({ value, label }: { value: number; label: string }) {
 
 function SummaryChip({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-[130px] rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
-      <p className="mb-1 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">{label}</p>
-      <p className="text-lg font-semibold leading-none text-on-surface">{value}</p>
+    <div className="pib-stat-card min-w-[130px]">
+      <p className="pib-label">{label}</p>
+      <p className="text-lg font-semibold leading-none text-[var(--color-pib-text)]">{value}</p>
     </div>
   )
 }
@@ -400,14 +400,14 @@ function OwnershipMetricTile({
   ariaLabel?: string
 }) {
   const className = [
-    'rounded-lg border border-[var(--color-card-border)] bg-white/[0.03] p-3',
-    href ? 'block transition-colors hover:border-primary hover:bg-white/[0.05] focus:outline-none focus:ring-2 focus:ring-primary/40' : '',
+    'rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3',
+    href ? 'block transition-colors hover:border-[var(--color-pib-accent)] hover:bg-[var(--color-pib-surface-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)]/40' : '',
   ].filter(Boolean).join(' ')
   const content = (
     <>
       <p className="eyebrow !text-[10px]">{label}</p>
-      <p className="mt-2 font-display text-xl font-bold text-on-surface">{value}</p>
-      {sub && <p className="mt-1 text-[11px] text-on-surface-variant">{sub}</p>}
+      <p className="mt-2 font-display text-xl font-bold text-[var(--color-pib-text)]">{value}</p>
+      {sub && <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">{sub}</p>}
     </>
   )
   return href && ariaLabel ? (
@@ -423,11 +423,11 @@ function OwnershipMetricTile({
 
 function Section({ eyebrow, children }: { eyebrow: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="border-t border-[var(--color-card-border)]">
-      <div className="flex h-9 items-center border-b border-[var(--color-card-border)] px-3">
-        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">{eyebrow}</p>
+    <section className="pib-surface">
+      <div className="pib-surface-header">
+        <p className="pib-label mb-0">{eyebrow}</p>
       </div>
-      <div className="p-3">{children}</div>
+      <div className="pib-surface-body space-y-4">{children}</div>
     </section>
   )
 }
@@ -444,16 +444,16 @@ interface ForecastRowProps {
 function ForecastRow({ label, period, href, ariaLabel }: ForecastRowProps) {
   const muted = period.dealCount === 0
   const valueMissing = period.dealCount > 0 && period.totalValue === 0
-  const cls = muted ? 'text-on-surface-variant' : 'text-on-surface'
+  const cls = muted ? 'text-[var(--color-pib-text-muted)]' : 'text-[var(--color-pib-text)]'
   const canOpen = Boolean(href && ariaLabel && period.dealCount > 0)
   return (
-    <tr className={`border-b border-[var(--color-card-border)] last:border-0 ${muted ? 'opacity-50' : ''} ${canOpen ? 'hover:bg-white/[0.03]' : ''}`}>
+    <tr className={`border-b border-[var(--color-pib-line)] last:border-0 ${muted ? 'opacity-50' : ''} ${canOpen ? 'hover:bg-[var(--color-row-hover)]' : ''}`}>
       <td className={`px-3 py-2 text-sm font-medium ${cls}`}>
         {canOpen ? (
           <Link
             href={href as string}
             aria-label={ariaLabel as string}
-            className="inline-flex max-w-full items-center gap-1.5 rounded-md text-on-surface transition-colors hover:text-[var(--color-accent-text)] focus:outline-none focus:ring-2 focus:ring-primary/40"
+            className="inline-flex max-w-full items-center gap-1.5 rounded-md text-[var(--color-pib-text)] transition-colors hover:text-[var(--color-pib-accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)]/40"
           >
             <span className="truncate">{label}</span>
             <span aria-hidden="true" className="material-symbols-outlined text-[15px]">open_in_new</span>
@@ -464,7 +464,7 @@ function ForecastRow({ label, period, href, ariaLabel }: ForecastRowProps) {
       </td>
       <td className={`px-3 py-2 text-sm text-right font-mono ${cls}`}>{fmtNum(period.dealCount)}</td>
       <td className={`px-3 py-2 text-sm text-right font-mono ${cls}`}>{valueMissing ? 'No value captured' : fmtZar(period.totalValue)}</td>
-      <td className={`px-3 py-2 text-sm text-right font-mono ${muted ? 'text-on-surface-variant' : 'text-[var(--color-accent-text)]'}`}>
+      <td className={`px-3 py-2 text-sm text-right font-mono ${muted ? 'text-[var(--color-pib-text-muted)]' : 'text-[var(--color-pib-accent-hover)]'}`}>
         {valueMissing ? 'Value needed' : fmtZar(period.weightedValue)}
       </td>
     </tr>
@@ -482,7 +482,7 @@ function Sparkline({ perDay }: { perDay: ActivityData['perDay'] }) {
         <div
           key={date}
           title={`${date}: ${count}`}
-          className="flex-1 bg-[var(--color-accent-v2)] rounded-sm opacity-80 min-w-[2px]"
+          className="flex-1 bg-[var(--color-pib-accent)] rounded-sm opacity-80 min-w-[2px]"
           style={{ height: `${(count / maxCount) * 100}%` }}
         />
       ))}
@@ -666,12 +666,12 @@ export default function CrmReportsPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
-        <header className="flex h-11 shrink-0 items-center gap-2 border-b border-[var(--color-card-border)] px-3">
-          <span className="grid h-6 w-6 place-items-center rounded-md bg-primary/10 text-primary"><span className="material-symbols-outlined text-[16px]" aria-hidden="true">monitoring</span></span>
-          <div><p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">CRM</p><h1 className="text-sm font-semibold text-on-surface">CRM Reports</h1></div>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <header className="flex shrink-0 items-center gap-4 pb-6">
+          <span className="pib-icon-tint" aria-hidden="true"><span className="material-symbols-outlined text-[18px]">monitoring</span></span>
+          <div><p className="eyebrow">CRM</p><h1 className="pib-page-title mt-2">CRM Reports</h1></div>
         </header>
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+        <div className="min-h-0 flex-1 space-y-8 overflow-y-auto">
         {/* Funnel skeleton */}
         <div className="space-y-5">
           <div className="pib-skeleton h-4 w-36" />
@@ -707,17 +707,17 @@ export default function CrmReportsPage() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {/* Page header */}
-      <header className="flex min-h-11 shrink-0 items-center gap-2 border-b border-[var(--color-card-border)] px-3 py-1.5">
-        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-primary"><span className="material-symbols-outlined text-[16px]" aria-hidden="true">monitoring</span></span>
-        <div className="min-w-0"><p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">CRM</p><h1 className="text-sm font-semibold text-on-surface">CRM Reports</h1>
-        <p className="truncate text-[11px] text-on-surface-variant">
+      <header className="flex shrink-0 items-start gap-4 pb-6">
+        <span className="pib-icon-tint" aria-hidden="true"><span className="material-symbols-outlined text-[18px]">monitoring</span></span>
+        <div className="min-w-0"><p className="eyebrow">CRM</p><h1 className="pib-page-title mt-2">CRM Reports</h1>
+        <p className="pib-page-sub">
           A command view for pipeline quality, revenue coverage, team execution, and the actions that need attention.
         </p></div>
       </header>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+      <div className="min-h-0 flex-1 space-y-8 overflow-y-auto">
 
       <ReportSourceWarning failures={reportFailures} reloadHref={reportPortalPath('/portal/reports/crm')} />
 
@@ -726,19 +726,19 @@ export default function CrmReportsPage() {
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
               <p className="eyebrow">Executive signal</p>
-              <h2 className="mt-1 text-base font-semibold text-on-surface">{pipelineSignal}</h2>
-              <p className="mt-1 max-w-xl text-xs leading-5 text-on-surface-variant">
+              <h2 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">{pipelineSignal}</h2>
+              <p className="mt-1 max-w-xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
                 Weighted forecast, stage velocity, ownership hygiene, and activity rhythm are combined here so CRM review starts with decisions, not spreadsheet reading.
               </p>
             </div>
             <span
               className={[
-                'inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold',
+                'pib-pill',
                 pipelineSignalTone === 'good'
-                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                  ? 'pib-pill-success'
                   : pipelineSignalTone === 'warning'
-                    ? 'border-amber-500/30 bg-amber-500/10 text-amber-200'
-                    : 'border-red-500/25 bg-red-500/10 text-red-200',
+                    ? 'pib-pill-warn'
+                    : 'pib-pill-danger',
               ].join(' ')}
             >
               <span className="material-symbols-outlined text-[16px]">monitoring</span>
@@ -758,10 +758,10 @@ export default function CrmReportsPage() {
           </div>
         </div>
 
-        <div className="space-y-3 rounded-md border border-[var(--color-card-border)] bg-black/10 p-3">
+        <div className="pib-card space-y-3">
           <div>
             <p className="eyebrow">Analytics health</p>
-            <p className="mt-2 text-sm text-on-surface-variant">Signals that should be reviewed before the next sales standup.</p>
+            <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Signals that should be reviewed before the next sales standup.</p>
           </div>
           <HealthBar value={forecastCoverage} label="Forecast confidence" />
           <HealthBar value={1 - bottleneckShare} label="Stage movement health" />
@@ -861,7 +861,7 @@ export default function CrmReportsPage() {
           <>
             {/* By type — 4 stat cards */}
             <div>
-              <p className="text-xs text-on-surface-variant mb-3 font-medium">By type</p>
+              <p className="text-xs text-[var(--color-pib-text-muted)] mb-3 font-medium">By type</p>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <StatCard label="Leads" value={fmtNum(funnel.byType.lead ?? 0)} sub="top of funnel" icon="person_add" />
                 <StatCard label="Prospects" value={fmtNum(funnel.byType.prospect ?? 0)} sub="being evaluated" icon="manage_accounts" />
@@ -872,11 +872,11 @@ export default function CrmReportsPage() {
 
             {/* By stage — horizontal bar chart */}
             <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
-              <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 p-3">
+              <div className="pib-card">
                 <div className="mb-4 flex items-center justify-between gap-3">
-                  <p className="text-xs font-medium text-on-surface-variant">By stage</p>
+                  <p className="text-xs font-medium text-[var(--color-pib-text-muted)]">By stage</p>
                   {topStage && (
-                    <span className="rounded-full bg-white/[0.04] px-2 py-1 text-[11px] text-on-surface-variant">
+                    <span className="pib-pill">
                       Top stage: {labelize(topStage[0])}
                     </span>
                   )}
@@ -884,16 +884,16 @@ export default function CrmReportsPage() {
                 {byStageEntries.length > 0 ? (
                   <HBarChart entries={byStageEntries} formatLabel={labelize} />
                 ) : (
-                  <div className="rounded-lg border border-amber-400/20 bg-amber-400/10 p-4">
-                    <p className="eyebrow !text-[10px] text-amber-200">Stage mix missing</p>
-                    <h3 className="mt-1 text-sm font-semibold text-on-surface">Classify contacts into funnel stages</h3>
-                    <p className="mt-1 text-sm leading-6 text-on-surface-variant">
+                  <div className="rounded-lg border border-[var(--color-pib-accent)]/25 bg-[var(--color-pib-accent-soft)] p-4">
+                    <p className="eyebrow !text-[10px] text-[var(--color-pib-accent-hover)]">Stage mix missing</p>
+                    <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Classify contacts into funnel stages</h3>
+                    <p className="mt-1 text-sm leading-6 text-[var(--color-pib-text-muted)]">
                       There are contacts in CRM, but none are grouped by stage yet. Classify the next contact so leadership can see where the pipeline is stuck.
                     </p>
                     <Link
                       href={reportPortalPath('/portal/contacts?create=contact')}
                       aria-label="Open contacts to classify missing stage mix"
-                      className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
+                      className="btn-pib-secondary text-xs mt-3"
                     >
                       <span aria-hidden="true" className="material-symbols-outlined text-[14px]">filter_alt</span>
                       Classify contacts
@@ -901,11 +901,11 @@ export default function CrmReportsPage() {
                   </div>
                 )}
               </div>
-              <div className="space-y-3 rounded-md border border-[var(--color-card-border)] bg-black/10 p-3">
+              <div className="pib-card space-y-3">
                 <p className="eyebrow !text-[10px]">Conversion mix</p>
                 <HealthBar value={clientMix} label="Clients in active base" />
                 <HealthBar value={prospectMix} label="Prospects in active base" />
-                <p className="text-xs leading-relaxed text-on-surface-variant">
+                <p className="text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
                   A healthy CRM makes it obvious where contacts are stuck and whether the active base is becoming revenue.
                 </p>
               </div>
@@ -940,14 +940,14 @@ export default function CrmReportsPage() {
 
             {/* Forecast table */}
             <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
-              <div className="overflow-hidden rounded-md border border-[var(--color-card-border)] bg-black/10">
+              <div className="pib-surface pib-surface-table overflow-hidden">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-[var(--color-card-border)] bg-black/[0.08]">
+                    <tr className="border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)]">
                       {['Period', 'Deals', 'Total value', 'Weighted value'].map((h) => (
                         <th
                           key={h}
-                          className={`px-3 py-2 text-xs font-label uppercase tracking-widest text-on-surface-variant ${h === 'Period' ? 'text-left' : 'text-right'}`}
+                          className={`px-3 py-2 pib-label mb-0 ${h === 'Period' ? 'text-left' : 'text-right'}`}
                         >
                           {h}
                         </th>
@@ -969,10 +969,10 @@ export default function CrmReportsPage() {
                   </tbody>
                 </table>
               </div>
-              <div className="space-y-3 rounded-md border border-[var(--color-card-border)] bg-black/10 p-3">
+              <div className="pib-card space-y-3">
                 <div>
                   <p className="eyebrow !text-[10px]">Forecast discipline</p>
-                  <p className="mt-2 text-sm text-on-surface-variant">Close dates and probabilities decide how believable the pipeline is.</p>
+                  <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Close dates and probabilities decide how believable the pipeline is.</p>
                 </div>
                 <HealthBar value={forecastCoverage} label="Weighted against total" />
                 <InsightCard
@@ -1010,12 +1010,12 @@ export default function CrmReportsPage() {
           />
         ) : (
           <div className="grid lg:grid-cols-[260px_1fr] gap-4">
-            <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 p-3">
+            <div className="pib-card">
               <p className="eyebrow !text-[10px]">Bottlenecks</p>
-              <p className="mt-1 text-2xl font-semibold leading-none text-on-surface">
+              <p className="mt-1 text-2xl font-semibold leading-none text-[var(--color-pib-text)]">
                 {fmtNum(velocity.summary.bottleneckCount)}
               </p>
-              <p className="mt-3 text-xs text-on-surface-variant">
+              <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">
                 {velocity.summary.slowestStage
                   ? `${labelize(velocity.summary.slowestStage.stageId)} averages ${velocity.summary.slowestStage.avgDays.toFixed(1)} days`
                   : 'No slow stages yet'}
@@ -1024,7 +1024,7 @@ export default function CrmReportsPage() {
                 <Link
                   href={dealStageLensHref(velocity.summary.slowestStage, reportPortalPath)}
                   aria-label={`Review deals in slowest ${labelize(velocity.summary.slowestStage.stageId)} stage from bottleneck summary`}
-                  className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-accent-text)] hover:underline"
+                  className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-pib-accent-hover)] hover:underline"
                 >
                   <span className="material-symbols-outlined text-[14px]" aria-hidden="true">view_list</span>
                   Review slow stage
@@ -1033,7 +1033,7 @@ export default function CrmReportsPage() {
                 <Link
                   href={reportPortalPath('/portal/deals?create=deal')}
                   aria-label="Review pipeline movement from bottleneck summary"
-                  className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-accent-text)] hover:underline"
+                  className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-pib-accent-hover)] hover:underline"
                 >
                   <span className="material-symbols-outlined text-[14px]" aria-hidden="true">view_kanban</span>
                   Review movement
@@ -1044,14 +1044,14 @@ export default function CrmReportsPage() {
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-md border border-[var(--color-card-border)] bg-black/10">
+            <div className="pib-surface pib-surface-table overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-[var(--color-card-border)] bg-black/[0.08]">
+                  <tr className="border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)]">
                     {['Stage', 'Open deals', 'Avg days', 'Max days', 'Status'].map((h) => (
                       <th
                         key={h}
-                        className={`px-3 py-2 text-xs font-label uppercase tracking-widest text-on-surface-variant ${h === 'Stage' ? 'text-left' : 'text-right'}`}
+                        className={`px-3 py-2 pib-label mb-0 ${h === 'Stage' ? 'text-left' : 'text-right'}`}
                       >
                         {h}
                       </th>
@@ -1060,22 +1060,22 @@ export default function CrmReportsPage() {
                 </thead>
                 <tbody>
                   {velocity.stages.slice(0, 8).map((stage) => (
-                    <tr key={`${stage.pipelineId}:${stage.stageId}`} className="border-b border-[var(--color-card-border)] last:border-0 hover:bg-white/[0.03]">
-                      <td className="px-3 py-2 text-sm font-medium text-on-surface">
+                    <tr key={`${stage.pipelineId}:${stage.stageId}`} className="border-b border-[var(--color-pib-line)] last:border-0 hover:bg-[var(--color-row-hover)]">
+                      <td className="px-3 py-2 text-sm font-medium text-[var(--color-pib-text)]">
                         <Link
                           href={dealStageLensHref(stage, reportPortalPath)}
                           aria-label={`Open ${labelize(stage.stageId)} stage deals from velocity table`}
-                          className="inline-flex max-w-full items-center gap-1.5 rounded-md text-on-surface transition-colors hover:text-[var(--color-accent-text)] focus:outline-none focus:ring-2 focus:ring-primary/40"
+                          className="inline-flex max-w-full items-center gap-1.5 rounded-md text-[var(--color-pib-text)] transition-colors hover:text-[var(--color-pib-accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)]/40"
                         >
                           <span className="truncate">{labelize(stage.stageId)}</span>
                           <span className="material-symbols-outlined text-[15px]" aria-hidden="true">open_in_new</span>
                         </Link>
                       </td>
-                      <td className="px-3 py-2 text-sm text-right font-mono text-on-surface">{fmtNum(stage.dealCount)}</td>
-                      <td className="px-3 py-2 text-sm text-right font-mono text-on-surface">{stage.avgDays.toFixed(1)}</td>
-                      <td className="px-3 py-2 text-sm text-right font-mono text-on-surface">{stage.maxDays.toFixed(1)}</td>
+                      <td className="px-3 py-2 text-sm text-right font-mono text-[var(--color-pib-text)]">{fmtNum(stage.dealCount)}</td>
+                      <td className="px-3 py-2 text-sm text-right font-mono text-[var(--color-pib-text)]">{stage.avgDays.toFixed(1)}</td>
+                      <td className="px-3 py-2 text-sm text-right font-mono text-[var(--color-pib-text)]">{stage.maxDays.toFixed(1)}</td>
                       <td className="px-3 py-2 text-right">
-                        <span className={`inline-flex rounded-full px-2 py-1 text-[11px] font-medium ${stage.bottleneck ? 'bg-red-500/10 text-red-300' : 'bg-emerald-500/10 text-emerald-300'}`}>
+                        <span className={`pib-pill ${stage.bottleneck ? 'pib-pill-danger' : 'pib-pill-success'}`}>
                           {stage.bottleneck ? 'Bottleneck' : 'Healthy'}
                         </span>
                       </td>
@@ -1104,14 +1104,14 @@ export default function CrmReportsPage() {
           />
         ) : (
           <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
-            <div className="overflow-hidden rounded-md border border-[var(--color-card-border)] bg-black/10">
+            <div className="pib-surface pib-surface-table overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-[var(--color-card-border)] bg-black/[0.08]">
+                  <tr className="border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)]">
                     {['Rep', 'Won', 'Open', 'Lost', 'Open value', 'Won value', 'Activities', 'Win rate'].map((h) => (
                       <th
                         key={h}
-                        className={`px-3 py-2 text-xs font-label uppercase tracking-widest text-on-surface-variant ${h === 'Rep' ? 'text-left' : 'text-right'}`}
+                        className={`px-3 py-2 pib-label mb-0 ${h === 'Rep' ? 'text-left' : 'text-right'}`}
                       >
                         {h}
                       </th>
@@ -1120,29 +1120,29 @@ export default function CrmReportsPage() {
                 </thead>
                 <tbody>
                   {repPerformance.reps.slice(0, 8).map((rep) => (
-                    <tr key={rep.uid} className="border-b border-[var(--color-card-border)] last:border-0">
-                      <td className="px-3 py-2 text-sm font-medium text-on-surface">
+                    <tr key={rep.uid} className="border-b border-[var(--color-pib-line)] last:border-0">
+                      <td className="px-3 py-2 text-sm font-medium text-[var(--color-pib-text)]">
                         <Link
                           href={repDealsHref(rep, reportPortalPath)}
                           aria-label={`Open ${rep.displayName} deals from rep performance report`}
-                          className="inline-flex max-w-full items-center gap-1.5 rounded-md text-on-surface transition-colors hover:text-[var(--color-accent-text)] focus:outline-none focus:ring-2 focus:ring-primary/40"
+                          className="inline-flex max-w-full items-center gap-1.5 rounded-md text-[var(--color-pib-text)] transition-colors hover:text-[var(--color-pib-accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)]/40"
                         >
                           <span className="truncate">{rep.displayName}</span>
                           <span className="material-symbols-outlined text-[15px]" aria-hidden="true">open_in_new</span>
                         </Link>
                       </td>
-                      <td className="px-3 py-2 text-sm text-right font-mono text-on-surface">{fmtNum(rep.wonDeals)}</td>
-                      <td className="px-3 py-2 text-sm text-right font-mono text-on-surface">{fmtNum(rep.openDeals)}</td>
-                      <td className="px-3 py-2 text-sm text-right font-mono text-on-surface">{fmtNum(rep.lostDeals)}</td>
-                      <td className="px-3 py-2 text-sm text-right font-mono text-[var(--color-accent-text)]">{repOpenValueLabel(rep)}</td>
-                      <td className="px-3 py-2 text-sm text-right font-mono text-[var(--color-accent-text)]">{fmtZar(rep.wonValue)}</td>
-                      <td className="px-3 py-2 text-sm text-right font-mono text-on-surface">{fmtNum(rep.activities)}</td>
-                      <td className="px-3 py-2 text-sm text-right font-mono text-on-surface">
+                      <td className="px-3 py-2 text-sm text-right font-mono text-[var(--color-pib-text)]">{fmtNum(rep.wonDeals)}</td>
+                      <td className="px-3 py-2 text-sm text-right font-mono text-[var(--color-pib-text)]">{fmtNum(rep.openDeals)}</td>
+                      <td className="px-3 py-2 text-sm text-right font-mono text-[var(--color-pib-text)]">{fmtNum(rep.lostDeals)}</td>
+                      <td className="px-3 py-2 text-sm text-right font-mono text-[var(--color-pib-accent-hover)]">{repOpenValueLabel(rep)}</td>
+                      <td className="px-3 py-2 text-sm text-right font-mono text-[var(--color-pib-accent-hover)]">{fmtZar(rep.wonValue)}</td>
+                      <td className="px-3 py-2 text-sm text-right font-mono text-[var(--color-pib-text)]">{fmtNum(rep.activities)}</td>
+                      <td className="px-3 py-2 text-sm text-right font-mono text-[var(--color-pib-text)]">
                         {rep.winRate === null ? (
                           <Link
                             href={repDealsHref(rep, reportPortalPath)}
                             aria-label={`Open ${rep.displayName} deals to create win-rate baseline`}
-                            className="inline-flex items-center gap-1 rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-1 text-[11px] font-medium text-amber-200 transition-colors hover:border-amber-300/40 hover:bg-amber-400/15 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            className="pib-pill pib-pill-warn transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)]/40"
                           >
                             No closes yet
                           </Link>
@@ -1153,10 +1153,10 @@ export default function CrmReportsPage() {
                 </tbody>
               </table>
             </div>
-            <div className="space-y-3 rounded-md border border-[var(--color-card-border)] bg-black/10 p-3">
+            <div className="pib-card space-y-3">
               <div>
                 <p className="eyebrow !text-[10px]">Ownership</p>
-                <p className="mt-2 text-sm text-on-surface-variant">Performance reporting is only useful when contacts and deals have accountable owners.</p>
+                <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Performance reporting is only useful when contacts and deals have accountable owners.</p>
               </div>
               <HealthBar value={1 - unassignedDealShare} label="Assigned deal coverage" />
               <HealthBar value={contactOwnerCoverage} label="Assigned contact coverage" />
@@ -1195,10 +1195,10 @@ export default function CrmReportsPage() {
                   aria-label={`Show CRM activity for last ${d} days`}
                   aria-pressed={d === days}
                   className={[
-                    'text-[10px] font-mono px-2.5 py-1 rounded-md transition-colors cursor-pointer',
+                    'pib-tab',
                     d === days
-                      ? 'bg-[var(--color-accent-v2)] text-black font-semibold'
-                      : 'text-on-surface-variant hover:text-on-surface hover:bg-white/[0.06]',
+                      ? 'pib-tab-active'
+                      : '',
                   ].join(' ')}
                 >
                   {d}
@@ -1225,37 +1225,37 @@ export default function CrmReportsPage() {
         ) : (
           <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_1fr_320px]">
             {/* Total + sparkline */}
-            <div className="space-y-3 rounded-md border border-[var(--color-card-border)] bg-black/10 p-3">
+            <div className="pib-card space-y-3">
               <div>
-                <p className="text-2xl font-semibold leading-none text-on-surface">
+                <p className="text-2xl font-semibold leading-none text-[var(--color-pib-text)]">
                   {fmtNum(activity.total)}
                 </p>
-                <p className="text-xs text-on-surface-variant mt-2">
+                <p className="text-xs text-[var(--color-pib-text-muted)] mt-2">
                   activities in the last {activity.days} days
                 </p>
               </div>
               {activity.perDay.length > 0 && (
                 <div>
-                  <p className="text-[10px] text-on-surface-variant mb-2 uppercase tracking-widest font-label">Per day</p>
+                  <p className="pib-label mb-2">Per day</p>
                   <Sparkline perDay={activity.perDay} />
                 </div>
               )}
             </div>
 
             {/* By type — horizontal bar chart */}
-            <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 p-3">
-              <p className="text-xs text-on-surface-variant mb-4 font-medium">By type</p>
+            <div className="pib-card">
+              <p className="text-xs text-[var(--color-pib-text-muted)] mb-4 font-medium">By type</p>
               {byTypeEntries.length === 0 ? (
-                <div className="rounded-lg border border-amber-400/20 bg-amber-400/10 p-4">
-                  <p className="eyebrow !text-[10px] text-amber-200">Activity mix missing</p>
-                  <h3 className="mt-1 text-sm font-semibold text-on-surface">Log the next CRM touch with type context</h3>
-                  <p className="mt-1 text-sm leading-6 text-on-surface-variant">
+                <div className="rounded-lg border border-[var(--color-pib-accent)]/25 bg-[var(--color-pib-accent-soft)] p-4">
+                  <p className="eyebrow !text-[10px] text-[var(--color-pib-accent-hover)]">Activity mix missing</p>
+                  <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Log the next CRM touch with type context</h3>
+                  <p className="mt-1 text-sm leading-6 text-[var(--color-pib-text-muted)]">
                     Activity exists, but calls, emails, meetings, notes, and tasks are not classified yet. Classify the next touch so leadership can see which channel is moving relationships.
                   </p>
                   <Link
                     href={reportPortalPath('/portal/contacts?followUp=stale')}
                     aria-label="Open contacts to log typed CRM activity"
-                    className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
+                    className="btn-pib-secondary text-xs mt-3"
                   >
                     <span aria-hidden="true" className="material-symbols-outlined text-[14px]">edit_note</span>
                     Log typed activity
@@ -1266,28 +1266,28 @@ export default function CrmReportsPage() {
               )}
             </div>
 
-            <div className="space-y-3 rounded-md border border-[var(--color-card-border)] bg-black/10 p-3">
+            <div className="pib-card space-y-3">
               <div>
                 <p className="eyebrow !text-[10px]">Rhythm</p>
-                <p className="mt-2 text-sm text-on-surface-variant">Use this to spot quiet periods before pipeline follow-up slips.</p>
+                <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Use this to spot quiet periods before pipeline follow-up slips.</p>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.03] p-3">
+                <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3">
                   <p className="eyebrow !text-[10px]">Best day</p>
-                  <p className="mt-2 text-sm font-semibold text-on-surface">
+                  <p className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">
                     {busiestDay ? `${busiestDay.date}` : 'None'}
                   </p>
-                  <p className="mt-1 font-mono text-xs text-on-surface-variant">{fmtNum(busiestDay?.count ?? 0)} activities</p>
+                  <p className="mt-1 font-mono text-xs text-[var(--color-pib-text-muted)]">{fmtNum(busiestDay?.count ?? 0)} activities</p>
                 </div>
-                <div className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.03] p-3">
+                <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3">
                   <p className="eyebrow !text-[10px]">Quiet days</p>
-                  <p className="mt-2 font-display text-2xl font-bold text-on-surface">{fmtNum(daysWithoutActivity)}</p>
-                  <p className="mt-1 font-mono text-xs text-on-surface-variant">of {fmtNum(activity.perDay.length)}</p>
+                  <p className="mt-2 font-display text-2xl font-bold text-[var(--color-pib-text)]">{fmtNum(daysWithoutActivity)}</p>
+                  <p className="mt-1 font-mono text-xs text-[var(--color-pib-text-muted)]">of {fmtNum(activity.perDay.length)}</p>
                   {daysWithoutActivity > 0 && (
                     <Link
                       href={reportPortalPath('/portal/contacts?followUp=stale')}
                       aria-label="Open contacts needing follow-up from activity rhythm"
-                      className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-accent-text)] hover:underline"
+                      className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-pib-accent-hover)] hover:underline"
                     >
                       <span className="material-symbols-outlined text-[14px]" aria-hidden="true">event_note</span>
                       Review follow-up

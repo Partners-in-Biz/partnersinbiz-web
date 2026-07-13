@@ -133,10 +133,10 @@ function DealCard({
       {...listeners}
     >
       <div
-        className="cursor-pointer select-none rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/60 px-2.5 py-2 transition hover:bg-white/[0.04]"
+        className="cursor-pointer select-none rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] px-2.5 py-2 transition hover:bg-[var(--color-row-hover)]"
         style={{ borderLeft: `2px solid ${stageColor}` }}
       >
-        <p className="text-xs font-medium text-on-surface mb-1.5 leading-snug">{titleLabel}</p>
+        <p className="text-xs font-medium text-[var(--color-pib-text)] mb-1.5 leading-snug">{titleLabel}</p>
         <div className="flex items-center justify-between gap-2">
           {onEditDeal ? (
             <button
@@ -147,12 +147,12 @@ function DealCard({
                 onEditDeal(deal)
               }}
               aria-label={`${hasValue ? 'Edit' : 'Add'} value for ${titleLabel} from deal board`}
-              className="text-[11px] font-mono text-on-surface-variant font-semibold transition-colors hover:text-on-surface"
+              className="text-[11px] font-mono text-[var(--color-pib-text-muted)] font-semibold transition-colors hover:text-[var(--color-pib-text)]"
             >
               {valueLabel}
             </button>
           ) : (
-            <span className="text-[11px] font-mono text-on-surface-variant font-semibold">
+            <span className="text-[11px] font-mono text-[var(--color-pib-text-muted)] font-semibold">
               {valueLabel}
             </span>
           )}
@@ -160,7 +160,7 @@ function DealCard({
             <Link
               href={contactHref}
               onClick={e => e.stopPropagation()}
-              className="text-[10px] font-label px-2 py-0.5 rounded-full border border-[var(--color-card-border)] text-on-surface-variant truncate max-w-[120px]"
+              className="pib-pill px-2 py-0.5 text-[10px] truncate max-w-[120px]"
               title="View contact"
             >
               {readableContactLabel}
@@ -171,16 +171,16 @@ function DealCard({
           <Link
             href={companyHref}
             onClick={e => e.stopPropagation()}
-            className="text-[11px] text-on-surface-variant truncate mt-1 block hover:underline"
+            className="text-[11px] text-[var(--color-pib-text-muted)] truncate mt-1 block hover:underline"
             title="View company"
           >
             {readableCompanyLabel}
           </Link>
         ) : readableCompanyLabel ? (
-          <span className="text-[11px] text-on-surface-variant truncate mt-1 block">{readableCompanyLabel}</span>
+          <span className="text-[11px] text-[var(--color-pib-text-muted)] truncate mt-1 block">{readableCompanyLabel}</span>
         ) : null}
         {daysLabel && (
-          <div className="mt-1.5 flex items-center gap-1 text-[10px] text-on-surface-variant" title="Time in current stage">
+          <div className="mt-1.5 flex items-center gap-1 text-[10px] text-[var(--color-pib-text-muted)]" title="Time in current stage">
             <span className="material-symbols-outlined text-[12px] leading-none" aria-hidden="true">schedule</span>
             <span className="font-label">{daysLabel} in stage</span>
           </div>
@@ -224,15 +224,15 @@ function DealColumn({
       <div className="mb-2 px-1">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-          <span className="text-[10px] font-label uppercase tracking-[0.18em] text-on-surface-variant">
+          <span className="pib-label mb-0">
             {stage.label}
           </span>
-          <span className="text-[9px] font-label px-1.5 py-0.5 rounded-full ml-auto border border-[var(--color-card-border)] text-on-surface-variant">
+          <span className="pib-pill ml-auto px-1.5 py-0.5 text-[9px]">
             {deals.length}
           </span>
         </div>
         {/* US-059: per-column total value */}
-        <p className="mt-0.5 text-[11px] font-mono font-semibold text-on-surface-variant" title="Total value of deals in this stage">
+        <p className="mt-0.5 text-[11px] font-mono font-semibold text-[var(--color-pib-text-muted)]" title="Total value of deals in this stage">
           {columnTotal}
         </p>
       </div>
@@ -242,7 +242,7 @@ function DealColumn({
         <div
           ref={setNodeRef}
           className="flex flex-col gap-1.5 min-h-24 flex-1 rounded-md transition-colors"
-          style={isOver ? { background: 'color-mix(in oklab, var(--color-accent-v2) 8%, transparent)' } : undefined}
+          style={isOver ? { background: 'var(--color-pib-accent-soft)' } : undefined}
         >
           {deals.map(deal => (
             <DealCard
@@ -259,9 +259,9 @@ function DealColumn({
           ))}
           {deals.length === 0 && (
             <div
-              className="rounded-md border border-dashed border-[var(--color-card-border)] flex items-center justify-center py-6"
+              className="rounded-2xl border border-dashed border-[var(--color-pib-line)] flex items-center justify-center py-6"
             >
-              <p className="text-[11px] text-on-surface-variant">Drop here</p>
+              <p className="text-[11px] text-[var(--color-pib-text-muted)]">Drop here</p>
             </div>
           )}
         </div>
@@ -277,11 +277,11 @@ function DragGhost({ deal, stageColor = '#6b7280' }: { deal: Deal; stageColor?: 
 
   return (
     <div
-      className="select-none w-56 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-2.5 py-2"
+      className="select-none w-56 rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] px-2.5 py-2"
       style={{ borderLeft: `2px solid ${stageColor}`, opacity: 0.9 }}
     >
-      <p className="text-xs font-medium text-on-surface mb-1.5 leading-snug">{titleLabel}</p>
-      <span className="text-[11px] font-mono text-on-surface-variant font-semibold">
+      <p className="text-xs font-medium text-[var(--color-pib-text)] mb-1.5 leading-snug">{titleLabel}</p>
+      <span className="text-[11px] font-mono text-[var(--color-pib-text-muted)] font-semibold">
         {formatValue(deal.value, deal.currency)}
       </span>
     </div>
@@ -393,13 +393,13 @@ export function DealKanban({
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex gap-3 overflow-x-auto rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3" style={{ minHeight: 400 }}>
+      <div className="pib-card flex gap-3 overflow-x-auto p-4" style={{ minHeight: 400 }}>
         {stages.map(stage =>
           loading ? (
             <div key={stage.id} className="flex flex-col w-56 shrink-0">
               <div className="flex items-center gap-2 mb-2 px-1">
                 <div className="w-2 h-2 rounded-full" style={{ background: stage.color ?? '#6b7280' }} />
-                <span className="text-[10px] font-label uppercase tracking-[0.18em] text-on-surface-variant">
+                <span className="pib-label mb-0">
                   {stage.label}
                 </span>
               </div>

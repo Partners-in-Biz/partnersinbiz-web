@@ -121,17 +121,17 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, orgScope
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  const thCls = 'text-left text-[10px] font-label uppercase tracking-[0.18em] text-on-surface-variant px-2 py-1.5'
+  const thCls = 'pib-label text-left px-2 py-1.5'
   const tdCls = 'px-2 py-1.5'
-  const inputCls = 'h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface text-right focus:border-[var(--color-accent-v2)] focus:outline-none'
+  const inputCls = 'pib-input h-8 w-full text-xs text-right'
   const numInputCls = `${inputCls} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`
 
   return (
     <div className="space-y-1">
-      <div className="overflow-x-auto rounded-md border border-[var(--color-card-border)]">
+      <div className="pib-surface pib-surface-table overflow-x-auto">
         <table className="w-full text-xs min-w-[520px]">
           <thead>
-            <tr className="border-b border-[var(--color-card-border)] bg-black/10">
+            <tr className="border-b border-[var(--color-pib-line)]">
               <th className={`${thCls} text-left w-[35%]`}>Product / Name</th>
               <th className={`${thCls} text-right w-[10%]`}>Qty</th>
               <th className={`${thCls} text-right w-[18%]`}>Unit Price</th>
@@ -150,16 +150,16 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, orgScope
                   <div className="mx-auto flex max-w-md flex-col items-center gap-2 text-center">
                     <span
                       aria-hidden="true"
-                      className="material-symbols-outlined flex h-8 w-8 items-center justify-center rounded-md border border-[var(--color-card-border)] bg-white/[0.04] text-[16px] text-[var(--color-accent-v2)]"
+                      className="material-symbols-outlined pib-icon-tint flex h-8 w-8 items-center justify-center rounded-full text-[16px]"
                     >
                       request_quote
                     </span>
                     <div>
-                      <p className="text-[10px] font-label uppercase tracking-[0.18em] text-on-surface-variant">
+                      <p className="pib-label">
                         Quote value missing
                       </p>
-                      <h3 className="mt-1 text-sm font-semibold text-on-surface">Build the first quote line</h3>
-                      <p className="mt-1 text-xs leading-5 text-on-surface-variant">
+                      <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Build the first quote line</h3>
+                      <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                         Add a product, service, or ad-hoc item so sales, delivery, and leadership can see what this opportunity is worth.
                       </p>
                     </div>
@@ -167,7 +167,7 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, orgScope
                       <button
                         type="button"
                         onClick={openAddRow}
-                        className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-xs font-medium text-on-surface transition-colors hover:border-[var(--color-accent-v2)] hover:text-[var(--color-accent-v2)]"
+                        className="btn-pib-secondary h-8 gap-1.5 px-3 text-xs"
                       >
                         <span aria-hidden="true" className="material-symbols-outlined text-[14px]">add</span>
                         Add first quote item
@@ -179,16 +179,16 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, orgScope
             )}
 
             {items.map((item, idx) => (
-              <tr key={idx} className="border-b border-[var(--color-card-border)] last:border-0">
+              <tr key={idx} className="border-b border-[var(--color-pib-line)] transition hover:bg-[var(--color-row-hover)] last:border-0">
                 <td className={tdCls}>
                   {readOnly ? (
-                    <span className="text-xs text-on-surface">{item.name}</span>
+                    <span className="text-xs text-[var(--color-pib-text)]">{item.name}</span>
                   ) : (
                     <input
                       type="text"
                       value={item.name}
                       onChange={e => updateItem(idx, { name: e.target.value })}
-                      className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface focus:border-[var(--color-accent-v2)] focus:outline-none"
+                      className="pib-input h-8 w-full text-xs"
                     />
                   )}
                 </td>
@@ -235,7 +235,7 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, orgScope
                     />
                   )}
                 </td>
-                <td className={`${tdCls} font-mono text-right text-on-surface`}>
+                <td className={`${tdCls} font-mono text-right text-[var(--color-pib-text)]`}>
                   {fmtCurrency(currency, item.total)}
                 </td>
                 {!readOnly && (
@@ -244,7 +244,7 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, orgScope
                       type="button"
                       onClick={() => removeItem(idx)}
                       aria-label={`Remove quote item ${item.name || `line ${idx + 1}`}`}
-                      className="cursor-pointer text-on-surface-variant hover:text-red-400 transition-colors"
+                      className="cursor-pointer text-[var(--color-pib-text-muted)] hover:text-[var(--color-error)] transition-colors"
                     >
                       <span className="material-symbols-outlined text-[16px]">delete</span>
                     </button>
@@ -255,7 +255,7 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, orgScope
 
             {/* Draft / add row */}
             {addingRow && (
-              <tr className="border-b border-[var(--color-card-border)] bg-black/10" onKeyDown={handleDraftKeyDown}>
+              <tr className="border-b border-[var(--color-pib-line)] bg-[var(--color-row-hover)]" onKeyDown={handleDraftKeyDown}>
                 <td className={tdCls}>
                   <ProductPicker
                     orgId={orgId}
@@ -271,7 +271,7 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, orgScope
                       value={draft.name}
                       onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
                       placeholder="Item name"
-                      className="mt-1 h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface focus:border-[var(--color-accent-v2)] focus:outline-none"
+                      className="pib-input mt-1 h-8 w-full text-xs"
                     />
                   )}
                 </td>
@@ -306,7 +306,7 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, orgScope
                     className={numInputCls}
                   />
                 </td>
-                <td className={`${tdCls} font-mono text-right text-on-surface-variant`}>
+                <td className={`${tdCls} font-mono text-right text-[var(--color-pib-text-muted)]`}>
                   {fmtCurrency(currency, computeTotal(draft.qty, draft.unitPrice, draft.discount))}
                 </td>
                 <td className={`${tdCls} text-center`}>
@@ -316,7 +316,7 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, orgScope
                       onClick={confirmDraft}
                       disabled={!draft.name.trim()}
                       aria-label="Add quote item"
-                      className="cursor-pointer text-emerald-400 hover:text-emerald-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="cursor-pointer text-emerald-500 transition-colors hover:text-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       <span className="material-symbols-outlined text-[16px]">check</span>
                     </button>
@@ -324,7 +324,7 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, orgScope
                       type="button"
                       onClick={cancelDraft}
                       aria-label="Cancel quote item draft"
-                      className="cursor-pointer text-on-surface-variant hover:text-on-surface transition-colors"
+                      className="cursor-pointer text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
                     >
                       <span className="material-symbols-outlined text-[16px]">close</span>
                     </button>
@@ -337,14 +337,14 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, orgScope
           {/* Subtotal row */}
           {items.length > 0 && (
             <tfoot>
-              <tr className="border-t border-[var(--color-card-border)] bg-black/10">
+              <tr className="border-t border-[var(--color-pib-line)]">
                 <td
                   colSpan={readOnly ? 4 : 5}
-                  className="px-2 py-2 text-right text-[10px] font-label uppercase tracking-[0.18em] text-on-surface-variant"
+                  className="pib-label px-2 py-2 text-right"
                 >
                   Subtotal
                 </td>
-                <td className="px-2 py-1.5 font-mono text-right font-semibold text-on-surface">
+                <td className="px-2 py-1.5 font-mono text-right font-semibold text-[var(--color-pib-text)]">
                   {fmtCurrency(currency, subtotal)}
                 </td>
                 {!readOnly && <td />}
@@ -358,7 +358,7 @@ export function DealLineItemsEditor({ value, onChange, currency, orgId, orgScope
         <button
           type="button"
           onClick={openAddRow}
-          className="cursor-pointer flex items-center gap-1.5 text-xs text-[var(--color-accent-v2)] hover:opacity-80 transition-opacity pt-1"
+          className="cursor-pointer flex items-center gap-1.5 text-xs text-[var(--color-pib-accent)] hover:opacity-80 transition-opacity pt-1"
         >
           <span className="material-symbols-outlined text-[14px]">add</span>
           Add item

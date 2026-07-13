@@ -125,7 +125,7 @@ export function CompanyTabsBar({ activeTab, onChange, counts, includeWorkspace =
           <div
             role="menu"
             aria-label="More company sections"
-            className="absolute left-0 z-30 mt-1.5 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)] p-1.5 sm:left-auto sm:right-0"
+            className="absolute left-0 z-30 mt-1.5 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-1.5 sm:left-auto sm:right-0"
           >
             {OVERFLOW_GROUPS.map((group) => {
               const groupTabs = group.tabs
@@ -138,8 +138,8 @@ export function CompanyTabsBar({ activeTab, onChange, counts, includeWorkspace =
               if (groupTabs.length === 0) return null
 
               return (
-                <div key={group.label} className="border-b border-[var(--color-card-border)] py-1.5 last:border-b-0">
-                  <p className="px-2.5 pb-1 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">{group.label}</p>
+                <div key={group.label} className="border-b border-[var(--color-pib-line)] py-1.5 last:border-b-0">
+                  <p className="pib-label px-2.5 pb-1">{group.label}</p>
                   <div className="grid gap-0.5">
                     {groupTabs.map((tab) => {
                       const selected = tab.key === activeTab
@@ -150,8 +150,8 @@ export function CompanyTabsBar({ activeTab, onChange, counts, includeWorkspace =
                           role="menuitemradio"
                           aria-checked={selected}
                           className={cn(
-                            'flex h-8 w-full items-center gap-2 rounded-md px-2.5 text-left text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface',
-                            selected && 'bg-primary/10 text-primary',
+                            'flex h-8 w-full items-center gap-2 rounded-full px-2.5 text-left text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]',
+                            selected && 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]',
                           )}
                           onClick={() => {
                             onChange(tab.key)

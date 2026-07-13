@@ -66,45 +66,55 @@ export default function TrafficPage() {
   const t = data?.totals
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
+    <div className="max-w-6xl mx-auto p-6 space-y-8">
       <AnalyticsNav active="traffic" propertyId={propertyId} />
-      <h1 className="text-xl font-headline font-bold text-on-surface">Traffic</h1>
+      <header>
+        <p className="eyebrow">Analytics · Traffic</p>
+        <h1 className="pib-page-title mt-2">Traffic</h1>
+      </header>
 
-      <div className="pib-card p-4 space-y-3">
+      <div className="pib-card space-y-4">
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
         {propertyId && <DateRangePicker value={range} onChange={setRange} />}
         {propertyId && <SegmentFilter value={seg} onChange={setSeg} orgId={orgId} />}
       </div>
 
       {!propertyId && (
-        <div className="pib-card p-8 text-center text-on-surface-variant text-sm">
-          Select a client and property to see traffic.
+        <div className="pib-empty-state">
+          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">traffic</span>
+          <p className="pib-empty-state-description">Select a client and property to see traffic.</p>
         </div>
       )}
 
-      {propertyId && loading && <div className="pib-skeleton h-24 rounded-lg" />}
+      {propertyId && loading && <div className="pib-skeleton h-24" />}
 
       {propertyId && t && data && (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <KpiCard label="Sessions" value={t.sessions.toLocaleString()} accent />
             <KpiCard label="Bounce Rate" value={`${t.bounceRate}%`} />
             <KpiCard label="Avg Session" value={fmtDuration(t.avgDurationSec)} />
           </div>
 
           <div className="grid lg:grid-cols-2 gap-4">
-            <div className="pib-card p-4">
-              <h2 className="text-sm font-label font-semibold text-on-surface mb-3">Devices</h2>
+            <div className="pib-card">
+              <div className="mb-3 flex items-center gap-3">
+                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">devices</span></span>
+                <h2 className="pib-label mb-0">Devices</h2>
+              </div>
               <DonutChart data={data.devices} />
             </div>
-            <div className="pib-card p-4">
-              <h2 className="text-sm font-label font-semibold text-on-surface mb-3">Traffic sources</h2>
+            <div className="pib-card">
+              <div className="mb-3 flex items-center gap-3">
+                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">alt_route</span></span>
+                <h2 className="pib-label mb-0">Traffic sources</h2>
+              </div>
               <DonutChart data={data.sources} />
             </div>
           </div>
 
           <div>
-            <h2 className="text-sm font-label font-semibold text-on-surface mb-2">Countries</h2>
+            <h2 className="pib-label mb-2">Countries</h2>
             <SimpleTable
               columns={[{ key: 'label', label: 'Country' }, { key: 'count', label: 'Sessions', align: 'right' }]}
               rows={data.countries}
@@ -113,7 +123,7 @@ export default function TrafficPage() {
           </div>
 
           <div>
-            <h2 className="text-sm font-label font-semibold text-on-surface mb-2">Referrers</h2>
+            <h2 className="pib-label mb-2">Referrers</h2>
             <SimpleTable
               columns={[{ key: 'label', label: 'Referrer' }, { key: 'count', label: 'Sessions', align: 'right' }]}
               rows={data.referrers}
@@ -122,7 +132,7 @@ export default function TrafficPage() {
           </div>
 
           <div>
-            <h2 className="text-sm font-label font-semibold text-on-surface mb-2">UTM breakdown</h2>
+            <h2 className="pib-label mb-2">UTM breakdown</h2>
             <SimpleTable
               columns={[{ key: 'label', label: 'Campaign' }, { key: 'count', label: 'Sessions', align: 'right' }]}
               rows={data.utmBreakdown}

@@ -63,67 +63,79 @@ export default function AnalyticsSettingsPage() {
   )
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
+    <div className="max-w-6xl mx-auto p-6 space-y-8">
       <AnalyticsNav active="settings" propertyId={propertyId} />
-      <h1 className="text-xl font-headline font-bold text-on-surface">Install &amp; Settings</h1>
+      <header>
+        <p className="eyebrow">Analytics · Settings</p>
+        <h1 className="pib-page-title mt-2">Install &amp; Settings</h1>
+      </header>
 
-      <div className="pib-card p-4 space-y-3">
+      <div className="pib-card space-y-4">
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
       </div>
 
       {!propertyId && (
-        <div className="pib-card p-8 text-center text-on-surface-variant text-sm">
-          Select a client and property to view installation instructions.
+        <div className="pib-empty-state">
+          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">code</span>
+          <p className="pib-empty-state-description">Select a client and property to view installation instructions.</p>
         </div>
       )}
 
-      {propertyId && loading && <div className="pib-skeleton h-24 rounded-lg" />}
+      {propertyId && loading && <div className="pib-skeleton h-24" />}
 
       {propertyId && !loading && data && (
         <>
-          <div className="pib-card p-4 space-y-4">
+          <div className="pib-card space-y-4">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-sm font-label font-semibold text-on-surface">Script tag (recommended)</h2>
+              <div className="flex items-center gap-3">
+                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">code</span></span>
+                <h2 className="pib-label mb-0">Script tag (recommended)</h2>
+              </div>
               <CopyButton text={scriptCode} label="Copy" />
             </div>
-            <pre className="bg-[var(--color-surface-container)] rounded-lg p-3 text-xs text-on-surface overflow-x-auto font-mono whitespace-pre">{scriptCode}</pre>
+            <pre className="bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] rounded-lg p-3 text-xs text-[var(--color-pib-text)] overflow-x-auto font-mono whitespace-pre">{scriptCode}</pre>
 
             <div className="flex items-center justify-between gap-3 pt-2">
-              <h2 className="text-sm font-label font-semibold text-on-surface">npm package</h2>
+              <h2 className="pib-label mb-0">npm package</h2>
               <CopyButton text={npmCode} label="Copy" />
             </div>
-            <pre className="bg-[var(--color-surface-container)] rounded-lg p-3 text-xs text-on-surface overflow-x-auto font-mono whitespace-pre">{npmCode}</pre>
+            <pre className="bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] rounded-lg p-3 text-xs text-[var(--color-pib-text)] overflow-x-auto font-mono whitespace-pre">{npmCode}</pre>
 
-            <p className="text-xs text-on-surface-variant">
-              Property ID <span className="font-mono text-on-surface">{data.propertyId}</span>
-              {data.domain && <> · Domain <span className="font-mono text-on-surface">{data.domain}</span></>}
+            <p className="text-xs text-[var(--color-pib-text-muted)]">
+              Property ID <span className="font-mono text-[var(--color-pib-text)]">{data.propertyId}</span>
+              {data.domain && <> · Domain <span className="font-mono text-[var(--color-pib-text)]">{data.domain}</span></>}
             </p>
           </div>
 
-          <div className="pib-card p-4 space-y-4">
+          <div className="pib-card space-y-4">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-sm font-label font-semibold text-on-surface">Verification</h2>
-              <button type="button" onClick={load} className="pib-btn-secondary text-xs px-3 py-1.5">
+              <div className="flex items-center gap-3">
+                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">verified</span></span>
+                <h2 className="pib-label mb-0">Verification</h2>
+              </div>
+              <button type="button" onClick={load} className="btn-pib-secondary text-xs px-3 py-1.5">
                 Re-check
               </button>
             </div>
 
             {data.received ? (
               <>
-                <span className="inline-block text-xs px-2.5 py-1 rounded-full bg-emerald-400/15 text-emerald-400 font-medium">
+                <span className="pib-pill pib-pill-success">
+                  <span className="pib-status-dot pib-status-dot-success" />
                   Events received
                 </span>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-4">
                   <KpiCard label="Last event" value={fmtDate(data.lastEventAt)} accent />
                   <KpiCard label="Events (last 24h)" value={data.last24h.toLocaleString()} />
                 </div>
               </>
             ) : (
               <>
-                <span className="inline-block text-xs px-2.5 py-1 rounded-full bg-amber-400/15 text-amber-400 font-medium">
+                <span className="pib-pill pib-pill-warn">
+                  <span className="pib-status-dot pib-status-dot-warn" />
                   No events received yet
                 </span>
-                <p className="text-sm text-on-surface-variant">
+                <p className="text-sm text-[var(--color-pib-text-muted)]">
                   Add the install snippet above to your site, then load a page and click Re-check.
                   Events usually appear within a few seconds.
                 </p>

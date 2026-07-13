@@ -46,22 +46,25 @@ export default function HeatmapsPage() {
   useEffect(() => { load() }, [load])
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
+    <div className="max-w-6xl mx-auto p-6 space-y-8">
       <AnalyticsNav active="heatmaps" propertyId={propertyId} />
-      <h1 className="text-xl font-headline font-bold text-on-surface">Heatmaps</h1>
+      <header>
+        <p className="eyebrow">Analytics · Heatmaps</p>
+        <h1 className="pib-page-title mt-2">Heatmaps</h1>
+      </header>
 
-      <div className="pib-card p-4 space-y-3">
+      <div className="pib-card space-y-4">
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
         {propertyId && (
           <>
             <DateRangePicker value={range} onChange={setRange} />
             <div className="flex flex-wrap items-end gap-3">
               <div>
-                <label className="text-[10px] uppercase tracking-wide text-on-surface-variant font-label block">Page URL</label>
+                <label className="pib-label">Page URL</label>
                 <select
                   value={selectedUrl}
                   onChange={e => setSelectedUrl(e.target.value)}
-                  className="pib-input text-xs w-72"
+                  className="pib-select text-xs w-72"
                 >
                   <option value="">All pages</option>
                   {(data?.urls ?? []).map(u => (
@@ -70,18 +73,16 @@ export default function HeatmapsPage() {
                 </select>
               </div>
               <div>
-                <label className="text-[10px] uppercase tracking-wide text-on-surface-variant font-label block">Device</label>
-                <div className="flex gap-1">
+                <label className="pib-label">Device</label>
+                <div className="pib-tabs pib-tabs-segmented" role="tablist" aria-label="Device">
                   {([['', 'All'], ['desktop', 'Desktop'], ['mobile', 'Mobile']] as Array<[Device, string]>).map(([val, lbl]) => (
                     <button
                       key={val || 'all'}
                       type="button"
+                      role="tab"
+                      aria-selected={device === val}
                       onClick={() => setDevice(val)}
-                      className={`px-2.5 py-1.5 rounded text-xs font-medium transition-colors ${
-                        device === val
-                          ? 'bg-amber-400/20 text-amber-400'
-                          : 'text-on-surface-variant hover:text-on-surface bg-[var(--color-surface-container)]'
-                      }`}
+                      className={`pib-tab ${device === val ? 'pib-tab-active' : ''}`}
                     >
                       {lbl}
                     </button>
@@ -94,33 +95,37 @@ export default function HeatmapsPage() {
       </div>
 
       {!propertyId && (
-        <div className="pib-card p-8 text-center text-on-surface-variant text-sm">
-          Select a client and property to see heatmap data.
+        <div className="pib-empty-state">
+          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">mouse</span>
+          <p className="pib-empty-state-description">Select a client and property to see heatmap data.</p>
         </div>
       )}
 
-      {propertyId && loading && <div className="pib-skeleton h-24 rounded-lg" />}
+      {propertyId && loading && <div className="pib-skeleton h-24" />}
 
       {propertyId && !loading && data && (
         <>
           {data.note && (
-            <div className="pib-card p-4 border-l-2 border-blue-400 bg-blue-400/5">
-              <p className="text-xs text-on-surface-variant">{data.note}</p>
+            <div className="pib-card border-l-2 border-l-[var(--color-pib-blue)]">
+              <p className="text-xs text-[var(--color-pib-text-muted)]">{data.note}</p>
             </div>
           )}
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <KpiCard label="Total clicks" value={data.clickTotal.toLocaleString()} accent />
             <KpiCard label="Scroll samples" value={data.scrollSamples.toLocaleString()} />
           </div>
 
-          <div className="pib-card p-4">
-            <h2 className="text-sm font-label font-semibold text-on-surface mb-3">Element clicks</h2>
+          <div className="pib-card">
+            <div className="mb-3 flex items-center gap-3">
+              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">ads_click</span></span>
+              <h2 className="pib-label mb-0">Element clicks</h2>
+            </div>
             <BarSeries data={data.clicks} xKey="selector" yKey="count" label="Clicks" />
           </div>
 
           <div>
-            <h2 className="text-sm font-label font-semibold text-on-surface mb-2">Element click counts</h2>
+            <h2 className="pib-label mb-2">Element click counts</h2>
             <SimpleTable
               columns={[{ key: 'selector', label: 'Element' }, { key: 'count', label: 'Clicks', align: 'right' }]}
               rows={data.clicks}
@@ -128,8 +133,11 @@ export default function HeatmapsPage() {
             />
           </div>
 
-          <div className="pib-card p-4">
-            <h2 className="text-sm font-label font-semibold text-on-surface mb-3">Scroll depth</h2>
+          <div className="pib-card">
+            <div className="mb-3 flex items-center gap-3">
+              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">swipe_vertical</span></span>
+              <h2 className="pib-label mb-0">Scroll depth</h2>
+            </div>
             <BarSeries data={data.scrollBuckets} xKey="band" yKey="count" label="Sessions" />
           </div>
         </>

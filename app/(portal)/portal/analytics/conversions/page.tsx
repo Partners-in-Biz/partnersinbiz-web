@@ -128,15 +128,18 @@ export default function ConversionsPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-8">
       <AnalyticsNav active="conversions" propertyId={propertyId} />
-      <h1 className="text-xl font-headline font-bold text-on-surface">Conversions</h1>
+      <header>
+        <p className="eyebrow">Analytics · Conversions</p>
+        <h1 className="pib-page-title mt-2">Conversions</h1>
+      </header>
 
-      <div className="pib-card p-4 space-y-3">
+      <div className="pib-card space-y-4">
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
         {propertyId && <DateRangePicker value={range} onChange={setRange} />}
         <div className="flex justify-end">
-          <button onClick={fetchGoals} disabled={!propertyId || loading} className="pib-btn-primary text-sm font-label">
+          <button onClick={fetchGoals} disabled={!propertyId || loading} className="btn-pib-primary text-sm">
             {loading ? 'Loading…' : 'Load Goals'}
           </button>
         </div>
@@ -144,15 +147,18 @@ export default function ConversionsPage() {
 
       {/* Create goal form */}
       {propertyId && (
-        <div className="pib-card p-4 space-y-4">
-          <h2 className="text-sm font-label font-semibold text-on-surface">Create Goal</h2>
+        <div className="pib-card space-y-4">
+          <div className="flex items-center gap-3">
+            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">flag</span></span>
+            <h2 className="pib-label mb-0">Create Goal</h2>
+          </div>
           <div>
-            <label className="text-xs text-on-surface-variant font-label block mb-1">Name</label>
+            <label className="pib-label mb-1">Name</label>
             <input type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="Newsletter Signup" className="pib-input text-sm w-72" />
           </div>
           <div>
-            <label className="text-xs text-on-surface-variant font-label block mb-1">Type</label>
-            <select value={newType} onChange={e => setNewType(e.target.value as GoalType)} className="pib-input text-sm w-40">
+            <label className="pib-label mb-1">Type</label>
+            <select value={newType} onChange={e => setNewType(e.target.value as GoalType)} className="pib-select text-sm w-40">
               <option value="event">event</option>
               <option value="pageview">pageview</option>
               <option value="duration">duration</option>
@@ -160,23 +166,23 @@ export default function ConversionsPage() {
           </div>
           {newType === 'duration' ? (
             <div>
-              <label className="text-xs text-on-surface-variant font-label block mb-1">Min Duration (seconds)</label>
+              <label className="pib-label mb-1">Min Duration (seconds)</label>
               <input type="number" value={newMinDuration} onChange={e => setNewMinDuration(Number(e.target.value))} className="pib-input text-sm w-40" />
             </div>
           ) : (
             <div>
-              <label className="text-xs text-on-surface-variant font-label block mb-1">
+              <label className="pib-label mb-1">
                 {newType === 'pageview' ? 'Target (URL path)' : 'Target (event name)'}
               </label>
               <input type="text" value={newTarget} onChange={e => setNewTarget(e.target.value)} placeholder={newType === 'pageview' ? '/thank-you' : 'signup_complete'} className="pib-input text-sm w-56" />
             </div>
           )}
           <div>
-            <label className="text-xs text-on-surface-variant font-label block mb-1">Value (ZAR)</label>
+            <label className="pib-label mb-1">Value (ZAR)</label>
             <input type="number" value={newValue} onChange={e => setNewValue(Number(e.target.value))} className="pib-input text-sm w-40" />
           </div>
-          {error && <p className="text-xs text-red-400">{error}</p>}
-          <button onClick={createGoal} disabled={creating || !newName.trim()} className="pib-btn-primary text-sm font-label">
+          {error && <p className="text-xs text-[var(--color-error)]">{error}</p>}
+          <button onClick={createGoal} disabled={creating || !newName.trim()} className="btn-pib-primary text-sm">
             {creating ? 'Creating…' : 'Create Goal'}
           </button>
         </div>
@@ -186,45 +192,48 @@ export default function ConversionsPage() {
       {goals.length > 0 && (
         <div className="space-y-4">
           {goals.map(g => (
-            <div key={g.id} className="pib-card p-4 space-y-3">
+            <div key={g.id} className="pib-card space-y-3">
               <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-label font-semibold text-on-surface">
-                    {g.name} {!g.active && <span className="text-xs text-on-surface-variant">(inactive)</span>}
-                  </h3>
-                  <p className="text-xs text-on-surface-variant">
-                    {g.type === 'duration' ? `duration ≥ ${g.minDuration}s` : `${g.type}: ${g.target}`} · R{g.value}
-                  </p>
+                <div className="flex items-center gap-3">
+                  <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">flag</span></span>
+                  <div>
+                    <h3 className="text-sm font-medium text-[var(--color-pib-text)]">
+                      {g.name} {!g.active && <span className="text-xs text-[var(--color-pib-text-muted)]">(inactive)</span>}
+                    </h3>
+                    <p className="text-xs text-[var(--color-pib-text-muted)]">
+                      {g.type === 'duration' ? `duration ≥ ${g.minDuration}s` : `${g.type}: ${g.target}`} · R{g.value}
+                    </p>
+                  </div>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => viewResults(g.id)} className="pib-btn-secondary text-xs px-3 py-1.5">
+                  <button onClick={() => viewResults(g.id)} className="btn-pib-secondary text-xs px-3 py-1.5">
                     View Results
                   </button>
-                  <button onClick={() => toggleActive(g)} className="pib-btn-secondary text-xs px-3 py-1.5">
+                  <button onClick={() => toggleActive(g)} className="btn-pib-secondary text-xs px-3 py-1.5">
                     {g.active ? 'Deactivate' : 'Activate'}
                   </button>
-                  <button onClick={() => deleteGoal(g.id)} className="pib-btn-secondary text-xs px-3 py-1.5 text-red-400">
+                  <button onClick={() => deleteGoal(g.id)} className="btn-pib-ghost text-xs px-3 py-1.5 text-[var(--color-error)]">
                     Delete
                   </button>
                 </div>
               </div>
 
               {selectedGoal === g.id && (
-                <div className="border-t border-[var(--color-outline-variant)] pt-3 space-y-4">
-                  {resultsLoading && <div className="pib-skeleton h-12 rounded-lg" />}
+                <div className="border-t border-[var(--color-pib-line)] pt-3 space-y-4">
+                  {resultsLoading && <div className="pib-skeleton h-12" />}
                   {!resultsLoading && results && (
                     <>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         <KpiCard label="Completions" value={results.completions.toLocaleString()} accent />
                         <KpiCard label="Completion Rate" value={`${results.completionRate}%`} />
                         <KpiCard label="Total Value" value={`R${results.totalValue.toLocaleString()}`} />
                       </div>
-                      <div className="pib-card p-4">
-                        <h4 className="text-sm font-label font-semibold text-on-surface mb-3">Goal completions over time</h4>
+                      <div className="pib-card">
+                        <h4 className="pib-label mb-3">Goal completions over time</h4>
                         <LineSeries data={results.series} xKey="date" yKey="completions" label="Completions" />
                       </div>
                       <div>
-                        <h4 className="text-sm font-label font-semibold text-on-surface mb-2">Revenue by channel</h4>
+                        <h4 className="pib-label mb-2">Revenue by channel</h4>
                         <SimpleTable
                           columns={[
                             { key: 'channel', label: 'Channel' },
@@ -245,8 +254,9 @@ export default function ConversionsPage() {
       )}
 
       {!loading && goals.length === 0 && propertyId && (
-        <div className="pib-card p-8 text-center text-on-surface-variant text-sm">
-          No goals yet — create one above.
+        <div className="pib-empty-state">
+          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">flag</span>
+          <p className="pib-empty-state-description">No goals yet — create one above.</p>
         </div>
       )}
     </div>

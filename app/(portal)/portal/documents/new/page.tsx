@@ -152,20 +152,21 @@ export default function PortalNewDocumentPage() {
       <header className="space-y-2">
         <Link
           href="/portal/documents"
-          className="text-xs text-on-surface-variant hover:text-on-surface"
+          className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
         >
           ← Documents
         </Link>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold">New Document</h1>
-            <p className="mt-1 text-sm text-on-surface-variant">
+            <p className="eyebrow">Documents · New</p>
+            <h1 className="pib-page-title mt-2">New Document</h1>
+            <p className="pib-page-sub">
               Choose a template, then give your document a title.
             </p>
           </div>
           <Link
             href="/portal/documents/templates"
-            className="shrink-0 text-xs font-medium text-on-surface-variant hover:text-on-surface"
+            className="shrink-0 text-xs font-medium text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
           >
             Manage templates →
           </Link>
@@ -184,7 +185,7 @@ export default function PortalNewDocumentPage() {
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Step 1 — Template picker grid */}
         <section className="space-y-3">
-          <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
+          <h2 className="pib-label">
             Choose a template
           </h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -198,11 +199,11 @@ export default function PortalNewDocumentPage() {
                   disabled={!canCreateDocument}
                   onClick={() => setType(template.type)}
                   className={[
-                    'group relative flex flex-col gap-2 rounded-lg border p-4 text-left transition-all duration-150',
+                    'pib-card group relative flex flex-col gap-2 text-left transition-all duration-150',
                     'focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-pib-accent)]',
                     isSelected
-                      ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent)]/8 shadow-sm'
-                      : 'border-[var(--color-outline)] bg-[var(--color-surface)] hover:border-[var(--color-pib-accent)]/60 hover:bg-[var(--color-surface-variant)]',
+                      ? 'border-[var(--color-pib-accent)]'
+                      : 'hover:border-[var(--color-pib-line-strong)]',
                     !canCreateDocument ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
                   ].join(' ')}
                   aria-pressed={isSelected}
@@ -210,7 +211,7 @@ export default function PortalNewDocumentPage() {
                   {/* Selected checkmark */}
                   {isSelected && (
                     <span
-                      className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-pib-accent)] text-white"
+                      className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-pib-accent)] text-[var(--color-pib-bg)]"
                       aria-hidden="true"
                     >
                       <span className="material-symbols-outlined text-[14px]">check</span>
@@ -218,26 +219,20 @@ export default function PortalNewDocumentPage() {
                   )}
 
                   {/* Icon */}
-                  <span
-                    className={[
-                      'material-symbols-outlined text-[28px]',
-                      isSelected ? 'text-[var(--color-pib-accent)]' : 'text-on-surface-variant group-hover:text-[var(--color-pib-accent)]',
-                    ].join(' ')}
-                    aria-hidden="true"
-                  >
-                    {icon}
+                  <span className="pib-icon-tint pib-icon-tint-cyan" aria-hidden="true">
+                    <span className="material-symbols-outlined text-[18px]">{icon}</span>
                   </span>
 
                   {/* Name */}
                   <p className={[
                     'text-sm font-semibold leading-snug',
-                    isSelected ? 'text-[var(--color-pib-accent)]' : 'text-on-surface',
+                    isSelected ? 'text-[var(--color-pib-accent)]' : '',
                   ].join(' ')}>
                     {template.label}
                   </p>
 
                   {/* Description */}
-                  <p className="text-xs leading-relaxed text-on-surface-variant">
+                  <p className="text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
                     {template.picker.description}
                   </p>
                 </button>
@@ -248,18 +243,18 @@ export default function PortalNewDocumentPage() {
 
         {/* Selected template detail — shown after pick */}
         {selectedTemplate && (
-          <section className="rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface-variant)] p-4 text-sm">
+          <section className="pib-card text-sm">
             <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <dt className="text-xs font-medium uppercase tracking-[0.14em] text-on-surface-variant">Best for</dt>
-                <dd className="mt-1 text-on-surface">{selectedTemplate.picker.bestFor}</dd>
+                <dt className="pib-label">Best for</dt>
+                <dd className="mt-1">{selectedTemplate.picker.bestFor}</dd>
               </div>
               <div>
-                <dt className="text-xs font-medium uppercase tracking-[0.14em] text-on-surface-variant">Decision it supports</dt>
-                <dd className="mt-1 text-on-surface">{selectedTemplate.picker.decides}</dd>
+                <dt className="pib-label">Decision it supports</dt>
+                <dd className="mt-1">{selectedTemplate.picker.decides}</dd>
               </div>
             </dl>
-            <p className="mt-4 rounded-md bg-black/10 px-3 py-2 text-xs text-on-surface-variant">
+            <p className="mt-4 border-t border-[var(--color-pib-line)] pt-3 text-xs text-[var(--color-pib-text-muted)]">
               {selectedTemplate.picker.helpText}
             </p>
           </section>
@@ -268,25 +263,25 @@ export default function PortalNewDocumentPage() {
         {/* Step 2 — Details */}
         <section
           className={[
-            'space-y-4 rounded-lg border border-[var(--color-outline)] bg-[var(--color-surface)] p-6 transition-opacity duration-200',
+            'pib-card space-y-4 transition-opacity duration-200',
             !type ? 'pointer-events-none opacity-40' : '',
           ].join(' ')}
         >
-          <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
+          <h2 className="pib-label">
             Document details
           </h2>
 
           {/* Organisation */}
           <div className="space-y-1.5">
-            <p className="block text-sm font-medium">Organisation</p>
-            <p className="w-full rounded border border-[var(--color-outline)] bg-[var(--color-surface-variant)] px-3 py-2 text-sm text-on-surface-variant">
+            <p className="pib-label block">Organisation</p>
+            <p className="pib-input w-full text-[var(--color-pib-text-muted)]">
               {orgName || 'Loading…'}
             </p>
           </div>
 
           {/* Title */}
           <div className="space-y-1.5">
-            <label htmlFor="title" className="block text-sm font-medium">
+            <label htmlFor="title" className="pib-label block">
               Title
             </label>
             <input
@@ -297,17 +292,17 @@ export default function PortalNewDocumentPage() {
               placeholder={selectedTemplate ? `e.g. ${selectedTemplate.label} — ${orgName || 'Client'} Q3 2026` : 'e.g. Acme Corp — Proposal Q3 2026'}
               required
               disabled={!canCreateDocument || !type}
-              className="w-full rounded border border-[var(--color-outline)] bg-[var(--color-surface-variant)] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--color-pib-accent)]"
+              className="pib-input w-full"
             />
           </div>
         </section>
 
         {/* Errors / permission notice */}
         {error && (
-          <p className="rounded bg-red-900/30 px-3 py-2 text-sm text-red-400">{error}</p>
+          <p className="text-sm text-[var(--color-error)]">{error}</p>
         )}
         {!canCreateDocument && !error && (
-          <p className="rounded border border-[var(--color-outline)] bg-[var(--color-surface-variant)] px-3 py-2 text-sm text-on-surface-variant">
+          <p className="pib-card text-sm text-[var(--color-pib-text-muted)]">
             Document creation is disabled for your organisation role.
           </p>
         )}
@@ -317,13 +312,13 @@ export default function PortalNewDocumentPage() {
           <button
             type="submit"
             disabled={isDisabled}
-            className="btn-primary rounded px-5 py-2 text-sm font-medium disabled:opacity-50"
+            className="btn-pib-primary"
           >
             {submitting ? 'Creating…' : 'Create document'}
           </button>
           <Link
             href="/portal/documents"
-            className="text-sm text-on-surface-variant hover:text-on-surface"
+            className="btn-pib-ghost"
           >
             Cancel
           </Link>

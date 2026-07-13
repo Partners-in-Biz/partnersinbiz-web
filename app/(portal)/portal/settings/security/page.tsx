@@ -117,7 +117,7 @@ export default function SecuritySettingsPage() {
       <section data-testid="twofa-panel" className="pib-card-section">
         <div className="pib-card-section-header flex items-center justify-between gap-3">
           <div>
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Two-factor authentication</p>
+            <p className="pib-label">Two-factor authentication</p>
             <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Authenticator app (TOTP)</h2>
           </div>
           <span className={`pib-pill shrink-0 ${phase === 'enabled' ? 'pib-pill-success' : ''}`}>
@@ -218,7 +218,9 @@ export default function SecuritySettingsPage() {
           {phase === 'enabled' && (
             <div className="space-y-5">
               <div className="flex items-center gap-3 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-4">
-                <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]" aria-hidden="true">verified_user</span>
+                <span className="pib-icon-tint-cyan shrink-0">
+                  <span className="material-symbols-outlined text-[20px]" aria-hidden="true">verified_user</span>
+                </span>
                 <div>
                   <p className="text-sm font-semibold text-[var(--color-pib-text)]">Two-factor authentication is on</p>
                   <p className="text-xs text-[var(--color-pib-text-muted)]">{backupRemaining} backup code{backupRemaining === 1 ? '' : 's'} remaining.</p>
@@ -240,7 +242,7 @@ export default function SecuritySettingsPage() {
                 <button
                   type="submit"
                   disabled={busy || disableToken.length !== 6}
-                  className="rounded-lg border border-red-500/30 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-40"
+                  className="btn-pib-danger"
                 >
                   {busy ? 'Disabling…' : 'Disable two-factor authentication'}
                 </button>

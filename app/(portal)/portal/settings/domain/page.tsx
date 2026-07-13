@@ -63,7 +63,7 @@ function SslBadge({ status, verified }: { status: SslStatus; verified: boolean }
   const map: Record<SslStatus, { label: string; cls: string; icon: string }> = {
     active: { label: 'SSL active', cls: 'pib-pill-success', icon: 'lock' },
     pending: { label: verified ? 'SSL provisioning' : 'SSL pending', cls: 'pib-pill', icon: 'hourglass_top' },
-    failed: { label: 'SSL failed', cls: 'pib-pill !text-red-400', icon: 'error' },
+    failed: { label: 'SSL failed', cls: 'pib-pill pib-pill-danger', icon: 'error' },
   }
   const v = map[status]
   return (
@@ -165,8 +165,8 @@ export default function DomainSettingsPage() {
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="h-6 w-48 rounded bg-[var(--color-pib-surface-soft)]" />
-        <div className="pib-card h-40" />
+        <div className="pib-skeleton h-6 w-48" />
+        <div className="pib-skeleton h-40 rounded-2xl" />
       </div>
     )
   }
@@ -205,7 +205,7 @@ export default function DomainSettingsPage() {
 
       <form onSubmit={handleSave} className="space-y-5">
         <div className="pib-card space-y-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Subdomain</p>
+          <p className="pib-label">Subdomain</p>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="domain-subdomain" className="pib-label !mb-0">Subdomain</label>
             <div className="flex items-center gap-2">
@@ -227,7 +227,7 @@ export default function DomainSettingsPage() {
         </div>
 
         <div className="pib-card space-y-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Custom domain (CNAME)</p>
+          <p className="pib-label">Custom domain (CNAME)</p>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="domain-custom" className="pib-label !mb-0">Custom domain</label>
             <input
@@ -253,14 +253,14 @@ export default function DomainSettingsPage() {
       {/* DNS records to add */}
       {customDomain && (
         <div className="pib-card space-y-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">DNS records to add</p>
+          <p className="pib-label">DNS records to add</p>
           <p className="text-sm text-[var(--color-pib-text-muted)]">
             Add this record at your DNS provider for <span className="font-medium text-[var(--color-pib-text)]">{customDomain}</span>.
           </p>
           <div className="overflow-x-auto rounded-lg border border-[var(--color-pib-line)]">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-[var(--color-pib-line)] text-left text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+                <tr className="border-b border-[var(--color-pib-line)] text-left font-mono text-[0.7rem] uppercase tracking-[0.08em] text-[var(--color-pib-text-muted)]">
                   <th className="px-4 py-2 font-medium">Type</th>
                   <th className="px-4 py-2 font-medium">Name / Host</th>
                   <th className="px-4 py-2 font-medium">Value / Target</th>
@@ -302,7 +302,7 @@ export default function DomainSettingsPage() {
             <p className="text-sm text-amber-400">{config.lastError}</p>
           )}
           {config.verified && (
-            <p className="inline-flex items-center gap-1.5 text-sm text-[var(--color-pib-success,#22c55e)]">
+            <p className="inline-flex items-center gap-1.5 text-sm text-[var(--color-pib-success)]">
               <span className="material-symbols-outlined text-[16px]">check_circle</span>
               DNS verified — your custom domain is live and SSL is active.
             </p>
