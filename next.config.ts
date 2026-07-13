@@ -7,7 +7,13 @@ const nextConfig: NextConfig = {
     root: path.resolve(__dirname, '../..'),
   },
   experimental: {
+    // Keep the production build inside Vercel's 8 GB container. The custom
+    // webpack hook below disables Next's automatic build-worker isolation, so
+    // opt back in explicitly and bound page-data/static-generation workers.
+    webpackBuildWorker: true,
     webpackMemoryOptimizations: true,
+    cpus: 1,
+    staticGenerationMaxConcurrency: 2,
   },
   transpilePackages: ['@partnersinbiz/analytics-js'],
   serverExternalPackages: ['@react-pdf/renderer'],
