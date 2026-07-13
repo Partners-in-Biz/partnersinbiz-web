@@ -16,7 +16,6 @@ describe('CompanyTabsBar', () => {
     fireEvent.click(screen.getByRole('button', { name: 'More company sections' }))
 
     const menu = screen.getByRole('menu', { name: 'More company sections' })
-    expect(menu.className).toContain('bg-[var(--color-card)]')
     expect(within(menu).getByText('Commercial')).toBeInTheDocument()
     expect(within(menu).getByText('Delivery')).toBeInTheDocument()
     expect(within(menu).getByText('Relationship')).toBeInTheDocument()

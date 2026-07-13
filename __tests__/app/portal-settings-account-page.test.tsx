@@ -24,6 +24,7 @@ jest.mock('firebase/auth', () => ({
 describe('Portal account settings page', () => {
   beforeEach(() => {
     sendPasswordResetEmailMock.mockReset()
+    global.fetch = jest.fn(() => new Promise(() => {}))
   })
 
   it('surfaces the read-only login identity for the signed-in user', () => {
@@ -43,7 +44,7 @@ describe('Portal account settings page', () => {
 
     expect(screen.getByTestId('account-login-panel')).toHaveClass('pib-card-section')
     expect(screen.getByTestId('account-password-panel')).toHaveClass('pib-card-section')
-    expect(screen.getByRole('button', { name: 'Send password reset email' })).toHaveClass('border')
+    expect(screen.getByRole('button', { name: 'Send password reset email' })).toHaveClass('btn-pib-secondary')
   })
 
   it('sends password reset email through Firebase auth', async () => {

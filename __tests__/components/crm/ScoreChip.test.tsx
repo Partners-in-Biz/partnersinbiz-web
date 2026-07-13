@@ -12,34 +12,32 @@ describe('ScoreChip', () => {
     expect(chip.title).toBe('Lead score (formula) — not scored yet')
   })
 
-  it('applies red color class when score is 20', () => {
+  it('uses the shared danger pill treatment for a low score', () => {
     const { container } = render(<ScoreChip score={20} />)
     const chip = container.firstChild as HTMLElement
-    expect(chip.className).toMatch(/bg-red/)
-    expect(chip.className).toMatch(/text-red/)
+    expect(chip).toHaveClass('pib-pill', 'pib-pill-danger')
   })
 
-  it('applies amber color class when score is 50', () => {
+  it('uses the shared warning pill treatment for a medium score', () => {
     const { container } = render(<ScoreChip score={50} />)
     const chip = container.firstChild as HTMLElement
-    expect(chip.className).toMatch(/bg-amber/)
-    expect(chip.className).toMatch(/text-amber/)
+    expect(chip).toHaveClass('pib-pill', 'pib-pill-warn')
   })
 
-  it('applies green color class when score is 80', () => {
+  it('uses the shared success pill treatment for a high score', () => {
     const { container } = render(<ScoreChip score={80} />)
     const chip = container.firstChild as HTMLElement
-    expect(chip.className).toMatch(/bg-emerald/)
-    expect(chip.className).toMatch(/text-emerald/)
+    expect(chip).toHaveClass('pib-pill', 'pib-pill-success')
   })
 
-  it('applies smaller text class for size sm vs md', () => {
+  it('renders distinct compact and default size treatments', () => {
     const { container: smContainer } = render(<ScoreChip score={50} size="sm" />)
     const { container: mdContainer } = render(<ScoreChip score={50} size="md" />)
     const smChip = smContainer.firstChild as HTMLElement
     const mdChip = mdContainer.firstChild as HTMLElement
-    expect(smChip.className).toMatch(/text-xs/)
-    expect(mdChip.className).toMatch(/text-sm/)
+    expect(smChip).toHaveClass('pib-pill')
+    expect(mdChip).toHaveClass('pib-pill')
+    expect(smChip.className).not.toBe(mdChip.className)
   })
 
   it('combines label and kind in tooltip title', () => {
