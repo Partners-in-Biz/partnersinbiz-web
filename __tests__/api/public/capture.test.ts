@@ -210,6 +210,37 @@ describe('POST /api/public/capture/[publicKey]', () => {
     }))
   })
 
+  it('persists a real attributed submission for legacy public captures', async () => {
+    mockSourceLookup(enabledSource)
+    mockExistingContactLookup(null)
+    mockAdd.mockResolvedValueOnce({ id: 'contact-new' })
+
+    const req = new NextRequest('http://localhost/api/public/capture/key123?utm_source=linkedin', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-forwarded-for': '1.2.3.4',
+        referer: 'https://example.com/landing?utm_campaign=growth',
+      },
+      body: JSON.stringify({ email: 'jane@x.com', campaignId: 'campaign-1' }),
+    })
+    const res = await POST(req, params)
+
+    expect(res.status).toBe(201)
+    expect(mockAdd.mock.calls.map(([payload]) => payload)).toContainEqual(expect.objectContaining({
+      orgId: 'org-1',
+      captureSourceId: 'src-1',
+      email: 'jane@x.com',
+      contactId: 'contact-new',
+      attribution: expect.objectContaining({
+        sourceId: 'src-1',
+        campaignId: 'campaign-1',
+        referrer: expect.stringContaining('example.com/landing'),
+        utm: expect.objectContaining({ source: 'linkedin' }),
+      }),
+    }))
+  })
+
   it('reuses an existing contact and merges tags', async () => {
     mockSourceLookup(enabledSource)
     mockExistingContactLookup({ id: 'contact-existing', tags: ['existing'] })

@@ -190,6 +190,35 @@ beforeEach(() => {
 })
 
 describe('POST /api/v1/forms/[id]/submit — attribution', () => {
+  it('persists referrer, campaign and UTM attribution on the submission', async () => {
+    const form = makeForm()
+    stageDb(form, { existingContact: null })
+
+    const { POST } = await import('@/app/api/v1/forms/[id]/submit/route')
+    const req = new NextRequest(
+      'http://localhost/api/v1/forms/contact-us/submit?orgId=org-1&utm_source=linkedin',
+      {
+        method: 'POST',
+        headers: new Headers({
+          'content-type': 'application/json',
+          'x-forwarded-for': '127.0.0.1',
+          referer: 'https://example.com/form?utm_campaign=growth',
+        }),
+        body: JSON.stringify({ email: 'bob@example.com', campaignId: 'campaign-1' }),
+      },
+    )
+    await POST(req, { params: Promise.resolve({ id: 'contact-us' }) })
+
+    expect(mockFormSubmissionsAdd).toHaveBeenCalledWith(expect.objectContaining({
+      attribution: expect.objectContaining({
+        sourceId: 'form-abc',
+        campaignId: 'campaign-1',
+        referrer: expect.stringContaining('example.com/form'),
+        utm: expect.objectContaining({ source: 'linkedin' }),
+      }),
+    }))
+  })
+
   it('writes formSubmissionRef on FormSubmission record', async () => {
     const form = makeForm()
     stageDb(form, { existingContact: null })

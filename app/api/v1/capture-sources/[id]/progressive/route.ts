@@ -443,6 +443,7 @@ export async function POST(req: NextRequest, context: Params) {
       ipAddress: ip,
       userAgent,
       referer,
+      schemaVersionId: source.activeSchemaVersionId ?? 'legacy-unversioned',
       currentStep: stepIndex,
       completedSteps: false,
       createdAt: FieldValue.serverTimestamp(),

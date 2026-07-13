@@ -23,6 +23,7 @@ import {
   DEFAULT_BLOCK_STATS,
   DEFAULT_DISPLAY_CONFIG,
   LEAD_CAPTURE_SOURCES,
+  LEAD_CAPTURE_SCHEMA_VERSIONS,
   VALID_CAPTURE_TYPES,
   VALID_FIELD_TYPES,
   type CaptureField,
@@ -35,6 +36,10 @@ import {
   type WidgetDisplayStep,
   type WidgetPosition,
 } from '@/lib/lead-capture/types'
+import {
+  buildCaptureSchemaVersion,
+  sanitizeCaptureFields,
+} from '@/lib/lead-capture/schema'
 
 const VALID_DISPLAY_MODES: WidgetDisplayMode[] = [
   'inline',
@@ -124,29 +129,7 @@ function sanitizeRateLimit(input: unknown): CaptureSourceRateLimit {
 export const dynamic = 'force-dynamic'
 
 function sanitizeFields(input: unknown): CaptureField[] {
-  if (!Array.isArray(input)) return []
-  return input
-    .map((raw): CaptureField | null => {
-      if (!raw || typeof raw !== 'object') return null
-      const r = raw as Record<string, unknown>
-      const key = typeof r.key === 'string' ? r.key.trim() : ''
-      const label = typeof r.label === 'string' ? r.label.trim() : ''
-      const type = (typeof r.type === 'string' ? r.type : 'text') as CaptureField['type']
-      if (!key || !label) return null
-      if (!VALID_FIELD_TYPES.includes(type)) return null
-      const field: CaptureField = {
-        key,
-        label,
-        type,
-        required: r.required === true,
-      }
-      if (typeof r.placeholder === 'string') field.placeholder = r.placeholder
-      if (Array.isArray(r.options)) {
-        field.options = r.options.filter((o): o is string => typeof o === 'string')
-      }
-      return field
-    })
-    .filter((f): f is CaptureField => f !== null)
+  return sanitizeCaptureFields(input)
 }
 
 function sanitizeTheme(input: unknown): CaptureWidgetTheme {
@@ -238,6 +221,7 @@ export const POST = withAuth(
 
     const doubleOptIn: DoubleOptInMode = body.doubleOptIn === 'on' ? 'on' : 'off'
 
+    const fields = sanitizeFields(body.fields)
     const docData = {
       orgId,
       name,
@@ -250,7 +234,7 @@ export const POST = withAuth(
           ? body.successMessage
           : 'Thanks — you are subscribed!',
       successRedirectUrl: typeof body.successRedirectUrl === 'string' ? body.successRedirectUrl : '',
-      fields: sanitizeFields(body.fields),
+      fields,
       tagsToApply: strArray(body.tagsToApply),
       campaignIdsToEnroll: strArray(body.campaignIdsToEnroll),
       sequenceIdsToEnroll: strArray(body.sequenceIdsToEnroll),
@@ -277,6 +261,13 @@ export const POST = withAuth(
     }
 
     const ref = await adminDb.collection(LEAD_CAPTURE_SOURCES).add(docData)
+    const version = buildCaptureSchemaVersion({ orgId, sourceId: ref.id, fields })
+    await adminDb.collection(LEAD_CAPTURE_SCHEMA_VERSIONS).doc(`${ref.id}_${version.id}`).set({
+      ...version,
+      createdAt: FieldValue.serverTimestamp(),
+      createdBy: user.uid,
+    })
+    await ref.update({ activeSchemaVersionId: version.id })
     const created = await ref.get()
     return apiSuccess({ id: ref.id, ...created.data() }, 201)
   }),

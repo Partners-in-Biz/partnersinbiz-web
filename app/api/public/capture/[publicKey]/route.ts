@@ -50,6 +50,9 @@ import { assertEmailMarketingDispatchApproval } from '@/lib/email-marketing/agen
 import type { Sequence, SequenceEnrollment } from '@/lib/sequences/types'
 import { evaluateSequenceReentry } from '@/lib/email-marketing/automation-policy'
 import { appendConsentEvent } from '@/lib/consent-ledger/store'
+import { normalizeCaptureProvenance } from '@/lib/email-marketing/capture-attribution'
+import { isDisposableEmail } from '@/lib/lead-capture/disposable-domains'
+import { LEAD_CAPTURE_SUBMISSIONS } from '@/lib/lead-capture/types'
 
 type Params = { params: Promise<{ publicKey: string }> }
 
@@ -114,11 +117,22 @@ export async function POST(req: NextRequest, context: Params) {
 
   // Honeypot: silently 200 on submission so the bot thinks it succeeded.
   if (typeof body._hp === 'string' && body._hp.trim().length > 0) {
+    Promise.resolve(sourceDoc.ref.update({
+      'stats.blocked.honeypot': FieldValue.increment(1),
+      updatedAt: FieldValue.serverTimestamp(),
+    })).catch(() => {})
     return jsonSuccess({ ok: true, deduped: false }, 200)
   }
 
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
   if (!email || !isEmail(email)) return jsonError('A valid email is required', 400)
+  if (isDisposableEmail(email)) {
+    Promise.resolve(sourceDoc.ref.update({
+      'stats.blocked.disposable': FieldValue.increment(1),
+      updatedAt: FieldValue.serverTimestamp(),
+    })).catch(() => {})
+    return jsonError('Disposable email addresses are not allowed', 422)
+  }
 
   if (source.consentRequired && body.consent !== true) {
     return jsonError('Consent is required for this form', 422)
@@ -148,6 +162,25 @@ export async function POST(req: NextRequest, context: Params) {
     metaSummary ? `Submitted: ${metaSummary}` : '',
   ].filter(Boolean).join('\n\n')
   const consentGiven = body.consent === true
+  const search = new URL(req.url).searchParams
+  const meta = body.meta && typeof body.meta === 'object'
+    ? body.meta as Record<string, unknown>
+    : {}
+  const attributionInput: Record<string, unknown> = {
+    ...meta,
+    ...body,
+    sourceId: source.id,
+    sourceName: source.name,
+    sourceType: source.type,
+    referrer: typeof body.referrer === 'string' ? body.referrer : req.headers.get('referer') ?? '',
+    landingPage: typeof body.landingPage === 'string'
+      ? body.landingPage
+      : req.headers.get('referer') ?? '',
+  }
+  for (const key of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'fbclid', 'msclkid', 'ttclid']) {
+    if (!attributionInput[key]) attributionInput[key] = search.get(key) ?? ''
+  }
+  const attribution = normalizeCaptureProvenance(attributionInput)
   const consentMetadata = {
     consentRequired: !!source.consentRequired,
     consentGiven,
@@ -177,6 +210,7 @@ export async function POST(req: NextRequest, context: Params) {
       tags: mergedTags,
       lastContactedAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
+      lastTouchAttribution: attribution,
       ...(consentGiven ? {
         marketingConsent: true,
         consentAt: FieldValue.serverTimestamp(),
@@ -209,6 +243,8 @@ export async function POST(req: NextRequest, context: Params) {
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
       lastContactedAt: FieldValue.serverTimestamp(),
+      firstTouchAttribution: attribution,
+      lastTouchAttribution: attribution,
     })
     contactId = docRef.id
   }
@@ -231,6 +267,23 @@ export async function POST(req: NextRequest, context: Params) {
       metadata: consentMetadata,
     })
   }
+
+  await adminDb.collection(LEAD_CAPTURE_SUBMISSIONS).add({
+    orgId: source.orgId,
+    captureSourceId: source.id,
+    captureSourceSystem: 'legacy',
+    email,
+    data: body.meta && typeof body.meta === 'object' ? body.meta : {},
+    contactId,
+    confirmedAt: consentGiven || !source.consentRequired ? FieldValue.serverTimestamp() : null,
+    confirmationToken: '',
+    ipAddress: ip,
+    userAgent: req.headers.get('user-agent') ?? '',
+    referer: attribution.referrer,
+    attribution,
+    schemaVersionId: `legacy_${source.id}`,
+    createdAt: FieldValue.serverTimestamp(),
+  })
 
   // ── 5. Bump source counter (best-effort) ───────────────────────────────────
   try {

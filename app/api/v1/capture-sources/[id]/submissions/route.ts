@@ -10,11 +10,13 @@ import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import {
+  DEFAULT_BLOCK_STATS,
   type CaptureSource,
   type CaptureSubmission,
   LEAD_CAPTURE_SOURCES,
   LEAD_CAPTURE_SUBMISSIONS,
 } from '@/lib/lead-capture/types'
+import { buildCaptureFunnel } from '@/lib/lead-capture/funnel'
 
 export const dynamic = 'force-dynamic'
 
@@ -49,7 +51,8 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser, co
   })
 
   const total = data.length
+  const funnel = buildCaptureFunnel(data, source.stats?.blocked ?? DEFAULT_BLOCK_STATS)
   data = data.slice((page - 1) * limit, page * limit)
 
-  return apiSuccess(data, 200, { total, page, limit })
+  return apiSuccess(data, 200, { total, page, limit, funnel })
 })

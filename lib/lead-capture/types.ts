@@ -28,7 +28,30 @@ export type CaptureSourceType =
 
 export type DoubleOptInMode = 'off' | 'on'
 
-export type CaptureFieldType = 'text' | 'email' | 'tel' | 'textarea' | 'select'
+export type CaptureFieldType = 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'hidden'
+
+export type CaptureAttributionKey =
+  | 'utm_source'
+  | 'utm_medium'
+  | 'utm_campaign'
+  | 'utm_term'
+  | 'utm_content'
+  | 'referrer'
+  | 'landingPage'
+  | 'campaignId'
+  | 'programId'
+  | 'gclid'
+  | 'fbclid'
+  | 'msclkid'
+  | 'ttclid'
+
+export type CaptureFieldConditionOperator = 'equals' | 'not_equals' | 'contains' | 'is_set'
+
+export interface CaptureFieldCondition {
+  fieldKey: string
+  operator: CaptureFieldConditionOperator
+  value?: string
+}
 
 export interface CaptureField {
   key: string                // e.g. "firstName", "company"
@@ -37,6 +60,9 @@ export interface CaptureField {
   required: boolean
   options?: string[]         // for select
   placeholder?: string
+  attributionKey?: CaptureAttributionKey // hidden fields are resolved server-side from trusted request provenance
+  progressiveStep?: number   // 1-based editor step; absent means available on every relevant submit
+  showWhen?: CaptureFieldCondition
 }
 
 export interface CaptureWidgetTheme {
@@ -153,6 +179,7 @@ export interface CaptureSource {
   successMessage: string             // shown to user after submit
   successRedirectUrl?: string        // optional redirect on success
   fields: CaptureField[]             // beyond email (which is always required)
+  activeSchemaVersionId?: string     // immutable fingerprint of the currently published field schema
   tagsToApply: string[]              // tags applied to created/updated contact
   campaignIdsToEnroll: string[]      // direct campaign auto-enrollment
   sequenceIdsToEnroll: string[]      // direct sequence auto-enrollment
@@ -236,6 +263,8 @@ export interface CaptureSubmission {
   ipAddress: string
   userAgent: string
   referer: string
+  attribution?: Record<string, unknown>
+  schemaVersionId?: string
   createdAt: Timestamp | null
   // Multi-step / progressive profiling — present when the submission was
   // created by a multi-step widget. `currentStep` is the last step the user
@@ -259,7 +288,9 @@ export const VALID_FIELD_TYPES: CaptureFieldType[] = [
   'tel',
   'textarea',
   'select',
+  'hidden',
 ]
 
 export const LEAD_CAPTURE_SOURCES = 'lead_capture_sources'
 export const LEAD_CAPTURE_SUBMISSIONS = 'lead_capture_submissions'
+export const LEAD_CAPTURE_SCHEMA_VERSIONS = 'lead_capture_schema_versions'

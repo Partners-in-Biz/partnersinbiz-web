@@ -32,6 +32,7 @@ import {
   normalizeCaptureProvenance,
 } from '@/lib/email-marketing/capture-attribution'
 import { appendConsentEvent } from '@/lib/consent-ledger/store'
+import { resolveCaptureFields } from '@/lib/lead-capture/schema'
 import {
   type CaptureSource,
   type CaptureSubmission,
@@ -388,24 +389,9 @@ export async function POST(req: NextRequest, context: Params) {
     }
   }
 
-  // Build the submitted data record from declared fields + any extras
+  // Build the submitted data record from the published schema. Hidden fields
+  // are resolved later from trusted request attribution, never from raw input.
   const rawData = (body.data && typeof body.data === 'object' ? body.data : {}) as Record<string, unknown>
-  const data: Record<string, string> = {}
-
-  for (const field of source.fields ?? []) {
-    const raw = rawData[field.key]
-    const val = typeof raw === 'string' ? raw.trim() : ''
-    if (field.required && !val) {
-      return jsonError(`Field "${field.label}" is required`, 400)
-    }
-    if (val) data[field.key] = val
-  }
-  // Also accept top-level firstName/lastName/name/phone/company if not in fields
-  for (const k of ['firstName', 'lastName', 'name', 'phone', 'company']) {
-    if (!(k in data) && typeof rawData[k] === 'string' && (rawData[k] as string).trim()) {
-      data[k] = (rawData[k] as string).trim()
-    }
-  }
 
   // US-097: capture UTM attribution from body/query for the created contact.
   const utm = extractUtm(req, body as Record<string, unknown>)
@@ -430,6 +416,28 @@ export async function POST(req: NextRequest, context: Params) {
     msclkid: bodyRecord.msclkid,
     ttclid: bodyRecord.ttclid,
   })
+  const resolvedFields = resolveCaptureFields(source.fields ?? [], rawData, {
+    utm_source: provenance.utm.source,
+    utm_medium: provenance.utm.medium,
+    utm_campaign: provenance.utm.campaign,
+    utm_term: provenance.utm.term,
+    utm_content: provenance.utm.content,
+    referrer: provenance.referrer,
+    landingPage: provenance.landingPage,
+    campaignId: provenance.campaignId,
+    programId: provenance.programId,
+    gclid: provenance.clickIds.gclid,
+    fbclid: provenance.clickIds.fbclid,
+    msclkid: provenance.clickIds.msclkid,
+    ttclid: provenance.clickIds.ttclid,
+  })
+  if (!resolvedFields.ok) return jsonError(resolvedFields.errors.join('; '), 400)
+  const data = resolvedFields.data
+  for (const k of ['firstName', 'lastName', 'name', 'phone', 'company']) {
+    if (!(k in data) && typeof rawData[k] === 'string' && (rawData[k] as string).trim()) {
+      data[k] = (rawData[k] as string).trim()
+    }
+  }
 
   // 3. Find or create contact
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -526,6 +534,7 @@ export async function POST(req: NextRequest, context: Params) {
     userAgent,
     referer,
     attribution: provenance,
+    schemaVersionId: source.activeSchemaVersionId ?? 'legacy-unversioned',
     createdAt: FieldValue.serverTimestamp(),
   })
 

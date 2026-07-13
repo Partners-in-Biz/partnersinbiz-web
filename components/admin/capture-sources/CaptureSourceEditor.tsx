@@ -91,7 +91,11 @@ function pluck(source: CaptureSource): EditableSource {
   }
 }
 
-const FIELD_TYPES: CaptureFieldType[] = ['text', 'email', 'tel', 'textarea', 'select']
+const FIELD_TYPES: CaptureFieldType[] = ['text', 'email', 'tel', 'textarea', 'select', 'hidden']
+const ATTRIBUTION_KEYS = [
+  'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+  'referrer', 'landingPage', 'campaignId', 'programId', 'gclid', 'fbclid', 'msclkid', 'ttclid',
+] as const
 
 export function CaptureSourceEditor(props: Props) {
   const router = useRouter()
@@ -425,6 +429,57 @@ function FieldsTab(props: {
                     value={(f.options ?? []).join(', ')}
                     onChange={(e) => props.onPatch(i, { options: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })}
                   />
+                )}
+              </div>
+              <div className="grid gap-2 md:grid-cols-3">
+                <label className="text-xs text-on-surface-variant">
+                  Progressive step
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={f.progressiveStep ?? ''}
+                    onChange={(e) => props.onPatch(i, { progressiveStep: e.target.value ? Number(e.target.value) : undefined })}
+                    className="mt-1 w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+                  />
+                </label>
+                {f.type === 'hidden' ? (
+                  <label className="text-xs text-on-surface-variant md:col-span-2">
+                    Trusted attribution value
+                    <select
+                      value={f.attributionKey ?? ''}
+                      onChange={(e) => props.onPatch(i, { attributionKey: e.target.value as CaptureField['attributionKey'] })}
+                      className="mt-1 w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+                    >
+                      <option value="">Select attribution field</option>
+                      {ATTRIBUTION_KEYS.map((key) => <option key={key} value={key}>{key}</option>)}
+                    </select>
+                  </label>
+                ) : (
+                  <>
+                    <label className="text-xs text-on-surface-variant">
+                      Show when field
+                      <select
+                        value={f.showWhen?.fieldKey ?? ''}
+                        onChange={(e) => props.onPatch(i, { showWhen: e.target.value ? { fieldKey: e.target.value, operator: 'equals', value: '' } : undefined })}
+                        className="mt-1 w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+                      >
+                        <option value="">Always visible</option>
+                        {props.fields.filter((candidate) => candidate.key !== f.key && candidate.type !== 'hidden').map((candidate) => (
+                          <option key={candidate.key} value={candidate.key}>{candidate.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                    {f.showWhen ? (
+                      <input
+                        aria-label="Conditional value"
+                        value={f.showWhen.value ?? ''}
+                        placeholder="equals value"
+                        onChange={(e) => props.onPatch(i, { showWhen: { ...f.showWhen!, value: e.target.value } })}
+                        className="self-end px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+                      />
+                    ) : <div />}
+                  </>
                 )}
               </div>
             </div>

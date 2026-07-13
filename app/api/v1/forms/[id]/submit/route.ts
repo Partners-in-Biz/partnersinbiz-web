@@ -24,6 +24,7 @@ import { getResendClient, FROM_ADDRESS } from '@/lib/email/resend'
 import type { Form } from '@/lib/forms/types'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { formSubmissionRef } from '@/lib/orgMembers/memberRef'
+import { normalizeCaptureProvenance } from '@/lib/email-marketing/capture-attribution'
 
 export const dynamic = 'force-dynamic'
 
@@ -206,6 +207,20 @@ export async function POST(
 
   const normalized = result.normalized
   const submitterRef = formSubmissionRef(form.id, form.name)
+  const attributionInput: Record<string, unknown> = {
+    ...body,
+    sourceId: form.id,
+    sourceName: form.name,
+    sourceType: 'form',
+    referrer: req.headers.get('referer') ?? '',
+    landingPage: typeof body.landingPage === 'string'
+      ? body.landingPage
+      : req.headers.get('referer') ?? '',
+  }
+  for (const key of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'fbclid', 'msclkid', 'ttclid']) {
+    if (!attributionInput[key]) attributionInput[key] = searchParams.get(key) ?? ''
+  }
+  const attribution = normalizeCaptureProvenance(attributionInput)
 
   // Persist submission.
   const submissionRef = await adminDb.collection('form_submissions').add({
@@ -218,6 +233,10 @@ export async function POST(
     status: 'new' as const,
     contactId: null,
     source: 'form',
+    attribution,
+    schemaVersionId: typeof (form as unknown as Record<string, unknown>).activeSchemaVersionId === 'string'
+      ? (form as unknown as Record<string, unknown>).activeSchemaVersionId
+      : 'legacy-unversioned',
     createdBy: submitterRef.uid,
     createdByRef: submitterRef,
   })
