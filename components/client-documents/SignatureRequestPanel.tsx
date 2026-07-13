@@ -35,7 +35,7 @@ function StatusBadge({ status }: { status: SignatureRequestRow['status'] }) {
     signed: { label: 'Signed', cls: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30', icon: 'verified' },
     pending: { label: 'Pending', cls: 'bg-amber-500/15 text-amber-300 border-amber-500/30', icon: 'schedule' },
     declined: { label: 'Declined', cls: 'bg-rose-500/15 text-rose-300 border-rose-500/30', icon: 'block' },
-    cancelled: { label: 'Cancelled', cls: 'bg-white/5 text-on-surface-variant border-white/10', icon: 'cancel' },
+    cancelled: { label: 'Cancelled', cls: 'bg-white/5 text-[var(--color-pib-text-muted)] border-white/10', icon: 'cancel' },
   }
   const m = map[status]
   return (
@@ -119,7 +119,7 @@ export function SignatureRequestPanel({ documentId, canRequest }: SignatureReque
   return (
     <section className="pib-card space-y-3 p-4">
       <div className="flex items-center justify-between">
-        <p className="text-xs uppercase tracking-[0.18em] text-on-surface-variant">E-signature</p>
+        <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">E-signature</p>
         {canRequest && !showForm ? (
           <button
             type="button"
@@ -135,7 +135,7 @@ export function SignatureRequestPanel({ documentId, canRequest }: SignatureReque
       </div>
 
       {!canRequest ? (
-        <p className="text-xs text-on-surface-variant">
+        <p className="text-xs text-[var(--color-pib-text-muted)]">
           Publish a version and enable the share link to request a signature.
         </p>
       ) : null}
@@ -191,19 +191,19 @@ export function SignatureRequestPanel({ documentId, canRequest }: SignatureReque
       ) : null}
 
       {loading ? (
-        <p className="text-xs text-on-surface-variant">Loading…</p>
+        <p className="text-xs text-[var(--color-pib-text-muted)]">Loading…</p>
       ) : requests.length > 0 ? (
         <ul className="space-y-2">
           {requests.map((r) => (
             <li key={r.id} className="rounded-lg border border-white/10 bg-white/5 p-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-on-surface">{r.signerName}</p>
-                  <p className="truncate text-xs text-on-surface-variant">{r.signerEmail}</p>
+                  <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{r.signerName}</p>
+                  <p className="truncate text-xs text-[var(--color-pib-text-muted)]">{r.signerEmail}</p>
                 </div>
                 <StatusBadge status={r.status} />
               </div>
-              <p className="mt-1 text-[11px] text-on-surface-variant">
+              <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">
                 {r.status === 'signed' && r.signedAt
                   ? `Signed ${fmtTimestamp(r.signedAt)}`
                   : r.createdAt
@@ -227,7 +227,7 @@ export function SignatureRequestPanel({ documentId, canRequest }: SignatureReque
           ))}
         </ul>
       ) : !showForm && canRequest ? (
-        <p className="text-xs text-on-surface-variant">No signature requests yet.</p>
+        <p className="text-xs text-[var(--color-pib-text-muted)]">No signature requests yet.</p>
       ) : null}
     </section>
   )

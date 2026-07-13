@@ -116,7 +116,7 @@ export function NotificationBell({ mode = 'crm', orgId, userId }: NotificationBe
       <button
         onClick={togglePanel}
         title="Notifications"
-        className="relative flex h-8 w-8 items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
+        className="relative flex h-8 w-8 items-center justify-center rounded-md text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
         aria-label="Open notifications"
       >
         <span className="material-symbols-outlined text-[18px]">
@@ -133,11 +133,11 @@ export function NotificationBell({ mode = 'crm', orgId, userId }: NotificationBe
       {open && (
         <div
           className="absolute right-0 top-full z-50 mt-1.5 w-80 overflow-hidden rounded-lg border border-[var(--color-card-border)]"
-          style={{ background: 'var(--color-sidebar, var(--color-surface-container))' }}
+          style={{ background: 'var(--color-sidebar, var(--color-pib-surface))' }}
         >
           {/* Header */}
           <div className="flex h-9 items-center justify-between border-b border-[var(--color-card-border)] px-3">
-            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Notifications</p>
+            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Notifications</p>
             {notifications.length > 0 && (
               <button
                 onClick={() => void clearNotifications()}
@@ -168,18 +168,18 @@ export function NotificationBell({ mode = 'crm', orgId, userId }: NotificationBe
                     task_alt
                   </span>
                   <div>
-                    <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Quiet inbox</p>
-                    <h3 className="mt-0.5 text-sm font-semibold text-on-surface">
+                    <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Quiet inbox</p>
+                    <h3 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">
                       No CRM alerts need action
                     </h3>
-                    <p className="mt-0.5 text-xs leading-5 text-on-surface-variant">
+                    <p className="mt-0.5 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                       You are clear on owner gaps, deal movement, form submissions, and follow-up automation alerts.
                     </p>
                   </div>
                 </div>
                 <div className="mt-2.5 rounded-md border border-[var(--color-card-border)] bg-black/10 px-2.5 py-2">
-                  <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Monitoring</p>
-                  <p className="mt-0.5 text-xs font-medium text-on-surface">
+                  <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Monitoring</p>
+                  <p className="mt-0.5 text-xs font-medium text-[var(--color-pib-text)]">
                     Watching owner, deal, and intake signals
                   </p>
                 </div>
@@ -194,18 +194,18 @@ export function NotificationBell({ mode = 'crm', orgId, userId }: NotificationBe
                 const content = (
                   <>
                     <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[var(--color-card-border)] bg-black/10">
-                      <span className="material-symbols-outlined text-[13px] text-on-surface-variant">
+                      <span className="material-symbols-outlined text-[13px] text-[var(--color-pib-text-muted)]">
                         {notifIcon(n.type)}
                       </span>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className={['text-xs leading-snug', n.status === 'unread' ? 'font-medium text-on-surface' : 'text-on-surface-variant'].join(' ')}>
+                      <p className={['text-xs leading-snug', n.status === 'unread' ? 'font-medium text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)]'].join(' ')}>
                         {n.title ?? n.body ?? n.type}
                       </p>
                       {n.body && n.title && (
-                        <p className="mt-0.5 truncate text-[11px] text-on-surface-variant">{n.body}</p>
+                        <p className="mt-0.5 truncate text-[11px] text-[var(--color-pib-text-muted)]">{n.body}</p>
                       )}
-                      <p className="mt-0.5 font-mono text-[10px] text-on-surface-variant">
+                      <p className="mt-0.5 font-mono text-[10px] text-[var(--color-pib-text-muted)]">
                         {fmtTimestamp(n.createdAt)}
                       </p>
                     </div>

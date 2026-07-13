@@ -35,8 +35,8 @@ function Avatar({ name, email }: { name: string; email: string }) {
     .join('')
   return (
     <div
-      className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-on-surface flex-shrink-0"
-      style={{ backgroundColor: 'var(--color-accent-v2)' }}
+      className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-[var(--color-pib-text)] flex-shrink-0"
+      style={{ backgroundColor: 'var(--color-pib-accent)' }}
     >
       {initials || '?'}
     </div>
@@ -351,11 +351,11 @@ export default function AdminUsersPage() {
     <div className="space-y-6 max-w-6xl mx-auto">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Admin / Users
           </p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">All Users</h1>
-          <p className="text-sm text-on-surface-variant mt-0.5">
+          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">All Users</h1>
+          <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5">
             Browse every Firebase Auth user, manage their access, and impersonate them for debugging.
           </p>
         </div>
@@ -384,24 +384,24 @@ export default function AdminUsersPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="pib-card p-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Total users</p>
-          <p className="text-2xl font-headline font-bold text-on-surface mt-1">{users.length}</p>
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Total users</p>
+          <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{users.length}</p>
         </div>
         <div className="pib-card p-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Admins</p>
-          <p className="text-2xl font-headline font-bold text-on-surface mt-1">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Admins</p>
+          <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">
             {users.filter((u) => u.role === 'admin').length}
           </p>
         </div>
         <div className="pib-card p-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Clients</p>
-          <p className="text-2xl font-headline font-bold text-on-surface mt-1">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Clients</p>
+          <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">
             {users.filter((u) => u.role === 'client').length}
           </p>
         </div>
         <div className="pib-card p-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Disabled</p>
-          <p className="text-2xl font-headline font-bold text-on-surface mt-1">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Disabled</p>
+          <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">
             {users.filter((u) => u.disabled).length}
           </p>
         </div>
@@ -445,7 +445,7 @@ export default function AdminUsersPage() {
       {/* Bulk action bar */}
       {selectedVisible.length > 0 && (
         <div className="pib-card flex flex-wrap items-center gap-3 px-4 py-3">
-          <span className="text-sm font-medium text-on-surface">
+          <span className="text-sm font-medium text-[var(--color-pib-text)]">
             {selectedVisible.length} selected
           </span>
           <div className="flex flex-wrap gap-2">
@@ -489,14 +489,14 @@ export default function AdminUsersPage() {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="pib-card p-6 text-center text-sm text-on-surface-variant">
+        <div className="pib-card p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
           {users.length === 0 ? 'No users found.' : 'No matches.'}
         </div>
       ) : (
         <div className="pib-card overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-on-surface/10">
+              <tr className="border-b border-[var(--color-pib-text)]/10">
                 <th className="px-4 py-3 w-10">
                   <input
                     type="checkbox"
@@ -505,22 +505,22 @@ export default function AdminUsersPage() {
                     aria-label="Select all visible"
                   />
                 </th>
-                <th className="text-left px-4 py-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                <th className="text-left px-4 py-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                   User
                 </th>
-                <th className="text-left px-4 py-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant hidden sm:table-cell">
+                <th className="text-left px-4 py-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] hidden sm:table-cell">
                   Status
                 </th>
-                <th className="text-left px-4 py-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant hidden md:table-cell">
+                <th className="text-left px-4 py-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] hidden md:table-cell">
                   Role
                 </th>
-                <th className="text-left px-4 py-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant hidden lg:table-cell">
+                <th className="text-left px-4 py-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] hidden lg:table-cell">
                   Last login
                 </th>
-                <th className="text-left px-4 py-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant hidden lg:table-cell">
+                <th className="text-left px-4 py-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] hidden lg:table-cell">
                   Organisation
                 </th>
-                <th className="text-right px-4 py-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                <th className="text-right px-4 py-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                   Actions
                 </th>
               </tr>
@@ -532,7 +532,7 @@ export default function AdminUsersPage() {
                 return (
                   <tr
                     key={u.uid}
-                    className="border-b border-on-surface/5 last:border-0 hover:bg-on-surface/5 transition-colors"
+                    className="border-b border-[var(--color-pib-text)]/5 last:border-0 hover:bg-[var(--color-pib-text)]/5 transition-colors"
                   >
                     <td className="px-4 py-3">
                       <input
@@ -554,7 +554,7 @@ export default function AdminUsersPage() {
                         <Avatar name={u.displayName} email={u.email} />
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-medium text-on-surface truncate">
+                            <span className="text-sm font-medium text-[var(--color-pib-text)] truncate">
                               {u.displayName || '(no name)'}
                             </span>
                             <span className="sm:hidden">
@@ -564,8 +564,8 @@ export default function AdminUsersPage() {
                               <RoleBadge role={u.role} />
                             </span>
                           </div>
-                          <p className="text-xs text-on-surface-variant truncate">{u.email}</p>
-                          <span className="text-[11px] text-on-surface-variant/60 font-mono truncate block">
+                          <p className="text-xs text-[var(--color-pib-text-muted)] truncate">{u.email}</p>
+                          <span className="text-[11px] text-[var(--color-pib-text-muted)]/60 font-mono truncate block">
                             {u.uid}
                           </span>
                         </div>
@@ -584,7 +584,7 @@ export default function AdminUsersPage() {
 
                     {/* Last login */}
                     <td className="px-4 py-3 hidden lg:table-cell">
-                      <span className="text-xs text-on-surface-variant" title={u.lastSignInTime ?? undefined}>
+                      <span className="text-xs text-[var(--color-pib-text-muted)]" title={u.lastSignInTime ?? undefined}>
                         {relativeTime(u.lastSignInTime)}
                       </span>
                     </td>
@@ -594,12 +594,12 @@ export default function AdminUsersPage() {
                       {u.orgId ? (
                         <Link
                           href={`/admin/organizations/${u.orgId}`}
-                          className="text-xs text-on-surface-variant font-mono underline hover:text-on-surface"
+                          className="text-xs text-[var(--color-pib-text-muted)] font-mono underline hover:text-[var(--color-pib-text)]"
                         >
                           {u.orgId}
                         </Link>
                       ) : (
-                        <span className="text-xs text-on-surface-variant/40">—</span>
+                        <span className="text-xs text-[var(--color-pib-text-muted)]/40">—</span>
                       )}
                     </td>
 
@@ -631,7 +631,7 @@ export default function AdminUsersPage() {
         </div>
       )}
 
-      <p className="text-xs text-on-surface-variant text-center">
+      <p className="text-xs text-[var(--color-pib-text-muted)] text-center">
         Showing {filtered.length} of {users.length} users (capped at 1 000 from Firebase Auth)
       </p>
 
@@ -711,7 +711,7 @@ export default function AdminUsersPage() {
                   <button
                     type="button"
                     onClick={() => copyUid(detailUser.uid)}
-                    className="font-mono text-xs underline text-on-surface-variant hover:text-on-surface text-left"
+                    className="font-mono text-xs underline text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] text-left"
                     title="Copy UID"
                   >
                     {detailUser.uid}
@@ -725,7 +725,7 @@ export default function AdminUsersPage() {
                   detailUser.orgId ? (
                     <Link
                       href={`/admin/organizations/${detailUser.orgId}`}
-                      className="font-mono text-xs underline text-on-surface-variant hover:text-on-surface"
+                      className="font-mono text-xs underline text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
                     >
                       {detailUser.orgId}
                     </Link>
@@ -779,7 +779,7 @@ export default function AdminUsersPage() {
           </div>
         }
       >
-        <p className="text-sm text-on-surface-variant">{confirmCopy?.body}</p>
+        <p className="text-sm text-[var(--color-pib-text-muted)]">{confirmCopy?.body}</p>
       </DialogDrawer>
     </div>
   )
@@ -788,8 +788,8 @@ export default function AdminUsersPage() {
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <dt className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{label}</dt>
-      <dd className="text-sm text-on-surface break-words">{value}</dd>
+      <dt className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</dt>
+      <dd className="text-sm text-[var(--color-pib-text)] break-words">{value}</dd>
     </div>
   )
 }

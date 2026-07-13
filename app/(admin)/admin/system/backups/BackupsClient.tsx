@@ -276,11 +276,11 @@ export default function BackupsClient() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Platform / System
           </p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Per-Org Backups</h1>
-          <p className="text-sm text-on-surface-variant mt-1">
+          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Per-Org Backups</h1>
+          <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
             Create point-in-time JSON snapshots of an organisation&apos;s scoped data, diff a snapshot
             against live Firestore, download it, or restore (upsert) it back into production.
           </p>
@@ -314,7 +314,7 @@ export default function BackupsClient() {
 
       {/* Org picker */}
       <div className="pib-card p-4 flex flex-wrap items-center gap-3">
-        <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Organisation</span>
+        <span className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Organisation</span>
         <select
           className="pib-input text-sm min-w-[260px]"
           value={selectedOrg}
@@ -328,7 +328,7 @@ export default function BackupsClient() {
           ))}
         </select>
         {selectedOrg && (
-          <span className="text-xs text-on-surface-variant font-mono">{selectedOrg}</span>
+          <span className="text-xs text-[var(--color-pib-text-muted)] font-mono">{selectedOrg}</span>
         )}
       </div>
 
@@ -351,7 +351,7 @@ export default function BackupsClient() {
           ))}
         </div>
       ) : visibleBackups.length === 0 ? (
-        <div className="pib-card p-10 text-center text-sm text-on-surface-variant">
+        <div className="pib-card p-10 text-center text-sm text-[var(--color-pib-text-muted)]">
           No backups yet{selectedOrg ? ' for this organisation' : ''}.
           {isSuperAdmin && selectedOrg && ' Use “Create backup” above to make one.'}
         </div>
@@ -360,7 +360,7 @@ export default function BackupsClient() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-outline/40 text-left text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
+                <tr className="border-b border-[var(--color-pib-line-strong)]/40 text-left text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                   <th className="px-4 py-2">Organisation</th>
                   <th className="px-4 py-2">Status</th>
                   <th className="px-4 py-2 text-right">Docs</th>
@@ -372,10 +372,10 @@ export default function BackupsClient() {
               </thead>
               <tbody>
                 {visibleBackups.map((b) => (
-                  <tr key={b.id} className="border-b border-outline/20 last:border-0 align-top">
+                  <tr key={b.id} className="border-b border-[var(--color-pib-line-strong)]/20 last:border-0 align-top">
                     <td className="px-4 py-3">
-                      <div className="font-medium text-on-surface">{orgNameById.get(b.orgId) ?? b.orgId}</div>
-                      <div className="text-xs text-on-surface-variant font-mono">{b.orgId}</div>
+                      <div className="font-medium text-[var(--color-pib-text)]">{orgNameById.get(b.orgId) ?? b.orgId}</div>
+                      <div className="text-xs text-[var(--color-pib-text-muted)] font-mono">{b.orgId}</div>
                       {b.storageFallback && (
                         <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-label text-amber-400">
                           <span className="material-symbols-outlined text-[12px]">database</span>
@@ -387,8 +387,8 @@ export default function BackupsClient() {
                     <td className="px-4 py-3"><StatusBadge status={b.status} /></td>
                     <td className="px-4 py-3 text-right tabular-nums">{b.docCount ?? '—'}</td>
                     <td className="px-4 py-3 text-right tabular-nums">{formatBytes(b.sizeBytes)}</td>
-                    <td className="px-4 py-3 text-xs text-on-surface-variant whitespace-nowrap">{formatDate(b.createdAt)}</td>
-                    <td className="px-4 py-3 text-xs text-on-surface-variant">{b.createdByName || b.createdBy || '—'}</td>
+                    <td className="px-4 py-3 text-xs text-[var(--color-pib-text-muted)] whitespace-nowrap">{formatDate(b.createdAt)}</td>
+                    <td className="px-4 py-3 text-xs text-[var(--color-pib-text-muted)]">{b.createdByName || b.createdBy || '—'}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
@@ -440,7 +440,7 @@ export default function BackupsClient() {
       {diffFor && (
         <div className="pib-card p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-headline font-bold text-on-surface flex items-center gap-2">
+            <h2 className="text-sm font-headline font-bold text-[var(--color-pib-text)] flex items-center gap-2">
               <span className="material-symbols-outlined text-[16px]">difference</span>
               Diff vs live — <span className="font-mono text-xs">{diffFor}</span>
             </h2>
@@ -456,7 +456,7 @@ export default function BackupsClient() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-outline/40 text-left text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
+                  <tr className="border-b border-[var(--color-pib-line-strong)]/40 text-left text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                     <th className="px-3 py-2">Collection</th>
                     <th className="px-3 py-2 text-right">Added (live only)</th>
                     <th className="px-3 py-2 text-right">Removed (backup only)</th>
@@ -466,12 +466,12 @@ export default function BackupsClient() {
                 </thead>
                 <tbody>
                   {Object.entries(diff.perCollection).map(([name, c]) => (
-                    <tr key={name} className="border-b border-outline/20 last:border-0">
+                    <tr key={name} className="border-b border-[var(--color-pib-line-strong)]/20 last:border-0">
                       <td className="px-3 py-2 font-mono text-xs">{name}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-emerald-400">{c.added}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-red-400">{c.removed}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-amber-400">{c.changed}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-on-surface-variant">{c.unchanged}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-[var(--color-pib-text-muted)]">{c.unchanged}</td>
                     </tr>
                   ))}
                   <tr className="bg-surface-variant/30 font-medium">
@@ -479,7 +479,7 @@ export default function BackupsClient() {
                     <td className="px-3 py-2 text-right tabular-nums text-emerald-400">{diff.totals.added}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-red-400">{diff.totals.removed}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-amber-400">{diff.totals.changed}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-on-surface-variant">{diff.totals.unchanged}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-[var(--color-pib-text-muted)]">{diff.totals.unchanged}</td>
                   </tr>
                 </tbody>
               </table>
@@ -492,13 +492,13 @@ export default function BackupsClient() {
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="pib-card w-full max-w-md p-5 space-y-4">
-            <h2 className="text-lg font-headline font-bold text-on-surface">Create backup</h2>
-            <p className="text-sm text-on-surface-variant">
+            <h2 className="text-lg font-headline font-bold text-[var(--color-pib-text)]">Create backup</h2>
+            <p className="text-sm text-[var(--color-pib-text-muted)]">
               This snapshots the scoped collections for{' '}
-              <span className="font-medium text-on-surface">{orgNameById.get(selectedOrg) ?? selectedOrg}</span>.
+              <span className="font-medium text-[var(--color-pib-text)]">{orgNameById.get(selectedOrg) ?? selectedOrg}</span>.
               To confirm, type the org id below:
             </p>
-            <code className="block rounded bg-surface-variant/40 px-2 py-1 text-xs font-mono text-on-surface">{selectedOrg}</code>
+            <code className="block rounded bg-surface-variant/40 px-2 py-1 text-xs font-mono text-[var(--color-pib-text)]">{selectedOrg}</code>
             <input
               className="pib-input w-full text-sm font-mono"
               value={confirmCreate}
@@ -528,7 +528,7 @@ export default function BackupsClient() {
       {restoreFor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="pib-card w-full max-w-md p-5 space-y-4">
-            <h2 className="text-lg font-headline font-bold text-on-surface flex items-center gap-2">
+            <h2 className="text-lg font-headline font-bold text-[var(--color-pib-text)] flex items-center gap-2">
               <span className="material-symbols-outlined text-[18px] text-amber-400">restore</span>
               Restore backup
             </h2>
@@ -536,8 +536,8 @@ export default function BackupsClient() {
               This <strong>upserts</strong> every document from the backup back into live Firestore (merge). It does
               not delete anything, but it will overwrite fields that changed since the snapshot. This cannot be undone.
             </div>
-            <p className="text-sm text-on-surface-variant">To confirm, type the full restore phrase:</p>
-            <code className="block rounded bg-surface-variant/40 px-2 py-1 text-xs font-mono text-on-surface">{restorePrompt}</code>
+            <p className="text-sm text-[var(--color-pib-text-muted)]">To confirm, type the full restore phrase:</p>
+            <code className="block rounded bg-surface-variant/40 px-2 py-1 text-xs font-mono text-[var(--color-pib-text)]">{restorePrompt}</code>
             <input
               className="pib-input w-full text-sm font-mono"
               value={confirmRestore}

@@ -191,23 +191,24 @@ export default function NewOrganizationPage() {
   // Success / summary view
   if (result) {
     return (
-      <div className="space-y-6 max-w-2xl mx-auto">
-        <div className="text-xs text-on-surface-variant font-label uppercase tracking-wide">
-          <Link href="/admin/organizations" className="hover:text-on-surface">Organisations</Link>
+      <div className="space-y-8 max-w-2xl mx-auto">
+        <div className="text-xs text-[var(--color-pib-text-muted)] font-label uppercase tracking-wide">
+          <Link href="/admin/organizations" className="hover:text-[var(--color-pib-text)]">Organisations</Link>
           <span className="mx-2">/</span>
           <span>Workspace provisioned</span>
         </div>
 
-        <div>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Client workspace created</h1>
-          <p className="text-sm text-on-surface-variant mt-1">
+        <header>
+          <p className="eyebrow">Admin · Clients</p>
+          <h1 className="pib-page-title mt-2">Client workspace created</h1>
+          <p className="pib-page-sub">
             The organisation record, owner login, and trial window have been set up.
           </p>
-        </div>
+        </header>
 
         <div className="pib-card space-y-3">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Summary</p>
-          <ul className="text-sm text-on-surface space-y-2">
+          <p className="pib-label">Summary</p>
+          <ul className="text-sm text-[var(--color-pib-text)] space-y-2">
             <li>✅ Organisation record created{result.slug ? ` (slug: ${result.slug})` : ''}.</li>
             <li>{result.ownerCreated ? '✅' : '⚠️'} Owner login for <strong>{result.ownerEmail}</strong> {result.ownerCreated ? 'created and added as owner.' : 'could not be created.'}</li>
             <li>{result.welcomeEmailSent ? '✅ Welcome / password-setup email sent.' : (formData.sendWelcomeEmail ? '⚠️ Welcome email was requested but no setup link was generated.' : 'ℹ️ Welcome email skipped (toggle off).')}</li>
@@ -217,8 +218,8 @@ export default function NewOrganizationPage() {
 
         {result.setupLink ? (
           <div className="pib-card space-y-2">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Password-setup link</p>
-            <p className="text-xs text-on-surface-variant">
+            <p className="pib-label">Password-setup link</p>
+            <p className="text-xs text-[var(--color-pib-text-muted)]">
               {result.welcomeEmailSent
                 ? 'Already emailed to the owner. Copy below if you need to forward it manually.'
                 : 'Welcome email was skipped — forward this link to the owner so they can set their password.'}
@@ -233,18 +234,18 @@ export default function NewOrganizationPage() {
         ) : null}
 
         {result.warnings.length > 0 ? (
-          <div className="pib-card !border-amber-500/30 !bg-amber-500/5 space-y-1">
-            <p className="text-[10px] font-label uppercase tracking-widest text-amber-400">Warnings</p>
+          <div className="pib-card space-y-1">
+            <p className="pib-label text-[var(--color-pib-amber)]">Warnings</p>
             {result.warnings.map((w, i) => (
-              <p key={i} className="text-sm text-amber-300">• {w}</p>
+              <p key={i} className="text-sm text-[var(--color-pib-amber)]">• {w}</p>
             ))}
           </div>
         ) : null}
 
         <div className="flex gap-3 pt-2">
-          <Link href="/admin/organizations" className="pib-btn-primary">Back to organisations</Link>
+          <Link href="/admin/organizations" className="btn-pib-primary">Back to organisations</Link>
           {result.slug ? (
-            <Link href={`/admin/org/${result.slug}/dashboard`} className="pib-btn-secondary">Open workspace</Link>
+            <Link href={`/admin/org/${result.slug}/dashboard`} className="btn-pib-secondary">Open workspace</Link>
           ) : null}
         </div>
       </div>
@@ -252,34 +253,35 @@ export default function NewOrganizationPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="space-y-8 max-w-2xl mx-auto">
       {/* Breadcrumb */}
-      <div className="text-xs text-on-surface-variant font-label uppercase tracking-wide">
-        <Link href="/admin/organizations" className="hover:text-on-surface">Organisations</Link>
+      <div className="text-xs text-[var(--color-pib-text-muted)] font-label uppercase tracking-wide">
+        <Link href="/admin/organizations" className="hover:text-[var(--color-pib-text)]">Organisations</Link>
         <span className="mx-2">/</span>
         <span>Provision Client Workspace</span>
       </div>
 
       {/* Heading */}
-      <div>
-        <h1 className="text-2xl font-headline font-bold text-on-surface">Provision Client Workspace</h1>
-        <p className="text-sm text-on-surface-variant mt-1">
+      <header>
+        <p className="eyebrow">Admin · Clients</p>
+        <h1 className="pib-page-title mt-2">Provision Client Workspace</h1>
+        <p className="pib-page-sub">
           Creates a client organisation, an owner login with a password-setup email, an EFT trial window,
           and optional Cowork/Hermes workspace scaffolding. No card required — EFT billing only.
         </p>
-      </div>
+      </header>
 
       {/* Form */}
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
         {error && (
-          <div className="pib-card !border-red-500/30 !bg-red-500/5 text-sm text-red-400">
+          <div className="pib-card text-sm text-[var(--color-error)]">
             {error}
           </div>
         )}
 
         {/* Company Details Card */}
         <div className="pib-card space-y-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+          <p className="pib-label">
             Client Workspace Details
           </p>
 
@@ -331,7 +333,7 @@ export default function NewOrganizationPage() {
 
         {/* Owner & Onboarding Card */}
         <div className="pib-card space-y-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+          <p className="pib-label">
             Owner & Onboarding
           </p>
 
@@ -350,7 +352,7 @@ export default function NewOrganizationPage() {
             <div>
               <label htmlFor="trialDays" className="pib-label">Trial length (days)</label>
               <input id="trialDays" type="number" name="trialDays" min={0} max={365} value={formData.trialDays} onChange={handleChange} placeholder="14" className="pib-input" />
-              <p className="text-xs text-on-surface-variant mt-1">Sets an EFT trial window on the org. Use 0 for no trial.</p>
+              <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">Sets an EFT trial window on the org. Use 0 for no trial.</p>
             </div>
             <div>
               <label htmlFor="plan" className="pib-label">Plan</label>
@@ -364,7 +366,7 @@ export default function NewOrganizationPage() {
             </div>
           </div>
 
-          <label className="flex items-start gap-3 text-sm text-on-surface">
+          <label className="flex items-start gap-3 text-sm text-[var(--color-pib-text)]">
             <input
               type="checkbox"
               name="sendWelcomeEmail"
@@ -374,7 +376,7 @@ export default function NewOrganizationPage() {
             />
             <span>
               <span className="block font-medium">Send welcome / password-setup email</span>
-              <span className="block text-xs text-on-surface-variant">
+              <span className="block text-xs text-[var(--color-pib-text-muted)]">
                 Emails the owner a button to set their password and sign in. When off, the setup link is
                 shown here for you to forward manually.
               </span>
@@ -384,11 +386,11 @@ export default function NewOrganizationPage() {
 
         {/* Cowork & Hermes Card */}
         <div className="pib-card space-y-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+          <p className="pib-label">
             Cowork & Hermes Provisioning
           </p>
 
-          <label className="flex items-start gap-3 text-sm text-on-surface">
+          <label className="flex items-start gap-3 text-sm text-[var(--color-pib-text)]">
             <input
               type="checkbox"
               name="provisionWorkspace"
@@ -398,7 +400,7 @@ export default function NewOrganizationPage() {
             />
             <span>
               <span className="block font-medium">Provision full client workspace</span>
-              <span className="block text-xs text-on-surface-variant">
+              <span className="block text-xs text-[var(--color-pib-text-muted)]">
                 Creates the VPS Cowork folder, Obsidian agent domain, wiki/log/raw folders,
                 project instructions, Hermes profile, SOUL.md, and global Cowork mapping.
               </span>
@@ -421,10 +423,10 @@ export default function NewOrganizationPage() {
 
         {/* Actions */}
         <div className="flex gap-3 pt-2">
-          <button type="submit" disabled={loading} className="pib-btn-primary">
+          <button type="submit" disabled={loading} className="btn-pib-primary">
             {loading ? 'Provisioning...' : 'Provision client workspace'}
           </button>
-          <Link href="/admin/organizations" className="pib-btn-secondary">
+          <Link href="/admin/organizations" className="btn-pib-secondary">
             Cancel
           </Link>
         </div>

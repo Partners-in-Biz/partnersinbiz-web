@@ -146,7 +146,7 @@ export default function ParticipantPicker({ orgId, onSelect, className = '', sho
             return (
               <span
                 key={p.kind === 'agent' ? p.agentId : p.uid}
-                className="inline-flex items-center gap-1 rounded-full bg-primary/20 border border-primary/40 px-2.5 py-0.5 text-xs text-on-surface"
+                className="inline-flex items-center gap-1 rounded-full bg-primary/20 border border-primary/40 px-2.5 py-0.5 text-xs text-[var(--color-pib-text)]"
               >
                 {label}
                 <button
@@ -170,7 +170,7 @@ export default function ParticipantPicker({ orgId, onSelect, className = '', sho
       {/* Agents section */}
       {showAgents && agents.length > 0 && (
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-2 px-1">Agents</p>
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-2 px-1">Agents</p>
           <div className="space-y-1">
             {agents.map((agent) => {
               const isChecked = selected.some((s) => s.kind === 'agent' && s.agentId === agent.agentId)
@@ -199,7 +199,7 @@ export default function ParticipantPicker({ orgId, onSelect, className = '', sho
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm font-medium ${c.label}`}>{agent.name}</p>
-                    <p className="text-[11px] text-on-surface-variant truncate">{agent.role}</p>
+                    <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{agent.role}</p>
                   </div>
                   {agent.lastHealthStatus && (
                     <span
@@ -225,7 +225,7 @@ export default function ParticipantPicker({ orgId, onSelect, className = '', sho
       {/* People section */}
       {contacts.length > 0 && (
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-2 px-1 mt-2">People</p>
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-2 px-1 mt-2">People</p>
           <div className="space-y-1">
             {contacts.map((contact) => {
               const isChecked = selected.some((s) => s.kind === 'user' && s.uid === contact.uid)
@@ -248,12 +248,12 @@ export default function ParticipantPicker({ orgId, onSelect, className = '', sho
                     onChange={() => toggleContact(contact)}
                     className="sr-only"
                   />
-                  <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-on-surface shrink-0">
+                  <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-[var(--color-pib-text)] shrink-0">
                     {inits || '?'}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-on-surface">{label}</p>
-                    {contact.email && <p className="text-[11px] text-on-surface-variant truncate">{contact.email}</p>}
+                    <p className="text-sm font-medium text-[var(--color-pib-text)]">{label}</p>
+                    {contact.email && <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{contact.email}</p>}
                   </div>
                   {isChecked && (
                     <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span>
@@ -266,7 +266,7 @@ export default function ParticipantPicker({ orgId, onSelect, className = '', sho
       )}
 
       {agents.length === 0 && contacts.length === 0 && (
-        <p className="text-xs text-on-surface-variant px-1">No participants available.</p>
+        <p className="text-xs text-[var(--color-pib-text-muted)] px-1">No participants available.</p>
       )}
     </div>
   )

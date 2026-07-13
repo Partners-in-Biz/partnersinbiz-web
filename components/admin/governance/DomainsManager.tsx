@@ -133,16 +133,16 @@ export function DomainsManager() {
     <div className="space-y-6 max-w-6xl mx-auto">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">Governance</p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">White-label Domains</h1>
-          <p className="text-sm text-on-surface-variant mt-1">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">Governance</p>
+          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">White-label Domains</h1>
+          <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
             Provision and manage custom client portal domains across{' '}
             {data.scope === 'restricted' ? 'your assigned' : 'all'} organisations — verify DNS, provision SSL, or revoke.
           </p>
         </div>
         <a
           href="/api/v1/admin/domains/export"
-          className="shrink-0 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-4 py-2 text-sm font-medium text-on-surface hover:bg-[var(--color-row-hover)] transition-colors"
+          className="shrink-0 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)] px-4 py-2 text-sm font-medium text-[var(--color-pib-text)] hover:bg-[var(--color-row-hover)] transition-colors"
         >
           Export CSV
         </a>
@@ -157,15 +157,15 @@ export function DomainsManager() {
           { label: 'Pending', value: data.counts.pending },
         ].map((m) => (
           <div key={m.label} className="pib-card">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{m.label}</p>
-            <p className="text-2xl font-headline font-bold text-on-surface mt-1">{m.value}</p>
+            <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{m.label}</p>
+            <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{m.value}</p>
           </div>
         ))}
       </div>
 
-      <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2 text-xs text-on-surface-variant">
+      <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
         DNS target — every custom domain must CNAME to{' '}
-        <span className="font-mono text-on-surface">{data.cnameTarget}</span>
+        <span className="font-mono text-[var(--color-pib-text)]">{data.cnameTarget}</span>
       </div>
 
       {notice && (
@@ -188,13 +188,13 @@ export function DomainsManager() {
 
       {/* Table */}
       <div className="overflow-x-auto rounded-xl border border-[var(--color-card-border)]">
-        <table className="w-full text-left text-sm text-on-surface">
+        <table className="w-full text-left text-sm text-[var(--color-pib-text)]">
           <thead>
-            <tr className="border-b border-[var(--color-card-border)] bg-[var(--color-surface-container)]">
+            <tr className="border-b border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)]">
               {['Domain', 'Organization', 'Portal alias', 'Verified', 'SSL', 'Last checked', 'Actions'].map((col) => (
                 <th
                   key={col}
-                  className="px-3 py-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant whitespace-nowrap"
+                  className="px-3 py-2 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] whitespace-nowrap"
                 >
                   {col}
                 </th>
@@ -204,13 +204,13 @@ export function DomainsManager() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-on-surface-variant">
+                <td colSpan={7} className="px-3 py-6 text-center text-[var(--color-pib-text-muted)]">
                   Loading domains…
                 </td>
               </tr>
             ) : data.rows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-on-surface-variant">
+                <td colSpan={7} className="px-3 py-6 text-center text-[var(--color-pib-text-muted)]">
                   No custom domains are configured in the accessible org scope.
                 </td>
               </tr>
@@ -225,23 +225,23 @@ export function DomainsManager() {
                     className="border-b border-[var(--color-card-border)] last:border-b-0 hover:bg-[var(--color-row-hover)] transition-colors align-top"
                   >
                     <td className="px-3 py-2">
-                      <p className="font-medium text-on-surface font-mono text-xs break-all">
+                      <p className="font-medium text-[var(--color-pib-text)] font-mono text-xs break-all">
                         {row.customDomain || 'No custom domain'}
                       </p>
                       {row.lastError && <p className="text-[11px] text-amber-300/80 mt-0.5">{row.lastError}</p>}
                     </td>
-                    <td className="px-3 py-2 text-on-surface-variant whitespace-nowrap">
-                      <a className="hover:text-on-surface" href={`/admin/org/${row.slug}/settings`}>
+                    <td className="px-3 py-2 text-[var(--color-pib-text-muted)] whitespace-nowrap">
+                      <a className="hover:text-[var(--color-pib-text)]" href={`/admin/org/${row.slug}/settings`}>
                         {row.orgName}
                       </a>
                     </td>
-                    <td className="px-3 py-2 text-xs font-mono text-on-surface-variant break-all">
+                    <td className="px-3 py-2 text-xs font-mono text-[var(--color-pib-text-muted)] break-all">
                       {row.portalAlias || 'Not assigned'}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">
                       <span
                         className={`inline-block rounded px-1.5 py-0.5 text-xs ${
-                          row.verified ? 'bg-green-500/15 text-green-300' : 'bg-[var(--color-surface-container)] text-on-surface-variant'
+                          row.verified ? 'bg-green-500/15 text-green-300' : 'bg-[var(--color-pib-surface-soft)] text-[var(--color-pib-text-muted)]'
                         }`}
                       >
                         {row.verified ? `Yes (${fmt(row.verifiedAt)})` : 'No'}
@@ -252,14 +252,14 @@ export function DomainsManager() {
                         {row.sslStatus}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-xs text-on-surface-variant whitespace-nowrap">{fmt(row.lastCheckedAt)}</td>
+                    <td className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)] whitespace-nowrap">{fmt(row.lastCheckedAt)}</td>
                     <td className="px-3 py-2">
                       <div className="flex flex-wrap gap-1.5">
                         <button
                           type="button"
                           disabled={verifyBusy || !row.customDomain}
                           onClick={() => runAction(row.orgId, 'verify')}
-                          className="rounded-md border border-[var(--color-card-border)] px-2 py-1 text-xs text-on-surface hover:bg-[var(--color-row-hover)] disabled:opacity-50 transition-colors"
+                          className="rounded-md border border-[var(--color-card-border)] px-2 py-1 text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-row-hover)] disabled:opacity-50 transition-colors"
                         >
                           {verifyBusy ? 'Checking…' : 'Verify DNS'}
                         </button>
@@ -267,7 +267,7 @@ export function DomainsManager() {
                           type="button"
                           disabled={sslBusy || !row.verified || row.sslStatus === 'active'}
                           onClick={() => runAction(row.orgId, 'provision-ssl')}
-                          className="rounded-md border border-[var(--color-card-border)] px-2 py-1 text-xs text-on-surface hover:bg-[var(--color-row-hover)] disabled:opacity-50 transition-colors"
+                          className="rounded-md border border-[var(--color-card-border)] px-2 py-1 text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-row-hover)] disabled:opacity-50 transition-colors"
                         >
                           {sslBusy ? 'Provisioning…' : 'Provision SSL'}
                         </button>

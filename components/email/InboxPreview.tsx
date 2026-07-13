@@ -63,14 +63,14 @@ function IssueRow({ warning }: { warning: InboxWarning }) {
       <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${s.dot}`} aria-hidden />
       <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-on-surface">{warning.title}</span>
+          <span className="text-sm font-medium text-[var(--color-pib-text)]">{warning.title}</span>
           <span className={`text-[10px] font-semibold uppercase tracking-wide ${s.label}`}>
             {warning.severity}
           </span>
         </div>
-        <p className="mt-0.5 text-xs leading-relaxed text-on-surface-variant">{warning.detail}</p>
-        <p className="mt-1 text-xs leading-relaxed text-on-surface-variant">
-          <span className="font-medium text-on-surface">Fix:</span> {warning.recommendation}
+        <p className="mt-0.5 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">{warning.detail}</p>
+        <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
+          <span className="font-medium text-[var(--color-pib-text)]">Fix:</span> {warning.recommendation}
         </p>
       </div>
     </li>
@@ -115,7 +115,7 @@ export function InboxPreview({
   return (
     <div className={`pib-card !p-0 overflow-hidden ${className}`}>
       {/* Tab bar */}
-      <div className="flex flex-wrap items-center gap-1 border-b border-outline-variant bg-surface-container px-2 py-2">
+      <div className="flex flex-wrap items-center gap-1 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-2 py-2">
         {INBOX_CLIENTS.map((c) => {
           const r = report.clients.find((x) => x.clientId === c.id)
           const active = c.id === activeClient
@@ -128,7 +128,7 @@ export function InboxPreview({
               className={`relative rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                 active
                   ? 'bg-primary text-on-primary'
-                  : 'bg-surface-container-high text-on-surface-variant hover:text-on-surface'
+                  : 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
               }`}
               title={c.engine}
             >
@@ -150,11 +150,11 @@ export function InboxPreview({
       <div className="grid gap-0 lg:grid-cols-[1fr_320px]">
         {/* Rendered email */}
         <div className="flex flex-col bg-zinc-950">
-          <div className="flex items-center justify-between border-b border-outline-variant px-4 py-2">
-            <span className="text-xs text-on-surface-variant">
+          <div className="flex items-center justify-between border-b border-[var(--color-pib-line)] px-4 py-2">
+            <span className="text-xs text-[var(--color-pib-text-muted)]">
               {client.label} · {client.engine}
             </span>
-            <span className="text-[11px] text-on-surface-variant">
+            <span className="text-[11px] text-[var(--color-pib-text-muted)]">
               {client.device === 'mobile' ? `${client.viewportWidth}px` : 'Desktop'} · {kb} KB
             </span>
           </div>
@@ -176,9 +176,9 @@ export function InboxPreview({
         </div>
 
         {/* Issues panel */}
-        <div className="border-t border-outline-variant lg:border-l lg:border-t-0 bg-surface">
-          <div className="flex items-center justify-between border-b border-outline-variant px-4 py-2.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
+        <div className="border-t border-[var(--color-pib-line)] lg:border-l lg:border-t-0 bg-[var(--color-pib-surface)]">
+          <div className="flex items-center justify-between border-b border-[var(--color-pib-line)] px-4 py-2.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">
               Rendering issues
             </span>
             <span className="flex items-center gap-2 text-[11px]">
@@ -191,18 +191,18 @@ export function InboxPreview({
           </div>
 
           {warnings.length === 0 ? (
-            <div className="px-4 py-6 text-center text-xs text-on-surface-variant">
+            <div className="px-4 py-6 text-center text-xs text-[var(--color-pib-text-muted)]">
               No rendering quirks detected for {client.label}.
             </div>
           ) : (
-            <ul className="max-h-[520px] divide-y divide-outline-variant overflow-y-auto px-4">
+            <ul className="max-h-[520px] divide-y divide-[var(--color-pib-line)] overflow-y-auto px-4">
               {warnings.map((w) => (
                 <IssueRow key={w.id} warning={w} />
               ))}
             </ul>
           )}
 
-          <p className="border-t border-outline-variant px-4 py-3 text-[11px] leading-relaxed text-on-surface-variant">
+          <p className="border-t border-[var(--color-pib-line)] px-4 py-3 text-[11px] leading-relaxed text-[var(--color-pib-text-muted)]">
             Heuristic preview: each tab approximates the client&apos;s engine quirks via a
             deterministic CSS normalize. It is an aid, not a pixel-accurate render, and uses no
             screenshots.
@@ -231,8 +231,8 @@ export function InboxPreviewSwitcher({
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-on-surface">{heading}</h3>
-        <span className="text-[11px] text-on-surface-variant">
+        <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{heading}</h3>
+        <span className="text-[11px] text-[var(--color-pib-text-muted)]">
           {INBOX_CLIENTS.length} clients
         </span>
       </div>

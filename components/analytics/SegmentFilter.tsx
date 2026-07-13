@@ -94,7 +94,7 @@ export function SegmentFilter({
   return (
     <div className={`flex flex-wrap items-end gap-2 ${className}`}>
       <div>
-        <label className="text-[10px] uppercase tracking-wide text-on-surface-variant font-label block">Visitor</label>
+        <label className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)] font-label block">Visitor</label>
         <select
           value={value.visitorType}
           onChange={e => onChange({ ...value, visitorType: e.target.value as SegmentValue['visitorType'] })}
@@ -106,7 +106,7 @@ export function SegmentFilter({
         </select>
       </div>
       <div>
-        <label className="text-[10px] uppercase tracking-wide text-on-surface-variant font-label block">Device</label>
+        <label className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)] font-label block">Device</label>
         <select
           value={value.device}
           onChange={e => onChange({ ...value, device: e.target.value as SegmentValue['device'] })}
@@ -119,7 +119,7 @@ export function SegmentFilter({
         </select>
       </div>
       <div>
-        <label className="text-[10px] uppercase tracking-wide text-on-surface-variant font-label block">Source</label>
+        <label className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)] font-label block">Source</label>
         <input
           type="text"
           value={value.source}
@@ -129,7 +129,7 @@ export function SegmentFilter({
         />
       </div>
       <div>
-        <label className="text-[10px] uppercase tracking-wide text-on-surface-variant font-label block">Country</label>
+        <label className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)] font-label block">Country</label>
         <input
           type="text"
           value={value.country}
@@ -141,7 +141,7 @@ export function SegmentFilter({
       </div>
       {crmSegments.length > 0 && (
         <div>
-          <label className="text-[10px] uppercase tracking-wide text-on-surface-variant font-label block">CRM Segment</label>
+          <label className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)] font-label block">CRM Segment</label>
           <select
             value={value.crmSegmentId}
             onChange={e => onChange({ ...value, crmSegmentId: e.target.value })}

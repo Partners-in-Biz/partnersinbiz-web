@@ -207,7 +207,7 @@ export function ClientDocumentsWorkspace({ surface, orgSlug = '' }: ClientDocume
           <div className="flex items-center gap-3">
             <Link
               href="/portal/documents/templates"
-              className="text-xs font-medium text-on-surface-variant hover:text-on-surface"
+              className="text-xs font-medium text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
             >
               Manage templates →
             </Link>

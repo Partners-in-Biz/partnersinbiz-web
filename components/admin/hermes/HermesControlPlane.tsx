@@ -310,8 +310,8 @@ export function HermesControlPlane() {
                 { label: 'Fleet state', value: summary.pausedAll ? 'Paused' : 'Active' },
               ].map((m) => (
                 <div key={m.label} className="pib-card p-5">
-                  <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{m.label}</p>
-                  <p className="mt-3 text-2xl font-semibold text-on-surface">{m.value}</p>
+                  <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{m.label}</p>
+                  <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">{m.value}</p>
                 </div>
               ))}
             </section>
@@ -339,15 +339,15 @@ export function HermesControlPlane() {
                   }
                 >
                   <dl className="space-y-1.5 text-sm">
-                    <div className="flex justify-between gap-3"><dt className="text-on-surface-variant">VPS host</dt><dd className="text-on-surface"><code>{link.host}</code></dd></div>
-                    <div className="flex justify-between gap-3"><dt className="text-on-surface-variant">Port</dt><dd className="text-on-surface"><code>{link.port ?? '—'}</code></dd></div>
+                    <div className="flex justify-between gap-3"><dt className="text-[var(--color-pib-text-muted)]">VPS host</dt><dd className="text-[var(--color-pib-text)]"><code>{link.host}</code></dd></div>
+                    <div className="flex justify-between gap-3"><dt className="text-[var(--color-pib-text-muted)]">Port</dt><dd className="text-[var(--color-pib-text)]"><code>{link.port ?? '—'}</code></dd></div>
                     <div className="flex justify-between gap-3">
-                      <dt className="text-on-surface-variant">Last heartbeat</dt>
+                      <dt className="text-[var(--color-pib-text-muted)]">Last heartbeat</dt>
                       <dd><StatusPill tone={heartbeatTone(link.lastHeartbeat)}>{link.lastHeartbeat ? formatDateTime(link.lastHeartbeat) : 'No activity'}</StatusPill></dd>
                     </div>
-                    <div className="flex justify-between gap-3"><dt className="text-on-surface-variant">Requests today</dt><dd className="text-on-surface">{link.requestsToday}</dd></div>
-                    <div className="flex justify-between gap-3"><dt className="text-on-surface-variant">API key</dt><dd className="text-on-surface">{link.hasApiKey ? 'Set' : 'Missing'}</dd></div>
-                    <div className="flex justify-between gap-3"><dt className="text-on-surface-variant">Dashboard token</dt><dd className="text-on-surface">{link.hasDashboardSessionToken ? 'Set' : '—'}</dd></div>
+                    <div className="flex justify-between gap-3"><dt className="text-[var(--color-pib-text-muted)]">Requests today</dt><dd className="text-[var(--color-pib-text)]">{link.requestsToday}</dd></div>
+                    <div className="flex justify-between gap-3"><dt className="text-[var(--color-pib-text-muted)]">API key</dt><dd className="text-[var(--color-pib-text)]">{link.hasApiKey ? 'Set' : 'Missing'}</dd></div>
+                    <div className="flex justify-between gap-3"><dt className="text-[var(--color-pib-text-muted)]">Dashboard token</dt><dd className="text-[var(--color-pib-text)]">{link.hasDashboardSessionToken ? 'Set' : '—'}</dd></div>
                   </dl>
 
                   <div className="mt-4 flex flex-wrap gap-2">
@@ -378,9 +378,9 @@ export function HermesControlPlane() {
       >
         {restartResult && (
           <div className="space-y-2 text-sm">
-            <p className="text-on-surface">{restartResult.orgName}</p>
-            <p className="text-on-surface-variant">{restartResult.detail}</p>
-            <div className="flex items-center gap-2"><span className="text-on-surface-variant">Health:</span>
+            <p className="text-[var(--color-pib-text)]">{restartResult.orgName}</p>
+            <p className="text-[var(--color-pib-text-muted)]">{restartResult.detail}</p>
+            <div className="flex items-center gap-2"><span className="text-[var(--color-pib-text-muted)]">Health:</span>
               <StatusPill tone={restartResult.health === 'ok' ? 'success' : restartResult.health === 'degraded' ? 'warn' : 'danger'}>{restartResult.health}</StatusPill>
             </div>
           </div>
@@ -397,19 +397,19 @@ export function HermesControlPlane() {
       >
         {logsError && <p className="text-sm text-red-400">{logsError}</p>}
         {logs === null && !logsError ? (
-          <p className="text-sm text-on-surface-variant">Loading runs…</p>
+          <p className="text-sm text-[var(--color-pib-text-muted)]">Loading runs…</p>
         ) : logs && logs.length === 0 ? (
-          <p className="text-sm text-on-surface-variant">No runs recorded for this org.</p>
+          <p className="text-sm text-[var(--color-pib-text-muted)]">No runs recorded for this org.</p>
         ) : (
           <ul className="divide-y divide-white/5">
             {(logs ?? []).map((run) => (
               <li key={run.id} className="py-3">
                 <div className="flex items-center justify-between gap-2">
                   <StatusPill tone="neutral">{run.status}</StatusPill>
-                  <span className="text-xs text-on-surface-variant">{formatDateTime(run.createdAt)}</span>
+                  <span className="text-xs text-[var(--color-pib-text-muted)]">{formatDateTime(run.createdAt)}</span>
                 </div>
-                {run.prompt && <p className="mt-1 text-xs text-on-surface-variant">{run.prompt}</p>}
-                <p className="mt-1 text-[10px] text-on-surface-variant opacity-70">
+                {run.prompt && <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{run.prompt}</p>}
+                <p className="mt-1 text-[10px] text-[var(--color-pib-text-muted)] opacity-70">
                   {run.profile ?? '—'}{run.model ? ` · ${run.model}` : ''}{run.requestedBy ? ` · ${run.requestedBy}` : ''}
                 </p>
               </li>
@@ -436,7 +436,7 @@ export function HermesControlPlane() {
         <div className="space-y-2">
           {soulError && <p className="text-sm text-red-400">{soulError}</p>}
           {soulLoading ? (
-            <p className="text-sm text-on-surface-variant">Loading SOUL…</p>
+            <p className="text-sm text-[var(--color-pib-text-muted)]">Loading SOUL…</p>
           ) : (
             <textarea
               className="pib-input w-full font-mono text-xs"
@@ -467,29 +467,29 @@ export function HermesControlPlane() {
         <div className="space-y-4">
           {routeError && <p className="text-sm text-red-400">{routeError}</p>}
           <label className="block">
-            <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Organisation</span>
+            <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Organisation</span>
             <select className="pib-input mt-1 w-full" value={routeOrg} onChange={(e) => setRouteOrg(e.target.value)}>
               <option value="">Select org…</option>
               {(data?.orgs ?? []).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
             </select>
           </label>
           <label className="block">
-            <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Profile</span>
+            <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Profile</span>
             <input className="pib-input mt-1 w-full" placeholder="pip-main" value={routeProfile} onChange={(e) => setRouteProfile(e.target.value)} />
           </label>
           <label className="block">
-            <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Base URL</span>
+            <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Base URL</span>
             <input className="pib-input mt-1 w-full" placeholder="https://hermes-vps-01.example:8643" value={routeBaseUrl} onChange={(e) => setRouteBaseUrl(e.target.value)} />
           </label>
           <label className="block">
-            <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Dashboard base URL (optional)</span>
+            <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Dashboard base URL (optional)</span>
             <input className="pib-input mt-1 w-full" placeholder="https://…" value={routeDashboardUrl} onChange={(e) => setRouteDashboardUrl(e.target.value)} />
           </label>
           <label className="block">
-            <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">API key {routeOrg && <span className="normal-case opacity-70">(leave blank to keep existing)</span>}</span>
+            <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">API key {routeOrg && <span className="normal-case opacity-70">(leave blank to keep existing)</span>}</span>
             <input className="pib-input mt-1 w-full" type="password" placeholder="Bearer token" value={routeApiKey} onChange={(e) => setRouteApiKey(e.target.value)} />
           </label>
-          <label className="flex items-center gap-2 text-sm text-on-surface">
+          <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text)]">
             <input type="checkbox" checked={routeEnabled} onChange={(e) => setRouteEnabled(e.target.checked)} />
             Enabled
           </label>

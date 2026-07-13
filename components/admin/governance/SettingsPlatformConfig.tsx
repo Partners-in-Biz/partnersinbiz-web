@@ -75,45 +75,45 @@ export function SettingsPlatformConfig({ canEdit }: { canEdit: boolean }) {
     }
   }
 
-  const input = 'mt-1 w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2 text-sm text-on-surface disabled:opacity-60'
+  const input = 'mt-1 w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)] px-3 py-2 text-sm text-[var(--color-pib-text)] disabled:opacity-60'
 
   return (
     <div className="pib-card space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Platform configuration</p>
-        {!canEdit && <span className="text-[10px] text-on-surface-variant/60">Super-admin only</span>}
+        <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Platform configuration</p>
+        {!canEdit && <span className="text-[10px] text-[var(--color-pib-text-muted)]/60">Super-admin only</span>}
       </div>
 
       {feedback && <div className="rounded-lg border border-green-500/20 bg-green-500/10 px-3 py-2 text-xs text-green-400">{feedback}</div>}
       {error && <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div>}
 
       {loading ? (
-        <p className="text-sm text-on-surface-variant">Loading platform settings…</p>
+        <p className="text-sm text-[var(--color-pib-text-muted)]">Loading platform settings…</p>
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <label className="block"><span className="text-xs text-on-surface-variant">Platform name</span>
+            <label className="block"><span className="text-xs text-[var(--color-pib-text-muted)]">Platform name</span>
               <input disabled={!canEdit} value={form.platformName} onChange={(e) => set('platformName', e.target.value)} className={input} /></label>
-            <label className="block"><span className="text-xs text-on-surface-variant">Sender name</span>
+            <label className="block"><span className="text-xs text-[var(--color-pib-text-muted)]">Sender name</span>
               <input disabled={!canEdit} value={form.senderName} onChange={(e) => set('senderName', e.target.value)} className={input} /></label>
-            <label className="block"><span className="text-xs text-on-surface-variant">Support email</span>
+            <label className="block"><span className="text-xs text-[var(--color-pib-text-muted)]">Support email</span>
               <input disabled={!canEdit} value={form.supportEmail} onChange={(e) => set('supportEmail', e.target.value)} className={input} /></label>
-            <label className="block"><span className="text-xs text-on-surface-variant">Marketing URL</span>
+            <label className="block"><span className="text-xs text-[var(--color-pib-text-muted)]">Marketing URL</span>
               <input disabled={!canEdit} value={form.marketingUrl} onChange={(e) => set('marketingUrl', e.target.value)} className={input} /></label>
-            <label className="block"><span className="text-xs text-on-surface-variant">App URL</span>
+            <label className="block"><span className="text-xs text-[var(--color-pib-text-muted)]">App URL</span>
               <input disabled={!canEdit} value={form.appUrl} onChange={(e) => set('appUrl', e.target.value)} className={input} /></label>
-            <label className="block"><span className="text-xs text-on-surface-variant">Max upload (MB)</span>
+            <label className="block"><span className="text-xs text-[var(--color-pib-text-muted)]">Max upload (MB)</span>
               <input disabled={!canEdit} type="number" value={form.maxUploadMb} onChange={(e) => set('maxUploadMb', Number(e.target.value))} className={input} /></label>
-            <label className="block md:col-span-2"><span className="text-xs text-on-surface-variant">Allowed file types (comma-separated)</span>
+            <label className="block md:col-span-2"><span className="text-xs text-[var(--color-pib-text-muted)]">Allowed file types (comma-separated)</span>
               <input disabled={!canEdit} value={fileTypesText} onChange={(e) => setFileTypesText(e.target.value)} placeholder="png, jpg, pdf, csv" className={input} /></label>
-            <label className="block"><span className="text-xs text-on-surface-variant">API rate limit (per min)</span>
+            <label className="block"><span className="text-xs text-[var(--color-pib-text-muted)]">API rate limit (per min)</span>
               <input disabled={!canEdit} type="number" value={form.apiRateLimitPerMin} onChange={(e) => set('apiRateLimitPerMin', Number(e.target.value))} className={input} /></label>
           </div>
 
           <div className="flex items-center justify-between rounded-lg border border-[var(--color-card-border)] px-3 py-2">
             <div>
-              <p className="text-sm text-on-surface">Maintenance mode</p>
-              <p className="text-[11px] text-on-surface-variant">Read-only mirror. Toggle on the maintenance page.</p>
+              <p className="text-sm text-[var(--color-pib-text)]">Maintenance mode</p>
+              <p className="text-[11px] text-[var(--color-pib-text-muted)]">Read-only mirror. Toggle on the maintenance page.</p>
             </div>
             <span className={`text-[10px] font-label uppercase tracking-widest px-2 py-1 rounded-full border ${form.maintenanceMode ? 'bg-amber-500/10 text-amber-300 border-amber-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20'}`}>
               {form.maintenanceMode ? 'Active' : 'Off'}
@@ -121,7 +121,7 @@ export function SettingsPlatformConfig({ canEdit }: { canEdit: boolean }) {
           </div>
 
           <div className="flex items-center justify-between">
-            <span className="text-sm text-on-surface">Beta features enabled</span>
+            <span className="text-sm text-[var(--color-pib-text)]">Beta features enabled</span>
             <SettingsSwitch checked={form.betaFeaturesEnabled} disabled={!canEdit} label="Beta features" onChange={() => set('betaFeaturesEnabled', !form.betaFeaturesEnabled)} />
           </div>
 

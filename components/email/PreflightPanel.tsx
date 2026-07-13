@@ -51,18 +51,18 @@ export default function PreflightPanel({ report, loading, onRefresh, onJumpToTab
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-on-surface">Preflight checklist</h3>
+        <h3 className="text-lg font-semibold text-[var(--color-pib-text)]">Preflight checklist</h3>
         <button
           onClick={onRefresh}
           disabled={loading}
-          className="px-3 py-1.5 rounded-lg bg-surface-container text-on-surface text-xs disabled:opacity-50"
+          className="btn-pib-secondary text-xs disabled:opacity-50"
         >
           {loading ? 'Running…' : 'Re-run'}
         </button>
       </div>
 
       {!report ? (
-        <div className="rounded-xl border border-outline-variant bg-surface-container p-6 text-center text-sm text-on-surface-variant">
+        <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
           {loading ? 'Running preflight…' : 'Click "Re-run" to scan this email.'}
         </div>
       ) : (
@@ -103,7 +103,7 @@ export default function PreflightPanel({ report, loading, onRefresh, onJumpToTab
 
           <div className="space-y-2">
             {groups[activeTab].length === 0 ? (
-              <p className="text-sm text-on-surface-variant italic px-2 py-4">
+              <p className="text-sm text-[var(--color-pib-text-muted)] italic px-2 py-4">
                 No {activeTab === 'info' ? 'info notes' : activeTab + 's'}.
               </p>
             ) : (
@@ -113,7 +113,7 @@ export default function PreflightPanel({ report, loading, onRefresh, onJumpToTab
             )}
           </div>
 
-          <p className="text-[11px] text-on-surface-variant">
+          <p className="text-[11px] text-[var(--color-pib-text-muted)]">
             Scanned {new Date(report.scannedAt).toLocaleString()}
           </p>
         </>
@@ -147,12 +147,12 @@ function IssueCard({
           <p className={`text-sm font-semibold ${SEVERITY_TEXT[issue.severity]}`}>
             {issue.title}
           </p>
-          <p className="text-xs text-on-surface-variant mt-1">{issue.detail}</p>
-          <p className="text-xs text-on-surface mt-2">
+          <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">{issue.detail}</p>
+          <p className="text-xs text-[var(--color-pib-text)] mt-2">
             <span className="font-medium">Fix:</span> {issue.recommendation}
           </p>
           {issue.location && (
-            <p className="text-[10px] text-on-surface-variant mt-1 font-mono">
+            <p className="text-[10px] text-[var(--color-pib-text-muted)] mt-1 font-mono">
               {issue.location}
             </p>
           )}
@@ -160,7 +160,7 @@ function IssueCard({
         {onJump && (
           <button
             onClick={() => onJump(tabForLocation(issue.location))}
-            className="flex-none px-2 py-1 rounded bg-surface-container text-on-surface text-xs hover:bg-surface-container/80"
+            className="btn-pib-ghost flex-none text-xs"
           >
             Fix in editor →
           </button>

@@ -112,14 +112,14 @@ export default function AiAssistantPanel({
   }, [mode])
 
   return (
-    <div className="h-full flex flex-col bg-surface border-l border-outline-variant w-[420px] max-w-full">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-outline-variant bg-surface-container">
+    <div className="h-full flex flex-col bg-[var(--color-pib-surface)] border-l border-[var(--color-pib-line)] w-[420px] max-w-full">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]">
         <div>
-          <h3 className="text-sm font-semibold text-on-surface">Pip · AI Assistant</h3>
-          <p className="text-xs text-on-surface-variant">Generate, vary, and rewrite email content.</p>
+          <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Pip · AI Assistant</h3>
+          <p className="text-xs text-[var(--color-pib-text-muted)]">Generate, vary, and rewrite email content.</p>
         </div>
         {onClose && (
-          <button onClick={onClose} className="text-on-surface-variant hover:text-on-surface text-xl leading-none">
+          <button onClick={onClose} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] text-xl leading-none">
             ×
           </button>
         )}
@@ -195,11 +195,11 @@ function VoiceSelector({
 }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-on-surface-variant mb-1">Voice</label>
+      <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Voice</label>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2 rounded-md border border-outline-variant bg-surface-container text-on-surface text-sm"
+        className="w-full px-3 py-2 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)] text-sm"
       >
         {PRESETS.map((p) => (
           <option key={p.key} value={p.key}>{p.label}</option>
@@ -211,7 +211,7 @@ function VoiceSelector({
 
 function PendingDots({ label }: { label: string }) {
   return (
-    <div className="text-xs text-on-surface-variant italic">
+    <div className="text-xs text-[var(--color-pib-text-muted)] italic">
       {label}
       <span className="inline-block ml-1 animate-pulse">…</span>
     </div>
@@ -270,32 +270,32 @@ function EmailTab({
   return (
     <div className="space-y-3">
       <div>
-        <label className="block text-xs font-medium text-on-surface-variant mb-1">Goal</label>
+        <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Goal</label>
         <textarea
           value={goal}
           onChange={(e) => setGoal(e.target.value)}
           rows={3}
           placeholder="e.g. follow up with a cold lead after a demo"
-          className="w-full px-3 py-2 rounded-md border border-outline-variant bg-surface-container text-on-surface text-sm"
+          className="w-full px-3 py-2 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)] text-sm"
         />
       </div>
       <div>
-        <label className="block text-xs font-medium text-on-surface-variant mb-1">Audience (optional)</label>
+        <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Audience (optional)</label>
         <input
           value={audience}
           onChange={(e) => setAudience(e.target.value)}
           placeholder="e.g. ops manager at a 20-person agency"
-          className="w-full px-3 py-2 rounded-md border border-outline-variant bg-surface-container text-on-surface text-sm"
+          className="w-full px-3 py-2 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)] text-sm"
         />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <VoiceSelector value={voiceKey} onChange={setVoiceKey} />
         <div>
-          <label className="block text-xs font-medium text-on-surface-variant mb-1">Length</label>
+          <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Length</label>
           <select
             value={length}
             onChange={(e) => setLength(e.target.value as typeof length)}
-            className="w-full px-3 py-2 rounded-md border border-outline-variant bg-surface-container text-on-surface text-sm"
+            className="w-full px-3 py-2 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)] text-sm"
           >
             <option value="short">Short (~50w)</option>
             <option value="medium">Medium (~150w)</option>
@@ -304,7 +304,7 @@ function EmailTab({
         </div>
       </div>
       <div>
-        <label className="block text-xs font-medium text-on-surface-variant mb-1">Output</label>
+        <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Output</label>
         <div className="flex gap-2 text-xs">
           <label className="flex items-center gap-1">
             <input
@@ -334,20 +334,20 @@ function EmailTab({
       {busy && <PendingDots label="Pip is writing your email" />}
       {error && <p className="text-xs text-red-500">{error}</p>}
       {result && (
-        <div className="space-y-2 border-t border-outline-variant pt-3">
+        <div className="space-y-2 border-t border-[var(--color-pib-line)] pt-3">
           <div>
-            <p className="text-xs text-on-surface-variant">Subject</p>
-            <p className="text-sm text-on-surface font-medium">{result.subject}</p>
+            <p className="text-xs text-[var(--color-pib-text-muted)]">Subject</p>
+            <p className="text-sm text-[var(--color-pib-text)] font-medium">{result.subject}</p>
           </div>
           {result.preheader && (
             <div>
-              <p className="text-xs text-on-surface-variant">Preheader</p>
-              <p className="text-sm text-on-surface italic">{result.preheader}</p>
+              <p className="text-xs text-[var(--color-pib-text-muted)]">Preheader</p>
+              <p className="text-sm text-[var(--color-pib-text)] italic">{result.preheader}</p>
             </div>
           )}
-          <div className="rounded-md border border-outline-variant p-3 max-h-64 overflow-auto bg-surface-container">
+          <div className="rounded-md border border-[var(--color-pib-line)] p-3 max-h-64 overflow-auto bg-[var(--color-pib-surface-2)]">
             <div
-              className="prose prose-sm text-on-surface"
+              className="prose prose-sm text-[var(--color-pib-text)]"
               dangerouslySetInnerHTML={{ __html: result.bodyHtml }}
             />
           </div>
@@ -408,25 +408,25 @@ function SubjectsTab({
   return (
     <div className="space-y-3">
       <div>
-        <label className="block text-xs font-medium text-on-surface-variant mb-1">Topic</label>
+        <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Topic</label>
         <input
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
           placeholder="What is this email about?"
-          className="w-full px-3 py-2 rounded-md border border-outline-variant bg-surface-container text-on-surface text-sm"
+          className="w-full px-3 py-2 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)] text-sm"
         />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <VoiceSelector value={voiceKey} onChange={setVoiceKey} />
         <div>
-          <label className="block text-xs font-medium text-on-surface-variant mb-1">Count</label>
+          <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Count</label>
           <input
             type="number"
             min={2}
             max={10}
             value={count}
             onChange={(e) => setCount(Math.max(2, Math.min(10, Number(e.target.value) || 5)))}
-            className="w-full px-3 py-2 rounded-md border border-outline-variant bg-surface-container text-on-surface text-sm"
+            className="w-full px-3 py-2 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)] text-sm"
           />
         </div>
       </div>
@@ -440,18 +440,18 @@ function SubjectsTab({
       {busy && <PendingDots label="Pip is brainstorming subjects" />}
       {error && <p className="text-xs text-red-500">{error}</p>}
       {subjects.length > 0 && (
-        <ul className="space-y-1 border-t border-outline-variant pt-3">
+        <ul className="space-y-1 border-t border-[var(--color-pib-line)] pt-3">
           {subjects.map((s, i) => (
             <li
               key={i}
-              className="flex items-center gap-2 px-2 py-2 rounded-md bg-surface-container hover:bg-surface-container-high"
+              className="flex items-center gap-2 px-2 py-2 rounded-md bg-[var(--color-pib-surface-2)] hover:bg-[var(--color-pib-surface-2)]"
             >
-              <span className="flex-1 text-sm text-on-surface">{s}</span>
+              <span className="flex-1 text-sm text-[var(--color-pib-text)]">{s}</span>
               <button
                 onClick={() => {
                   navigator.clipboard?.writeText(s)
                 }}
-                className="text-xs text-on-surface-variant hover:text-on-surface"
+                className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
                 title="Copy"
               >
                 Copy
@@ -525,42 +525,42 @@ function SequenceTab({
   return (
     <div className="space-y-3">
       <div>
-        <label className="block text-xs font-medium text-on-surface-variant mb-1">Sequence goal</label>
+        <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Sequence goal</label>
         <textarea
           value={goal}
           onChange={(e) => setGoal(e.target.value)}
           rows={3}
           placeholder="e.g. nurture a free-trial signup to a paid plan over two weeks"
-          className="w-full px-3 py-2 rounded-md border border-outline-variant bg-surface-container text-on-surface text-sm"
+          className="w-full px-3 py-2 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)] text-sm"
         />
       </div>
       <div>
-        <label className="block text-xs font-medium text-on-surface-variant mb-1">Audience (optional)</label>
+        <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Audience (optional)</label>
         <input
           value={audience}
           onChange={(e) => setAudience(e.target.value)}
-          className="w-full px-3 py-2 rounded-md border border-outline-variant bg-surface-container text-on-surface text-sm"
+          className="w-full px-3 py-2 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)] text-sm"
         />
       </div>
       <div className="grid grid-cols-3 gap-3">
         <VoiceSelector value={voiceKey} onChange={setVoiceKey} />
         <div>
-          <label className="block text-xs font-medium text-on-surface-variant mb-1">Steps</label>
+          <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Steps</label>
           <input
             type="number"
             min={2}
             max={10}
             value={steps}
             onChange={(e) => setSteps(Math.max(2, Math.min(10, Number(e.target.value) || 4)))}
-            className="w-full px-3 py-2 rounded-md border border-outline-variant bg-surface-container text-on-surface text-sm"
+            className="w-full px-3 py-2 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)] text-sm"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-on-surface-variant mb-1">Cadence</label>
+          <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Cadence</label>
           <select
             value={cadence}
             onChange={(e) => setCadence(e.target.value as typeof cadence)}
-            className="w-full px-3 py-2 rounded-md border border-outline-variant bg-surface-container text-on-surface text-sm"
+            className="w-full px-3 py-2 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)] text-sm"
           >
             <option value="aggressive">Aggressive</option>
             <option value="normal">Normal</option>
@@ -578,21 +578,21 @@ function SequenceTab({
       {busy && <PendingDots label="Pip is drafting your sequence" />}
       {error && <p className="text-xs text-red-500">{error}</p>}
       {result && (
-        <div className="space-y-2 border-t border-outline-variant pt-3">
-          <p className="text-xs text-on-surface-variant">{result.description}</p>
+        <div className="space-y-2 border-t border-[var(--color-pib-line)] pt-3">
+          <p className="text-xs text-[var(--color-pib-text-muted)]">{result.description}</p>
           <ol className="space-y-2">
             {result.steps.map((s) => (
-              <li key={s.stepNumber} className="rounded-md border border-outline-variant p-2 bg-surface-container">
+              <li key={s.stepNumber} className="rounded-md border border-[var(--color-pib-line)] p-2 bg-[var(--color-pib-surface-2)]">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-on-surface-variant">
+                  <span className="text-xs text-[var(--color-pib-text-muted)]">
                     Step {s.stepNumber} · day {s.delayDays}
                   </span>
                 </div>
-                <p className="text-sm font-medium text-on-surface">{s.subject}</p>
+                <p className="text-sm font-medium text-[var(--color-pib-text)]">{s.subject}</p>
                 <details className="mt-1">
-                  <summary className="text-xs text-on-surface-variant cursor-pointer">Preview body</summary>
+                  <summary className="text-xs text-[var(--color-pib-text-muted)] cursor-pointer">Preview body</summary>
                   <div
-                    className="prose prose-xs text-on-surface mt-2 max-h-40 overflow-auto"
+                    className="prose prose-xs text-[var(--color-pib-text)] mt-2 max-h-40 overflow-auto"
                     dangerouslySetInnerHTML={{ __html: s.bodyHtml }}
                   />
                 </details>
@@ -679,52 +679,52 @@ function NewsletterTab({
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-on-surface-variant mb-1">Topic</label>
+          <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Topic</label>
           <input
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
             placeholder="Monthly digest, product update…"
-            className="w-full px-3 py-2 rounded-md border border-outline-variant bg-surface-container text-on-surface text-sm"
+            className="w-full px-3 py-2 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)] text-sm"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-on-surface-variant mb-1">Org name</label>
+          <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Org name</label>
           <input
             value={orgName}
             onChange={(e) => setOrgName(e.target.value)}
-            className="w-full px-3 py-2 rounded-md border border-outline-variant bg-surface-container text-on-surface text-sm"
+            className="w-full px-3 py-2 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)] text-sm"
           />
         </div>
       </div>
       <VoiceSelector value={voiceKey} onChange={setVoiceKey} />
       <div className="space-y-2">
-        <p className="text-xs font-medium text-on-surface-variant">Stories (up to 5)</p>
+        <p className="text-xs font-medium text-[var(--color-pib-text-muted)]">Stories (up to 5)</p>
         {stories.map((s, i) => (
-          <div key={i} className="rounded-md border border-outline-variant p-2 space-y-1 bg-surface-container">
+          <div key={i} className="rounded-md border border-[var(--color-pib-line)] p-2 space-y-1 bg-[var(--color-pib-surface-2)]">
             <input
               value={s.heading}
               onChange={(e) => updateStory(i, { heading: e.target.value })}
               placeholder={`Story ${i + 1} heading`}
-              className="w-full px-2 py-1 rounded border border-outline-variant bg-surface text-on-surface text-xs"
+              className="w-full px-2 py-1 rounded border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] text-[var(--color-pib-text)] text-xs"
             />
             <input
               value={s.bodyHint}
               onChange={(e) => updateStory(i, { bodyHint: e.target.value })}
               placeholder="What this story is about — Pip writes the prose"
-              className="w-full px-2 py-1 rounded border border-outline-variant bg-surface text-on-surface text-xs"
+              className="w-full px-2 py-1 rounded border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] text-[var(--color-pib-text)] text-xs"
             />
             <div className="grid grid-cols-2 gap-1">
               <input
                 value={s.ctaText}
                 onChange={(e) => updateStory(i, { ctaText: e.target.value })}
                 placeholder="CTA text (optional)"
-                className="px-2 py-1 rounded border border-outline-variant bg-surface text-on-surface text-xs"
+                className="px-2 py-1 rounded border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] text-[var(--color-pib-text)] text-xs"
               />
               <input
                 value={s.ctaUrl}
                 onChange={(e) => updateStory(i, { ctaUrl: e.target.value })}
                 placeholder="CTA URL"
-                className="px-2 py-1 rounded border border-outline-variant bg-surface text-on-surface text-xs"
+                className="px-2 py-1 rounded border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] text-[var(--color-pib-text)] text-xs"
               />
             </div>
           </div>
@@ -748,12 +748,12 @@ function NewsletterTab({
       {busy && <PendingDots label="Pip is composing your newsletter" />}
       {error && <p className="text-xs text-red-500">{error}</p>}
       {result && (
-        <div className="space-y-2 border-t border-outline-variant pt-3">
+        <div className="space-y-2 border-t border-[var(--color-pib-line)] pt-3">
           <div>
-            <p className="text-xs text-on-surface-variant">Subject</p>
-            <p className="text-sm text-on-surface font-medium">{result.subject}</p>
+            <p className="text-xs text-[var(--color-pib-text-muted)]">Subject</p>
+            <p className="text-sm text-[var(--color-pib-text)] font-medium">{result.subject}</p>
           </div>
-          <p className="text-xs text-on-surface-variant">
+          <p className="text-xs text-[var(--color-pib-text-muted)]">
             {result.document.blocks.length} blocks generated.
           </p>
           <button
@@ -812,22 +812,22 @@ function RewriteTab({
   return (
     <div className="space-y-3">
       <div>
-        <label className="block text-xs font-medium text-on-surface-variant mb-1">Original body</label>
+        <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Original body</label>
         <textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
           rows={8}
-          className="w-full px-3 py-2 rounded-md border border-outline-variant bg-surface-container text-on-surface text-xs font-mono"
+          className="w-full px-3 py-2 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)] text-xs font-mono"
         />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <VoiceSelector value={voiceKey} onChange={setVoiceKey} />
         <div>
-          <label className="block text-xs font-medium text-on-surface-variant mb-1">Instruction</label>
+          <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Instruction</label>
           <select
             value={instruction}
             onChange={(e) => setInstruction(e.target.value as typeof instruction)}
-            className="w-full px-3 py-2 rounded-md border border-outline-variant bg-surface-container text-on-surface text-sm"
+            className="w-full px-3 py-2 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)] text-sm"
           >
             <option value="tighten">Tighten</option>
             <option value="expand">Expand</option>
@@ -847,9 +847,9 @@ function RewriteTab({
       {busy && <PendingDots label="Pip is rewriting" />}
       {error && <p className="text-xs text-red-500">{error}</p>}
       {result && (
-        <div className="space-y-2 border-t border-outline-variant pt-3">
+        <div className="space-y-2 border-t border-[var(--color-pib-line)] pt-3">
           <div
-            className="prose prose-sm text-on-surface rounded-md border border-outline-variant p-3 max-h-64 overflow-auto bg-surface-container"
+            className="prose prose-sm text-[var(--color-pib-text)] rounded-md border border-[var(--color-pib-line)] p-3 max-h-64 overflow-auto bg-[var(--color-pib-surface-2)]"
             dangerouslySetInnerHTML={{ __html: result.bodyHtml }}
           />
           <button

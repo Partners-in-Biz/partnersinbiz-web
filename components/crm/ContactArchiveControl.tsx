@@ -58,7 +58,7 @@ export function ContactArchiveControl({
               </span>
               <div>
                 <p className="eyebrow !text-[10px] text-red-200">Archive confirmation</p>
-                <h3 id="contact-archive-confirm-title" className="mt-1 text-sm font-semibold text-on-surface">
+                <h3 id="contact-archive-confirm-title" className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">
                   Archive {contactName}?
                 </h3>
                 <p id="contact-archive-confirm-description" className="mt-2 text-sm text-red-100/90">
@@ -70,7 +70,7 @@ export function ContactArchiveControl({
               <button
                 type="button"
                 onClick={() => setConfirmOpen(false)}
-                className="flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                className="flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                 aria-label="Cancel archive contact"
               >
                 Cancel

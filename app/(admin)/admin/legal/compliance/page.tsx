@@ -133,9 +133,9 @@ export default function CompliancePage() {
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       <div>
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">Legal</p>
-        <h1 className="text-2xl font-headline font-bold text-on-surface">Automated Compliance Reporting</h1>
-        <p className="text-sm text-on-surface-variant mt-1">
+        <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">Legal</p>
+        <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Automated Compliance Reporting</h1>
+        <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
           Configure scheduled compliance reports and generate snapshots with live platform numbers. Reports store structured data; a PDF renderer can be layered on later.
         </p>
       </div>
@@ -145,37 +145,37 @@ export default function CompliancePage() {
 
       {/* Create config */}
       <div className="pib-card space-y-3">
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">New report config</p>
+        <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">New report config</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <label className="block md:col-span-1">
-            <span className="text-xs text-on-surface-variant">Name</span>
+            <span className="text-xs text-[var(--color-pib-text-muted)]">Name</span>
             <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Quarterly GDPR audit"
-              className="mt-1 w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2 text-sm text-on-surface" />
+              className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 text-sm text-[var(--color-pib-text)]" />
           </label>
           <label className="block">
-            <span className="text-xs text-on-surface-variant">Type</span>
+            <span className="text-xs text-[var(--color-pib-text-muted)]">Type</span>
             <select value={type} onChange={(e) => setType(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2 text-sm text-on-surface">
+              className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 text-sm text-[var(--color-pib-text)]">
               {TYPES.map((t) => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
             </select>
           </label>
           <label className="block">
-            <span className="text-xs text-on-surface-variant">Schedule</span>
+            <span className="text-xs text-[var(--color-pib-text-muted)]">Schedule</span>
             <select value={schedule} onChange={(e) => setSchedule(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2 text-sm text-on-surface">
+              className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 text-sm text-[var(--color-pib-text)]">
               {SCHEDULES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </label>
         </div>
         <div>
-          <span className="text-xs text-on-surface-variant">Contents</span>
+          <span className="text-xs text-[var(--color-pib-text-muted)]">Contents</span>
           <div className="flex flex-wrap gap-2 mt-2">
             {CONTENT_KEYS.map((c) => (
               <button key={c.key} type="button" onClick={() => toggleContent(c.key)}
                 className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-colors ${
                   contents.includes(c.key)
-                    ? 'border-[var(--color-accent-v2)] text-on-surface bg-[var(--color-surface-container)]'
-                    : 'border-[var(--color-card-border)] text-on-surface-variant hover:text-on-surface'
+                    ? 'border-[var(--color-pib-accent)] text-[var(--color-pib-text)] bg-[var(--color-pib-surface-2)]'
+                    : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
                 }`}>
                 {contents.includes(c.key) ? '✓ ' : ''}{c.label}
               </button>
@@ -183,24 +183,24 @@ export default function CompliancePage() {
           </div>
         </div>
         <button type="button" disabled={busy} onClick={createConfig}
-          className="text-sm font-medium px-3 py-1.5 rounded-lg text-white disabled:opacity-50" style={{ background: 'var(--color-accent-v2)' }}>
+          className="text-sm font-medium px-3 py-1.5 rounded-lg text-white disabled:opacity-50" style={{ background: 'var(--color-pib-accent)' }}>
           Create config
         </button>
       </div>
 
       {/* Config list */}
       <div className="pib-card space-y-2">
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-2">Report configs</p>
+        <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-2">Report configs</p>
         {loading ? (
-          <p className="text-sm text-on-surface-variant">Loading…</p>
+          <p className="text-sm text-[var(--color-pib-text-muted)]">Loading…</p>
         ) : configs.length === 0 ? (
-          <p className="text-sm text-on-surface-variant">No report configs yet.</p>
+          <p className="text-sm text-[var(--color-pib-text-muted)]">No report configs yet.</p>
         ) : (
           configs.map((c) => (
-            <div key={c.id} className="flex items-center justify-between p-3 rounded-lg border border-[var(--color-card-border)]">
+            <div key={c.id} className="flex items-center justify-between p-3 rounded-lg border border-[var(--color-pib-line)]">
               <div className="min-w-0">
-                <p className="text-sm font-medium text-on-surface truncate">{c.name}</p>
-                <p className="text-xs text-on-surface-variant mt-0.5">
+                <p className="text-sm font-medium text-[var(--color-pib-text)] truncate">{c.name}</p>
+                <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">
                   {c.type.replace('_', ' ')} · {c.schedule}
                   {c.lastGeneratedAt ? ` · last ${String(c.lastGeneratedAt).slice(0, 10)}` : ' · never run'}
                   {c.nextRunAt ? ` · next ${String(c.nextRunAt).slice(0, 10)}` : ''}
@@ -208,7 +208,7 @@ export default function CompliancePage() {
               </div>
               <div className="flex gap-2 shrink-0 ml-3">
                 <button type="button" disabled={busy} onClick={() => generate(c.id)}
-                  className="text-xs font-medium px-2.5 py-1 rounded-md text-white disabled:opacity-50" style={{ background: 'var(--color-accent-v2)' }}>
+                  className="text-xs font-medium px-2.5 py-1 rounded-md text-white disabled:opacity-50" style={{ background: 'var(--color-pib-accent)' }}>
                   Generate now
                 </button>
                 <button type="button" disabled={busy} onClick={() => deleteConfig(c.id)}
@@ -223,22 +223,22 @@ export default function CompliancePage() {
 
       {/* Runs / audit trail */}
       <div className="pib-card space-y-2">
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-2">Generated reports</p>
+        <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-2">Generated reports</p>
         {runs.length === 0 ? (
-          <p className="text-sm text-on-surface-variant">No reports generated yet.</p>
+          <p className="text-sm text-[var(--color-pib-text-muted)]">No reports generated yet.</p>
         ) : (
           runs.map((r) => (
-            <div key={r.id} className="rounded-lg border border-[var(--color-card-border)]">
+            <div key={r.id} className="rounded-lg border border-[var(--color-pib-line)]">
               <button type="button" onClick={() => setExpanded(expanded === r.id ? null : r.id)}
                 className="w-full text-left p-3 hover:bg-[var(--color-row-hover)] transition-colors rounded-lg">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-on-surface">{r.reportName || r.reportType || 'Report'}</span>
-                  <span className="text-[11px] text-on-surface-variant/70">{r.generatedAt ? String(r.generatedAt).slice(0, 19).replace('T', ' ') : ''}</span>
+                  <span className="text-sm font-medium text-[var(--color-pib-text)]">{r.reportName || r.reportType || 'Report'}</span>
+                  <span className="text-[11px] text-[var(--color-pib-text-muted)]/70">{r.generatedAt ? String(r.generatedAt).slice(0, 19).replace('T', ' ') : ''}</span>
                 </div>
-                <p className="text-xs text-on-surface-variant mt-1">{r.summary}</p>
+                <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">{r.summary}</p>
               </button>
               {expanded === r.id && r.data && (
-                <pre className="text-xs text-on-surface-variant font-mono bg-[var(--color-surface-container)] m-3 mt-0 p-3 rounded-lg overflow-x-auto">
+                <pre className="text-xs text-[var(--color-pib-text-muted)] font-mono bg-[var(--color-pib-surface-2)] m-3 mt-0 p-3 rounded-lg overflow-x-auto">
                   {JSON.stringify(r.data, null, 2)}
                 </pre>
               )}

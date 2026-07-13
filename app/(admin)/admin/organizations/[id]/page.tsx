@@ -125,51 +125,52 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
   if (!org) {
     return (
       <div className="max-w-2xl mx-auto py-12 text-center">
-        <p className="text-on-surface-variant">Organisation not found.</p>
-        <Link href="/admin/organizations" className="pib-btn-secondary mt-4 inline-block">Back to Organisations</Link>
+        <p className="text-[var(--color-pib-text-muted)]">Organisation not found.</p>
+        <Link href="/admin/organizations" className="btn-pib-secondary mt-4 inline-block">Back to Organisations</Link>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="space-y-8 max-w-2xl mx-auto">
       {/* Breadcrumb */}
-      <div className="text-xs text-on-surface-variant font-label uppercase tracking-wide">
-        <Link href="/admin/organizations" className="hover:text-on-surface">Client Workspaces</Link>
+      <div className="text-xs text-[var(--color-pib-text-muted)] font-label uppercase tracking-wide">
+        <Link href="/admin/organizations" className="hover:text-[var(--color-pib-text)]">Client Workspaces</Link>
         <span className="mx-2">/</span>
         <span className="truncate">{org.name}</span>
       </div>
 
       {/* Heading */}
-      <div className="flex items-center justify-between gap-4">
+      <header className="flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-2xl font-headline font-bold text-on-surface truncate">{org.name}</h1>
-          <p className="text-sm text-on-surface-variant mt-1">
+          <p className="eyebrow">Admin · Client workspace</p>
+          <h1 className="pib-page-title mt-2 truncate">{org.name}</h1>
+          <p className="pib-page-sub">
             Platform-admin organisation record for client workspace provisioning, billing controls, and operational status.
           </p>
         </div>
         {org.slug && (
           <Link
             href={`/admin/org/${org.slug}/dashboard`}
-            className="pib-btn-secondary text-xs font-label shrink-0"
+            className="btn-pib-secondary shrink-0"
           >
             Open admin workspace ↗
           </Link>
         )}
-      </div>
+      </header>
 
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
         {/* Feedback */}
         {error && (
-          <div className="pib-card !border-red-500/30 !bg-red-500/5 text-sm text-red-400">{error}</div>
+          <div className="pib-card text-sm text-[var(--color-error)]">{error}</div>
         )}
         {success && (
-          <div className="pib-card !border-green-500/30 !bg-green-500/5 text-sm text-green-400">Changes saved.</div>
+          <div className="pib-card !border-green-500/30 !bg-green-500/5 text-sm text-[var(--color-pib-green)]">Changes saved.</div>
         )}
 
         {/* Details Card */}
         <div className="pib-card space-y-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Client Workspace Details</p>
+          <p className="pib-label">Client Workspace Details</p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -206,7 +207,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
 
         {/* Billing & Plan Card */}
         <div className="pib-card space-y-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Billing & Plan Controls</p>
+          <p className="pib-label">Billing & Plan Controls</p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -252,13 +253,13 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
 
         {/* Actions */}
         <div className="flex gap-3 pt-2">
-          <button type="submit" disabled={saving} className="pib-btn-primary">
+          <button type="submit" disabled={saving} className="btn-pib-primary">
             {saving ? 'Saving...' : 'Save platform record'}
           </button>
           <button
             type="button"
             onClick={() => router.push('/admin/organizations')}
-            className="pib-btn-secondary"
+            className="btn-pib-secondary"
           >
             Cancel
           </button>

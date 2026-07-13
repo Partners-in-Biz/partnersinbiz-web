@@ -11,13 +11,13 @@ import { countSmsSegments } from '@/lib/sms/segments'
 type Tab = 'audience' | 'content' | 'schedule' | 'preflight' | 'stats'
 
 const STATUS_COLORS: Record<BroadcastStatus, string> = {
-  draft: 'bg-surface-container text-on-surface-variant',
+  draft: 'bg-[var(--color-pib-surface-soft)] text-[var(--color-pib-text-muted)]',
   scheduled: 'bg-blue-100 text-blue-800',
   sending: 'bg-amber-100 text-amber-800',
   sent: 'bg-green-100 text-green-800',
   paused: 'bg-yellow-100 text-yellow-800',
   failed: 'bg-red-100 text-red-800',
-  canceled: 'bg-surface-container text-on-surface-variant line-through',
+  canceled: 'bg-[var(--color-pib-surface-soft)] text-[var(--color-pib-text-muted)] line-through',
 }
 
 interface DomainOption {
@@ -339,19 +339,19 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between gap-4">
-        <button onClick={onBack} className="text-sm text-on-surface-variant hover:underline">
+        <button onClick={onBack} className="text-sm text-[var(--color-pib-text-muted)] hover:underline">
           ← Broadcasts
         </button>
         <div className="flex items-center gap-2">
           <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[broadcast.status] ?? ''}`}>
             {broadcast.status}
           </span>
-          {savedAt && <span className="text-xs text-on-surface-variant">Saved</span>}
+          {savedAt && <span className="text-xs text-[var(--color-pib-text-muted)]">Saved</span>}
           {!readOnly && (
             <button
               onClick={save}
               disabled={saving}
-              className="px-4 py-2 rounded-lg bg-primary text-on-primary text-sm font-medium disabled:opacity-50"
+              className="btn-pib-primary text-sm disabled:opacity-50"
             >
               {saving ? 'Saving…' : 'Save'}
             </button>
@@ -359,7 +359,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
           {broadcast.status === 'scheduled' && (
             <button
               onClick={pauseToggle}
-              className="px-3 py-2 rounded-lg bg-surface-container text-on-surface text-sm"
+              className="px-3 py-2 rounded-lg bg-[var(--color-pib-surface-soft)] text-[var(--color-pib-text)] text-sm"
             >
               Pause
             </button>
@@ -367,12 +367,12 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
           {broadcast.status === 'paused' && (
             <button
               onClick={pauseToggle}
-              className="px-3 py-2 rounded-lg bg-surface-container text-on-surface text-sm"
+              className="px-3 py-2 rounded-lg bg-[var(--color-pib-surface-soft)] text-[var(--color-pib-text)] text-sm"
             >
               Resume
             </button>
           )}
-          <button onClick={remove} className="px-3 py-2 rounded-lg bg-surface-container text-red-600 text-sm font-medium">
+          <button onClick={remove} className="px-3 py-2 rounded-lg bg-[var(--color-pib-surface-soft)] text-red-600 text-sm font-medium">
             Delete
           </button>
         </div>
@@ -383,15 +383,15 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
           value={broadcast.name}
           disabled={readOnly}
           onChange={(e) => setBroadcast({ ...broadcast, name: e.target.value })}
-          className="w-full text-xl font-semibold bg-transparent border-b border-outline-variant text-on-surface outline-none pb-1 disabled:opacity-70"
+          className="w-full text-xl font-semibold bg-transparent border-b border-[var(--color-pib-line)] text-[var(--color-pib-text)] outline-none pb-1 disabled:opacity-70"
           placeholder="Broadcast name"
         />
-        <p className="text-sm text-on-surface-variant">{headerSubtext}</p>
+        <p className="text-sm text-[var(--color-pib-text-muted)]">{headerSubtext}</p>
       </div>
 
       <div className="flex items-center gap-2 text-sm">
-        <span className="text-on-surface-variant font-medium">Channel:</span>
-        <div className="inline-flex rounded-lg border border-outline-variant overflow-hidden">
+        <span className="text-[var(--color-pib-text-muted)] font-medium">Channel:</span>
+        <div className="inline-flex rounded-lg border border-[var(--color-pib-line)] overflow-hidden">
           <button
             type="button"
             disabled={readOnly}
@@ -399,7 +399,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
             className={`px-3 py-1.5 text-xs font-medium transition-colors ${
               channel === 'email'
                 ? 'bg-primary text-on-primary'
-                : 'bg-surface text-on-surface-variant hover:text-on-surface'
+                : 'bg-[var(--color-pib-surface)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
             } disabled:opacity-50`}
           >
             Email
@@ -408,10 +408,10 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
             type="button"
             disabled={readOnly}
             onClick={() => setBroadcast((prev) => ({ ...prev, channel: 'sms' }))}
-            className={`px-3 py-1.5 text-xs font-medium border-l border-outline-variant transition-colors ${
+            className={`px-3 py-1.5 text-xs font-medium border-l border-[var(--color-pib-line)] transition-colors ${
               channel === 'sms'
                 ? 'bg-primary text-on-primary'
-                : 'bg-surface text-on-surface-variant hover:text-on-surface'
+                : 'bg-[var(--color-pib-surface)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
             } disabled:opacity-50`}
           >
             SMS
@@ -429,29 +429,29 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
       {tab === 'audience' && (
         <div className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-on-surface mb-1">Segment ID</label>
+            <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">Segment ID</label>
             <input
               value={broadcast.audience?.segmentId ?? ''}
               disabled={readOnly}
               onChange={(e) => setAudience({ segmentId: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm disabled:opacity-70"
+              className="w-full pib-input disabled:opacity-70"
               placeholder="(optional) paste a segment id"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-on-surface mb-1">Contact IDs</label>
+            <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">Contact IDs</label>
             <div className="flex flex-wrap gap-1 mb-2">
               {audienceContactIdsArr.map((cid) => (
                 <span
                   key={cid}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-surface-container text-on-surface"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-[var(--color-pib-surface-soft)] text-[var(--color-pib-text)]"
                 >
                   {cid}
                   {!readOnly && (
                     <button
                       onClick={() => setAudience({ contactIds: audienceContactIdsArr.filter((x) => x !== cid) })}
-                      className="text-on-surface-variant hover:text-on-surface"
+                      className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
                       aria-label={`Remove ${cid}`}
                     >
                       ×
@@ -475,13 +475,13 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
                   }
                 }}
                 placeholder="Contact id, press Enter"
-                className="flex-1 px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm disabled:opacity-70"
+                className="flex-1 pib-input disabled:opacity-70"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-on-surface mb-1">Tags (OR)</label>
+            <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">Tags (OR)</label>
             <div className="flex flex-wrap gap-1 mb-2">
               {audienceTagsArr.map((t) => (
                 <span
@@ -516,7 +516,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
                   }
                 }}
                 placeholder="Tag, press Enter"
-                className="flex-1 px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm disabled:opacity-70"
+                className="flex-1 pib-input disabled:opacity-70"
               />
             </div>
           </div>
@@ -542,27 +542,27 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
             </label>
           </div>
 
-          <div className="border-t border-outline-variant pt-4">
+          <div className="border-t border-[var(--color-pib-line)] pt-4">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-on-surface-variant uppercase tracking-wide">
+              <h3 className="text-sm font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wide">
                 Audience preview
               </h3>
               <button
                 onClick={refreshPreview}
                 disabled={previewing}
-                className="px-3 py-1 rounded-lg bg-surface-container text-on-surface text-xs disabled:opacity-50"
+                className="px-3 py-1 rounded-lg bg-[var(--color-pib-surface-soft)] text-[var(--color-pib-text)] text-xs disabled:opacity-50"
               >
                 {previewing ? 'Loading…' : 'Refresh'}
               </button>
             </div>
             {preview ? (
               <div className="text-sm">
-                <p className="text-on-surface mb-2">
+                <p className="text-[var(--color-pib-text)] mb-2">
                   <span className="font-semibold">{preview.audienceSize}</span> contact
                   {preview.audienceSize === 1 ? '' : 's'} will receive this broadcast.
                 </p>
                 {preview.sampleContacts.length > 0 && (
-                  <ul className="space-y-1 text-xs text-on-surface-variant">
+                  <ul className="space-y-1 text-xs text-[var(--color-pib-text-muted)]">
                     {preview.sampleContacts.map((c, i) => (
                       <li key={i}>
                         {c.email}
@@ -574,7 +574,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
                 )}
               </div>
             ) : (
-              <p className="text-sm text-on-surface-variant">Save first, then refresh to see the audience.</p>
+              <p className="text-sm text-[var(--color-pib-text-muted)]">Save first, then refresh to see the audience.</p>
             )}
           </div>
         </div>
@@ -584,12 +584,12 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
         <div className="space-y-5">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-on-surface mb-1">From domain</label>
+              <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">From domain</label>
               <select
                 disabled={readOnly}
                 value={broadcast.fromDomainId}
                 onChange={(e) => setBroadcast({ ...broadcast, fromDomainId: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm disabled:opacity-70"
+                className="w-full pib-input disabled:opacity-70"
               >
                 <option value="">— Shared PIB domain —</option>
                 {domains.map((d) => (
@@ -600,44 +600,44 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-on-surface mb-1">From local (before @)</label>
+              <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">From local (before @)</label>
               <input
                 disabled={readOnly}
                 value={broadcast.fromLocal}
                 onChange={(e) => setBroadcast({ ...broadcast, fromLocal: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm disabled:opacity-70"
+                className="w-full pib-input disabled:opacity-70"
                 placeholder="broadcasts"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-on-surface mb-1">From name</label>
+              <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">From name</label>
               <input
                 disabled={readOnly}
                 value={broadcast.fromName}
                 onChange={(e) => setBroadcast({ ...broadcast, fromName: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm disabled:opacity-70"
+                className="w-full pib-input disabled:opacity-70"
                 placeholder="Org name"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-on-surface mb-1">Reply-to</label>
+              <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">Reply-to</label>
               <input
                 disabled={readOnly}
                 value={broadcast.replyTo}
                 onChange={(e) => setBroadcast({ ...broadcast, replyTo: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm disabled:opacity-70"
+                className="w-full pib-input disabled:opacity-70"
                 placeholder="hello@example.com"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-on-surface mb-1">Use template</label>
+            <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">Use template</label>
             <select
               disabled={readOnly}
               value={broadcast.content.templateId}
               onChange={(e) => setContent({ templateId: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm disabled:opacity-70"
+              className="w-full pib-input disabled:opacity-70"
             >
               <option value="">— Inline content (no template) —</option>
               {templates.map((t) => (
@@ -660,50 +660,50 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
                 </button>
               </div>
               <div>
-                <label className="block text-sm font-medium text-on-surface mb-1">Subject</label>
+                <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">Subject</label>
                 <input
                   disabled={readOnly}
                   value={broadcast.content.subject}
                   onChange={(e) => setContent({ subject: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm disabled:opacity-70"
+                  className="w-full pib-input disabled:opacity-70"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-on-surface mb-1">Preheader</label>
+                <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">Preheader</label>
                 <input
                   disabled={readOnly}
                   value={broadcast.content.preheader}
                   onChange={(e) => setContent({ preheader: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm disabled:opacity-70"
+                  className="w-full pib-input disabled:opacity-70"
                   placeholder="(optional inbox preview text)"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-on-surface mb-1">Body (HTML)</label>
+                <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">Body (HTML)</label>
                 <textarea
                   disabled={readOnly}
                   value={broadcast.content.bodyHtml}
                   onChange={(e) => setContent({ bodyHtml: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm font-mono disabled:opacity-70"
+                  className="w-full pib-input font-mono disabled:opacity-70"
                   rows={10}
                   placeholder="Use {{firstName}}, {{orgName}}, {{unsubscribeUrl}} for personalisation."
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-on-surface mb-1">Body (plain text fallback)</label>
+                <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">Body (plain text fallback)</label>
                 <textarea
                   disabled={readOnly}
                   value={broadcast.content.bodyText}
                   onChange={(e) => setContent({ bodyText: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm font-mono disabled:opacity-70"
+                  className="w-full pib-input font-mono disabled:opacity-70"
                   rows={5}
                 />
               </div>
             </>
           )}
 
-          <div className="border-t border-outline-variant pt-4">
-            <h3 className="text-sm font-semibold text-on-surface-variant uppercase tracking-wide mb-2">
+          <div className="border-t border-[var(--color-pib-line)] pt-4">
+            <h3 className="text-sm font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wide mb-2">
               Send a test
             </h3>
             <div className="flex gap-2">
@@ -711,13 +711,13 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
                 value={testTo}
                 onChange={(e) => setTestTo(e.target.value)}
                 placeholder="your@email.com"
-                className="flex-1 px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+                className="flex-1 pib-input"
               />
-              <button onClick={sendTest} className="px-4 py-2 rounded-lg bg-primary text-on-primary text-sm">
+              <button onClick={sendTest} className="btn-pib-primary text-sm">
                 Send test
               </button>
             </div>
-            {testStatus && <p className="text-xs text-on-surface-variant mt-2">{testStatus}</p>}
+            {testStatus && <p className="text-xs text-[var(--color-pib-text-muted)] mt-2">{testStatus}</p>}
           </div>
         </div>
       )}
@@ -725,18 +725,18 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
       {tab === 'content' && isSms && (
         <div className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-on-surface mb-1">
+            <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">
               SMS body
             </label>
             <textarea
               disabled={readOnly}
               value={broadcast.content?.bodyText ?? ''}
               onChange={(e) => setContent({ bodyText: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm font-mono disabled:opacity-70"
+              className="w-full pib-input font-mono disabled:opacity-70"
               rows={6}
               placeholder="Use {{firstName}}, {{orgName}} for personalisation. Reply STOP to opt out."
             />
-            <div className="mt-1 flex items-center justify-between text-xs text-on-surface-variant">
+            <div className="mt-1 flex items-center justify-between text-xs text-[var(--color-pib-text-muted)]">
               <span>
                 {smsSegInfo.characters} chars · {smsSegInfo.segments} segment
                 {smsSegInfo.segments === 1 ? '' : 's'} · {smsSegInfo.encoding.toUpperCase()}
@@ -747,7 +747,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
                 </span>
               )}
             </div>
-            <p className="text-xs text-on-surface-variant mt-2">
+            <p className="text-xs text-[var(--color-pib-text-muted)] mt-2">
               SMS broadcasts skip the template, subject, preheader, and From-domain fields. Contacts
               without a phone number are silently skipped at send time. The org&apos;s configured
               Twilio messaging service (or default From number) is used.
@@ -759,20 +759,20 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
       {tab === 'schedule' && (
         <div className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-on-surface mb-1">Schedule for</label>
+            <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">Schedule for</label>
             <input
               type="datetime-local"
               disabled={readOnly}
               value={scheduledForLocal}
               onChange={(e) => setScheduledForLocal(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm disabled:opacity-70"
+              className="pib-input disabled:opacity-70"
             />
-            <p className="text-xs text-on-surface-variant mt-1">
+            <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">
               Times use your browser&apos;s local timezone. The cron runs every 15 minutes.
             </p>
           </div>
 
-          <div className="rounded-xl border border-outline-variant p-3 space-y-3">
+          <div className="rounded-xl border border-[var(--color-pib-line)] p-3 space-y-3">
             <label className="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox"
@@ -781,11 +781,11 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
                 onChange={(e) =>
                   setBroadcast((prev) => ({ ...prev, audienceLocalDelivery: e.target.checked }))
                 }
-                className="mt-1 h-4 w-4 rounded border-outline text-primary"
+                className="mt-1 h-4 w-4 rounded border-[var(--color-pib-line)] text-primary"
               />
               <div className="text-sm">
-                <div className="font-medium text-on-surface">Deliver at recipient&apos;s local time</div>
-                <p className="text-xs text-on-surface-variant mt-0.5">
+                <div className="font-medium text-[var(--color-pib-text)]">Deliver at recipient&apos;s local time</div>
+                <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">
                   Send to each contact only once their local clock reaches the scheduled hour
                   (e.g. 9am in their timezone). Falls back to send-anyway after the window expires.
                 </p>
@@ -793,7 +793,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
             </label>
             {broadcast.audienceLocalDelivery && (
               <div className="ml-7">
-                <label className="block text-xs text-on-surface-variant mb-1">
+                <label className="block text-xs text-[var(--color-pib-text-muted)] mb-1">
                   Local delivery window (hours)
                 </label>
                 <input
@@ -808,9 +808,9 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
                       localDeliveryWindowHours: Math.max(1, Math.min(168, parseInt(e.target.value, 10) || 24)),
                     }))
                   }
-                  className="w-24 px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+                  className="w-24 pib-input"
                 />
-                <p className="text-xs text-on-surface-variant mt-1">
+                <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">
                   After this many hours past the scheduled time, anyone still outside their local
                   window gets sent regardless.
                 </p>
@@ -836,7 +836,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
               onClick={schedule}
               disabled={readOnly || preflightBlocking || preflightLoading}
               title={preflightBlocking ? 'Fix preflight errors first' : ''}
-              className="px-4 py-2 rounded-lg bg-primary text-on-primary text-sm font-medium disabled:opacity-50"
+              className="btn-pib-primary text-sm disabled:opacity-50"
             >
               Schedule
             </button>
@@ -844,7 +844,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
               onClick={sendNow}
               disabled={readOnly || preflightBlocking || preflightLoading}
               title={preflightBlocking ? 'Fix preflight errors first' : ''}
-              className="px-4 py-2 rounded-lg bg-surface-container text-on-surface text-sm font-medium disabled:opacity-50"
+              className="px-4 py-2 rounded-lg bg-[var(--color-pib-surface-soft)] text-[var(--color-pib-text)] text-sm font-medium disabled:opacity-50"
             >
               Send now
             </button>
@@ -893,7 +893,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
       {tab === 'stats' && (
         <div className="space-y-4">
           {!stats ? (
-            <div className="h-20 rounded-xl bg-surface-container animate-pulse" />
+            <div className="h-20 rounded-xl bg-[var(--color-pib-surface-soft)] animate-pulse" />
           ) : (
             <>
               <div className="grid grid-cols-4 gap-3">
@@ -912,7 +912,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
                 <Stat label="Click rate" value={`${(stats.rates.clickRate * 100).toFixed(1)}%`} />
                 <Stat label="Unsub rate" value={`${(stats.rates.unsubRate * 100).toFixed(1)}%`} />
               </div>
-              <p className="text-xs text-on-surface-variant">Updates every 10 seconds.</p>
+              <p className="text-xs text-[var(--color-pib-text-muted)]">Updates every 10 seconds.</p>
             </>
           )}
         </div>
@@ -923,9 +923,9 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
 
 function Stat({ label, value }: { label: string; value: number | string }) {
   return (
-    <div className="p-3 rounded-xl bg-surface-container">
-      <p className="text-xs text-on-surface-variant">{label}</p>
-      <p className="text-xl font-semibold text-on-surface tabular-nums">{value}</p>
+    <div className="p-3 rounded-xl bg-[var(--color-pib-surface-soft)]">
+      <p className="text-xs text-[var(--color-pib-text-muted)]">{label}</p>
+      <p className="text-xl font-semibold text-[var(--color-pib-text)] tabular-nums">{value}</p>
     </div>
   )
 }

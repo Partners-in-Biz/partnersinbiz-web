@@ -232,7 +232,7 @@ function toPayload(form: FormState) {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="pib-card space-y-4">
-      <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{title}</p>
+      <p className="pib-label">{title}</p>
       {children}
     </div>
   )
@@ -664,13 +664,13 @@ export default function OrganizationSettingsPage() {
 
         <Section title="Invoicing">
           <div className="space-y-4">
-            <label className="flex items-center gap-3 text-sm text-on-surface">
+            <label className="flex items-center gap-3 text-sm text-[var(--color-pib-text)]">
               <input
                 type="checkbox"
                 checked={form.purchaseOrderRequired}
                 onChange={(e) => setForm((prev) => ({ ...prev, purchaseOrderRequired: e.target.checked }))}
                 disabled={!canEdit}
-                className="h-4 w-4 rounded border-outline text-primary disabled:opacity-60"
+                className="h-4 w-4 rounded border-[var(--color-pib-line)] text-primary disabled:opacity-60"
               />
               Purchase order required
             </label>
@@ -704,7 +704,7 @@ export default function OrganizationSettingsPage() {
 
       {/* Timezone — standalone section, separate save */}
       <div className="pib-card space-y-4">
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Timezone</p>
+        <p className="pib-label">Timezone</p>
         <p className="text-sm text-[var(--color-pib-text-muted)]">
           All scheduled times, reports, and activity timestamps will display in this timezone for your organisation.
         </p>
@@ -715,7 +715,7 @@ export default function OrganizationSettingsPage() {
             value={timezone}
             onChange={(e) => setTimezone(e.target.value)}
             disabled={!canEdit}
-            className="pib-input disabled:opacity-60"
+            className="pib-select disabled:opacity-60"
           >
             {TIMEZONES.map((tz) => (
               <option key={tz.value} value={tz.value}>{tz.label}</option>
@@ -744,7 +744,7 @@ export default function OrganizationSettingsPage() {
       {/* Branding & sender — logo, brand colours, default sender, subdomain summary */}
       <div className="pib-card space-y-6">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Branding &amp; sender</p>
+          <p className="pib-label">Branding &amp; sender</p>
           <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
             Set the logo, brand colours, and default sender used across portals, proposals, and outbound email.
           </p>

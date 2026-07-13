@@ -106,17 +106,17 @@ export function TemplateBrowserPanel({
   return (
     <section className="pib-card-section space-y-3 p-4">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="font-headline text-lg font-semibold text-on-surface">Templates</h2>
+        <h2 className="font-headline text-lg font-semibold text-[var(--color-pib-text)]">Templates</h2>
         {canSaveSelection ? (
           <button type="button" className="pib-btn-ghost text-sm" onClick={() => void saveSelection()}>
             Save selection
           </button>
         ) : null}
       </div>
-      <label className="block text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
+      <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">
         Category
         <select
-          className="mt-1 w-full rounded-md border border-[var(--color-pib-line)] bg-surface px-2 py-2 text-sm normal-case text-on-surface"
+          className="mt-1 w-full rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-2 py-2 text-sm normal-case text-[var(--color-pib-text)]"
           value={category}
           onChange={(event) => setCategory(event.target.value as VideoEditorTemplateCategory | '')}
           disabled={!orgId}
@@ -127,15 +127,15 @@ export function TemplateBrowserPanel({
           ))}
         </select>
       </label>
-      {!orgId ? <p className="text-sm text-on-surface-variant">Choose an organisation to load templates.</p> : null}
+      {!orgId ? <p className="text-sm text-[var(--color-pib-text-muted)]">Choose an organisation to load templates.</p> : null}
       <div className="space-y-2">
-        {loading ? <p className="text-sm text-on-surface-variant">Loading templates...</p> : null}
+        {loading ? <p className="text-sm text-[var(--color-pib-text-muted)]">Loading templates...</p> : null}
         {visibleTemplates.map((template) => (
           <article key={template.id} className="rounded-lg border border-[var(--color-pib-line)] p-3">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <h3 className="text-sm font-semibold text-on-surface">{template.title}</h3>
-                <p className="text-xs text-on-surface-variant">
+                <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{template.title}</h3>
+                <p className="text-xs text-[var(--color-pib-text-muted)]">
                   {categoryLabel(template.category)}
                   {template.orgId === PLATFORM_TEMPLATE_ORG ? ' - platform' : ''}
                 </p>
@@ -149,12 +149,12 @@ export function TemplateBrowserPanel({
                 {busyTemplateId === template.id ? 'Inserting...' : 'Insert at playhead'}
               </button>
             </div>
-            {template.description ? <p className="mt-2 text-xs text-on-surface-variant">{template.description}</p> : null}
+            {template.description ? <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{template.description}</p> : null}
           </article>
         ))}
-        {orgId && !loading && !visibleTemplates.length ? <p className="text-sm text-on-surface-variant">No templates found.</p> : null}
+        {orgId && !loading && !visibleTemplates.length ? <p className="text-sm text-[var(--color-pib-text-muted)]">No templates found.</p> : null}
       </div>
-      {message ? <p role="status" className="text-xs text-on-surface-variant">{message}</p> : null}
+      {message ? <p role="status" className="text-xs text-[var(--color-pib-text-muted)]">{message}</p> : null}
     </section>
   )
 }

@@ -5,7 +5,7 @@ import type { ReactNode } from 'react'
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block mb-3">
-      <span className="block text-xs font-medium text-on-surface-variant mb-1">{label}</span>
+      <span className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">{label}</span>
       {children}
     </label>
   )

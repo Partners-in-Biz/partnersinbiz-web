@@ -55,7 +55,7 @@ const STATUS_TEXT: Record<string, string> = {
   ok: 'text-emerald-400',
   degraded: 'text-amber-400',
   down: 'text-red-400',
-  'not-configured': 'text-on-surface-variant',
+  'not-configured': 'text-[var(--color-pib-text-muted)]',
 }
 
 const METRIC_LABELS: Array<{ key: keyof Metrics; label: string; fmt: (v: number) => string }> = [
@@ -170,9 +170,9 @@ export default function InfrastructureClient() {
     <div className="space-y-6 max-w-5xl mx-auto">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">System</p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Infrastructure</h1>
-          <p className="text-sm text-on-surface-variant mt-1">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">System</p>
+          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Infrastructure</h1>
+          <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
             VPS agent hosts and platform services. Metrics are pulled live from each Hermes sidecar — fields the
             sidecar does not expose are shown as &ldquo;not instrumented&rdquo;. Refreshes every 60s.
           </p>
@@ -189,26 +189,26 @@ export default function InfrastructureClient() {
 
       {/* Agent / host cards */}
       <div>
-        <h2 className="font-headline font-semibold text-on-surface mb-3">Agent Hosts</h2>
+        <h2 className="font-headline font-semibold text-[var(--color-pib-text)] mb-3">Agent Hosts</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           {loading
             ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-44 rounded-xl" />)
             : servers.length === 0
-              ? <p className="text-sm text-on-surface-variant">No agents registered.</p>
+              ? <p className="text-sm text-[var(--color-pib-text-muted)]">No agents registered.</p>
               : servers.map((srv) => (
                   <div key={srv.agentId} className="pib-card p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <div className="flex items-center gap-2">
                           <span className={`inline-block w-2.5 h-2.5 rounded-full ${STATUS_DOT[srv.status]}`} />
-                          <h3 className="font-headline font-semibold text-on-surface">{srv.name}</h3>
+                          <h3 className="font-headline font-semibold text-[var(--color-pib-text)]">{srv.name}</h3>
                         </div>
-                        <p className="text-xs font-mono text-on-surface-variant mt-0.5">{srv.host}</p>
+                        <p className="text-xs font-mono text-[var(--color-pib-text-muted)] mt-0.5">{srv.host}</p>
                       </div>
                       <span className={`text-xs font-label ${STATUS_TEXT[srv.status]}`}>{srv.status}</span>
                     </div>
 
-                    <p className="mt-2 text-[10px] text-on-surface-variant">
+                    <p className="mt-2 text-[10px] text-[var(--color-pib-text-muted)]">
                       Heartbeat {timeAgo(srv.lastHeartbeat)}
                       {srv.probedPath && <span className="font-mono"> · {srv.probedPath}</span>}
                     </p>
@@ -218,11 +218,11 @@ export default function InfrastructureClient() {
                         const v = srv.metrics[key]
                         return (
                           <div key={key} className="flex items-center justify-between gap-2">
-                            <span className="text-[11px] uppercase tracking-wide text-on-surface-variant">{label}</span>
+                            <span className="text-[11px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">{label}</span>
                             {v === null ? (
-                              <span className="text-xs text-on-surface-variant italic">not instrumented</span>
+                              <span className="text-xs text-[var(--color-pib-text-muted)] italic">not instrumented</span>
                             ) : (
-                              <span className="font-mono text-on-surface">{fmt(v)}</span>
+                              <span className="font-mono text-[var(--color-pib-text)]">{fmt(v)}</span>
                             )}
                           </div>
                         )
@@ -240,15 +240,15 @@ export default function InfrastructureClient() {
       {/* Platform services */}
       {!loading && platformServices.length > 0 && (
         <div className="pib-card p-4">
-          <h2 className="font-headline font-semibold text-on-surface mb-3">Platform Services</h2>
+          <h2 className="font-headline font-semibold text-[var(--color-pib-text)] mb-3">Platform Services</h2>
           <div className="grid gap-2 sm:grid-cols-2">
             {platformServices.map((svc) => (
-              <div key={svc.key} className="flex items-center justify-between gap-2 rounded-lg border border-outline/40 p-2.5">
-                <span className="flex items-center gap-2 text-sm text-on-surface">
+              <div key={svc.key} className="flex items-center justify-between gap-2 rounded-lg border border-[var(--color-pib-line-strong)]/40 p-2.5">
+                <span className="flex items-center gap-2 text-sm text-[var(--color-pib-text)]">
                   <span className={`inline-block w-2 h-2 rounded-full ${STATUS_DOT[svc.status]}`} />
                   {svc.name}
                 </span>
-                <span className="font-mono text-xs text-on-surface-variant">
+                <span className="font-mono text-xs text-[var(--color-pib-text-muted)]">
                   {svc.latencyInstrumented ? (svc.latencyMs === null ? '—' : `${svc.latencyMs} ms`) : 'not instrumented'}
                 </span>
               </div>
@@ -261,8 +261,8 @@ export default function InfrastructureClient() {
       {thresholds && (
         <form onSubmit={saveAlerts} className="pib-card p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="font-headline font-semibold text-on-surface">Alert Thresholds</h2>
-            <label className="flex items-center gap-1.5 text-xs text-on-surface-variant">
+            <h2 className="font-headline font-semibold text-[var(--color-pib-text)]">Alert Thresholds</h2>
+            <label className="flex items-center gap-1.5 text-xs text-[var(--color-pib-text-muted)]">
               <input
                 type="checkbox"
                 checked={alertsEnabled}
@@ -280,7 +280,7 @@ export default function InfrastructureClient() {
               ['heartbeatStaleMinutes', 'Heartbeat stale (min)'],
             ] as Array<[keyof Thresholds, string]>).map(([key, label]) => (
               <label key={key} className="space-y-1">
-                <span className="text-[10px] uppercase tracking-wide text-on-surface-variant block">{label}</span>
+                <span className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)] block">{label}</span>
                 <input
                   type="number"
                   min={1}
@@ -297,10 +297,10 @@ export default function InfrastructureClient() {
               <button type="submit" disabled={saving} className="pib-btn-primary text-sm font-label disabled:opacity-50">
                 {saving ? 'Saving…' : 'Save thresholds'}
               </button>
-              {savedMsg && <span className="text-xs text-on-surface-variant">{savedMsg}</span>}
+              {savedMsg && <span className="text-xs text-[var(--color-pib-text-muted)]">{savedMsg}</span>}
             </div>
           ) : (
-            <p className="text-xs text-on-surface-variant">Super admin only — view only.</p>
+            <p className="text-xs text-[var(--color-pib-text-muted)]">Super admin only — view only.</p>
           )}
         </form>
       )}

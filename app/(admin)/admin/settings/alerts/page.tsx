@@ -114,30 +114,30 @@ export default function AlertsPage() {
   const events = config.availableEvents?.length ? config.availableEvents : Object.keys(EVENT_LABELS)
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
-      <div>
-        <Link href="/admin/settings" className="text-xs text-on-surface-variant hover:text-on-surface">← Settings</Link>
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1 mt-2">Infrastructure</p>
-        <h1 className="text-2xl font-headline font-bold text-on-surface">Admin Alerts</h1>
-      </div>
+    <div className="space-y-8 max-w-3xl mx-auto">
+      <header>
+        <Link href="/admin/settings" className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]">← Settings</Link>
+        <p className="eyebrow mt-2">Admin · Infrastructure</p>
+        <h1 className="pib-page-title mt-2">Admin Alerts</h1>
+      </header>
 
-      {feedback && <div className="rounded-lg border border-green-500/20 bg-green-500/10 px-3 py-2 text-xs text-green-400">{feedback}</div>}
-      {error && <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div>}
+      {feedback && <div className="pib-card py-2 text-xs text-[var(--color-pib-green)]">{feedback}</div>}
+      {error && <div className="pib-card py-2 text-xs text-[var(--color-error)]">{error}</div>}
 
       {/* Webhook */}
       <div className="pib-card space-y-3">
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Webhook</p>
+        <p className="pib-label">Webhook</p>
         <label className="block">
-          <span className="text-xs text-on-surface-variant">Webhook URL (Slack incoming webhook or any JSON endpoint)</span>
+          <span className="text-xs text-[var(--color-pib-text-muted)]">Webhook URL (Slack incoming webhook or any JSON endpoint)</span>
           <input
             value={config.webhookUrl}
             onChange={(e) => setConfig((c) => ({ ...c, webhookUrl: e.target.value }))}
             placeholder="https://hooks.slack.com/services/..."
-            className="mt-1 w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2 text-sm text-on-surface font-mono"
+            className="pib-input mt-1 font-mono"
           />
         </label>
         <div className="flex items-center justify-between">
-          <span className="text-sm text-on-surface">Slack formatting enabled</span>
+          <span className="text-sm text-[var(--color-pib-text)]">Slack formatting enabled</span>
           <SettingsSwitch
             checked={config.slackEnabled}
             label="Slack formatting"
@@ -145,10 +145,10 @@ export default function AlertsPage() {
           />
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={save} disabled={saving || loading} className="rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-60" style={{ background: 'var(--color-accent-v2)' }}>
+          <button type="button" onClick={save} disabled={saving || loading} className="btn-pib-primary disabled:opacity-60">
             {saving ? 'Saving…' : 'Save'}
           </button>
-          <button type="button" onClick={sendTest} disabled={testing || !config.webhookUrl} className="rounded-lg border border-[var(--color-card-border)] px-4 py-2 text-sm text-on-surface hover:bg-[var(--color-row-hover)] disabled:opacity-60">
+          <button type="button" onClick={sendTest} disabled={testing || !config.webhookUrl} className="btn-pib-secondary disabled:opacity-60">
             {testing ? 'Sending…' : 'Send test'}
           </button>
         </div>
@@ -156,13 +156,13 @@ export default function AlertsPage() {
 
       {/* Event matrix */}
       <div className="pib-card">
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-3">Event subscriptions</p>
-        <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)]">
+        <p className="pib-label mb-3">Event subscriptions</p>
+        <div className="overflow-hidden rounded-xl border border-[var(--color-pib-line)]">
           {events.map((evt) => (
-            <div key={evt} className="flex items-center justify-between border-b border-[var(--color-card-border)] px-4 py-3 last:border-b-0">
+            <div key={evt} className="flex items-center justify-between border-b border-[var(--color-pib-line)] px-4 py-3 last:border-b-0">
               <div>
-                <p className="text-sm text-on-surface">{EVENT_LABELS[evt] ?? evt}</p>
-                <code className="text-[11px] text-on-surface-variant font-mono">{evt}</code>
+                <p className="text-sm text-[var(--color-pib-text)]">{EVENT_LABELS[evt] ?? evt}</p>
+                <code className="text-[11px] text-[var(--color-pib-text-muted)] font-mono">{evt}</code>
               </div>
               <SettingsSwitch checked={!!config.events[evt]} label={`Alert on ${evt}`} onChange={() => toggleEvent(evt)} />
             </div>
@@ -172,23 +172,23 @@ export default function AlertsPage() {
 
       {/* History */}
       <div className="pib-card">
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-3">Delivery history (50 most recent)</p>
+        <p className="pib-label mb-3">Delivery history (50 most recent)</p>
         {history.length === 0 ? (
-          <p className="text-sm text-on-surface-variant">No alerts dispatched yet.</p>
+          <p className="text-sm text-[var(--color-pib-text-muted)]">No alerts dispatched yet.</p>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)]">
-            <div className="grid grid-cols-12 gap-2 border-b border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+          <div className="overflow-hidden rounded-xl border border-[var(--color-pib-line)]">
+            <div className="grid grid-cols-12 gap-2 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 pib-label">
               <span className="col-span-4">Event</span>
               <span className="col-span-2">Status</span>
               <span className="col-span-3">HTTP / error</span>
               <span className="col-span-3 text-right">When</span>
             </div>
             {history.map((h) => (
-              <div key={h.id} className="grid grid-cols-12 gap-2 border-b border-[var(--color-card-border)] px-3 py-2 text-xs last:border-b-0">
-                <span className="col-span-4 font-mono text-on-surface-variant truncate">{h.event}</span>
+              <div key={h.id} className="grid grid-cols-12 gap-2 border-b border-[var(--color-pib-line)] px-3 py-2 text-xs last:border-b-0">
+                <span className="col-span-4 font-mono text-[var(--color-pib-text-muted)] truncate">{h.event}</span>
                 <span className={`col-span-2 ${h.status === 'sent' ? 'text-green-400' : 'text-red-300'}`}>{h.status}</span>
-                <span className="col-span-3 text-on-surface-variant truncate">{h.error ? h.error : h.httpStatus ?? '—'}</span>
-                <span className="col-span-3 text-right text-on-surface-variant">{h.at ? new Date(h.at).toLocaleString() : '—'}</span>
+                <span className="col-span-3 text-[var(--color-pib-text-muted)] truncate">{h.error ? h.error : h.httpStatus ?? '—'}</span>
+                <span className="col-span-3 text-right text-[var(--color-pib-text-muted)]">{h.at ? new Date(h.at).toLocaleString() : '—'}</span>
               </div>
             ))}
           </div>

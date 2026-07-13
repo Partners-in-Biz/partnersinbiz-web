@@ -26,7 +26,7 @@ const HEALTH_PILL: Record<HealthStatus, { label: string; className: string }> = 
   ok:          { label: 'Online',      className: 'bg-emerald-500/15 text-emerald-400' },
   degraded:    { label: 'Degraded',    className: 'bg-amber-500/15 text-amber-400' },
   unreachable: { label: 'Unreachable', className: 'bg-red-500/15 text-red-400' },
-  loading:     { label: 'Checking…',   className: 'bg-white/10 text-on-surface-variant' },
+  loading:     { label: 'Checking…',   className: 'bg-white/10 text-[var(--color-pib-text-muted)]' },
 }
 
 const TABS = ['overview', 'skills', 'cron', 'env', 'config', 'soul', 'files', 'logs', 'edit'] as const
@@ -141,7 +141,7 @@ function formatBytes(n: number): string {
 function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+      <span className="text-[10px] pib-label">
         {label}
       </span>
       {children}
@@ -153,8 +153,8 @@ function RegistryList({ title, items }: { title: string; items?: string[] }) {
   if (!items || items.length === 0) return null
   return (
     <div className="pib-card p-3">
-      <p className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant mb-2">{title}</p>
-      <ul className="space-y-1.5 text-xs text-on-surface-variant leading-relaxed">
+      <p className="text-[10px] pib-label mb-2">{title}</p>
+      <ul className="space-y-1.5 text-xs text-[var(--color-pib-text-muted)] leading-relaxed">
         {items.map((item) => (
           <li key={item} className="flex gap-2">
             <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-primary/70" />
@@ -470,8 +470,8 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
   if (!agent) return null
 
   const { agentId }  = agent
-  const iconClass    = COLOR_ICON_BG[agent.colorKey] ?? 'bg-white/10 text-on-surface-variant'
-  const accentClass  = COLOR_ACCENT[agent.colorKey] ?? 'text-on-surface-variant'
+  const iconClass    = COLOR_ICON_BG[agent.colorKey] ?? 'bg-white/10 text-[var(--color-pib-text-muted)]'
+  const accentClass  = COLOR_ACCENT[agent.colorKey] ?? 'text-[var(--color-pib-text-muted)]'
 
   async function pingHealth() {
     setPinging(true)
@@ -753,18 +753,18 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
         </div>
         <div className="flex-1 min-w-0">
           <h2 className={`text-base font-semibold ${accentClass}`}>{agent.name}</h2>
-          <p className="text-xs text-on-surface-variant leading-snug">{agent.role}</p>
+          <p className="text-xs text-[var(--color-pib-text-muted)] leading-snug">{agent.role}</p>
         </div>
         <button
           onClick={onClose}
-          className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-on-surface-variant hover:text-on-surface transition-colors"
+          className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
           aria-label="Close panel"
         >
           <span className="material-symbols-outlined text-[20px]">close</span>
         </button>
       </div>
 
-      <div className="border-b border-white/10 px-6 py-3 text-xs leading-5 text-on-surface-variant">
+      <div className="border-b border-white/10 px-6 py-3 text-xs leading-5 text-[var(--color-pib-text-muted)]">
         Only super admins can edit live agent configuration. Secrets remain redacted; config, env, file, cron, and runtime operations stay behind admin approval gates.
       </div>
 
@@ -785,36 +785,36 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
             <section className="space-y-3">
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className="pib-card p-3 space-y-0.5">
-                  <p className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Status</p>
+                  <p className="text-[10px] pib-label">Status</p>
                   <div className="flex items-center gap-1.5 mt-1">
                     <span className={`w-1.5 h-1.5 rounded-full ${agent.enabled ? 'bg-emerald-400' : 'bg-white/20'}`} />
-                    <span className="text-sm text-on-surface">{agent.enabled ? 'Enabled' : 'Disabled'}</span>
+                    <span className="text-sm text-[var(--color-pib-text)]">{agent.enabled ? 'Enabled' : 'Disabled'}</span>
                   </div>
                 </div>
                 <div className="pib-card p-3 space-y-0.5">
-                  <p className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Last health</p>
+                  <p className="text-[10px] pib-label">Last health</p>
                   {agent.lastHealthStatus ? (
                     <span className={`inline-block mt-1 text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full ${HEALTH_PILL[agent.lastHealthStatus].className}`}>
                       {HEALTH_PILL[agent.lastHealthStatus].label}
                     </span>
                   ) : (
-                    <span className="text-xs text-on-surface-variant/50 mt-1 block">No data</span>
+                    <span className="text-xs text-[var(--color-pib-text-muted)]/50 mt-1 block">No data</span>
                   )}
                 </div>
               </div>
 
               <div className="pib-card p-3">
-                <p className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant mb-1">API Key (masked)</p>
-                <code className="text-xs font-mono text-on-surface-variant/70 break-all">{agent.apiKey}</code>
+                <p className="text-[10px] pib-label mb-1">API Key (masked)</p>
+                <code className="text-xs font-mono text-[var(--color-pib-text-muted)]/70 break-all">{agent.apiKey}</code>
               </div>
 
               <div className="pib-card p-3">
-                <p className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant mb-1">Base URL</p>
-                <code className="text-xs font-mono text-on-surface break-all">{agent.baseUrl}</code>
+                <p className="text-[10px] pib-label mb-1">Base URL</p>
+                <code className="text-xs font-mono text-[var(--color-pib-text)] break-all">{agent.baseUrl}</code>
               </div>
 
               <div className="space-y-3">
-                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                <p className="text-[10px] pib-label">
                   Registry
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -831,7 +831,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
 
             {/* Health ping */}
             <section className="space-y-3">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+              <p className="text-[10px] pib-label">
                 Health Check
               </p>
               <div className="flex items-center gap-3">
@@ -849,7 +849,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                       {healthPill.label}
                     </span>
                     {healthResult?.latencyMs !== undefined && (
-                      <span className="text-xs text-on-surface-variant">{healthResult.latencyMs}ms</span>
+                      <span className="text-xs text-[var(--color-pib-text-muted)]">{healthResult.latencyMs}ms</span>
                     )}
                   </div>
                 )}
@@ -862,7 +862,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
         {activeTab === 'skills' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between gap-4">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+              <p className="text-[10px] pib-label">
                 {skills.length} installed
               </p>
               <div className="flex items-center gap-2">
@@ -890,11 +890,11 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
             </div>
 
             {skillPolicy && (
-              <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 space-y-3">
+              <div className="pib-card p-3 space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Runtime skill policy</p>
-                    <code className="mt-1 block text-xs text-on-surface-variant break-all">{skillPolicy.policy.vpsExternalDir}</code>
+                    <p className="text-[10px] pib-label">Runtime skill policy</p>
+                    <code className="mt-1 block text-xs text-[var(--color-pib-text-muted)] break-all">{skillPolicy.policy.vpsExternalDir}</code>
                   </div>
                   <span className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full ${
                     skillPolicy.drift?.status === 'in_sync'
@@ -911,8 +911,8 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                   <RegistryList title="Hard approval gates" items={skillPolicy.policy.approvalGates ?? []} />
                 </div>
                 {skillPolicy.policy.reviewerAgentId && (
-                  <p className="text-xs text-on-surface-variant">
-                    Reviewer: <span className="font-mono text-on-surface">{skillPolicy.policy.reviewerAgentId}</span>
+                  <p className="text-xs text-[var(--color-pib-text-muted)]">
+                    Reviewer: <span className="font-mono text-[var(--color-pib-text)]">{skillPolicy.policy.reviewerAgentId}</span>
                   </p>
                 )}
                 {skillPolicy.drift && skillPolicy.drift.status !== 'in_sync' && (
@@ -942,14 +942,14 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                 className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 cursor-pointer transition-colors ${
                   dragOver
                     ? 'border-primary bg-primary/5'
-                    : 'border-[var(--color-card-border)] hover:border-primary/50'
+                    : 'border-[var(--color-pib-line)] hover:border-primary/50'
                 }`}
               >
-                <span className="material-symbols-outlined text-3xl text-on-surface-variant">cloud_upload</span>
-                <div className="text-sm text-on-surface text-center">
+                <span className="material-symbols-outlined text-3xl text-[var(--color-pib-text-muted)]">cloud_upload</span>
+                <div className="text-sm text-[var(--color-pib-text)] text-center">
                   {uploading ? 'Uploading…' : 'Drop a skill .zip here, or click to choose'}
                 </div>
-                <div className="text-xs text-on-surface-variant">Max 50 MB. Gateway auto-restarts after install.</div>
+                <div className="text-xs text-[var(--color-pib-text-muted)]">Max 50 MB. Gateway auto-restarts after install.</div>
                 <input
                   ref={skillInputRef}
                   type="file"
@@ -969,15 +969,15 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
 
             <div className="grid gap-2 sm:grid-cols-2">
               {skills.length === 0 && !skillsLoading && (
-                <div className="sm:col-span-2 text-sm text-on-surface-variant py-4 text-center">No skills installed.</div>
+                <div className="sm:col-span-2 text-sm text-[var(--color-pib-text-muted)] py-4 text-center">No skills installed.</div>
               )}
               {skills.map((s) => (
-                <div key={s.name} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3">
+                <div key={s.name} className="pib-card p-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium text-on-surface truncate">{s.name}</div>
-                      {s.description && <div className="text-xs text-on-surface-variant mt-0.5 line-clamp-2">{s.description}</div>}
-                      <div className="text-xs text-on-surface-variant mt-1">{s.fileCount} files · {formatBytes(s.sizeBytes)}</div>
+                      <div className="text-sm font-medium text-[var(--color-pib-text)] truncate">{s.name}</div>
+                      {s.description && <div className="text-xs text-[var(--color-pib-text-muted)] mt-0.5 line-clamp-2">{s.description}</div>}
+                      <div className="text-xs text-[var(--color-pib-text-muted)] mt-1">{s.fileCount} files · {formatBytes(s.sizeBytes)}</div>
                     </div>
                     {canEdit && (
                       <button
@@ -1000,7 +1000,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
         {activeTab === 'config' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between gap-4">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+              <p className="text-[10px] pib-label">
                 Agent Config
               </p>
               <button
@@ -1034,29 +1034,29 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                 <div className="grid grid-cols-2 gap-2">
                   {configModelDefault && (
                     <div className="pib-card p-3">
-                      <p className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant mb-1">Default model</p>
-                      <code className="text-xs font-mono text-on-surface">{configModelDefault}</code>
+                      <p className="text-[10px] pib-label mb-1">Default model</p>
+                      <code className="text-xs font-mono text-[var(--color-pib-text)]">{configModelDefault}</code>
                     </div>
                   )}
                   {configRole && (
                     <div className="pib-card p-3">
-                      <p className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant mb-1">Role</p>
-                      <span className="text-xs text-on-surface">{configRole}</span>
+                      <p className="text-[10px] pib-label mb-1">Role</p>
+                      <span className="text-xs text-[var(--color-pib-text)]">{configRole}</span>
                     </div>
                   )}
                   {configEnabled !== undefined && (
                     <div className="pib-card p-3">
-                      <p className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant mb-1">Status</p>
+                      <p className="text-[10px] pib-label mb-1">Status</p>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <span className={`w-1.5 h-1.5 rounded-full ${configEnabled ? 'bg-emerald-400' : 'bg-white/20'}`} />
-                        <span className="text-xs text-on-surface">{configEnabled ? 'Enabled' : 'Disabled'}</span>
+                        <span className="text-xs text-[var(--color-pib-text)]">{configEnabled ? 'Enabled' : 'Disabled'}</span>
                       </div>
                     </div>
                   )}
                   {configModels !== undefined && configModels !== null && (
                     <div className="pib-card p-3 col-span-2">
-                      <p className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant mb-1">Live models (VPS)</p>
-                      <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-words text-xs font-mono text-on-surface-variant/80">
+                      <p className="text-[10px] pib-label mb-1">Live models (VPS)</p>
+                      <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-words text-xs font-mono text-[var(--color-pib-text-muted)]/80">
                         {JSON.stringify(configModels, null, 2)}
                       </pre>
                     </div>
@@ -1065,8 +1065,8 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                 <div className="pib-card p-3 space-y-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Live config JSON</p>
-                      {liveConfigPath && <p className="mt-1 text-[10px] font-mono text-on-surface-variant/50 break-all">{liveConfigPath}</p>}
+                      <p className="text-[10px] pib-label">Live config JSON</p>
+                      {liveConfigPath && <p className="mt-1 text-[10px] font-mono text-[var(--color-pib-text-muted)]/50 break-all">{liveConfigPath}</p>}
                     </div>
                     {canEdit && (
                       <button
@@ -1088,14 +1088,14 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                     className="pib-input w-full resize-y font-mono text-xs leading-relaxed"
                     placeholder='{ "model": { "provider": "openai-codex", "default": "gpt-5.5" } }'
                   />
-                  <p className="text-[10px] text-on-surface-variant/60">
+                  <p className="text-[10px] text-[var(--color-pib-text-muted)]/60">
                     Provider and model live under <code className="font-mono">model.provider</code>, <code className="font-mono">model.default</code>, and <code className="font-mono">fallback_providers</code>. Saving writes the VPS config and restarts this agent.
                   </p>
                 </div>
                 {configPersona && (
                   <div className="pib-card p-3">
-                    <p className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant mb-1">Persona</p>
-                    <p className="text-xs text-on-surface-variant leading-relaxed whitespace-pre-wrap">{configPersona}</p>
+                    <p className="text-[10px] pib-label mb-1">Persona</p>
+                    <p className="text-xs text-[var(--color-pib-text-muted)] leading-relaxed whitespace-pre-wrap">{configPersona}</p>
                   </div>
                 )}
               </div>
@@ -1107,7 +1107,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
         {activeTab === 'soul' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between gap-4">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+              <p className="text-[10px] pib-label">
                 SOUL.md
               </p>
               <div className="flex items-center gap-2">
@@ -1134,7 +1134,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
             </div>
             {filesError && <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">{filesError}</div>}
             {fileMessage && <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-xs text-green-300">{fileMessage}</div>}
-            {fileMeta?.absolutePath && <p className="text-[10px] font-mono text-on-surface-variant/50 break-all">{fileMeta.absolutePath}</p>}
+            {fileMeta?.absolutePath && <p className="text-[10px] font-mono text-[var(--color-pib-text-muted)]/50 break-all">{fileMeta.absolutePath}</p>}
             <textarea
               value={fileContent}
               onChange={(e) => setFileContent(e.target.value)}
@@ -1151,7 +1151,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
         {activeTab === 'files' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between gap-4">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+              <p className="text-[10px] pib-label">
                 Profile Files
               </p>
               <button
@@ -1175,17 +1175,17 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                     onClick={() => selectProfileFile(file.path)}
                     className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
                       selectedFilePath === file.path
-                        ? 'border-primary/60 bg-primary/10 text-on-surface'
-                        : 'border-white/10 bg-white/5 text-on-surface-variant hover:text-on-surface'
+                        ? 'border-primary/60 bg-primary/10 text-[var(--color-pib-text)]'
+                        : 'border-white/10 bg-white/5 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <code className="text-[11px] font-mono truncate">{file.path}</code>
-                      <span className={`text-[9px] font-label uppercase ${file.editable ? 'text-emerald-400' : 'text-on-surface-variant/50'}`}>
+                      <span className={`text-[9px] font-label uppercase ${file.editable ? 'text-emerald-400' : 'text-[var(--color-pib-text-muted)]/50'}`}>
                         {file.editable ? 'edit' : 'read'}
                       </span>
                     </div>
-                    <div className="mt-1 text-[10px] text-on-surface-variant/50">
+                    <div className="mt-1 text-[10px] text-[var(--color-pib-text-muted)]/50">
                       {file.exists ? `${formatBytes(file.sizeBytes ?? 0)} · ${file.kind ?? 'file'}` : 'missing'}
                     </div>
                   </button>
@@ -1194,8 +1194,8 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
               <div className="pib-card p-3 space-y-3 min-w-0">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">{selectedFilePath}</p>
-                    {fileMeta?.absolutePath && <p className="mt-1 text-[10px] font-mono text-on-surface-variant/50 break-all">{fileMeta.absolutePath}</p>}
+                    <p className="text-[10px] pib-label">{selectedFilePath}</p>
+                    {fileMeta?.absolutePath && <p className="mt-1 text-[10px] font-mono text-[var(--color-pib-text-muted)]/50 break-all">{fileMeta.absolutePath}</p>}
                   </div>
                   {canEdit && (
                     <button
@@ -1225,7 +1225,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
         {activeTab === 'logs' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between gap-4">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+              <p className="text-[10px] pib-label">
                 Agent Logs
               </p>
               <button
@@ -1252,7 +1252,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
             )}
 
             {!logsLoading && !logsError && logsData !== null && logsData.length === 0 && (
-              <div className="text-sm text-on-surface-variant text-center py-8">No runs recorded for this agent yet.</div>
+              <div className="text-sm text-[var(--color-pib-text-muted)] text-center py-8">No runs recorded for this agent yet.</div>
             )}
 
             {!logsLoading && !logsError && logsData !== null && logsData.length > 0 && (
@@ -1268,23 +1268,23 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                             ? 'bg-red-500/15 text-red-400'
                             : run.status === 'in-progress'
                             ? 'bg-amber-500/15 text-amber-400'
-                            : 'bg-white/10 text-on-surface-variant'
+                            : 'bg-white/10 text-[var(--color-pib-text-muted)]'
                         }`}>{run.status ?? 'unknown'}</span>
                         {run.orgId && (
-                          <span className="text-[10px] font-mono text-on-surface-variant/60 truncate max-w-[120px]">{run.orgId}</span>
+                          <span className="text-[10px] font-mono text-[var(--color-pib-text-muted)]/60 truncate max-w-[120px]">{run.orgId}</span>
                         )}
                       </div>
                       {run.createdAt && (
-                        <span className="text-[10px] text-on-surface-variant/50 shrink-0">
+                        <span className="text-[10px] text-[var(--color-pib-text-muted)]/50 shrink-0">
                           {new Date(run.createdAt).toLocaleString()}
                         </span>
                       )}
                     </div>
                     {run.prompt && (
-                      <p className="text-xs text-on-surface-variant line-clamp-2">{run.prompt}</p>
+                      <p className="text-xs text-[var(--color-pib-text-muted)] line-clamp-2">{run.prompt}</p>
                     )}
                     {run.hermesRunId && (
-                      <code className="text-[10px] font-mono text-on-surface-variant/40">{run.hermesRunId}</code>
+                      <code className="text-[10px] font-mono text-[var(--color-pib-text-muted)]/40">{run.hermesRunId}</code>
                     )}
                   </div>
                 ))}
@@ -1297,7 +1297,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
         {activeTab === 'cron' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between gap-4">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+              <p className="text-[10px] pib-label">
                 Scheduled Jobs ({cronJobs.length})
               </p>
               <div className="flex items-center gap-2">
@@ -1363,7 +1363,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                   }
                 }}
               >
-                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-2">New Cron Job</p>
+                <p className="text-[10px] pib-label mb-2">New Cron Job</p>
                 <div className="space-y-2">
                   <input
                     type="text"
@@ -1424,14 +1424,14 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
             )}
 
             {!cronLoading && cronSupported === false && (
-              <div className="text-sm text-on-surface-variant text-center py-8 space-y-1">
+              <div className="text-sm text-[var(--color-pib-text-muted)] text-center py-8 space-y-1">
                 <p>This agent&apos;s gateway doesn&apos;t expose the cron API.</p>
-                <p className="text-[11px] text-on-surface-variant/50">Cron support requires Hermes with the full dashboard enabled.</p>
+                <p className="text-[11px] text-[var(--color-pib-text-muted)]/50">Cron support requires Hermes with the full dashboard enabled.</p>
               </div>
             )}
 
             {!cronLoading && cronSupported !== false && cronJobs.length === 0 && !cronError && (
-              <div className="text-sm text-on-surface-variant text-center py-8">
+              <div className="text-sm text-[var(--color-pib-text-muted)] text-center py-8">
                 No cron jobs scheduled. Click &ldquo;New Job&rdquo; to create one.
               </div>
             )}
@@ -1441,18 +1441,18 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      {job.name && <span className="text-sm font-medium text-on-surface">{job.name}</span>}
-                      <code className="text-[10px] font-mono text-on-surface-variant/60 bg-white/5 px-1.5 py-0.5 rounded">{job.schedule}</code>
+                      {job.name && <span className="text-sm font-medium text-[var(--color-pib-text)]">{job.name}</span>}
+                      <code className="text-[10px] font-mono text-[var(--color-pib-text-muted)]/60 bg-white/5 px-1.5 py-0.5 rounded">{job.schedule}</code>
                       {job.status && (
                         <span className={`text-[10px] font-label uppercase px-1.5 py-0.5 rounded-full ${
                           job.status === 'running' ? 'bg-emerald-500/15 text-emerald-400'
                           : job.status === 'paused' ? 'bg-amber-500/15 text-amber-400'
-                          : 'bg-white/10 text-on-surface-variant'
+                          : 'bg-white/10 text-[var(--color-pib-text-muted)]'
                         }`}>{job.status}</span>
                       )}
                     </div>
-                    <p className="text-xs text-on-surface-variant mt-1 line-clamp-2">{job.prompt}</p>
-                    <div className="flex gap-3 mt-1 text-[10px] text-on-surface-variant/50">
+                    <p className="text-xs text-[var(--color-pib-text-muted)] mt-1 line-clamp-2">{job.prompt}</p>
+                    <div className="flex gap-3 mt-1 text-[10px] text-[var(--color-pib-text-muted)]/50">
                       {job.last_run && <span>Last: {new Date(job.last_run).toLocaleString()}</span>}
                       {job.next_run && <span>Next: {new Date(job.next_run).toLocaleString()}</span>}
                     </div>
@@ -1468,7 +1468,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                           const b = await res.json().catch(() => ({}))
                           if (res.ok) { setCronMessage('Job triggered.') } else { setCronError(b.error || 'Failed to trigger') }
                         }}
-                        className="p-1.5 rounded hover:bg-white/10 text-on-surface-variant hover:text-on-surface transition-colors"
+                        className="p-1.5 rounded hover:bg-white/10 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
                       >
                         <span className="material-symbols-outlined text-[16px]">play_arrow</span>
                       </button>
@@ -1483,7 +1483,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                           if (res.ok) { setCronMessage(`Job ${action}d.`); loadedTabs.current.delete('cron'); loadCron(agentId) }
                           else { setCronError(b.error || `Failed to ${action}`) }
                         }}
-                        className="p-1.5 rounded hover:bg-white/10 text-on-surface-variant hover:text-on-surface transition-colors"
+                        className="p-1.5 rounded hover:bg-white/10 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
                       >
                         <span className="material-symbols-outlined text-[16px]">{job.status === 'paused' ? 'play_circle' : 'pause'}</span>
                       </button>
@@ -1498,7 +1498,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                           if (res.ok) { setCronMessage('Job deleted.'); loadedTabs.current.delete('cron'); loadCron(agentId) }
                           else { setCronError(b.error || 'Failed to delete') }
                         }}
-                        className="p-1.5 rounded hover:bg-red-500/10 text-on-surface-variant hover:text-red-400 transition-colors"
+                        className="p-1.5 rounded hover:bg-red-500/10 text-[var(--color-pib-text-muted)] hover:text-red-400 transition-colors"
                       >
                         <span className="material-symbols-outlined text-[16px]">delete</span>
                       </button>
@@ -1514,7 +1514,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
         {activeTab === 'env' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between gap-4">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+              <p className="text-[10px] pib-label">
                 Environment Keys
               </p>
               <button
@@ -1542,9 +1542,9 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
             )}
 
             {!envLoading && envSupported === false && (
-              <div className="text-sm text-on-surface-variant text-center py-8 space-y-1">
+              <div className="text-sm text-[var(--color-pib-text-muted)] text-center py-8 space-y-1">
                 <p>This agent&apos;s gateway doesn&apos;t expose the env API.</p>
-                <p className="text-[11px] text-on-surface-variant/50">Env inspection requires Hermes with the full dashboard enabled.</p>
+                <p className="text-[11px] text-[var(--color-pib-text-muted)]/50">Env inspection requires Hermes with the full dashboard enabled.</p>
               </div>
             )}
 
@@ -1552,7 +1552,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
               <div className="space-y-3">
                 {canEdit && (
                   <form onSubmit={saveEnvKey} className="pib-card p-3 space-y-3">
-                    <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Add or update key</p>
+                    <p className="text-[10px] pib-label">Add or update key</p>
                     <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto]">
                       <input
                         type="text"
@@ -1580,12 +1580,12 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                         {envSaving ? 'Saving...' : 'Save'}
                       </button>
                     </div>
-                    <p className="text-[10px] text-on-surface-variant/60">Secrets remain redacted after saving. Saving restarts this agent on the VPS and must stay inside the approved runtime/config gate.</p>
+                    <p className="text-[10px] text-[var(--color-pib-text-muted)]/60">Secrets remain redacted after saving. Saving restarts this agent on the VPS and must stay inside the approved runtime/config gate.</p>
                   </form>
                 )}
 
                 {envData.filter((e) => !e.advanced).length > 0 && (
-                  <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mt-2 mb-1">Providers</p>
+                  <p className="text-[10px] pib-label mt-2 mb-1">Providers</p>
                 )}
                 {envData.map((entry) => (
                   <div
@@ -1597,13 +1597,13 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                     <span className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${entry.is_set ? 'bg-emerald-400' : 'bg-white/20'}`} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <code className="text-xs font-mono text-on-surface">{entry.key}</code>
+                        <code className="text-xs font-mono text-[var(--color-pib-text)]">{entry.key}</code>
                         {entry.is_set && entry.redacted_value && (
-                          <code className="text-[10px] font-mono text-on-surface-variant/60">{entry.redacted_value}</code>
+                          <code className="text-[10px] font-mono text-[var(--color-pib-text-muted)]/60">{entry.redacted_value}</code>
                         )}
                       </div>
                       {entry.description && (
-                        <p className="text-[10px] text-on-surface-variant/70 mt-0.5">{entry.description}</p>
+                        <p className="text-[10px] text-[var(--color-pib-text-muted)]/70 mt-0.5">{entry.description}</p>
                       )}
                       {entry.tools && entry.tools.length > 0 && (
                         <div className="flex gap-1 flex-wrap mt-1">
@@ -1619,7 +1619,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                         onClick={() => unsetEnvKey(entry.key)}
                         disabled={envSaving}
                         title={`Unset ${entry.key}`}
-                        className="p-1.5 rounded hover:bg-red-500/10 text-on-surface-variant hover:text-red-400 transition-colors disabled:opacity-50"
+                        className="p-1.5 rounded hover:bg-red-500/10 text-[var(--color-pib-text-muted)] hover:text-red-400 transition-colors disabled:opacity-50"
                       >
                         <span className="material-symbols-outlined text-[16px]">delete</span>
                       </button>
@@ -1693,7 +1693,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                   className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-150 ${editEnabled ? 'translate-x-4' : 'translate-x-0'}`}
                 />
               </div>
-              <span className="text-sm text-on-surface group-hover:text-on-surface">
+              <span className="text-sm text-[var(--color-pib-text)] group-hover:text-[var(--color-pib-text)]">
                 Agent enabled
               </span>
             </label>

@@ -33,7 +33,7 @@ export function OrgTeamPanel({ slug }: { slug: string }) {
     return () => { cancelled = true }
   }, [slug])
 
-  if (loading) return <Surface className="text-on-surface-variant text-sm">Loading team…</Surface>
+  if (loading) return <Surface className="text-[var(--color-pib-text-muted)] text-sm">Loading team…</Surface>
   if (error) return <Surface className="text-red-400 text-sm">{error}</Surface>
 
   return (
@@ -45,11 +45,11 @@ export function OrgTeamPanel({ slug }: { slug: string }) {
           {members.map((m) => (
             <div key={m.uid} className="flex items-center justify-between gap-4 py-3 text-sm">
               <div className="min-w-0">
-                <p className="font-medium text-on-surface truncate">
+                <p className="font-medium text-[var(--color-pib-text)] truncate">
                   {m.displayName || m.email || m.uid}
                   {m.isOwner && <span className="ml-2 text-[10px] uppercase tracking-wide text-[var(--color-pib-accent)]">Owner</span>}
                 </p>
-                <p className="text-xs text-on-surface-variant truncate">
+                <p className="text-xs text-[var(--color-pib-text-muted)] truncate">
                   {m.email || '—'}{m.jobTitle ? ` · ${m.jobTitle}` : ''}
                 </p>
               </div>

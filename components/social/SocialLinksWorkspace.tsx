@@ -206,8 +206,8 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
   return (
     <div className="w-full max-w-7xl mx-auto px-4 py-6 space-y-6">
       <div>
-        <h1 className="font-headline text-2xl font-bold tracking-tighter text-[var(--color-on-surface)]">Link Shortener</h1>
-        <p className="text-sm text-[var(--color-on-surface-variant)] mt-1">
+        <h1 className="font-headline text-2xl font-bold tracking-tighter text-[var(--color-pib-text)]">Link Shortener</h1>
+        <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
           Create and manage shortened links with UTM tracking.
         </p>
       </div>
@@ -243,11 +243,11 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
                 />
               </div>
 
-              <div className="border-t border-[var(--color-outline-variant)] pt-4">
+              <div className="border-t border-[var(--color-pib-line)] pt-4">
                 <h3 className="text-sm font-semibold mb-3 text-[var(--color-accent-v2)]">UTM Parameters (Optional)</h3>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="block text-xs font-medium text-[var(--color-on-surface-variant)] mb-1" htmlFor="tracked-link-utm-source">
+                    <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1" htmlFor="tracked-link-utm-source">
                       Source
                     </label>
                     <input
@@ -260,7 +260,7 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-[var(--color-on-surface-variant)] mb-1" htmlFor="tracked-link-utm-medium">
+                    <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1" htmlFor="tracked-link-utm-medium">
                       Medium
                     </label>
                     <input
@@ -273,7 +273,7 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-[var(--color-on-surface-variant)] mb-1" htmlFor="tracked-link-utm-campaign">
+                    <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1" htmlFor="tracked-link-utm-campaign">
                       Campaign
                     </label>
                     <input
@@ -286,7 +286,7 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-[var(--color-on-surface-variant)] mb-1" htmlFor="tracked-link-utm-term">
+                    <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1" htmlFor="tracked-link-utm-term">
                       Term
                     </label>
                     <input
@@ -299,7 +299,7 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
                     />
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="block text-xs font-medium text-[var(--color-on-surface-variant)] mb-1" htmlFor="tracked-link-utm-content">
+                    <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1" htmlFor="tracked-link-utm-content">
                       Content
                     </label>
                     <input
@@ -315,8 +315,8 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
               </div>
 
               {previewUrl && (
-                <div className="rounded border border-[var(--color-outline-variant)] bg-[var(--color-surface-container-high)] p-3">
-                  <p className="mb-1 text-xs text-[var(--color-on-surface-variant)]">Preview with UTM params:</p>
+                <div className="rounded border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-3">
+                  <p className="mb-1 text-xs text-[var(--color-pib-text-muted)]">Preview with UTM params:</p>
                   <p className="break-all text-xs text-[var(--color-accent-v2)]">{previewUrl}</p>
                 </div>
               )}
@@ -340,25 +340,25 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
                 type="button"
                 onClick={() => setSelectedLink(null)}
                 aria-label={`Close stats for ${selectedLink.shortCode}`}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-container-high)] hover:text-[var(--color-on-surface)]"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]"
               >
                 <span className="material-symbols-outlined text-[18px]" aria-hidden="true">close</span>
               </button>
             </div>
 
             <div className="space-y-4 text-sm">
-              <div className="rounded bg-[var(--color-surface-container-high)] p-3">
-                <p className="text-[var(--color-on-surface-variant)]">Total Clicks</p>
+              <div className="rounded bg-[var(--color-pib-surface-2)] p-3">
+                <p className="text-[var(--color-pib-text-muted)]">Total Clicks</p>
                 <p className="text-2xl font-bold text-[var(--color-accent-v2)]">{selectedLink.stats.totalClicks}</p>
               </div>
 
               {selectedLink.stats.topReferrers.length > 0 && (
                 <div>
-                  <p className="mb-2 font-medium text-[var(--color-on-surface-variant)]">Top Referrers</p>
+                  <p className="mb-2 font-medium text-[var(--color-pib-text-muted)]">Top Referrers</p>
                   <div className="space-y-1">
                     {selectedLink.stats.topReferrers.slice(0, 5).map((ref, i) => (
                       <div key={`${ref.referrer}-${i}`} className="flex justify-between gap-3 text-xs">
-                        <span className="truncate text-[var(--color-on-surface)]">{ref.referrer}</span>
+                        <span className="truncate text-[var(--color-pib-text)]">{ref.referrer}</span>
                         <span className="text-[var(--color-accent-v2)]">{ref.count}</span>
                       </div>
                     ))}
@@ -368,11 +368,11 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
 
               {selectedLink.stats.topCountries.length > 0 && (
                 <div>
-                  <p className="mb-2 font-medium text-[var(--color-on-surface-variant)]">Top Countries</p>
+                  <p className="mb-2 font-medium text-[var(--color-pib-text-muted)]">Top Countries</p>
                   <div className="space-y-1">
                     {selectedLink.stats.topCountries.slice(0, 5).map((country, i) => (
                       <div key={`${country.country}-${i}`} className="flex justify-between gap-3 text-xs">
-                        <span className="truncate text-[var(--color-on-surface)]">{country.country}</span>
+                        <span className="truncate text-[var(--color-pib-text)]">{country.country}</span>
                         <span className="text-[var(--color-accent-v2)]">{country.count}</span>
                       </div>
                     ))}
@@ -405,7 +405,7 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
                   <p id="tracked-link-delete-description" className="mt-2 max-w-2xl text-sm text-red-100/90">
                     This removes the short link from future campaign use. Historical click analytics stay available in reports and audits.
                   </p>
-                  <p className="mt-2 break-all text-xs text-[var(--color-on-surface-variant)]">
+                  <p className="mt-2 break-all text-xs text-[var(--color-pib-text-muted)]">
                     {pendingDeleteLink.originalUrl}
                   </p>
                 </div>
@@ -438,7 +438,7 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[var(--color-outline-variant)] bg-[var(--color-surface-container-high)]">
+              <tr className="border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]">
                 <th className="px-4 py-3 text-left font-semibold">Short URL</th>
                 <th className="px-4 py-3 text-left font-semibold">Original URL</th>
                 <th className="px-4 py-3 text-right font-semibold">Clicks</th>
@@ -449,7 +449,7 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
             <tbody>
               {loading ? (
                 [...Array(4)].map((_, i) => (
-                  <tr key={i} className="border-b border-[var(--color-outline-variant)]">
+                  <tr key={i} className="border-b border-[var(--color-pib-line)]">
                     <td className="px-4 py-4" colSpan={5}>
                       <div className="pib-skeleton h-4 w-full" />
                     </td>
@@ -457,7 +457,7 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
                 ))
               ) : links.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-[var(--color-on-surface-variant)]">
+                  <td colSpan={5} className="px-4 py-8 text-center text-[var(--color-pib-text-muted)]">
                     No shortened links yet. Create one above!
                   </td>
                 </tr>
@@ -465,12 +465,12 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
                 links.map(link => (
                   <tr
                     key={link.id}
-                    className="cursor-pointer border-b border-[var(--color-outline-variant)] transition-colors hover:bg-[var(--color-surface-container-high)]"
+                    className="cursor-pointer border-b border-[var(--color-pib-line)] transition-colors hover:bg-[var(--color-row-hover)]"
                     onClick={() => fetchLinkStats(link.id)}
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <code className="rounded bg-[var(--color-surface-container-high)] px-2 py-1 font-mono text-xs text-[var(--color-accent-v2)]">
+                        <code className="rounded bg-[var(--color-pib-surface-2)] px-2 py-1 font-mono text-xs text-[var(--color-accent-v2)]">
                           {link.shortCode}
                         </code>
                         <button
@@ -480,7 +480,7 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
                             void handleCopyLink(link.shortUrl)
                           }}
                           aria-label={`Copy tracked link ${link.shortCode}`}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded text-[var(--color-on-surface-variant)] hover:bg-[var(--color-surface-container-high)] hover:text-[var(--color-on-surface)]"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]"
                         >
                           <span className="material-symbols-outlined text-[16px]" aria-hidden="true">content_copy</span>
                         </button>
@@ -501,7 +501,7 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
                     <td className="px-4 py-3 text-right font-semibold text-[var(--color-accent-v2)]">
                       {link.clickCount}
                     </td>
-                    <td className="px-4 py-3 text-xs text-[var(--color-on-surface-variant)]">
+                    <td className="px-4 py-3 text-xs text-[var(--color-pib-text-muted)]">
                       {formatCreatedDate(link.createdAt)}
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -526,8 +526,8 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
         </div>
 
         {totalLinks > LIMIT && (
-          <div className="flex items-center justify-between border-t border-[var(--color-outline-variant)] px-4 py-3">
-            <p className="text-xs text-[var(--color-on-surface-variant)]">
+          <div className="flex items-center justify-between border-t border-[var(--color-pib-line)] px-4 py-3">
+            <p className="text-xs text-[var(--color-pib-text-muted)]">
               Showing {(page - 1) * LIMIT + 1} to {Math.min(page * LIMIT, totalLinks)} of {totalLinks}
             </p>
             <div className="flex gap-2">

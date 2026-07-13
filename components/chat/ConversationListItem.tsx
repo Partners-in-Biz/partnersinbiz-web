@@ -148,8 +148,8 @@ export default function ConversationListItem({
         onClick={onClick}
         className={`group w-full rounded-md px-2 py-1.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/60 ${
           active
-            ? 'bg-white/[0.08] text-on-surface ring-1 ring-white/[0.06]'
-            : 'text-on-surface-variant hover:bg-white/[0.045] hover:text-on-surface'
+            ? 'bg-white/[0.08] text-[var(--color-pib-text)] ring-1 ring-white/[0.06]'
+            : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.045] hover:text-[var(--color-pib-text)]'
         }`}
       >
         <div className="flex min-w-0 items-center gap-1.5">
@@ -159,7 +159,7 @@ export default function ConversationListItem({
               {context.icon}
             </span>
           )}
-          <span className="min-w-0 flex-1 truncate text-[12px] font-medium leading-4 text-on-surface">
+          <span className="min-w-0 flex-1 truncate text-[12px] font-medium leading-4 text-[var(--color-pib-text)]">
             {c.title || 'Untitled'}
           </span>
           {pinned && (
@@ -173,20 +173,20 @@ export default function ConversationListItem({
             </span>
           )}
           {workspaceVisibility && (
-            <span className="shrink-0 font-mono text-[8px] uppercase leading-3 text-on-surface-variant" title={`Workspace visibility: ${workspaceVisibility}`}>
+            <span className="shrink-0 font-mono text-[8px] uppercase leading-3 text-[var(--color-pib-text-muted)]" title={`Workspace visibility: ${workspaceVisibility}`}>
               {workspaceVisibility}
             </span>
           )}
           {c.lastMessageAt && (
-            <span className="shrink-0 font-mono text-[9px] leading-4 text-on-surface-variant/80">
+            <span className="shrink-0 font-mono text-[9px] leading-4 text-[var(--color-pib-text-muted)]/80">
               {relativeTime(c.lastMessageAt)}
             </span>
           )}
         </div>
 
-        <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[10px] leading-3 text-on-surface-variant/85">
+        <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[10px] leading-3 text-[var(--color-pib-text-muted)]/85">
           {leadAgent?.kind === 'agent' && (
-            <span className="shrink-0 truncate font-medium text-on-surface-variant/90">{leadAgent.name}</span>
+            <span className="shrink-0 truncate font-medium text-[var(--color-pib-text-muted)]/90">{leadAgent.name}</span>
           )}
           {leadAgent?.kind === 'agent' && preview && <span aria-hidden="true" className="shrink-0">·</span>}
           {c.workspaceContext?.orgName && (
@@ -214,8 +214,8 @@ export default function ConversationListItem({
       onClick={onClick}
       className={`w-full text-left outline-none transition-colors group focus-visible:ring-2 focus-visible:ring-primary/60 ${compact ? 'rounded-md px-2 py-1.5' : 'rounded-lg px-3 py-2.5'} ${
         active
-          ? 'bg-[var(--color-card-active,rgba(255,255,255,0.08))] text-on-surface'
-          : 'text-on-surface-variant hover:bg-[var(--color-card-hover,rgba(255,255,255,0.04))]'
+          ? 'bg-[var(--color-card-active,rgba(255,255,255,0.08))] text-[var(--color-pib-text)]'
+          : 'text-[var(--color-pib-text-muted)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.04))]'
       }`}
     >
       {/* Participant chips */}
@@ -230,7 +230,7 @@ export default function ConversationListItem({
                   className="inline-flex min-w-0 items-center gap-1 text-[10px]"
                 >
                   <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotColor}`} />
-                  <span className="truncate text-on-surface-variant font-medium">{p.name}</span>
+                  <span className="truncate text-[var(--color-pib-text-muted)] font-medium">{p.name}</span>
                 </span>
               )
             }
@@ -238,7 +238,7 @@ export default function ConversationListItem({
             return (
               <span
                 key={`user-${p.uid}`}
-                className="inline-flex min-w-0 items-center gap-1 text-[10px] text-on-surface-variant"
+                className="inline-flex min-w-0 items-center gap-1 text-[10px] text-[var(--color-pib-text-muted)]"
               >
                 <span className={`${compact ? 'h-4 w-4 text-[8px]' : 'w-5 h-5 text-[9px]'} rounded-full bg-white/10 font-bold flex items-center justify-center shrink-0`}>
                   {initials(name)}
@@ -248,7 +248,7 @@ export default function ConversationListItem({
             )
           })}
           {c.participants.length > 4 && (
-            <span className="text-[10px] text-on-surface-variant">+{c.participants.length - 4}</span>
+            <span className="text-[10px] text-[var(--color-pib-text-muted)]">+{c.participants.length - 4}</span>
           )}
           {c.orchestration?.mode === 'pip-orchestrator' && (
             <span
@@ -269,7 +269,7 @@ export default function ConversationListItem({
           )}
           {workspaceVisibility && (
             <span
-              className="inline-flex items-center rounded-full border border-[var(--color-card-border)] px-1.5 py-0.5 text-[10px] text-on-surface-variant"
+              className="inline-flex items-center rounded-full border border-[var(--color-card-border)] px-1.5 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]"
               title={`Workspace visibility: ${workspaceVisibility}`}
             >
               {workspaceVisibility}
@@ -279,19 +279,19 @@ export default function ConversationListItem({
       )}
 
       {/* Title */}
-      <div className={`line-clamp-1 font-medium text-on-surface ${compact ? 'text-[13px]' : 'text-sm'}`}>
+      <div className={`line-clamp-1 font-medium text-[var(--color-pib-text)] ${compact ? 'text-[13px]' : 'text-sm'}`}>
         {c.title || 'Untitled'}
       </div>
 
       {/* Preview + time */}
       <div className="flex items-center justify-between gap-2 mt-0.5">
         {preview ? (
-          <div className={`line-clamp-1 text-on-surface-variant flex-1 min-w-0 ${compact ? 'text-[11px]' : 'text-xs'}`}>{preview}</div>
+          <div className={`line-clamp-1 text-[var(--color-pib-text-muted)] flex-1 min-w-0 ${compact ? 'text-[11px]' : 'text-xs'}`}>{preview}</div>
         ) : (
           <div className="flex-1" />
         )}
         {c.lastMessageAt && (
-          <span className="text-[10px] text-on-surface-variant shrink-0 font-mono">
+          <span className="text-[10px] text-[var(--color-pib-text-muted)] shrink-0 font-mono">
             {relativeTime(c.lastMessageAt)}
           </span>
         )}

@@ -118,9 +118,9 @@ export function AdminBacklogSurface({
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {payload.metrics.map((metric) => (
                 <div key={metric.label} className="pib-card p-5">
-                  <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{metric.label}</p>
-                  <p className="mt-3 text-2xl font-semibold text-on-surface">{metric.value}</p>
-                  {metric.helper ? <p className="mt-2 text-xs text-on-surface-variant">{metric.helper}</p> : null}
+                  <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{metric.label}</p>
+                  <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">{metric.value}</p>
+                  {metric.helper ? <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{metric.helper}</p> : null}
                 </div>
               ))}
             </section>
@@ -133,8 +133,8 @@ export function AdminBacklogSurface({
                   key={`${callout.title}-${callout.body}`}
                   className={`pib-card p-5 ${callout.tone === 'warn' ? 'border border-amber-400/30 bg-amber-400/10' : ''}`}
                 >
-                  <h2 className="text-lg font-semibold text-on-surface">{callout.title}</h2>
-                  <p className="mt-2 text-sm text-on-surface-variant">{callout.body}</p>
+                  <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">{callout.title}</h2>
+                  <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{callout.body}</p>
                   {callout.href && callout.hrefLabel ? (
                     <Link href={callout.href} className="mt-4 inline-flex text-sm text-[var(--color-pib-accent)] hover:underline">
                       {callout.hrefLabel}
@@ -148,19 +148,19 @@ export function AdminBacklogSurface({
           {payload.sections.map((section) => (
             <section key={section.title} className="pib-card overflow-hidden">
               <div className="border-b border-[var(--color-pib-line)] px-5 py-4">
-                <h2 className="text-lg font-semibold text-on-surface">{section.title}</h2>
-                {section.description ? <p className="mt-1 text-sm text-on-surface-variant">{section.description}</p> : null}
+                <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">{section.title}</h2>
+                {section.description ? <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{section.description}</p> : null}
               </div>
 
               {section.rows.length === 0 ? (
-                <div className="px-5 py-8 text-sm text-on-surface-variant">
+                <div className="px-5 py-8 text-sm text-[var(--color-pib-text-muted)]">
                   {section.emptyMessage ?? 'No records found.'}
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="min-w-full">
                     <thead>
-                      <tr className="border-b border-[var(--color-pib-line)] text-left text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                      <tr className="border-b border-[var(--color-pib-line)] text-left text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                         {section.columns.map((column) => (
                           <th key={column} className="px-5 py-3">{column}</th>
                         ))}
@@ -171,7 +171,7 @@ export function AdminBacklogSurface({
                       {section.rows.map((row) => (
                         <tr key={row.id} className="border-b border-[var(--color-pib-line)]/60 align-top last:border-b-0">
                           {row.cells.map((cell, index) => (
-                            <td key={`${row.id}-${index}`} className="px-5 py-3 text-sm text-on-surface">
+                            <td key={`${row.id}-${index}`} className="px-5 py-3 text-sm text-[var(--color-pib-text)]">
                               {index === 0 && row.href ? (
                                 <Link href={row.href} className="font-medium text-[var(--color-pib-accent)] hover:underline">
                                   {cell}
@@ -187,7 +187,7 @@ export function AdminBacklogSurface({
                                 <Link key={`${row.id}-${action.href}-${action.label}`} href={action.href} className="pib-pill">
                                   {action.label}
                                 </Link>
-                              )) ?? <span className="text-xs text-on-surface-variant">No actions</span>}
+                              )) ?? <span className="text-xs text-[var(--color-pib-text-muted)]">No actions</span>}
                             </div>
                           </td>
                         </tr>

@@ -101,15 +101,15 @@ function Field({
       <div className="flex items-start gap-2">
         <span className="material-symbols-outlined mt-0.5 text-[16px] text-primary">{icon}</span>
         <div className="min-w-0 flex-1">
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-on-surface-variant">{label}</p>
-          <p className="mt-0.5 break-words text-sm font-medium text-on-surface">{value}</p>
-          {meta ? <p className="mt-0.5 break-words text-[11px] leading-4 text-on-surface-variant">{meta}</p> : null}
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">{label}</p>
+          <p className="mt-0.5 break-words text-sm font-medium text-[var(--color-pib-text)]">{value}</p>
+          {meta ? <p className="mt-0.5 break-words text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{meta}</p> : null}
           {action ? (
             <button
               type="button"
               aria-label={action.ariaLabel}
               onClick={action.onClick}
-              className="mt-2 inline-flex h-7 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 text-[11px] font-medium text-primary transition hover:bg-white/[0.05] hover:text-on-surface"
+              className="mt-2 inline-flex h-7 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 text-[11px] font-medium text-primary transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
             >
               <span className="material-symbols-outlined text-[13px]" aria-hidden="true">{action.icon}</span>
               {action.label}
@@ -140,11 +140,11 @@ function MissingOwnerPanel({
           person_alert
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">
+          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">
             Owner accountability missing
           </p>
-          <h3 className="mt-0.5 text-sm font-semibold text-on-surface">Assign a relationship owner</h3>
-          <p className="mt-0.5 text-xs leading-5 text-on-surface-variant">
+          <h3 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">Assign a relationship owner</h3>
+          <p className="mt-0.5 text-xs leading-5 text-[var(--color-pib-text-muted)]">
             No team member owns this contact yet. Assign an owner so follow-ups, handoffs, and pipeline accountability are visible before the relationship goes cold.
           </p>
           {action ? (
@@ -152,7 +152,7 @@ function MissingOwnerPanel({
               type="button"
               aria-label={action.ariaLabel}
               onClick={action.onClick}
-              className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+              className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
             >
               <span aria-hidden="true" className="material-symbols-outlined text-[14px]">person_add</span>
               {action.label}
@@ -183,11 +183,11 @@ function WeakSourcePanel({
           conversion_path
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">
+          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">
             Source provenance weak
           </p>
-          <h3 className="mt-0.5 text-sm font-semibold text-on-surface">Confirm how this contact entered CRM</h3>
-          <p className="mt-0.5 text-xs leading-5 text-on-surface-variant">
+          <h3 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">Confirm how this contact entered CRM</h3>
+          <p className="mt-0.5 text-xs leading-5 text-[var(--color-pib-text-muted)]">
             This relationship is marked as manual or legacy without a capture source. Review the source so attribution, segment reporting, and follow-up ownership stay trustworthy.
           </p>
           {action ? (
@@ -195,7 +195,7 @@ function WeakSourcePanel({
               type="button"
               aria-label={action.ariaLabel}
               onClick={action.onClick}
-              className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+              className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
             >
               <span aria-hidden="true" className="material-symbols-outlined text-[14px]">edit</span>
               {action.label}
@@ -237,16 +237,16 @@ export function ContactOwnershipPanel({
   return (
     <section className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
       <div className="flex h-9 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black/[0.08] px-3">
-        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Relationship ownership</p>
-        <p className="text-xs text-on-surface-variant">
-          <span className="text-sm font-semibold text-on-surface">{health}%</span>
+        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Relationship ownership</p>
+        <p className="text-xs text-[var(--color-pib-text-muted)]">
+          <span className="text-sm font-semibold text-[var(--color-pib-text)]">{health}%</span>
           {' '}
           <span className="text-[10px] uppercase tracking-[0.18em]">governed</span>
         </p>
       </div>
 
       <div className="space-y-2 p-3">
-        <p className="text-xs leading-5 text-on-surface-variant">
+        <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">
           Team accountability, source provenance, and last governance snapshot.
         </p>
 

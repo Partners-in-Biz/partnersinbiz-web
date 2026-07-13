@@ -85,17 +85,17 @@ export function CompanyRowsPanel<Row extends CompanyRowsPanelRow>({
       {enableFilters ? (
         <div className="grid gap-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/65 px-2 py-1.5 md:grid-cols-[minmax(0,1fr)_180px_180px]">
           <label className="block">
-            <span className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Search</span>
+            <span className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Search</span>
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={searchPlaceholder}
-              className="mt-1 h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none"
+              className="mt-1 h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)]/60 focus:outline-none"
             />
           </label>
           <label className="block">
-            <span className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Status</span>
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="mt-1 h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface focus:outline-none">
+            <span className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Status</span>
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="mt-1 h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-[var(--color-pib-text)] focus:outline-none">
               <option value="all">All statuses</option>
               {statusOptions.map((status) => (
                 <option key={status} value={status}>{status.replaceAll('_', ' ')}</option>
@@ -103,11 +103,11 @@ export function CompanyRowsPanel<Row extends CompanyRowsPanelRow>({
             </select>
           </label>
           <label className="block">
-            <span className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">History</span>
+            <span className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">History</span>
             <select
               value={archiveFilter}
               onChange={(event) => setArchiveFilter(event.target.value as 'active' | 'archived' | 'all')}
-              className="mt-1 h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface focus:outline-none"
+              className="mt-1 h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-[var(--color-pib-text)] focus:outline-none"
             >
               <option value="active">Active only</option>
               <option value="archived">Archived only</option>
@@ -132,10 +132,10 @@ export function CompanyRowsPanel<Row extends CompanyRowsPanelRow>({
                       {rowTitle}
                     </Link>
                   ) : (
-                    <p className="truncate text-xs font-medium text-on-surface">{rowTitle}</p>
+                    <p className="truncate text-xs font-medium text-[var(--color-pib-text)]">{rowTitle}</p>
                   )}
                   {meta.length > 0 && (
-                    <p className="mt-0.5 truncate text-[11px] text-on-surface-variant">
+                    <p className="mt-0.5 truncate text-[11px] text-[var(--color-pib-text-muted)]">
                       {meta.join(' · ')}
                     </p>
                   )}
@@ -143,7 +143,7 @@ export function CompanyRowsPanel<Row extends CompanyRowsPanelRow>({
                 <div className="flex shrink-0 items-center gap-1.5">
                   {'status' in row ? <CompanyRecordStatusChip value={row.status} emptyLabel={statusEmptyLabel} /> : null}
                   {href && linkedRow ? (
-                    <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-on-surface-variant">
+                    <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">
                       open_in_new
                     </span>
                   ) : null}

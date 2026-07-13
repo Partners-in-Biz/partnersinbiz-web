@@ -142,9 +142,9 @@ export function CrmSearchBar({ className, orgScope }: Props) {
         className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 transition-colors focus-within:border-primary/40"
       >
         {loading ? (
-          <span className="material-symbols-outlined animate-spin text-[15px] text-on-surface-variant">progress_activity</span>
+          <span className="material-symbols-outlined animate-spin text-[15px] text-[var(--color-pib-text-muted)]">progress_activity</span>
         ) : (
-          <span className="material-symbols-outlined text-[15px] text-on-surface-variant">search</span>
+          <span className="material-symbols-outlined text-[15px] text-[var(--color-pib-text-muted)]">search</span>
         )}
         <input
           ref={inputRef}
@@ -153,14 +153,14 @@ export function CrmSearchBar({ className, orgScope }: Props) {
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           placeholder="Search CRM…"
-          className="min-w-0 flex-1 bg-transparent text-xs text-on-surface outline-none placeholder:text-on-surface-variant"
+          className="min-w-0 flex-1 bg-transparent text-xs text-[var(--color-pib-text)] outline-none placeholder:text-[var(--color-pib-text-muted)]"
           aria-label="Search contacts, companies, and deals"
           autoComplete="off"
         />
         {query && (
           <button
             onClick={clearAndClose}
-            className="text-on-surface-variant transition-colors hover:text-on-surface"
+            className="text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
             aria-label="Clear search"
           >
             <span className="material-symbols-outlined text-[14px]">close</span>
@@ -172,17 +172,17 @@ export function CrmSearchBar({ className, orgScope }: Props) {
       {open && (
         <div
           className="absolute top-full left-0 right-0 z-50 mt-1 overflow-hidden rounded-lg border border-[var(--color-card-border)]"
-          style={{ background: 'var(--color-sidebar, var(--color-surface-container))' }}
+          style={{ background: 'var(--color-sidebar, var(--color-pib-surface))' }}
         >
           {!hasResults ? (
-            <p className="px-3 py-2.5 text-center text-xs text-on-surface-variant">
+            <p className="px-3 py-2.5 text-center text-xs text-[var(--color-pib-text-muted)]">
               No results for &ldquo;{query}&rdquo;
             </p>
           ) : (
             <div className="max-h-[400px] overflow-y-auto py-1">
               {contacts.length > 0 && (
                 <section>
-                  <p className="px-3 py-1 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Contacts</p>
+                  <p className="px-3 py-1 text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Contacts</p>
                   {contacts.map(c => (
                     <Link
                       key={c.id}
@@ -190,9 +190,9 @@ export function CrmSearchBar({ className, orgScope }: Props) {
                       onClick={clearAndClose}
                       className="flex items-center gap-2 px-3 py-1.5 transition-colors hover:bg-white/[0.05]"
                     >
-                      <span className="material-symbols-outlined shrink-0 text-[14px] text-on-surface-variant">person</span>
-                      <span className="flex-1 truncate text-xs text-on-surface">{contactResultLabel(c)}</span>
-                      <span className="shrink-0 text-[11px] text-on-surface-variant">Contact</span>
+                      <span className="material-symbols-outlined shrink-0 text-[14px] text-[var(--color-pib-text-muted)]">person</span>
+                      <span className="flex-1 truncate text-xs text-[var(--color-pib-text)]">{contactResultLabel(c)}</span>
+                      <span className="shrink-0 text-[11px] text-[var(--color-pib-text-muted)]">Contact</span>
                     </Link>
                   ))}
                 </section>
@@ -201,7 +201,7 @@ export function CrmSearchBar({ className, orgScope }: Props) {
               {companies.length > 0 && (
                 <section>
                   {contacts.length > 0 && <div className="mx-3 my-1 h-px bg-[var(--color-card-border)]" />}
-                  <p className="px-3 py-1 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Companies</p>
+                  <p className="px-3 py-1 text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Companies</p>
                   {companies.map(co => (
                     <Link
                       key={co.id}
@@ -209,9 +209,9 @@ export function CrmSearchBar({ className, orgScope }: Props) {
                       onClick={clearAndClose}
                       className="flex items-center gap-2 px-3 py-1.5 transition-colors hover:bg-white/[0.05]"
                     >
-                      <span className="material-symbols-outlined shrink-0 text-[14px] text-on-surface-variant">business</span>
-                      <span className="flex-1 truncate text-xs text-on-surface">{co.name}</span>
-                      <span className="shrink-0 text-[11px] text-on-surface-variant">Company</span>
+                      <span className="material-symbols-outlined shrink-0 text-[14px] text-[var(--color-pib-text-muted)]">business</span>
+                      <span className="flex-1 truncate text-xs text-[var(--color-pib-text)]">{co.name}</span>
+                      <span className="shrink-0 text-[11px] text-[var(--color-pib-text-muted)]">Company</span>
                     </Link>
                   ))}
                 </section>
@@ -220,7 +220,7 @@ export function CrmSearchBar({ className, orgScope }: Props) {
               {deals.length > 0 && (
                 <section>
                   {(contacts.length > 0 || companies.length > 0) && <div className="mx-3 my-1 h-px bg-[var(--color-card-border)]" />}
-                  <p className="px-3 py-1 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Deals</p>
+                  <p className="px-3 py-1 text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Deals</p>
                   {deals.map(d => (
                     <Link
                       key={d.id}
@@ -228,9 +228,9 @@ export function CrmSearchBar({ className, orgScope }: Props) {
                       onClick={clearAndClose}
                       className="flex items-center gap-2 px-3 py-1.5 transition-colors hover:bg-white/[0.05]"
                     >
-                      <span className="material-symbols-outlined shrink-0 text-[14px] text-on-surface-variant">handshake</span>
-                      <span className="flex-1 truncate text-xs text-on-surface">{d.title}</span>
-                      <span className="shrink-0 text-[11px] text-on-surface-variant">
+                      <span className="material-symbols-outlined shrink-0 text-[14px] text-[var(--color-pib-text-muted)]">handshake</span>
+                      <span className="flex-1 truncate text-xs text-[var(--color-pib-text)]">{d.title}</span>
+                      <span className="shrink-0 text-[11px] text-[var(--color-pib-text-muted)]">
                         Deal{d.value != null ? ` · ${d.currency ?? ''} ${d.value.toLocaleString()}` : ''}
                       </span>
                     </Link>

@@ -23,7 +23,7 @@ export function SettingsSwitch({
       className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
         checked
           ? 'border-[var(--color-accent-v2)] bg-[var(--color-accent-v2)]/80'
-          : 'border-[var(--color-card-border)] bg-[var(--color-surface-container)]'
+          : 'border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)]'
       }`}
     >
       <span

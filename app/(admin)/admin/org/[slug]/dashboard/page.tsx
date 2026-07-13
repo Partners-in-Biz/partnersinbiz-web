@@ -93,7 +93,7 @@ function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; color: string }> = {
     active:      { label: 'Active',      color: 'var(--color-accent-v2)' },
     on_hold:     { label: 'On Hold',     color: 'var(--color-secondary)' },
-    completed:   { label: 'Completed',   color: '#4ade80' },
+    completed:   { label: 'Completed',   color: 'var(--color-pib-green)' },
     archived:    { label: 'Archived',    color: 'var(--color-outline)' },
     in_progress: { label: 'In Progress', color: 'var(--color-accent-v2)' },
   }
@@ -245,10 +245,10 @@ export default function OrgDashboard() {
 
   // Social post status donut data
   const statusDonut = socialStats ? [
-    { name: 'Published', value: socialStats.byStatus.published, color: '#4ade80' },
-    { name: 'Scheduled', value: socialStats.byStatus.scheduled, color: '#60a5fa' },
-    { name: 'Pending', value: socialStats.byStatus.pending_approval, color: '#F59E0B' },
-    { name: 'Draft', value: socialStats.byStatus.draft, color: '#666' },
+    { name: 'Published', value: socialStats.byStatus.published, color: 'var(--color-pib-green)' },
+    { name: 'Scheduled', value: socialStats.byStatus.scheduled, color: 'var(--color-pib-blue)' },
+    { name: 'Pending', value: socialStats.byStatus.pending_approval, color: 'var(--color-pib-amber)' },
+    { name: 'Draft', value: socialStats.byStatus.draft, color: 'var(--color-pib-text-muted)' },
   ].filter(d => d.value > 0) : []
 
   // Platform breakdown for horizontal bar
@@ -256,7 +256,7 @@ export default function OrgDashboard() {
     ? Object.entries(socialStats.byPlatform).map(([platform, count]) => ({
         label: platform.charAt(0).toUpperCase() + platform.slice(1),
         value: count,
-        color: PLATFORM_COLORS[platform.toLowerCase()] ?? '#F59E0B',
+        color: PLATFORM_COLORS[platform.toLowerCase()] ?? 'var(--color-pib-amber)',
       }))
     : []
 
@@ -266,13 +266,13 @@ export default function OrgDashboard() {
   const hasLast30DaysData = last30DaysData.some((point) => point.value > 0)
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-8 max-w-6xl mx-auto">
       <PageHeader
         eyebrow="Admin org dashboard"
         title={`${getGreeting()} — ${displayOrgName}`}
         description={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         actions={(
-          <Link href={`/admin/org/${slug}/projects`} className="pib-btn-primary text-sm font-label">
+          <Link href={`/admin/org/${slug}/projects`} className="btn-pib-primary text-sm font-label">
             + New operator project
           </Link>
         )}
@@ -282,14 +282,14 @@ export default function OrgDashboard() {
       <section className="space-y-4">
         <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
           <div>
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+            <p className="pib-label">
               Admin control plane
             </p>
-            <h2 className="mt-1 text-xl font-headline font-bold text-on-surface">
+            <h2 className="mt-1 text-xl font-headline font-bold text-[var(--color-pib-text)]">
               Control what the selected organisation can access and when work ships.
             </h2>
           </div>
-          <Link href={`/admin/org/${slug}/settings`} className="pib-btn-secondary text-xs font-label">
+          <Link href={`/admin/org/${slug}/settings`} className="btn-pib-secondary text-xs font-label">
             Configure controls
           </Link>
         </div>
@@ -298,22 +298,22 @@ export default function OrgDashboard() {
           <div className="pib-card-section p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Client portal exposure</p>
-                <p className="mt-1 text-xs text-on-surface-variant">
+                <p className="pib-label">Client portal exposure</p>
+                <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
                   {enabledPortalModules} of {PORTAL_MODULE_ROWS.length} client-facing modules enabled.
                 </p>
               </div>
-              <span className="material-symbols-outlined text-[20px] text-on-surface-variant">visibility</span>
+              <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-text-muted)]">visibility</span>
             </div>
             <div className="mt-3 space-y-2">
               {portalModules.map((module) => (
                 <div key={module.key} className="flex items-center justify-between gap-3 text-xs">
-                  <span className="text-on-surface">{module.label}</span>
+                  <span className="text-[var(--color-pib-text)]">{module.label}</span>
                   <span
                     className={`rounded-full px-2 py-0.5 font-label uppercase tracking-wide ${
                       module.enabled
-                        ? 'bg-emerald-500/15 text-emerald-300'
-                        : 'bg-[var(--color-surface-container-high)] text-on-surface-variant'
+                        ? 'bg-emerald-500/15 text-[var(--color-pib-green)]'
+                        : 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]'
                     }`}
                   >
                     {module.enabled ? 'Enabled' : 'Hidden'}
@@ -326,27 +326,27 @@ export default function OrgDashboard() {
           <div className="pib-card-section p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Access and roles</p>
-                <p className="mt-1 text-xs text-on-surface-variant">
+                <p className="pib-label">Access and roles</p>
+                <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
                   {members.length} people can use or administer this organisation.
                 </p>
               </div>
-              <span className="material-symbols-outlined text-[20px] text-on-surface-variant">groups</span>
+              <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-text-muted)]">groups</span>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2">
               {Object.entries(roleCounts).length > 0 ? Object.entries(roleCounts).map(([role, count]) => (
-                <div key={role} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2">
-                  <p className="text-lg font-headline font-bold text-on-surface">{count}</p>
-                  <p className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
+                <div key={role} className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)] px-3 py-2">
+                  <p className="text-lg font-headline font-bold text-[var(--color-pib-text)]">{count}</p>
+                  <p className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                     {roleLabel(role)}
                   </p>
                 </div>
               )) : (
-                <p className="col-span-2 text-xs text-on-surface-variant">No member roster loaded yet.</p>
+                <p className="col-span-2 text-xs text-[var(--color-pib-text-muted)]">No member roster loaded yet.</p>
               )}
             </div>
             {accessScopes.length > 0 && (
-              <p className="mt-3 text-xs text-on-surface-variant">
+              <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">
                 Scopes: {accessScopes.join(', ')}
               </p>
             )}
@@ -355,33 +355,33 @@ export default function OrgDashboard() {
           <div className="pib-card-section p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Operating rules</p>
-                <p className="mt-1 text-xs text-on-surface-variant">
+                <p className="pib-label">Operating rules</p>
+                <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
                   Approval gates and send windows that control client-side publishing.
                 </p>
               </div>
-              <span className="material-symbols-outlined text-[20px] text-on-surface-variant">rule_settings</span>
+              <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-text-muted)]">rule_settings</span>
             </div>
             <dl className="mt-3 space-y-2 text-xs">
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-on-surface-variant">Approval gate</dt>
-                <dd className="font-medium text-on-surface">{approvalGateLabel}</dd>
+                <dt className="text-[var(--color-pib-text-muted)]">Approval gate</dt>
+                <dd className="font-medium text-[var(--color-pib-text)]">{approvalGateLabel}</dd>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-on-surface-variant">Send window</dt>
-                <dd className="font-medium text-on-surface">{sendHour}</dd>
+                <dt className="text-[var(--color-pib-text-muted)]">Send window</dt>
+                <dd className="font-medium text-[var(--color-pib-text)]">{sendHour}</dd>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-on-surface-variant">Send days</dt>
-                <dd className="text-right font-medium text-on-surface">{sendDays}</dd>
+                <dt className="text-[var(--color-pib-text-muted)]">Send days</dt>
+                <dd className="text-right font-medium text-[var(--color-pib-text)]">{sendDays}</dd>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-on-surface-variant">Timezone</dt>
-                <dd className="text-right font-medium text-on-surface">{settings.timezone || 'Default timezone'}</dd>
+                <dt className="text-[var(--color-pib-text-muted)]">Timezone</dt>
+                <dd className="text-right font-medium text-[var(--color-pib-text)]">{settings.timezone || 'Default timezone'}</dd>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-on-surface-variant">Reply alerts</dt>
-                <dd className="font-medium text-on-surface">{settings.replyNotifyEmails?.length ?? 0}</dd>
+                <dt className="text-[var(--color-pib-text-muted)]">Reply alerts</dt>
+                <dd className="font-medium text-[var(--color-pib-text)]">{settings.replyNotifyEmails?.length ?? 0}</dd>
               </div>
             </dl>
           </div>
@@ -391,34 +391,34 @@ export default function OrgDashboard() {
       <section className="space-y-4">
         <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
           <div>
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+            <p className="pib-label">
               Live operator workload
             </p>
-            <h2 className="mt-1 text-lg font-headline font-bold text-on-surface">
+            <h2 className="mt-1 text-lg font-headline font-bold text-[var(--color-pib-text)]">
               Who is working on what right now
             </h2>
           </div>
-          <Link href={`/admin/org/${slug}/agent/board`} className="pib-btn-secondary text-xs font-label">
+          <Link href={`/admin/org/${slug}/agent/board`} className="btn-pib-secondary text-xs font-label">
             Open agent board
           </Link>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
           <div className="pib-card-section p-5">
-            <p className="text-3xl font-headline font-bold text-on-surface">{activeTaskCards.length}</p>
-            <p className="text-xs text-on-surface-variant">active tasks across {activeAgents} assigned operators</p>
+            <p className="text-3xl font-headline font-bold text-[var(--color-pib-text)]">{activeTaskCards.length}</p>
+            <p className="text-xs text-[var(--color-pib-text-muted)]">active tasks across {activeAgents} assigned operators</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {statusEntries.length > 0 ? statusEntries.map(([status, count]) => (
-                <span key={status} className="rounded-full border border-[var(--color-card-border)] bg-[var(--color-card)] px-2 py-1 text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
+                <span key={status} className="rounded-full border border-[var(--color-pib-line)] bg-[var(--color-card)] px-2 py-1 text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                   {statusLabel(status)} {count}
                 </span>
               )) : (
-                <span className="text-xs text-on-surface-variant">No active status counts yet.</span>
+                <span className="text-xs text-[var(--color-pib-text-muted)]">No active status counts yet.</span>
               )}
             </div>
           </div>
 
-          <div className="pib-card-section divide-y divide-[var(--color-card-border)] overflow-hidden p-0">
+          <div className="pib-card-section divide-y divide-[var(--color-pib-line)] overflow-hidden p-0">
             {activeTaskCards.length > 0 ? activeTaskCards.slice(0, 5).map((task) => (
               <Link
                 key={task.id}
@@ -426,22 +426,22 @@ export default function OrgDashboard() {
                 className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-[var(--color-row-hover)] md:flex-row md:items-center md:justify-between"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-on-surface">{task.title}</p>
-                  <p className="truncate text-xs text-on-surface-variant">
+                  <p className="truncate text-sm font-semibold text-[var(--color-pib-text)]">{task.title}</p>
+                  <p className="truncate text-xs text-[var(--color-pib-text-muted)]">
                     {task.projectName || 'No linked project'}
                   </p>
                 </div>
-                <div className="flex shrink-0 flex-wrap items-center gap-2 text-[11px] text-on-surface-variant">
-                  <span className="rounded-full border border-[var(--color-card-border)] bg-[var(--color-card)] px-2 py-1">
+                <div className="flex shrink-0 flex-wrap items-center gap-2 text-[11px] text-[var(--color-pib-text-muted)]">
+                  <span className="rounded-full border border-[var(--color-pib-line)] bg-[var(--color-card)] px-2 py-1">
                     {task.assigneeAgentId || 'Unassigned'}
                   </span>
-                  <span className="rounded-full border border-[var(--color-card-border)] bg-[var(--color-card)] px-2 py-1">
+                  <span className="rounded-full border border-[var(--color-pib-line)] bg-[var(--color-card)] px-2 py-1">
                     {statusLabel(task.agentStatus)}
                   </span>
                 </div>
               </Link>
             )) : (
-              <div className="px-4 py-6 text-sm text-on-surface-variant">
+              <div className="px-4 py-6 text-sm text-[var(--color-pib-text-muted)]">
                 No active operator work is assigned to this organisation yet.
               </div>
             )}
@@ -491,7 +491,7 @@ export default function OrgDashboard() {
         {/* Projects List */}
         <Surface className="lg:col-span-2 space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Projects</p>
+            <p className="pib-label">Projects</p>
             <Link
               href={`/admin/org/${slug}/projects`}
               className="text-[10px] font-label uppercase tracking-wide"
@@ -507,7 +507,7 @@ export default function OrgDashboard() {
             </div>
           ) : projects.length === 0 ? (
             <div className="py-8 text-center">
-              <p className="text-on-surface-variant text-sm">No selected-org projects yet.</p>
+              <p className="text-[var(--color-pib-text-muted)] text-sm">No selected-org projects yet.</p>
               <Link
                 href={`/admin/org/${slug}/projects`}
                 className="text-sm mt-2 inline-block"
@@ -525,9 +525,9 @@ export default function OrgDashboard() {
                   className="flex items-center gap-4 px-6 py-3 hover:bg-[var(--color-row-hover)] transition-colors rounded-lg"
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-on-surface truncate">{project.name}</p>
+                    <p className="text-sm font-medium text-[var(--color-pib-text)] truncate">{project.name}</p>
                     {project.description && (
-                      <p className="text-xs text-on-surface-variant truncate mt-0.5">{project.description}</p>
+                      <p className="text-xs text-[var(--color-pib-text-muted)] truncate mt-0.5">{project.description}</p>
                     )}
                   </div>
                   <StatusBadge status={project.status} />
@@ -539,7 +539,7 @@ export default function OrgDashboard() {
 
         {/* Social Status Donut */}
         <Surface className="space-y-2">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+          <p className="pib-label">
             Post Status
           </p>
           {loading ? (
@@ -551,7 +551,7 @@ export default function OrgDashboard() {
               centerLabel="Total"
             />
           ) : (
-            <div className="py-8 text-center text-sm text-on-surface-variant">
+            <div className="py-8 text-center text-sm text-[var(--color-pib-text-muted)]">
               No social posts yet.
             </div>
           )}
@@ -565,7 +565,7 @@ export default function OrgDashboard() {
           {platformBarData.length > 0 && (
             <Surface className="space-y-3">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                <p className="pib-label">
                   Platform Breakdown
                 </p>
                 <Link
@@ -584,21 +584,21 @@ export default function OrgDashboard() {
           <Surface className="space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                <p className="pib-label">
                   Publishing Trend
                 </p>
-                <p className="text-lg font-headline font-bold text-on-surface mt-0.5">
+                <p className="text-lg font-headline font-bold text-[var(--color-pib-text)] mt-0.5">
                   {socialStats.last30Days} posts
                 </p>
               </div>
-              <span className="text-[10px] text-on-surface-variant bg-[var(--color-surface-container)] px-2 py-1 rounded">
+              <span className="text-[10px] text-[var(--color-pib-text-muted)] bg-[var(--color-pib-surface-2)] px-2 py-1 rounded">
                 Last 30 days
               </span>
             </div>
             {hasLast30DaysData ? (
-              <TrendAreaChart data={last30DaysData} height={160} color="#4ade80" />
+              <TrendAreaChart data={last30DaysData} height={160} color="var(--color-pib-green)" />
             ) : (
-              <div className="h-40 flex items-center justify-center text-sm text-on-surface-variant">
+              <div className="h-40 flex items-center justify-center text-sm text-[var(--color-pib-text-muted)]">
                 No posts in the last 30 days.
               </div>
             )}
@@ -608,7 +608,7 @@ export default function OrgDashboard() {
 
       {/* ── Quick Actions ── */}
       <Surface>
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-3">Quick Actions</p>
+        <p className="pib-label mb-3">Quick Actions</p>
         <div className="flex flex-wrap gap-2">
           {[
             { label: 'Projects',     href: `/admin/org/${slug}/projects` },
@@ -618,7 +618,7 @@ export default function OrgDashboard() {
             { label: 'Billing',      href: `/admin/org/${slug}/billing` },
             { label: 'Analytics',    href: `/admin/org/${slug}/dashboard?panel=analytics` },
           ].map(a => (
-            <Link key={a.href} href={a.href} className="pib-btn-secondary text-xs font-label">{a.label}</Link>
+            <Link key={a.href} href={a.href} className="btn-pib-secondary text-xs font-label">{a.label}</Link>
           ))}
         </div>
       </Surface>

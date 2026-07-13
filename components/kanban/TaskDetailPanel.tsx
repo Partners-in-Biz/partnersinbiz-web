@@ -45,7 +45,7 @@ const PRIORITY_COLORS: Record<string, string> = {
   high: 'var(--color-accent-v2)',
   medium: '#60a5fa',
   normal: '#60a5fa',
-  low: 'var(--color-outline)',
+  low: 'var(--color-pib-line)',
 }
 
 function cleanList(value: string): string[] {
@@ -593,7 +593,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
         return '#3b82f6'
       case 'client':
       default:
-        return 'var(--color-on-surface-variant)'
+        return 'var(--color-pib-text-muted)'
     }
   }
 
@@ -677,20 +677,20 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
       {/* Panel */}
       <div
         className="relative h-full w-full max-w-md flex flex-col overflow-y-auto"
-        style={{ background: 'var(--color-sidebar)', borderLeft: '1px solid var(--color-card-border)' }}
+        style={{ background: 'var(--color-sidebar)', borderLeft: '1px solid var(--color-pib-line)' }}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div
           data-task-detail-header
-          className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-[var(--color-card-border)] shrink-0 bg-[var(--color-sidebar)]"
+          className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-[var(--color-pib-line)] shrink-0 bg-[var(--color-sidebar)]"
         >
           <div className="min-w-0 space-y-2">
             <button
               type="button"
               aria-label="Back to board"
               onClick={onClose}
-              className="inline-flex sm:hidden items-center gap-1 rounded-full border border-[var(--color-card-border)] px-3 py-2 text-xs font-label uppercase tracking-wide text-on-surface hover:bg-[var(--color-surface-container)] transition-colors"
+              className="inline-flex sm:hidden items-center gap-1 rounded-full border border-[var(--color-pib-line)] px-3 py-2 text-xs font-label uppercase tracking-wide text-[var(--color-pib-text)] hover:bg-[var(--color-row-hover)] transition-colors"
             >
               <span aria-hidden="true">←</span>
               Back to board
@@ -702,7 +702,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
               >
                 {task.priority ?? 'medium'}
               </span>
-              <p className="text-xs text-on-surface-variant mt-1">{columnName}</p>
+              <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">{columnName}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -710,7 +710,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
               type="button"
               aria-label={`Delete project task ${task.title}`}
               onClick={() => setShowDeleteConfirm(true)}
-              className="text-xs text-on-surface-variant hover:text-red-400 transition-colors font-label"
+              className="text-xs text-[var(--color-pib-text-muted)] hover:text-red-400 transition-colors font-label"
             >
               Delete
             </button>
@@ -718,7 +718,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
               type="button"
               aria-label="Close task details"
               onClick={onClose}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-2xl leading-none text-on-surface-variant hover:bg-[var(--color-surface-container)] hover:text-on-surface transition-colors"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-2xl leading-none text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] transition-colors"
             >
               ×
             </button>
@@ -733,8 +733,8 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
               aria-label={`Delete project task "${task.title}"?`}
               className="rounded-[var(--radius-card)] border border-red-500/30 bg-[var(--color-sidebar)] p-4 shadow-sm"
             >
-              <p className="text-sm font-label text-on-surface">Delete project task &quot;{task.title}&quot;?</p>
-              <p className="mt-2 text-xs leading-5 text-on-surface-variant">
+              <p className="text-sm font-label text-[var(--color-pib-text)]">Delete project task &quot;{task.title}&quot;?</p>
+              <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                 This removes the task from the board for everyone. Comments, blockers, and assignments on this task will no longer be visible from the project workspace.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
@@ -764,13 +764,13 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
             <textarea
               value={title}
               onChange={e => setTitle(e.target.value)}
-              className="w-full text-lg font-headline font-bold text-on-surface bg-transparent border border-[var(--color-card-border)] rounded-[var(--radius-btn)] p-2 resize-none focus:outline-none focus:border-[var(--color-accent-v2)]"
+              className="w-full text-lg font-headline font-bold text-[var(--color-pib-text)] bg-transparent border border-[var(--color-pib-line)] rounded-[var(--radius-btn)] p-2 resize-none focus:outline-none focus:border-[var(--color-accent-v2)]"
               rows={2}
               autoFocus
             />
           ) : (
             <h2
-              className="text-lg font-headline font-bold text-on-surface cursor-pointer hover:text-on-surface-variant transition-colors"
+              className="text-lg font-headline font-bold text-[var(--color-pib-text)] cursor-pointer hover:text-[var(--color-pib-text-muted)] transition-colors"
               onClick={() => setEditing(true)}
             >
               {task.title}
@@ -779,7 +779,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
 
           {/* Priority selector */}
           <div>
-            <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant mb-2">Priority</p>
+            <p className="pib-label mb-2">Priority</p>
             <div className="flex gap-2">
               {PRIORITIES.map(p => (
                 <button
@@ -789,7 +789,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                   style={
                     task.priority === p
                       ? { background: `${PRIORITY_COLORS[p]}20`, color: PRIORITY_COLORS[p] }
-                      : { color: 'var(--color-on-surface-variant)' }
+                      : { color: 'var(--color-pib-text-muted)' }
                   }
                 >
                   {p}
@@ -800,18 +800,18 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
 
           {/* Description */}
           <div>
-            <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant mb-2">{isAdminSurface ? 'Operator brief' : 'Description'}</p>
+            <p className="pib-label mb-2">{isAdminSurface ? 'Operator brief' : 'Description'}</p>
             {editing ? (
               <textarea
                 value={description}
                 onChange={e => setDescription(e.target.value)}
-                className="w-full text-sm text-on-surface bg-[var(--color-card)] border border-[var(--color-card-border)] rounded-[var(--radius-btn)] p-3 resize-none focus:outline-none focus:border-[var(--color-accent-v2)] min-h-24"
+                className="w-full text-sm text-[var(--color-pib-text)] bg-[var(--color-card)] border border-[var(--color-pib-line)] rounded-[var(--radius-btn)] p-3 resize-none focus:outline-none focus:border-[var(--color-accent-v2)] min-h-24"
                 rows={4}
                 placeholder={isAdminSurface ? 'Add an internal admin note...' : 'Add a description...'}
               />
             ) : (
               <div
-                className="text-sm text-on-surface-variant cursor-pointer hover:text-on-surface transition-colors min-h-8"
+                className="text-sm text-[var(--color-pib-text-muted)] cursor-pointer hover:text-[var(--color-pib-text)] transition-colors min-h-8"
                 onClick={() => setEditing(true)}
               >
                 <ReadableTaskText text={task.description} empty={<span className="italic opacity-50">{isAdminSurface ? 'Add an internal admin note...' : 'Add a description...'}</span>} />
@@ -825,8 +825,8 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                 <span className="material-symbols-outlined text-[20px] text-[var(--color-accent-v2)]">approval</span>
                 <div className="min-w-0 flex-1 space-y-3">
                   <div>
-                    <p className="text-sm font-label text-on-surface">Approval gate</p>
-                    <p className="mt-1 text-xs leading-5 text-on-surface-variant">
+                    <p className="text-sm font-label text-[var(--color-pib-text)]">Approval gate</p>
+                    <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                       This card is waiting for Peet to approve or reject the scoped internal work. Approval releases the dependent agent tasks; it does not approve production, public/client-visible actions, spend, secrets/config changes, destructive actions, finance changes, or live backfills.
                     </p>
                   </div>
@@ -851,7 +851,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                       </button>
                     </div>
                   ) : (
-                    <p className="rounded border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-xs leading-5 text-on-surface-variant">
+                    <p className="rounded border border-[var(--color-pib-line)] bg-[var(--color-card)] px-3 py-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                       Only an authorised admin approver can decide this gate. Quality review can continue, but business approval remains locked.
                     </p>
                   )}
@@ -866,51 +866,51 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                 <span className="material-symbols-outlined text-[20px] text-purple-300">fact_check</span>
                 <div className="min-w-0 flex-1 space-y-3">
                   <div>
-                    <p className="text-sm font-label text-on-surface">Review package</p>
-                    <p className="mt-1 text-xs leading-5 text-on-surface-variant">
+                    <p className="text-sm font-label text-[var(--color-pib-text)]">Review package</p>
+                    <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                       Quality review records objective verification. Business approval records authority for gated actions; one does not imply the other.
                     </p>
                   </div>
                   <div className="grid gap-2 sm:grid-cols-2">
-                    <div className="rounded border border-[var(--color-card-border)] bg-[var(--color-card)] p-3">
-                      <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Quality review</p>
-                      <p className="mt-1 text-sm text-on-surface">{reviewStatusLabel}</p>
+                    <div className="rounded border border-[var(--color-pib-line)] bg-[var(--color-card)] p-3">
+                      <p className="pib-label">Quality review</p>
+                      <p className="mt-1 text-sm text-[var(--color-pib-text)]">{reviewStatusLabel}</p>
                       {(reviewerAgent || task.reviewerAgentId) && (
-                        <p className="mt-1 text-xs text-on-surface-variant">Reviewer: {agentLabel(reviewerAgent, task.reviewerAgentId)}</p>
+                        <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Reviewer: {agentLabel(reviewerAgent, task.reviewerAgentId)}</p>
                       )}
                     </div>
-                    <div className="rounded border border-[var(--color-card-border)] bg-[var(--color-card)] p-3">
-                      <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Business approval</p>
-                      <p className="mt-1 text-sm text-on-surface">{approvalStatusLabel}</p>
+                    <div className="rounded border border-[var(--color-pib-line)] bg-[var(--color-card)] p-3">
+                      <p className="pib-label">Business approval</p>
+                      <p className="mt-1 text-sm text-[var(--color-pib-text)]">{approvalStatusLabel}</p>
                       {task.approvalGate && task.approvalGate !== 'none' && (
-                        <p className="mt-1 text-xs text-on-surface-variant">Gate: {task.approvalGate}</p>
+                        <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Gate: {task.approvalGate}</p>
                       )}
                     </div>
                   </div>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {task.requiredCapability && (
-                      <p className="rounded border border-[var(--color-card-border)] bg-[var(--color-card)] p-2 text-xs text-on-surface-variant">
-                        <span className="font-label uppercase tracking-wide text-on-surface">Capability:</span> {task.requiredCapability}
+                      <p className="rounded border border-[var(--color-pib-line)] bg-[var(--color-card)] p-2 text-xs text-[var(--color-pib-text-muted)]">
+                        <span className="font-label uppercase tracking-wide text-[var(--color-pib-text)]">Capability:</span> {task.requiredCapability}
                       </p>
                     )}
                     {task.riskLevel && (
-                      <p className="rounded border border-[var(--color-card-border)] bg-[var(--color-card)] p-2 text-xs text-on-surface-variant">
-                        <span className="font-label uppercase tracking-wide text-on-surface">Risk:</span> {task.riskLevel}
+                      <p className="rounded border border-[var(--color-pib-line)] bg-[var(--color-card)] p-2 text-xs text-[var(--color-pib-text-muted)]">
+                        <span className="font-label uppercase tracking-wide text-[var(--color-pib-text)]">Risk:</span> {task.riskLevel}
                       </p>
                     )}
                   </div>
                   {task.expectedArtifacts?.length ? (
                     <div>
-                      <p className="mb-1 text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Expected artifacts</p>
-                      <ul className="list-disc space-y-1 pl-4 text-xs text-on-surface-variant">
+                      <p className="mb-1 pib-label">Expected artifacts</p>
+                      <ul className="list-disc space-y-1 pl-4 text-xs text-[var(--color-pib-text-muted)]">
                         {task.expectedArtifacts.map((artifact) => <li key={artifact}>{artifact}</li>)}
                       </ul>
                     </div>
                   ) : null}
                   {task.verifierChecklist?.length ? (
                     <div>
-                      <p className="mb-1 text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Verifier checklist</p>
-                      <ul className="list-disc space-y-1 pl-4 text-xs text-on-surface-variant">
+                      <p className="mb-1 pib-label">Verifier checklist</p>
+                      <ul className="list-disc space-y-1 pl-4 text-xs text-[var(--color-pib-text-muted)]">
                         {task.verifierChecklist.map((item) => <li key={item}>{item}</li>)}
                       </ul>
                     </div>
@@ -923,27 +923,27 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
           {/* Project metadata */}
           <div className="grid grid-cols-2 gap-3">
             <label className="space-y-1">
-              <span className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Start</span>
+              <span className="pib-label">Start</span>
               <input
                 type="date"
                 value={startDate}
                 onChange={e => { setStartDate(e.target.value); setEditing(true) }}
-                className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] px-2 py-2 text-xs text-on-surface focus:border-[var(--color-accent-v2)] focus:outline-none"
+                className="w-full rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] bg-[var(--color-card)] px-2 py-2 text-xs text-[var(--color-pib-text)] focus:border-[var(--color-accent-v2)] focus:outline-none"
               />
             </label>
             <label className="space-y-1">
-              <span className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Due</span>
+              <span className="pib-label">Due</span>
               <input
                 type="date"
                 value={dueDate}
                 onChange={e => { setDueDate(e.target.value); setEditing(true) }}
-                className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] px-2 py-2 text-xs text-on-surface focus:border-[var(--color-accent-v2)] focus:outline-none"
+                className="w-full rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] bg-[var(--color-card)] px-2 py-2 text-xs text-[var(--color-pib-text)] focus:border-[var(--color-accent-v2)] focus:outline-none"
               />
             </label>
           </div>
 
           <label className="block space-y-1">
-            <span className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Estimate</span>
+            <span className="pib-label">Estimate</span>
             <input
               type="number"
               min="0"
@@ -951,23 +951,23 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
               value={estimateHours}
               onChange={e => { setEstimateHours(e.target.value); setEditing(true) }}
               placeholder="Hours"
-              className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
+              className="w-full rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-[var(--color-accent-v2)] focus:outline-none"
             />
           </label>
 
           <div>
-            <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant mb-2">Labels</p>
+            <p className="pib-label mb-2">Labels</p>
             {editing ? (
               <input
                 value={labelsText}
                 onChange={e => setLabelsText(e.target.value)}
                 placeholder="design, blocked, client"
-                className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
+                className="w-full rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-[var(--color-accent-v2)] focus:outline-none"
               />
             ) : task.labels && task.labels.length > 0 ? (
               <div className="flex flex-wrap gap-1" onClick={() => setEditing(true)}>
                 {task.labels.map(l => (
-                  <span key={l} className="text-xs px-2 py-0.5 rounded bg-surface-container text-on-surface-variant">{l}</span>
+                  <span key={l} className="text-xs px-2 py-0.5 rounded bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]">{l}</span>
                 ))}
               </div>
             ) : (
@@ -978,7 +978,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
           </div>
 
           <div>
-            <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant mb-2">{isAdminSurface ? 'Admin context' : 'Context'}</p>
+            <p className="pib-label mb-2">{isAdminSurface ? 'Admin context' : 'Context'}</p>
             <ContextReferencePicker
               orgId={orgId}
               projectId={projectId}
@@ -993,9 +993,9 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
           </div>
 
           <div>
-            <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant mb-2">{isAdminSurface ? 'Operator assignment' : 'Assignment'}</p>
+            <p className="pib-label mb-2">{isAdminSurface ? 'Operator assignment' : 'Assignment'}</p>
             {!hideAgentSection && (
-              <div className="mb-2 grid grid-cols-3 gap-1 rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-1">
+              <div className="mb-2 grid grid-cols-3 gap-1 rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] bg-[var(--color-card)] p-1">
                 {(['people', 'agent', 'orchestration'] as const).map((mode) => (
                   <button
                     key={mode}
@@ -1014,7 +1014,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                     className={`rounded px-1.5 py-1.5 text-[10px] font-label capitalize transition-colors ${
                       assignmentMode === mode
                         ? 'bg-[var(--color-accent-v2)] text-black'
-                        : 'text-on-surface-variant hover:bg-[var(--color-surface-container)] hover:text-on-surface'
+                        : 'text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]'
                     }`}
                   >
                     {mode}
@@ -1023,12 +1023,12 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
               </div>
             )}
             {assignmentMode === 'people' || hideAgentSection ? (
-            <div className="space-y-1 rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-2">
+            <div className="space-y-1 rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] bg-[var(--color-card)] p-2">
               {members.length === 0 ? (
-                <p className="text-xs text-on-surface-variant">No team members found.</p>
+                <p className="text-xs text-[var(--color-pib-text-muted)]">No team members found.</p>
               ) : (
                 members.map(member => (
-                  <label key={member.userId} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-[var(--color-surface-container)]">
+                  <label key={member.userId} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-[var(--color-row-hover)]">
                     <input
                       type="checkbox"
                       checked={assigneeIds.includes(member.userId)}
@@ -1038,7 +1038,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                       }}
                       className="accent-[var(--color-accent-v2)]"
                     />
-                    <span className="min-w-0 flex-1 truncate text-xs text-on-surface">{memberLabel(member)}</span>
+                    <span className="min-w-0 flex-1 truncate text-xs text-[var(--color-pib-text)]">{memberLabel(member)}</span>
                     <button
                       type="button"
                       onClick={(event) => {
@@ -1049,7 +1049,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                       className={`rounded px-1.5 py-0.5 text-[9px] ${
                         mentionIds.includes(member.userId)
                           ? 'bg-[var(--color-accent-v2)] text-black'
-                          : 'bg-[var(--color-surface-container)] text-on-surface-variant'
+                          : 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]'
                       }`}
                     >
                       @
@@ -1059,12 +1059,12 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
               )}
             </div>
             ) : assignmentMode === 'agent' ? (
-            <div className="space-y-1 rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-2">
+            <div className="space-y-1 rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] bg-[var(--color-card)] p-2">
               {activeAgents(agents).length === 0 ? (
-                <p className="text-xs text-on-surface-variant">No agents available.</p>
+                <p className="text-xs text-[var(--color-pib-text-muted)]">No agents available.</p>
               ) : (
                 activeAgents(agents).map(agent => (
-                  <label key={agent.agentId} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-[var(--color-surface-container)]">
+                  <label key={agent.agentId} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-[var(--color-row-hover)]">
                     <input
                       type="radio"
                       checked={assigneeAgentId === agent.agentId}
@@ -1074,8 +1074,8 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                       }}
                       className="accent-[var(--color-accent-v2)]"
                     />
-                    <span className="material-symbols-outlined text-[15px] text-on-surface-variant">{agent.iconKey ?? 'smart_toy'}</span>
-                    <span className="min-w-0 flex-1 truncate text-xs text-on-surface">{agentLabel(agent, agent.agentId)}</span>
+                    <span className="material-symbols-outlined text-[15px] text-[var(--color-pib-text-muted)]">{agent.iconKey ?? 'smart_toy'}</span>
+                    <span className="min-w-0 flex-1 truncate text-xs text-[var(--color-pib-text)]">{agentLabel(agent, agent.agentId)}</span>
                     {agent.lastHealthStatus && (
                       <span className={`h-1.5 w-1.5 rounded-full ${
                         agent.lastHealthStatus === 'ok' ? 'bg-emerald-400' : agent.lastHealthStatus === 'degraded' ? 'bg-amber-400' : 'bg-red-400'
@@ -1086,7 +1086,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
               )}
             </div>
             ) : (
-              <div className="rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-2">
+              <div className="rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] bg-[var(--color-card)] p-2">
                 <label className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1">
                   <input
                     type="radio"
@@ -1094,20 +1094,20 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                     readOnly
                     className="accent-[var(--color-accent-v2)]"
                   />
-                  <span className="material-symbols-outlined text-[15px] text-on-surface-variant">hub</span>
-                  <span className="min-w-0 flex-1 truncate text-xs text-on-surface">Pip orchestration</span>
+                  <span className="material-symbols-outlined text-[15px] text-[var(--color-pib-text-muted)]">hub</span>
+                  <span className="min-w-0 flex-1 truncate text-xs text-[var(--color-pib-text)]">Pip orchestration</span>
                 </label>
               </div>
             )}
             {!hideAgentSection && assigneeAgentId && (
-              <div className="mt-3 rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 space-y-2">
+              <div className="mt-3 rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] bg-[var(--color-card)] p-3 space-y-2">
                 <div className="grid gap-2 sm:grid-cols-2">
                   <label className="space-y-1">
-                    <span className="block text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Effort</span>
+                    <span className="block pib-label">Effort</span>
                     <select
                       value={agentEffort}
                       onChange={e => { setAgentEffort(e.target.value as AgentEffort | ''); setEditing(true) }}
-                      className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-2 py-2 text-xs text-on-surface focus:border-[var(--color-accent-v2)] focus:outline-none"
+                      className="w-full rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-2 py-2 text-xs text-[var(--color-pib-text)] focus:border-[var(--color-accent-v2)] focus:outline-none"
                     >
                       <option value="">Auto</option>
                       {AGENT_EFFORT_OPTIONS.map(option => (
@@ -1116,11 +1116,11 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                     </select>
                   </label>
                   <label className="space-y-1">
-                    <span className="block text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Model</span>
+                    <span className="block pib-label">Model</span>
                     <select
                       value={agentModel}
                       onChange={e => { setAgentModel(e.target.value as AgentModel | ''); setEditing(true) }}
-                      className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-2 py-2 text-xs text-on-surface focus:border-[var(--color-accent-v2)] focus:outline-none"
+                      className="w-full rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-2 py-2 text-xs text-[var(--color-pib-text)] focus:border-[var(--color-accent-v2)] focus:outline-none"
                     >
                       <option value="">Auto</option>
                       {AGENT_MODEL_OPTIONS.map(option => (
@@ -1130,7 +1130,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                   </label>
                 </div>
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Scheduled release</p>
+                  <p className="pib-label">Scheduled release</p>
                   {task.agentReleaseStatus === 'scheduled' && Boolean(task.agentReleaseAt) && (
                     <span className="rounded bg-purple-500/15 px-2 py-0.5 text-[9px] font-label uppercase tracking-wide text-purple-300">
                       Backlogged
@@ -1141,9 +1141,9 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                   type="datetime-local"
                   value={agentReleaseAt}
                   onChange={e => { setAgentReleaseAt(e.target.value); setEditing(true) }}
-                  className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2 text-xs text-on-surface focus:border-[var(--color-accent-v2)] focus:outline-none"
+                  className="w-full rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 text-xs text-[var(--color-pib-text)] focus:border-[var(--color-accent-v2)] focus:outline-none"
                 />
-                <p className="text-[10px] leading-snug text-on-surface-variant">
+                <p className="text-[10px] leading-snug text-[var(--color-pib-text-muted)]">
                   Set a future date/time to keep this agent task out of watcher pickup until release. Dependencies and approval gates still apply when it is released.
                 </p>
                 {task.agentReleaseStatus === 'scheduled' && Boolean(task.agentReleaseAt) && (
@@ -1155,7 +1155,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
             )}
             {task.agentStatus && (() => {
               const STATUS_STYLE: Record<string, { label: string; className: string }> = {
-                'pending':        { label: 'Waiting',   className: 'bg-white/10 text-on-surface-variant' },
+                'pending':        { label: 'Waiting',   className: 'bg-white/10 text-[var(--color-pib-text-muted)]' },
                 'picked-up':      { label: 'Picked up', className: 'bg-sky-500/20 text-sky-400' },
                 'in-progress':    { label: 'Working',   className: 'bg-amber-500/20 text-amber-400' },
                 'awaiting-input': { label: 'Needs your input', className: 'bg-orange-500/20 text-orange-400' },
@@ -1164,7 +1164,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
               }
               const style = blockerRecovery.needsPeet
                 ? { label: 'Needs Peet', className: 'bg-orange-500/20 text-orange-300' }
-                : STATUS_STYLE[task.agentStatus] ?? { label: task.agentStatus, className: 'bg-white/10 text-on-surface-variant' }
+                : STATUS_STYLE[task.agentStatus] ?? { label: task.agentStatus, className: 'bg-white/10 text-[var(--color-pib-text-muted)]' }
               const stale = (task.agentStatus === 'in-progress' || task.agentStatus === 'picked-up') && isAgentStale(task.agentHeartbeatAt, 5)
               const agentName = task.assigneeAgentId ? (task.assigneeAgentId.charAt(0).toUpperCase() + task.assigneeAgentId.slice(1)) : 'Agent'
               return (
@@ -1248,14 +1248,14 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                         onChange={e => setRevisionNote(e.target.value)}
                         placeholder="Describe what's wrong or what to do differently…"
                         rows={3}
-                        className="w-full rounded border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-xs text-on-surface placeholder:text-on-surface-variant focus:border-red-400 focus:outline-none resize-none"
+                        className="w-full rounded border border-[var(--color-pib-line)] bg-[var(--color-card)] px-3 py-2 text-xs text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-red-400 focus:outline-none resize-none"
                         autoFocus
                       />
                       <div className="flex items-center gap-2 justify-end">
                         <button
                           type="button"
                           onClick={() => { setShowRevisionForm(false); setRevisionNote('') }}
-                          className="text-[10px] font-label uppercase tracking-wide px-2 py-1 rounded text-on-surface-variant hover:text-on-surface transition-colors"
+                          className="text-[10px] font-label uppercase tracking-wide px-2 py-1 rounded text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
                         >
                           Cancel
                         </button>
@@ -1272,7 +1272,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                     </div>
                   )}
                   {blockerRecovery.isBlocked && (
-                    <div className="rounded border border-orange-500/25 bg-orange-500/5 p-3 text-xs text-on-surface-variant space-y-2">
+                    <div className="rounded border border-orange-500/25 bg-orange-500/5 p-3 text-xs text-[var(--color-pib-text-muted)] space-y-2">
                       <div className="flex items-center justify-between gap-2">
                         <div>
                           <p className="text-[10px] font-label uppercase tracking-widest text-orange-300">{blockerRecovery.needsPeet ? 'Needs Peet' : 'Unblock guidance'}</p>
@@ -1295,10 +1295,10 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                       <p className="rounded border border-orange-500/15 bg-black/10 p-2 text-[11px] leading-4 text-orange-100/80">
                         Safe continue path: do not bypass approval gates. Production deploys, client-visible sends/publishing, paid spend, finance, secrets/config, and destructive actions still require explicit approval evidence.
                       </p>
-                      <p><span className="text-on-surface">What is wrong:</span> {blockerRecovery.whatIsWrong}</p>
-                      <p><span className="text-on-surface">Who/what can unblock:</span> {blockerRecovery.whoCanUnblock}</p>
-                      <p><span className="text-on-surface">Proof needed:</span> {blockerRecovery.requiredEvidence}</p>
-                      <p><span className="text-on-surface">Message for agent:</span> {blockerRecovery.messageForAgent}</p>
+                      <p><span className="text-[var(--color-pib-text)]">What is wrong:</span> {blockerRecovery.whatIsWrong}</p>
+                      <p><span className="text-[var(--color-pib-text)]">Who/what can unblock:</span> {blockerRecovery.whoCanUnblock}</p>
+                      <p><span className="text-[var(--color-pib-text)]">Proof needed:</span> {blockerRecovery.requiredEvidence}</p>
+                      <p><span className="text-[var(--color-pib-text)]">Message for agent:</span> {blockerRecovery.messageForAgent}</p>
                       {unblockError && (
                         <p className="rounded border border-red-500/20 bg-red-500/10 p-2 text-red-300">{unblockError}</p>
                       )}
@@ -1308,21 +1308,21 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
               )
             })()}
             <div className="mt-3">
-              <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant mb-2">Review by</p>
-              <div className="space-y-1 rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-2">
+              <p className="pib-label mb-2">Review by</p>
+              <div className="space-y-1 rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] bg-[var(--color-card)] p-2">
                 {members.map(member => (
-                  <label key={member.userId} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-[var(--color-surface-container)]">
+                  <label key={member.userId} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-[var(--color-row-hover)]">
                     <input
                       type="checkbox"
                       checked={reviewerIds.includes(member.userId)}
                       onChange={() => { setReviewerIds(current => toggleValue(current, member.userId)); setEditing(true) }}
                       className="accent-[var(--color-accent-v2)]"
                     />
-                    <span className="min-w-0 flex-1 truncate text-xs text-on-surface">{memberLabel(member)}</span>
+                    <span className="min-w-0 flex-1 truncate text-xs text-[var(--color-pib-text)]">{memberLabel(member)}</span>
                   </label>
                 ))}
                 {!hideAgentSection && activeAgents(agents).map(agent => (
-                  <label key={agent.agentId} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-[var(--color-surface-container)]">
+                  <label key={agent.agentId} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-[var(--color-row-hover)]">
                     <input
                       type="radio"
                       name="detailReviewerAgent"
@@ -1330,18 +1330,18 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                       onChange={() => { setReviewerAgentId(agent.agentId); setEditing(true) }}
                       className="accent-[var(--color-accent-v2)]"
                     />
-                    <span className="material-symbols-outlined text-[15px] text-on-surface-variant">{agent.iconKey ?? 'rate_review'}</span>
-                    <span className="min-w-0 flex-1 truncate text-xs text-on-surface">{agentLabel(agent, agent.agentId)}</span>
+                    <span className="material-symbols-outlined text-[15px] text-[var(--color-pib-text-muted)]">{agent.iconKey ?? 'rate_review'}</span>
+                    <span className="min-w-0 flex-1 truncate text-xs text-[var(--color-pib-text)]">{agentLabel(agent, agent.agentId)}</span>
                   </label>
                 ))}
               </div>
             </div>
             {task.reviewStatus && (
-              <p className="mt-2 text-[10px] text-on-surface-variant">Review status: {task.reviewStatus}</p>
+              <p className="mt-2 text-[10px] text-[var(--color-pib-text-muted)]">Review status: {task.reviewStatus}</p>
             )}
             {task.agentOutput?.summary && (
-              <div className="mt-2 rounded border border-[var(--color-card-border)] bg-[var(--color-surface-container)] p-2 text-xs text-on-surface-variant">
-                <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant mb-1">Agent output</p>
+              <div className="mt-2 rounded border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-2 text-xs text-[var(--color-pib-text-muted)]">
+                <p className="pib-label mb-1">Agent output</p>
                 {task.agentOutput.summary}
               </div>
             )}
@@ -1367,26 +1367,26 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
             )}
           </div>
 
-          <div className="border-t border-[var(--color-outline-variant)] pt-4">
-            <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant mb-3">
+          <div className="border-t border-[var(--color-pib-line)] pt-4">
+            <p className="pib-label mb-3">
               Checklist {checklist.length > 0 && `(${checklist.filter(item => item.done).length}/${checklist.length})`}
             </p>
             <div className="space-y-2">
               {checklist.map(item => (
-                <div key={item.id} className="flex items-start gap-2 rounded border border-[var(--color-card-border)] bg-[var(--color-card)] p-2">
+                <div key={item.id} className="flex items-start gap-2 rounded border border-[var(--color-pib-line)] bg-[var(--color-card)] p-2">
                   <input
                     type="checkbox"
                     checked={item.done}
                     onChange={() => handleToggleChecklistItem(item.id)}
                     className="mt-0.5 accent-[var(--color-accent-v2)]"
                   />
-                  <span className={`min-w-0 flex-1 text-xs ${item.done ? 'text-on-surface-variant line-through' : 'text-on-surface'}`}>
+                  <span className={`min-w-0 flex-1 text-xs ${item.done ? 'text-[var(--color-pib-text-muted)] line-through' : 'text-[var(--color-pib-text)]'}`}>
                     {item.text}
                   </span>
                   <button
                     type="button"
                     onClick={() => handleRemoveChecklistItem(item.id)}
-                    className="text-on-surface-variant hover:text-red-400"
+                    className="text-[var(--color-pib-text-muted)] hover:text-red-400"
                     title="Remove item"
                   >
                     <span className="material-symbols-outlined text-[15px]">close</span>
@@ -1404,7 +1404,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                     }
                   }}
                   placeholder="Add checklist item"
-                  className="min-w-0 flex-1 rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-xs text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
+                  className="min-w-0 flex-1 rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] bg-[var(--color-card)] px-3 py-2 text-xs text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-[var(--color-accent-v2)] focus:outline-none"
                 />
                 <button onClick={handleAddChecklistItem} className="pib-btn-secondary px-3 py-2 text-xs" title="Add checklist item">
                   <span className="material-symbols-outlined text-[16px]">add</span>
@@ -1414,9 +1414,9 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
           </div>
 
           {/* Attachments section */}
-          <div className="border-t border-[var(--color-outline-variant)] mt-4 pt-4">
+          <div className="border-t border-[var(--color-pib-line)] mt-4 pt-4">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant">
+              <p className="pib-label">
                 Attachments {attachments.length > 0 && `(${attachments.length})`}
               </p>
               <label className="inline-flex cursor-pointer items-center gap-1 text-xs text-[var(--color-accent-v2)] hover:underline">
@@ -1441,9 +1441,9 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
             {attachments.length > 0 && (
               <div className="space-y-2 mb-3">
                 {attachments.map((att, idx) => (
-                  <div key={idx} className="flex items-start gap-2 p-2 rounded border border-[var(--color-card-border)] hover:border-[var(--color-accent-v2)] transition-colors group">
+                  <div key={idx} className="flex items-start gap-2 p-2 rounded border border-[var(--color-pib-line)] hover:border-[var(--color-accent-v2)] transition-colors group">
                     <div className="flex items-start gap-2 flex-1 min-w-0">
-                      <span className="material-symbols-outlined mt-0.5 flex-shrink-0 text-[18px] text-on-surface-variant">
+                      <span className="material-symbols-outlined mt-0.5 flex-shrink-0 text-[18px] text-[var(--color-pib-text-muted)]">
                         {getAttachmentIcon(att.mimeType ?? att.type)}
                       </span>
                       <div className="flex-1 min-w-0">
@@ -1456,7 +1456,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                         >
                           {att.name}
                         </a>
-                        <p className="text-[10px] text-on-surface-variant">{formatSize(att.size)}</p>
+                        <p className="text-[10px] text-[var(--color-pib-text-muted)]">{formatSize(att.size)}</p>
                         {isImageAttachment(att) && (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={att.url} alt={att.name} className="max-h-16 mt-1 rounded cursor-pointer hover:opacity-80" onClick={() => window.open(att.url, '_blank')} />
@@ -1469,7 +1469,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
 
                     <button
                       onClick={() => handleRemoveAttachment(idx)}
-                      className="text-on-surface-variant hover:text-red-400 transition-colors text-sm flex-shrink-0 opacity-0 group-hover:opacity-100"
+                      className="text-[var(--color-pib-text-muted)] hover:text-red-400 transition-colors text-sm flex-shrink-0 opacity-0 group-hover:opacity-100"
                       title="Remove attachment"
                     >
                       <span className="material-symbols-outlined text-[16px]">close</span>
@@ -1480,14 +1480,14 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
             )}
 
             {showAddAttachment ? (
-              <div className="space-y-2 p-3 rounded border border-[var(--color-card-border)] bg-[var(--color-card)]">
+              <div className="space-y-2 p-3 rounded border border-[var(--color-pib-line)] bg-[var(--color-card)]">
                 <input
                   type="url"
                   placeholder="https://example.com/file.pdf"
                   value={attachmentUrl}
                   onChange={e => setAttachmentUrl(e.target.value)}
                   disabled={savingAttachment}
-                  className="w-full bg-transparent border border-[var(--color-outline-variant)] rounded-[var(--radius-btn)] px-3 py-2 text-sm text-[var(--color-on-surface)] placeholder:text-on-surface-variant focus:outline-none focus:border-[var(--color-accent-v2)] disabled:opacity-50"
+                  className="w-full bg-transparent border border-[var(--color-pib-line)] rounded-[var(--radius-btn)] px-3 py-2 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:outline-none focus:border-[var(--color-accent-v2)] disabled:opacity-50"
                 />
                 <input
                   type="text"
@@ -1495,7 +1495,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                   value={attachmentName}
                   onChange={e => setAttachmentName(e.target.value)}
                   disabled={savingAttachment}
-                  className="w-full bg-transparent border border-[var(--color-outline-variant)] rounded-[var(--radius-btn)] px-3 py-2 text-sm text-[var(--color-on-surface)] placeholder:text-on-surface-variant focus:outline-none focus:border-[var(--color-accent-v2)] disabled:opacity-50"
+                  className="w-full bg-transparent border border-[var(--color-pib-line)] rounded-[var(--radius-btn)] px-3 py-2 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:outline-none focus:border-[var(--color-accent-v2)] disabled:opacity-50"
                 />
                 <div className="flex gap-2">
                   <button
@@ -1526,14 +1526,14 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
           </div>
 
           {/* Comments section divider */}
-          <div className="border-t border-[var(--color-outline-variant)] mt-4 pt-4">
-            <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant mb-3">{isAdminSurface ? 'Operator comments' : 'Comments'}</p>
+          <div className="border-t border-[var(--color-pib-line)] mt-4 pt-4">
+            <p className="pib-label mb-3">{isAdminSurface ? 'Operator comments' : 'Comments'}</p>
 
             {/* Comments list */}
             {loadingComments ? (
-              <p className="text-xs text-on-surface-variant italic">Loading comments...</p>
+              <p className="text-xs text-[var(--color-pib-text-muted)] italic">Loading comments...</p>
             ) : comments.length === 0 ? (
-              <p className="text-xs text-on-surface-variant italic mb-3">No comments yet</p>
+              <p className="text-xs text-[var(--color-pib-text-muted)] italic mb-3">No comments yet</p>
             ) : (
               <div className="space-y-3 max-h-48 overflow-y-auto mb-3">
                 {comments.map((comment, index) => (
@@ -1548,7 +1548,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                       </div>
 
                       {/* Name and role */}
-                      <span className="text-on-surface font-medium">{getCommentAuthor(comment)}</span>
+                      <span className="text-[var(--color-pib-text)] font-medium">{getCommentAuthor(comment)}</span>
                       <span
                         className="text-[9px] font-label uppercase tracking-wide px-1.5 py-0.5 rounded"
                         style={{
@@ -1557,24 +1557,24 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                               ? 'var(--color-accent-v2)20'
                               : comment.userRole === 'ai'
                                 ? '#3b82f620'
-                                : 'var(--color-outline)20',
+                                : 'var(--color-pib-line)20',
                           color:
                             comment.userRole === 'admin'
                               ? 'var(--color-accent-v2)'
                               : comment.userRole === 'ai'
                                 ? '#3b82f6'
-                                : 'var(--color-on-surface-variant)',
+                                : 'var(--color-pib-text-muted)',
                         }}
                       >
                         {getRoleLabel(comment.userRole)}
                       </span>
 
                       {/* Timestamp */}
-                      <span className="text-on-surface-variant ml-auto">{formatTimestamp(comment.createdAt)}</span>
+                      <span className="text-[var(--color-pib-text-muted)] ml-auto">{formatTimestamp(comment.createdAt)}</span>
                     </div>
 
                     {/* Comment text */}
-                    <div className="text-on-surface-variant ml-7 leading-snug">
+                    <div className="text-[var(--color-pib-text-muted)] ml-7 leading-snug">
                       <ReadableTaskText text={comment.text} compact />
                     </div>
                     <div className="ml-7 mt-1">
@@ -1600,7 +1600,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                     }
                   }}
                   disabled={submittingComment}
-                  className="flex-1 bg-transparent border border-[var(--color-outline-variant)] rounded-[var(--radius-btn)] px-3 py-2 text-sm text-[var(--color-on-surface)] placeholder:text-on-surface-variant focus:outline-none focus:border-[var(--color-accent-v2)] disabled:opacity-50"
+                  className="flex-1 bg-transparent border border-[var(--color-pib-line)] rounded-[var(--radius-btn)] px-3 py-2 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:outline-none focus:border-[var(--color-accent-v2)] disabled:opacity-50"
                 />
                 <button
                   onClick={handleSubmitComment}
@@ -1628,7 +1628,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
 
         {/* Save bar */}
         {editing && (
-          <div className="shrink-0 px-6 py-4 border-t border-[var(--color-card-border)] flex gap-2">
+          <div className="shrink-0 px-6 py-4 border-t border-[var(--color-pib-line)] flex gap-2">
             <button
               onClick={handleSave}
               disabled={saving}

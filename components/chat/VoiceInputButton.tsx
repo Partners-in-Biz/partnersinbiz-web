@@ -214,10 +214,10 @@ export default function VoiceInputButton({
         if (listening && !locked) stopListening()
       }}
       className={[
-        'relative flex h-9 w-9 shrink-0 touch-none select-none items-center justify-center rounded-full text-on-surface-variant transition-colors',
+        'relative flex h-9 w-9 shrink-0 touch-none select-none items-center justify-center rounded-full text-[var(--color-pib-text-muted)] transition-colors',
         listening
           ? 'bg-primary text-on-primary shadow-[0_0_0_4px_rgba(245,158,11,0.16)]'
-          : 'hover:bg-white/[0.08] hover:text-on-surface',
+          : 'hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]',
         isDisabled ? 'cursor-not-allowed opacity-40' : '',
         className,
       ].join(' ')}
@@ -226,7 +226,7 @@ export default function VoiceInputButton({
         <span className="absolute inset-0 animate-ping rounded-full bg-primary/30" />
       )}
       {listening && (
-        <span className="absolute bottom-full mb-2 whitespace-nowrap rounded-full bg-[var(--color-surface,#1c1c1c)] px-2 py-1 text-[11px] font-medium text-on-surface shadow-lg">
+        <span className="absolute bottom-full mb-2 whitespace-nowrap rounded-full bg-[var(--color-surface,#1c1c1c)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-text)] shadow-lg">
           {locked ? 'Locked — tap to stop' : 'Release to lock'}
         </span>
       )}

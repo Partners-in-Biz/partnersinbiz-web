@@ -191,10 +191,10 @@ export function CompanyAnalyticsPanel({
         {tiles.map((tile) => (
           <div key={tile.label} className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
             <div className="flex items-start justify-between gap-2">
-              <p className="text-[11px] leading-4 text-on-surface-variant">{tile.label}</p>
-              <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-on-surface-variant">{tile.icon}</span>
+              <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{tile.label}</p>
+              <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">{tile.icon}</span>
             </div>
-            <p className="mt-1 truncate text-lg font-semibold text-on-surface">{tile.value}</p>
+            <p className="mt-1 truncate text-lg font-semibold text-[var(--color-pib-text)]">{tile.value}</p>
           </div>
         ))}
       </div>
@@ -203,10 +203,10 @@ export function CompanyAnalyticsPanel({
         <div className="border-b border-[var(--color-card-border)] px-3 py-2.5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Account operating brief</p>
-              <h3 className="mt-0.5 text-sm font-semibold text-on-surface">Where the team should act next</h3>
+              <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Account operating brief</p>
+              <h3 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">Where the team should act next</h3>
             </div>
-            <span className="flex h-7 shrink-0 items-center rounded-full border border-[var(--color-card-border)] px-2.5 text-[11px] text-on-surface-variant">
+            <span className="flex h-7 shrink-0 items-center rounded-full border border-[var(--color-card-border)] px-2.5 text-[11px] text-[var(--color-pib-text-muted)]">
               {riskSignals.length > 0 ? `${riskSignals.length} active signal${riskSignals.length === 1 ? '' : 's'}` : 'No active risks'}
             </span>
           </div>
@@ -224,19 +224,19 @@ export function CompanyAnalyticsPanel({
       ) : null}
 
       <div className="px-3 py-2.5">
-        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Risk signals</p>
+        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Risk signals</p>
         {riskSignals.length === 0 ? (
           <div className="mt-2 rounded-md border border-emerald-400/20 bg-emerald-400/10 p-3">
             <p className="text-[10px] font-label uppercase tracking-[0.22em] text-emerald-200">Risk watch clear</p>
-            <h3 className="mt-1 text-xs font-semibold text-on-surface">Keep leadership risk reviewable</h3>
-            <p className="mt-1 text-xs leading-5 text-on-surface-variant">
+            <h3 className="mt-1 text-xs font-semibold text-[var(--color-pib-text)]">Keep leadership risk reviewable</h3>
+            <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
               {clearBody}
             </p>
             {riskClearActionHref ? (
               <Link
                 href={riskClearActionHref}
                 aria-label={riskActionAriaLabel}
-                className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
               >
                 <span aria-hidden="true" className="material-symbols-outlined text-[14px]">{riskClearActionIcon}</span>
                 {riskClearActionLabel}
@@ -246,7 +246,7 @@ export function CompanyAnalyticsPanel({
                 type="button"
                 onClick={() => onOpenTab('invoices')}
                 aria-label={riskActionAriaLabel}
-                className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
               >
                 <span aria-hidden="true" className="material-symbols-outlined text-[14px]">{riskClearActionIcon}</span>
                 {riskClearActionLabel}

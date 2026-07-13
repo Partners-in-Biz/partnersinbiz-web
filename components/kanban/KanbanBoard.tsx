@@ -46,7 +46,7 @@ const PRIORITY_STYLES: Record<string, { color: string; label: string }> = {
   high:   { color: 'var(--color-accent-v2)', label: 'High' },
   medium: { color: '#60a5fa', label: 'Medium' },
   normal: { color: '#60a5fa', label: 'Normal' },
-  low:    { color: 'var(--color-outline)', label: 'Low' },
+  low:    { color: 'var(--color-pib-line)', label: 'Low' },
 }
 
 function isDueSoon(value: unknown): boolean {
@@ -93,7 +93,7 @@ function MemberAvatar({ member, fallbackId }: { member?: TeamMember; fallbackId:
   return (
     <span
       title={title}
-      className="-ml-1 first:ml-0 inline-flex h-5 w-5 items-center justify-center overflow-hidden rounded-full border border-[var(--color-card-border)] bg-[var(--color-surface-container)] text-[9px] font-semibold leading-none text-on-surface"
+      className="-ml-1 first:ml-0 inline-flex h-5 w-5 items-center justify-center overflow-hidden rounded-full border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[9px] font-semibold leading-none text-[var(--color-pib-text)]"
     >
       {member?.photoURL && !imageFailed ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -125,7 +125,7 @@ const AGENT_DEFAULT_COLOR: Record<string, string> = {
 }
 
 const AGENT_STATUS_STYLE: Record<string, { label: string; className: string }> = {
-  'pending':        { label: 'Waiting',   className: 'bg-white/10 text-on-surface-variant' },
+  'pending':        { label: 'Waiting',   className: 'bg-white/10 text-[var(--color-pib-text-muted)]' },
   'picked-up':      { label: 'Picked up', className: 'bg-sky-500/20 text-sky-400' },
   'in-progress':    { label: 'Working',   className: 'bg-amber-500/20 text-amber-400' },
   'awaiting-input': { label: 'Needs you', className: 'bg-orange-500/20 text-orange-400' },
@@ -180,12 +180,12 @@ function TaskCard({
         padding: '12px',
       }}
     >
-      <p className="text-sm font-medium text-on-surface mb-1 leading-snug">{task.title}</p>
+      <p className="text-sm font-medium text-[var(--color-pib-text)] mb-1 leading-snug">{task.title}</p>
       {task.description && (
-        <p className="text-xs text-on-surface-variant line-clamp-2 mb-2">{task.description}</p>
+        <p className="text-xs text-[var(--color-pib-text-muted)] line-clamp-2 mb-2">{task.description}</p>
       )}
       {kind === 'image' && task.attachments?.[0]?.url && (
-        <div className="mt-2 mb-2 aspect-video overflow-hidden rounded border border-[var(--color-card-border)] bg-[var(--color-surface-container)]">
+        <div className="mt-2 mb-2 aspect-video overflow-hidden rounded border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={task.attachments[0].url} alt="" className="h-full w-full object-cover" />
         </div>
@@ -223,28 +223,28 @@ function TaskCard({
           </span>
         )}
         {task.labels?.slice(0, 2).map(l => (
-          <span key={l} className="text-[9px] px-1.5 py-0.5 rounded bg-surface-container text-on-surface-variant">
+          <span key={l} className="text-[9px] px-1.5 py-0.5 rounded bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]">
             {l}
           </span>
         ))}
       </div>
       {(startDateTimeLabel || endDateTimeLabel) && (
-        <div className="mt-3 grid gap-1 text-[10px] text-on-surface-variant">
+        <div className="mt-3 grid gap-1 text-[10px] text-[var(--color-pib-text-muted)]">
           {startDateTimeLabel && (
             <div className="flex items-center justify-between gap-2">
               <span className="font-label uppercase tracking-wide">Start</span>
-              <span className="text-right text-on-surface">{startDateTimeLabel}</span>
+              <span className="text-right text-[var(--color-pib-text)]">{startDateTimeLabel}</span>
             </div>
           )}
           {endDateTimeLabel && (
             <div className="flex items-center justify-between gap-2">
               <span className="font-label uppercase tracking-wide">End</span>
-              <span className="text-right text-on-surface">{endDateTimeLabel}</span>
+              <span className="text-right text-[var(--color-pib-text)]">{endDateTimeLabel}</span>
             </div>
           )}
         </div>
       )}
-      <div className="mt-3 flex items-center justify-between gap-2 text-[10px] text-on-surface-variant">
+      <div className="mt-3 flex items-center justify-between gap-2 text-[10px] text-[var(--color-pib-text-muted)]">
         <div className="flex items-center gap-2 min-w-0">
           {dueLabel && (
             <span className={`inline-flex items-center gap-1 ${isDueSoon(task.dueDate) ? 'text-[var(--color-accent-v2)]' : ''}`}>
@@ -276,7 +276,7 @@ function TaskCard({
             <span className="inline-flex items-center gap-1.5">
               <span
                 title={assignedAgent?.name || task.assigneeAgentId}
-                className={`inline-flex h-5 w-5 items-center justify-center rounded-full border border-[var(--color-card-border)] text-white ${AGENT_DEFAULT_COLOR[task.assigneeAgentId] ?? 'bg-white/40'}`}
+                className={`inline-flex h-5 w-5 items-center justify-center rounded-full border border-[var(--color-pib-line)] text-white ${AGENT_DEFAULT_COLOR[task.assigneeAgentId] ?? 'bg-white/40'}`}
               >
                 <span className="material-symbols-outlined block text-[13px] leading-none">{assignedAgent?.iconKey ?? 'smart_toy'}</span>
               </span>
@@ -286,7 +286,7 @@ function TaskCard({
                 </span>
               )}
               {task.agentEffort && (
-                <span className="rounded bg-white/10 px-1.5 py-0.5 text-[9px] font-label uppercase tracking-wide text-on-surface-variant">
+                <span className="rounded bg-white/10 px-1.5 py-0.5 text-[9px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                   {task.agentEffort}
                 </span>
               )}
@@ -342,19 +342,19 @@ function KanbanColumn({
       <div className="flex items-center justify-between mb-3 px-1">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full" style={{ background: column.color || 'var(--color-accent-v2)' }} />
-          <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">
+          <span className="pib-label">
             {column.name}
           </span>
           <span
             className="text-[9px] font-label px-1.5 py-0.5 rounded-full"
-            style={{ background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)' }}
+            style={{ background: 'var(--color-pib-surface-2)', color: 'var(--color-pib-text-muted)' }}
           >
             {tasks.length}
           </span>
         </div>
         <button
           onClick={onAddTask}
-          className="text-on-surface-variant hover:text-on-surface transition-colors text-lg leading-none"
+          className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors text-lg leading-none"
           title="Add task"
         >
           +
@@ -374,9 +374,9 @@ function KanbanColumn({
           {tasks.length === 0 && (
             <div
               className="rounded-[var(--radius-card)] border border-dashed flex items-center justify-center py-8"
-              style={{ borderColor: 'var(--color-card-border)' }}
+              style={{ borderColor: 'var(--color-pib-line)' }}
             >
-              <p className="text-xs text-on-surface-variant">Drop here</p>
+              <p className="text-xs text-[var(--color-pib-text-muted)]">Drop here</p>
             </div>
           )}
         </div>
@@ -571,7 +571,7 @@ export function KanbanBoard({
           <button
             type="button"
             onClick={handleSortModeToggle}
-            className="inline-flex items-center gap-2 rounded-full border border-[var(--color-card-border)] px-3 py-1.5 text-xs font-label uppercase tracking-wide text-on-surface-variant transition-colors hover:text-on-surface"
+            className="inline-flex items-center gap-2 rounded-full border border-[var(--color-pib-line)] px-3 py-1.5 text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
             aria-pressed={sortMode === 'manual'}
           >
             <span className="material-symbols-outlined text-[16px]">sort</span>

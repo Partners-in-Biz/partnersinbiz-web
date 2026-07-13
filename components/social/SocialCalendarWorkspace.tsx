@@ -106,7 +106,7 @@ function isVideoMedia(media: NonNullable<SocialCalendarPost['media']>[number]): 
 }
 
 const STATUS_STYLES: Record<SocialCalendarPostStatus, string> = {
-  draft: 'border-outline-variant bg-surface-container-high text-on-surface-variant',
+  draft: 'border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]',
   qa_review: 'border-amber-500/40 bg-amber-900/30 text-amber-300',
   regenerating: 'border-purple-500/40 bg-purple-900/30 text-purple-300',
   client_review: 'border-amber-500/40 bg-amber-900/30 text-amber-300',
@@ -118,7 +118,7 @@ const STATUS_STYLES: Record<SocialCalendarPostStatus, string> = {
   published: 'border-green-500/40 bg-green-900/40 text-green-300',
   partially_published: 'border-green-500/40 bg-green-900/40 text-green-300',
   failed: 'border-red-500/40 bg-red-900/40 text-red-300',
-  cancelled: 'border-outline-variant/30 bg-surface-container text-on-surface-variant/50',
+  cancelled: 'border-[var(--color-pib-line)]/30 bg-[var(--color-pib-surface)] text-[var(--color-pib-text-muted)]/50',
 }
 
 const MONTH_NAMES = [
@@ -363,10 +363,10 @@ function PostPanel({
   return (
     <div className="fixed inset-0 z-40 flex justify-end">
       <button className="absolute inset-0 bg-black/40" type="button" aria-label="Close post details" onClick={onClose} />
-      <aside className="relative z-50 flex h-full w-full max-w-md flex-col overflow-y-auto border-l border-outline-variant bg-surface-container">
-        <div className="flex items-center justify-between border-b border-outline-variant px-5 py-4">
-          <h2 className="text-sm font-semibold text-on-surface">Scheduled post</h2>
-          <button type="button" onClick={onClose} className="text-xl leading-none text-on-surface-variant transition-colors hover:text-on-surface">
+      <aside className="relative z-50 flex h-full w-full max-w-md flex-col overflow-y-auto border-l border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
+        <div className="flex items-center justify-between border-b border-[var(--color-pib-line)] px-5 py-4">
+          <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Scheduled post</h2>
+          <button type="button" onClick={onClose} className="text-xl leading-none text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]">
             x
           </button>
         </div>
@@ -381,17 +381,17 @@ function PostPanel({
           </div>
 
           {(canReschedule || canPublish || editUrl || canCancel) && (
-            <div className="rounded-lg border border-outline-variant bg-surface-container-high p-3">
-              <p className="mb-3 text-xs font-medium uppercase tracking-wide text-on-surface-variant">Actions</p>
+            <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-3">
+              <p className="mb-3 text-xs font-medium uppercase tracking-wide text-[var(--color-pib-text-muted)]">Actions</p>
               <div className="space-y-3">
                 {canReschedule && (
                   <label className="block">
-                    <span className="mb-1 block text-xs text-on-surface-variant">New scheduled time</span>
+                    <span className="mb-1 block text-xs text-[var(--color-pib-text-muted)]">New scheduled time</span>
                     <input
                       type="datetime-local"
                       value={rescheduleValue}
                       onChange={(event) => setRescheduleValue(event.target.value)}
-                      className="w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface outline-none transition-colors focus:border-[var(--color-pib-accent)]"
+                      className="pib-input w-full"
                     />
                   </label>
                 )}
@@ -443,26 +443,26 @@ function PostPanel({
 
           {scheduledDate && (
             <div>
-              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-on-surface-variant">Scheduled for</p>
-              <p className="text-sm text-on-surface">{formatDateTime(scheduledDate)}</p>
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-[var(--color-pib-text-muted)]">Scheduled for</p>
+              <p className="text-sm text-[var(--color-pib-text)]">{formatDateTime(scheduledDate)}</p>
             </div>
           )}
 
           <div>
-            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-on-surface-variant">Content</p>
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-on-surface">{getPostText(post)}</p>
+            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-[var(--color-pib-text-muted)]">Content</p>
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-[var(--color-pib-text)]">{getPostText(post)}</p>
           </div>
 
           {post.error && (
             <div>
-              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-on-surface-variant">Last error</p>
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-[var(--color-pib-text-muted)]">Last error</p>
               <p className="rounded-lg border border-red-500/30 bg-red-950/20 p-3 text-xs leading-relaxed text-red-200">{post.error}</p>
             </div>
           )}
 
           {post.media?.length ? (
             <div>
-              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-on-surface-variant">Media</p>
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--color-pib-text-muted)]">Media</p>
               <div className="grid grid-cols-2 gap-2">
                 {post.media.map((media, index) => (
                   isVideoMedia(media) ? (
@@ -474,7 +474,7 @@ function PostPanel({
                       playsInline
                       preload="metadata"
                       aria-label={media.altText || `Post media ${index + 1}`}
-                      className="aspect-square w-full rounded border border-outline-variant object-cover"
+                      className="aspect-square w-full rounded border border-[var(--color-pib-line)] object-cover"
                     />
                   ) : (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -482,7 +482,7 @@ function PostPanel({
                       key={media.id ?? `${media.url}-${index}`}
                       src={media.thumbnailUrl || media.url}
                       alt={media.altText || `Post media ${index + 1}`}
-                      className="aspect-square w-full rounded border border-outline-variant object-cover"
+                      className="aspect-square w-full rounded border border-[var(--color-pib-line)] object-cover"
                     />
                   )
                 ))}
@@ -492,8 +492,8 @@ function PostPanel({
 
           {post.category && (
             <div>
-              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-on-surface-variant">Category</p>
-              <p className="text-sm capitalize text-on-surface">{post.category}</p>
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-[var(--color-pib-text-muted)]">Category</p>
+              <p className="text-sm capitalize text-[var(--color-pib-text)]">{post.category}</p>
             </div>
           )}
         </div>
@@ -667,8 +667,8 @@ export function SocialCalendarWorkspace({
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-          <h1 className={eyebrow ? 'pib-page-title mt-2' : 'text-2xl font-semibold text-on-surface'}>{title}</h1>
-          <p className={eyebrow ? 'pib-page-sub max-w-2xl' : 'mt-1 text-sm text-on-surface-variant'}>{description}</p>
+          <h1 className={eyebrow ? 'pib-page-title mt-2' : 'text-2xl font-semibold text-[var(--color-pib-text)]'}>{title}</h1>
+          <p className={eyebrow ? 'pib-page-sub max-w-2xl' : 'mt-1 text-sm text-[var(--color-pib-text-muted)]'}>{description}</p>
         </div>
         <Link href={composeHref} className="btn-pib-accent">
           <span className="material-symbols-outlined text-base">edit</span>
@@ -682,7 +682,7 @@ export function SocialCalendarWorkspace({
             <span className="material-symbols-outlined text-base">chevron_left</span>
             Prev
           </button>
-          <h2 className="min-w-[170px] text-center text-sm font-semibold text-on-surface">
+          <h2 className="min-w-[170px] text-center text-sm font-semibold text-[var(--color-pib-text)]">
             {viewMode === 'month' ? `${MONTH_NAMES[month]} ${year}` : weekRangeLabel}
           </h2>
           <button type="button" onClick={goNext} className="btn-pib-secondary !px-3 !py-1.5 !text-sm">
@@ -714,7 +714,7 @@ export function SocialCalendarWorkspace({
             ))}
           </div>
 
-          {loading && <span className="text-xs text-on-surface-variant/60">Loading...</span>}
+          {loading && <span className="text-xs text-[var(--color-pib-text-muted)]/60">Loading...</span>}
         </div>
       </section>
 
@@ -734,10 +734,10 @@ export function SocialCalendarWorkspace({
         ))}
       </div>
 
-      <section className="overflow-hidden rounded-xl border border-outline-variant/50 bg-surface-container">
-        <div className="grid grid-cols-7 border-b border-outline-variant">
+      <section className="overflow-hidden rounded-xl border border-[var(--color-pib-line)]/50 bg-[var(--color-pib-surface)]">
+        <div className="grid grid-cols-7 border-b border-[var(--color-pib-line)]">
           {DAY_HEADERS.map((day) => (
-            <div key={day} className="py-2 text-center text-[10px] font-medium uppercase tracking-wide text-on-surface-variant">
+            <div key={day} className="py-2 text-center text-[10px] font-medium uppercase tracking-wide text-[var(--color-pib-text-muted)]">
               {day}
             </div>
           ))}
@@ -756,9 +756,9 @@ export function SocialCalendarWorkspace({
             return (
               <div
                 key={day.toISOString()}
-                className={`${minHeight} border-b border-r border-outline-variant/30 p-1.5 transition-colors ${
-                  isCurrentMonth ? 'bg-transparent' : 'bg-surface/30'
-                } ${isDragOver ? 'bg-blue-900/20 ring-1 ring-blue-500/40 ring-inset' : allowDayCreate ? 'hover:bg-surface-container-high/30' : ''}`}
+                className={`${minHeight} border-b border-r border-[var(--color-pib-line)]/30 p-1.5 transition-colors ${
+                  isCurrentMonth ? 'bg-transparent' : 'bg-[var(--color-pib-surface)]/30'
+                } ${isDragOver ? 'bg-blue-900/20 ring-1 ring-blue-500/40 ring-inset' : allowDayCreate ? 'hover:bg-[var(--color-pib-surface-2)]/30' : ''}`}
                 onDragOver={(event) => handleDragOver(event, dayKey)}
                 onDragLeave={() => setDragOverDay(null)}
                 onDrop={(event) => handleDrop(event, day)}
@@ -766,7 +766,7 @@ export function SocialCalendarWorkspace({
               >
                 <span
                   className={`mb-1 flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium ${
-                    !isCurrentMonth ? 'text-on-surface-variant/25' : isSameDay(day, today) ? 'bg-white text-black' : 'text-on-surface'
+                    !isCurrentMonth ? 'text-[var(--color-pib-text-muted)]/25' : isSameDay(day, today) ? 'bg-white text-black' : 'text-[var(--color-pib-text)]'
                   }`}
                 >
                   {day.getDate()}
@@ -775,7 +775,7 @@ export function SocialCalendarWorkspace({
                   {visiblePosts.map((post) => (
                     <PostChip key={post.id} post={post} draggable={canDragPost(post)} onSelect={setSelectedPost} onDragStart={handleDragStart} />
                   ))}
-                  {extraCount > 0 && <span className="pl-1 text-[9px] text-on-surface-variant/60">+{extraCount} more</span>}
+                  {extraCount > 0 && <span className="pl-1 text-[9px] text-[var(--color-pib-text-muted)]/60">+{extraCount} more</span>}
                 </div>
               </div>
             )
@@ -784,7 +784,7 @@ export function SocialCalendarWorkspace({
       </section>
 
       {!loading && (
-        <p className="text-right text-xs text-on-surface-variant">
+        <p className="text-right text-xs text-[var(--color-pib-text-muted)]">
           {visibleCount} {visibleCount === 1 ? 'post' : 'posts'} {viewMode === 'month' ? `in ${MONTH_NAMES[month]}` : 'this week'}
         </p>
       )}

@@ -127,7 +127,7 @@ export default function SequenceBuilder({ sequenceId, orgScope, onDone }: Props)
   if (loading) {
     return (
       <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
-        <p className="text-sm text-on-surface-variant">Loading sequence…</p>
+        <p className="text-sm text-[var(--color-pib-text-muted)]">Loading sequence…</p>
       </div>
     )
   }
@@ -137,8 +137,8 @@ export default function SequenceBuilder({ sequenceId, orgScope, onDone }: Props)
       <div className="rounded-xl border border-amber-400/25 bg-amber-400/10 p-3">
         <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
         <h2 className="mt-1 font-display text-xl">Sequence could not load</h2>
-        <p className="mt-2 text-sm text-on-surface-variant">{loadError}</p>
-        <button type="button" onClick={onDone} className="mt-3 h-8 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant hover:bg-white/[0.05] hover:text-on-surface">
+        <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{loadError}</p>
+        <button type="button" onClick={onDone} className="mt-3 h-8 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]">
           Back to automations
         </button>
       </div>
@@ -157,7 +157,7 @@ export default function SequenceBuilder({ sequenceId, orgScope, onDone }: Props)
       <div className="space-y-3 border-b border-[var(--color-card-border)] p-3">
         <div className="grid gap-3 md:grid-cols-2">
           <label className="block">
-            <span className="block text-[11px] text-on-surface-variant mb-1">Sequence name</span>
+            <span className="block text-[11px] text-[var(--color-pib-text-muted)] mb-1">Sequence name</span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -166,7 +166,7 @@ export default function SequenceBuilder({ sequenceId, orgScope, onDone }: Props)
             />
           </label>
           <label className="block">
-            <span className="block text-[11px] text-on-surface-variant mb-1">Description</span>
+            <span className="block text-[11px] text-[var(--color-pib-text-muted)] mb-1">Description</span>
             <input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -176,7 +176,7 @@ export default function SequenceBuilder({ sequenceId, orgScope, onDone }: Props)
           </label>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[11px] text-on-surface-variant">Status:</span>
+          <span className="text-[11px] text-[var(--color-pib-text-muted)]">Status:</span>
           <span
             className={[
               'inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px]',
@@ -184,26 +184,26 @@ export default function SequenceBuilder({ sequenceId, orgScope, onDone }: Props)
                 ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300'
                 : status === 'paused'
                   ? 'border-amber-400/20 bg-amber-400/10 text-amber-300'
-                  : 'border-[var(--color-card-border)] text-on-surface-variant',
+                  : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)]',
             ].join(' ')}
           >
             {status}
           </span>
         </div>
         <div className="grid gap-2 rounded-lg border border-[var(--color-card-border)] p-2 md:grid-cols-4">
-          <label className="flex items-center gap-2 text-[11px] text-on-surface-variant">
+          <label className="flex items-center gap-2 text-[11px] text-[var(--color-pib-text-muted)]">
             <input type="checkbox" checked={quietHours.enabled} onChange={(e) => setQuietHours((value) => ({ ...value, enabled: e.target.checked }))} />
             Quiet hours
           </label>
-          <label className="text-[11px] text-on-surface-variant">
+          <label className="text-[11px] text-[var(--color-pib-text-muted)]">
             Starts
             <input aria-label="Quiet hours start" type="time" value={`${String(Math.floor(quietHours.startMinuteLocal / 60)).padStart(2, '0')}:${String(quietHours.startMinuteLocal % 60).padStart(2, '0')}`} onChange={(e) => { const [hour, minute] = e.target.value.split(':').map(Number); setQuietHours((value) => ({ ...value, startMinuteLocal: hour * 60 + minute })) }} className="mt-1 h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs" />
           </label>
-          <label className="text-[11px] text-on-surface-variant">
+          <label className="text-[11px] text-[var(--color-pib-text-muted)]">
             Ends
             <input aria-label="Quiet hours end" type="time" value={`${String(Math.floor(quietHours.endMinuteLocal / 60)).padStart(2, '0')}:${String(quietHours.endMinuteLocal % 60).padStart(2, '0')}`} onChange={(e) => { const [hour, minute] = e.target.value.split(':').map(Number); setQuietHours((value) => ({ ...value, endMinuteLocal: hour * 60 + minute })) }} className="mt-1 h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs" />
           </label>
-          <label className="text-[11px] text-on-surface-variant">
+          <label className="text-[11px] text-[var(--color-pib-text-muted)]">
             Timezone
             <select aria-label="Quiet hours timezone" value={quietHours.timezoneMode} onChange={(e) => setQuietHours((value) => ({ ...value, timezoneMode: e.target.value as SequenceQuietHours['timezoneMode'] }))} className="mt-1 h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs">
               <option value="recipient">Each recipient</option>
@@ -223,8 +223,8 @@ export default function SequenceBuilder({ sequenceId, orgScope, onDone }: Props)
             className={[
               'cursor-pointer inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs transition-colors',
               tab === t.id
-                ? 'border-primary/30 bg-primary/10 text-on-surface'
-                : 'border-[var(--color-card-border)] text-on-surface-variant hover:bg-white/[0.03]',
+                ? 'border-primary/30 bg-primary/10 text-[var(--color-pib-text)]'
+                : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:bg-white/[0.03]',
             ].join(' ')}
           >
             <span className="material-symbols-outlined text-[15px]">{t.icon}</span>
@@ -253,7 +253,7 @@ export default function SequenceBuilder({ sequenceId, orgScope, onDone }: Props)
           type="button"
           onClick={() => handleSave('draft')}
           disabled={saving}
-          className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant hover:bg-white/[0.05] hover:text-on-surface disabled:opacity-50"
+          className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] disabled:opacity-50"
         >
           <span className="material-symbols-outlined text-[16px]">save</span>
           {saving ? 'Saving…' : 'Save draft'}
@@ -267,7 +267,7 @@ export default function SequenceBuilder({ sequenceId, orgScope, onDone }: Props)
           <span className="material-symbols-outlined text-[16px]">rocket_launch</span>
           Save &amp; activate
         </button>
-        <button type="button" onClick={onDone} disabled={saving} className="text-xs text-on-surface-variant hover:text-on-surface">
+        <button type="button" onClick={onDone} disabled={saving} className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]">
           Cancel
         </button>
       </div>

@@ -297,10 +297,10 @@ export function PropertiesWorkspace({ surface }: PropertiesWorkspaceProps) {
       <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="eyebrow">{isAdmin ? 'Admin workspace' : 'Your stack'}</p>
-          <h1 className={isAdmin ? 'text-2xl font-headline font-bold text-on-surface mt-2' : 'pib-page-title mt-2'}>
+          <h1 className={isAdmin ? 'text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-2' : 'pib-page-title mt-2'}>
             Properties
           </h1>
-          <p className={isAdmin ? 'text-sm text-on-surface-variant mt-0.5' : 'pib-page-sub max-w-2xl'}>
+          <p className={isAdmin ? 'text-sm text-[var(--color-pib-text-muted)] mt-0.5' : 'pib-page-sub max-w-2xl'}>
             {isAdmin
               ? 'Marketing sites and apps connected to PiB.'
               : 'Each property - site, iOS app, Android app - and the data sources we have connected for you.'}
@@ -315,7 +315,7 @@ export function PropertiesWorkspace({ surface }: PropertiesWorkspaceProps) {
 
       {isAdmin ? (
         <div className="pib-card p-4">
-          <label className="text-xs text-on-surface-variant font-label block mb-1" htmlFor="property-org-filter">
+          <label className="text-xs text-[var(--color-pib-text-muted)] font-label block mb-1" htmlFor="property-org-filter">
             Filter by Client
           </label>
           <select

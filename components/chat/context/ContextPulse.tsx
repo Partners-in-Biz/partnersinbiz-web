@@ -9,11 +9,11 @@ export function ContextPulse({ model, contexts, activeContext, onContextChange, 
       <span className="material-symbols-outlined shrink-0 text-[15px] text-primary" aria-hidden="true">{model.context.icon}</span>
       <ContextSelector options={contexts} value={activeContext} onChange={onContextChange} />
       {model.pulse.progress && <progress aria-label={`${model.context.label} completion`} value={model.pulse.progress.complete} max={Math.max(model.pulse.progress.total, 1)} className="hidden h-1.5 min-w-[84px] flex-1 accent-[var(--color-primary)] sm:block" />}
-      <div className="ml-auto flex shrink-0 items-center gap-2 text-[10px] text-on-surface-variant sm:text-[11px]">
+      <div className="ml-auto flex shrink-0 items-center gap-2 text-[10px] text-[var(--color-pib-text-muted)] sm:text-[11px]">
         {model.pulse.metrics.map((metric) => <span key={metric.id}>{metric.value} {metric.label}</span>)}
       </div>
-      <button type="button" aria-label="Open context dock" onClick={onOpen} className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-on-surface-variant outline-none hover:bg-white/[0.07] hover:text-on-surface focus-visible:ring-2 focus-visible:ring-primary/60"><span className="material-symbols-outlined text-[16px]" aria-hidden="true">dock_to_right</span></button>
+      <button type="button" aria-label="Open context dock" onClick={onOpen} className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.07] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60"><span className="material-symbols-outlined text-[16px]" aria-hidden="true">dock_to_right</span></button>
     </div>
-    {model.pulse.headline && <p className="mt-1 truncate pl-6 text-[10px] text-on-surface-variant">{model.pulse.headline}</p>}
+    {model.pulse.headline && <p className="mt-1 truncate pl-6 text-[10px] text-[var(--color-pib-text-muted)]">{model.pulse.headline}</p>}
   </div>
 }

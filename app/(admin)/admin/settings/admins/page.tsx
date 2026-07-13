@@ -124,28 +124,28 @@ export default function AdminsPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      <div>
-        <Link href="/admin/settings" className="text-xs text-on-surface-variant hover:text-on-surface">← Settings</Link>
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1 mt-2">Access control</p>
-        <h1 className="text-2xl font-headline font-bold text-on-surface">Admin Users</h1>
-      </div>
+    <div className="space-y-8 max-w-5xl mx-auto">
+      <header>
+        <Link href="/admin/settings" className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]">← Settings</Link>
+        <p className="eyebrow mt-2">Admin · Access control</p>
+        <h1 className="pib-page-title mt-2">Admin Users</h1>
+      </header>
 
-      {feedback && <div className="rounded-lg border border-green-500/20 bg-green-500/10 px-3 py-2 text-xs text-green-400">{feedback}</div>}
-      {error && <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div>}
+      {feedback && <div className="pib-card py-2 text-xs text-[var(--color-pib-green)]">{feedback}</div>}
+      {error && <div className="pib-card py-2 text-xs text-[var(--color-error)]">{error}</div>}
 
       {/* Invite */}
       <div className="pib-card space-y-3">
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Invite admin</p>
+        <p className="pib-label">Invite admin</p>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="email@partnersinbiz.online" className="md:col-span-2 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2 text-sm text-on-surface" />
-          <input value={inviteName} onChange={(e) => setInviteName(e.target.value)} placeholder="Full name" className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2 text-sm text-on-surface" />
-          <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value)} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2 text-sm text-on-surface">
+          <input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="email@partnersinbiz.online" className="pib-input md:col-span-2" />
+          <input value={inviteName} onChange={(e) => setInviteName(e.target.value)} placeholder="Full name" className="pib-input" />
+          <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value)} className="pib-select">
             {ADMIN_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
         </div>
         <div className="flex justify-end">
-          <button type="button" onClick={invite} disabled={inviting || !inviteEmail} className="rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-60" style={{ background: 'var(--color-accent-v2)' }}>
+          <button type="button" onClick={invite} disabled={inviting || !inviteEmail} className="btn-pib-primary disabled:opacity-60">
             {inviting ? 'Inviting…' : 'Invite admin'}
           </button>
         </div>
@@ -153,14 +153,14 @@ export default function AdminsPage() {
 
       {/* Admin table */}
       <div className="pib-card">
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-3">Admins</p>
+        <p className="pib-label mb-3">Admins</p>
         {loading ? (
-          <p className="text-sm text-on-surface-variant">Loading admins…</p>
+          <p className="text-sm text-[var(--color-pib-text-muted)]">Loading admins…</p>
         ) : admins.length === 0 ? (
-          <p className="text-sm text-on-surface-variant">No admins found.</p>
+          <p className="text-sm text-[var(--color-pib-text-muted)]">No admins found.</p>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)]">
-            <div className="grid grid-cols-12 gap-2 border-b border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+          <div className="overflow-hidden rounded-xl border border-[var(--color-pib-line)]">
+            <div className="grid grid-cols-12 gap-2 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 pib-label">
               <span className="col-span-4">Admin</span>
               <span className="col-span-2">Role</span>
               <span className="col-span-2">Status</span>
@@ -168,33 +168,33 @@ export default function AdminsPage() {
               <span className="col-span-2 text-right">Actions</span>
             </div>
             {admins.map((a) => (
-              <div key={a.uid} className="grid grid-cols-12 gap-2 items-center border-b border-[var(--color-card-border)] px-3 py-3 text-sm last:border-b-0 hover:bg-[var(--color-row-hover)]">
+              <div key={a.uid} className="grid grid-cols-12 gap-2 items-center border-b border-[var(--color-pib-line)] px-3 py-3 text-sm last:border-b-0 hover:bg-[var(--color-row-hover)]">
                 <div className="col-span-4 min-w-0">
-                  <p className="text-on-surface truncate">{a.email || a.uid}</p>
-                  <p className="text-[11px] text-on-surface-variant truncate">{a.name || '—'}</p>
+                  <p className="text-[var(--color-pib-text)] truncate">{a.email || a.uid}</p>
+                  <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{a.name || '—'}</p>
                 </div>
                 <div className="col-span-2">
                   <select
                     value={a.adminRole}
                     disabled={busyUid === a.uid}
                     onChange={(e) => patchAdmin(a.uid, { adminRole: e.target.value }, `Role updated for ${a.email}`)}
-                    className={`rounded-full border px-2 py-1 text-[10px] font-label uppercase tracking-widest ${ROLE_BADGE[a.adminRole] ?? 'border-[var(--color-card-border)] text-on-surface-variant'}`}
+                    className={`rounded-full border px-2 py-1 text-[10px] font-label uppercase tracking-widest ${ROLE_BADGE[a.adminRole] ?? 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)]'}`}
                   >
                     {ADMIN_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                   </select>
                 </div>
                 <div className="col-span-2">
-                  <span className={`text-[10px] font-label uppercase tracking-widest px-2 py-1 rounded-full border ${a.active ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-300 border-red-500/20'}`}>
+                  <span className={`pib-pill ${a.active ? 'pib-pill-success' : 'pib-pill-danger'}`}>
                     {a.active ? 'Active' : 'Disabled'}
                   </span>
                 </div>
-                <div className="col-span-2 text-on-surface-variant">{a.activeSessions}</div>
+                <div className="col-span-2 text-[var(--color-pib-text-muted)]">{a.activeSessions}</div>
                 <div className="col-span-2 text-right">
                   <button
                     type="button"
                     disabled={busyUid === a.uid}
                     onClick={() => patchAdmin(a.uid, { active: !a.active }, `${a.active ? 'Deactivated' : 'Reactivated'} ${a.email}`)}
-                    className="text-xs text-on-surface-variant hover:text-on-surface disabled:opacity-60"
+                    className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] disabled:opacity-60"
                   >
                     {a.active ? 'Deactivate' : 'Reactivate'}
                   </button>
@@ -207,14 +207,14 @@ export default function AdminsPage() {
 
       {/* Permission matrix */}
       <div className="pib-card">
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-3">Permission matrix (reference)</p>
+        <p className="pib-label mb-3">Permission matrix (reference)</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {ADMIN_ROLES.map((role) => (
-            <div key={role} className="rounded-xl border border-[var(--color-card-border)] p-4">
+            <div key={role} className="rounded-xl border border-[var(--color-pib-line)] p-4">
               <span className={`inline-block text-[10px] font-label uppercase tracking-widest px-2 py-1 rounded-full border ${ROLE_BADGE[role]}`}>{role}</span>
               <ul className="mt-3 space-y-1.5">
                 {PERMISSION_MATRIX[role].map((cap) => (
-                  <li key={cap} className="text-xs text-on-surface-variant flex gap-2">
+                  <li key={cap} className="text-xs text-[var(--color-pib-text-muted)] flex gap-2">
                     <span style={{ color: 'var(--color-accent-v2)' }}>•</span>{cap}
                   </li>
                 ))}

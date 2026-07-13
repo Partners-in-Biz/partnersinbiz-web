@@ -116,17 +116,17 @@ export function SegmentCommandCenter({
   return (
     <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55">
       <div className="flex h-11 items-center gap-2 border-b border-[var(--color-card-border)] px-3">
-        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Segment command center</p>
-        <h2 className="truncate text-[11px] text-on-surface-variant">Audience reach and targeting quality</h2>
+        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Segment command center</p>
+        <h2 className="truncate text-[11px] text-[var(--color-pib-text-muted)]">Audience reach and targeting quality</h2>
         <div className="ml-auto flex min-w-0 max-w-xs flex-1 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-transparent px-2">
-          <span className="material-symbols-outlined text-[16px] text-on-surface-variant">search</span>
+          <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">search</span>
           <label className="sr-only">Search segments</label>
           <input
             value={search}
             onChange={(event) => onSearchChange(event.target.value)}
             aria-label="Search segments"
             placeholder="Search name, description, tag, stage, type, or source"
-            className="h-8 min-w-0 flex-1 bg-transparent text-xs text-on-surface outline-none placeholder:text-on-surface-variant"
+            className="h-8 min-w-0 flex-1 bg-transparent text-xs text-[var(--color-pib-text)] outline-none placeholder:text-[var(--color-pib-text-muted)]"
           />
         </div>
       </div>
@@ -148,16 +148,16 @@ export function SegmentCommandCenter({
               ].join(' ')}
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">{card.label}</span>
-                <span className="material-symbols-outlined text-[16px] text-on-surface-variant">{card.icon}</span>
+                <span className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">{card.label}</span>
+                <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">{card.icon}</span>
               </div>
-              <p className={`mt-1 text-xs font-semibold ${active ? 'text-primary' : 'text-on-surface'}`}>{card.value}</p>
+              <p className={`mt-1 text-xs font-semibold ${active ? 'text-primary' : 'text-[var(--color-pib-text)]'}`}>{card.value}</p>
             </button>
           )
         })}
       </div>
 
-      <p className="border-t border-[var(--color-card-border)] px-3 py-1.5 text-[11px] leading-4 text-on-surface-variant">
+      <p className="border-t border-[var(--color-card-border)] px-3 py-1.5 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
         Use this before editing reusable audiences or launching campaign targeting.
       </p>
     </section>

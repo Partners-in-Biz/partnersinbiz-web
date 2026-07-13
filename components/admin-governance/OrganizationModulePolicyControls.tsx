@@ -253,12 +253,12 @@ export function OrganizationModulePolicyRoleGrid({
       {rows.map((row) => (
         <div key={row.id} data-testid={`${testIdPrefix}-${row.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`} className="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_minmax(320px,auto)]">
           <div>
-            <h3 className="text-sm font-semibold text-on-surface">{row.title}</h3>
-            <p className="mt-1 text-sm text-on-surface-variant">{row.description}</p>
+            <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{row.title}</h3>
+            <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{row.description}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {ORGANIZATION_POLICY_ROLE_KEYS.map((role) => (
-              <label key={role} className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-card-border)] px-3 py-2 text-xs text-on-surface-variant">
+              <label key={role} className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-card-border)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
                 <input
                   type="checkbox"
                   checked={policy.actions[row.id]?.[role] ?? true}
@@ -290,7 +290,7 @@ export function OrganizationOwnerControlsGrid({
   return (
     <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
       {rows.map((row) => (
-        <label key={row.id} className="flex min-h-24 flex-col justify-between rounded-lg border border-[var(--color-card-border)] p-4 text-sm text-on-surface-variant">
+        <label key={row.id} className="flex min-h-24 flex-col justify-between rounded-lg border border-[var(--color-card-border)] p-4 text-sm text-[var(--color-pib-text-muted)]">
           <span>{row.label}</span>
           <input
             type="checkbox"
@@ -319,7 +319,7 @@ export function OrganizationModulePolicySaveBar({
   onSave: () => void
 }) {
   const label = useMemo(() => statusLabel(saveState, loading, saving, error), [error, loading, saveState, saving])
-  const tone = error ? 'text-red-200' : saveState === 'saved' ? 'text-emerald-200' : 'text-on-surface-variant'
+  const tone = error ? 'text-red-200' : saveState === 'saved' ? 'text-emerald-200' : 'text-[var(--color-pib-text-muted)]'
 
   return (
     <div className="mt-5 flex flex-col gap-3 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 sm:flex-row sm:items-center sm:justify-between">

@@ -327,14 +327,14 @@ export default function CampaignDetailPage() {
   if (loading) {
     return (
       <div className="p-6 max-w-6xl mx-auto">
-        <div className="h-40 rounded-xl bg-surface-container animate-pulse" />
+        <div className="h-40 rounded-xl bg-[var(--color-pib-surface-2)] animate-pulse" />
       </div>
     )
   }
 
   if (notFound || !campaign || !previewCampaign) {
     return (
-      <div className="p-6 max-w-4xl mx-auto text-on-surface-variant">
+      <div className="p-6 max-w-4xl mx-auto text-[var(--color-pib-text-muted)]">
         Campaign not found.
       </div>
     )
@@ -345,7 +345,7 @@ export default function CampaignDetailPage() {
       <div className="flex items-center justify-between gap-3">
         <p className="eyebrow !text-[10px]">Admin controls</p>
         {status === 'active' && (
-          <span className="inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-emerald-200">
+          <span className="pib-pill pib-pill-success">
             Active
           </span>
         )}
@@ -379,7 +379,7 @@ export default function CampaignDetailPage() {
           type="button"
           onClick={() => setPendingAction('delete')}
           disabled={deleting}
-          className="btn-pib-secondary !py-2 !px-3 !text-xs !text-red-200 disabled:opacity-50"
+          className="btn-pib-secondary !py-2 !px-3 !text-xs !text-[var(--color-error)] disabled:opacity-50"
         >
           {deleting ? 'Deleting...' : 'Delete'}
         </button>
@@ -388,7 +388,7 @@ export default function CampaignDetailPage() {
         <div
           role="alertdialog"
           aria-label="Confirm campaign launch"
-          className="rounded-lg border border-amber-300/30 bg-amber-300/10 p-3 text-xs text-amber-100 space-y-3"
+          className="rounded-lg border border-amber-300/30 bg-amber-300/10 p-3 text-xs text-[var(--color-pib-amber)] space-y-3"
         >
           <p>
             Enroll {audienceSize} contact{audienceSize === 1 ? '' : 's'} and start sending?
@@ -411,11 +411,11 @@ export default function CampaignDetailPage() {
         <div
           role="alertdialog"
           aria-label="Confirm campaign delete"
-          className="rounded-lg border border-red-300/30 bg-red-300/10 p-3 text-xs text-red-100 space-y-3"
+          className="rounded-lg border border-red-300/30 bg-red-300/10 p-3 text-xs text-[var(--color-error)] space-y-3"
         >
           <p>Delete this campaign? This cannot be undone.</p>
           <div className="flex gap-2">
-            <button type="button" onClick={performDelete} className="btn-pib-secondary !py-1.5 !px-2 !text-xs !text-red-100">
+            <button type="button" onClick={performDelete} className="btn-pib-secondary !py-1.5 !px-2 !text-xs !text-[var(--color-error)]">
               Delete campaign
             </button>
             <button
@@ -430,8 +430,8 @@ export default function CampaignDetailPage() {
       )}
       {(error || info) && (
         <div className="space-y-1">
-          {error && <p className="text-xs text-red-300">{error}</p>}
-          {info && <p className="text-xs text-emerald-300">{info}</p>}
+          {error && <p className="text-xs text-[var(--color-error)]">{error}</p>}
+          {info && <p className="text-xs text-[var(--color-pib-green)]">{info}</p>}
         </div>
       )}
     </div>
@@ -448,19 +448,19 @@ export default function CampaignDetailPage() {
       </div>
       <div className="pib-card space-y-6">
         <div>
-          <label className="block text-xs uppercase tracking-wide text-on-surface-variant mb-2">
+          <label className="block text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)] mb-2">
             Campaign name
           </label>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             disabled={!editable}
-            className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm disabled:opacity-70"
+            className="w-full px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-surface text-[var(--color-pib-text)] text-sm disabled:opacity-70"
           />
         </div>
 
         <div>
-          <label className="block text-xs uppercase tracking-wide text-on-surface-variant mb-2">
+          <label className="block text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)] mb-2">
             Description
           </label>
           <textarea
@@ -469,26 +469,26 @@ export default function CampaignDetailPage() {
             disabled={!editable}
             rows={2}
             placeholder="Optional internal note about the campaign goal."
-            className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm disabled:opacity-70"
+            className="w-full px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-surface text-[var(--color-pib-text)] text-sm disabled:opacity-70"
           />
         </div>
 
         <div className="hairline" />
 
         <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-on-surface-variant uppercase tracking-wide">
+          <h3 className="text-sm font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wide">
             Sender
           </h3>
           <div className="grid grid-cols-1 gap-3">
             <div>
-              <label className="block text-xs text-on-surface-variant mb-1">
+              <label className="block text-xs text-[var(--color-pib-text-muted)] mb-1">
                 Sending domain
               </label>
               <select
                 value={fromDomainId}
                 onChange={(e) => setFromDomainId(e.target.value)}
                 disabled={!editable}
-                className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm disabled:opacity-70"
+                className="w-full px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-surface text-[var(--color-pib-text)] text-sm disabled:opacity-70"
               >
                 <option value="">{SHARED_DOMAIN_LABEL}</option>
                 {domains.map((d) => {
@@ -502,14 +502,14 @@ export default function CampaignDetailPage() {
                 })}
               </select>
               {domains.some((d) => d.status !== 'verified') && (
-                <p className="text-xs text-on-surface-variant mt-1">
+                <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">
                   Pending or failed domains cannot be selected. Verify them in Email Domains first.
                 </p>
               )}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs text-on-surface-variant mb-1">
+                <label className="block text-xs text-[var(--color-pib-text-muted)] mb-1">
                   From name
                 </label>
                 <input
@@ -517,11 +517,11 @@ export default function CampaignDetailPage() {
                   onChange={(e) => setFromName(e.target.value)}
                   disabled={!editable}
                   placeholder={orgName || 'Company name'}
-                  className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm disabled:opacity-70"
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-surface text-[var(--color-pib-text)] text-sm disabled:opacity-70"
                 />
               </div>
               <div>
-                <label className="block text-xs text-on-surface-variant mb-1">
+                <label className="block text-xs text-[var(--color-pib-text-muted)] mb-1">
                   From local part
                 </label>
                 <input
@@ -529,12 +529,12 @@ export default function CampaignDetailPage() {
                   onChange={(e) => setFromLocal(e.target.value)}
                   disabled={!editable}
                   placeholder="campaigns"
-                  className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm disabled:opacity-70"
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-surface text-[var(--color-pib-text)] text-sm disabled:opacity-70"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-xs text-on-surface-variant mb-1">
+              <label className="block text-xs text-[var(--color-pib-text-muted)] mb-1">
                 Reply-to (optional)
               </label>
               <input
@@ -542,10 +542,10 @@ export default function CampaignDetailPage() {
                 onChange={(e) => setReplyTo(e.target.value)}
                 disabled={!editable}
                 placeholder="reply@yourdomain.com"
-                className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm disabled:opacity-70"
+                className="w-full px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-surface text-[var(--color-pib-text)] text-sm disabled:opacity-70"
               />
             </div>
-            <p className="text-xs text-on-surface-variant font-mono break-all pt-1">
+            <p className="text-xs text-[var(--color-pib-text-muted)] font-mono break-all pt-1">
               Preview: {fromPreview}
             </p>
           </div>
@@ -554,11 +554,11 @@ export default function CampaignDetailPage() {
         <div className="hairline" />
 
         <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-on-surface-variant uppercase tracking-wide">
+          <h3 className="text-sm font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wide">
             Audience
           </h3>
           <div className="flex flex-wrap gap-4">
-            <label className="flex items-center gap-2 text-sm text-on-surface">
+            <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text)]">
               <input
                 type="radio"
                 name="audienceMode"
@@ -569,7 +569,7 @@ export default function CampaignDetailPage() {
               />
               Use a segment
             </label>
-            <label className="flex items-center gap-2 text-sm text-on-surface">
+            <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text)]">
               <input
                 type="radio"
                 name="audienceMode"
@@ -587,7 +587,7 @@ export default function CampaignDetailPage() {
                 value={segmentId}
                 onChange={(e) => setSegmentId(e.target.value)}
                 disabled={!editable}
-                className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm disabled:opacity-70"
+                className="w-full px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-surface text-[var(--color-pib-text)] text-sm disabled:opacity-70"
               >
                 <option value="">Select a segment...</option>
                 {segments.map((s) => (
@@ -596,7 +596,7 @@ export default function CampaignDetailPage() {
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-on-surface-variant">
+              <p className="text-xs text-[var(--color-pib-text-muted)]">
                 {!segmentId
                   ? 'No segment selected.'
                   : segmentCountLoading
@@ -614,9 +614,9 @@ export default function CampaignDetailPage() {
                 disabled={!editable}
                 rows={4}
                 placeholder="Paste contact IDs (comma- or newline-separated)"
-                className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm font-mono disabled:opacity-70"
+                className="w-full px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-surface text-[var(--color-pib-text)] text-sm font-mono disabled:opacity-70"
               />
-              <p className="text-xs text-on-surface-variant">
+              <p className="text-xs text-[var(--color-pib-text-muted)]">
                 {manualContactIds.length} contact ID{manualContactIds.length === 1 ? '' : 's'} entered.
               </p>
             </>
@@ -626,18 +626,18 @@ export default function CampaignDetailPage() {
         <div className="hairline" />
 
         <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-on-surface-variant uppercase tracking-wide">
+          <h3 className="text-sm font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wide">
             Content
           </h3>
           <div>
-            <label className="block text-xs text-on-surface-variant mb-1">
+            <label className="block text-xs text-[var(--color-pib-text-muted)] mb-1">
               Sequence
             </label>
             <select
               value={sequenceId}
               onChange={(e) => setSequenceId(e.target.value)}
               disabled={!editable}
-              className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm disabled:opacity-70"
+              className="w-full px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-surface text-[var(--color-pib-text)] text-sm disabled:opacity-70"
             >
               <option value="">Select a sequence...</option>
               {sequences.map((s) => (
@@ -655,7 +655,7 @@ export default function CampaignDetailPage() {
           <button
             type="button"
             onClick={() => setTriggersOpen((v) => !v)}
-            className="flex items-center gap-2 text-sm font-semibold text-on-surface-variant uppercase tracking-wide hover:text-on-surface"
+            className="flex items-center gap-2 text-sm font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wide hover:text-[var(--color-pib-text)]"
           >
             <span className="material-symbols-outlined text-[18px]">
               {triggersOpen ? 'expand_more' : 'chevron_right'}
@@ -665,7 +665,7 @@ export default function CampaignDetailPage() {
           {triggersOpen && (
             <div className="space-y-3">
               <div>
-                <label className="block text-xs text-on-surface-variant mb-1">
+                <label className="block text-xs text-[var(--color-pib-text-muted)] mb-1">
                   Capture source IDs
                 </label>
                 <input
@@ -673,11 +673,11 @@ export default function CampaignDetailPage() {
                   onChange={(e) => setCaptureSourceIdsRaw(e.target.value)}
                   disabled={!editable}
                   placeholder="Comma-separated capture source IDs"
-                  className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm disabled:opacity-70"
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-surface text-[var(--color-pib-text)] text-sm disabled:opacity-70"
                 />
               </div>
               <div>
-                <label className="block text-xs text-on-surface-variant mb-1">
+                <label className="block text-xs text-[var(--color-pib-text-muted)] mb-1">
                   Tag triggers
                 </label>
                 <input
@@ -685,10 +685,10 @@ export default function CampaignDetailPage() {
                   onChange={(e) => setTagsRaw(e.target.value)}
                   disabled={!editable}
                   placeholder="Comma-separated tags"
-                  className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm disabled:opacity-70"
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-surface text-[var(--color-pib-text)] text-sm disabled:opacity-70"
                 />
               </div>
-              <p className="text-xs text-on-surface-variant">
+              <p className="text-xs text-[var(--color-pib-text-muted)]">
                 Contacts captured from these sources or gaining these tags are auto-enrolled
                 when the capture hooks run.
               </p>
@@ -702,7 +702,7 @@ export default function CampaignDetailPage() {
   return (
     <div className="p-6 max-w-6xl mx-auto">
       {orgName && (
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-4">
+        <p className="pib-label mb-4">
           {orgName}
         </p>
       )}

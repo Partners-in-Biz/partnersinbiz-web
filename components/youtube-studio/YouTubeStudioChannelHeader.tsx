@@ -24,7 +24,7 @@ export function YouTubeStudioChannelHeader({
   if (channels.length === 0) {
     return (
       <section className="pib-card-section flex flex-wrap items-center justify-between gap-3 p-4">
-        <p className="text-sm text-on-surface-variant">No YouTube channel is connected yet. Linking a channel unlocks requests, edits, and publishing.</p>
+        <p className="text-sm text-[var(--color-pib-text-muted)]">No YouTube channel is connected yet. Linking a channel unlocks requests, edits, and publishing.</p>
         <a href={oauthHref} className="pib-btn-primary text-sm">Link YouTube channel</a>
       </section>
     )
@@ -32,13 +32,13 @@ export function YouTubeStudioChannelHeader({
 
   return (
     <section className="pib-card-section flex flex-wrap items-center gap-3 p-4">
-      <label className="flex min-w-0 items-center gap-2 text-sm text-on-surface-variant">
-        <span className="text-xs font-label uppercase tracking-widest">Channel</span>
+      <label className="flex min-w-0 items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
+        <span className="pib-label">Channel</span>
         <select
           aria-label="Channel"
           value={selectedChannelId ?? ''}
           onChange={(event) => onSelect(event.target.value || null)}
-          className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-surface)] px-3 py-2 text-sm text-on-surface"
+          className="pib-select"
         >
           <option value="">All channels ({channels.length})</option>
           {channels.map((channel) => (
@@ -52,7 +52,7 @@ export function YouTubeStudioChannelHeader({
         <div className="flex min-w-0 items-center gap-2">
           <ConnectionChip channel={selected} />
           {selected.youtubeHandle ? (
-            <span className="truncate text-xs text-on-surface-variant">{selected.youtubeHandle}</span>
+            <span className="truncate text-xs text-[var(--color-pib-text-muted)]">{selected.youtubeHandle}</span>
           ) : null}
           {channelNeedsReconnect(selected) ? (
             <a href={oauthHref} className="pib-btn-primary text-sm">Reconnect</a>
@@ -61,7 +61,7 @@ export function YouTubeStudioChannelHeader({
       ) : (
         <div className="flex flex-wrap items-center gap-2">
           {channels.map((channel) => (
-            <span key={channel.id} className="flex items-center gap-1 text-xs text-on-surface-variant">
+            <span key={channel.id} className="flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)]">
               <span className="max-w-[10rem] truncate">{channel.title}</span>
               <ConnectionChip channel={channel} />
             </span>

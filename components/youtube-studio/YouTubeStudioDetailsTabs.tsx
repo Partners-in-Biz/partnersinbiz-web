@@ -57,7 +57,7 @@ export function YouTubeStudioDetailsTabs(props: YouTubeStudioDetailsTabsProps) {
 
   return (
     <section className="space-y-3">
-      <h2 className="font-headline text-xl font-semibold text-on-surface">Production details</h2>
+      <h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">Production details</h2>
       <div role="tablist" aria-label="Production details" className="flex flex-wrap gap-2">
         {tabs.map((tab) => (
           <button
@@ -92,13 +92,13 @@ function SourceAssetsTabContent({ assets }: { assets: YouTubeSourceAsset[] }) {
         <article key={asset.id ?? asset.title} className="pib-card-section space-y-3 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="break-words font-semibold text-on-surface">{asset.title}</h3>
-              <p className="mt-1 text-sm text-on-surface-variant">{sourceAssetMeta(asset)}</p>
+              <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{asset.title}</h3>
+              <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{sourceAssetMeta(asset)}</p>
             </div>
           </div>
-          {asset.clientNotes ? <p className="break-words text-sm text-on-surface-variant">{asset.clientNotes}</p> : null}
+          {asset.clientNotes ? <p className="break-words text-sm text-[var(--color-pib-text-muted)]">{asset.clientNotes}</p> : null}
           {asset.rights?.status ? (
-            <p className="break-words text-xs text-on-surface-variant">rights: {formatToken(asset.rights.status)}</p>
+            <p className="break-words text-xs text-[var(--color-pib-text-muted)]">rights: {formatToken(asset.rights.status)}</p>
           ) : null}
         </article>
       ))}
@@ -113,14 +113,14 @@ function ClipCandidatesTabContent({ clips }: { clips: YouTubeClipCandidate[] }) 
         <article key={clip.id ?? `${clip.sourceAssetId}-${clip.startSeconds}`} className="pib-card-section space-y-3 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="break-words font-semibold text-on-surface">{clip.title}</h3>
-              <p className="mt-1 text-sm text-on-surface-variant">{clipMeta(clip)}</p>
+              <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{clip.title}</h3>
+              <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{clipMeta(clip)}</p>
             </div>
           </div>
-          {clip.summary ? <p className="break-words text-sm text-on-surface-variant">{clip.summary}</p> : null}
-          {clip.hook ? <p className="break-words text-sm text-on-surface-variant">{clip.hook}</p> : null}
-          {clip.transcriptExcerpt ? <p className="break-words text-xs text-on-surface-variant">{clip.transcriptExcerpt}</p> : null}
-          <div className="grid gap-2 text-xs text-on-surface-variant sm:grid-cols-2">
+          {clip.summary ? <p className="break-words text-sm text-[var(--color-pib-text-muted)]">{clip.summary}</p> : null}
+          {clip.hook ? <p className="break-words text-sm text-[var(--color-pib-text-muted)]">{clip.hook}</p> : null}
+          {clip.transcriptExcerpt ? <p className="break-words text-xs text-[var(--color-pib-text-muted)]">{clip.transcriptExcerpt}</p> : null}
+          <div className="grid gap-2 text-xs text-[var(--color-pib-text-muted)] sm:grid-cols-2">
             {clipGateEntries(clip).map(([key, check]) => (
               <span key={key} className="min-w-0 break-words">
                 {formatToken(key)}: {formatToken(check?.status ?? 'not_applicable')}
@@ -147,27 +147,27 @@ function ProductionDraftsTabContent({
         <article key={draft.id ?? `${draft.videoProjectId}-${draft.versionNumber}`} className="pib-card-section space-y-3 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="break-words font-semibold text-on-surface">{draft.title}</h3>
-              <p className="mt-1 text-sm text-on-surface-variant">{productionDraftMeta(draft)}</p>
+              <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{draft.title}</h3>
+              <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{productionDraftMeta(draft)}</p>
             </div>
           </div>
-          {draft.summary ? <p className="break-words text-sm text-on-surface-variant">{draft.summary}</p> : null}
-          {draft.hook ? <p className="break-words text-sm text-on-surface-variant">{draft.hook}</p> : null}
+          {draft.summary ? <p className="break-words text-sm text-[var(--color-pib-text-muted)]">{draft.summary}</p> : null}
+          {draft.hook ? <p className="break-words text-sm text-[var(--color-pib-text-muted)]">{draft.hook}</p> : null}
           {draft.outline?.length ? (
             <div className="flex flex-wrap gap-2">
               {draft.outline.slice(0, 6).map((item) => (
-                <span key={item} className="max-w-full break-words rounded-full bg-white/[0.04] px-2 py-1 text-xs text-on-surface-variant">
+                <span key={item} className="max-w-full break-words rounded-full bg-white/[0.04] px-2 py-1 text-xs text-[var(--color-pib-text-muted)]">
                   {item}
                 </span>
               ))}
             </div>
           ) : null}
-          {draft.scriptText ? <p className="break-words text-sm text-on-surface-variant">{draft.scriptText}</p> : null}
+          {draft.scriptText ? <p className="break-words text-sm text-[var(--color-pib-text-muted)]">{draft.scriptText}</p> : null}
           {draft.scenes?.length ? (
             <div className="grid gap-2">
               {draft.scenes.slice(0, 3).map((scene, index) => (
-                <div key={`${scene.label}-${index}`} className="rounded-lg border border-[var(--color-pib-line)] p-3 text-sm text-on-surface-variant">
-                  <p className="font-medium text-on-surface">{productionSceneMeta(scene)}</p>
+                <div key={`${scene.label}-${index}`} className="rounded-lg border border-[var(--color-pib-line)] p-3 text-sm text-[var(--color-pib-text-muted)]">
+                  <p className="font-medium text-[var(--color-pib-text)]">{productionSceneMeta(scene)}</p>
                   {scene.summary ? <p className="mt-1 break-words">{scene.summary}</p> : null}
                   {scene.voiceover ? <p className="mt-1 break-words">{scene.voiceover}</p> : null}
                   {scene.visualNotes ? <p className="mt-1 break-words">{scene.visualNotes}</p> : null}
@@ -176,14 +176,14 @@ function ProductionDraftsTabContent({
               ))}
             </div>
           ) : null}
-          <div className="grid gap-2 text-xs text-on-surface-variant sm:grid-cols-2">
+          <div className="grid gap-2 text-xs text-[var(--color-pib-text-muted)] sm:grid-cols-2">
             {productionDraftGateEntries(draft).map(([key, check]) => (
               <span key={key} className="min-w-0 break-words">
                 {formatToken(key)}: {formatToken(check?.status ?? 'not_applicable')}
               </span>
             ))}
           </div>
-          {draft.clientNotes ? <p className="break-words text-sm text-on-surface-variant">{draft.clientNotes}</p> : null}
+          {draft.clientNotes ? <p className="break-words text-sm text-[var(--color-pib-text-muted)]">{draft.clientNotes}</p> : null}
           {canReviewApprovals && draft.id && draft.status === 'client_review' ? (
             <div className="space-y-3">
               <textarea
@@ -242,16 +242,16 @@ function RenderJobsTabContent({
         <article key={job.id ?? `${job.videoProjectId}-${job.versionNumber}`} className="pib-card-section space-y-3 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="break-words font-semibold text-on-surface">{job.title}</h3>
-              <p className="mt-1 text-sm text-on-surface-variant">{renderJobMeta(job)}</p>
+              <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{job.title}</h3>
+              <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{renderJobMeta(job)}</p>
             </div>
           </div>
-          {job.editBrief ? <p className="break-words text-sm text-on-surface-variant">{job.editBrief}</p> : null}
+          {job.editBrief ? <p className="break-words text-sm text-[var(--color-pib-text-muted)]">{job.editBrief}</p> : null}
           {job.timeline?.length ? (
             <div className="grid gap-2">
               {job.timeline.slice(0, 3).map((scene, index) => (
-                <div key={`${scene.label}-${index}`} className="rounded-lg border border-[var(--color-pib-line)] p-3 text-sm text-on-surface-variant">
-                  <p className="font-medium text-on-surface">{renderTimelineMeta(scene)}</p>
+                <div key={`${scene.label}-${index}`} className="rounded-lg border border-[var(--color-pib-line)] p-3 text-sm text-[var(--color-pib-text-muted)]">
+                  <p className="font-medium text-[var(--color-pib-text)]">{renderTimelineMeta(scene)}</p>
                   {scene.summary ? <p className="mt-1 break-words">{scene.summary}</p> : null}
                   {scene.voiceover ? <p className="mt-1 break-words">{scene.voiceover}</p> : null}
                   {scene.onScreenText ? <p className="mt-1 break-words">{scene.onScreenText}</p> : null}
@@ -260,7 +260,7 @@ function RenderJobsTabContent({
               ))}
             </div>
           ) : null}
-          <div className="grid gap-2 text-xs text-on-surface-variant sm:grid-cols-2">
+          <div className="grid gap-2 text-xs text-[var(--color-pib-text-muted)] sm:grid-cols-2">
             {renderJobGateEntries(job).map(([key, check]) => (
               <span key={key} className="min-w-0 break-words">
                 {formatToken(key)}: {formatToken(check?.status ?? 'not_applicable')}
@@ -268,12 +268,12 @@ function RenderJobsTabContent({
             ))}
           </div>
           {job.output?.previewUrl || job.output?.downloadUrl ? (
-            <p className="break-words text-sm text-on-surface-variant">
+            <p className="break-words text-sm text-[var(--color-pib-text-muted)]">
               {job.output.previewUrl ? 'preview ready' : 'download ready'}
               {typeof job.output.durationSeconds === 'number' ? ` / ${job.output.durationSeconds}s` : ''}
             </p>
           ) : null}
-          {job.clientNotes ? <p className="break-words text-sm text-on-surface-variant">{job.clientNotes}</p> : null}
+          {job.clientNotes ? <p className="break-words text-sm text-[var(--color-pib-text-muted)]">{job.clientNotes}</p> : null}
           {canReviewApprovals && job.id && job.status === 'qa_review' ? (
             <div className="space-y-3">
               <textarea
@@ -311,28 +311,28 @@ function PacketsTabContent({
         <article key={packet.id ?? `${packet.videoProjectId}-${packet.versionNumber}`} className="pib-card-section space-y-3 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="break-words font-semibold text-on-surface">{packetTitle(packet)}</h3>
-              <p className="mt-1 text-sm text-on-surface-variant">
+              <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{packetTitle(packet)}</h3>
+              <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
                 Version {packet.versionNumber || 1} / {formatToken(packet.status)} / {formatToken(packet.visibility)}
               </p>
             </div>
-            <span className="shrink-0 rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+            <span className="shrink-0 rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
               {packet.chapters?.length ?? 0} chapters
             </span>
           </div>
           {packet.description ? (
-            <p className="break-words text-sm text-on-surface-variant">{packet.description}</p>
+            <p className="break-words text-sm text-[var(--color-pib-text-muted)]">{packet.description}</p>
           ) : null}
           {packet.tags?.length ? (
             <div className="flex flex-wrap gap-2">
               {packet.tags.slice(0, 8).map((tag) => (
-                <span key={tag} className="max-w-full break-words rounded-full bg-white/[0.04] px-2 py-1 text-xs text-on-surface-variant">
+                <span key={tag} className="max-w-full break-words rounded-full bg-white/[0.04] px-2 py-1 text-xs text-[var(--color-pib-text-muted)]">
                   {tag}
                 </span>
               ))}
             </div>
           ) : null}
-          <div className="grid gap-2 text-xs text-on-surface-variant sm:grid-cols-2">
+          <div className="grid gap-2 text-xs text-[var(--color-pib-text-muted)] sm:grid-cols-2">
             {packetGateEntries(packet).map(([key, check]) => (
               <span key={key} className="min-w-0 break-words">
                 {formatToken(key)}: {formatToken(check?.status ?? 'not_applicable')}
@@ -390,21 +390,21 @@ function ReleasePlansTabContent({ plans }: { plans: YouTubeReleasePlan[] }) {
         <article key={plan.id ?? `${plan.videoProjectId}-${plan.publishingPacketId}`} className="pib-card-section space-y-3 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="break-words font-semibold text-on-surface">{plan.publicSummary || 'YouTube release plan'}</h3>
-              <p className="mt-1 text-sm text-on-surface-variant">
+              <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{plan.publicSummary || 'YouTube release plan'}</h3>
+              <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
                 {formatToken(plan.mode)} / {formatToken(plan.status)} / {formatToken(plan.targetVisibility)}
               </p>
             </div>
             {plan.scheduledPublishAt ? (
-              <span className="shrink-0 rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+              <span className="shrink-0 rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                 scheduled
               </span>
             ) : null}
           </div>
           {plan.scheduledPublishAt ? (
-            <p className="break-words text-sm text-on-surface-variant">scheduled for {String(plan.scheduledPublishAt)}</p>
+            <p className="break-words text-sm text-[var(--color-pib-text-muted)]">scheduled for {String(plan.scheduledPublishAt)}</p>
           ) : null}
-          <div className="grid gap-2 text-xs text-on-surface-variant sm:grid-cols-2">
+          <div className="grid gap-2 text-xs text-[var(--color-pib-text-muted)] sm:grid-cols-2">
             {releasePlanGateEntries(plan).map(([key, check]) => (
               <span key={key} className="min-w-0 break-words">
                 {formatToken(key)}: {formatToken(check?.status ?? 'not_applicable')}
@@ -424,16 +424,16 @@ function AnalyticsTabContent({ analytics }: { analytics: YouTubeAnalyticsSnapsho
         <article key={snapshot.id ?? `${snapshot.channelWorkspaceId}-${snapshot.periodEnd}`} className="pib-card-section space-y-3 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="break-words font-semibold text-on-surface">{snapshot.clientSummary || 'YouTube analytics update'}</h3>
-              <p className="mt-1 text-sm text-on-surface-variant">
+              <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{snapshot.clientSummary || 'YouTube analytics update'}</h3>
+              <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
                 {snapshot.periodStart} to {snapshot.periodEnd} / {formatToken(snapshot.sourceFreshness)}
               </p>
             </div>
-            <span className="shrink-0 rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+            <span className="shrink-0 rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
               {formatToken(snapshot.source)}
             </span>
           </div>
-          <div className="grid gap-2 text-sm text-on-surface-variant sm:grid-cols-4">
+          <div className="grid gap-2 text-sm text-[var(--color-pib-text-muted)] sm:grid-cols-4">
             <Metric label="Views" value={snapshot.metrics?.views} />
             <Metric label="Watch min" value={snapshot.metrics?.watchTimeMinutes} />
             <Metric label="Avg viewed" value={snapshot.metrics?.averageViewPercentage} suffix="%" />
@@ -446,8 +446,8 @@ function AnalyticsTabContent({ analytics }: { analytics: YouTubeAnalyticsSnapsho
           {snapshot.recommendations?.length ? (
             <div className="space-y-2">
               {snapshot.recommendations.slice(0, 2).map((recommendation, index) => (
-                <p key={`${recommendation.type}-${index}`} className="break-words text-sm text-on-surface-variant">
-                  <span className="font-medium text-on-surface">{formatToken(recommendation.type)}:</span> {recommendation.summary}
+                <p key={`${recommendation.type}-${index}`} className="break-words text-sm text-[var(--color-pib-text-muted)]">
+                  <span className="font-medium text-[var(--color-pib-text)]">{formatToken(recommendation.type)}:</span> {recommendation.summary}
                 </p>
               ))}
             </div>

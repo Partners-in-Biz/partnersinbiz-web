@@ -156,15 +156,13 @@ export default function AgentsBoardClient() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-8 max-w-5xl mx-auto">
       {/* Page header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
-            Platform
-          </p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Agent Team</h1>
-          <p className="text-sm text-on-surface-variant mt-1">
+      <header className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="eyebrow">Admin · Platform</p>
+          <h1 className="pib-page-title mt-2">Agent Team</h1>
+          <p className="pib-page-sub">
             Administer the specialist agents, runtime profiles, skill policy, health, logs, and gated configuration used by PiB operators. Client organisations only appear as scoped records being administered.
           </p>
         </div>
@@ -172,7 +170,7 @@ export default function AgentsBoardClient() {
           {isSuperAdmin && (
             <button
               onClick={() => setShowCreate((v) => !v)}
-              className="pib-btn-primary text-sm font-label flex items-center gap-1.5"
+              className="btn-pib-primary text-sm font-label flex items-center gap-1.5"
             >
               <span className="material-symbols-outlined text-[16px]">add</span>
               New Agent
@@ -180,35 +178,35 @@ export default function AgentsBoardClient() {
           )}
           <button
             onClick={() => loadAgents()}
-            className="pib-btn-ghost text-sm font-label flex items-center gap-1.5"
+            className="btn-pib-ghost text-sm font-label flex items-center gap-1.5"
             title="Refresh"
           >
             <span className="material-symbols-outlined text-[16px]">refresh</span>
             Refresh
           </button>
         </div>
-      </div>
+      </header>
 
       {isSuperAdmin && showCreate && (
         <form onSubmit={createAgent} className="pib-card p-4 space-y-4">
-          <div className="rounded-lg border border-outline/60 bg-surface-variant/30 p-3 text-xs text-on-surface-variant">
+          <div className="rounded-lg border border-[var(--color-pib-line)]/60 bg-[var(--color-pib-surface-2)] p-3 text-xs text-[var(--color-pib-text-muted)]">
             Creating an agent here asks Pip to provision the VPS profile, then registers the new profile with the platform dispatch config. You only need to ask Pip manually if this provisioning step fails or the agent needs a non-standard setup.
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1">
-              <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Agent ID</span>
+              <span className="pib-label">Agent ID</span>
               <input className="pib-input w-full font-mono text-sm" value={newAgentId} onChange={(e) => setNewAgentId(e.target.value.toLowerCase())} placeholder="zara" required />
             </label>
             <label className="space-y-1">
-              <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Name</span>
+              <span className="pib-label">Name</span>
               <input className="pib-input w-full text-sm" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Zara" required />
             </label>
             <label className="space-y-1">
-              <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Role</span>
+              <span className="pib-label">Role</span>
               <input className="pib-input w-full text-sm" value={newRole} onChange={(e) => setNewRole(e.target.value)} required />
             </label>
             <label className="space-y-1">
-              <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Provider / model</span>
+              <span className="pib-label">Provider / model</span>
               <div className="grid grid-cols-2 gap-2">
                 <input className="pib-input w-full font-mono text-sm" value={newProvider} onChange={(e) => setNewProvider(e.target.value)} required />
                 <input className="pib-input w-full font-mono text-sm" value={newModel} onChange={(e) => setNewModel(e.target.value)} required />
@@ -216,13 +214,13 @@ export default function AgentsBoardClient() {
             </label>
           </div>
           <label className="space-y-1 block">
-            <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Persona / SOUL seed</span>
+            <span className="pib-label">Persona / SOUL seed</span>
             <textarea className="pib-input w-full min-h-24 resize-y text-sm" value={newPersona} onChange={(e) => setNewPersona(e.target.value)} placeholder="What this agent owns, how it behaves, and when Pip should use it." required />
           </label>
-          {createError && <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">{createError}</div>}
+          {createError && <div className="pib-card p-3 text-xs text-[var(--color-error)]">{createError}</div>}
           <div className="flex justify-end gap-2">
-            <button type="button" onClick={() => setShowCreate(false)} className="pib-btn-ghost text-xs font-label">Cancel</button>
-            <button type="submit" disabled={creating} className="pib-btn-primary text-xs font-label disabled:opacity-50">
+            <button type="button" onClick={() => setShowCreate(false)} className="btn-pib-ghost text-xs font-label">Cancel</button>
+            <button type="submit" disabled={creating} className="btn-pib-primary text-xs font-label disabled:opacity-50">
               {creating ? 'Provisioning via Pip...' : 'Provision via Pip'}
             </button>
           </div>
@@ -230,7 +228,7 @@ export default function AgentsBoardClient() {
       )}
 
       {topError && (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+        <div className="pib-card px-4 py-3 text-sm text-[var(--color-error)]">
           {topError}
         </div>
       )}
@@ -247,10 +245,10 @@ export default function AgentsBoardClient() {
           ].map((item) => (
             <div key={item.label} className="pib-card p-3">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">{item.label}</span>
-                <span className="material-symbols-outlined text-[16px] text-on-surface-variant/70">{item.icon}</span>
+                <span className="pib-label">{item.label}</span>
+                <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-faint)]">{item.icon}</span>
               </div>
-              <div className="mt-2 text-xl font-semibold text-on-surface">{item.value}</div>
+              <div className="mt-2 text-xl font-semibold text-[var(--color-pib-text)]">{item.value}</div>
             </div>
           ))}
         </section>
@@ -264,7 +262,7 @@ export default function AgentsBoardClient() {
           ))}
         </div>
       ) : agents.length === 0 ? (
-        <div className="pib-card p-10 text-center text-sm text-on-surface-variant">
+        <div className="pib-card p-10 text-center text-sm text-[var(--color-pib-text-muted)]">
           No agents found. The agent team API may be unavailable.
         </div>
       ) : (
@@ -292,7 +290,7 @@ export default function AgentsBoardClient() {
 
           {/* Panel */}
           <div
-            className="fixed inset-y-0 right-0 z-50 w-full max-w-2xl bg-[var(--color-pib-bg)] border-l border-white/10 shadow-2xl flex flex-col"
+            className="fixed inset-y-0 right-0 z-50 w-full max-w-2xl bg-[var(--color-pib-bg)] border-l border-[var(--color-pib-line)] shadow-2xl flex flex-col"
             style={{ animation: 'slideIn 0.2s ease-out' }}
           >
             <AgentDetailPanel

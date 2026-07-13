@@ -16,13 +16,13 @@ import type { ClientDocument, ClientDocumentVersion, DocumentComment } from '@/l
 type OrganizationSummary = { id: string; slug?: string }
 
 const STATUS_PILL: Record<string, string> = {
-  internal_draft: 'bg-gray-700 text-gray-100',
-  internal_review: 'bg-amber-700 text-amber-50',
-  client_review: 'bg-blue-700 text-blue-50',
-  changes_requested: 'bg-orange-700 text-orange-50',
-  approved: 'bg-emerald-700 text-emerald-50',
-  accepted: 'bg-violet-700 text-violet-50',
-  archived: 'bg-zinc-800 text-zinc-300',
+  internal_draft: 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]',
+  internal_review: 'bg-[var(--color-pib-amber-soft)] text-[var(--color-pib-amber)]',
+  client_review: 'bg-[var(--color-pib-blue-soft)] text-[var(--color-pib-blue)]',
+  changes_requested: 'bg-[var(--color-pib-amber-soft)] text-[var(--color-pib-amber)]',
+  approved: 'bg-[var(--color-pib-green-soft)] text-[var(--color-pib-green)]',
+  accepted: 'bg-[var(--color-pib-violet-soft)] text-[var(--color-pib-violet)]',
+  archived: 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]',
 }
 
 function readable(s: string) {
@@ -32,9 +32,9 @@ function readable(s: string) {
 function Skeleton() {
   return (
     <div className="animate-pulse space-y-6 p-6">
-      <div className="h-8 w-64 rounded bg-[var(--color-surface-variant)]" />
-      <div className="h-4 w-32 rounded bg-[var(--color-surface-variant)]" />
-      <div className="h-96 rounded bg-[var(--color-surface-variant)]" />
+      <div className="h-8 w-64 rounded bg-[var(--color-pib-surface-2)]" />
+      <div className="h-4 w-32 rounded bg-[var(--color-pib-surface-2)]" />
+      <div className="h-96 rounded bg-[var(--color-pib-surface-2)]" />
     </div>
   )
 }
@@ -155,19 +155,19 @@ export default function OrgDocumentDetailPage() {
         <Skeleton />
       ) : error ? (
         <div className="p-6">
-          <p className="text-sm text-red-400">{error}</p>
+          <p className="text-sm text-[var(--color-error)]">{error}</p>
           <button onClick={load} className="mt-2 text-sm underline">
             Retry
           </button>
         </div>
       ) : !document || !version ? (
-        <p className="p-6 text-sm text-on-surface-variant">Document not found.</p>
+        <p className="p-6 text-sm text-[var(--color-pib-text-muted)]">Document not found.</p>
       ) : (
         <div className="flex flex-col min-h-screen">
           <div className="sticky top-0 z-20 flex items-center gap-3 border-b border-[var(--color-outline)] bg-[var(--color-surface)] px-4 py-3">
             <Link
               href={`/admin/org/${slug}/documents`}
-              className="mr-2 text-xs text-on-surface-variant hover:text-on-surface"
+              className="mr-2 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
             >
               ← Documents
             </Link>
@@ -190,7 +190,7 @@ export default function OrgDocumentDetailPage() {
               {readable(document.status)}
             </span>
 
-            <span className="hidden max-w-xs text-[11px] leading-4 text-on-surface-variant xl:inline">
+            <span className="hidden max-w-xs text-[11px] leading-4 text-[var(--color-pib-text-muted)] xl:inline">
               Admin drafting/review. Client-visible changes require the send-for-review or share gate.
             </span>
 
@@ -222,7 +222,7 @@ export default function OrgDocumentDetailPage() {
           </div>
 
           {getClientVisibleOrgIds(document).length > 1 && (
-            <div className="border-b border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm text-amber-200" role="alert">
+            <div className="border-b border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm text-[var(--color-pib-amber)]" role="alert">
               Client-visible warning: publishing this document would expose it to {getClientVisibleOrgIds(document).length} linked client organisations.
             </div>
           )}

@@ -252,11 +252,11 @@ export default function EmailTemplatesPage() {
     <div className="space-y-6 max-w-6xl mx-auto">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Platform / Email
           </p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Email Templates</h1>
-          <p className="text-sm text-on-surface-variant mt-0.5 max-w-2xl">
+          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Email Templates</h1>
+          <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5 max-w-2xl">
             Manage platform email templates with HTML / MJML content, live preview, version history,
             test sends and per-locale clones.
           </p>
@@ -281,14 +281,14 @@ export default function EmailTemplatesPage() {
       <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-4">
         {/* List */}
         <div className="pib-card p-4 h-fit">
-          <p className="text-xs font-label uppercase tracking-wide text-on-surface-variant mb-2">Templates</p>
+          <p className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)] mb-2">Templates</p>
           {loading ? (
             <div className="space-y-2">
               <Skeleton className="h-10 rounded-lg" />
               <Skeleton className="h-10 rounded-lg" />
             </div>
           ) : list.length === 0 ? (
-            <p className="text-sm text-on-surface-variant">No templates yet.</p>
+            <p className="text-sm text-[var(--color-pib-text-muted)]">No templates yet.</p>
           ) : (
             <ul className="space-y-1">
               {list.map((t) => (
@@ -297,12 +297,12 @@ export default function EmailTemplatesPage() {
                     onClick={() => openTemplate(t.id)}
                     className={`w-full text-left rounded-md px-3 py-2 text-sm ${
                       selected?.id === t.id
-                        ? 'bg-[var(--color-surface-container)] text-on-surface'
-                        : 'text-on-surface-variant hover:bg-on-surface/5'
+                        ? 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)]'
+                        : 'text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-text)]/5'
                     }`}
                   >
                     <span className="block truncate">{t.name}</span>
-                    <span className="block text-[11px] text-on-surface-variant/70">
+                    <span className="block text-[11px] text-[var(--color-pib-text-muted)]/70">
                       {t.locale} · {t.contentType} · v{t.version}
                     </span>
                   </button>
@@ -316,7 +316,7 @@ export default function EmailTemplatesPage() {
         <div className="space-y-4">
           {!editing ? (
             <div className="pib-card p-8 text-center">
-              <p className="text-sm text-on-surface-variant">Select a template or create a new one.</p>
+              <p className="text-sm text-[var(--color-pib-text-muted)]">Select a template or create a new one.</p>
             </div>
           ) : loadingDetail ? (
             <Skeleton className="h-64 rounded-xl" />
@@ -324,7 +324,7 @@ export default function EmailTemplatesPage() {
             <>
               <div className="pib-card p-5 space-y-4">
                 <div className="flex items-center justify-between flex-wrap gap-2">
-                  <h2 className="text-lg font-headline font-bold text-on-surface">
+                  <h2 className="text-lg font-headline font-bold text-[var(--color-pib-text)]">
                     {creating ? 'New template' : `Edit: ${selected?.name}`}
                   </h2>
                   {selected && !creating && (
@@ -341,7 +341,7 @@ export default function EmailTemplatesPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <label className="block">
-                    <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">Name</span>
+                    <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Name</span>
                     <input
                       type="text"
                       value={name}
@@ -350,7 +350,7 @@ export default function EmailTemplatesPage() {
                     />
                   </label>
                   <label className="block">
-                    <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">Locale</span>
+                    <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Locale</span>
                     <input
                       type="text"
                       value={locale}
@@ -360,7 +360,7 @@ export default function EmailTemplatesPage() {
                     />
                   </label>
                   <label className="block md:col-span-2">
-                    <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">Subject</span>
+                    <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Subject</span>
                     <input
                       type="text"
                       value={subject}
@@ -372,7 +372,7 @@ export default function EmailTemplatesPage() {
 
                 <div>
                   <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
-                    <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+                    <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                       Content
                     </span>
                     <div className="flex items-center gap-2">
@@ -381,7 +381,7 @@ export default function EmailTemplatesPage() {
                           key={tag}
                           type="button"
                           onClick={() => setContent((c) => c + ' ' + tag)}
-                          className="text-[11px] font-mono px-2 py-0.5 rounded bg-on-surface/10 text-on-surface-variant hover:text-on-surface"
+                          className="text-[11px] font-mono px-2 py-0.5 rounded bg-[var(--color-pib-text)]/10 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
                         >
                           {tag}
                         </button>
@@ -411,16 +411,16 @@ export default function EmailTemplatesPage() {
                     />
                     <iframe
                       title="template-preview"
-                      className="w-full min-h-[280px] rounded-md border border-[var(--color-card-border)] bg-white"
+                      className="w-full min-h-[280px] rounded-md border border-[var(--color-pib-line)] bg-white"
                       sandbox=""
                       srcDoc={content}
                     />
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-2 sm:items-end border-t border-[var(--color-card-border)] pt-4">
+                <div className="flex flex-col sm:flex-row gap-2 sm:items-end border-t border-[var(--color-pib-line)] pt-4">
                   <label className="block flex-1">
-                    <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+                    <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                       Send a test to
                     </span>
                     <input
@@ -443,20 +443,20 @@ export default function EmailTemplatesPage() {
               {/* Version history */}
               {selected && selected.versions.length > 0 && (
                 <div className="pib-card p-5">
-                  <h3 className="text-base font-headline font-bold text-on-surface mb-3">
+                  <h3 className="text-base font-headline font-bold text-[var(--color-pib-text)] mb-3">
                     Version history ({selected.versions.length})
                   </h3>
                   <ul className="space-y-2">
                     {[...selected.versions].reverse().map((v) => (
                       <li
                         key={v.version}
-                        className="flex items-center justify-between gap-3 rounded-md border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2"
+                        className="flex items-center justify-between gap-3 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2"
                       >
                         <div className="min-w-0">
-                          <span className="text-sm text-on-surface font-label">v{v.version}</span>
-                          <span className="text-xs text-on-surface-variant ml-2 truncate">{v.subject}</span>
+                          <span className="text-sm text-[var(--color-pib-text)] font-label">v{v.version}</span>
+                          <span className="text-xs text-[var(--color-pib-text-muted)] ml-2 truncate">{v.subject}</span>
                           {v.savedAt && (
-                            <span className="text-[11px] text-on-surface-variant/60 ml-2">
+                            <span className="text-[11px] text-[var(--color-pib-text-muted)]/60 ml-2">
                               {new Date(v.savedAt).toLocaleString()}
                             </span>
                           )}

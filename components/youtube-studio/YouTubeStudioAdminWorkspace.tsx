@@ -1556,18 +1556,18 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="eyebrow">Internal command center</p>
-            <h2 className="font-headline text-2xl font-semibold text-on-surface">YouTube production command center</h2>
-            <p className="mt-1 text-sm text-on-surface-variant">Filter by organisation channel, risk, and urgency before drilling into channel and video work.</p>
+            <h2 className="font-headline text-2xl font-semibold text-[var(--color-pib-text)]">YouTube production command center</h2>
+            <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">Filter by organisation channel, risk, and urgency before drilling into channel and video work.</p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <label className="grid gap-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+            <label className="grid gap-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
               Channel filter
               <select aria-label="Channel filter" value={selectedCommandChannelId} onChange={(event) => setSelectedCommandChannelId(event.target.value)} className="pib-input min-w-48">
                 <option value="all">All channels</option>
                 {channels.map((channel) => <option key={channelKey(channel)} value={channel.id ?? ''}>{channel.title} channel</option>)}
               </select>
             </label>
-            <label className="grid gap-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+            <label className="grid gap-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
               Risk filter
               <select aria-label="Risk filter" value={riskFilter} onChange={(event) => setRiskFilter(event.target.value as CommandRiskFilter)} className="pib-input min-w-44">
                 <option value="all">All risk states</option>
@@ -1618,9 +1618,9 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           const readinessLabel = readiness?.readiness ?? legacyPolicy?.publishingReadiness ?? channel.status
           return (
             <section key={key} id={`youtube-channel-${key}`} aria-label={`${channel.title} channel detail`} className="pib-card-section space-y-4 p-5">
-              <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="eyebrow">Channel detail</p><h2 className="font-headline text-xl font-semibold text-on-surface">{channel.title}</h2><p className="text-sm text-on-surface-variant">{channel.youtubeHandle ?? 'No YouTube handle'} / {formatToken(channelRiskLevel(channel))}</p></div><StatusPill status={readinessLabel} /></div>
+              <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="eyebrow">Channel detail</p><h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">{channel.title}</h2><p className="text-sm text-[var(--color-pib-text-muted)]">{channel.youtubeHandle ?? 'No YouTube handle'} / {formatToken(channelRiskLevel(channel))}</p></div><StatusPill status={readinessLabel} /></div>
               <div className="flex flex-wrap gap-2" role="tablist" aria-label={`${channel.title} channel detail tabs`}>{channelDetailTabs.map((tab) => <button key={tab.key} type="button" onClick={() => setChannelTabs((current) => ({ ...current, [key]: tab.key }))} className={activeTab === tab.key ? 'pib-btn-primary text-sm' : 'pib-btn-ghost text-sm'}>{tab.label}</button>)}</div>
-              <div className="rounded-xl border border-[var(--color-pib-line)] p-4 text-sm text-on-surface-variant">
+              <div className="rounded-xl border border-[var(--color-pib-line)] p-4 text-sm text-[var(--color-pib-text-muted)]">
                 {activeTab === 'strategy' ? <div className="space-y-2"><p>{channel.audienceNotes ?? 'No audience notes captured yet.'}</p><div className="flex flex-wrap gap-2">{channel.contentPillars?.map((pillar) => <StatusPill key={pillar} status={pillar} />)}</div></div> : null}
                 {activeTab === 'pipeline' ? <DetailList items={channelVideos.map((video) => ({ id: video.id ?? video.title, label: video.title, detail: formatToken(video.status) }))} empty="No videos in this channel." /> : null}
                 {activeTab === 'series' ? <DetailList items={channelSeries.map((item) => ({ id: item.id ?? seriesTitle(item), label: seriesTitle(item), detail: formatToken(item.status ?? 'series') }))} empty="No series defined." /> : null}
@@ -1646,9 +1646,9 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           const videoActivity = (video as YouTubeVideoProject & { activity?: Array<{ type?: string; summary?: string; at?: unknown }> }).activity ?? []
           return (
             <section key={key} id={`youtube-video-${key}`} aria-label={`${video.title} video cockpit`} className="pib-card-section space-y-4 p-5">
-              <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="eyebrow">Video cockpit</p><h2 className="font-headline text-xl font-semibold text-on-surface">{video.title}</h2><p className="text-sm text-on-surface-variant">{formatToken(video.videoType)} / {formatToken(video.status)}</p></div><StatusPill status={video.status} /></div>
+              <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="eyebrow">Video cockpit</p><h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">{video.title}</h2><p className="text-sm text-[var(--color-pib-text-muted)]">{formatToken(video.videoType)} / {formatToken(video.status)}</p></div><StatusPill status={video.status} /></div>
               <div className="flex flex-wrap gap-2" role="tablist" aria-label={`${video.title} video cockpit tabs`}>{videoCockpitTabs.map((tab) => <button key={tab.key} type="button" onClick={() => setVideoTabs((current) => ({ ...current, [key]: tab.key }))} className={activeTab === tab.key ? 'pib-btn-primary text-sm' : 'pib-btn-ghost text-sm'}>{tab.label}</button>)}</div>
-              <div className="rounded-xl border border-[var(--color-pib-line)] p-4 text-sm text-on-surface-variant">
+              <div className="rounded-xl border border-[var(--color-pib-line)] p-4 text-sm text-[var(--color-pib-text-muted)]">
                 {activeTab === 'brief' ? <p>{video.objective ?? 'No brief captured.'}</p> : null}
                 {activeTab === 'script' ? <p>Script and draft workbench.</p> : null}
                 {activeTab === 'clips' ? <p>Clip candidates and shorts packages.</p> : null}
@@ -1668,7 +1668,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
       <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
         <section className="space-y-4">
           {riskFilter !== 'all' ? null : visibleChannels.length === 0 ? (
-            <div className="pib-card-section p-5 text-sm text-on-surface-variant">No YouTube channel workspaces yet.</div>
+            <div className="pib-card-section p-5 text-sm text-[var(--color-pib-text-muted)]">No YouTube channel workspaces yet.</div>
           ) : (
             visibleChannels.map((channel) => (
               <YouTubeChannelCard key={channel.id ?? channel.title} channel={channel} />
@@ -1676,9 +1676,9 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           )}
 
           <div className="space-y-3">
-            <h2 className="font-headline text-xl font-semibold text-on-surface">Video pipeline</h2>
+            <h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">Video pipeline</h2>
             {visibleVideos.length === 0 ? (
-              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No YouTube videos yet.</div>
+              <div className="pib-card-section p-5 text-sm text-[var(--color-pib-text-muted)]">No YouTube videos yet.</div>
             ) : (
               visibleVideos.map((video) => (
                 <YouTubeVideoCard key={video.id ?? video.title} video={{ ...video, title: `${video.title} video card` }}>
@@ -1696,7 +1696,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                         <a
                           href={`/admin/creative-canvas?canvas=${encodeURIComponent(video.creativeCanvasId)}`}
                           aria-label={`Open linked canvas for ${video.title}`}
-                          className="rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant"
+                          className="rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]"
                         >
                           Canvas ↗
                         </a>
@@ -1710,28 +1710,28 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
 
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-headline text-xl font-semibold text-on-surface">Source assets</h2>
-              <span className="rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+              <h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">Source assets</h2>
+              <span className="rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                 {visibleSourceAssets.length} asset{visibleSourceAssets.length === 1 ? '' : 's'}
               </span>
             </div>
             {visibleSourceAssets.length === 0 ? (
-              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No raw footage, transcripts, or source links captured yet.</div>
+              <div className="pib-card-section p-5 text-sm text-[var(--color-pib-text-muted)]">No raw footage, transcripts, or source links captured yet.</div>
             ) : (
               <div className="grid gap-3">
                 {visibleSourceAssets.map((asset) => (
                   <article key={asset.id ?? asset.title} className="pib-card-section space-y-3 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <h3 className="break-words font-semibold text-on-surface">{asset.title}</h3>
-                        <p className="mt-1 text-sm text-on-surface-variant">{sourceAssetMeta(asset)}</p>
+                        <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{asset.title}</h3>
+                        <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{sourceAssetMeta(asset)}</p>
                       </div>
                       <StatusPill status={asset.status} />
                     </div>
-                    {asset.clientNotes ? <p className="break-words text-sm text-on-surface-variant">{asset.clientNotes}</p> : null}
-                    {asset.sourceUrl ? <p className="break-words text-xs text-on-surface-variant">{asset.sourceUrl}</p> : null}
+                    {asset.clientNotes ? <p className="break-words text-sm text-[var(--color-pib-text-muted)]">{asset.clientNotes}</p> : null}
+                    {asset.sourceUrl ? <p className="break-words text-xs text-[var(--color-pib-text-muted)]">{asset.sourceUrl}</p> : null}
                     {asset.rights?.status ? (
-                      <p className="break-words text-xs text-on-surface-variant">rights: {formatToken(asset.rights.status)}</p>
+                      <p className="break-words text-xs text-[var(--color-pib-text-muted)]">rights: {formatToken(asset.rights.status)}</p>
                     ) : null}
                     {asset.id ? (
                       <div className="flex flex-wrap gap-2">
@@ -1760,28 +1760,28 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
 
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-headline text-xl font-semibold text-on-surface">Clip candidates</h2>
-              <span className="rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+              <h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">Clip candidates</h2>
+              <span className="rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                 {visibleClipCandidates.length} clip{visibleClipCandidates.length === 1 ? '' : 's'}
               </span>
             </div>
             {visibleClipCandidates.length === 0 ? (
-              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No clip candidates proposed yet.</div>
+              <div className="pib-card-section p-5 text-sm text-[var(--color-pib-text-muted)]">No clip candidates proposed yet.</div>
             ) : (
               <div className="grid gap-3">
                 {visibleClipCandidates.map((clip) => (
                   <article key={clip.id ?? `${clip.sourceAssetId}-${clip.startSeconds}`} className="pib-card-section space-y-3 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <h3 className="break-words font-semibold text-on-surface">{clip.title}</h3>
-                        <p className="mt-1 text-sm text-on-surface-variant">{clipMeta(clip)}</p>
+                        <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{clip.title}</h3>
+                        <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{clipMeta(clip)}</p>
                       </div>
                       <StatusPill status={clip.status} />
                     </div>
-                    {clip.summary ? <p className="break-words text-sm text-on-surface-variant">{clip.summary}</p> : null}
-                    {clip.hook ? <p className="break-words text-sm text-on-surface-variant">{clip.hook}</p> : null}
-                    {clip.transcriptExcerpt ? <p className="break-words text-xs text-on-surface-variant">{clip.transcriptExcerpt}</p> : null}
-                    <div className="grid gap-2 text-xs text-on-surface-variant sm:grid-cols-2">
+                    {clip.summary ? <p className="break-words text-sm text-[var(--color-pib-text-muted)]">{clip.summary}</p> : null}
+                    {clip.hook ? <p className="break-words text-sm text-[var(--color-pib-text-muted)]">{clip.hook}</p> : null}
+                    {clip.transcriptExcerpt ? <p className="break-words text-xs text-[var(--color-pib-text-muted)]">{clip.transcriptExcerpt}</p> : null}
+                    <div className="grid gap-2 text-xs text-[var(--color-pib-text-muted)] sm:grid-cols-2">
                       {clipGateEntries(clip).map(([key, check]) => (
                         <span key={key} className="min-w-0 break-words">
                           {formatToken(key)}: {formatToken(check?.status ?? 'not_applicable')}
@@ -1815,45 +1815,45 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
 
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-headline text-xl font-semibold text-on-surface">Production drafts</h2>
-              <span className="rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+              <h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">Production drafts</h2>
+              <span className="rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                 {visibleProductionDrafts.length} draft{visibleProductionDrafts.length === 1 ? '' : 's'}
               </span>
             </div>
             {visibleProductionDrafts.length === 0 ? (
-              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No scripts, outlines, or shot lists drafted yet.</div>
+              <div className="pib-card-section p-5 text-sm text-[var(--color-pib-text-muted)]">No scripts, outlines, or shot lists drafted yet.</div>
             ) : (
               <div className="grid gap-3">
                 {visibleProductionDrafts.map((draft) => (
                   <article key={draft.id ?? `${draft.videoProjectId}-${draft.versionNumber}`} className="pib-card-section space-y-3 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <h3 className="break-words font-semibold text-on-surface">{draft.title}</h3>
-                        <p className="mt-1 text-sm text-on-surface-variant">{productionDraftMeta(draft)}</p>
+                        <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{draft.title}</h3>
+                        <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{productionDraftMeta(draft)}</p>
                       </div>
                       <StatusPill status={draft.status} />
                     </div>
-                    {draft.summary ? <p className="break-words text-sm text-on-surface-variant">{draft.summary}</p> : null}
-                    {draft.hook ? <p className="break-words text-sm text-on-surface-variant">{draft.hook}</p> : null}
+                    {draft.summary ? <p className="break-words text-sm text-[var(--color-pib-text-muted)]">{draft.summary}</p> : null}
+                    {draft.hook ? <p className="break-words text-sm text-[var(--color-pib-text-muted)]">{draft.hook}</p> : null}
                     {draft.outline?.length ? (
                       <div className="flex flex-wrap gap-2">
                         {draft.outline.slice(0, 6).map((item) => <StatusPill key={item} status={item} />)}
                       </div>
                     ) : null}
                     {draft.scriptText ? (
-                      <p className="line-clamp-3 break-words text-sm text-on-surface-variant">{draft.scriptText}</p>
+                      <p className="line-clamp-3 break-words text-sm text-[var(--color-pib-text-muted)]">{draft.scriptText}</p>
                     ) : null}
                     {draft.scenes?.length ? (
                       <div className="grid gap-2">
                         {draft.scenes.slice(0, 2).map((scene, index) => (
-                          <div key={`${scene.label}-${index}`} className="rounded-lg border border-[var(--color-pib-line)] p-3 text-sm text-on-surface-variant">
-                            <p className="font-medium text-on-surface">{productionSceneMeta(scene)}</p>
+                          <div key={`${scene.label}-${index}`} className="rounded-lg border border-[var(--color-pib-line)] p-3 text-sm text-[var(--color-pib-text-muted)]">
+                            <p className="font-medium text-[var(--color-pib-text)]">{productionSceneMeta(scene)}</p>
                             {scene.summary ? <p className="mt-1 break-words">{scene.summary}</p> : null}
                           </div>
                         ))}
                       </div>
                     ) : null}
-                    <div className="grid gap-2 text-xs text-on-surface-variant sm:grid-cols-2">
+                    <div className="grid gap-2 text-xs text-[var(--color-pib-text-muted)] sm:grid-cols-2">
                       {productionDraftGateEntries(draft).map(([key, check]) => (
                         <span key={key} className="min-w-0 break-words">
                           {formatToken(key)}: {formatToken(check?.status ?? 'not_applicable')}
@@ -1918,37 +1918,37 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
 
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-headline text-xl font-semibold text-on-surface">Render jobs</h2>
-              <span className="rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+              <h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">Render jobs</h2>
+              <span className="rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                 {visibleRenderJobs.length} render{visibleRenderJobs.length === 1 ? '' : 's'}
               </span>
             </div>
             {visibleRenderJobs.length === 0 ? (
-              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No edit assemblies or render plans queued yet.</div>
+              <div className="pib-card-section p-5 text-sm text-[var(--color-pib-text-muted)]">No edit assemblies or render plans queued yet.</div>
             ) : (
               <div className="grid gap-3">
                 {visibleRenderJobs.map((job) => (
                   <article key={job.id ?? `${job.videoProjectId}-${job.versionNumber}`} className="pib-card-section space-y-3 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <h3 className="break-words font-semibold text-on-surface">{job.title}</h3>
-                        <p className="mt-1 text-sm text-on-surface-variant">{renderJobMeta(job)}</p>
+                        <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{job.title}</h3>
+                        <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{renderJobMeta(job)}</p>
                       </div>
                       <StatusPill status={job.status} />
                     </div>
-                    {job.editBrief ? <p className="break-words text-sm text-on-surface-variant">{job.editBrief}</p> : null}
+                    {job.editBrief ? <p className="break-words text-sm text-[var(--color-pib-text-muted)]">{job.editBrief}</p> : null}
                     {job.timeline?.length ? (
                       <div className="grid gap-2">
                         {job.timeline.slice(0, 3).map((scene, index) => (
-                          <div key={`${scene.label}-${index}`} className="rounded-lg border border-[var(--color-pib-line)] p-3 text-sm text-on-surface-variant">
-                            <p className="font-medium text-on-surface">{renderTimelineMeta(scene)}</p>
+                          <div key={`${scene.label}-${index}`} className="rounded-lg border border-[var(--color-pib-line)] p-3 text-sm text-[var(--color-pib-text-muted)]">
+                            <p className="font-medium text-[var(--color-pib-text)]">{renderTimelineMeta(scene)}</p>
                             {scene.summary ? <p className="mt-1 break-words">{scene.summary}</p> : null}
                             {scene.editNotes ? <p className="mt-1 break-words">{scene.editNotes}</p> : null}
                           </div>
                         ))}
                       </div>
                     ) : null}
-                    <div className="grid gap-2 text-xs text-on-surface-variant sm:grid-cols-2">
+                    <div className="grid gap-2 text-xs text-[var(--color-pib-text-muted)] sm:grid-cols-2">
                       {renderJobGateEntries(job).map(([key, check]) => (
                         <span key={key} className="min-w-0 break-words">
                           {formatToken(key)}: {formatToken(check?.status ?? 'not_applicable')}
@@ -1957,11 +1957,11 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                     </div>
                     {job.output?.previewUrl ? <StatusPill status="preview_ready" /> : null}
                     {job.renderEngine?.provider === 'creative_canvas' ? (
-                      <p className="break-words text-xs text-on-surface-variant">
+                      <p className="break-words text-xs text-[var(--color-pib-text-muted)]">
                         Rendered by canvas run {job.renderEngine.jobId ? job.renderEngine.jobId.slice(0, 8) : 'unknown'}
                       </p>
                     ) : null}
-                    {job.clientNotes ? <p className="break-words text-sm text-on-surface-variant">{job.clientNotes}</p> : null}
+                    {job.clientNotes ? <p className="break-words text-sm text-[var(--color-pib-text-muted)]">{job.clientNotes}</p> : null}
                     {job.id ? (
                       <div className="flex flex-wrap gap-2">
                         {job.status !== 'qa_review' && job.status !== 'approved' && job.status !== 'cancelled' ? (
@@ -2021,35 +2021,35 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
 
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-headline text-xl font-semibold text-on-surface">Publishing packets</h2>
-              <span className="rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+              <h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">Publishing packets</h2>
+              <span className="rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                 {visiblePackets.length} packet{visiblePackets.length === 1 ? '' : 's'}
               </span>
             </div>
             {visiblePackets.length === 0 ? (
-              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No private draft publishing packets yet.</div>
+              <div className="pib-card-section p-5 text-sm text-[var(--color-pib-text-muted)]">No private draft publishing packets yet.</div>
             ) : (
               <div className="grid gap-3">
                 {visiblePackets.map((packet) => (
                   <article key={packet.id ?? `${packet.videoProjectId}-${packet.versionNumber}`} className="pib-card-section space-y-3 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <h3 className="break-words font-semibold text-on-surface">{packetTitle(packet)} packet</h3>
-                        <p className="mt-1 text-sm text-on-surface-variant">
+                        <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{packetTitle(packet)} packet</h3>
+                        <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
                           Version {packet.versionNumber || 1} / {formatToken(packet.visibility)} / {packet.chapters?.length ?? 0} chapters
                         </p>
                       </div>
                       <StatusPill status={packet.status} />
                     </div>
                     {packet.description ? (
-                      <p className="break-words text-sm text-on-surface-variant">{packet.description}</p>
+                      <p className="break-words text-sm text-[var(--color-pib-text-muted)]">{packet.description}</p>
                     ) : null}
                     <div className="flex flex-wrap gap-2">
                       {packet.selfDeclaredMadeForKids ? <StatusPill status="made_for_kids" /> : null}
                       {packet.containsSyntheticMedia ? <StatusPill status="synthetic_media" /> : null}
                       {packet.tags?.slice(0, 6).map((tag) => <StatusPill key={tag} status={tag} />)}
                     </div>
-                    <div className="grid gap-2 text-xs text-on-surface-variant sm:grid-cols-2">
+                    <div className="grid gap-2 text-xs text-[var(--color-pib-text-muted)] sm:grid-cols-2">
                       {packetGateEntries(packet).map(([key, check]) => (
                         <span key={key} className="min-w-0 break-words">
                           {formatToken(key)}: {formatToken(check?.status ?? 'not_applicable')}
@@ -2112,35 +2112,35 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
 
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-headline text-xl font-semibold text-on-surface">Release plans</h2>
-              <span className="rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+              <h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">Release plans</h2>
+              <span className="rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                 {visibleReleasePlans.length} plan{visibleReleasePlans.length === 1 ? '' : 's'}
               </span>
             </div>
             {visibleReleasePlans.length === 0 ? (
-              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No approved release plans yet.</div>
+              <div className="pib-card-section p-5 text-sm text-[var(--color-pib-text-muted)]">No approved release plans yet.</div>
             ) : (
               <div className="grid gap-3">
                 {visibleReleasePlans.map((plan) => (
                   <article key={plan.id ?? `${plan.videoProjectId}-${plan.publishingPacketId}`} className="pib-card-section space-y-3 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <h3 className="break-words font-semibold text-on-surface">
+                        <h3 className="break-words font-semibold text-[var(--color-pib-text)]">
                           {plan.publicSummary || releasePlanTitle(plan, packets)}
                         </h3>
-                        <p className="mt-1 text-sm text-on-surface-variant">
+                        <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
                           {formatToken(plan.mode)} / {formatToken(plan.status)} / {formatToken(plan.targetVisibility)}
                         </p>
                       </div>
                       <StatusPill status={plan.status} />
                     </div>
                     {plan.scheduledPublishAt ? (
-                      <p className="break-words text-sm text-on-surface-variant">scheduled for {String(plan.scheduledPublishAt)}</p>
+                      <p className="break-words text-sm text-[var(--color-pib-text-muted)]">scheduled for {String(plan.scheduledPublishAt)}</p>
                     ) : null}
                     {plan.internalNotes ? (
-                      <p className="break-words text-sm text-on-surface-variant">{plan.internalNotes}</p>
+                      <p className="break-words text-sm text-[var(--color-pib-text-muted)]">{plan.internalNotes}</p>
                     ) : null}
-                    <div className="grid gap-2 text-xs text-on-surface-variant sm:grid-cols-2">
+                    <div className="grid gap-2 text-xs text-[var(--color-pib-text-muted)] sm:grid-cols-2">
                       {releasePlanGateEntries(plan).map(([key, check]) => (
                         <span key={key} className="min-w-0 break-words">
                           {formatToken(key)}: {formatToken(check?.status ?? 'not_applicable')}
@@ -2155,28 +2155,28 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
 
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-headline text-xl font-semibold text-on-surface">Hermes production jobs</h2>
-              <span className="rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+              <h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">Hermes production jobs</h2>
+              <span className="rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                 {visibleJobs.length} job packet{visibleJobs.length === 1 ? '' : 's'}
               </span>
             </div>
             {visibleJobs.length === 0 ? (
-              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No Hermes production jobs queued yet.</div>
+              <div className="pib-card-section p-5 text-sm text-[var(--color-pib-text-muted)]">No Hermes production jobs queued yet.</div>
             ) : (
               <div className="grid gap-3">
                 {visibleJobs.map((job) => (
                   <article key={job.id ?? `${job.skillKey}-${job.title}`} className="pib-card-section space-y-3 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <h3 className="break-words font-semibold text-on-surface">{job.title}</h3>
-                        <p className="mt-1 text-sm text-on-surface-variant">{skillLabel(job.skillKey)}</p>
+                        <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{job.title}</h3>
+                        <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{skillLabel(job.skillKey)}</p>
                       </div>
-                      <span className="shrink-0 rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+                      <span className="shrink-0 rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                         {formatToken(job.status)}
                       </span>
                     </div>
                     {job.inputSummary ? (
-                      <p className="break-words text-sm text-on-surface-variant">{job.inputSummary}</p>
+                      <p className="break-words text-sm text-[var(--color-pib-text-muted)]">{job.inputSummary}</p>
                     ) : null}
                     {job.blockedReason ? (
                       <p className="break-words text-sm font-medium text-error">{job.blockedReason}</p>
@@ -2189,29 +2189,29 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
 
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-headline text-xl font-semibold text-on-surface">Analytics feedback</h2>
-              <span className="rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+              <h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">Analytics feedback</h2>
+              <span className="rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                 {visibleAnalytics.length} snapshot{visibleAnalytics.length === 1 ? '' : 's'}
               </span>
             </div>
             {visibleAnalytics.length === 0 ? (
-              <div className="pib-card-section p-5 text-sm text-on-surface-variant">No YouTube analytics snapshots imported yet.</div>
+              <div className="pib-card-section p-5 text-sm text-[var(--color-pib-text-muted)]">No YouTube analytics snapshots imported yet.</div>
             ) : (
               <div className="grid gap-3">
                 {visibleAnalytics.slice(0, 5).map((snapshot) => (
                   <article key={snapshot.id ?? `${snapshot.channelWorkspaceId}-${snapshot.periodEnd}`} className="pib-card-section space-y-3 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <h3 className="break-words font-semibold text-on-surface">{snapshot.clientSummary || 'Analytics snapshot'}</h3>
-                        <p className="mt-1 text-sm text-on-surface-variant">
+                        <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{snapshot.clientSummary || 'Analytics snapshot'}</h3>
+                        <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
                           {snapshot.periodStart} to {snapshot.periodEnd} / {formatToken(snapshot.sourceFreshness)}
                         </p>
                       </div>
-                      <span className="shrink-0 rounded-full bg-[var(--color-surface-container-high)] px-3 py-1 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+                      <span className="shrink-0 rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                         {formatToken(snapshot.source)}
                       </span>
                     </div>
-                    <div className="grid gap-2 text-sm text-on-surface-variant sm:grid-cols-4">
+                    <div className="grid gap-2 text-sm text-[var(--color-pib-text-muted)] sm:grid-cols-4">
                       <Metric label="Views" value={snapshot.metrics?.views} />
                       <Metric label="Watch min" value={snapshot.metrics?.watchTimeMinutes} />
                       <Metric label="Avg viewed" value={snapshot.metrics?.averageViewPercentage} suffix="%" />
@@ -2224,8 +2224,8 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                     {snapshot.recommendations?.length ? (
                       <div className="space-y-2">
                         {snapshot.recommendations.slice(0, 2).map((recommendation, index) => (
-                          <p key={`${recommendation.type}-${index}`} className="break-words text-sm text-on-surface-variant">
-                            <span className="font-medium text-on-surface">{formatToken(recommendation.type)}:</span> {recommendation.summary}
+                          <p key={`${recommendation.type}-${index}`} className="break-words text-sm text-[var(--color-pib-text-muted)]">
+                            <span className="font-medium text-[var(--color-pib-text)]">{formatToken(recommendation.type)}:</span> {recommendation.summary}
                           </p>
                         ))}
                       </div>
@@ -2258,7 +2258,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
 
         <aside className="space-y-4 lg:sticky lg:top-6">
           <form onSubmit={saveChannel} className="pib-card-section space-y-4 p-5">
-            <h2 className="font-headline font-bold text-on-surface">Add channel</h2>
+            <h2 className="font-headline font-bold text-[var(--color-pib-text)]">Add channel</h2>
             <Field label="Channel title" value={form.channelTitle} onChange={(value) => update('channelTitle', value)} required />
             <Field label="YouTube handle" value={form.youtubeHandle} onChange={(value) => update('youtubeHandle', value)} />
             <TextArea
@@ -2274,13 +2274,13 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           </form>
 
           <form onSubmit={savePublishingReadiness} className="pib-card-section space-y-4 p-5">
-            <h2 className="font-headline font-bold text-on-surface">Publishing readiness</h2>
+            <h2 className="font-headline font-bold text-[var(--color-pib-text)]">Publishing readiness</h2>
             <label className="block text-sm">
-              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Channel</span>
+              <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Channel</span>
               <select
                 value={form.readinessChannelId}
                 onChange={(event) => update('readinessChannelId', event.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm"
               >
                 <option value="">Select a channel</option>
                 {visibleChannels.map((channel) => (
@@ -2338,13 +2338,13 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           </form>
 
           <form onSubmit={saveVideo} className="pib-card-section space-y-4 p-5">
-            <h2 className="font-headline font-bold text-on-surface">Start video</h2>
+            <h2 className="font-headline font-bold text-[var(--color-pib-text)]">Start video</h2>
             <label className="block text-sm">
-              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Channel</span>
+              <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Channel</span>
               <select
                 value={form.videoChannelId}
                 onChange={(event) => update('videoChannelId', event.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm"
               >
                 <option value="">Select a channel</option>
                 {visibleChannels.map((channel) => (
@@ -2367,13 +2367,13 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           </form>
 
           <form onSubmit={createSourceAsset} className="pib-card-section space-y-4 p-5">
-            <h2 className="font-headline font-bold text-on-surface">Add source asset</h2>
+            <h2 className="font-headline font-bold text-[var(--color-pib-text)]">Add source asset</h2>
             <label className="block text-sm">
-              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Asset channel</span>
+              <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Asset channel</span>
               <select
                 value={form.assetChannelId}
                 onChange={(event) => selectAssetChannel(event.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm"
               >
                 <option value="">Select a channel</option>
                 {visibleChannels.map((channel) => (
@@ -2382,11 +2382,11 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               </select>
             </label>
             <label className="block text-sm">
-              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Asset video</span>
+              <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Asset video</span>
               <select
                 value={form.assetVideoId}
                 onChange={(event) => selectAssetVideo(event.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm"
               >
                 <option value="">Channel-level asset</option>
                 {assetVideoOptions.map((video) => (
@@ -2409,7 +2409,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               type="number"
             />
             <TextArea label="Client asset notes" value={form.assetClientNotes} onChange={(value) => update('assetClientNotes', value)} />
-            <label className="flex items-center gap-2 text-sm text-on-surface-variant">
+            <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
               <input
                 type="checkbox"
                 checked={form.assetShowInPortal}
@@ -2424,13 +2424,13 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           </form>
 
           <form onSubmit={createClipCandidate} className="pib-card-section space-y-4 p-5">
-            <h2 className="font-headline font-bold text-on-surface">Create clip</h2>
+            <h2 className="font-headline font-bold text-[var(--color-pib-text)]">Create clip</h2>
             <label className="block text-sm">
-              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Clip source asset</span>
+              <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Clip source asset</span>
               <select
                 value={form.clipSourceAssetId}
                 onChange={(event) => selectClipSourceAsset(event.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm"
               >
                 <option value="">Select source footage</option>
                 {visibleSourceAssets.map((asset) => (
@@ -2439,11 +2439,11 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               </select>
             </label>
             <label className="block text-sm">
-              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Clip video</span>
+              <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Clip video</span>
               <select
                 value={form.clipVideoId}
                 onChange={(event) => update('clipVideoId', event.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm"
               >
                 <option value="">Use source asset video</option>
                 {clipVideoOptions.map((video) => (
@@ -2469,7 +2469,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               value={form.clipTranscriptExcerpt}
               onChange={(value) => update('clipTranscriptExcerpt', value)}
             />
-            <label className="flex items-center gap-2 text-sm text-on-surface-variant">
+            <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
               <input
                 type="checkbox"
                 checked={form.clipShowInPortal}
@@ -2484,13 +2484,13 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           </form>
 
           <form onSubmit={createProductionDraft} className="pib-card-section space-y-4 p-5">
-            <h2 className="font-headline font-bold text-on-surface">Create production draft</h2>
+            <h2 className="font-headline font-bold text-[var(--color-pib-text)]">Create production draft</h2>
             <label className="block text-sm">
-              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Draft video</span>
+              <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Draft video</span>
               <select
                 value={form.draftVideoId}
                 onChange={(event) => update('draftVideoId', event.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm"
               >
                 <option value="">Select a video</option>
                 {visibleVideos.map((video) => (
@@ -2515,11 +2515,11 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
             />
             <TextArea label="Draft script" value={form.draftScript} onChange={(value) => update('draftScript', value)} />
             <label className="block text-sm">
-              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Draft source assets</span>
+              <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Draft source assets</span>
               <select
                 value={form.draftSourceAssetIds}
                 onChange={(event) => update('draftSourceAssetIds', event.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm"
               >
                 <option value="">No source asset selected</option>
                 {draftSourceAssets.map((asset) => (
@@ -2528,11 +2528,11 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               </select>
             </label>
             <label className="block text-sm">
-              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Draft clip candidates</span>
+              <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Draft clip candidates</span>
               <select
                 value={form.draftClipCandidateIds}
                 onChange={(event) => update('draftClipCandidateIds', event.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm"
               >
                 <option value="">No clip selected</option>
                 {draftClipCandidates.map((clip) => (
@@ -2546,7 +2546,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               onChange={(value) => update('draftScenes', value)}
               placeholder="Label | seconds | summary | voiceover | visual notes | on-screen text"
             />
-            <label className="flex items-center gap-2 text-sm text-on-surface-variant">
+            <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
               <input
                 type="checkbox"
                 checked={form.draftShowInPortal}
@@ -2555,7 +2555,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               />
               Show draft in portal
             </label>
-            <label className="flex items-center gap-2 text-sm text-on-surface-variant">
+            <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
               <input
                 type="checkbox"
                 checked={form.draftShowScriptInPortal}
@@ -2564,7 +2564,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               />
               Show script in portal
             </label>
-            <label className="flex items-center gap-2 text-sm text-on-surface-variant">
+            <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
               <input
                 type="checkbox"
                 checked={form.draftShowScenesInPortal}
@@ -2579,13 +2579,13 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           </form>
 
           <form onSubmit={createRenderJob} className="pib-card-section space-y-4 p-5">
-            <h2 className="font-headline font-bold text-on-surface">Create render job</h2>
+            <h2 className="font-headline font-bold text-[var(--color-pib-text)]">Create render job</h2>
             <label className="block text-sm">
-              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Render video</span>
+              <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Render video</span>
               <select
                 value={form.renderVideoId}
                 onChange={(event) => selectRenderVideo(event.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm"
               >
                 <option value="">Select a video</option>
                 {visibleVideos.map((video) => (
@@ -2594,11 +2594,11 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               </select>
             </label>
             <label className="block text-sm">
-              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Approved draft</span>
+              <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Approved draft</span>
               <select
                 value={form.renderDraftId}
                 onChange={(event) => update('renderDraftId', event.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm"
               >
                 <option value="">No approved draft attached</option>
                 {renderDrafts.map((draft) => (
@@ -2621,11 +2621,11 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
             />
             <TextArea label="Edit brief" value={form.renderEditBrief} onChange={(value) => update('renderEditBrief', value)} />
             <label className="block text-sm">
-              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Render source assets</span>
+              <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Render source assets</span>
               <select
                 value={form.renderSourceAssetIds}
                 onChange={(event) => update('renderSourceAssetIds', event.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm"
               >
                 <option value="">No source asset selected</option>
                 {renderSourceAssets.map((asset) => (
@@ -2634,11 +2634,11 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               </select>
             </label>
             <label className="block text-sm">
-              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Render clip candidates</span>
+              <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Render clip candidates</span>
               <select
                 value={form.renderClipCandidateIds}
                 onChange={(event) => update('renderClipCandidateIds', event.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm"
               >
                 <option value="">No clip selected</option>
                 {renderClipCandidates.map((clip) => (
@@ -2652,7 +2652,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               onChange={(value) => update('renderTimeline', value)}
               placeholder="Label | start | end | summary | voiceover | on-screen text | edit notes"
             />
-            <label className="flex items-center gap-2 text-sm text-on-surface-variant">
+            <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
               <input
                 type="checkbox"
                 checked={form.renderShowInPortal}
@@ -2661,7 +2661,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               />
               Show render in portal
             </label>
-            <label className="flex items-center gap-2 text-sm text-on-surface-variant">
+            <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
               <input
                 type="checkbox"
                 checked={form.renderShowTimelineInPortal}
@@ -2670,7 +2670,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               />
               Show timeline in portal
             </label>
-            <label className="flex items-center gap-2 text-sm text-on-surface-variant">
+            <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
               <input
                 type="checkbox"
                 checked={form.renderShowOutputsInPortal}
@@ -2685,13 +2685,13 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           </form>
 
           <form onSubmit={queueAgentJob} className="pib-card-section space-y-4 p-5">
-            <h2 className="font-headline font-bold text-on-surface">Queue Hermes job</h2>
+            <h2 className="font-headline font-bold text-[var(--color-pib-text)]">Queue Hermes job</h2>
             <label className="block text-sm">
-              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Video</span>
+              <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Video</span>
               <select
                 value={form.jobVideoId}
                 onChange={(event) => update('jobVideoId', event.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm"
               >
                 <option value="">Select a video</option>
                 {visibleVideos.map((video) => (
@@ -2700,11 +2700,11 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               </select>
             </label>
             <label className="block text-sm">
-              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Skill</span>
+              <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Skill</span>
               <select
                 value={form.jobSkillKey}
                 onChange={(event) => update('jobSkillKey', event.target.value as YouTubeProductionSkillKey)}
-                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm"
               >
                 {YOUTUBE_PRODUCTION_SKILLS.map((skill) => (
                   <option key={skill.key} value={skill.key}>{skill.label}</option>
@@ -2722,13 +2722,13 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           </form>
 
           <form onSubmit={createPublishingPacket} className="pib-card-section space-y-4 p-5">
-            <h2 className="font-headline font-bold text-on-surface">Create packet</h2>
+            <h2 className="font-headline font-bold text-[var(--color-pib-text)]">Create packet</h2>
             <label className="block text-sm">
-              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Video</span>
+              <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Video</span>
               <select
                 value={form.packetVideoId}
                 onChange={(event) => update('packetVideoId', event.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm"
               >
                 <option value="">Select a video</option>
                 {visibleVideos.map((video) => (
@@ -2750,7 +2750,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               onChange={(value) => update('packetChapters', value)}
               placeholder="00:00 Intro"
             />
-            <label className="flex items-center gap-2 text-sm text-on-surface-variant">
+            <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
               <input
                 type="checkbox"
                 checked={form.packetMadeForKids}
@@ -2759,7 +2759,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               />
               Self-declared made for kids
             </label>
-            <label className="flex items-center gap-2 text-sm text-on-surface-variant">
+            <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
               <input
                 type="checkbox"
                 checked={form.packetContainsSyntheticMedia}
@@ -2779,13 +2779,13 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           </form>
 
           <form onSubmit={createReleasePlan} className="pib-card-section space-y-4 p-5">
-            <h2 className="font-headline font-bold text-on-surface">Plan release</h2>
+            <h2 className="font-headline font-bold text-[var(--color-pib-text)]">Plan release</h2>
             <label className="block text-sm">
-              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Approved packet</span>
+              <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Approved packet</span>
               <select
                 value={form.releasePacketId}
                 onChange={(event) => update('releasePacketId', event.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm"
               >
                 <option value="">Select an approved packet</option>
                 {approvedPackets.map((packet) => (
@@ -2827,13 +2827,13 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           </form>
 
           <form onSubmit={importAnalytics} className="pib-card-section space-y-4 p-5">
-            <h2 className="font-headline font-bold text-on-surface">Import analytics</h2>
+            <h2 className="font-headline font-bold text-[var(--color-pib-text)]">Import analytics</h2>
             <label className="block text-sm">
-              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Channel</span>
+              <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Channel</span>
               <select
                 value={form.analyticsChannelId}
                 onChange={(event) => selectAnalyticsChannel(event.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm"
               >
                 <option value="">Select a channel</option>
                 {visibleChannels.map((channel) => (
@@ -2842,11 +2842,11 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               </select>
             </label>
             <label className="block text-sm">
-              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Video</span>
+              <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Video</span>
               <select
                 value={form.analyticsVideoId}
                 onChange={(event) => selectAnalyticsVideo(event.target.value)}
-                className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm"
               >
                 <option value="">Channel snapshot</option>
                 {analyticsVideoOptions.map((video) => (
@@ -2916,7 +2916,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
               value={form.analyticsRecommendationSummary}
               onChange={(value) => update('analyticsRecommendationSummary', value)}
             />
-            <label className="flex items-center gap-2 text-sm text-on-surface-variant">
+            <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
               <input
                 type="checkbox"
                 checked={form.analyticsShowInPortal}
@@ -2950,9 +2950,9 @@ function Metric({ label, value, suffix = '' }: { label: string; value?: number; 
 function CommandSummaryCard({ title, value, detail }: { title: string; value: number; detail: string }) {
   return (
     <div className="rounded-xl border border-[var(--color-pib-line)] p-3 text-sm">
-      <p className="font-medium text-on-surface">{title}</p>
-      <p className="text-2xl font-semibold text-on-surface">{value}</p>
-      <p className="text-xs text-on-surface-variant">{detail}</p>
+      <p className="font-medium text-[var(--color-pib-text)]">{title}</p>
+      <p className="text-2xl font-semibold text-[var(--color-pib-text)]">{value}</p>
+      <p className="text-xs text-[var(--color-pib-text-muted)]">{detail}</p>
     </div>
   )
 }
@@ -2960,10 +2960,10 @@ function CommandSummaryCard({ title, value, detail }: { title: string; value: nu
 function QueuePanel({ title, empty, items }: { title: string; empty: string; items: Array<{ id: string; label: string; detail?: string }> }) {
   return (
     <div className="rounded-xl border border-[var(--color-pib-line)] p-3 text-sm">
-      <p className="font-medium text-on-surface">{title}</p>
-      {items.length === 0 ? <p className="mt-2 text-on-surface-variant">{empty}</p> : (
+      <p className="font-medium text-[var(--color-pib-text)]">{title}</p>
+      {items.length === 0 ? <p className="mt-2 text-[var(--color-pib-text-muted)]">{empty}</p> : (
         <ul className="mt-2 space-y-1">
-          {items.map((item) => <li key={item.id} className="text-on-surface-variant"><span className="font-medium text-on-surface">{item.label}</span>{item.detail ? ` / ${item.detail}` : ''}</li>)}
+          {items.map((item) => <li key={item.id} className="text-[var(--color-pib-text-muted)]"><span className="font-medium text-[var(--color-pib-text)]">{item.label}</span>{item.detail ? ` / ${item.detail}` : ''}</li>)}
         </ul>
       )}
     </div>
@@ -2974,7 +2974,7 @@ function DetailList({ items, empty }: { items: Array<{ id: string; label: string
   if (items.length === 0) return <p>{empty}</p>
   return (
     <ul className="space-y-1">
-      {items.map((item) => <li key={item.id}><span className="font-medium text-on-surface">{item.label}</span>{item.detail ? ` / ${item.detail}` : ''}</li>)}
+      {items.map((item) => <li key={item.id}><span className="font-medium text-[var(--color-pib-text)]">{item.label}</span>{item.detail ? ` / ${item.detail}` : ''}</li>)}
     </ul>
   )
 }
@@ -3110,14 +3110,14 @@ function Field({
 }) {
   return (
     <label className="block text-sm">
-      <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">{label}</span>
+      <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</span>
       <input
         type={type}
         required={required}
         value={value}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+        className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm"
       />
     </label>
   )
@@ -3136,13 +3136,13 @@ function TextArea({
 }) {
   return (
     <label className="block text-sm">
-      <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">{label}</span>
+      <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</span>
       <textarea
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         rows={3}
-        className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+        className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm"
       />
     </label>
   )
@@ -3161,11 +3161,11 @@ function Select({
 }) {
   return (
     <label className="block text-sm">
-      <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">{label}</span>
+      <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+        className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm"
       >
         {options.map((option) => (
           <option key={option} value={option}>{option.replace(/_/g, ' ')}</option>

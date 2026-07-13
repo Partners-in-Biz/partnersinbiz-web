@@ -76,12 +76,12 @@ export default function StepEditor({ steps, onChange, sequenceId }: Props) {
   return (
     <div className="space-y-2">
       {steps.map((step, i) => (
-        <div key={i} className="rounded-xl border border-outline-variant overflow-hidden">
+        <div key={i} className="rounded-xl border border-[var(--color-pib-line)] overflow-hidden">
           <button
-            className="w-full flex items-center justify-between px-4 py-3 bg-surface-container text-left"
+            className="w-full flex items-center justify-between px-4 py-3 bg-[var(--color-pib-surface-soft)] text-left"
             onClick={() => setExpanded(expanded === i ? null : i)}
           >
-            <span className="text-sm font-medium text-on-surface">
+            <span className="text-sm font-medium text-[var(--color-pib-text)]">
               Step {step.stepNumber}: {step.subject || '(no subject)'}
               {step.branch && (
                 <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-primary-container text-on-primary-container">
@@ -94,23 +94,23 @@ export default function StepEditor({ steps, onChange, sequenceId }: Props) {
                 </span>
               )}
             </span>
-            <span className="text-xs text-on-surface-variant">
+            <span className="text-xs text-[var(--color-pib-text-muted)]">
               {step.delayDays === 0 ? 'Immediately' : `+${step.delayDays}d`}
             </span>
           </button>
           {expanded === i && (
-            <div className="p-4 bg-surface space-y-3 border-t border-outline-variant">
+            <div className="p-4 bg-[var(--color-pib-surface)] space-y-3 border-t border-[var(--color-pib-line)]">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-xs">
-                  <span className="text-on-surface-variant font-medium">Channel:</span>
-                  <div className="inline-flex rounded-lg border border-outline-variant overflow-hidden">
+                  <span className="text-[var(--color-pib-text-muted)] font-medium">Channel:</span>
+                  <div className="inline-flex rounded-lg border border-[var(--color-pib-line)] overflow-hidden">
                     <button
                       type="button"
                       onClick={() => updateStep(i, 'channel', 'email')}
                       className={`px-2.5 py-1 text-xs font-medium transition-colors ${
                         (step.channel ?? 'email') === 'email'
                           ? 'bg-primary text-on-primary'
-                          : 'bg-surface text-on-surface-variant hover:text-on-surface'
+                          : 'bg-[var(--color-pib-surface)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
                       }`}
                     >
                       Email
@@ -118,10 +118,10 @@ export default function StepEditor({ steps, onChange, sequenceId }: Props) {
                     <button
                       type="button"
                       onClick={() => updateStep(i, 'channel', 'sms')}
-                      className={`px-2.5 py-1 text-xs font-medium border-l border-outline-variant transition-colors ${
+                      className={`px-2.5 py-1 text-xs font-medium border-l border-[var(--color-pib-line)] transition-colors ${
                         step.channel === 'sms'
                           ? 'bg-primary text-on-primary'
-                          : 'bg-surface text-on-surface-variant hover:text-on-surface'
+                          : 'bg-[var(--color-pib-surface)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
                       }`}
                     >
                       SMS
@@ -133,28 +133,28 @@ export default function StepEditor({ steps, onChange, sequenceId }: Props) {
               {step.channel === 'sms' ? (
                 <>
                   <div className="w-28">
-                    <label className="block text-xs font-medium text-on-surface-variant mb-1">Delay (days)</label>
+                    <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Delay (days)</label>
                     <input
                       type="number"
                       min={0}
                       value={step.delayDays}
                       onChange={(e) => updateStep(i, 'delayDays', parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+                      className="w-full pib-input"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-on-surface-variant mb-1">SMS body</label>
+                    <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">SMS body</label>
                     <textarea
                       value={step.smsBody ?? ''}
                       onChange={(e) => updateStep(i, 'smsBody', e.target.value)}
                       rows={4}
-                      className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm font-mono"
+                      className="w-full pib-input font-mono"
                       placeholder="Hi {{firstName}}, a short SMS. Reply STOP to opt out."
                     />
                     {(() => {
                       const seg = countSmsSegments(step.smsBody ?? '')
                       return (
-                        <div className="mt-1 flex items-center justify-between text-xs text-on-surface-variant">
+                        <div className="mt-1 flex items-center justify-between text-xs text-[var(--color-pib-text-muted)]">
                           <span>
                             {seg.characters} chars · {seg.segments} segment
                             {seg.segments === 1 ? '' : 's'} · {seg.encoding.toUpperCase()}
@@ -173,26 +173,26 @@ export default function StepEditor({ steps, onChange, sequenceId }: Props) {
                 <>
                   <div className="flex gap-3">
                     <div className="flex-1">
-                      <label className="block text-xs font-medium text-on-surface-variant mb-1">Subject</label>
+                      <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Subject</label>
                       <input
                         value={step.subject}
                         onChange={(e) => updateStep(i, 'subject', e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+                        className="w-full pib-input"
                       />
                     </div>
                     <div className="w-28">
-                      <label className="block text-xs font-medium text-on-surface-variant mb-1">Delay (days)</label>
+                      <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Delay (days)</label>
                       <input
                         type="number"
                         min={0}
                         value={step.delayDays}
                         onChange={(e) => updateStep(i, 'delayDays', parseInt(e.target.value) || 0)}
-                        className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+                        className="w-full pib-input"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-on-surface-variant mb-1">Body (plain text)</label>
+                    <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Body (plain text)</label>
                     <textarea
                       value={step.bodyText}
                       onChange={(e) => {
@@ -200,7 +200,7 @@ export default function StepEditor({ steps, onChange, sequenceId }: Props) {
                         updateStep(i, 'bodyHtml', `<p>${e.target.value.replace(/\n/g, '</p><p>')}</p>`)
                       }}
                       rows={4}
-                      className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm font-mono"
+                      className="w-full pib-input font-mono"
                     />
                   </div>
                   {sequenceId && (
@@ -237,7 +237,7 @@ export default function StepEditor({ steps, onChange, sequenceId }: Props) {
       ))}
       <button
         onClick={addStep}
-        className="w-full py-2 rounded-xl border border-dashed border-outline-variant text-sm text-on-surface-variant hover:bg-surface-container transition-colors"
+        className="w-full py-2 rounded-xl border border-dashed border-[var(--color-pib-line)] text-sm text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-soft)] transition-colors"
       >
         + Add step
       </button>

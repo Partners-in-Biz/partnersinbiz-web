@@ -106,7 +106,7 @@ export function SpacerBlockForm({ props, onChange }: { props: SpacerBlockProps; 
 
 export function ColumnsBlockForm({ props }: { props: ColumnsBlockProps; onChange: (p: ColumnsBlockProps) => void }) {
   return (
-    <div className="text-xs text-on-surface-variant">
+    <div className="text-xs text-[var(--color-pib-text-muted)]">
       <p className="mb-2">Columns: 2 (left {props.columns[0].length} block(s), right {props.columns[1].length} block(s))</p>
       <p className="text-zinc-500">Edit child blocks in code — column nesting management is not exposed in the inline editor for this slice.</p>
     </div>

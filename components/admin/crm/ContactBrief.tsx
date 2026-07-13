@@ -29,13 +29,13 @@ export default function ContactBrief({ contactId, contactName }: Props) {
   }
 
   return (
-    <div className="rounded-xl border border-outline-variant bg-surface-container p-5">
+    <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-5">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
             Relationship intelligence
           </p>
-          <h3 className="mt-1 text-base font-semibold text-on-surface">
+          <h3 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">
             {brief ? `${contactLabel}'s CRM brief` : `Generate ${contactLabel}'s CRM brief`}
           </h3>
         </div>
@@ -61,24 +61,24 @@ export default function ContactBrief({ contactId, contactName }: Props) {
         </div>
       )}
       {brief ? (
-        <div className="rounded-lg border border-outline-variant/70 bg-black/10 px-3 py-3">
-          <p className="text-sm leading-relaxed text-on-surface">{brief}</p>
+        <div className="rounded-lg border border-[var(--color-pib-line)]/70 bg-black/10 px-3 py-3">
+          <p className="text-sm leading-relaxed text-[var(--color-pib-text)]">{brief}</p>
         </div>
       ) : !loading && (
-        <div className="rounded-lg border border-dashed border-outline-variant bg-black/10 px-3 py-3">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+        <div className="rounded-lg border border-dashed border-[var(--color-pib-line)] bg-black/10 px-3 py-3">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
             Relationship intelligence missing
           </p>
-          <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+          <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
             Create a concise brief from activity, email, deal, and profile context so the next employee has the relationship history before they act.
           </p>
         </div>
       )}
       {loading && (
         <div className="space-y-2">
-          <div className="h-3 bg-surface-container-high animate-pulse rounded" />
-          <div className="h-3 bg-surface-container-high animate-pulse rounded w-4/5" />
-          <div className="h-3 bg-surface-container-high animate-pulse rounded w-3/5" />
+          <div className="h-3 bg-[var(--color-pib-surface-muted)] animate-pulse rounded" />
+          <div className="h-3 bg-[var(--color-pib-surface-muted)] animate-pulse rounded w-4/5" />
+          <div className="h-3 bg-[var(--color-pib-surface-muted)] animate-pulse rounded w-3/5" />
         </div>
       )}
     </div>

@@ -37,8 +37,8 @@ function Avatar({ name }: { name: string }) {
     .join('')
   return (
     <div
-      className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-on-surface flex-shrink-0"
-      style={{ backgroundColor: 'var(--color-accent-v2)' }}
+      className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-[var(--color-pib-ink)] flex-shrink-0"
+      style={{ backgroundColor: 'var(--color-pib-cyan)' }}
     >
       {initials || '?'}
     </div>
@@ -48,19 +48,13 @@ function Avatar({ name }: { name: string }) {
 function ScopeBadge({ user }: { user: PlatformUser }) {
   if (user.isSuperAdmin) {
     return (
-      <span
-        className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full"
-        style={{ background: 'rgba(245, 158, 11, 0.15)', color: 'var(--color-accent-v2)' }}
-      >
+      <span className="pib-pill pib-pill-accent">
         Super admin
       </span>
     )
   }
   return (
-    <span
-      className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full"
-      style={{ background: 'rgba(37, 99, 235, 0.15)', color: '#2563eb' }}
-    >
+    <span className="pib-pill pib-pill-blue">
       Restricted admin
     </span>
   )
@@ -310,31 +304,32 @@ export default function PlatformUsersPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-8 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Platform Admin Users</h1>
-          <p className="text-sm text-on-surface-variant mt-0.5">
+      <header className="flex items-center justify-between">
+        <div className="min-w-0">
+          <p className="eyebrow">Admin · Access</p>
+          <h1 className="pib-page-title mt-2">Platform Admin Users</h1>
+          <p className="pib-page-sub">
             Staff accounts for PiB operators. Super admins have global platform access; restricted admins are limited by allowedOrgIds.
           </p>
         </div>
         <button
           onClick={() => setShowCreate((v) => !v)}
-          className="pib-btn-primary text-sm font-label"
+          className="btn-pib-primary"
         >
           {showCreate ? 'Cancel' : '+ Add platform user'}
         </button>
-      </div>
+      </header>
 
       {topError && (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+        <div className="pib-card px-4 py-3 text-sm text-[var(--color-error)]">
           {topError}
         </div>
       )}
 
       {notice && (
-        <div className="pib-card border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-400">
+        <div className="pib-card px-4 py-3 text-sm text-[var(--color-pib-green)]">
           {notice}
         </div>
       )}
@@ -344,7 +339,7 @@ export default function PlatformUsersPage() {
         <form onSubmit={handleCreate} className="pib-card p-5 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label className="block">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+              <span className="pib-label">
                 Name
               </span>
               <input
@@ -357,7 +352,7 @@ export default function PlatformUsersPage() {
               />
             </label>
             <label className="block">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+              <span className="pib-label">
                 Email
               </span>
               <input
@@ -378,7 +373,7 @@ export default function PlatformUsersPage() {
               onChange={(e) => setCreateSuper(e.target.checked)}
               className="w-4 h-4"
             />
-            <span className="text-sm text-on-surface">
+            <span className="text-sm text-[var(--color-pib-text)]">
               <strong>Super admin</strong> — full platform-admin access to every client workspace. The API stores this as an empty allowedOrgIds list.
             </span>
           </label>
@@ -386,20 +381,20 @@ export default function PlatformUsersPage() {
           {!createSuper && (
             <div>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+                <span className="pib-label">
                   allowedOrgIds for this restricted admin
                 </span>
                 <div className="flex gap-2 text-xs">
                   <button
                     type="button"
-                    className="pib-btn-ghost text-xs"
+                    className="btn-pib-ghost text-xs"
                     onClick={() => setCreateAllowed(new Set(clientOrgs.map((o) => o.id)))}
                   >
                     Select all
                   </button>
                   <button
                     type="button"
-                    className="pib-btn-ghost text-xs"
+                    className="btn-pib-ghost text-xs"
                     onClick={() => setCreateAllowed(new Set())}
                   >
                     Clear
@@ -408,10 +403,10 @@ export default function PlatformUsersPage() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-72 overflow-y-auto pib-card p-3">
                 {clientOrgs.length === 0 && (
-                  <p className="text-xs text-on-surface-variant col-span-2">No client organisations yet.</p>
+                  <p className="text-xs text-[var(--color-pib-text-muted)] col-span-2">No client organisations yet.</p>
                 )}
                 {clientOrgs.map((o) => (
-                  <label key={o.id} className="flex items-center gap-2 text-sm cursor-pointer p-1 rounded hover:bg-on-surface/5">
+                  <label key={o.id} className="flex items-center gap-2 text-sm cursor-pointer p-1 rounded hover:bg-[var(--color-row-hover)]">
                     <input
                       type="checkbox"
                       checked={createAllowed.has(o.id)}
@@ -426,14 +421,14 @@ export default function PlatformUsersPage() {
           )}
 
           {createError && (
-            <p className="text-sm text-red-400">{createError}</p>
+            <p className="text-sm text-[var(--color-error)]">{createError}</p>
           )}
 
           {setupLink && (
-            <div className="pib-card border border-green-500/30 bg-green-500/5 p-3 text-xs">
-              <p className="text-green-400 font-label uppercase tracking-wide mb-1">User created</p>
-              <p className="text-on-surface-variant">A welcome email with a password setup link has been sent. You can also share this link directly:</p>
-              <code className="block mt-2 break-all bg-black/20 p-2 rounded text-[11px]">{setupLink}</code>
+            <div className="pib-card p-3 text-xs">
+              <p className="pib-label text-[var(--color-pib-green)] mb-1">User created</p>
+              <p className="text-[var(--color-pib-text-muted)]">A welcome email with a password setup link has been sent. You can also share this link directly:</p>
+              <code className="block mt-2 break-all bg-[var(--color-pib-surface-2)] p-2 rounded text-[11px]">{setupLink}</code>
             </div>
           )}
 
@@ -441,12 +436,12 @@ export default function PlatformUsersPage() {
             <button
               type="button"
               onClick={() => setShowCreate(false)}
-              className="pib-btn-ghost text-sm font-label"
+              className="btn-pib-ghost text-sm font-label"
               disabled={creating}
             >
               Cancel
             </button>
-            <button type="submit" className="pib-btn-primary text-sm font-label" disabled={creating}>
+            <button type="submit" className="btn-pib-primary text-sm font-label" disabled={creating}>
               {creating ? 'Creating...' : 'Create platform user'}
             </button>
           </div>
@@ -470,7 +465,7 @@ export default function PlatformUsersPage() {
           <Skeleton className="h-16 rounded-xl" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="pib-card p-6 text-center text-sm text-on-surface-variant">
+        <div className="pib-card p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
           {users.length === 0 ? 'No platform users yet. Add one above.' : 'No matches.'}
         </div>
       ) : (
@@ -486,21 +481,21 @@ export default function PlatformUsersPage() {
                     <Avatar name={u.displayName || u.email} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-semibold text-on-surface truncate">
+                        <span className="text-sm font-semibold text-[var(--color-pib-text)] truncate">
                           {u.displayName || '(no name)'}
                         </span>
                         <ScopeBadge user={u} />
                       </div>
-                      <p className="text-xs text-on-surface-variant truncate">{u.email}</p>
-                      <p className="text-[11px] text-on-surface-variant/70 mt-0.5 font-mono">
+                      <p className="text-xs text-[var(--color-pib-text-muted)] truncate">{u.email}</p>
+                      <p className="text-[11px] text-[var(--color-pib-text-faint)] mt-0.5 font-mono">
                         {adminScopeLabel(u)}
                       </p>
                       {u.lastSignInTime ? (
-                        <p className="text-[11px] text-on-surface-variant/60 mt-0.5">
+                        <p className="text-[11px] text-[var(--color-pib-text-faint)] mt-0.5">
                           Last login: {new Date(u.lastSignInTime).toLocaleString()}
                         </p>
                       ) : (
-                        <p className="text-[11px] text-on-surface-variant/40 mt-0.5">Never signed in</p>
+                        <p className="text-[11px] text-[var(--color-pib-text-faint)] mt-0.5">Never signed in</p>
                       )}
                     </div>
                   </div>
@@ -510,14 +505,14 @@ export default function PlatformUsersPage() {
                         <button
                           onClick={() => sendFirebaseReset(u)}
                           disabled={busy || !u.email}
-                          className="pib-btn-secondary text-xs font-label"
+                          className="btn-pib-secondary text-xs font-label"
                         >
                           {busy ? 'Working...' : 'Send reset email'}
                         </button>
                         <button
                           onClick={() => createSetupLink(u)}
                           disabled={busy || !u.email}
-                          className="pib-btn-ghost text-xs font-label"
+                          className="btn-pib-ghost text-xs font-label"
                         >
                           Setup link
                         </button>
@@ -528,20 +523,20 @@ export default function PlatformUsersPage() {
                             setPasswordError(null)
                           }}
                           disabled={busy}
-                          className="pib-btn-ghost text-xs font-label"
+                          className="btn-pib-ghost text-xs font-label"
                         >
                           {showPassword ? 'Cancel' : 'Set password'}
                         </button>
                         <button
                           onClick={() => startEdit(u)}
-                          className="pib-btn-ghost text-xs font-label"
+                          className="btn-pib-ghost text-xs font-label"
                         >
                           Edit
                         </button>
                         <button
                           onClick={() => deleteUser(u.uid)}
                           disabled={deletingUid === u.uid}
-                          className="pib-btn-ghost text-xs font-label text-red-400 hover:text-red-300"
+                          className="btn-pib-ghost text-xs font-label text-[var(--color-error)]"
                           title="Delete platform user"
                         >
                           {deletingUid === u.uid ? '...' : 'Delete'}
@@ -552,18 +547,18 @@ export default function PlatformUsersPage() {
                 </div>
 
                 {setupLinkByUid[u.uid] && (
-                  <div className="mt-3 rounded-md border border-on-surface/10 bg-on-surface/5 p-3">
-                    <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+                  <div className="mt-3 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3">
+                    <p className="pib-label mb-1">
                       Setup link
                     </p>
-                    <code className="block text-[11px] break-all text-on-surface-variant">
+                    <code className="block text-[11px] break-all text-[var(--color-pib-text-muted)]">
                       {setupLinkByUid[u.uid]}
                     </code>
                   </div>
                 )}
 
                 {showPassword && (
-                  <div className="mt-4 rounded-md border border-on-surface/10 bg-on-surface/5 p-3">
+                  <div className="mt-4 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3">
                     <div className="flex flex-col gap-2 sm:flex-row">
                       <input
                         type="password"
@@ -576,12 +571,12 @@ export default function PlatformUsersPage() {
                       <button
                         onClick={() => savePassword(u)}
                         disabled={busy || newPassword.length < 8}
-                        className="pib-btn-primary text-sm font-label"
+                        className="btn-pib-primary text-sm font-label"
                       >
                         Save password
                       </button>
                     </div>
-                    {passwordError && <p className="text-xs text-red-400 mt-2">{passwordError}</p>}
+                    {passwordError && <p className="text-xs text-[var(--color-error)] mt-2">{passwordError}</p>}
                   </div>
                 )}
 
@@ -593,7 +588,7 @@ export default function PlatformUsersPage() {
                       return (
                         <span
                           key={id}
-                          className="text-[11px] px-2 py-0.5 rounded-full bg-on-surface/10 text-on-surface-variant"
+                          className="text-[11px] px-2 py-0.5 rounded-full bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]"
                         >
                           {o?.name ?? id}
                         </span>
@@ -604,9 +599,9 @@ export default function PlatformUsersPage() {
 
                 {/* Edit form */}
                 {isEditing && (
-                  <div className="mt-4 space-y-3 border-t border-on-surface/10 pt-4">
+                  <div className="mt-4 space-y-3 border-t border-[var(--color-pib-line)] pt-4">
                     <label className="block">
-                      <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+                      <span className="pib-label">
                         Name
                       </span>
                       <input
@@ -624,7 +619,7 @@ export default function PlatformUsersPage() {
                         onChange={(e) => setEditSuper(e.target.checked)}
                         className="w-4 h-4"
                       />
-                      <span className="text-sm text-on-surface">
+                      <span className="text-sm text-[var(--color-pib-text)]">
                         <strong>Super admin</strong> — full platform-admin access to every client workspace. Save with allowedOrgIds as an empty list.
                       </span>
                     </label>
@@ -632,20 +627,20 @@ export default function PlatformUsersPage() {
                     {!editSuper && (
                       <div>
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+                          <span className="pib-label">
                             allowedOrgIds for this restricted admin
                           </span>
                           <div className="flex gap-2 text-xs">
                             <button
                               type="button"
-                              className="pib-btn-ghost text-xs"
+                              className="btn-pib-ghost text-xs"
                               onClick={() => setEditAllowed(new Set(clientOrgs.map((o) => o.id)))}
                             >
                               Select all
                             </button>
                             <button
                               type="button"
-                              className="pib-btn-ghost text-xs"
+                              className="btn-pib-ghost text-xs"
                               onClick={() => setEditAllowed(new Set())}
                             >
                               Clear
@@ -654,7 +649,7 @@ export default function PlatformUsersPage() {
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto pib-card p-3">
                           {clientOrgs.map((o) => (
-                            <label key={o.id} className="flex items-center gap-2 text-sm cursor-pointer p-1 rounded hover:bg-on-surface/5">
+                            <label key={o.id} className="flex items-center gap-2 text-sm cursor-pointer p-1 rounded hover:bg-[var(--color-row-hover)]">
                               <input
                                 type="checkbox"
                                 checked={editAllowed.has(o.id)}
@@ -668,19 +663,19 @@ export default function PlatformUsersPage() {
                       </div>
                     )}
 
-                    {editError && <p className="text-sm text-red-400">{editError}</p>}
+                    {editError && <p className="text-sm text-[var(--color-error)]">{editError}</p>}
 
                     <div className="flex justify-end gap-2">
                       <button
                         onClick={() => setEditingUid(null)}
-                        className="pib-btn-ghost text-xs font-label"
+                        className="btn-pib-ghost text-xs font-label"
                         disabled={editSaving}
                       >
                         Cancel
                       </button>
                       <button
                         onClick={saveEdit}
-                        className="pib-btn-primary text-xs font-label"
+                        className="btn-pib-primary text-xs font-label"
                         disabled={editSaving}
                       >
                         {editSaving ? 'Saving...' : 'Save'}

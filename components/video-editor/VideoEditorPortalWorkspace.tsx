@@ -28,8 +28,8 @@ export function VideoEditorPortalWorkspace({ orgId, projectId }: { orgId?: strin
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="eyebrow">Studio</p>
-          <h1 className="font-headline text-3xl font-bold text-on-surface">Video Editor</h1>
-          <p className="mt-2 max-w-3xl text-sm text-on-surface-variant">
+          <h1 className="font-headline text-3xl font-bold text-[var(--color-pib-text)]">Video Editor</h1>
+          <p className="mt-2 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
             Build the actual video cut here: import source media, arrange clips, add text, render an MP4, and register the output back into YouTube Studio and Marketing Studio.
           </p>
         </div>

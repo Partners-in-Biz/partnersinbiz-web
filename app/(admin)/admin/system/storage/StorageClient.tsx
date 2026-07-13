@@ -232,13 +232,13 @@ export default function StorageClient() {
             <span className="material-symbols-outlined">database</span>
             Storage Usage
           </h1>
-          <p className="text-sm text-on-surface-variant">
+          <p className="text-sm text-[var(--color-pib-text-muted)]">
             File usage across the platform, aggregated from the <code>uploads</code> and{' '}
             <code>social_media</code> collections.
           </p>
         </div>
         <button
-          className="rounded-lg border border-outline px-3 py-1.5 text-sm hover:bg-surface-variant"
+          className="rounded-lg border border-[var(--color-pib-line-strong)] px-3 py-1.5 text-sm hover:bg-surface-variant"
           onClick={() => {
             load(planFilter)
             loadOrphans()
@@ -249,7 +249,7 @@ export default function StorageClient() {
       </div>
 
       {toast && (
-        <div className="rounded-lg bg-on-surface px-4 py-2 text-sm text-surface shadow">{toast}</div>
+        <div className="rounded-lg bg-[var(--color-pib-text)] px-4 py-2 text-sm text-surface shadow">{toast}</div>
       )}
 
       {/* Header cards */}
@@ -263,15 +263,15 @@ export default function StorageClient() {
         ) : data ? (
           <>
             <div className="pib-card p-4">
-              <div className="text-xs uppercase text-on-surface-variant">Total usage</div>
+              <div className="text-xs uppercase text-[var(--color-pib-text-muted)]">Total usage</div>
               <div className="mt-1 text-2xl font-semibold">{formatBytes(data.totalBytes)}</div>
             </div>
             <div className="pib-card p-4">
-              <div className="text-xs uppercase text-on-surface-variant">Total files</div>
+              <div className="text-xs uppercase text-[var(--color-pib-text-muted)]">Total files</div>
               <div className="mt-1 text-2xl font-semibold">{data.totalFiles.toLocaleString()}</div>
             </div>
             <div className="pib-card p-4">
-              <div className="text-xs uppercase text-on-surface-variant">Organisations</div>
+              <div className="text-xs uppercase text-[var(--color-pib-text-muted)]">Organisations</div>
               <div className="mt-1 text-2xl font-semibold">{data.byOrg.length.toLocaleString()}</div>
             </div>
           </>
@@ -281,7 +281,7 @@ export default function StorageClient() {
       {error && <div className="rounded-lg bg-error-container px-4 py-2 text-sm text-on-error-container">{error}</div>}
 
       {data?.capped && (
-        <div className="rounded-lg border border-outline bg-surface-variant px-4 py-2 text-xs text-on-surface-variant">
+        <div className="rounded-lg border border-[var(--color-pib-line-strong)] bg-surface-variant px-4 py-2 text-xs text-[var(--color-pib-text-muted)]">
           Showing a capped slice of {data.cap.toLocaleString()} docs per collection — totals are a lower
           bound, not the full bucket.
         </div>
@@ -293,7 +293,7 @@ export default function StorageClient() {
         {loading ? (
           <Skeleton className="h-32 rounded-lg" />
         ) : typeRows.length === 0 ? (
-          <p className="text-sm text-on-surface-variant">No files found.</p>
+          <p className="text-sm text-[var(--color-pib-text-muted)]">No files found.</p>
         ) : (
           <div className="space-y-2">
             {typeRows.map((row) => (
@@ -309,7 +309,7 @@ export default function StorageClient() {
                   />
                 </div>
                 <div className="w-28 shrink-0 text-right text-sm tabular-nums">{formatBytes(row.bytes)}</div>
-                <div className="w-14 shrink-0 text-right text-xs text-on-surface-variant tabular-nums">
+                <div className="w-14 shrink-0 text-right text-xs text-[var(--color-pib-text-muted)] tabular-nums">
                   {row.pct.toFixed(1)}%
                 </div>
               </div>
@@ -324,7 +324,7 @@ export default function StorageClient() {
           <h2 className="text-lg font-medium">Usage by organisation</h2>
           {data && data.plans.length > 0 && (
             <select
-              className="rounded-lg border border-outline bg-surface px-2 py-1 text-sm"
+              className="rounded-lg border border-[var(--color-pib-line-strong)] bg-surface px-2 py-1 text-sm"
               value={planFilter}
               onChange={(e) => setPlanFilter(e.target.value)}
             >
@@ -340,12 +340,12 @@ export default function StorageClient() {
         {loading ? (
           <Skeleton className="h-40 rounded-lg" />
         ) : !data || data.byOrg.length === 0 ? (
-          <p className="text-sm text-on-surface-variant">No organisations with stored files.</p>
+          <p className="text-sm text-[var(--color-pib-text-muted)]">No organisations with stored files.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs uppercase text-on-surface-variant">
+                <tr className="text-left text-xs uppercase text-[var(--color-pib-text-muted)]">
                   <th className="py-2 pr-3">Organisation</th>
                   <th className="py-2 pr-3">Plan</th>
                   <th className="py-2 pr-3 text-right">Files</th>
@@ -358,10 +358,10 @@ export default function StorageClient() {
                 {data.byOrg.map((row) => {
                   const overLimit = row.limitBytes != null && row.bytes > row.limitBytes
                   return (
-                    <tr key={row.orgId} className="border-t border-outline-variant">
+                    <tr key={row.orgId} className="border-t border-[var(--color-pib-line)]">
                       <td className="py-2 pr-3">
                         <div className="font-medium">{row.name}</div>
-                        {row.slug && <div className="text-xs text-on-surface-variant">{row.slug}</div>}
+                        {row.slug && <div className="text-xs text-[var(--color-pib-text-muted)]">{row.slug}</div>}
                       </td>
                       <td className="py-2 pr-3">{row.plan ?? '—'}</td>
                       <td className="py-2 pr-3 text-right tabular-nums">{row.files.toLocaleString()}</td>
@@ -372,7 +372,7 @@ export default function StorageClient() {
                       {isSuperAdmin && (
                         <td className="py-2 pr-3 text-right">
                           <button
-                            className="rounded border border-outline px-2 py-1 text-xs hover:bg-surface-variant"
+                            className="rounded border border-[var(--color-pib-line-strong)] px-2 py-1 text-xs hover:bg-surface-variant"
                             onClick={() => selectOrgForOverride(row)}
                           >
                             Set limit
@@ -393,31 +393,31 @@ export default function StorageClient() {
         <div className="pib-card p-4">
           <h2 className="mb-3 text-lg font-medium">Set storage limit override</h2>
           {!ovOrg ? (
-            <p className="text-sm text-on-surface-variant">
+            <p className="text-sm text-[var(--color-pib-text-muted)]">
               Click <strong>Set limit</strong> on an organisation row above to configure its storage cap.
             </p>
           ) : (
             <div className="space-y-3">
               <div className="text-sm">
                 Org: <strong>{ovOrgName}</strong>{' '}
-                <span className="text-on-surface-variant">({ovOrg})</span>
+                <span className="text-[var(--color-pib-text-muted)]">({ovOrg})</span>
               </div>
               <div className="flex flex-wrap items-end gap-3">
                 <label className="text-sm">
-                  <div className="mb-1 text-xs text-on-surface-variant">Limit (MB)</div>
+                  <div className="mb-1 text-xs text-[var(--color-pib-text-muted)]">Limit (MB)</div>
                   <input
                     type="number"
                     min="0"
-                    className="w-40 rounded-lg border border-outline bg-surface px-2 py-1.5"
+                    className="w-40 rounded-lg border border-[var(--color-pib-line-strong)] bg-surface px-2 py-1.5"
                     value={ovMb}
                     onChange={(e) => setOvMb(e.target.value)}
                     placeholder="e.g. 5000"
                   />
                 </label>
                 <label className="text-sm">
-                  <div className="mb-1 text-xs text-on-surface-variant">Type orgId to confirm</div>
+                  <div className="mb-1 text-xs text-[var(--color-pib-text-muted)]">Type orgId to confirm</div>
                   <input
-                    className="w-64 rounded-lg border border-outline bg-surface px-2 py-1.5"
+                    className="w-64 rounded-lg border border-[var(--color-pib-line-strong)] bg-surface px-2 py-1.5"
                     value={ovConfirm}
                     onChange={(e) => setOvConfirm(e.target.value)}
                     placeholder={ovOrg}
@@ -431,14 +431,14 @@ export default function StorageClient() {
                   {ovBusy ? 'Saving…' : 'Save limit'}
                 </button>
                 <button
-                  className="rounded-lg border border-outline px-3 py-2 text-sm disabled:opacity-50"
+                  className="rounded-lg border border-[var(--color-pib-line-strong)] px-3 py-2 text-sm disabled:opacity-50"
                   disabled={ovBusy || ovConfirm !== ovOrg}
                   onClick={() => submitOverride(true)}
                 >
                   Clear limit
                 </button>
                 <button
-                  className="rounded-lg px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant"
+                  className="rounded-lg px-3 py-2 text-sm text-[var(--color-pib-text-muted)] hover:bg-surface-variant"
                   onClick={() => {
                     setOvOrg('')
                     setOvOrgName('')
@@ -464,7 +464,7 @@ export default function StorageClient() {
             {orphansError}
           </div>
         ) : orphans && !orphans.storageAvailable ? (
-          <div className="flex items-start gap-2 rounded-lg border border-outline bg-surface-variant px-4 py-3 text-sm text-on-surface-variant">
+          <div className="flex items-start gap-2 rounded-lg border border-[var(--color-pib-line-strong)] bg-surface-variant px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">
             <span className="material-symbols-outlined text-base">info</span>
             <div>
               <div className="font-medium">Storage enumeration unavailable</div>
@@ -473,7 +473,7 @@ export default function StorageClient() {
           </div>
         ) : orphans ? (
           <div className="space-y-5">
-            <div className="text-xs text-on-surface-variant">
+            <div className="text-xs text-[var(--color-pib-text-muted)]">
               Scanned {orphans.scanned.toLocaleString()} Storage objects (cap {orphans.scanCap.toLocaleString()}).
               {orphans.truncated && ' Scan was truncated — missing-blob detection below is not exhaustive.'}
             </div>
@@ -481,20 +481,20 @@ export default function StorageClient() {
             <div>
               <h3 className="mb-2 text-sm font-medium">
                 Orphaned storage objects ({orphans.orphans.length})
-                <span className="ml-1 font-normal text-on-surface-variant">— blobs with no uploads record</span>
+                <span className="ml-1 font-normal text-[var(--color-pib-text-muted)]">— blobs with no uploads record</span>
               </h3>
               {orphans.orphans.length === 0 ? (
-                <p className="text-sm text-on-surface-variant">None found.</p>
+                <p className="text-sm text-[var(--color-pib-text-muted)]">None found.</p>
               ) : (
                 <div className="space-y-2">
                   {orphans.orphans.map((o) => (
                     <div
                       key={o.path}
-                      className="flex flex-wrap items-center gap-3 rounded-lg border border-outline-variant px-3 py-2 text-sm"
+                      className="flex flex-wrap items-center gap-3 rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-sm"
                     >
                       <div className="min-w-0 flex-1">
                         <div className="truncate font-mono text-xs">{o.path}</div>
-                        <div className="text-xs text-on-surface-variant">
+                        <div className="text-xs text-[var(--color-pib-text-muted)]">
                           {formatBytes(o.sizeBytes)}
                           {o.updated ? ` · updated ${new Date(o.updated).toLocaleString()}` : ''}
                         </div>
@@ -502,7 +502,7 @@ export default function StorageClient() {
                       {isSuperAdmin && (
                         <div className="flex items-center gap-2">
                           <input
-                            className="w-56 rounded border border-outline bg-surface px-2 py-1 text-xs"
+                            className="w-56 rounded border border-[var(--color-pib-line-strong)] bg-surface px-2 py-1 text-xs"
                             placeholder="Type path to confirm"
                             value={delConfirm[o.path] ?? ''}
                             onChange={(e) =>
@@ -527,27 +527,27 @@ export default function StorageClient() {
             <div>
               <h3 className="mb-2 text-sm font-medium">
                 Missing blobs ({orphans.missingBlobs.length})
-                <span className="ml-1 font-normal text-on-surface-variant">
+                <span className="ml-1 font-normal text-[var(--color-pib-text-muted)]">
                   — uploads records whose Storage blob is gone
                 </span>
               </h3>
               {orphans.truncated && (
-                <p className="mb-2 text-xs text-on-surface-variant">
+                <p className="mb-2 text-xs text-[var(--color-pib-text-muted)]">
                   Note: scan was truncated, so this list may include records whose blobs simply weren&apos;t in
                   the scanned page. Treat as advisory.
                 </p>
               )}
               {orphans.missingBlobs.length === 0 ? (
-                <p className="text-sm text-on-surface-variant">None found.</p>
+                <p className="text-sm text-[var(--color-pib-text-muted)]">None found.</p>
               ) : (
                 <div className="space-y-1">
                   {orphans.missingBlobs.map((m) => (
                     <div
                       key={m.id}
-                      className="rounded-lg border border-outline-variant px-3 py-2 text-xs"
+                      className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-xs"
                     >
                       <div className="font-mono">{m.storagePath}</div>
-                      <div className="text-on-surface-variant">
+                      <div className="text-[var(--color-pib-text-muted)]">
                         doc {m.id}
                         {m.orgId ? ` · org ${m.orgId}` : ''}
                       </div>

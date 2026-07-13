@@ -198,17 +198,17 @@ export function SocialPostReviewQueueWorkspace({ surface }: SocialPostReviewQueu
       <div className="flex items-start justify-between gap-4">
         <div>
           {backHref && config.backLabel ? (
-            <div className="flex items-center gap-3 text-xs text-[var(--color-on-surface-variant)] mb-2">
+            <div className="flex items-center gap-3 text-xs text-[var(--color-pib-text-muted)] mb-2">
               <Link href={backHref} className="hover:text-[var(--color-accent-v2)] transition-colors">
                 {config.backLabel}
               </Link>
             </div>
           ) : null}
           {config.eyebrow ? <p className="eyebrow">{config.eyebrow}</p> : null}
-          <h1 className="font-headline text-2xl md:text-3xl font-semibold text-on-surface mt-1 tracking-tight">
+          <h1 className="font-headline text-2xl md:text-3xl font-semibold text-[var(--color-pib-text)] mt-1 tracking-tight">
             {config.title}
           </h1>
-          <p className="text-sm text-on-surface-variant mt-1 max-w-xl">{config.description}</p>
+          <p className="text-sm text-[var(--color-pib-text-muted)] mt-1 max-w-xl">{config.description}</p>
         </div>
         <button
           onClick={() => load(true)}
@@ -249,8 +249,8 @@ export function SocialPostReviewQueueWorkspace({ surface }: SocialPostReviewQueu
           ))}
         </div>
       ) : list.length === 0 ? (
-        <div className={surface === 'admin' ? 'pib-card text-center py-16 text-sm text-on-surface-variant' : 'pib-card p-8 text-center'}>
-          <p className="text-on-surface-variant">{config.emptyMessage}</p>
+        <div className={surface === 'admin' ? 'pib-card text-center py-16 text-sm text-[var(--color-pib-text-muted)]' : 'pib-card p-8 text-center'}>
+          <p className="text-[var(--color-pib-text-muted)]">{config.emptyMessage}</p>
         </div>
       ) : (
         <div className={activeGroup.layout === 'row' ? 'space-y-3' : 'grid grid-cols-1 md:grid-cols-2 gap-4'}>

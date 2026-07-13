@@ -99,23 +99,26 @@ export default function EmailAnalyticsDashboard({
   )
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-6 max-w-6xl mx-auto space-y-8">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-2xl font-semibold text-on-surface">Email Analytics</h1>
+        <div>
+          <p className="eyebrow">Email · Analytics</p>
+          <h1 className="pib-page-title mt-2">Email Analytics</h1>
+        </div>
         <div className="flex items-center gap-2 text-sm">
-          <label className="text-on-surface-variant">From</label>
+          <label className="pib-label">From</label>
           <input
             type="date"
             value={from}
             onChange={(e) => setFrom(e.target.value)}
-            className="px-2 py-1 rounded-lg border border-outline-variant bg-surface text-on-surface"
+            className="pib-input w-auto"
           />
-          <label className="text-on-surface-variant">To</label>
+          <label className="pib-label">To</label>
           <input
             type="date"
             value={to}
             onChange={(e) => setTo(e.target.value)}
-            className="px-2 py-1 rounded-lg border border-outline-variant bg-surface text-on-surface"
+            className="pib-input w-auto"
           />
         </div>
       </div>
@@ -192,14 +195,14 @@ function OverviewTab({ orgId, from, to }: { orgId: string; from: string; to: str
     return (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="h-24 rounded-xl bg-surface-container animate-pulse" />
+          <div key={i} className="pib-skeleton h-24 rounded-xl" />
         ))}
       </div>
     )
   }
 
   if (!overview) {
-    return <div className="text-on-surface-variant">No data.</div>
+    return <div className="text-[var(--color-pib-text-muted)]">No data.</div>
   }
 
   const { totals, rates, bySource, topBroadcasts, topCampaigns } = overview
@@ -255,7 +258,7 @@ function OverviewTab({ orgId, from, to }: { orgId: string; from: string; to: str
           <Empty>No campaigns in range.</Empty>
         ) : (
           <table className="w-full text-sm">
-            <thead className="text-on-surface-variant text-left">
+            <thead className="text-[var(--color-pib-text-muted)] text-left">
               <tr>
                 <th className="py-2">Name</th>
                 <th className="py-2 text-right">Sent</th>
@@ -265,8 +268,8 @@ function OverviewTab({ orgId, from, to }: { orgId: string; from: string; to: str
             </thead>
             <tbody>
               {topCampaigns.map((c) => (
-                <tr key={c.id} className="border-t border-outline-variant">
-                  <td className="py-2 text-on-surface">{c.name}</td>
+                <tr key={c.id} className="border-t border-[var(--color-pib-line)]">
+                  <td className="py-2 text-[var(--color-pib-text)]">{c.name}</td>
                   <td className="py-2 text-right tabular-nums">{c.sent}</td>
                   <td className="py-2 text-right tabular-nums">{pct(c.openRate)}</td>
                   <td className="py-2 text-right tabular-nums">{pct(c.clickRate)}</td>
@@ -320,9 +323,7 @@ function EngagementTab({ orgId }: { orgId: string }) {
       <div className="flex gap-2 flex-wrap">
         <button
           onClick={() => setStatus('all')}
-          className={`px-3 py-1 rounded-full text-xs ${
-            status === 'all' ? 'bg-amber-500 text-black' : 'bg-surface-container text-on-surface-variant'
-          }`}
+          className={`pib-pill ${status === 'all' ? 'pib-pill-blue' : ''}`}
         >
           All
         </button>
@@ -330,9 +331,7 @@ function EngagementTab({ orgId }: { orgId: string }) {
           <button
             key={s}
             onClick={() => setStatus(s)}
-            className={`px-3 py-1 rounded-full text-xs ${
-              status === s ? 'bg-amber-500 text-black' : 'bg-surface-container text-on-surface-variant'
-            }`}
+            className={`pib-pill ${status === s ? 'pib-pill-blue' : ''}`}
           >
             {s}
           </button>
@@ -340,12 +339,12 @@ function EngagementTab({ orgId }: { orgId: string }) {
       </div>
 
       {loading ? (
-        <div className="h-64 rounded-xl bg-surface-container animate-pulse" />
+        <div className="pib-skeleton h-64 rounded-xl" />
       ) : rows.length === 0 ? (
         <Empty>No contacts match this filter.</Empty>
       ) : (
         <table className="w-full text-sm">
-          <thead className="text-on-surface-variant text-left">
+          <thead className="text-[var(--color-pib-text-muted)] text-left">
             <tr>
               <th className="py-2">Contact</th>
               <th className="py-2 text-right">Score</th>
@@ -358,21 +357,19 @@ function EngagementTab({ orgId }: { orgId: string }) {
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.contactId} className="border-t border-outline-variant">
+              <tr key={r.contactId} className="border-t border-[var(--color-pib-line)]">
                 <td className="py-2">
-                  <div className="text-on-surface">{r.name || r.email}</div>
-                  <div className="text-xs text-on-surface-variant">{r.email}</div>
+                  <div className="text-[var(--color-pib-text)]">{r.name || r.email}</div>
+                  <div className="text-xs text-[var(--color-pib-text-muted)]">{r.email}</div>
                 </td>
                 <td className="py-2 text-right tabular-nums">{r.score}</td>
                 <td className="py-2 text-right tabular-nums">{r.sent}</td>
                 <td className="py-2 text-right tabular-nums">{r.opened}</td>
                 <td className="py-2 text-right tabular-nums">{r.clicked}</td>
                 <td className="py-2">
-                  <span className="px-2 py-0.5 rounded-full text-xs bg-surface-container text-on-surface-variant">
-                    {r.status}
-                  </span>
+                  <span className="pib-pill">{r.status}</span>
                 </td>
-                <td className="py-2 text-on-surface-variant text-xs">
+                <td className="py-2 text-[var(--color-pib-text-muted)] text-xs">
                   {r.lastEngagedAt ? new Date(r.lastEngagedAt).toLocaleDateString() : '—'}
                 </td>
               </tr>
@@ -433,14 +430,14 @@ function BroadcastsTab({
   const loading = state.loading || state.key !== `${orgId}|${from}|${to}`
   const overview = state.overview
 
-  if (loading) return <div className="h-64 rounded-xl bg-surface-container animate-pulse" />
+  if (loading) return <div className="pib-skeleton h-64 rounded-xl" />
   if (!overview || overview.topBroadcasts.length === 0) {
     return <Empty>No broadcasts in this window.</Empty>
   }
 
   return (
     <table className="w-full text-sm">
-      <thead className="text-on-surface-variant text-left">
+      <thead className="text-[var(--color-pib-text-muted)] text-left">
         <tr>
           <th className="py-2">Name</th>
           <th className="py-2 text-right">Sent</th>
@@ -453,8 +450,8 @@ function BroadcastsTab({
       </thead>
       <tbody>
         {overview.topBroadcasts.map((b) => (
-          <tr key={b.id} className="border-t border-outline-variant">
-            <td className="py-2 text-on-surface">{b.name}</td>
+          <tr key={b.id} className="border-t border-[var(--color-pib-line)]">
+            <td className="py-2 text-[var(--color-pib-text)]">{b.name}</td>
             <td className="py-2 text-right tabular-nums">{b.sent}</td>
             <td className="py-2 text-right tabular-nums">{b.opened}</td>
             <td className="py-2 text-right tabular-nums">{b.clicked}</td>
@@ -464,7 +461,7 @@ function BroadcastsTab({
               <Link
                 href={broadcastAnalyticsHref(b.id, surface, orgScope)}
                 aria-label={`Open analytics for ${b.name}`}
-                className="text-amber-500 hover:underline text-xs"
+                className="text-[var(--color-pib-blue)] hover:underline text-xs"
               >
                 Details →
               </Link>
@@ -547,33 +544,33 @@ function SequencesTab({
   const loading = state.loading || state.key !== orgId
   const sequences = state.sequences
 
-  if (loading) return <div className="h-64 rounded-xl bg-surface-container animate-pulse" />
+  if (loading) return <div className="pib-skeleton h-64 rounded-xl" />
 
   return (
     <section>
       <div className="mb-2 flex items-center justify-between gap-3">
-        <h2 className="text-sm font-medium text-on-surface-variant">Sequence performance</h2>
+        <h2 className="text-sm font-medium text-[var(--color-pib-text-muted)]">Sequence performance</h2>
         <Link
           href={sequenceManagementHref(surface, orgScope)}
-          className="text-xs font-medium text-amber-500 hover:underline"
+          className="text-xs font-medium text-[var(--color-pib-blue)] hover:underline"
         >
           Manage sequences
         </Link>
       </div>
-      <div className="rounded-xl bg-surface-container border border-outline-variant divide-y divide-outline-variant">
+      <div className="pib-card divide-y divide-[var(--color-pib-line)] p-0">
         {state.error ? (
-          <p className="p-4 text-sm text-on-surface-variant">{state.error}</p>
+          <p className="p-4 text-sm text-[var(--color-pib-text-muted)]">{state.error}</p>
         ) : sequences.length === 0 ? (
-          <p className="p-4 text-sm text-on-surface-variant">No active sequences yet.</p>
+          <p className="p-4 text-sm text-[var(--color-pib-text-muted)]">No active sequences yet.</p>
         ) : (
           sequences.map((sequence) => (
             <Link
               key={sequence.id}
               href={sequenceAnalyticsHref(sequence.id, surface, orgScope)}
-              className="flex items-center justify-between gap-4 p-4 text-sm transition-colors hover:bg-white/[0.04]"
+              className="flex items-center justify-between gap-4 p-4 text-sm transition-colors hover:bg-[var(--color-row-hover)]"
             >
-              <span className="font-medium text-on-surface">{sequence.name}</span>
-              <span className="text-xs text-amber-500">Open analytics</span>
+              <span className="font-medium text-[var(--color-pib-text)]">{sequence.name}</span>
+              <span className="text-xs text-[var(--color-pib-blue)]">Open analytics</span>
             </Link>
           ))
         )}
@@ -608,12 +605,12 @@ function LeaderboardTab({ from, to }: { from: string; to: string }) {
   const loading = state.loading || state.key !== `${from}|${to}`
   const rows = state.rows
 
-  if (loading) return <div className="h-64 rounded-xl bg-surface-container animate-pulse" />
+  if (loading) return <div className="pib-skeleton h-64 rounded-xl" />
   if (rows.length === 0) return <Empty>No org activity in this window.</Empty>
 
   return (
     <table className="w-full text-sm">
-      <thead className="text-on-surface-variant text-left">
+      <thead className="text-[var(--color-pib-text-muted)] text-left">
         <tr>
           <th className="py-2">Org</th>
           <th className="py-2 text-right">Sent</th>
@@ -624,8 +621,8 @@ function LeaderboardTab({ from, to }: { from: string; to: string }) {
       </thead>
       <tbody>
         {rows.map((r) => (
-          <tr key={r.orgId} className="border-t border-outline-variant">
-            <td className="py-2 text-on-surface">{r.orgName}</td>
+          <tr key={r.orgId} className="border-t border-[var(--color-pib-line)]">
+            <td className="py-2 text-[var(--color-pib-text)]">{r.orgName}</td>
             <td className="py-2 text-right tabular-nums">{r.sent}</td>
             <td className="py-2 text-right tabular-nums">{pct(r.openRate)}</td>
             <td className="py-2 text-right tabular-nums">{pct(r.clickRate)}</td>
@@ -665,7 +662,7 @@ function CohortsTab({ orgId, from, to }: { orgId: string; from: string; to: stri
   const loading = state.loading || state.key !== `${orgId}|${from}|${to}`
   const data = state.data
 
-  if (loading) return <div className="h-64 rounded-xl bg-surface-container animate-pulse" />
+  if (loading) return <div className="pib-skeleton h-64 rounded-xl" />
   if (!data || data.cohorts.length === 0) {
     return (
       <Empty>
@@ -681,20 +678,20 @@ function CohortsTab({ orgId, from, to }: { orgId: string; from: string; to: stri
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-on-surface-variant">
+      <p className="text-xs text-[var(--color-pib-text-muted)]">
         Rows = ISO-week each cohort signed up (UTC Monday). Cells = % of cohort that opened or
         clicked an email that week.
       </p>
-      <div className="overflow-x-auto rounded-xl bg-surface-container">
+      <div className="overflow-x-auto rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
         <table className="w-full text-xs border-separate border-spacing-0">
           <thead>
             <tr>
-              <th className="text-left p-2 text-on-surface-variant font-medium sticky left-0 bg-surface-container z-10">
+              <th className="text-left p-2 text-[var(--color-pib-text-muted)] font-medium sticky left-0 bg-[var(--color-pib-surface)] z-10">
                 Signup week
               </th>
-              <th className="text-right p-2 text-on-surface-variant font-medium">Size</th>
+              <th className="text-right p-2 text-[var(--color-pib-text-muted)] font-medium">Size</th>
               {headers.map((i) => (
-                <th key={i} className="p-2 text-on-surface-variant font-medium text-center">
+                <th key={i} className="p-2 text-[var(--color-pib-text-muted)] font-medium text-center">
                   W{i}
                 </th>
               ))}
@@ -703,23 +700,23 @@ function CohortsTab({ orgId, from, to }: { orgId: string; from: string; to: stri
           <tbody>
             {data.cohorts.map((c) => (
               <tr key={c.cohortStart}>
-                <td className="p-2 text-on-surface text-xs whitespace-nowrap sticky left-0 bg-surface-container z-10">
+                <td className="p-2 text-[var(--color-pib-text)] text-xs whitespace-nowrap sticky left-0 bg-[var(--color-pib-surface)] z-10">
                   {c.cohortStart}
                 </td>
-                <td className="p-2 text-on-surface-variant tabular-nums text-right">
+                <td className="p-2 text-[var(--color-pib-text-muted)] tabular-nums text-right">
                   {c.cohortSize}
                 </td>
                 {headers.map((i) => {
                   const ret = c.retentionPercent[i]
                   if (typeof ret !== 'number') {
-                    return <td key={i} className="p-2 text-on-surface-variant text-center">—</td>
+                    return <td key={i} className="p-2 text-[var(--color-pib-text-muted)] text-center">—</td>
                   }
                   const bg = heatmapShade(ret)
                   const fg = heatmapTextColor(ret)
                   return (
                     <td
                       key={i}
-                      className="p-2 text-center tabular-nums border border-outline-variant/30"
+                      className="p-2 text-center tabular-nums border border-[var(--color-pib-line)]"
                       style={{ background: bg, color: fg }}
                       title={`Week ${i}: ${pct(ret)}`}
                     >
@@ -770,7 +767,7 @@ function RevenueTab({ orgId, from, to }: { orgId: string; from: string; to: stri
   const loading = state.loading || state.key !== `${orgId}|${from}|${to}`
   const data = state.data
 
-  if (loading) return <div className="h-64 rounded-xl bg-surface-container animate-pulse" />
+  if (loading) return <div className="pib-skeleton h-64 rounded-xl" />
   if (!data || (data.totalRevenue === 0 && data.totalConversions === 0)) {
     return (
       <Empty>
@@ -820,7 +817,7 @@ function RevenueTab({ orgId, from, to }: { orgId: string; from: string; to: stri
             <Empty>No attributed emails.</Empty>
           ) : (
             <table className="w-full text-sm">
-              <thead className="text-on-surface-variant text-left">
+              <thead className="text-[var(--color-pib-text-muted)] text-left">
                 <tr>
                   <th className="py-2">Subject</th>
                   <th className="py-2 text-right">Conversions</th>
@@ -829,9 +826,9 @@ function RevenueTab({ orgId, from, to }: { orgId: string; from: string; to: stri
               </thead>
               <tbody>
                 {data.topPerformingEmails.map((e) => (
-                  <tr key={e.emailId} className="border-t border-outline-variant">
-                    <td className="py-2 text-on-surface truncate max-w-xs">
-                      {e.subject || <span className="text-on-surface-variant italic">No subject</span>}
+                  <tr key={e.emailId} className="border-t border-[var(--color-pib-line)]">
+                    <td className="py-2 text-[var(--color-pib-text)] truncate max-w-xs">
+                      {e.subject || <span className="text-[var(--color-pib-text-muted)] italic">No subject</span>}
                     </td>
                     <td className="py-2 text-right tabular-nums">{e.conversions}</td>
                     <td className="py-2 text-right tabular-nums">{zar(e.revenue)}</td>
@@ -847,7 +844,7 @@ function RevenueTab({ orgId, from, to }: { orgId: string; from: string; to: stri
             <Empty>No attributed sources.</Empty>
           ) : (
             <table className="w-full text-sm">
-              <thead className="text-on-surface-variant text-left">
+              <thead className="text-[var(--color-pib-text-muted)] text-left">
                 <tr>
                   <th className="py-2">Source</th>
                   <th className="py-2">Name</th>
@@ -856,9 +853,9 @@ function RevenueTab({ orgId, from, to }: { orgId: string; from: string; to: stri
               </thead>
               <tbody>
                 {data.topPerformingSources.map((s) => (
-                  <tr key={`${s.source}|${s.sourceId}`} className="border-t border-outline-variant">
-                    <td className="py-2 text-on-surface-variant text-xs">{s.source}</td>
-                    <td className="py-2 text-on-surface truncate max-w-xs">{s.name}</td>
+                  <tr key={`${s.source}|${s.sourceId}`} className="border-t border-[var(--color-pib-line)]">
+                    <td className="py-2 text-[var(--color-pib-text-muted)] text-xs">{s.source}</td>
+                    <td className="py-2 text-[var(--color-pib-text)] truncate max-w-xs">{s.name}</td>
                     <td className="py-2 text-right tabular-nums">{zar(s.revenue)}</td>
                   </tr>
                 ))}
@@ -897,7 +894,7 @@ function SendTimeTab({ orgId, from, to }: { orgId: string; from: string; to: str
   const loading = state.loading || state.key !== `${orgId}|${from}|${to}`
   const data = state.data
 
-  if (loading) return <div className="h-64 rounded-xl bg-surface-container animate-pulse" />
+  if (loading) return <div className="pib-skeleton h-64 rounded-xl" />
   if (!data || data.totalSamples === 0) {
     return <Empty>No send activity in this window — nothing to plot.</Empty>
   }
@@ -913,19 +910,19 @@ function SendTimeTab({ orgId, from, to }: { orgId: string; from: string; to: str
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-on-surface-variant">
+      <p className="text-xs text-[var(--color-pib-text-muted)]">
         Open rates by day-of-week and hour, in the org&apos;s timezone ({data.timezone}). Cells
         need at least 10 sends to be eligible for best/worst.
       </p>
-      <div className="overflow-x-auto rounded-xl bg-surface-container">
+      <div className="overflow-x-auto rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)]">
         <table className="text-[10px] border-separate border-spacing-0 mx-auto">
           <thead>
             <tr>
-              <th className="p-1.5 text-on-surface-variant font-medium"></th>
+              <th className="p-1.5 text-[var(--color-pib-text-muted)] font-medium"></th>
               {Array.from({ length: 24 }).map((_, h) => (
                 <th
                   key={h}
-                  className="p-1 text-on-surface-variant font-medium text-center w-9"
+                  className="p-1 text-[var(--color-pib-text-muted)] font-medium text-center w-9"
                 >
                   {String(h).padStart(2, '0')}
                 </th>
@@ -935,7 +932,7 @@ function SendTimeTab({ orgId, from, to }: { orgId: string; from: string; to: str
           <tbody>
             {data.cells.map((row, d) => (
               <tr key={d}>
-                <td className="p-1.5 text-on-surface-variant text-right font-medium pr-2">
+                <td className="p-1.5 text-[var(--color-pib-text-muted)] text-right font-medium pr-2">
                   {DAY_LABELS[d]}
                 </td>
                 {row.map((cell, h) => {
@@ -952,7 +949,7 @@ function SendTimeTab({ orgId, from, to }: { orgId: string; from: string; to: str
                           ? 'border-amber-300 border-2'
                           : isWorst
                             ? 'border-red-500 border-2'
-                            : 'border-outline-variant/30'
+                            : 'border-[var(--color-pib-line)]'
                       }`}
                       style={{ background: bg, color: fg, minWidth: 28 }}
                       title={`${DAY_LABELS[d]} ${String(h).padStart(2, '0')}:00 — ${pct(
@@ -972,9 +969,9 @@ function SendTimeTab({ orgId, from, to }: { orgId: string; from: string; to: str
       </div>
 
       {bestCell && bestCell.sent >= 1 ? (
-        <div className="rounded-xl bg-surface-container p-4 text-sm text-on-surface">
+        <div className="pib-card text-sm text-[var(--color-pib-text)]">
           Best send time:{' '}
-          <span className="font-semibold text-amber-400">
+          <span className="font-semibold text-[var(--color-pib-blue)]">
             {DAY_LABELS[data.bestDay]} at {String(data.bestHour).padStart(2, '0')}:00
           </span>{' '}
           — {pct(bestCell.openRate)} avg open rate ({bestCell.sent} sends)
@@ -1012,11 +1009,11 @@ function bandColor(band: PerformanceBand, direction: 'higher' | 'lower'): string
   if (direction === 'higher') {
     if (band === 'above-p75') return 'text-emerald-400'
     if (band === 'p50-p75') return 'text-amber-300'
-    if (band === 'p25-p50') return 'text-amber-500'
+    if (band === 'p25-p50') return 'text-[var(--color-pib-blue)]'
     return 'text-red-400'
   }
   if (band === 'above-p75') return 'text-red-400'
-  if (band === 'p50-p75') return 'text-amber-500'
+  if (band === 'p50-p75') return 'text-[var(--color-pib-blue)]'
   if (band === 'p25-p50') return 'text-amber-300'
   return 'text-emerald-400'
 }
@@ -1067,11 +1064,11 @@ function BenchmarksTab({ orgId, from, to }: { orgId: string; from: string; to: s
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 text-sm">
-        <label className="text-on-surface-variant">Industry</label>
+        <label className="text-[var(--color-pib-text-muted)]">Industry</label>
         <select
           value={industry}
           onChange={(e) => setIndustry(e.target.value)}
-          className="px-2 py-1 rounded-lg border border-outline-variant bg-surface text-on-surface"
+          className="pib-select w-auto"
         >
           <option value="">Auto (org default)</option>
           {INDUSTRIES.map((i) => (
@@ -1083,7 +1080,7 @@ function BenchmarksTab({ orgId, from, to }: { orgId: string; from: string; to: s
       </div>
 
       {loading ? (
-        <div className="h-64 rounded-xl bg-surface-container animate-pulse" />
+        <div className="pib-skeleton h-64 rounded-xl" />
       ) : !data ? (
         <Empty>Could not load benchmarks.</Empty>
       ) : (
@@ -1106,10 +1103,10 @@ function BenchmarksTable({ data }: { data: BenchmarkComparison }) {
   ]
 
   return (
-    <div className="rounded-xl bg-surface-container overflow-hidden">
+    <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] overflow-hidden">
       <table className="w-full text-sm">
-        <thead className="text-on-surface-variant text-left">
-          <tr className="border-b border-outline-variant">
+        <thead className="text-[var(--color-pib-text-muted)] text-left">
+          <tr className="border-b border-[var(--color-pib-line)]">
             <th className="py-2 px-3">Metric</th>
             <th className="py-2 px-3 text-right">This window</th>
             <th className="py-2 px-3 text-right">Your rolling 30d</th>
@@ -1135,32 +1132,32 @@ function BenchmarksTable({ data }: { data: BenchmarkComparison }) {
                   ? 'text-emerald-400'
                   : arrow === '↓'
                     ? 'text-red-400'
-                    : 'text-on-surface-variant'
+                    : 'text-[var(--color-pib-text-muted)]'
                 : arrow === '↓'
                   ? 'text-emerald-400'
                   : arrow === '↑'
                     ? 'text-red-400'
-                    : 'text-on-surface-variant'
+                    : 'text-[var(--color-pib-text-muted)]'
             return (
-              <tr key={row.key} className="border-t border-outline-variant">
-                <td className="py-2 px-3 text-on-surface">{row.label}</td>
-                <td className="py-2 px-3 text-right tabular-nums text-on-surface">
+              <tr key={row.key} className="border-t border-[var(--color-pib-line)]">
+                <td className="py-2 px-3 text-[var(--color-pib-text)]">{row.label}</td>
+                <td className="py-2 px-3 text-right tabular-nums text-[var(--color-pib-text)]">
                   <span className="inline-flex items-baseline gap-1.5">
                     <span>{pct(orgValue)}</span>
                     <span className={arrowColor + ' text-xs'}>{arrow}</span>
                   </span>
                 </td>
-                <td className="py-2 px-3 text-right tabular-nums text-on-surface-variant">
+                <td className="py-2 px-3 text-right tabular-nums text-[var(--color-pib-text-muted)]">
                   {pct(ownValue)}
                 </td>
-                <td className="py-2 px-3 text-right tabular-nums text-on-surface-variant">
+                <td className="py-2 px-3 text-right tabular-nums text-[var(--color-pib-text-muted)]">
                   {pct(band.p50)}
                 </td>
-                <td className="py-2 px-3 text-right text-xs text-on-surface-variant tabular-nums">
-                  <span className="px-1.5 py-0.5 rounded bg-surface-container-high mr-1">
+                <td className="py-2 px-3 text-right text-xs text-[var(--color-pib-text-muted)] tabular-nums">
+                  <span className="px-1.5 py-0.5 rounded bg-[var(--color-pib-line)] mr-1">
                     p25 {pct(band.p25)}
                   </span>
-                  <span className="px-1.5 py-0.5 rounded bg-surface-container-high">
+                  <span className="px-1.5 py-0.5 rounded bg-[var(--color-pib-line)]">
                     p75 {pct(band.p75)}
                   </span>
                 </td>
@@ -1172,8 +1169,8 @@ function BenchmarksTable({ data }: { data: BenchmarkComparison }) {
           })}
         </tbody>
       </table>
-      <div className="px-3 py-2 text-xs text-on-surface-variant border-t border-outline-variant">
-        Industry: <span className="text-on-surface">{data.industry.industry}</span>.
+      <div className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)] border-t border-[var(--color-pib-line)]">
+        Industry: <span className="text-[var(--color-pib-text)]">{data.industry.industry}</span>.
         Arrow compares &ldquo;This window&rdquo; to &ldquo;Your rolling 30d&rdquo;.
       </div>
     </div>
@@ -1194,12 +1191,12 @@ function Kpi({
   tone?: 'warn'
 }) {
   return (
-    <div className="rounded-xl bg-surface-container p-4">
-      <div className="text-xs text-on-surface-variant">{label}</div>
-      <div className={`text-2xl font-semibold ${tone === 'warn' ? 'text-red-400' : 'text-on-surface'}`}>
+    <div className="pib-stat-card">
+      <div className="pib-label">{label}</div>
+      <div className={`mt-1 text-2xl font-semibold ${tone === 'warn' ? 'text-[var(--color-error)]' : 'text-[var(--color-pib-text)]'}`}>
         {typeof value === 'number' ? value.toLocaleString() : value}
       </div>
-      {sub && <div className="text-xs text-on-surface-variant mt-1">{sub}</div>}
+      {sub && <div className="text-xs text-[var(--color-pib-text-muted)] mt-1">{sub}</div>}
     </div>
   )
 }
@@ -1207,12 +1204,12 @@ function Kpi({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <h2 className="text-sm font-medium text-on-surface-variant mb-2">{title}</h2>
-      <div className="rounded-xl bg-surface-container p-4">{children}</div>
+      <h2 className="pib-label mb-2">{title}</h2>
+      <div className="pib-card">{children}</div>
     </section>
   )
 }
 
 function Empty({ children }: { children: React.ReactNode }) {
-  return <div className="text-on-surface-variant text-sm">{children}</div>
+  return <div className="text-[var(--color-pib-text-muted)] text-sm">{children}</div>
 }

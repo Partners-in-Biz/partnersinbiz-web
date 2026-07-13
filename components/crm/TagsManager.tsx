@@ -158,10 +158,10 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
     <div className="flex min-h-0 flex-col gap-2">
       {/* Create */}
       <form onSubmit={createTag} className="space-y-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
-        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Create tag</p>
+        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Create tag</p>
         <div className="flex flex-wrap items-end gap-2">
           <div className="flex flex-col gap-1 flex-1 min-w-[12rem]">
-            <label className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">
+            <label className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">
               Tag name
             </label>
             <input
@@ -169,7 +169,7 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
               onChange={(e) => setNewTag(e.target.value)}
               placeholder="vip"
               maxLength={64}
-              className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface outline-none transition focus:border-[var(--color-accent-v2)]"
+              className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-[var(--color-pib-text)] outline-none transition focus:border-[var(--color-accent-v2)]"
             />
           </div>
           <button type="submit" disabled={creating} className="flex h-8 items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition disabled:opacity-40">
@@ -182,7 +182,7 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
             {createError}
           </p>
         )}
-        <p className="text-[11px] leading-4 text-on-surface-variant">
+        <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
           Created tags appear here with zero usage until applied to contacts.
         </p>
       </form>
@@ -213,7 +213,7 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
               <button
                 type="button"
                 onClick={() => setPendingDelete(null)}
-                className="flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-3 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={deleting}
               >
                 Cancel
@@ -245,11 +245,11 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
             <div className="flex gap-2.5">
               <span className="material-symbols-outlined mt-0.5 text-[18px] text-amber-200" aria-hidden="true">warning</span>
               <div>
-                <h2 className="text-sm font-semibold text-on-surface">Tags could not load</h2>
-                <p className="mt-1 text-xs leading-5 text-on-surface-variant">{loadError}</p>
+                <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Tags could not load</h2>
+                <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{loadError}</p>
               </div>
             </div>
-            <button type="button" onClick={fetchTags} className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface">
+            <button type="button" onClick={fetchTags} className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-3 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]">
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
               Retry
             </button>
@@ -258,8 +258,8 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
       ) : tags.length === 0 ? (
         <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center">
           <span className="material-symbols-outlined text-[19px] text-primary" aria-hidden="true">label</span>
-          <h2 className="mt-2 text-sm font-semibold text-on-surface">No tags yet.</h2>
-          <p className="mt-1 text-xs text-on-surface-variant">
+          <h2 className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">No tags yet.</h2>
+          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
             Tags applied to contacts show up here, or create one above.
           </p>
         </div>
@@ -268,9 +268,9 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-[var(--color-card-border)] text-left">
-                <th className="px-3 py-2 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Tag</th>
-                <th className="px-3 py-2 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Usage</th>
-                <th className="px-3 py-2 text-right text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Actions</th>
+                <th className="px-3 py-2 text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Tag</th>
+                <th className="px-3 py-2 text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Usage</th>
+                <th className="px-3 py-2 text-right text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -290,15 +290,15 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
                             if (e.key === 'Enter') saveRename(row.tag)
                             if (e.key === 'Escape') setEditingTag(null)
                           }}
-                          className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface outline-none transition focus:border-[var(--color-accent-v2)]"
+                          className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-[var(--color-pib-text)] outline-none transition focus:border-[var(--color-accent-v2)]"
                         />
                       ) : (
                         <span className="inline-flex items-center gap-2">
-                          <span className="rounded-full border border-[var(--color-card-border)] px-2 py-0.5 text-[11px] text-on-surface">
+                          <span className="rounded-full border border-[var(--color-card-border)] px-2 py-0.5 text-[11px] text-[var(--color-pib-text)]">
                             {row.tag}
                           </span>
                           {row.registered && row.count === 0 && (
-                            <span className="text-[10px] text-on-surface-variant">unused</span>
+                            <span className="text-[10px] text-[var(--color-pib-text-muted)]">unused</span>
                           )}
                         </span>
                       )}
@@ -308,7 +308,7 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
                         </p>
                       )}
                     </td>
-                    <td className="px-3 py-2 align-middle text-on-surface-variant">
+                    <td className="px-3 py-2 align-middle text-[var(--color-pib-text-muted)]">
                       {row.count} contact{row.count === 1 ? '' : 's'}
                     </td>
                     <td className="px-3 py-2 align-middle">
@@ -326,7 +326,7 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
                             <button
                               type="button"
                               onClick={() => setEditingTag(null)}
-                              className="flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                              className="flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-3 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                             >
                               Cancel
                             </button>
@@ -336,7 +336,7 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
                             <button
                               type="button"
                               onClick={() => startRename(row)}
-                              className="flex h-8 items-center gap-1 rounded-md px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                              className="flex h-8 items-center gap-1 rounded-md px-2 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                               aria-label={`Rename tag ${row.tag}`}
                             >
                               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">edit</span>
@@ -345,7 +345,7 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
                             <button
                               type="button"
                               onClick={() => setPendingDelete(row)}
-                              className="grid h-8 w-8 place-items-center rounded-md text-on-surface-variant transition hover:bg-white/[0.05] hover:text-red-300"
+                              className="grid h-8 w-8 place-items-center rounded-md text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-red-300"
                               aria-label={`Delete tag ${row.tag}`}
                             >
                               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">delete</span>

@@ -128,7 +128,7 @@ function PlatformBadge({ platformId }: { platformId: string }) {
   const config = PLATFORM_ICONS[platformId]
   if (!config) {
     return (
-      <span className="grid h-8 w-8 place-items-center rounded-md bg-[var(--color-surface-container)] text-[10px] font-bold uppercase text-on-surface-variant">
+      <span className="grid h-8 w-8 place-items-center rounded-md bg-[var(--color-pib-surface-2)] text-[10px] font-bold uppercase text-[var(--color-pib-text-muted)]">
         {platformId.slice(0, 2)}
       </span>
     )
@@ -147,13 +147,13 @@ function AccountAvatar({ account }: { account: SocialAccount }) {
       <img
         src={account.avatarUrl}
         alt=""
-        className="h-9 w-9 rounded-full border border-[var(--color-card-border)] object-cover"
+        className="h-9 w-9 rounded-full border border-[var(--color-pib-line)] object-cover"
       />
     )
   }
 
   return (
-    <span className="grid h-9 w-9 place-items-center rounded-full bg-[var(--color-surface-container)] text-xs font-bold text-on-surface">
+    <span className="grid h-9 w-9 place-items-center rounded-full bg-[var(--color-pib-surface-2)] text-xs font-bold text-[var(--color-pib-text)]">
       {account.displayName.slice(0, 2).toUpperCase()}
     </span>
   )
@@ -186,15 +186,15 @@ function SubAccountRow({
     : account.username || account.platformAccountId || account.displayName || 'unknown account'
 
   return (
-    <div className="grid gap-3 border-t border-[var(--color-card-border)] px-4 py-3 sm:grid-cols-[auto_1fr_auto] sm:items-center">
+    <div className="grid gap-3 border-t border-[var(--color-pib-line)] px-4 py-3 sm:grid-cols-[auto_1fr_auto] sm:items-center">
       <div className="flex min-w-0 items-center gap-3">
         <AccountAvatar account={account} />
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-on-surface">{accountName}</p>
-          <p className="truncate text-xs text-on-surface-variant">
+          <p className="truncate text-sm font-semibold text-[var(--color-pib-text)]">{accountName}</p>
+          <p className="truncate text-xs text-[var(--color-pib-text-muted)]">
             {hasPlaceholderIdentity ? username : `@${username}`}
           </p>
-          <p className="mt-1 text-[11px] text-on-surface-variant">Last used: {formatLastUsed(account.lastUsedAt ?? account.lastUsed)}</p>
+          <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">Last used: {formatLastUsed(account.lastUsedAt ?? account.lastUsed)}</p>
           {days !== null && days <= 7 && (
             <p className={`mt-1 text-[11px] ${days <= 0 ? 'text-[#FCA5A5]' : 'text-[#FBBF24]'}`}>
               {days <= 0 ? 'Token expired' : `Token expires in ${days} day${days === 1 ? '' : 's'}`}
@@ -225,7 +225,7 @@ function SubAccountRow({
           <button
             type="button"
             onClick={() => onAdoptIntoYouTubeStudio(account.id)}
-            className="rounded-md border border-[var(--color-card-border)] px-2.5 py-1 text-xs font-label text-on-surface-variant transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-accent)]"
+            className="rounded-md border border-[var(--color-pib-line)] px-2.5 py-1 text-xs font-label text-[var(--color-pib-text-muted)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-accent)]"
           >
             Use in YouTube Studio
           </button>
@@ -237,7 +237,7 @@ function SubAccountRow({
           className={`rounded-md border px-2.5 py-1 text-xs font-label transition-colors ${
             account.isDefault
               ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent)]/10 text-[var(--color-pib-accent)]'
-              : 'border-[var(--color-card-border)] text-on-surface-variant hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-accent)]'
+              : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-accent)]'
           }`}
         >
           {account.isDefault ? 'Default' : 'Set default'}
@@ -294,8 +294,8 @@ function PlatformCard({
       <div className="flex flex-wrap items-center gap-3 px-4 py-4">
         <PlatformBadge platformId={platform} />
         <div className="min-w-0 flex-1">
-          <h3 className="font-headline text-lg font-bold leading-tight text-on-surface">{label}</h3>
-          <p className="text-xs text-on-surface-variant">
+          <h3 className="font-headline text-lg font-bold leading-tight text-[var(--color-pib-text)]">{label}</h3>
+          <p className="text-xs text-[var(--color-pib-text-muted)]">
             {accounts.length} connected{defaultAccount ? ` · default: ${defaultAccount.displayName}` : ''}
           </p>
         </div>
@@ -418,16 +418,16 @@ function PickerModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="w-full max-w-lg rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-6 shadow-2xl">
+      <div className="w-full max-w-lg rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)] p-6 shadow-2xl">
         <div className="mb-2 flex items-center gap-3">
           {icon && <span className={`${icon.bg} grid h-9 w-9 place-items-center rounded-md text-white`}>{icon.icon}</span>}
-          <h2 className="font-headline text-xl font-bold text-on-surface">Choose {label} accounts</h2>
+          <h2 className="font-headline text-xl font-bold text-[var(--color-pib-text)]">Choose {label} accounts</h2>
         </div>
-        <p className="mb-5 text-sm text-on-surface-variant">
+        <p className="mb-5 text-sm text-[var(--color-pib-text-muted)]">
           Select every account you want connected. The default account is what Pip uses first when posting automatically.
         </p>
 
-        {loading && <div className="h-28 animate-pulse rounded-md bg-[var(--color-surface-container)]" />}
+        {loading && <div className="h-28 animate-pulse rounded-md bg-[var(--color-pib-surface-2)]" />}
         {!loading && error && <p className="rounded-md border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-300">{error}</p>}
 
         {!loading && !error && (
@@ -452,8 +452,8 @@ function PickerModal({
                     isSelected
                       ? isDefault
                         ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent)]/10'
-                        : 'border-[var(--color-card-border)] bg-[var(--color-surface-container)]'
-                      : 'border-[var(--color-card-border)] opacity-60'
+                        : 'border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]'
+                      : 'border-[var(--color-pib-line)] opacity-60'
                   }`}
                 >
                   <input
@@ -464,8 +464,8 @@ function PickerModal({
                     className="h-4 w-4 accent-[var(--color-pib-accent)]"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-on-surface">{option.displayName}</p>
-                    <p className="truncate text-xs text-on-surface-variant">@{option.username}</p>
+                    <p className="truncate text-sm font-semibold text-[var(--color-pib-text)]">{option.displayName}</p>
+                    <p className="truncate text-xs text-[var(--color-pib-text-muted)]">@{option.username}</p>
                   </div>
                   <span className={option.accountType === 'page' ? 'pib-pill pib-pill-info' : 'pib-pill'}>
                     {option.accountType}
@@ -475,7 +475,7 @@ function PickerModal({
               )
             })}
             {options.length === 0 && (
-              <div className="rounded-md border border-[var(--color-card-border)] p-5 text-center text-sm text-on-surface-variant">
+              <div className="rounded-md border border-[var(--color-pib-line)] p-5 text-center text-sm text-[var(--color-pib-text-muted)]">
                 No account options were returned.
               </div>
             )}
@@ -554,8 +554,8 @@ function BlueskyForm({
       <div className="flex flex-wrap items-center gap-3">
         <PlatformBadge platformId="bluesky" />
         <div>
-          <h3 className="font-headline text-lg font-bold text-on-surface">Connect Bluesky</h3>
-          <p className="text-xs text-on-surface-variant">Use a Bluesky app password, not your main password.</p>
+          <h3 className="font-headline text-lg font-bold text-[var(--color-pib-text)]">Connect Bluesky</h3>
+          <p className="text-xs text-[var(--color-pib-text-muted)]">Use a Bluesky app password, not your main password.</p>
         </div>
       </div>
       <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
@@ -794,8 +794,8 @@ export default function SocialAccountsManager({
       <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-accent)]">{eyebrow}</p>
-          <h1 className="mt-1 font-headline text-3xl font-bold tracking-tight text-on-surface">{title}</h1>
-          <p className="mt-2 max-w-2xl text-sm text-on-surface-variant">
+          <h1 className="mt-1 font-headline text-3xl font-bold tracking-tight text-[var(--color-pib-text)]">{title}</h1>
+          <p className="mt-2 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
             {description}
           </p>
         </div>
@@ -805,13 +805,13 @@ export default function SocialAccountsManager({
         </a>
       </header>
 
-      <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-surface-container)]/35 p-4" aria-label={scopeCard.title}>
+      <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]/35 p-4" aria-label={scopeCard.title}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
             <span className="material-symbols-outlined mt-0.5 text-[20px] text-[var(--color-pib-accent)]" aria-hidden="true">{scopeCard.icon}</span>
             <div>
-              <h2 className="text-sm font-semibold text-on-surface">{scopeCard.title}</h2>
-              <p className="mt-1 max-w-3xl text-xs leading-5 text-on-surface-variant">{scopeCard.body}</p>
+              <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">{scopeCard.title}</h2>
+              <p className="mt-1 max-w-3xl text-xs leading-5 text-[var(--color-pib-text-muted)]">{scopeCard.body}</p>
             </div>
           </div>
           <a href={scopeCard.href} className="btn-pib-secondary w-fit shrink-0 !px-3 !py-2 !text-xs">
@@ -875,7 +875,7 @@ export default function SocialAccountsManager({
               setMessage(null)
               setActionError(null)
             }}
-            className="text-on-surface-variant hover:text-on-surface"
+            className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
             aria-label="Dismiss message"
           >
             x
@@ -885,16 +885,16 @@ export default function SocialAccountsManager({
 
       <section className="grid gap-3 sm:grid-cols-3">
         <div className="pib-card px-4 py-3">
-          <p className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Connected</p>
-          <p className="mt-2 font-headline text-2xl font-bold text-on-surface">{activeAccounts.length}</p>
+          <p className="pib-label">Connected</p>
+          <p className="mt-2 font-headline text-2xl font-bold text-[var(--color-pib-text)]">{activeAccounts.length}</p>
         </div>
         <div className="pib-card px-4 py-3">
-          <p className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Platforms</p>
-          <p className="mt-2 font-headline text-2xl font-bold text-on-surface">{connectedPlatformIds.size}</p>
+          <p className="pib-label">Platforms</p>
+          <p className="mt-2 font-headline text-2xl font-bold text-[var(--color-pib-text)]">{connectedPlatformIds.size}</p>
         </div>
         <div className="pib-card px-4 py-3">
-          <p className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Defaults</p>
-          <p className="mt-2 font-headline text-2xl font-bold text-on-surface">
+          <p className="pib-label">Defaults</p>
+          <p className="mt-2 font-headline text-2xl font-bold text-[var(--color-pib-text)]">
             {defaultCount}
             {needsAttentionCount > 0 && <span className="ml-2 align-middle text-xs font-label text-[#FBBF24]">{needsAttentionCount} need attention</span>}
           </p>
@@ -903,8 +903,8 @@ export default function SocialAccountsManager({
 
       <section>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Connected Accounts</h2>
-          <p className="text-xs text-on-surface-variant">Set one default account per platform for auto-posting.</p>
+          <h2 className="pib-label">Connected Accounts</h2>
+          <p className="text-xs text-[var(--color-pib-text-muted)]">Set one default account per platform for auto-posting.</p>
         </div>
 
         {loading ? (
@@ -915,9 +915,9 @@ export default function SocialAccountsManager({
           </div>
         ) : Object.keys(grouped).length === 0 ? (
           <div className="pib-card py-14 text-center">
-            <span className="material-symbols-outlined text-4xl text-on-surface-variant">hub</span>
-            <h3 className="mt-3 font-headline text-xl font-bold text-on-surface">No accounts connected yet</h3>
-            <p className="mt-1 text-sm text-on-surface-variant">{emptyDescription}</p>
+            <span className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">hub</span>
+            <h3 className="mt-3 font-headline text-xl font-bold text-[var(--color-pib-text)]">No accounts connected yet</h3>
+            <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{emptyDescription}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -942,10 +942,10 @@ export default function SocialAccountsManager({
 
       <section id="connect-new-account" className="space-y-4 scroll-mt-24">
         <div>
-          <h2 className="text-xs font-label uppercase tracking-widest text-on-surface-variant">
+          <h2 className="pib-label">
             {isPersonalScope ? 'Connect New Personal Account' : 'Connect New Company Account'}
           </h2>
-          <p className="mt-1 text-sm text-on-surface-variant">
+          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
             {isPersonalScope
               ? 'Authorize only accounts that belong to you personally. Company pages and client brand accounts belong in the company workspace.'
               : 'OAuth platforms can return several pages or profiles. Choose the shared brand pages/profiles that this organisation may publish through.'}
@@ -966,15 +966,15 @@ export default function SocialAccountsManager({
                 className="pib-card pib-card-hover flex items-center gap-3 p-4"
               >
                 <PlatformBadge platformId={platform} />
-                <span className="min-w-0 flex-1 text-sm font-semibold text-on-surface">
+                <span className="min-w-0 flex-1 text-sm font-semibold text-[var(--color-pib-text)]">
                   Connect {PLATFORM_LABELS[platform] ?? platform}
                 </span>
-                <span className="material-symbols-outlined text-base text-on-surface-variant">arrow_forward</span>
+                <span className="material-symbols-outlined text-base text-[var(--color-pib-text-muted)]">arrow_forward</span>
               </a>
             ))}
           </div>
         ) : (
-          <div className="pib-card p-4 text-sm text-on-surface-variant">
+          <div className="pib-card p-4 text-sm text-[var(--color-pib-text-muted)]">
             All OAuth platforms have at least one connected account. Use Add account inside a platform card to connect another profile or page.
           </div>
         )}

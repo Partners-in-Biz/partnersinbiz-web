@@ -584,7 +584,7 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
   }
 
   if (!project) {
-    return <main className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8"><div className="pib-skeleton h-96" />{notice ? <p className="mt-4 text-sm text-on-surface-variant">{notice}</p> : null}</main>
+    return <main className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8"><div className="pib-skeleton h-96" />{notice ? <p className="mt-4 text-sm text-[var(--color-pib-text-muted)]">{notice}</p> : null}</main>
   }
 
   const settings = project.settings ?? defaultVideoEditorSettings()
@@ -593,8 +593,8 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="eyebrow">Video Editor</p>
-          <h1 className="font-headline text-3xl font-bold text-on-surface">{project.title}</h1>
-          <p className="mt-1 max-w-3xl text-sm text-on-surface-variant">Assemble source media, trim clips, add text, render an MP4, and send the result back to YouTube Studio or Marketing Studio.</p>
+          <h1 className="font-headline text-3xl font-bold text-[var(--color-pib-text)]">{project.title}</h1>
+          <p className="mt-1 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">Assemble source media, trim clips, add text, render an MP4, and send the result back to YouTube Studio or Marketing Studio.</p>
         </div>
         <div className="flex gap-2">
           <button type="button" className="pib-btn-ghost text-sm" disabled={!history.canUndo} onClick={() => setTimeline(history.undo())}>Undo</button>
@@ -602,7 +602,7 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
           <button type="button" className={snapBeats ? 'pib-btn-primary text-sm' : 'pib-btn-ghost text-sm'} onClick={() => setSnapBeats((value) => !value)}>Snap to beat</button>
         </div>
       </div>
-      {notice ? <div className="rounded-lg border border-[var(--color-pib-line)] p-3 text-sm text-on-surface-variant">{notice}</div> : null}
+      {notice ? <div className="rounded-lg border border-[var(--color-pib-line)] p-3 text-sm text-[var(--color-pib-text-muted)]">{notice}</div> : null}
       <div className="grid gap-4 xl:grid-cols-[320px_1fr_320px]">
         <div className="space-y-4">
           <MediaLibraryPanel
@@ -664,7 +664,7 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
                 type="button"
                 role="tab"
                 aria-selected={rightTab === tab}
-                className={`flex-1 rounded-md px-3 py-1.5 text-sm capitalize ${rightTab === tab ? 'bg-[var(--color-pib-line)] font-semibold text-on-surface' : 'text-on-surface-variant'}`}
+                className={`flex-1 rounded-md px-3 py-1.5 text-sm capitalize ${rightTab === tab ? 'bg-[var(--color-pib-line)] font-semibold text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)]'}`}
                 onClick={() => setRightTab(tab)}
               >
                 {tab}

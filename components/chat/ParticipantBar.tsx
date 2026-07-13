@@ -79,13 +79,13 @@ export default function ParticipantBar({ participants, agentDetails = {}, classN
               {previewSkills.map((skill) => (
                 <span
                   key={skill}
-                  className="hidden sm:inline-flex rounded-full border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-on-surface-variant"
+                  className="hidden sm:inline-flex rounded-full border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]"
                 >
                   {skill}
                 </span>
               ))}
               {skills.length > previewSkills.length && (
-                <span className="hidden sm:inline text-[10px] text-on-surface-variant">+{skills.length - previewSkills.length}</span>
+                <span className="hidden sm:inline text-[10px] text-[var(--color-pib-text-muted)]">+{skills.length - previewSkills.length}</span>
               )}
               {hasSkillInfo && (
                 <>
@@ -94,31 +94,31 @@ export default function ParticipantBar({ participants, agentDetails = {}, classN
                     aria-label={`Show ${p.name} skills`}
                     title={`Show ${p.name} skills`}
                     onClick={() => setOpenAgentId(isOpen ? null : p.agentId)}
-                    className="-mr-1 grid h-5 w-5 place-items-center rounded-full text-on-surface-variant hover:bg-white/[0.08] hover:text-on-surface"
+                    className="-mr-1 grid h-5 w-5 place-items-center rounded-full text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
                   >
                     <span className="material-symbols-outlined text-[13px]">psychology</span>
                   </button>
                   {isOpen && (
                     <span className="absolute left-0 top-full z-20 mt-1 w-72 max-w-[80vw] rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 text-left shadow-xl">
-                      <span className="block text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
+                      <span className="block text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                         {p.name} skills
                       </span>
                       {skills.length > 0 && (
                         <span className="mt-2 flex flex-wrap gap-1">
                           {skills.map((skill) => (
-                            <span key={skill} className="rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] text-on-surface">
+                            <span key={skill} className="rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] text-[var(--color-pib-text)]">
                               {skill}
                             </span>
                           ))}
                         </span>
                       )}
                       {capabilities.length > 0 && (
-                        <span className="mt-2 block text-[11px] text-on-surface-variant">
+                        <span className="mt-2 block text-[11px] text-[var(--color-pib-text-muted)]">
                           Capabilities: {capabilities.join(', ')}
                         </span>
                       )}
                       {approvalGates.length > 0 && (
-                        <span className="mt-1 block text-[11px] text-on-surface-variant">
+                        <span className="mt-1 block text-[11px] text-[var(--color-pib-text-muted)]">
                           Approval gates: {approvalGates.join(', ')}
                         </span>
                       )}
@@ -138,7 +138,7 @@ export default function ParticipantBar({ participants, agentDetails = {}, classN
             className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-xs"
           >
             <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-white/40" />
-            <span className="text-on-surface-variant">{name}</span>
+            <span className="text-[var(--color-pib-text-muted)]">{name}</span>
           </span>
         )
       })}

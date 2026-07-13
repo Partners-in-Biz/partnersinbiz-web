@@ -55,7 +55,7 @@ function FilterChip({ label, active, options, selectedValue, formatOption = (val
         className={`flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-2.5 text-[11px] transition-colors ${
           active
             ? 'border-primary/30 bg-primary/10 text-primary'
-            : 'border-[var(--color-card-border)] text-on-surface-variant hover:bg-white/[0.05] hover:text-on-surface'
+            : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]'
         }`}
       >
         {label}
@@ -68,11 +68,11 @@ function FilterChip({ label, active, options, selectedValue, formatOption = (val
       </button>
 
       {open && (
-        <div className="absolute top-full mt-1 left-0 z-50 min-w-[160px] overflow-hidden rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)]">
+        <div className="absolute top-full mt-1 left-0 z-50 min-w-[160px] overflow-hidden rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface)]">
           <button
             type="button"
             onClick={() => { onSelect(undefined); setOpen(false) }}
-            className="cursor-pointer w-full px-2.5 py-1.5 text-left text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
+            className="cursor-pointer w-full px-2.5 py-1.5 text-left text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
           >
             All
           </button>
@@ -86,7 +86,7 @@ function FilterChip({ label, active, options, selectedValue, formatOption = (val
                 className={`cursor-pointer w-full px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-white/[0.05] ${
                   selectedValue === opt
                     ? 'text-primary'
-                    : 'text-on-surface'
+                    : 'text-[var(--color-pib-text)]'
                 }`}
               >
                 {optionLabel}
@@ -128,7 +128,7 @@ export function CompanyFiltersBar({ value, onChange }: CompanyFiltersBarProps) {
     <div className="flex min-w-0 flex-wrap items-center gap-1.5">
       {/* Search */}
       <div className="relative">
-        <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-[16px] text-on-surface-variant">
+        <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-[16px] text-[var(--color-pib-text-muted)]">
           search
         </span>
         <input
@@ -136,7 +136,7 @@ export function CompanyFiltersBar({ value, onChange }: CompanyFiltersBarProps) {
           value={search}
           onChange={(e) => handleSearch(e.target.value)}
           placeholder="Search companies…"
-          className="h-8 w-48 rounded-md border border-[var(--color-card-border)] bg-transparent pl-7 pr-2 text-xs text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none"
+          className="h-8 w-48 rounded-md border border-[var(--color-card-border)] bg-transparent pl-7 pr-2 text-xs text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)]/60 focus:outline-none"
         />
       </div>
 
@@ -179,7 +179,7 @@ export function CompanyFiltersBar({ value, onChange }: CompanyFiltersBarProps) {
         <button
           type="button"
           onClick={() => { setSearch(''); onChange({ orgId: value.orgId }) }}
-          className="flex h-8 cursor-pointer items-center gap-1 rounded-md px-2 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
+          className="flex h-8 cursor-pointer items-center gap-1 rounded-md px-2 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
         >
           <span className="material-symbols-outlined text-[14px]">close</span>
           Clear

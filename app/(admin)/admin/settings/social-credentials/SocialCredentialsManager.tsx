@@ -191,7 +191,7 @@ export function SocialCredentialsManager() {
         </p>
       </header>
 
-      {error && <div className="pib-card border border-red-500/30 bg-red-500/5 p-5 text-sm text-red-400">{error}</div>}
+      {error && <div className="pib-card p-5 text-sm text-[var(--color-error)]">{error}</div>}
 
       {loading ? (
         <div className="pib-card p-8 text-sm text-[var(--color-pib-text-muted)]">Loading credentials…</div>
@@ -207,8 +207,8 @@ export function SocialCredentialsManager() {
                 { label: 'Inbox secret', value: summary.inboxWebhookSecret ? 'Present' : 'Missing' },
               ].map((m) => (
                 <div key={m.label} className="pib-card p-5">
-                  <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{m.label}</p>
-                  <p className="mt-3 text-2xl font-semibold text-on-surface">{m.value}</p>
+                  <p className="pib-label">{m.label}</p>
+                  <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">{m.value}</p>
                 </div>
               ))}
             </section>
@@ -236,29 +236,29 @@ export function SocialCredentialsManager() {
                   }
                 >
                   <dl className="space-y-2 text-sm">
-                    <Row label="Client ID" value={<code className="text-on-surface">{p.clientIdMasked ?? '—'}</code>} />
+                    <Row label="Client ID" value={<code className="text-[var(--color-pib-text)]">{p.clientIdMasked ?? '—'}</code>} />
                     <Row label="Client secret" value={p.hasClientSecret ? 'Present (env)' : 'Missing'} />
-                    <Row label="Callback" value={<code className="break-all text-xs text-on-surface-variant">{p.callbackUrl}</code>} />
+                    <Row label="Callback" value={<code className="break-all text-xs text-[var(--color-pib-text-muted)]">{p.callbackUrl}</code>} />
                     <Row label="Scopes" value={p.scopes.length ? `${p.scopes.length} scope${p.scopes.length === 1 ? '' : 's'}` : '—'} />
-                    <Row label="API version pin" value={p.apiVersion ?? <span className="text-on-surface-variant">none</span>} />
-                    <Row label="Webhook token" value={p.webhookTokenMasked ? <code className="text-on-surface">{p.webhookTokenMasked}</code> : <span className="text-on-surface-variant">none</span>} />
+                    <Row label="API version pin" value={p.apiVersion ?? <span className="text-[var(--color-pib-text-muted)]">none</span>} />
+                    <Row label="Webhook token" value={p.webhookTokenMasked ? <code className="text-[var(--color-pib-text)]">{p.webhookTokenMasked}</code> : <span className="text-[var(--color-pib-text-muted)]">none</span>} />
                     <Row label="Last rotated" value={p.lastRotatedAt ? formatDateTime(p.lastRotatedAt) : '—'} />
                   </dl>
 
                   {p.scopes.length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-1">
                       {p.scopes.map((s) => (
-                        <span key={s} className="rounded bg-white/5 px-2 py-0.5 text-[10px] text-on-surface-variant">{s}</span>
+                        <span key={s} className="rounded bg-[var(--color-pib-surface-2)] px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">{s}</span>
                       ))}
                     </div>
                   )}
 
                   {p.rotationLog.length > 0 && (
                     <details className="mt-3">
-                      <summary className="cursor-pointer text-xs text-on-surface-variant">Rotation history ({p.rotationLog.length})</summary>
+                      <summary className="cursor-pointer text-xs text-[var(--color-pib-text-muted)]">Rotation history ({p.rotationLog.length})</summary>
                       <ul className="mt-2 space-y-1">
                         {p.rotationLog.map((entry, i) => (
-                          <li key={`${p.key}-rot-${i}`} className="text-xs text-on-surface-variant">
+                          <li key={`${p.key}-rot-${i}`} className="text-xs text-[var(--color-pib-text-muted)]">
                             <span className="opacity-70">{formatDateTime(entry.at)}</span> — {entry.note}
                           </li>
                         ))}
@@ -267,14 +267,14 @@ export function SocialCredentialsManager() {
                   )}
 
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <button type="button" className="pib-btn-secondary text-xs" disabled={testingKey === p.key} onClick={() => void runTest(p)}>
+                    <button type="button" className="btn-pib-secondary text-xs" disabled={testingKey === p.key} onClick={() => void runTest(p)}>
                       {testingKey === p.key ? 'Testing…' : 'Test handshake'}
                     </button>
-                    <button type="button" className="pib-btn-ghost text-xs" onClick={() => openEdit(p)}>Edit settings</button>
-                    <button type="button" className="pib-btn-ghost text-xs" onClick={() => { setRotateResult(null); setRotateNote(''); setRotateError(''); setRotateTarget({ p, target: 'webhook' }) }}>
+                    <button type="button" className="btn-pib-ghost text-xs" onClick={() => openEdit(p)}>Edit settings</button>
+                    <button type="button" className="btn-pib-ghost text-xs" onClick={() => { setRotateResult(null); setRotateNote(''); setRotateError(''); setRotateTarget({ p, target: 'webhook' }) }}>
                       Rotate webhook
                     </button>
-                    <button type="button" className="pib-btn-ghost text-xs text-amber-400" onClick={() => { setRotateResult(null); setRotateNote(''); setRotateError(''); setRotateTarget({ p, target: 'secret' }) }}>
+                    <button type="button" className="btn-pib-ghost text-xs text-[var(--color-pib-amber)]" onClick={() => { setRotateResult(null); setRotateNote(''); setRotateError(''); setRotateTarget({ p, target: 'secret' }) }}>
                       Rotate secret
                     </button>
                   </div>
@@ -293,25 +293,25 @@ export function SocialCredentialsManager() {
         onClose={() => setEditing(null)}
         footer={
           <div className="flex justify-end gap-2">
-            <button type="button" className="pib-btn-secondary" onClick={() => setEditing(null)}>Cancel</button>
-            <button type="button" className="pib-btn-primary" disabled={saving} onClick={saveSettings}>
+            <button type="button" className="btn-pib-secondary" onClick={() => setEditing(null)}>Cancel</button>
+            <button type="button" className="btn-pib-primary" disabled={saving} onClick={saveSettings}>
               {saving ? 'Saving…' : 'Save settings'}
             </button>
           </div>
         }
       >
         <div className="space-y-4">
-          {formError && <p className="text-sm text-red-400">{formError}</p>}
-          <label className="flex items-center gap-2 text-sm text-on-surface">
+          {formError && <p className="text-sm text-[var(--color-error)]">{formError}</p>}
+          <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text)]">
             <input type="checkbox" checked={formEnabled} onChange={(e) => setFormEnabled(e.target.checked)} />
             Enabled (available to orgs)
           </label>
           <label className="block">
-            <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">API version pin</span>
+            <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">API version pin</span>
             <input className="pib-input mt-1 w-full" placeholder="e.g. v19.0" value={formApiVersion} onChange={(e) => setFormApiVersion(e.target.value)} />
           </label>
           <label className="block">
-            <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Notes</span>
+            <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Notes</span>
             <textarea className="pib-input mt-1 w-full" rows={3} value={formNotes} onChange={(e) => setFormNotes(e.target.value)} />
           </label>
         </div>
@@ -323,7 +323,7 @@ export function SocialCredentialsManager() {
         title={testResult ? `${testResult.label} — handshake ${testResult.ok ? 'passed' : 'failed'}` : ''}
         description="OAuth configuration + provider reachability check. No tokens were persisted."
         onClose={() => setTestResult(null)}
-        footer={<div className="flex justify-end"><button type="button" className="pib-btn-secondary" onClick={() => setTestResult(null)}>Close</button></div>}
+        footer={<div className="flex justify-end"><button type="button" className="btn-pib-secondary" onClick={() => setTestResult(null)}>Close</button></div>}
       >
         {testResult && (
           <div className="space-y-3">
@@ -331,17 +331,17 @@ export function SocialCredentialsManager() {
               {testResult.checks.map((c, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm">
                   <StatusPill tone={c.ok ? 'success' : 'danger'}>{c.ok ? 'OK' : 'Fail'}</StatusPill>
-                  <span><span className="text-on-surface">{c.name}</span> <span className="text-on-surface-variant">— {c.detail}</span></span>
+                  <span><span className="text-[var(--color-pib-text)]">{c.name}</span> <span className="text-[var(--color-pib-text-muted)]">— {c.detail}</span></span>
                 </li>
               ))}
             </ul>
             {testResult.authorizeUrl && (
               <div>
-                <p className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Authorization URL</p>
-                <code className="mt-1 block break-all rounded bg-white/5 p-2 text-xs text-on-surface-variant">{testResult.authorizeUrl}</code>
+                <p className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Authorization URL</p>
+                <code className="mt-1 block break-all rounded bg-[var(--color-pib-surface-2)] p-2 text-xs text-[var(--color-pib-text-muted)]">{testResult.authorizeUrl}</code>
               </div>
             )}
-            <p className="text-xs text-on-surface-variant">Tested {formatDateTime(testResult.testedAt)}</p>
+            <p className="text-xs text-[var(--color-pib-text-muted)]">Tested {formatDateTime(testResult.testedAt)}</p>
           </div>
         )}
       </DialogDrawer>
@@ -358,9 +358,9 @@ export function SocialCredentialsManager() {
         onClose={closeRotate}
         footer={
           <div className="flex justify-end gap-2">
-            <button type="button" className="pib-btn-secondary" onClick={closeRotate}>{rotateResult ? 'Done' : 'Cancel'}</button>
+            <button type="button" className="btn-pib-secondary" onClick={closeRotate}>{rotateResult ? 'Done' : 'Cancel'}</button>
             {!rotateResult && (
-              <button type="button" className="pib-btn-primary" disabled={rotating} onClick={confirmRotate}>
+              <button type="button" className="btn-pib-primary" disabled={rotating} onClick={confirmRotate}>
                 {rotating ? 'Rotating…' : 'Confirm rotation'}
               </button>
             )}
@@ -368,25 +368,25 @@ export function SocialCredentialsManager() {
         }
       >
         <div className="space-y-3">
-          {rotateError && <p className="text-sm text-red-400">{rotateError}</p>}
+          {rotateError && <p className="text-sm text-[var(--color-error)]">{rotateError}</p>}
           {!rotateResult ? (
             <label className="block">
-              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Reason / note (optional)</span>
+              <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Reason / note (optional)</span>
               <textarea className="pib-input mt-1 w-full" rows={2} value={rotateNote} onChange={(e) => setRotateNote(e.target.value)} placeholder="Why are you rotating?" />
             </label>
           ) : (
             <div className="space-y-2">
               {rotateResult.newWebhookToken && (
                 <div>
-                  <p className="text-xs font-label uppercase tracking-widest text-on-surface-variant">New webhook token (shown once)</p>
-                  <code className="mt-1 block break-all rounded bg-emerald-500/10 p-2 text-xs text-emerald-300">{rotateResult.newWebhookToken}</code>
+                  <p className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">New webhook token (shown once)</p>
+                  <code className="mt-1 block break-all rounded bg-emerald-500/10 p-2 text-xs text-[var(--color-pib-green)]">{rotateResult.newWebhookToken}</code>
                 </div>
               )}
               {rotateResult.instruction && (
-                <p className="text-sm text-amber-300">{rotateResult.instruction}</p>
+                <p className="text-sm text-[var(--color-pib-amber)]">{rotateResult.instruction}</p>
               )}
               {rotateResult.envName && (
-                <code className="block rounded bg-white/5 p-2 text-xs text-on-surface-variant">{rotateResult.envName}</code>
+                <code className="block rounded bg-[var(--color-pib-surface-2)] p-2 text-xs text-[var(--color-pib-text-muted)]">{rotateResult.envName}</code>
               )}
             </div>
           )}
@@ -399,8 +399,8 @@ export function SocialCredentialsManager() {
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-start justify-between gap-3">
-      <dt className="text-on-surface-variant">{label}</dt>
-      <dd className="text-right text-on-surface">{value}</dd>
+      <dt className="text-[var(--color-pib-text-muted)]">{label}</dt>
+      <dd className="text-right text-[var(--color-pib-text)]">{value}</dd>
     </div>
   )
 }

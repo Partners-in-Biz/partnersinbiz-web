@@ -561,12 +561,12 @@ export function ProjectDetailWorkspace({
       {/* Header */}
       <div className="flex shrink-0 items-start justify-between gap-3 mb-3 md:mb-6">
         <div className="min-w-0">
-          <div className="mb-1 flex min-w-0 items-center gap-2 overflow-hidden text-[11px] text-on-surface-variant md:text-xs">
-            <Link href={backHref} className="hover:text-on-surface transition-colors">Projects</Link>
+          <div className="mb-1 flex min-w-0 items-center gap-2 overflow-hidden text-[11px] text-[var(--color-pib-text-muted)] md:text-xs">
+            <Link href={backHref} className="hover:text-[var(--color-pib-text)] transition-colors">Projects</Link>
             <span>/</span>
-            <span className="truncate text-on-surface">{project?.name ?? '...'}</span>
+            <span className="truncate text-[var(--color-pib-text)]">{project?.name ?? '...'}</span>
           </div>
-          <h1 className="truncate text-xl font-headline font-bold text-on-surface md:text-2xl">
+          <h1 className="truncate text-xl font-headline font-bold text-[var(--color-pib-text)] md:text-2xl">
             {loading ? '...' : project?.name}
           </h1>
         </div>
@@ -596,7 +596,7 @@ export function ProjectDetailWorkspace({
           <ProjectBoardSummary tasks={tasks} columns={columns} />
 
           <div className="mb-3 flex min-w-0 max-w-full shrink-0 items-center justify-between gap-3 overflow-x-auto md:mb-4">
-            <div className="inline-flex shrink-0 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-1">
+            <div className="inline-flex shrink-0 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] p-1">
               {(['board', 'list'] as const).map(mode => (
                 <button
                   key={mode}
@@ -605,7 +605,7 @@ export function ProjectDetailWorkspace({
                   className={`inline-flex items-center gap-1 rounded px-3 py-1.5 text-xs font-label capitalize ${
                     viewMode === mode
                       ? 'bg-[var(--color-accent-v2)] text-black'
-                      : 'text-on-surface-variant hover:text-on-surface'
+                      : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
                   }`}
                 >
                   <span className="material-symbols-outlined text-[16px]">{mode === 'board' ? 'view_kanban' : 'view_list'}</span>
@@ -617,14 +617,14 @@ export function ProjectDetailWorkspace({
               <button
                 type="button"
                 onClick={() => setBoardSortMode(prev => prev === 'latest' ? 'manual' : 'latest')}
-                className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[var(--color-card-border)] px-3 py-1.5 text-xs font-label uppercase tracking-wide text-on-surface-variant transition-colors hover:text-on-surface"
+                className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[var(--color-pib-line)] px-3 py-1.5 text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
                 aria-pressed={boardSortMode === 'manual'}
               >
                 <span className="material-symbols-outlined text-[16px]">sort</span>
                 {boardSortMode === 'latest' ? 'Manual order' : 'Latest first'}
               </button>
             ) : (
-              <div className="inline-flex shrink-0 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-1">
+              <div className="inline-flex shrink-0 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] p-1">
                 {([
                   { key: 'latest', label: 'Latest first', icon: 'new_releases' },
                   { key: 'due', label: 'Due date', icon: 'event' },
@@ -636,7 +636,7 @@ export function ProjectDetailWorkspace({
                     className={`inline-flex items-center gap-1 rounded px-3 py-1.5 text-xs font-label ${
                       taskListSort === option.key
                         ? 'bg-[var(--color-accent-v2)] text-black'
-                        : 'text-on-surface-variant hover:text-on-surface'
+                        : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
                     }`}
                     aria-pressed={taskListSort === option.key}
                   >
@@ -662,7 +662,7 @@ export function ProjectDetailWorkspace({
               </div>
             </div>
           ) : viewMode === 'list' ? (
-            <div className="flex-1 overflow-auto rounded-[var(--radius-btn)] border border-[var(--color-card-border)]">
+            <div className="flex-1 overflow-auto rounded-[var(--radius-btn)] border border-[var(--color-pib-line)]">
               <div className="space-y-2 p-2 md:hidden" data-testid={mode === 'portal' ? 'portal-mobile-task-list' : 'admin-mobile-task-list'}>
                 {sortedListTasks.map(task => {
                   const stateStyle = getTaskStateStyle(task)
@@ -678,19 +678,19 @@ export function ProjectDetailWorkspace({
                       type="button"
                       onClick={() => setSelectedTask(task)}
                       data-state-tone={stateStyle.tone}
-                      className="w-full rounded-[var(--radius-card)] border border-[var(--color-card-border)] p-3 text-left shadow-sm transition-colors hover:border-[var(--color-accent-v2)]"
+                      className="w-full rounded-[var(--radius-card)] border border-[var(--color-pib-line)] p-3 text-left shadow-sm transition-colors hover:border-[var(--color-accent-v2)]"
                       style={{ background: stateStyle.tint, borderLeft: `4px solid ${stateStyle.railColor}` }}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-on-surface">{task.title}</p>
-                          <p className="mt-1 truncate text-[11px] text-on-surface-variant">{people}</p>
+                          <p className="truncate text-sm font-semibold text-[var(--color-pib-text)]">{task.title}</p>
+                          <p className="mt-1 truncate text-[11px] text-[var(--color-pib-text-muted)]">{people}</p>
                         </div>
                         <span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-label uppercase tracking-wide ${stateStyle.pillClassName}`}>
                           {stageLabel}
                         </span>
                       </div>
-                      <div className="mt-3 flex items-center gap-2 text-[11px] text-on-surface-variant">
+                      <div className="mt-3 flex items-center gap-2 text-[11px] text-[var(--color-pib-text-muted)]">
                         <span className="inline-flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">event</span>{formatDate(task.dueDate)}</span>
                         <span className="inline-flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">schedule</span>{formatEstimate(task.estimateMinutes)}</span>
                         {(task.attachments?.length ?? 0) > 0 && <span className="ml-auto inline-flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">attach_file</span>{task.attachments?.length ?? 0}</span>}
@@ -700,8 +700,8 @@ export function ProjectDetailWorkspace({
                 })}
               </div>
               <table className="hidden w-full min-w-[760px] text-left text-sm md:table">
-                <thead className="sticky top-0 bg-[var(--color-sidebar)] text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
-                  <tr className="border-b border-[var(--color-card-border)]">
+                <thead className="sticky top-0 bg-[var(--color-sidebar)] text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                  <tr className="border-b border-[var(--color-pib-line)]">
                     <th className="px-4 py-3">Task</th>
                     <th className="px-4 py-3">Stage</th>
                     <th className="px-4 py-3">People</th>
@@ -720,27 +720,27 @@ export function ProjectDetailWorkspace({
                         key={task.id}
                         onClick={() => setSelectedTask(task)}
                         data-state-tone={stateStyle.tone}
-                        className="cursor-pointer border-b border-[var(--color-card-border)] hover:bg-[var(--color-surface-container)]"
+                        className="cursor-pointer border-b border-[var(--color-pib-line)] hover:bg-[var(--color-row-hover)]"
                         style={{ background: stateStyle.tint, boxShadow: `inset 4px 0 0 ${stateStyle.railColor}` }}
                       >
                         <td className="px-4 py-3">
-                          <p className="font-medium text-on-surface">{task.title}</p>
-                          {task.labels?.length ? <p className="mt-1 text-xs text-on-surface-variant">{task.labels.join(', ')}</p> : null}
+                          <p className="font-medium text-[var(--color-pib-text)]">{task.title}</p>
+                          {task.labels?.length ? <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{task.labels.join(', ')}</p> : null}
                         </td>
-                        <td className="px-4 py-3 text-on-surface-variant">
+                        <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">
                           <span className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-label uppercase tracking-wide ${stateStyle.pillClassName}`}>
                             {stageLabel}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-on-surface-variant">
+                        <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">
                           {[
                             ...assigneeIds.map(id => memberLabel(members.find(member => member.userId === id))),
                             task.assigneeAgentId ? agentLabel(agents.find(agent => agent.agentId === task.assigneeAgentId), task.assigneeAgentId) : '',
                           ].filter(Boolean).join(', ') || 'Unassigned'}
                         </td>
-                        <td className="px-4 py-3 text-on-surface-variant">{formatDate(task.dueDate)}</td>
-                        <td className="px-4 py-3 text-on-surface-variant">{formatEstimate(task.estimateMinutes)}</td>
-                        <td className="px-4 py-3 text-on-surface-variant">{task.attachments?.length ?? 0}</td>
+                        <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">{formatDate(task.dueDate)}</td>
+                        <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">{formatEstimate(task.estimateMinutes)}</td>
+                        <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">{task.attachments?.length ?? 0}</td>
                       </tr>
                     )
                   })}
@@ -792,17 +792,17 @@ export function ProjectDetailWorkspace({
 
       {activeTab === 'agent' && (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden -mx-4 -my-8 md:mx-0 md:my-0 h-[calc(100dvh-56px)] lg:h-[calc(100dvh-120px)]">
-          <div className="mb-4 hidden shrink-0 rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-5 shadow-sm lg:block">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+          <div className="pib-card mb-4 hidden shrink-0 p-5 lg:block">
+            <p className="pib-label mb-1">
               {isAdmin ? 'Operator task-bus chat' : 'Project / Agent chat'}
             </p>
-            <h2 className="text-2xl font-headline font-bold text-on-surface">Project chat</h2>
-            <p className="text-sm text-on-surface-variant mt-1">
+            <h2 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Project chat</h2>
+            <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
               Same chat engine as the sidebar, scoped to this project with streaming, approvals, voice, and file uploads.
             </p>
           </div>
           {!project?.orgId || !currentUser ? (
-            <div className="flex flex-1 items-center justify-center rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-6 text-center text-sm text-on-surface-variant">
+            <div className="pib-card flex flex-1 items-center justify-center p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
               {userLoadError ? `Project chat unavailable: ${userLoadError}` : 'Loading project chat…'}
             </div>
           ) : (
@@ -850,20 +850,20 @@ export function ProjectDetailWorkspace({
                 <span className="material-symbols-outlined mt-0.5 text-amber-300">move_up</span>
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] font-label uppercase tracking-widest text-amber-200/80">Admin transfer</p>
-                  <h3 className="mt-1 text-lg font-headline font-bold text-on-surface">Move project to another client</h3>
-                  <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+                  <h3 className="mt-1 text-lg font-headline font-bold text-[var(--color-pib-text)]">Move project to another client</h3>
+                  <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
                     Use this when a project was created under the wrong client. The move updates project visibility, project Kanban tasks, standalone tasks linked by projectId, unbilled time/expenses, and related calendar events. Billed financial records are left on the original client for audit safety.
                   </p>
                 </div>
               </div>
               <div className="mt-5 grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
                 <div>
-                  <label htmlFor="project-transfer-client" className="mb-2 block text-xs font-label uppercase tracking-widest text-on-surface-variant">Target client</label>
+                  <label htmlFor="project-transfer-client" className="pib-label">Target client</label>
                   <select
                     id="project-transfer-client"
                     value={targetOrgId}
                     onChange={e => setTargetOrgId(e.target.value)}
-                    className="w-full rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-4 py-3 text-sm text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
+                    className="pib-select w-full"
                   >
                     <option value="">Choose a client…</option>
                     {orgOptions.map(org => (

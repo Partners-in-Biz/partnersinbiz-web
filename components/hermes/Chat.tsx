@@ -342,7 +342,7 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
 
   if (!profileEnabled) {
     return (
-      <div className="pib-card text-sm text-on-surface-variant">
+      <div className="pib-card text-sm text-[var(--color-pib-text-muted)]">
         Save and enable a Hermes profile link above to start chatting.
       </div>
     )
@@ -354,10 +354,10 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
         <button onClick={newConversation} className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-on-primary hover:opacity-90">
           + New chat
         </button>
-        <div className="text-xs text-on-surface-variant mt-2 px-1">Conversations</div>
+        <div className="text-xs text-[var(--color-pib-text-muted)] mt-2 px-1">Conversations</div>
         <div className="flex flex-col gap-1 overflow-y-auto max-h-[520px]">
           {conversations.length === 0 && (
-            <div className="text-xs text-on-surface-variant px-2 py-3">No chats yet. Start one.</div>
+            <div className="text-xs text-[var(--color-pib-text-muted)] px-2 py-3">No chats yet. Start one.</div>
           )}
           {conversations.filter((c) => !c.archived).map((c) => (
             <div key={c.id} className="relative group/conv">
@@ -375,7 +375,7 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
                       if (!renameCancelledRef.current) renameConversation(c.id, renameValue)
                       renameCancelledRef.current = false
                     }}
-                    className="flex-1 min-w-0 bg-transparent border-b border-primary text-sm text-on-surface outline-none"
+                    className="flex-1 min-w-0 bg-transparent border-b border-primary text-sm text-[var(--color-pib-text)] outline-none"
                   />
                 </div>
               ) : (
@@ -383,13 +383,13 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
                   onClick={() => setActiveId(c.id)}
                   className={`w-full text-left rounded-lg px-3 py-2 text-sm transition-colors pr-8 ${
                     c.id === activeId
-                      ? 'bg-[var(--color-card-active,rgba(255,255,255,0.08))] text-on-surface'
-                      : 'text-on-surface-variant hover:bg-[var(--color-card-hover,rgba(255,255,255,0.04))]'
+                      ? 'bg-[var(--color-card-active,rgba(255,255,255,0.08))] text-[var(--color-pib-text)]'
+                      : 'text-[var(--color-pib-text-muted)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.04))]'
                   }`}
                 >
                   <div className="line-clamp-1">{c.title || 'Untitled'}</div>
                   {c.lastMessagePreview && (
-                    <div className="line-clamp-1 text-xs text-on-surface-variant mt-0.5">{c.lastMessagePreview}</div>
+                    <div className="line-clamp-1 text-xs text-[var(--color-pib-text-muted)] mt-0.5">{c.lastMessagePreview}</div>
                   )}
                 </button>
               )}
@@ -410,7 +410,7 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
                       setMenuOpenId(c.id)
                     }
                   }}
-                  className={`absolute right-1 top-1/2 -translate-y-1/2 hidden group-hover/conv:flex items-center justify-center w-6 h-6 rounded text-on-surface-variant hover:text-on-surface hover:bg-[var(--color-card-hover,rgba(255,255,255,0.08))] ${menuOpenId === c.id ? '!flex' : ''}`}
+                  className={`absolute right-1 top-1/2 -translate-y-1/2 hidden group-hover/conv:flex items-center justify-center w-6 h-6 rounded text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.08))] ${menuOpenId === c.id ? '!flex' : ''}`}
                   aria-label="Conversation options"
                 >
                   ⋯
@@ -426,11 +426,11 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
         <div
           data-conv-menu
           style={{ position: 'fixed', top: menuPosition.top, left: menuPosition.left }}
-          className="z-50 min-w-[128px] rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] py-1 shadow-xl"
+          className="z-50 min-w-[128px] rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-surface,#1c1c1c)] py-1 shadow-xl"
         >
           <button
             type="button"
-            className="w-full text-left px-3 py-2 text-xs text-on-surface hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))]"
+            className="w-full text-left px-3 py-2 text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))]"
             onClick={() => {
               const conv = conversations.find((c) => c.id === menuOpenId)
               setMenuOpenId(null)
@@ -451,14 +451,14 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
       )}
 
       <section className="pib-card flex flex-col">
-        <div className="flex items-center justify-between border-b border-[var(--color-card-border)] px-4 py-2 text-sm">
-          <div className="text-on-surface font-medium">{activeConversation?.title || 'New chat'}</div>
-          <div className="text-xs text-on-surface-variant">Hermes</div>
+        <div className="flex items-center justify-between border-b border-[var(--color-pib-line)] px-4 py-2 text-sm">
+          <div className="text-[var(--color-pib-text)] font-medium">{activeConversation?.title || 'New chat'}</div>
+          <div className="text-xs text-[var(--color-pib-text-muted)]">Hermes</div>
         </div>
         <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[400px]">
-          {loading && <div className="text-xs text-on-surface-variant">Loading…</div>}
+          {loading && <div className="text-xs text-[var(--color-pib-text-muted)]">Loading…</div>}
           {!loading && messages.length === 0 && (
-            <div className="text-sm text-on-surface-variant py-8 text-center">
+            <div className="text-sm text-[var(--color-pib-text-muted)] py-8 text-center">
               Send a task or question. Your agent has access to skills, files, terminal (per capability switches).
             </div>
           )}
@@ -472,7 +472,7 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
                     const isLive = m.status === 'pending' || m.status === 'streaming' || m.status === 'waiting_approval'
                     if (isLive) {
                       return (
-                        <div className="mb-1 space-y-1 text-xs text-on-surface-variant">
+                        <div className="mb-1 space-y-1 text-xs text-[var(--color-pib-text-muted)]">
                           {displayEvents.slice(-5).map((ev, i) => (
                             <div key={i} className="flex items-baseline gap-2 rounded-md bg-[var(--color-card,rgba(255,255,255,0.03))] px-2 py-1">
                               <span className="font-mono opacity-70">{ev.event ?? 'event'}</span>
@@ -484,13 +484,13 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
                       )
                     }
                     return (
-                      <details className="mb-2 text-xs text-on-surface-variant group/details">
+                      <details className="mb-2 text-xs text-[var(--color-pib-text-muted)] group/details">
                         <summary className="cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden flex items-center gap-1 px-1 py-0.5 rounded hover:bg-[var(--color-card,rgba(255,255,255,0.03))]">
                           <span className="group-open/details:hidden">▶</span>
                           <span className="hidden group-open/details:inline">▼</span>
                           <span>{displayEvents.length} tool call{displayEvents.length !== 1 ? 's' : ''}</span>
                         </summary>
-                        <div className="mt-1 space-y-0.5 pl-3 border-l border-[var(--color-card-border)]">
+                        <div className="mt-1 space-y-0.5 pl-3 border-l border-[var(--color-pib-line)]">
                           {displayEvents.map((ev, i) => {
                             const ts = ev.timestamp ? new Date(ev.timestamp * 1000).toISOString().slice(11, 19) : null
                             const toolLabel = ev.tool || ev.event
@@ -512,7 +512,7 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
                         ? 'bg-primary text-on-primary'
                         : m.status === 'failed'
                         ? 'bg-red-500/15 text-red-200 border border-red-500/40'
-                        : 'bg-[var(--color-card-active,rgba(255,255,255,0.06))] text-on-surface'
+                        : 'bg-[var(--color-card-active,rgba(255,255,255,0.06))] text-[var(--color-pib-text)]'
                     }`}
                   >
                     {m.status === 'pending' && !m.content && <span className="opacity-70 italic">Thinking…</span>}
@@ -559,11 +559,11 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
           })}
         </div>
         {error && <div className="px-4 py-2 text-xs text-red-300 border-t border-red-500/30 bg-red-500/10">{error}</div>}
-        <form onSubmit={send} className="flex gap-2 border-t border-[var(--color-card-border)] p-3">
+        <form onSubmit={send} className="flex gap-2 border-t border-[var(--color-pib-line)] p-3">
           <VoiceInputButton
             disabled={sending || !profileEnabled}
             onTranscript={addVoiceTranscriptToComposer}
-            className="self-end border border-[var(--color-card-border)] bg-[var(--color-card)]"
+            className="self-end border border-[var(--color-pib-line)] bg-[var(--color-card)]"
           />
           <textarea
             ref={composerRef}
@@ -577,7 +577,7 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
             }}
             placeholder="Send a message — Enter to send, Shift+Enter for new line"
             rows={2}
-            className="flex-1 resize-none rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm"
+            className="flex-1 resize-none rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)] px-3 py-2 text-sm"
           />
           <button
             type="submit"

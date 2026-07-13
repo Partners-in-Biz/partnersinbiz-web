@@ -67,9 +67,9 @@ function Skeleton({ className = '' }: { className?: string }) {
 function RoleBadge({ role }: { role: string }) {
   const map: Record<string, { label: string; color: string }> = {
     owner: { label: 'Owner', color: 'var(--color-accent-v2)' },
-    admin: { label: 'Admin', color: '#2563eb' },
-    member: { label: 'Member', color: '#6b7280' },
-    viewer: { label: 'Viewer', color: '#9ca3af' },
+    admin: { label: 'Admin', color: 'var(--color-pib-blue)' },
+    member: { label: 'Member', color: 'var(--color-pib-text-muted)' },
+    viewer: { label: 'Viewer', color: 'var(--color-pib-text-muted)' },
   }
   const r = map[role] ?? { label: role, color: 'var(--color-outline)' }
   return (
@@ -102,7 +102,7 @@ function Avatar({ name, photoURL }: { name?: string; photoURL?: string }) {
 
   return (
     <div
-      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-on-surface"
+      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-[var(--color-pib-text)]"
       style={{ backgroundColor: 'var(--color-accent-v2)' }}
     >
       {initials}
@@ -126,14 +126,14 @@ function InviteCard({
   children: ReactNode
 }) {
   return (
-    <section className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface)]/60 p-4 shadow-sm">
+    <section className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-surface)]/60 p-4 shadow-sm">
       <div className="mb-4 flex items-start gap-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[var(--color-accent-v2)]/12 text-[var(--color-accent-v2)]">
           {icon}
         </div>
         <div className="min-w-0">
-          <h2 className="text-sm font-headline font-semibold text-on-surface">{title}</h2>
-          <p className="mt-1 text-xs leading-relaxed text-on-surface-variant">{description}</p>
+          <h2 className="text-sm font-headline font-semibold text-[var(--color-pib-text)]">{title}</h2>
+          <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">{description}</p>
         </div>
       </div>
       {children}
@@ -149,7 +149,7 @@ function FieldShell({
   className?: string
 }) {
   return (
-    <div className={`rounded-md border border-[var(--color-outline)] bg-[var(--color-card)] focus-within:border-[var(--color-accent-v2)] focus-within:ring-1 focus-within:ring-[var(--color-accent-v2)] ${className}`}>
+    <div className={`rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] focus-within:border-[var(--color-accent-v2)] focus-within:ring-1 focus-within:ring-[var(--color-accent-v2)] ${className}`}>
       {children}
     </div>
   )
@@ -168,12 +168,12 @@ function RoleSelect({
 }) {
   return (
     <label className="block min-w-[150px] flex-1 sm:flex-none">
-      <span className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{label}</span>
+      <span className="mb-1.5 block pib-label">{label}</span>
       <FieldShell>
         <select
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-11 w-full bg-transparent px-3 text-sm text-on-surface outline-none"
+          className="h-11 w-full bg-transparent px-3 text-sm text-[var(--color-pib-text)] outline-none"
           disabled={disabled}
         >
           {ROLE_OPTIONS.map((option) => (
@@ -183,7 +183,7 @@ function RoleSelect({
           ))}
         </select>
       </FieldShell>
-      <span className="mt-1 block text-[11px] leading-snug text-on-surface-variant">
+      <span className="mt-1 block text-[11px] leading-snug text-[var(--color-pib-text-muted)]">
         {ROLE_OPTIONS.find((option) => option.value === value)?.description}
       </span>
     </label>
@@ -212,42 +212,42 @@ function AccessFields({
   disabled?: boolean
 }) {
   return (
-    <div className="space-y-3 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/60 p-3">
+    <div className="space-y-3 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)]/60 p-3">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
         <label className="block">
-          <span className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Job title</span>
+          <span className="mb-1.5 block pib-label">Job title</span>
           <FieldShell>
             <input
               type="text"
               placeholder="Finance Manager"
               value={jobTitle}
               onChange={(e) => onJobTitle(e.target.value)}
-              className="h-10 w-full bg-transparent px-3 text-sm text-on-surface placeholder:text-on-surface-variant outline-none"
+              className="h-10 w-full bg-transparent px-3 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] outline-none"
               disabled={disabled}
             />
           </FieldShell>
         </label>
         <label className="block">
-          <span className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Department</span>
+          <span className="mb-1.5 block pib-label">Department</span>
           <FieldShell>
             <input
               type="text"
               placeholder="Operations"
               value={department}
               onChange={(e) => onDepartment(e.target.value)}
-              className="h-10 w-full bg-transparent px-3 text-sm text-on-surface placeholder:text-on-surface-variant outline-none"
+              className="h-10 w-full bg-transparent px-3 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] outline-none"
               disabled={disabled}
             />
           </FieldShell>
         </label>
       </div>
       <label className="block">
-        <span className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Access scope</span>
+        <span className="mb-1.5 block pib-label">Access scope</span>
         <FieldShell>
           <select
             value={accessScope}
             onChange={(e) => onAccessScope(e.target.value as AccessScope)}
-            className="h-10 w-full bg-transparent px-3 text-sm text-on-surface outline-none"
+            className="h-10 w-full bg-transparent px-3 text-sm text-[var(--color-pib-text)] outline-none"
             disabled={disabled}
           >
             {ACCESS_SCOPE_OPTIONS.map((option) => (
@@ -259,14 +259,14 @@ function AccessFields({
         </FieldShell>
       </label>
       <label className="block">
-        <span className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Internal access note</span>
+        <span className="mb-1.5 block pib-label">Internal access note</span>
         <FieldShell>
           <textarea
             rows={2}
             placeholder="Context for this person's responsibilities"
             value={accessNotes}
             onChange={(e) => onAccessNotes(e.target.value)}
-            className="w-full resize-none bg-transparent px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant outline-none"
+            className="w-full resize-none bg-transparent px-3 py-2 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] outline-none"
             disabled={disabled}
           />
         </FieldShell>
@@ -659,22 +659,17 @@ export default function TeamPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-8 max-w-5xl mx-auto">
       {/* Header */}
-      <div>
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
-          Workspace / Team
-        </p>
-        <h1 className="text-2xl font-headline font-bold text-on-surface">Team</h1>
-      </div>
+      <header>
+        <p className="eyebrow">Workspace · Team</p>
+        <h1 className="pib-page-title mt-2">Team</h1>
+      </header>
 
       {/* Error */}
       {error && (
-        <div
-          className="pib-card border-l-4 p-4"
-          style={{ borderColor: '#ef4444', backgroundColor: '#fef2f2' }}
-        >
-          <p className="text-sm text-[#7f1d1d]">{error}</p>
+        <div className="pib-card border-l-4 border-[var(--color-error)] p-4">
+          <p className="text-sm text-[var(--color-error)]">{error}</p>
         </div>
       )}
 
@@ -689,12 +684,12 @@ export default function TeamPage() {
       {/* Create Client Login */}
       {!loading && org && (
         <div className="pib-card !p-0 overflow-visible">
-          <div className="border-b border-[var(--color-card-border)] px-5 py-4">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+          <div className="border-b border-[var(--color-pib-line)] px-5 py-4">
+            <p className="pib-label">
               Invites & Access
             </p>
-            <h2 className="mt-1 text-lg font-headline font-semibold text-on-surface">Add people to this selected org</h2>
-            <p className="mt-1 max-w-2xl text-sm text-on-surface-variant">
+            <h2 className="mt-1 text-lg font-headline font-semibold text-[var(--color-pib-text)]">Add people to this selected org</h2>
+            <p className="mt-1 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
               Create a new client login, attach an existing client account, or grant a PiB staff member explicit access to this selected org.
             </p>
           </div>
@@ -706,28 +701,28 @@ export default function TeamPage() {
             >
               <form onSubmit={handleCreateLogin} className="space-y-3">
                 <label className="block">
-                  <span className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Full name</span>
+                  <span className="mb-1.5 block pib-label">Full name</span>
                   <FieldShell>
                     <input
                       type="text"
                       placeholder="Jane Client"
                       value={createName}
                       onChange={(e) => setCreateName(e.target.value)}
-                      className="h-11 w-full bg-transparent px-3 text-sm text-on-surface placeholder:text-on-surface-variant outline-none"
+                      className="h-11 w-full bg-transparent px-3 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] outline-none"
                       disabled={creatingLogin}
                       required
                     />
                   </FieldShell>
                 </label>
                 <label className="block">
-                  <span className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Email</span>
+                  <span className="mb-1.5 block pib-label">Email</span>
                   <FieldShell>
                     <input
                       type="email"
                       placeholder="client@example.com"
                       value={createEmail}
                       onChange={(e) => setCreateEmail(e.target.value)}
-                      className="h-11 w-full bg-transparent px-3 text-sm text-on-surface placeholder:text-on-surface-variant outline-none"
+                      className="h-11 w-full bg-transparent px-3 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] outline-none"
                       disabled={creatingLogin}
                       required
                     />
@@ -747,25 +742,25 @@ export default function TeamPage() {
                 />
                 <button
                   type="submit"
-                  className="pib-btn-primary flex w-full items-center justify-center gap-2 text-sm font-label"
+                  className="btn-pib-primary flex w-full items-center justify-center gap-2 text-sm font-label"
                   disabled={creatingLogin || !createEmail || !createName}
                 >
                   <FiUserPlus aria-hidden="true" className="h-4 w-4" />
                   {creatingLogin ? 'Creating...' : 'Create Login'}
                 </button>
               </form>
-              {createError && <p className="mt-2 text-xs text-[#ef4444]">{createError}</p>}
+              {createError && <p className="mt-2 text-xs text-[var(--color-error)]">{createError}</p>}
               {setupLink && (
-                <div className="mt-3 rounded-md border border-[var(--color-outline)] bg-[var(--color-card)] p-3">
-                  <div className="mb-2 flex items-center gap-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                <div className="mt-3 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] p-3">
+                  <div className="mb-2 flex items-center gap-2 pib-label">
                     <FiCheckCircle aria-hidden="true" className="h-3.5 w-3.5 text-[var(--color-accent-v2)]" />
                     Setup link ready
                   </div>
-                  <code className="block max-h-16 overflow-auto break-all text-xs text-on-surface">{setupLink}</code>
+                  <code className="block max-h-16 overflow-auto break-all text-xs text-[var(--color-pib-text)]">{setupLink}</code>
                   <button
                     type="button"
                     onClick={() => { copyToClipboard(setupLink); }}
-                    className="pib-btn-secondary mt-3 flex w-full items-center justify-center gap-2 text-xs font-label"
+                    className="btn-pib-secondary mt-3 flex w-full items-center justify-center gap-2 text-xs font-label"
                   >
                     <FiCopy aria-hidden="true" className="h-3.5 w-3.5" />
                     Copy link
@@ -781,7 +776,7 @@ export default function TeamPage() {
             >
               <form onSubmit={handleAddClient} className="space-y-3">
                 <label className="block">
-                  <span className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Client account</span>
+                  <span className="mb-1.5 block pib-label">Client account</span>
                   <div ref={clientSearchRef} className="relative">
                     <FieldShell>
                       <input
@@ -796,7 +791,7 @@ export default function TeamPage() {
                         onFocus={() => {
                           if (clientSearch.trim().length >= 2) setClientDropdownOpen(true)
                         }}
-                        className="h-11 w-full bg-transparent px-3 pr-10 text-sm text-on-surface placeholder:text-on-surface-variant outline-none"
+                        className="h-11 w-full bg-transparent px-3 pr-10 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] outline-none"
                         disabled={addingClient}
                         autoComplete="off"
                       />
@@ -808,7 +803,7 @@ export default function TeamPage() {
                             setClientSearch('')
                             setClientCandidates([])
                           }}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-on-surface-variant hover:text-on-surface"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
                           aria-label="Clear selected client"
                         >
                           <FiX aria-hidden="true" className="h-4 w-4" />
@@ -822,9 +817,9 @@ export default function TeamPage() {
                       </p>
                     )}
                     {clientDropdownOpen && clientSearch.trim().length >= 2 && !clientUid && (
-                      <div className="absolute z-20 top-full mt-1 max-h-64 w-full overflow-auto rounded-md border border-[var(--color-outline)] bg-[var(--color-card)] shadow-lg">
+                      <div className="absolute z-20 top-full mt-1 max-h-64 w-full overflow-auto rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] shadow-lg">
                         {clientSearchLoading ? (
-                          <div className="px-3 py-2 text-xs text-on-surface-variant">
+                          <div className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
                             Searching clients...
                           </div>
                         ) : clientCandidates.length > 0 ? (
@@ -843,14 +838,14 @@ export default function TeamPage() {
                               >
                                 <Avatar name={client.displayName || client.email} photoURL={client.photoURL} />
                                 <div className="min-w-0">
-                                  <p className="truncate font-medium text-on-surface">{client.displayName || 'Client'}</p>
-                                  <p className="truncate text-xs text-on-surface-variant">{client.email}</p>
+                                  <p className="truncate font-medium text-[var(--color-pib-text)]">{client.displayName || 'Client'}</p>
+                                  <p className="truncate text-xs text-[var(--color-pib-text-muted)]">{client.email}</p>
                                 </div>
                               </li>
                             ))}
                           </ul>
                         ) : (
-                          <div className="px-3 py-2 text-xs text-on-surface-variant">
+                          <div className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
                             No matching client accounts found
                           </div>
                         )}
@@ -872,7 +867,7 @@ export default function TeamPage() {
                 />
                 <button
                   type="submit"
-                  className="pib-btn-primary flex w-full items-center justify-center gap-2 text-sm font-label"
+                  className="btn-pib-primary flex w-full items-center justify-center gap-2 text-sm font-label"
                   disabled={addingClient || !clientUid}
                 >
                   <FiUserCheck aria-hidden="true" className="h-4 w-4" />
@@ -880,7 +875,7 @@ export default function TeamPage() {
                 </button>
               </form>
               {clientError && (
-                <p className="mt-2 text-xs text-[#ef4444]">{clientError}</p>
+                <p className="mt-2 text-xs text-[var(--color-error)]">{clientError}</p>
               )}
             </InviteCard>
 
@@ -891,7 +886,7 @@ export default function TeamPage() {
             >
               <form onSubmit={handleAddMember} className="space-y-3">
                 <label className="block">
-                  <span className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Staff account</span>
+                  <span className="mb-1.5 block pib-label">Staff account</span>
                   <div ref={addSearchRef} className="relative">
                     <FieldShell>
                       <input
@@ -904,7 +899,7 @@ export default function TeamPage() {
                           setShowDropdown(true)
                         }}
                         onFocus={() => setShowDropdown(true)}
-                        className="h-11 w-full bg-transparent px-3 pr-10 text-sm text-on-surface placeholder:text-on-surface-variant outline-none"
+                        className="h-11 w-full bg-transparent px-3 pr-10 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] outline-none"
                         disabled={addingMember}
                         autoComplete="off"
                       />
@@ -915,7 +910,7 @@ export default function TeamPage() {
                             setAddEmail('')
                             setAddSearch('')
                           }}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-on-surface-variant hover:text-on-surface"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
                           aria-label="Clear selected member"
                         >
                           <FiX aria-hidden="true" className="h-4 w-4" />
@@ -936,7 +931,7 @@ export default function TeamPage() {
                           (u.email.toLowerCase().includes(q) || u.displayName.toLowerCase().includes(q)),
                       )
                       return matches.length > 0 ? (
-                        <ul className="absolute z-20 top-full mt-1 max-h-64 w-full overflow-auto rounded-md border border-[var(--color-outline)] bg-[var(--color-card)] shadow-lg">
+                        <ul className="absolute z-20 top-full mt-1 max-h-64 w-full overflow-auto rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] shadow-lg">
                           {matches.map((u) => (
                             <li
                               key={u.uid}
@@ -952,14 +947,14 @@ export default function TeamPage() {
                                 {(u.displayName || u.email)[0].toUpperCase()}
                               </div>
                               <div className="min-w-0">
-                                <p className="truncate font-medium text-on-surface">{u.displayName || 'Team member'}</p>
-                                <p className="truncate text-xs text-on-surface-variant">{u.email}</p>
+                                <p className="truncate font-medium text-[var(--color-pib-text)]">{u.displayName || 'Team member'}</p>
+                                <p className="truncate text-xs text-[var(--color-pib-text-muted)]">{u.email}</p>
                               </div>
                             </li>
                           ))}
                         </ul>
                       ) : (
-                        <div className="absolute z-20 top-full mt-1 w-full rounded-md border border-[var(--color-outline)] bg-[var(--color-card)] px-3 py-2 text-xs text-on-surface-variant shadow-lg">
+                        <div className="absolute z-20 top-full mt-1 w-full rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)] shadow-lg">
                           No matching staff accounts found
                         </div>
                       )
@@ -980,7 +975,7 @@ export default function TeamPage() {
                 />
                 <button
                   type="submit"
-                  className="pib-btn-primary flex w-full items-center justify-center gap-2 text-sm font-label"
+                  className="btn-pib-primary flex w-full items-center justify-center gap-2 text-sm font-label"
                   disabled={addingMember || !addEmail}
                 >
                   <FiUserCheck aria-hidden="true" className="h-4 w-4" />
@@ -988,7 +983,7 @@ export default function TeamPage() {
                 </button>
               </form>
               {addError && (
-                <p className="mt-2 text-xs text-[#ef4444]">{addError}</p>
+                <p className="mt-2 text-xs text-[var(--color-error)]">{addError}</p>
               )}
             </InviteCard>
           </div>
@@ -997,7 +992,7 @@ export default function TeamPage() {
 
       {/* Members Table */}
       <div className="pib-card">
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-3">
+        <p className="pib-label mb-3">
           Members ({members.length})
         </p>
 
@@ -1009,29 +1004,29 @@ export default function TeamPage() {
           </div>
         ) : members.length === 0 ? (
           <div className="py-8 text-center">
-            <p className="text-on-surface-variant text-sm">No team members yet.</p>
+            <p className="text-[var(--color-pib-text-muted)] text-sm">No team members yet.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-on-surface-variant/20">
-                  <th className="text-left py-2 px-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant">
+                <tr className="border-b border-[var(--color-pib-line)]">
+                  <th className="text-left py-2 px-3 font-label text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                     Member
                   </th>
-                  <th className="text-left py-2 px-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant">
+                  <th className="text-left py-2 px-3 font-label text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                     Email
                   </th>
-                  <th className="text-left py-2 px-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant">
+                  <th className="text-left py-2 px-3 font-label text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                     Position
                   </th>
-                  <th className="text-left py-2 px-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant">
+                  <th className="text-left py-2 px-3 font-label text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                     Role
                   </th>
-                  <th className="text-left py-2 px-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant">
+                  <th className="text-left py-2 px-3 font-label text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                     Access
                   </th>
-                  <th className="text-right py-2 px-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant">
+                  <th className="text-right py-2 px-3 font-label text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                     Actions
                   </th>
                 </tr>
@@ -1040,24 +1035,24 @@ export default function TeamPage() {
                 {members.map((member) => (
                   <tr
                     key={member.userId}
-                    className="border-b border-on-surface-variant/10 hover:bg-[var(--color-row-hover)] transition-colors"
+                    className="border-b border-[var(--color-pib-line)] hover:bg-[var(--color-row-hover)] transition-colors"
                   >
                     <td className="py-3 px-3">
                       <div className="flex items-center gap-2">
                         <Avatar name={member.displayName} photoURL={member.photoURL} />
-                        <span className="text-on-surface font-medium text-sm">
+                        <span className="text-[var(--color-pib-text)] font-medium text-sm">
                           {isProvisioningAgentMember(member) ? 'Provisioning agent' : member.displayName || 'Unknown'}
                         </span>
                       </div>
                     </td>
                     <td className="py-3 px-3">
-                      <span className="text-on-surface-variant text-sm">{member.email || '—'}</span>
+                      <span className="text-[var(--color-pib-text-muted)] text-sm">{member.email || '—'}</span>
                     </td>
                     <td className="py-3 px-3">
                       <div className="max-w-[180px] text-sm">
-                        <p className="truncate text-on-surface">{member.jobTitle || '—'}</p>
+                        <p className="truncate text-[var(--color-pib-text)]">{member.jobTitle || '—'}</p>
                         {member.department && (
-                          <p className="truncate text-xs text-on-surface-variant">{member.department}</p>
+                          <p className="truncate text-xs text-[var(--color-pib-text-muted)]">{member.department}</p>
                         )}
                       </div>
                     </td>
@@ -1090,7 +1085,7 @@ export default function TeamPage() {
                             onChange={(e) => handleChangeAccessScope(member.userId, e.target.value as AccessScope)}
                             disabled={updatingRole === member.userId}
                             aria-label={`Change access for ${member.displayName || member.email || member.userId}`}
-                            className="w-full rounded-md border border-[var(--color-outline)] bg-[var(--color-surface)] px-2 py-1 text-xs text-on-surface-variant"
+                            className="w-full rounded-md border border-[var(--color-pib-line)] bg-[var(--color-surface)] px-2 py-1 text-xs text-[var(--color-pib-text-muted)]"
                           >
                             {ACCESS_SCOPE_OPTIONS.map((option) => (
                               <option key={option.value} value={option.value}>
@@ -1099,10 +1094,10 @@ export default function TeamPage() {
                             ))}
                           </select>
                         ) : (
-                          <p className="text-on-surface-variant">{accessScopeLabel(member.accessScope)}</p>
+                          <p className="text-[var(--color-pib-text-muted)]">{accessScopeLabel(member.accessScope)}</p>
                         )}
                         {member.accessNotes && (
-                          <p className="mt-0.5 truncate text-xs text-on-surface-variant/70">{member.accessNotes}</p>
+                          <p className="mt-0.5 truncate text-xs text-[var(--color-pib-text-faint)]">{member.accessNotes}</p>
                         )}
                       </div>
                     </td>
@@ -1110,7 +1105,7 @@ export default function TeamPage() {
                       {(member.role !== 'owner' || isProvisioningAgentMember(member)) && (
                         <button
                           onClick={() => handleRemoveMember(member.userId)}
-                          className="text-xs text-[#ef4444] hover:text-[#dc2626] font-medium"
+                          className="text-xs text-[var(--color-error)] hover:text-[var(--color-error)] font-medium"
                         >
                           Remove
                         </button>
@@ -1124,7 +1119,7 @@ export default function TeamPage() {
         )}
 
         {updatingError && (
-          <p className="text-xs text-[#ef4444] mt-2">{updatingError}</p>
+          <p className="text-xs text-[var(--color-error)] mt-2">{updatingError}</p>
         )}
       </div>
     </div>

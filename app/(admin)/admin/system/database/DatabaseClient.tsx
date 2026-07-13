@@ -271,10 +271,10 @@ export default function DatabaseClient() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <span className="material-symbols-outlined text-3xl text-on-surface-variant">database</span>
+        <span className="material-symbols-outlined text-3xl text-[var(--color-pib-text-muted)]">database</span>
         <div>
           <h1 className="text-2xl font-semibold">Database</h1>
-          <p className="text-sm text-on-surface-variant">
+          <p className="text-sm text-[var(--color-pib-text-muted)]">
             Browse Firestore collections and documents. Destructive actions are super-admin only.
           </p>
         </div>
@@ -284,12 +284,12 @@ export default function DatabaseClient() {
         {/* Left: collection list */}
         <div className="pib-card p-4">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-on-surface-variant">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">
               Collections
             </h2>
             <button
               onClick={loadCollections}
-              className="text-on-surface-variant hover:text-on-surface"
+              className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
               title="Refresh"
             >
               <span className="material-symbols-outlined text-lg">refresh</span>
@@ -305,7 +305,7 @@ export default function DatabaseClient() {
           ) : colError ? (
             <p className="text-sm text-red-600">{colError}</p>
           ) : collections.length === 0 ? (
-            <p className="text-sm text-on-surface-variant">No collections found.</p>
+            <p className="text-sm text-[var(--color-pib-text-muted)]">No collections found.</p>
           ) : (
             <ul className="space-y-1">
               {collections.map((c) => (
@@ -335,7 +335,7 @@ export default function DatabaseClient() {
         <div className="space-y-4">
           {!selected ? (
             <div className="pib-card flex min-h-[200px] items-center justify-center p-8 text-center">
-              <p className="text-sm text-on-surface-variant">
+              <p className="text-sm text-[var(--color-pib-text-muted)]">
                 Select a collection on the left to browse its documents.
               </p>
             </div>
@@ -345,7 +345,7 @@ export default function DatabaseClient() {
               <div className="pib-card flex flex-wrap items-center justify-between gap-3 p-4">
                 <div>
                   <h2 className="font-mono text-lg font-semibold">{selected}</h2>
-                  <p className="text-xs text-on-surface-variant">{docs.length} loaded</p>
+                  <p className="text-xs text-[var(--color-pib-text-muted)]">{docs.length} loaded</p>
                 </div>
                 {isSuperAdmin && (
                   <button
@@ -383,7 +383,7 @@ export default function DatabaseClient() {
                 {lookupResult && (
                   <div className="mt-3 space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="font-mono text-xs text-on-surface-variant">{lookupResult.id}</span>
+                      <span className="font-mono text-xs text-[var(--color-pib-text-muted)]">{lookupResult.id}</span>
                       {isSuperAdmin && (
                         <button
                           onClick={() => openDelete(selected, lookupResult.id)}
@@ -401,7 +401,7 @@ export default function DatabaseClient() {
 
               {/* Document list */}
               <div className="pib-card p-4">
-                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-on-surface-variant">
+                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                   Documents
                 </h3>
                 {docsLoading ? (
@@ -413,7 +413,7 @@ export default function DatabaseClient() {
                 ) : docsError ? (
                   <p className="text-sm text-red-600">{docsError}</p>
                 ) : docs.length === 0 ? (
-                  <p className="text-sm text-on-surface-variant">This collection has no documents.</p>
+                  <p className="text-sm text-[var(--color-pib-text-muted)]">This collection has no documents.</p>
                 ) : (
                   <ul className="space-y-2">
                     {docs.map((doc) => {
@@ -425,7 +425,7 @@ export default function DatabaseClient() {
                               onClick={() => setExpanded((p) => ({ ...p, [doc.id]: !isOpen }))}
                               className="flex min-w-0 flex-1 items-center gap-2 text-left"
                             >
-                              <span className="material-symbols-outlined text-base text-on-surface-variant">
+                              <span className="material-symbols-outlined text-base text-[var(--color-pib-text-muted)]">
                                 {isOpen ? 'expand_less' : 'expand_more'}
                               </span>
                               <span className="truncate font-mono text-sm">{doc.id}</span>
@@ -433,7 +433,7 @@ export default function DatabaseClient() {
                             {isSuperAdmin && (
                               <button
                                 onClick={() => openDelete(selected, doc.id)}
-                                className="shrink-0 text-on-surface-variant hover:text-red-600"
+                                className="shrink-0 text-[var(--color-pib-text-muted)] hover:text-red-600"
                                 title="Delete document"
                               >
                                 <span className="material-symbols-outlined text-base">delete</span>
@@ -471,7 +471,7 @@ export default function DatabaseClient() {
       {/* Maintenance scripts */}
       <div className="pib-card p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-on-surface-variant">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">
             Maintenance scripts
           </h2>
           <Link
@@ -494,7 +494,7 @@ export default function DatabaseClient() {
                   href="/admin/system/migrations"
                   className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-slate-100"
                 >
-                  <span className="material-symbols-outlined text-base text-on-surface-variant">
+                  <span className="material-symbols-outlined text-base text-[var(--color-pib-text-muted)]">
                     terminal
                   </span>
                   <span className="font-mono">{m.name ?? m.id ?? `migration ${i + 1}`}</span>
@@ -503,7 +503,7 @@ export default function DatabaseClient() {
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-on-surface-variant">
+          <p className="text-sm text-[var(--color-pib-text-muted)]">
             No maintenance scripts registered yet.{' '}
             <Link href="/admin/system/migrations" className="text-blue-600 hover:underline">
               Manage migrations
@@ -521,7 +521,7 @@ export default function DatabaseClient() {
               <span className="material-symbols-outlined text-red-600">warning</span>
               <h3 className="text-lg font-semibold">Delete document</h3>
             </div>
-            <p className="mb-3 text-sm text-on-surface-variant">
+            <p className="mb-3 text-sm text-[var(--color-pib-text-muted)]">
               This permanently deletes the document. To confirm, type{' '}
               <code className="rounded bg-slate-100 px-1 py-0.5 font-mono text-xs text-red-700">
                 {confirmTokenExpected}

@@ -41,7 +41,7 @@ export function LeadWeightsEditor({ value, onChange, disabled }: Props) {
         return (
           <div key={key} className="flex flex-col gap-1">
             <label className="text-xs font-medium">{label}</label>
-            <p className="text-xs text-on-surface-variant">{description}</p>
+            <p className="text-xs text-[var(--color-pib-text-muted)]">{description}</p>
             <input
               type="number"
               value={displayVal}

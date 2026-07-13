@@ -19,6 +19,9 @@
   --color-pib-accent-soft: rgba(245, 166, 35, 0.12);
   --color-pib-violet: #7C5CFF;
   --color-pib-success: #4ADE80;
+  /* Editor/canvas primary accent (playheads, selection, links). Historically
+     referenced as --color-pib-primary but never defined — aliased to violet. */
+  --color-pib-primary: #7C5CFF;
 
   /* === Module accent hues — the "pop of colour" layer. One signature hue per
      product area, always used sparingly: icon tints, status dots, pills, and

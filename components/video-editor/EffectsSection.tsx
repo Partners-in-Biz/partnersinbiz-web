@@ -28,7 +28,7 @@ function ParamControl({
 }) {
   if (def.type === 'number') {
     return (
-      <label className="block text-xs text-on-surface-variant">
+      <label className="block text-xs text-[var(--color-pib-text-muted)]">
         {def.label}
         <input
           aria-label={def.label}
@@ -47,7 +47,7 @@ function ParamControl({
 
   if (def.type === 'color') {
     return (
-      <label className="block text-xs text-on-surface-variant">
+      <label className="block text-xs text-[var(--color-pib-text-muted)]">
         {def.label}
         <input
           aria-label={def.label}
@@ -62,7 +62,7 @@ function ParamControl({
 
   if (def.type === 'select') {
     return (
-      <label className="block text-xs text-on-surface-variant">
+      <label className="block text-xs text-[var(--color-pib-text-muted)]">
         {def.label}
         <select aria-label={def.label} className={inputClass()} value={String(value ?? def.default)} onChange={(event) => onChange(event.target.value)}>
           {def.options.map((option) => <option key={option} value={option}>{option}</option>)}
@@ -73,7 +73,7 @@ function ParamControl({
 
   if (def.type === 'boolean') {
     return (
-      <label className="flex items-center gap-2 text-xs text-on-surface-variant">
+      <label className="flex items-center gap-2 text-xs text-[var(--color-pib-text-muted)]">
         <input aria-label={def.label} type="checkbox" checked={value === true} onChange={(event) => onChange(event.target.checked)} />
         {def.label}
       </label>
@@ -81,7 +81,7 @@ function ParamControl({
   }
 
   return (
-    <label className="block text-xs text-on-surface-variant">
+    <label className="block text-xs text-[var(--color-pib-text-muted)]">
       {def.label}
       <select aria-label={def.label} className={inputClass()} value={String(value ?? '')} onChange={(event) => onChange(event.target.value)}>
         <option value="">Choose a LUT</option>
@@ -121,8 +121,8 @@ export function EffectsSection({
 
   return (
     <div className="space-y-2">
-      <h3 className="text-sm font-semibold text-on-surface">Effects</h3>
-      <label className="block text-xs text-on-surface-variant">
+      <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Effects</h3>
+      <label className="block text-xs text-[var(--color-pib-text-muted)]">
         Add effect
         <select
           aria-label="Add effect"
@@ -143,7 +143,7 @@ export function EffectsSection({
         return (
           <div key={`${effect.kind}-${index}`} className="rounded-lg border border-[var(--color-pib-line)] p-2">
             <div className="flex items-center justify-between gap-1">
-              <span className="text-xs font-medium text-on-surface">{def.label}</span>
+              <span className="text-xs font-medium text-[var(--color-pib-text)]">{def.label}</span>
               <span className="flex gap-1">
                 <button type="button" aria-label="Move effect up" className="pib-btn-ghost px-1 text-xs" onClick={() => moveEffect(index, -1)}>
                   <FiChevronUp aria-hidden="true" className="h-3.5 w-3.5" />

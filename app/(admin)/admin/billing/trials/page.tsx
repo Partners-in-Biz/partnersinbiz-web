@@ -76,34 +76,34 @@ function MetricCard({
 }) {
   return (
     <div className="pib-card p-4">
-      <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{label}</p>
+      <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</p>
       <p
         className="text-2xl font-headline font-bold mt-1"
-        style={{ color: accent ? 'var(--color-accent-v2)' : undefined }}
+        style={{ color: accent ? 'var(--color-pib-accent)' : undefined }}
       >
         {value}
       </p>
-      {hint && <p className="text-[11px] text-on-surface-variant/70 mt-0.5">{hint}</p>}
+      {hint && <p className="text-[11px] text-[var(--color-pib-text-muted)]/70 mt-0.5">{hint}</p>}
     </div>
   )
 }
 
 function ActivationBar({ score }: { score: number }) {
   const color =
-    score >= 66 ? 'var(--color-accent-v2)' : score >= 33 ? '#eab308' : '#9ca3af'
+    score >= 66 ? 'var(--color-pib-accent)' : score >= 33 ? '#eab308' : '#9ca3af'
   return (
     <div className="flex items-center gap-2 min-w-[120px]">
       <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
         <div className="h-full rounded-full" style={{ width: `${score}%`, background: color }} />
       </div>
-      <span className="text-xs font-mono text-on-surface-variant w-7 text-right">{score}</span>
+      <span className="text-xs font-mono text-[var(--color-pib-text-muted)] w-7 text-right">{score}</span>
     </div>
   )
 }
 
 function DaysBadge({ days }: { days: number | null }) {
   if (days == null) {
-    return <span className="text-xs text-on-surface-variant">No end date</span>
+    return <span className="text-xs text-[var(--color-pib-text-muted)]">No end date</span>
   }
   const expired = days < 0
   const urgent = days <= 3
@@ -217,11 +217,11 @@ export default function TrialsPage() {
     <div className="space-y-6 max-w-6xl mx-auto">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Billing / Trials
           </p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Trial conversion</h1>
-          <p className="text-sm text-on-surface-variant mt-0.5">
+          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Trial conversion</h1>
+          <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5">
             Trialing accounts ranked by days remaining and activation. Extend, force-convert, or nudge by email.
           </p>
         </div>
@@ -268,22 +268,22 @@ export default function TrialsPage() {
       {/* Conversion trend */}
       <div className="pib-card p-5">
         <div className="mb-4">
-          <h2 className="text-sm font-headline font-bold text-on-surface">Trials started vs converted</h2>
-          <p className="text-[11px] text-on-surface-variant/70">Monthly, last 12 months</p>
+          <h2 className="text-sm font-headline font-bold text-[var(--color-pib-text)]">Trials started vs converted</h2>
+          <p className="text-[11px] text-[var(--color-pib-text-muted)]/70">Monthly, last 12 months</p>
         </div>
         {loading ? (
           <Skeleton className="h-64 rounded-xl" />
         ) : !hasTrend ? (
-          <div className="h-64 flex items-center justify-center text-sm text-on-surface-variant">
+          <div className="h-64 flex items-center justify-center text-sm text-[var(--color-pib-text-muted)]">
             No subscription history yet.
           </div>
         ) : (
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={trendData} barGap={2}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-on-surface-variant, #9ca3af)" strokeOpacity={0.1} />
-                <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'var(--color-on-surface-variant, #9ca3af)' }} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: 'var(--color-on-surface-variant, #9ca3af)' }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-pib-text-muted, #9ca3af)" strokeOpacity={0.1} />
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'var(--color-pib-text-muted, #9ca3af)' }} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: 'var(--color-pib-text-muted, #9ca3af)' }} />
                 <Tooltip
                   contentStyle={{
                     background: 'var(--color-surface, #1a1a1a)',
@@ -291,11 +291,11 @@ export default function TrialsPage() {
                     borderRadius: 8,
                     fontSize: 12,
                   }}
-                  labelStyle={{ color: 'var(--color-on-surface, #fff)' }}
+                  labelStyle={{ color: 'var(--color-pib-text, #fff)' }}
                 />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
                 <Bar dataKey="started" name="Started" fill="#6b7280" radius={[3, 3, 0, 0]} />
-                <Bar dataKey="converted" name="Converted" fill="var(--color-accent-v2)" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="converted" name="Converted" fill="var(--color-pib-accent)" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -305,19 +305,19 @@ export default function TrialsPage() {
       {/* Trials table */}
       <div className="pib-card p-0 overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
-          <h2 className="text-sm font-headline font-bold text-on-surface">Trialing accounts</h2>
+          <h2 className="text-sm font-headline font-bold text-[var(--color-pib-text)]">Trialing accounts</h2>
           <div className="flex gap-2">
             <button
               onClick={() => toggleSort('days')}
-              className={`text-[11px] font-label px-2 py-1 rounded ${sortKey === 'days' ? 'text-on-surface' : 'text-on-surface-variant'}`}
-              style={sortKey === 'days' ? { background: 'var(--color-accent-v2)20' } : undefined}
+              className={`text-[11px] font-label px-2 py-1 rounded ${sortKey === 'days' ? 'text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)]'}`}
+              style={sortKey === 'days' ? { background: 'var(--color-pib-accent)20' } : undefined}
             >
               Days {sortKey === 'days' ? (sortAsc ? '↑' : '↓') : ''}
             </button>
             <button
               onClick={() => toggleSort('activation')}
-              className={`text-[11px] font-label px-2 py-1 rounded ${sortKey === 'activation' ? 'text-on-surface' : 'text-on-surface-variant'}`}
-              style={sortKey === 'activation' ? { background: 'var(--color-accent-v2)20' } : undefined}
+              className={`text-[11px] font-label px-2 py-1 rounded ${sortKey === 'activation' ? 'text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)]'}`}
+              style={sortKey === 'activation' ? { background: 'var(--color-pib-accent)20' } : undefined}
             >
               Activation {sortKey === 'activation' ? (sortAsc ? '↑' : '↓') : ''}
             </button>
@@ -331,7 +331,7 @@ export default function TrialsPage() {
             ))}
           </div>
         ) : !sortedTrials.length ? (
-          <div className="px-5 py-12 text-center text-sm text-on-surface-variant">
+          <div className="px-5 py-12 text-center text-sm text-[var(--color-pib-text-muted)]">
             No active trials right now.
           </div>
         ) : (
@@ -345,11 +345,11 @@ export default function TrialsPage() {
                     <div className="min-w-0 flex-1">
                       <Link
                         href={`/admin/org/${t.slug}`}
-                        className="text-sm font-medium text-on-surface hover:text-[var(--color-accent-v2)] transition-colors truncate block"
+                        className="text-sm font-medium text-[var(--color-pib-text)] hover:text-[var(--color-pib-accent)] transition-colors truncate block"
                       >
                         {t.orgName}
                       </Link>
-                      <p className="text-[11px] text-on-surface-variant/70">
+                      <p className="text-[11px] text-[var(--color-pib-text-muted)]/70">
                         {t.planKey} · {formatZar(t.mrrPotentialZar)}/mo · ends {formatDate(t.trialEndsAtMs)}
                       </p>
                     </div>
@@ -393,16 +393,16 @@ export default function TrialsPage() {
                   {/* Inline action panels */}
                   {isOpen && openAction?.kind === 'extend' && (
                     <div className="mt-3 flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2">
-                      <label className="text-[11px] text-on-surface-variant">Extend by</label>
+                      <label className="text-[11px] text-[var(--color-pib-text-muted)]">Extend by</label>
                       <input
                         type="number"
                         min={1}
                         max={365}
                         value={extendDays}
                         onChange={(e) => setExtendDays(e.target.value)}
-                        className="w-16 rounded bg-black/30 px-2 py-1 text-sm text-on-surface border border-white/10"
+                        className="w-16 rounded bg-black/30 px-2 py-1 text-sm text-[var(--color-pib-text)] border border-white/10"
                       />
-                      <span className="text-[11px] text-on-surface-variant">days</span>
+                      <span className="text-[11px] text-[var(--color-pib-text-muted)]">days</span>
                       <button
                         disabled={busy}
                         onClick={() =>
@@ -425,14 +425,14 @@ export default function TrialsPage() {
                         placeholder="Subject"
                         value={emailSubject}
                         onChange={(e) => setEmailSubject(e.target.value)}
-                        className="w-full rounded bg-black/30 px-2 py-1.5 text-sm text-on-surface border border-white/10"
+                        className="w-full rounded bg-black/30 px-2 py-1.5 text-sm text-[var(--color-pib-text)] border border-white/10"
                       />
                       <textarea
                         placeholder="Message…"
                         rows={3}
                         value={emailBody}
                         onChange={(e) => setEmailBody(e.target.value)}
-                        className="w-full rounded bg-black/30 px-2 py-1.5 text-sm text-on-surface border border-white/10"
+                        className="w-full rounded bg-black/30 px-2 py-1.5 text-sm text-[var(--color-pib-text)] border border-white/10"
                       />
                       <div className="flex justify-end">
                         <button

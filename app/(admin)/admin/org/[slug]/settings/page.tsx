@@ -544,31 +544,29 @@ export default function OrgSettingsPage() {
   if (loading) return <div className="pib-skeleton h-96 max-w-3xl mx-auto" />
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <div>
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
-          {orgName} / Settings
-        </p>
-        <h1 className="text-2xl font-headline font-bold text-on-surface">Organisation Settings</h1>
-      </div>
+    <div className="max-w-3xl mx-auto space-y-8">
+      <header>
+        <p className="eyebrow">{orgName} · Settings</p>
+        <h1 className="pib-page-title mt-2">Organisation Settings</h1>
+      </header>
 
       {/* Org ID */}
       {orgId && (
         <div className="pib-card-section">
           <div className="pib-card-section-header">
-            <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Organisation ID</span>
+            <span className="pib-label">Organisation ID</span>
           </div>
           <div className="pib-card-section-row">
-            <span className="text-sm text-on-surface-variant">Org ID</span>
+            <span className="text-sm text-[var(--color-pib-text-muted)]">Org ID</span>
             <span className="flex items-center gap-2">
-              <code className="font-mono text-xs text-on-surface bg-[var(--color-surface-container)] px-2 py-1 rounded select-all">{orgId}</code>
-              <button type="button" onClick={copyOrgId} className="text-xs text-on-surface-variant hover:text-on-surface transition-colors px-2 py-1 rounded hover:bg-[var(--color-surface-container)]">
+              <code className="font-mono text-xs text-[var(--color-pib-text)] bg-[var(--color-pib-surface-2)] px-2 py-1 rounded select-all">{orgId}</code>
+              <button type="button" onClick={copyOrgId} className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors px-2 py-1 rounded hover:bg-[var(--color-pib-surface-2)]">
                 {copiedId ? 'Copied!' : 'Copy'}
               </button>
             </span>
           </div>
           <div className="px-4 pb-3">
-            <p className="text-[11px] text-on-surface-variant/60">Use this ID when configuring AI agents or API integrations for this organisation.</p>
+            <p className="text-[11px] text-[var(--color-pib-text-faint)]">Use this ID when configuring AI agents or API integrations for this organisation.</p>
           </div>
         </div>
       )}
@@ -576,21 +574,21 @@ export default function OrgSettingsPage() {
       <div className="pib-card-section">
         <div className="pib-card-section-header flex items-start justify-between gap-4">
           <div>
-            <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Workspace folder registry</span>
-            <p className="mt-1 text-xs text-on-surface-variant">
+            <span className="pib-label">Workspace folder registry</span>
+            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
               Map multiple Google Drive folders to each workspace/resource. PiB visibility controls what admins, agents, and clients can see; Drive ACLs remain the binary asset source-of-truth guardrail.
             </p>
           </div>
-          <span className="rounded-full bg-[var(--color-surface-container)] px-3 py-1 text-[10px] font-label uppercase tracking-wider text-on-surface-variant">
+          <span className="rounded-full bg-[var(--color-pib-surface-2)] px-3 py-1 text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">
             Portal exposure deferred
           </span>
         </div>
-        <div className="border-t border-outline-variant/50 p-4">
-          <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+        <div className="border-t border-[var(--color-pib-line)]/50 p-4">
+          <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-accent-soft)] p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <h2 className="text-sm font-semibold text-on-surface">Required Google OAuth setup</h2>
-                <p className="mt-1 text-xs text-on-surface-variant">
+                <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Required Google OAuth setup</h2>
+                <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
                   Prepare the workspace OAuth records admins need before adding Drive folders. The buttons do not expose raw tokens; they create auditable registry records and start the approved Google authorization flow.
                 </p>
               </div>
@@ -599,13 +597,13 @@ export default function OrgSettingsPage() {
                   type="button"
                   onClick={prepareRequiredWorkspaceOauths}
                   disabled={preparingOauths || missingWorkspaceOauthCount === 0}
-                  className="pib-btn-primary text-xs"
+                  className="btn-pib-primary text-xs"
                 >
                   {preparingOauths ? 'Preparing…' : missingWorkspaceOauthCount > 0 ? `Prepare ${missingWorkspaceOauthCount} OAuth${missingWorkspaceOauthCount === 1 ? '' : 's'}` : 'OAuth records ready'}
                 </button>
                 <a
                   href={orgId ? `/api/v1/workspace-connections/google/authorize?orgId=${encodeURIComponent(orgId)}&connectionKey=${encodeURIComponent(googleWorkspaceAuthorizeKey)}&returnTo=${encodeURIComponent(`/admin/org/${slug}/settings`)}` : '/api/v1/workspace-connections/google/authorize'}
-                  className="pib-btn-secondary text-xs"
+                  className="btn-pib-secondary text-xs"
                 >
                   Authorize Google Workspace
                 </a>
@@ -613,12 +611,12 @@ export default function OrgSettingsPage() {
             </div>
             <div className="mt-3 grid gap-2">
               {requiredWorkspaceOauths.map((oauth) => (
-                <div key={oauth.key} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-outline-variant/50 bg-[var(--color-surface)] px-3 py-2 text-xs">
+                <div key={oauth.key} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--color-pib-line)]/50 bg-[var(--color-pib-surface)] px-3 py-2 text-xs">
                   <div>
-                    <p className="font-medium text-on-surface">{oauth.displayName}</p>
-                    <p className="mt-0.5 text-on-surface-variant">{oauth.description}</p>
+                    <p className="font-medium text-[var(--color-pib-text)]">{oauth.displayName}</p>
+                    <p className="mt-0.5 text-[var(--color-pib-text-muted)]">{oauth.description}</p>
                   </div>
-                  <span className={oauth.existing ? 'rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-green-300' : 'rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-amber-300'}>
+                  <span className={oauth.existing ? "pib-pill pib-pill-success" : "pib-pill pib-pill-warn"}>
                     {oauth.existing ? `${oauth.existing.status ?? 'proposed'} · ${oauth.existing.tokenStatus ?? 'token pending'}` : 'Not prepared'}
                   </span>
                 </div>
@@ -626,45 +624,45 @@ export default function OrgSettingsPage() {
             </div>
           </div>
         </div>
-        <div className="border-t border-outline-variant/50 p-4">
-          <div className="rounded-xl border border-outline-variant/60 bg-[var(--color-surface-container)]/30 p-4">
+        <div className="border-t border-[var(--color-pib-line)]/50 p-4">
+          <div className="rounded-xl border border-[var(--color-pib-line)]/60 bg-[var(--color-pib-surface-2)]/30 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <h2 className="text-sm font-semibold text-on-surface">Personal X MCP account</h2>
-                <p className="mt-1 text-xs text-on-surface-variant">
+                <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Personal X MCP account</h2>
+                <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
                   Register the hosted X MCP as a per-user connection so agents can work with the signed-in user’s own X permissions, including bookmarks, searches, posts, news, and article drafts. PiB stores setup metadata only; xurl handles OAuth and token refresh in the user’s MCP client. This admin card is a fallback; users should normally start from Portal → Personal → Accounts.
                 </p>
               </div>
-              <span className={xMcpConnection ? 'rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-green-300' : 'rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-amber-300'}>
+              <span className={xMcpConnection ? "pib-pill pib-pill-success" : "pib-pill pib-pill-warn"}>
                 {xMcpConnection ? `${xMcpConnection.status ?? 'proposed'} · ${xMcpConnection.tokenStatus ?? 'authorization pending'}` : 'Not prepared'}
               </span>
             </div>
-            <div className="mt-3 grid gap-2 rounded-lg border border-outline-variant/50 bg-[var(--color-surface)] p-3 text-xs text-on-surface-variant">
-              <p><span className="font-medium text-on-surface">Server:</span> {X_MCP_CLIENT_CONFIG.streamableHttpServer}</p>
-              <p><span className="font-medium text-on-surface">Client command:</span> <code className="rounded bg-[var(--color-surface-container)] px-1 py-0.5">{X_MCP_CLIENT_CONFIG.command}</code></p>
-              <p><span className="font-medium text-on-surface">Docs MCP:</span> {X_MCP_CLIENT_CONFIG.docsServer}</p>
-              <p><span className="font-medium text-on-surface">Startup timeout:</span> {X_MCP_CLIENT_CONFIG.startupTimeoutSeconds}s minimum so the one-time OAuth browser login can finish.</p>
+            <div className="mt-3 grid gap-2 rounded-lg border border-[var(--color-pib-line)]/50 bg-[var(--color-pib-surface)] p-3 text-xs text-[var(--color-pib-text-muted)]">
+              <p><span className="font-medium text-[var(--color-pib-text)]">Server:</span> {X_MCP_CLIENT_CONFIG.streamableHttpServer}</p>
+              <p><span className="font-medium text-[var(--color-pib-text)]">Client command:</span> <code className="rounded bg-[var(--color-pib-surface-2)] px-1 py-0.5">{X_MCP_CLIENT_CONFIG.command}</code></p>
+              <p><span className="font-medium text-[var(--color-pib-text)]">Docs MCP:</span> {X_MCP_CLIENT_CONFIG.docsServer}</p>
+              <p><span className="font-medium text-[var(--color-pib-text)]">Startup timeout:</span> {X_MCP_CLIENT_CONFIG.startupTimeoutSeconds}s minimum so the one-time OAuth browser login can finish.</p>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={prepareXMcpConnection}
                 disabled={preparingXMcp || Boolean(xMcpConnection)}
-                className="pib-btn-primary text-xs"
+                className="btn-pib-primary text-xs"
               >
                 {preparingXMcp ? 'Preparing…' : xMcpConnection ? 'X MCP record ready' : 'Prepare personal X MCP'}
               </button>
-              <a href="https://docs.x.com/tools/mcp" className="pib-btn-secondary text-xs" target="_blank" rel="noreferrer">
+              <a href="https://docs.x.com/tools/mcp" className="btn-pib-secondary text-xs" target="_blank" rel="noreferrer">
                 Open X MCP docs
               </a>
             </div>
           </div>
         </div>
-        <form onSubmit={handleAddFolderMapping} className="border-t border-outline-variant/50 p-4">
-          <div className="rounded-xl border border-outline-variant/60 bg-[var(--color-surface-container)]/30 p-4">
+        <form onSubmit={handleAddFolderMapping} className="border-t border-[var(--color-pib-line)]/50 p-4">
+          <div className="rounded-xl border border-[var(--color-pib-line)]/60 bg-[var(--color-pib-surface-2)]/30 p-4">
             <div className="mb-4">
-              <h2 className="text-sm font-semibold text-on-surface">Add Drive folder mapping</h2>
-              <p className="mt-1 text-xs text-on-surface-variant">Paste a Google Drive folder URL, choose whether it belongs to the selected workspace or a CRM company, and keep app visibility separate from Drive sharing.</p>
+              <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Add Drive folder mapping</h2>
+              <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Paste a Google Drive folder URL, choose whether it belongs to the selected workspace or a CRM company, and keep app visibility separate from Drive sharing.</p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
@@ -702,17 +700,17 @@ export default function OrgSettingsPage() {
                 </select>
               </div>
               <div className="flex items-end">
-                <button type="submit" disabled={savingFolderMapping} className="pib-btn-primary text-xs">
+                <button type="submit" disabled={savingFolderMapping} className="btn-pib-primary text-xs">
                   {savingFolderMapping ? 'Saving…' : 'Add Drive folder mapping'}
                 </button>
               </div>
             </div>
-            <p className="mt-3 text-[11px] text-on-surface-variant">Default for NotebookLM and research assets is Admin + agents. Selecting client-visible only changes PiB app access; Google Drive ACLs must still be reviewed in Drive.</p>
+            <p className="mt-3 text-[11px] text-[var(--color-pib-text-muted)]">Default for NotebookLM and research assets is Admin + agents. Selecting client-visible only changes PiB app access; Google Drive ACLs must still be reviewed in Drive.</p>
           </div>
         </form>
-        <div className="divide-y divide-outline-variant/50">
+        <div className="divide-y divide-[var(--color-pib-line)]">
           {folderMappings.length === 0 ? (
-            <div className="p-4 text-sm text-on-surface-variant">
+            <div className="p-4 text-sm text-[var(--color-pib-text-muted)]">
               No folder mappings yet. Use the form above to add a workspace or CRM company Drive folder mapping.
             </div>
           ) : folderMappings.map(folder => (
@@ -720,13 +718,13 @@ export default function OrgSettingsPage() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-sm font-semibold text-on-surface">{folder.name}</h2>
-                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-primary">{folder.resourceType || 'workspace'}</span>
-                    {folder.resourceId && <span className="text-[11px] text-on-surface-variant">Linked ID: {folder.resourceId}</span>}
-                    {folder.resourceType === 'crm_company' && <span className="text-[11px] text-on-surface-variant">Company: {crmCompanies.find(company => company.id === folder.resourceId)?.name || folder.resourceId}</span>}
-                    {folder.parentId && <span className="text-[11px] text-on-surface-variant">Parent: {folder.parentId}</span>}
+                    <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">{folder.name}</h2>
+                    <span className="rounded-full pib-pill pib-pill-cyan">{folder.resourceType || 'workspace'}</span>
+                    {folder.resourceId && <span className="text-[11px] text-[var(--color-pib-text-muted)]">Linked ID: {folder.resourceId}</span>}
+                    {folder.resourceType === 'crm_company' && <span className="text-[11px] text-[var(--color-pib-text-muted)]">Company: {crmCompanies.find(company => company.id === folder.resourceId)?.name || folder.resourceId}</span>}
+                    {folder.parentId && <span className="text-[11px] text-[var(--color-pib-text-muted)]">Parent: {folder.parentId}</span>}
                   </div>
-                  <p className="mt-1 flex flex-wrap gap-1 text-xs text-on-surface-variant">
+                  <p className="mt-1 flex flex-wrap gap-1 text-xs text-[var(--color-pib-text-muted)]">
                     <span>{folderVisibilityLabel(folder.visibility)}</span>
                     <span>·</span>
                     <span>{folderSourceOfTruthLabel(folder.sourceOfTruth)}</span>
@@ -738,7 +736,7 @@ export default function OrgSettingsPage() {
                   type="button"
                   onClick={() => handleFolderResync(folder)}
                   disabled={resyncingFolderId === folder.id}
-                  className="pib-btn-secondary text-xs"
+                  className="btn-pib-secondary text-xs"
                   aria-label={`Resync ${folder.name}`}
                 >
                   {resyncingFolderId === folder.id ? 'Planning…' : 'Create sync plan'}
@@ -746,42 +744,42 @@ export default function OrgSettingsPage() {
               </div>
               <div className="grid gap-3 text-xs sm:grid-cols-2">
                 <div>
-                  <p className="font-label uppercase tracking-wide text-on-surface-variant">Drive</p>
-                  <p className="mt-1 break-all text-on-surface">{folder.drive.folderId || 'No Drive ID set'}</p>
-                  {folder.drive.folderUrl && <a className="mt-1 inline-block break-all text-primary hover:underline" href={folder.drive.folderUrl} target="_blank" rel="noreferrer">{folder.drive.folderUrl}</a>}
+                  <p className="font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Drive</p>
+                  <p className="mt-1 break-all text-[var(--color-pib-text)]">{folder.drive.folderId || 'No Drive ID set'}</p>
+                  {folder.drive.folderUrl && <a className="mt-1 inline-block break-all text-[var(--color-pib-accent)] hover:underline" href={folder.drive.folderUrl} target="_blank" rel="noreferrer">{folder.drive.folderUrl}</a>}
                 </div>
                 <div>
-                  <p className="font-label uppercase tracking-wide text-on-surface-variant">Sync / audit</p>
-                  <p className="mt-1 text-on-surface">Status: {folder.syncState.status} · Conflicts: {folder.audit.conflictStatus}</p>
+                  <p className="font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Sync / audit</p>
+                  <p className="mt-1 text-[var(--color-pib-text)]">Status: {folder.syncState.status} · Conflicts: {folder.audit.conflictStatus}</p>
                   {folder.syncState.lastRequestId && (
-                    <p className="mt-1 break-all text-on-surface-variant">Latest request: {folder.syncState.lastRequestStatus ?? 'planned'} · {folder.syncState.lastRequestId}</p>
+                    <p className="mt-1 break-all text-[var(--color-pib-text-muted)]">Latest request: {folder.syncState.lastRequestStatus ?? 'planned'} · {folder.syncState.lastRequestId}</p>
                   )}
-                  <div className="mt-1 flex flex-wrap gap-1 text-on-surface-variant">
+                  <div className="mt-1 flex flex-wrap gap-1 text-[var(--color-pib-text-muted)]">
                     <span>Targets:</span>
                     {folder.syncTargets.length ? folder.syncTargets.map(target => <span key={target}>{folderSyncTargetLabel(target)}</span>) : <span>Not configured</span>}
                   </div>
                 </div>
                 <div>
-                  <p className="font-label uppercase tracking-wide text-on-surface-variant">Path hints</p>
-                  <p className="mt-1 text-on-surface-variant">VPS: {folder.paths.vpsPath || '—'}</p>
-                  <p className="text-on-surface-variant">Local: {folder.paths.localPathHint || '—'}</p>
+                  <p className="font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Path hints</p>
+                  <p className="mt-1 text-[var(--color-pib-text-muted)]">VPS: {folder.paths.vpsPath || '—'}</p>
+                  <p className="text-[var(--color-pib-text-muted)]">Local: {folder.paths.localPathHint || '—'}</p>
                 </div>
                 <div>
-                  <p className="font-label uppercase tracking-wide text-on-surface-variant">Tags / permissions</p>
-                  <p className="mt-1 text-on-surface-variant">{folder.tags.length ? folder.tags.join(', ') : 'No tags'}</p>
-                  <p className="mt-1 text-on-surface-variant">{folder.audit.notes || 'Hybrid permission model: PiB roles gate app/agent access; Drive permissions must be reviewed before adding clients.'}</p>
+                  <p className="font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Tags / permissions</p>
+                  <p className="mt-1 text-[var(--color-pib-text-muted)]">{folder.tags.length ? folder.tags.join(', ') : 'No tags'}</p>
+                  <p className="mt-1 text-[var(--color-pib-text-muted)]">{folder.audit.notes || 'Hybrid permission model: PiB roles gate app/agent access; Drive permissions must be reviewed before adding clients.'}</p>
                 </div>
               </div>
             </div>
           ))}
         </div>
-        {folderNotice && <div className="border-t border-outline-variant/50 p-4 text-sm text-green-400">{folderNotice}</div>}
+        {folderNotice && <div className="border-t border-[var(--color-pib-line)]/50 p-4 text-sm text-[var(--color-pib-green)]">{folderNotice}</div>}
       </div>
 
       <form onSubmit={handleSave} className="space-y-5">
         {/* General Settings */}
         <div className="pib-card space-y-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">General</p>
+          <p className="pib-label">General</p>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="pib-label">Organisation Name</label>
@@ -822,7 +820,7 @@ export default function OrgSettingsPage() {
                 type="checkbox"
                 checked={form.defaultApprovalRequired}
                 onChange={e => update('defaultApprovalRequired', e.target.checked)}
-                className="h-4 w-4 rounded border-outline text-primary"
+                className="h-4 w-4 rounded border-[var(--color-pib-line)] text-primary"
               />
               <label htmlFor="defaultApproval" className="pib-label mb-0 cursor-pointer">
                 Require approval by default for new content
@@ -864,55 +862,55 @@ export default function OrgSettingsPage() {
         {/* Client portal modules */}
         <div className="pib-card space-y-4">
           <div>
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Client portal modules</p>
-            <p className="mt-1 text-xs text-on-surface-variant">
+            <p className="pib-label">Client portal modules</p>
+            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
               Choose which work areas this client can see in their portal. Disabled modules stay available to PiB admins.
             </p>
           </div>
-          <label htmlFor="portalMobileApps" className="flex items-start gap-3 rounded-lg border border-outline-variant/60 bg-[var(--color-surface-container)]/40 p-4">
+          <label htmlFor="portalMobileApps" className="flex items-start gap-3 rounded-lg border border-[var(--color-pib-line)]/60 bg-[var(--color-pib-surface-2)]/40 p-4">
             <input
               id="portalMobileApps"
               type="checkbox"
               aria-label="Mobile Apps"
               checked={form.portalMobileApps}
               onChange={e => update('portalMobileApps', e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-outline text-primary"
+              className="mt-0.5 h-4 w-4 rounded border-[var(--color-pib-line)] text-primary"
             />
             <span>
-              <span className="block text-sm font-semibold text-on-surface">Mobile Apps</span>
-              <span className="mt-1 block text-xs text-on-surface-variant">
+              <span className="block text-sm font-semibold text-[var(--color-pib-text)]">Mobile Apps</span>
+              <span className="mt-1 block text-xs text-[var(--color-pib-text-muted)]">
                 Show App Store and Google Play review links, release notes, and app feedback tools for this selected org only after PiB operator review.
               </span>
             </span>
           </label>
-          <label htmlFor="portalYouTubeStudio" className="flex items-start gap-3 rounded-lg border border-outline-variant/60 bg-[var(--color-surface-container)]/40 p-4">
+          <label htmlFor="portalYouTubeStudio" className="flex items-start gap-3 rounded-lg border border-[var(--color-pib-line)]/60 bg-[var(--color-pib-surface-2)]/40 p-4">
             <input
               id="portalYouTubeStudio"
               type="checkbox"
               aria-label="YouTube Studio"
               checked={form.portalYouTubeStudio}
               onChange={e => update('portalYouTubeStudio', e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-outline text-primary"
+              className="mt-0.5 h-4 w-4 rounded border-[var(--color-pib-line)] text-primary"
             />
             <span>
-              <span className="block text-sm font-semibold text-on-surface">YouTube Studio</span>
-              <span className="mt-1 block text-xs text-on-surface-variant">
+              <span className="block text-sm font-semibold text-[var(--color-pib-text)]">YouTube Studio</span>
+              <span className="mt-1 block text-xs text-[var(--color-pib-text-muted)]">
                 Show channel video requests, draft reviews, publishing packet approvals, and client-safe YouTube analytics.
               </span>
             </span>
           </label>
-          <label htmlFor="portalBookStudio" className="flex items-start gap-3 rounded-lg border border-outline-variant/60 bg-[var(--color-surface-container)]/40 p-4">
+          <label htmlFor="portalBookStudio" className="flex items-start gap-3 rounded-lg border border-[var(--color-pib-line)]/60 bg-[var(--color-pib-surface-2)]/40 p-4">
             <input
               id="portalBookStudio"
               type="checkbox"
               aria-label="Book Studio"
               checked={form.portalBookStudio}
               onChange={e => update('portalBookStudio', e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-outline text-primary"
+              className="mt-0.5 h-4 w-4 rounded border-[var(--color-pib-line)] text-primary"
             />
             <span>
-              <span className="block text-sm font-semibold text-on-surface">Book Studio</span>
-              <span className="mt-1 block text-xs text-on-surface-variant">
+              <span className="block text-sm font-semibold text-[var(--color-pib-text)]">Book Studio</span>
+              <span className="mt-1 block text-xs text-[var(--color-pib-text-muted)]">
                 Expose Book Studio for this selected org only after the approved Phase 1 runtime foundation is enabled. Disabled is the safe default.
               </span>
             </span>
@@ -921,7 +919,7 @@ export default function OrgSettingsPage() {
 
         {/* Email send-time + reply notifications */}
         <div className="pib-card space-y-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Email send-time</p>
+          <p className="pib-label">Email send-time</p>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="pib-label">Preferred send hour (local)</label>
@@ -934,7 +932,7 @@ export default function OrgSettingsPage() {
                   <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>
                 ))}
               </select>
-              <p className="text-[11px] text-on-surface-variant/60 mt-1">
+              <p className="text-[11px] text-[var(--color-pib-text-faint)] mt-1">
                 Sequence steps and broadcasts will target this hour in the recipient&apos;s local timezone.
               </p>
             </div>
@@ -963,14 +961,14 @@ export default function OrgSettingsPage() {
                             : [...form.preferredSendDaysOfWeek, d.v].sort(),
                         )
                       }
-                      className={`px-2.5 py-1 rounded-md text-xs ${active ? 'bg-primary text-on-primary' : 'bg-[var(--color-surface-container)] text-on-surface-variant'}`}
+                      className={`px-2.5 py-1 rounded-md text-xs ${active ? "bg-[var(--color-pib-accent)] text-[var(--color-pib-ink)]" : "bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]"}`}
                     >
                       {d.l}
                     </button>
                   )
                 })}
               </div>
-              <p className="text-[11px] text-on-surface-variant/60 mt-1">
+              <p className="text-[11px] text-[var(--color-pib-text-faint)] mt-1">
                 Steps that fall on excluded days roll forward to the next allowed day.
               </p>
             </div>
@@ -982,7 +980,7 @@ export default function OrgSettingsPage() {
                 className="pib-input"
                 placeholder="sales@company.com, growth@company.com"
               />
-              <p className="text-[11px] text-on-surface-variant/60 mt-1">
+              <p className="text-[11px] text-[var(--color-pib-text-faint)] mt-1">
                 Comma-separated. These addresses get notified whenever a contact replies (or bounces / unsubscribes via reply).
               </p>
             </div>
@@ -991,7 +989,7 @@ export default function OrgSettingsPage() {
 
         {/* Billing Address */}
         <div className="pib-card space-y-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Billing Address</p>
+          <p className="pib-label">Billing Address</p>
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
               <label className="pib-label">Street Address</label>
@@ -1022,7 +1020,7 @@ export default function OrgSettingsPage() {
 
         {/* Company Details */}
         <div className="pib-card space-y-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Company Details</p>
+          <p className="pib-label">Company Details</p>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="pib-label">Legal Company Name</label>
@@ -1053,7 +1051,7 @@ export default function OrgSettingsPage() {
 
         {/* Agreement Contacts */}
         <div className="pib-card space-y-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Agreement Contacts</p>
+          <p className="pib-label">Agreement Contacts</p>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="pib-label">Accounts Contact Name</label>
@@ -1092,7 +1090,7 @@ export default function OrgSettingsPage() {
 
         {/* Invoicing */}
         <div className="pib-card space-y-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Invoicing</p>
+          <p className="pib-label">Invoicing</p>
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2 flex items-center gap-3">
               <input
@@ -1100,7 +1098,7 @@ export default function OrgSettingsPage() {
                 type="checkbox"
                 checked={form.purchaseOrderRequired}
                 onChange={e => update('purchaseOrderRequired', e.target.checked)}
-                className="h-4 w-4 rounded border-outline text-primary"
+                className="h-4 w-4 rounded border-[var(--color-pib-line)] text-primary"
               />
               <label htmlFor="purchaseOrderRequired" className="pib-label mb-0 cursor-pointer">
                 Purchase order required
@@ -1119,7 +1117,7 @@ export default function OrgSettingsPage() {
 
         {/* Banking Details */}
         <div className="pib-card space-y-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Banking Details</p>
+          <p className="pib-label">Banking Details</p>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="pib-label">Bank Name</label>
@@ -1153,10 +1151,10 @@ export default function OrgSettingsPage() {
         </div>
 
         <div className="flex gap-3 items-center">
-          <button type="submit" disabled={saving} className="pib-btn-primary font-label">
+          <button type="submit" disabled={saving} className="btn-pib-primary font-label">
             {saving ? 'Saving…' : 'Save Settings'}
           </button>
-          {saved && <span className="text-sm text-green-400">Saved successfully</span>}
+          {saved && <span className="text-sm text-[var(--color-pib-green)]">Saved successfully</span>}
         </div>
       </form>
     </div>

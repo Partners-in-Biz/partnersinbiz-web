@@ -263,7 +263,7 @@ function healthLabel(webhook: OutboundWebhook) {
 function healthClass(webhook: OutboundWebhook) {
   if (isHealthy(webhook)) return 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300'
   if (webhook.active) return 'border-amber-400/20 bg-amber-400/10 text-amber-300'
-  return 'border-[var(--color-card-border)] bg-transparent text-on-surface-variant'
+  return 'border-[var(--color-card-border)] bg-transparent text-[var(--color-pib-text-muted)]'
 }
 
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
@@ -271,10 +271,10 @@ function StatCard({ label, value, sub, icon }: { label: string; value: string; s
     <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
       <div className="flex items-start justify-between gap-3">
         <p className="eyebrow !text-[10px]">{label}</p>
-        <span className="material-symbols-outlined text-[18px] text-on-surface-variant">{icon}</span>
+        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
       </div>
-      <p className="mt-2 text-lg font-semibold leading-none text-on-surface">{value}</p>
-      <p className="mt-2 text-[11px] leading-4 text-on-surface-variant">{sub}</p>
+      <p className="mt-2 text-lg font-semibold leading-none text-[var(--color-pib-text)]">{value}</p>
+      <p className="mt-2 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{sub}</p>
     </div>
   )
 }
@@ -569,8 +569,8 @@ export function WebhookSettingsClient() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className="eyebrow !text-[10px]">CRM integrations</p>
-          <h1 className="text-base font-semibold text-on-surface mt-2">Webhook command center</h1>
-          <p className="text-xs leading-5 text-on-surface-variant max-w-2xl">
+          <h1 className="text-base font-semibold text-[var(--color-pib-text)] mt-2">Webhook command center</h1>
+          <p className="text-xs leading-5 text-[var(--color-pib-text-muted)] max-w-2xl">
             Manage signed outbound CRM events for automations, reporting warehouses, and external operating systems.
           </p>
         </div>
@@ -578,7 +578,7 @@ export function WebhookSettingsClient() {
           type="button"
           onClick={retryLoadWebhooks}
           disabled={loading || !orgId}
-          className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface flex items-center gap-1.5 w-fit disabled:opacity-50"
+          className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] flex items-center gap-1.5 w-fit disabled:opacity-50"
         >
           <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
           Refresh
@@ -622,11 +622,11 @@ export function WebhookSettingsClient() {
               </span>
               <div>
                 <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
-                <h2 className="mt-1 text-base text-on-surface">
+                <h2 className="mt-1 text-base text-[var(--color-pib-text)]">
                   Webhook subscriptions could not load
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-on-surface-variant">{fetchError}</p>
-                <p className="mt-3 text-xs leading-5 text-on-surface-variant">
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{fetchError}</p>
+                <p className="mt-3 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                   Subscription counts, event coverage, and delivery health are hidden until the webhook source responds, so leaders do not mistake an outage for a clean integration estate.
                 </p>
               </div>
@@ -636,7 +636,7 @@ export function WebhookSettingsClient() {
               onClick={retryLoadWebhooks}
               disabled={loading || !orgId}
               aria-label="Retry loading webhook subscriptions"
-              className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface flex shrink-0 items-center justify-center gap-1.5 disabled:opacity-50"
+              className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] flex shrink-0 items-center justify-center gap-1.5 disabled:opacity-50"
             >
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
               Retry
@@ -650,9 +650,9 @@ export function WebhookSettingsClient() {
             <div className="px-4 py-3 border-b border-[var(--color-card-border)] flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold">Event catalog</h2>
-                <p className="text-xs text-on-surface-variant">Choose an event to preview its signed payload.</p>
+                <p className="text-xs text-[var(--color-pib-text-muted)]">Choose an event to preview its signed payload.</p>
               </div>
-              <span className="text-[10px] px-2 py-1 rounded-full bg-[var(--color-surface-container)] text-on-surface-variant">
+              <span className="text-[10px] px-2 py-1 rounded-full bg-[var(--color-pib-surface)] text-[var(--color-pib-text-muted)]">
                 {supportedCatalog.length} subscribable
               </span>
             </div>
@@ -677,7 +677,7 @@ export function WebhookSettingsClient() {
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2 mb-1">
                           <span className="text-sm font-medium">{item.label}</span>
-                          <code className="text-[10px] text-on-surface-variant bg-black/20 border border-[var(--color-card-border)] rounded px-1.5 py-0.5">
+                          <code className="text-[10px] text-[var(--color-pib-text-muted)] bg-black/20 border border-[var(--color-card-border)] rounded px-1.5 py-0.5">
                             {item.event}
                           </code>
                           {!supported && (
@@ -691,9 +691,9 @@ export function WebhookSettingsClient() {
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-on-surface-variant">{item.description}</p>
+                        <p className="text-xs text-[var(--color-pib-text-muted)]">{item.description}</p>
                       </div>
-                      <span className="text-[10px] text-on-surface-variant shrink-0">{item.group}</span>
+                      <span className="text-[10px] text-[var(--color-pib-text-muted)] shrink-0">{item.group}</span>
                     </div>
                   </button>
                 )
@@ -703,10 +703,10 @@ export function WebhookSettingsClient() {
 
           <div className="border-t border-[var(--color-card-border)] p-3">
             <h2 className="text-sm font-semibold mb-1">Payload example</h2>
-            <p className="text-xs text-on-surface-variant mb-3">
+            <p className="text-xs text-[var(--color-pib-text-muted)] mb-3">
               Deliveries are signed with <code>X-PIB-Signature</code> and include the selected event payload.
             </p>
-            <pre className="max-h-[360px] overflow-auto rounded-md border border-[var(--color-card-border)] bg-black/30 p-3 text-xs leading-relaxed text-on-surface">
+            <pre className="max-h-[360px] overflow-auto rounded-md border border-[var(--color-card-border)] bg-black/30 p-3 text-xs leading-relaxed text-[var(--color-pib-text)]">
 {JSON.stringify(
   {
     event: selectedCatalogEvent.event,
@@ -722,13 +722,13 @@ export function WebhookSettingsClient() {
         <aside className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
           <div className="p-3">
             <h2 className="text-sm font-semibold mb-1">{editing ? 'Edit subscription' : 'Create subscription'}</h2>
-            <p className="text-xs text-on-surface-variant mb-4">
+            <p className="text-xs text-[var(--color-pib-text-muted)] mb-4">
               Use an HTTPS endpoint that accepts signed POST requests.
             </p>
 
             <div className="space-y-3">
               <label className="block">
-                <span className="text-xs text-on-surface-variant">Name</span>
+                <span className="text-xs text-[var(--color-pib-text-muted)]">Name</span>
                 <input
                   value={editing ? editing.name : name}
                   onChange={(event) =>
@@ -739,7 +739,7 @@ export function WebhookSettingsClient() {
                 />
               </label>
               <label className="block">
-                <span className="text-xs text-on-surface-variant">Endpoint URL</span>
+                <span className="text-xs text-[var(--color-pib-text-muted)]">Endpoint URL</span>
                 <input
                   value={editing ? editing.url : url}
                   onChange={(event) =>
@@ -754,7 +754,7 @@ export function WebhookSettingsClient() {
                 <label className="flex items-center justify-between gap-3 rounded-md border border-[var(--color-card-border)] px-3 py-2">
                   <span>
                     <span className="block text-sm font-medium">Active delivery</span>
-                    <span className="block text-xs text-on-surface-variant">Paused webhooks stay saved but do not receive events.</span>
+                    <span className="block text-xs text-[var(--color-pib-text-muted)]">Paused webhooks stay saved but do not receive events.</span>
                   </span>
                   <input
                     type="checkbox"
@@ -766,7 +766,7 @@ export function WebhookSettingsClient() {
               )}
 
               <div>
-                <p className="text-xs text-on-surface-variant mb-2">Events</p>
+                <p className="text-xs text-[var(--color-pib-text-muted)] mb-2">Events</p>
                 <div className="grid gap-2">
                   {CRM_EVENT_CATALOG.map((item) => {
                     const supported = SUPPORTED_EVENTS.has(item.event)
@@ -790,7 +790,7 @@ export function WebhookSettingsClient() {
                         />
                         <span className="min-w-0">
                           <span className="block font-medium">{item.label}</span>
-                          <code className="block text-[10px] text-on-surface-variant truncate">{item.event}</code>
+                          <code className="block text-[10px] text-[var(--color-pib-text-muted)] truncate">{item.event}</code>
                         </span>
                       </label>
                     )
@@ -813,7 +813,7 @@ export function WebhookSettingsClient() {
                     type="button"
                     onClick={() => setEditing(null)}
                     disabled={saving}
-                    className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface disabled:opacity-50"
+                    className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] disabled:opacity-50"
                   >
                     Cancel
                   </button>
@@ -835,7 +835,7 @@ export function WebhookSettingsClient() {
           <div className="overflow-hidden border-t border-[var(--color-card-border)]">
             <div className="border-b border-[var(--color-card-border)] px-3 py-2">
               <h2 className="text-sm font-semibold">Subscriptions</h2>
-              <p className="text-xs text-on-surface-variant">Existing outbound CRM webhook endpoints.</p>
+              <p className="text-xs text-[var(--color-pib-text-muted)]">Existing outbound CRM webhook endpoints.</p>
             </div>
 
             {pendingDeleteWebhook && (
@@ -852,7 +852,7 @@ export function WebhookSettingsClient() {
                     </span>
                     <div className="min-w-0">
                       <p className="eyebrow !text-[10px] text-red-200">Webhook delete confirmation</p>
-                      <h3 id="webhook-delete-confirm-title" className="mt-1 text-sm font-semibold text-on-surface">
+                      <h3 id="webhook-delete-confirm-title" className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">
                         Delete webhook subscription &quot;{pendingDeleteWebhookName}&quot;?
                       </h3>
                       <p id="webhook-delete-confirm-description" className="mt-2 text-sm text-red-100/90">
@@ -865,7 +865,7 @@ export function WebhookSettingsClient() {
                       type="button"
                       aria-label={`Cancel delete webhook subscription ${pendingDeleteWebhookName}`}
                       onClick={() => setPendingDeleteWebhook(null)}
-                      className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
+                      className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                       disabled={busyId !== null}
                     >
                       Cancel
@@ -901,7 +901,7 @@ export function WebhookSettingsClient() {
                     </span>
                     <div className="min-w-0">
                       <p className="eyebrow !text-[10px] text-amber-200">Webhook secret rotation</p>
-                      <h3 id="webhook-rotate-confirm-title" className="mt-1 text-sm font-semibold text-on-surface">
+                      <h3 id="webhook-rotate-confirm-title" className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">
                         Rotate signing secret for &quot;{pendingRotateWebhookName}&quot;?
                       </h3>
                       <p id="webhook-rotate-confirm-description" className="mt-2 text-sm text-amber-100/90">
@@ -914,7 +914,7 @@ export function WebhookSettingsClient() {
                       type="button"
                       aria-label={`Cancel rotate webhook signing secret ${pendingRotateWebhookName}`}
                       onClick={() => setPendingRotateWebhook(null)}
-                      className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
+                      className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                       disabled={busyId !== null}
                     >
                       Cancel
@@ -937,7 +937,7 @@ export function WebhookSettingsClient() {
             )}
 
             {loading ? (
-              <p className="p-4 text-sm text-on-surface-variant">Loading...</p>
+              <p className="p-4 text-sm text-[var(--color-pib-text-muted)]">Loading...</p>
             ) : webhooks.length === 0 ? (
               <div className="p-4">
                 <div className="rounded-xl border border-[var(--color-card-border)] bg-black/10 p-4">
@@ -945,13 +945,13 @@ export function WebhookSettingsClient() {
                     <span className="material-symbols-outlined text-[18px]">webhook</span>
                   </span>
                   <p className="eyebrow !text-[10px]">Integration launch</p>
-                  <h3 className="mt-3 text-lg font-semibold text-on-surface">
+                  <h3 className="mt-3 text-lg font-semibold text-[var(--color-pib-text)]">
                     Launch your first outbound CRM bridge
                   </h3>
-                  <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+                  <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
                     Connect the CRM to the next operating system only after the receiver, event scope, signature, and delivery test are clear. This keeps employee handoffs observable instead of hidden in one-off integrations.
                   </p>
-                  <p className="mt-4 rounded-md border border-[var(--color-card-border)] bg-white/[0.03] px-3 py-2 text-xs text-on-surface-variant">
+                  <p className="mt-4 rounded-md border border-[var(--color-card-border)] bg-white/[0.03] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
                     Fill in the subscription form above to create the first signed delivery endpoint.
                   </p>
                 </div>
@@ -960,15 +960,15 @@ export function WebhookSettingsClient() {
                   {WEBHOOK_LAUNCH_CHECKLIST.map((item) => (
                     <div key={item.label} className="rounded-xl border border-[var(--color-card-border)] bg-white/[0.02] p-3">
                       <div className="mb-3 flex items-start justify-between gap-2">
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/[0.04] text-on-surface">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/[0.04] text-[var(--color-pib-text)]">
                           <span className="material-symbols-outlined text-[17px]">{item.icon}</span>
                         </span>
-                        <span className="rounded-full border border-[var(--color-card-border)] px-2 py-1 text-[10px] text-on-surface-variant">
+                        <span className="rounded-full border border-[var(--color-card-border)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)]">
                           {item.value}
                         </span>
                       </div>
-                      <h4 className="text-sm font-semibold text-on-surface">{item.label}</h4>
-                      <p className="mt-2 text-xs leading-5 text-on-surface-variant">{item.copy}</p>
+                      <h4 className="text-sm font-semibold text-[var(--color-pib-text)]">{item.label}</h4>
+                      <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">{item.copy}</p>
                     </div>
                   ))}
                 </div>
@@ -984,7 +984,7 @@ export function WebhookSettingsClient() {
                     <div className="flex items-start justify-between gap-3 mb-2">
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate">{displayName}</p>
-                        <p className="text-xs text-on-surface-variant truncate">{webhook.url}</p>
+                        <p className="text-xs text-[var(--color-pib-text-muted)] truncate">{webhook.url}</p>
                       </div>
                       <span className={`text-[10px] rounded-full border px-2 py-0.5 shrink-0 ${healthClass(webhook)}`}>
                         {healthLabel(webhook)}
@@ -995,14 +995,14 @@ export function WebhookSettingsClient() {
                       {(webhook.events ?? []).map((event) => (
                         <span
                           key={event}
-                          className="text-[10px] rounded-full border border-[var(--color-card-border)] bg-black/20 px-2 py-0.5 text-on-surface-variant"
+                          className="text-[10px] rounded-full border border-[var(--color-card-border)] bg-black/20 px-2 py-0.5 text-[var(--color-pib-text-muted)]"
                         >
                           {eventLabel(event)}
                         </span>
                       ))}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 text-[11px] text-on-surface-variant mb-3">
+                    <div className="grid grid-cols-2 gap-2 text-[11px] text-[var(--color-pib-text-muted)] mb-3">
                       <span>Last delivery: {formatDate(webhook.lastDeliveredAt)}</span>
                       <span>Failures: {webhook.failureCount ?? 0}</span>
                       <span>Last failure: {formatDate(webhook.lastFailureAt)}</span>
@@ -1015,7 +1015,7 @@ export function WebhookSettingsClient() {
                         onClick={() => postAction(webhook, 'test')}
                         disabled={busyId !== null}
                         aria-label={`Test webhook subscription ${displayName}`}
-                        className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface disabled:opacity-50"
+                        className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] disabled:opacity-50"
                       >
                         <span className="material-symbols-outlined text-[14px]">send</span>
                         Test
@@ -1025,7 +1025,7 @@ export function WebhookSettingsClient() {
                         onClick={() => postAction(webhook, webhook.active ? 'disable' : 'enable')}
                         disabled={busyId !== null}
                         aria-label={`${toggleActionLabel} webhook subscription ${displayName}`}
-                        className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface disabled:opacity-50"
+                        className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] disabled:opacity-50"
                       >
                         <span className="material-symbols-outlined text-[14px]">
                           {webhook.active ? 'pause' : 'play_arrow'}
@@ -1037,7 +1037,7 @@ export function WebhookSettingsClient() {
                         onClick={() => toggleDeliveries(webhook.id)}
                         aria-expanded={expandedDeliveries === webhook.id}
                         aria-label={`Show recent deliveries for ${displayName}`}
-                        className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface disabled:opacity-50"
+                        className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] disabled:opacity-50"
                       >
                         <span className="material-symbols-outlined text-[14px]">history</span>
                         Deliveries
@@ -1050,7 +1050,7 @@ export function WebhookSettingsClient() {
                         onClick={() => startEdit(webhook)}
                         disabled={busyId !== null}
                         aria-label={`Edit webhook subscription ${displayName}`}
-                        className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface disabled:opacity-50"
+                        className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] disabled:opacity-50"
                       >
                         <span className="material-symbols-outlined text-[14px]">edit</span>
                         Edit
@@ -1063,7 +1063,7 @@ export function WebhookSettingsClient() {
                         }}
                         disabled={busyId !== null}
                         aria-label={`Rotate webhook signing secret ${displayName}`}
-                        className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface disabled:opacity-50"
+                        className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] disabled:opacity-50"
                       >
                         <span className="material-symbols-outlined text-[14px]">key</span>
                         Rotate
@@ -1086,7 +1086,7 @@ export function WebhookSettingsClient() {
                     {/* US-096: last 10 deliveries log */}
                     {expandedDeliveries === webhook.id && (
                       <div className="mt-3 rounded-md border border-[var(--color-card-border)] bg-black/20 p-3">
-                        <p className="mb-2 text-[10px] uppercase tracking-widest text-on-surface-variant font-mono">
+                        <p className="mb-2 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
                           Last 10 deliveries
                         </p>
                         {deliveriesLoadingId === webhook.id ? (
@@ -1101,19 +1101,19 @@ export function WebhookSettingsClient() {
                             <button
                               type="button"
                               onClick={() => loadDeliveries(webhook.id)}
-                              className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface !py-1 !px-2 !text-[11px]"
+                              className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] !py-1 !px-2 !text-[11px]"
                             >
                               Retry
                             </button>
                           </div>
                         ) : (deliveriesByWebhook[webhook.id]?.length ?? 0) === 0 ? (
-                          <p className="text-[11px] text-on-surface-variant">
+                          <p className="text-[11px] text-[var(--color-pib-text-muted)]">
                             No deliveries recorded yet. Send a test or wait for a CRM event.
                           </p>
                         ) : (
                           <table className="w-full text-[11px]">
                             <thead>
-                              <tr className="text-left text-on-surface-variant">
+                              <tr className="text-left text-[var(--color-pib-text-muted)]">
                                 <th className="py-1 pr-2 font-mono font-normal uppercase tracking-wider">When</th>
                                 <th className="py-1 pr-2 font-mono font-normal uppercase tracking-wider">Event</th>
                                 <th className="py-1 pr-2 font-mono font-normal uppercase tracking-wider">Status</th>
@@ -1123,10 +1123,10 @@ export function WebhookSettingsClient() {
                             <tbody>
                               {deliveriesByWebhook[webhook.id]!.map((d) => (
                                 <tr key={d.id} className="border-t border-[var(--color-card-border)]">
-                                  <td className="py-1.5 pr-2 text-on-surface-variant whitespace-nowrap">
+                                  <td className="py-1.5 pr-2 text-[var(--color-pib-text-muted)] whitespace-nowrap">
                                     {formatDate(d.deliveredAt)}
                                   </td>
-                                  <td className="py-1.5 pr-2 text-on-surface">{eventLabel(d.event)}</td>
+                                  <td className="py-1.5 pr-2 text-[var(--color-pib-text)]">{eventLabel(d.event)}</td>
                                   <td className="py-1.5 pr-2">
                                     <span
                                       className={`rounded-full px-2 py-0.5 text-[10px] ${
@@ -1139,7 +1139,7 @@ export function WebhookSettingsClient() {
                                       {d.success ? 'Delivered' : 'Failed'}
                                     </span>
                                   </td>
-                                  <td className="py-1.5 text-right font-mono text-on-surface-variant">
+                                  <td className="py-1.5 text-right font-mono text-[var(--color-pib-text-muted)]">
                                     {d.responseStatus ?? '—'}
                                   </td>
                                 </tr>

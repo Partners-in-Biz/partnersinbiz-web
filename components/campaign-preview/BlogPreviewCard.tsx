@@ -103,7 +103,7 @@ export function BlogPreviewCard({
 
       {/* Body */}
       <div className="p-5 space-y-3 flex-1 flex flex-col">
-        <div className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant flex items-center gap-2">
+        <div className="pib-label flex items-center gap-2">
           <span>{date || '—'}</span>
           {readTime ? (
             <>
@@ -116,7 +116,7 @@ export function BlogPreviewCard({
           {blog.title}
         </h3>
         {excerpt && (
-          <p className="text-sm leading-relaxed text-on-surface-variant line-clamp-3">
+          <p className="text-sm leading-relaxed text-[var(--color-pib-text-muted)] line-clamp-3">
             {excerpt}
           </p>
         )}

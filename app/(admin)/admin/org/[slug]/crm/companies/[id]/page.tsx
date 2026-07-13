@@ -196,8 +196,8 @@ function AdminRowsEmptyState({
 }) {
   return (
     <div className="bento-card p-8 text-center">
-      <span className="material-symbols-outlined text-4xl text-amber-200">hub</span>
-      <p className="eyebrow mt-4 !text-[10px] text-amber-200">{label} not linked yet</p>
+      <span className="material-symbols-outlined text-4xl text-[var(--color-pib-amber)]">hub</span>
+      <p className="eyebrow mt-4 !text-[10px] text-[var(--color-pib-amber)]">{label} not linked yet</p>
       <h2 className="mt-2 font-display text-xl text-[var(--color-pib-text)]">Review selected-org context from the admin workspace</h2>
       <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
         No {lowerLabel} are linked to {companyName} yet. Review the company overview or open the selected client org dashboard so relationship ownership, email history, and pipeline handoffs stay visible to PiB operators.
@@ -265,7 +265,7 @@ function AdminRowsPanel({
             { label: 'Received', value: documentDirectionCounts.received },
             { label: 'Linked', value: documentDirectionCounts.linked },
           ].map((item) => (
-            <div key={item.label} className="rounded-2xl border border-[var(--color-pib-line)] bg-white/[0.03] px-4 py-3">
+            <div key={item.label} className="rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-4 py-3">
               <p className="eyebrow !text-[9px]">{item.label}</p>
               <p className="mt-1 font-display text-2xl text-[var(--color-pib-text)]">{item.value}</p>
             </div>
@@ -380,13 +380,13 @@ export default function AdminCompanyCommandCenterPage() {
                 className="h-16 w-16 shrink-0 rounded-2xl object-cover"
               />
             ) : (
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-surface-container)] text-xl font-label text-on-surface-variant">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-pib-surface-2)] text-xl font-label text-[var(--color-pib-text-muted)]">
                 {initials(company.name)}
               </div>
             )}
             <div className="min-w-0">
               <p className="eyebrow !text-[10px]">Admin company command center</p>
-              <h1 className="truncate text-2xl font-semibold text-[var(--color-pib-text)]">{company.name}</h1>
+              <h1 className="truncate pib-page-title">{company.name}</h1>
               <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
                 {center.summary?.contacts ?? 0} contacts · {center.summary?.projects ?? 0} projects · {center.summary?.orders ?? 0} orders
               </p>

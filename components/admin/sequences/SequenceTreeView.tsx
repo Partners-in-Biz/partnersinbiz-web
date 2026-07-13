@@ -44,7 +44,7 @@ function arrowLabel(nextStepNumber: number, stepsLen: number): string {
 export default function SequenceTreeView({ steps }: Props) {
   if (!steps || steps.length === 0) {
     return (
-      <div className="text-sm text-on-surface-variant italic">
+      <div className="text-sm text-[var(--color-pib-text-muted)] italic">
         Add steps to see the journey.
       </div>
     )
@@ -57,17 +57,17 @@ export default function SequenceTreeView({ steps }: Props) {
         const wait = step.waitUntil
         return (
           <div key={i} className="space-y-2">
-            <div className="rounded-xl border border-outline-variant bg-surface-container p-3">
+            <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-3">
               <div className="flex items-center justify-between gap-2">
-                <div className="text-sm font-semibold text-on-surface">
+                <div className="text-sm font-semibold text-[var(--color-pib-text)]">
                   Step {i + 1}: {step.subject || '(no subject)'}
                 </div>
-                <div className="text-xs text-on-surface-variant whitespace-nowrap">
+                <div className="text-xs text-[var(--color-pib-text-muted)] whitespace-nowrap">
                   {step.delayDays === 0 ? 'Immediately' : `+${step.delayDays}d`}
                 </div>
               </div>
               {wait && (
-                <div className="mt-2 text-xs text-on-surface-variant">
+                <div className="mt-2 text-xs text-[var(--color-pib-text-muted)]">
                   ⏳ Wait until <strong>{wait.condition.kind}</strong> · max{' '}
                   {wait.maxWaitDays}d · on timeout: {wait.onTimeout}
                 </div>
@@ -79,32 +79,32 @@ export default function SequenceTreeView({ steps }: Props) {
                 {branch.rules.map((rule, ri) => (
                   <div
                     key={ri}
-                    className="flex items-center gap-2 text-xs text-on-surface-variant"
+                    className="flex items-center gap-2 text-xs text-[var(--color-pib-text-muted)]"
                   >
-                    <span className="inline-block w-4 border-t border-outline-variant" />
+                    <span className="inline-block w-4 border-t border-[var(--color-pib-line)]" />
                     <span>
                       <strong>IF</strong> {describeCondition(rule.condition)} (after{' '}
                       {rule.evaluateAfterDays}d)
                     </span>
-                    <span className="font-mono text-on-surface">
+                    <span className="font-mono text-[var(--color-pib-text)]">
                       {arrowLabel(rule.nextStepNumber, steps.length)}
                     </span>
                   </div>
                 ))}
-                <div className="flex items-center gap-2 text-xs text-on-surface-variant">
-                  <span className="inline-block w-4 border-t border-dashed border-outline-variant" />
+                <div className="flex items-center gap-2 text-xs text-[var(--color-pib-text-muted)]">
+                  <span className="inline-block w-4 border-t border-dashed border-[var(--color-pib-line)]" />
                   <span>
                     <strong>ELSE</strong> (default)
                   </span>
-                  <span className="font-mono text-on-surface">
+                  <span className="font-mono text-[var(--color-pib-text)]">
                     {arrowLabel(branch.defaultNextStepNumber, steps.length)}
                   </span>
                 </div>
               </div>
             ) : (
               i < steps.length - 1 && (
-                <div className="ml-6 flex items-center gap-2 text-xs text-on-surface-variant">
-                  <span className="inline-block w-4 border-t border-outline-variant" />
+                <div className="ml-6 flex items-center gap-2 text-xs text-[var(--color-pib-text-muted)]">
+                  <span className="inline-block w-4 border-t border-[var(--color-pib-line)]" />
                   <span className="font-mono">→ Step {i + 2}</span>
                 </div>
               )

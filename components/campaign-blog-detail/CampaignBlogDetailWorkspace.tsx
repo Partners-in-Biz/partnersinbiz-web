@@ -225,7 +225,7 @@ export function CampaignBlogDetailWorkspace({
   if (loadError || !previewBlog) {
     return (
       <div className="pib-card max-w-4xl mx-auto p-10 text-center">
-        <p className="text-sm text-on-surface-variant">{loadError ?? 'Blog post not found.'}</p>
+        <p className="text-sm text-[var(--color-pib-text-muted)]">{loadError ?? 'Blog post not found.'}</p>
         <Link href={backHref} className="text-xs underline mt-2 inline-block">
           Back to {backLabel}
         </Link>
@@ -252,7 +252,7 @@ export function CampaignBlogDetailWorkspace({
           >
             Blog Post{statusLabel ? ` - ${statusLabel}` : ''}
             {anchoredCount > 0 && (
-              <span className="ml-2 normal-case tracking-normal text-on-surface-variant">
+              <span className="ml-2 normal-case tracking-normal text-[var(--color-pib-text-muted)]">
                 - {anchoredCount} inline comment{anchoredCount === 1 ? '' : 's'}
               </span>
             )}
@@ -309,7 +309,7 @@ export function CampaignBlogDetailWorkspace({
           </div>
 
           <aside className="lg:sticky lg:top-6 space-y-3">
-            <p className="text-xs font-label uppercase tracking-widest text-on-surface-variant">
+            <p className="pib-label">
               Comments ({comments.length})
             </p>
             <CommentList comments={comments} onScrollToAnchor={scrollToAnchor} />
@@ -329,14 +329,14 @@ export function CampaignBlogDetailWorkspace({
         <section className="pib-card sticky bottom-4 p-5 flex flex-col gap-3 backdrop-blur-md">
           <div>
             <p className="text-sm font-headline font-semibold">{approval.title}</p>
-            <p className="text-xs text-on-surface-variant">
+            <p className="text-xs text-[var(--color-pib-text-muted)]">
               {comments.length === 0 ? approval.noCommentsCopy : approval.commentsCopy(comments.length)}
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3">
             {approval.publishDate ? (
               <div className="flex flex-wrap items-center gap-2">
-                <label className="text-xs text-on-surface-variant whitespace-nowrap">
+                <label className="text-xs text-[var(--color-pib-text-muted)] whitespace-nowrap">
                   {approval.publishDate.label ?? 'Publish date'}
                 </label>
                 <input
@@ -344,10 +344,10 @@ export function CampaignBlogDetailWorkspace({
                   value={publishDate}
                   min={publishDateMin}
                   onChange={event => setPublishDate(event.target.value)}
-                  className="text-xs rounded-md px-2 py-1.5 bg-surface-container-high text-on-surface border border-[var(--org-border,var(--color-pib-line))] focus:outline-none"
+                  className="text-xs rounded-md px-2 py-1.5 bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)] border border-[var(--org-border,var(--color-pib-line))] focus:outline-none"
                 />
                 {approval.publishDate.hint ? (
-                  <span className="text-[10px] text-on-surface-variant">{approval.publishDate.hint}</span>
+                  <span className="text-[10px] text-[var(--color-pib-text-muted)]">{approval.publishDate.hint}</span>
                 ) : null}
               </div>
             ) : (

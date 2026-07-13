@@ -33,8 +33,8 @@ export function MarketingStudioNav({ scope, active = 'Overview' }: MarketingStud
               aria-current={isActive ? 'page' : undefined}
               className={`relative flex h-10 items-center whitespace-nowrap px-2.5 text-xs font-medium transition ${
                 isActive
-                  ? 'text-on-surface after:absolute after:inset-x-2 after:bottom-0 after:h-px after:bg-primary'
-                  : 'text-on-surface-variant hover:text-on-surface'
+                  ? 'text-[var(--color-pib-text)] after:absolute after:inset-x-2 after:bottom-0 after:h-px after:bg-primary'
+                  : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
               }`}
             >
               {item.label}

@@ -127,7 +127,7 @@ export function PreviewPlayer({
           <span className="material-symbols-rounded text-base">{playing ? 'pause' : 'play_arrow'}</span>
         </button>
         <input className="w-full" type="range" min={0} max={duration} step={0.1} value={playheadSeconds} onChange={(event) => onSeek(Number(event.target.value))} />
-        <span className="w-16 text-right text-xs text-on-surface-variant">{playheadSeconds.toFixed(1)}s</span>
+        <span className="w-16 text-right text-xs text-[var(--color-pib-text-muted)]">{playheadSeconds.toFixed(1)}s</span>
       </div>
     </section>
   )

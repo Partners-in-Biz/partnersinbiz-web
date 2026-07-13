@@ -95,7 +95,7 @@ export function AnalyticsPropertyPicker({
   return (
     <div className={`grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end ${className}`}>
       <div>
-        <label className="text-xs text-on-surface-variant font-label block mb-1">Client</label>
+        <label className="text-xs text-[var(--color-pib-text-muted)] font-label block mb-1">Client</label>
         <select
           value={orgId}
           disabled={disabled || loadingOrgs}
@@ -112,7 +112,7 @@ export function AnalyticsPropertyPicker({
         </select>
       </div>
       <div>
-        <label className="text-xs text-on-surface-variant font-label block mb-1">Property</label>
+        <label className="text-xs text-[var(--color-pib-text-muted)] font-label block mb-1">Property</label>
         <select
           value={value}
           disabled={disabled || !orgId || loadingProperties}

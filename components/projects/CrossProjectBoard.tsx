@@ -167,7 +167,7 @@ export function CrossProjectBoard({ tasks: initialTasks, loading, onTaskUpdate, 
               <div key={column.id} className="flex flex-col w-64 shrink-0">
                 <div className="flex items-center gap-2 mb-3 px-1">
                   <div className="w-2 h-2 rounded-full" style={{ background: column.color }} />
-                  <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">{column.name}</span>
+                  <span className="pib-label">{column.name}</span>
                 </div>
                 <div className="flex flex-col gap-2">
                   <Skeleton /><Skeleton /><Skeleton />
@@ -200,7 +200,7 @@ export function CrossProjectBoard({ tasks: initialTasks, loading, onTaskUpdate, 
 
       {!loading && !hasAnyTasks && (
         <div className="py-12 text-center">
-          <p className="text-on-surface-variant text-sm">No tasks yet. Open a project to add some.</p>
+          <p className="text-[var(--color-pib-text-muted)] text-sm">No tasks yet. Open a project to add some.</p>
         </div>
       )}
 

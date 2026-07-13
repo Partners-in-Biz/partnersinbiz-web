@@ -15,9 +15,9 @@ function MetricCard({ icon, label, value }: { icon: string; label: string; value
     <div className="pib-stat-card">
       <div className="mb-2 flex items-center gap-2">
         <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-accent)]">{icon}</span>
-        <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{label}</span>
+        <span className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</span>
       </div>
-      <p className="text-2xl font-headline font-bold text-on-surface">{value}</p>
+      <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">{value}</p>
     </div>
   )
 }
@@ -113,7 +113,7 @@ export function OrgDetailOverviewPanel({ org, onChanged }: { org: OrgDetail; onC
       {suspended && org.suspension && (
         <div className="pib-card border border-red-500/30 !bg-red-500/5">
           <p className="text-sm font-medium text-red-400">This organisation is suspended.</p>
-          <p className="text-xs text-on-surface-variant">Reason: {String(org.suspension.reason ?? '—')}</p>
+          <p className="text-xs text-[var(--color-pib-text-muted)]">Reason: {String(org.suspension.reason ?? '—')}</p>
         </div>
       )}
 
@@ -172,7 +172,7 @@ export function OrgDetailOverviewPanel({ org, onChanged }: { org: OrgDetail; onC
       {/* Dev mode */}
       <Surface header={<span className="font-label">Developer mode</span>}>
         <div className="flex items-center justify-between gap-4">
-          <p className="text-sm text-on-surface-variant">
+          <p className="text-sm text-[var(--color-pib-text-muted)]">
             When enabled, the client portal shows a “development workspace” banner so the client knows the
             workspace is being set up or tested. Sets <code>devMode</code> and <code>settings.portalDevBanner</code>.
           </p>
@@ -207,11 +207,11 @@ export function OrgDetailOverviewPanel({ org, onChanged }: { org: OrgDetail; onC
       >
         {resetLink ? (
           <div className="space-y-2">
-            <p className="text-sm text-on-surface">Reset link generated{notify ? ' and emailed to the owner' : ''}:</p>
+            <p className="text-sm text-[var(--color-pib-text)]">Reset link generated{notify ? ' and emailed to the owner' : ''}:</p>
             <textarea readOnly className="pib-textarea w-full text-xs" rows={3} value={resetLink} />
           </div>
         ) : (
-          <label className="flex items-center gap-2 text-sm text-on-surface">
+          <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text)]">
             <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
             Also email the link to the owner
           </label>
@@ -232,7 +232,7 @@ export function OrgDetailOverviewPanel({ org, onChanged }: { org: OrgDetail; onC
         <div className="space-y-3">
           <input className="pib-input w-full" placeholder="Subject (optional)" value={msgSubject} onChange={(e) => setMsgSubject(e.target.value)} />
           <textarea className="pib-textarea w-full" rows={5} placeholder="Message…" value={msgBody} onChange={(e) => setMsgBody(e.target.value)} />
-          <label className="flex items-center gap-2 text-sm text-on-surface">
+          <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text)]">
             <input type="checkbox" checked={msgEmail} onChange={(e) => setMsgEmail(e.target.checked)} />
             Also email the owner
           </label>
@@ -254,7 +254,7 @@ export function OrgDetailOverviewPanel({ org, onChanged }: { org: OrgDetail; onC
         <div className="space-y-3">
           <textarea className="pib-textarea w-full" rows={3} placeholder="Reason (shown to owner if notified)" value={reason} onChange={(e) => setReason(e.target.value)} />
           <textarea className="pib-textarea w-full" rows={2} placeholder="Internal note (not shown to owner)" value={internalNote} onChange={(e) => setInternalNote(e.target.value)} />
-          <label className="flex items-center gap-2 text-sm text-on-surface">
+          <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text)]">
             <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
             Email the owner a suspension notice
           </label>
@@ -273,7 +273,7 @@ export function OrgDetailOverviewPanel({ org, onChanged }: { org: OrgDetail; onC
           </div>
         }
       >
-        <p className="text-sm text-on-surface-variant">The org returns to active and the suspension record is cleared.</p>
+        <p className="text-sm text-[var(--color-pib-text-muted)]">The org returns to active and the suspension record is cleared.</p>
       </DialogDrawer>
 
       <DialogDrawer
@@ -291,7 +291,7 @@ export function OrgDetailOverviewPanel({ org, onChanged }: { org: OrgDetail; onC
         }
       >
         <div className="space-y-2">
-          <p className="text-sm text-on-surface-variant">Type <strong className="text-on-surface">{org.name}</strong> to confirm.</p>
+          <p className="text-sm text-[var(--color-pib-text-muted)]">Type <strong className="text-[var(--color-pib-text)]">{org.name}</strong> to confirm.</p>
           <input className="pib-input w-full" value={confirmName} onChange={(e) => setConfirmName(e.target.value)} placeholder={org.name} />
         </div>
       </DialogDrawer>
@@ -302,8 +302,8 @@ export function OrgDetailOverviewPanel({ org, onChanged }: { org: OrgDetail; onC
 function Meta({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3 py-1.5 text-sm">
-      <span className="text-on-surface-variant">{label}</span>
-      <span className="min-w-0 truncate text-right font-medium text-on-surface">{value}</span>
+      <span className="text-[var(--color-pib-text-muted)]">{label}</span>
+      <span className="min-w-0 truncate text-right font-medium text-[var(--color-pib-text)]">{value}</span>
     </div>
   )
 }

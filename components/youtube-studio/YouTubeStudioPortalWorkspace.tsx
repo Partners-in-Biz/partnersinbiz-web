@@ -564,9 +564,9 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
       <section className="grid gap-3 md:grid-cols-3">
         <article className="pib-card-section flex min-w-0 flex-col gap-4 p-5">
           <div className="min-w-0">
-            <p className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Create</p>
-            <h2 className="mt-1 font-headline text-xl font-semibold text-on-surface">Create video edit</h2>
-            <p className="mt-2 text-sm text-on-surface-variant">Start a channel-linked edit project in the Video Editor or open recent edits.</p>
+            <p className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Create</p>
+            <h2 className="mt-1 font-headline text-xl font-semibold text-[var(--color-pib-text)]">Create video edit</h2>
+            <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Start a channel-linked edit project in the Video Editor or open recent edits.</p>
           </div>
           <button type="button" onClick={() => scrollToSection('editor')} className="pib-btn-primary mt-auto justify-center text-sm">
             Create video edit
@@ -574,9 +574,9 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
         </article>
         <article className="pib-card-section flex min-w-0 flex-col gap-4 p-5">
           <div className="min-w-0">
-            <p className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Request</p>
-            <h2 className="mt-1 font-headline text-xl font-semibold text-on-surface">Request a PiB video</h2>
-            <p className="mt-2 text-sm text-on-surface-variant">{channels.length ? 'Send PiB a clear brief for the next video.' : 'Link a channel before requesting production work.'}</p>
+            <p className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Request</p>
+            <h2 className="mt-1 font-headline text-xl font-semibold text-[var(--color-pib-text)]">Request a PiB video</h2>
+            <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{channels.length ? 'Send PiB a clear brief for the next video.' : 'Link a channel before requesting production work.'}</p>
           </div>
           <button type="button" onClick={() => scrollToSection('request')} className="pib-btn-ghost mt-auto justify-center text-sm">
             Request a PiB video
@@ -584,9 +584,9 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
         </article>
         <article className="pib-card-section flex min-w-0 flex-col gap-4 p-5">
           <div className="min-w-0">
-            <p className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Review</p>
-            <h2 className="mt-1 font-headline text-xl font-semibold text-on-surface">Review pending work</h2>
-            <p className="mt-2 text-sm text-on-surface-variant">
+            <p className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Review</p>
+            <h2 className="mt-1 font-headline text-xl font-semibold text-[var(--color-pib-text)]">Review pending work</h2>
+            <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
               {pendingWorkCount ? `${pendingWorkCount} item${pendingWorkCount === 1 ? '' : 's'} waiting for a decision.` : 'No client decisions waiting right now.'}
             </p>
           </div>
@@ -634,8 +634,8 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
 
         <aside className="h-fit space-y-4 lg:sticky lg:top-6">
           <div className="pib-card-section space-y-3 p-5">
-            <h2 className="font-headline font-bold text-on-surface">Link your channel</h2>
-            <p className="text-sm text-on-surface-variant">
+            <h2 className="font-headline font-bold text-[var(--color-pib-text)]">Link your channel</h2>
+            <p className="text-sm text-[var(--color-pib-text-muted)]">
               Connects through the existing social-account OAuth flow and returns here after YouTube authorises the channel.
             </p>
             <a href={youtubeOAuthHref} className="pib-btn-primary w-full justify-center text-center">
@@ -668,7 +668,7 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
                 Retry channel setup
               </button>
             ) : null}
-            <p className="text-xs text-on-surface-variant">
+            <p className="text-xs text-[var(--color-pib-text-muted)]">
               This connection is shared with Marketing Studio&apos;s social posting.
             </p>
           </div>
@@ -676,8 +676,8 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
           {capabilities.canCreate ? (
           <form ref={requestFormRef} onSubmit={submitRequest} className="pib-card-section space-y-4 p-5">
             <div>
-              <h2 className="font-headline font-bold text-on-surface">Request a PiB video</h2>
-              <p className="mt-1 text-sm text-on-surface-variant">Channel, title, and objective are required before PiB can scope the work.</p>
+              <h2 className="font-headline font-bold text-[var(--color-pib-text)]">Request a PiB video</h2>
+              <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">Channel, title, and objective are required before PiB can scope the work.</p>
             </div>
             <ChannelChoices
               channels={channels}
@@ -687,13 +687,13 @@ export function YouTubeStudioPortalWorkspace({ orgId }: YouTubeStudioPortalWorks
             <Field label="Video title" value={request.title} onChange={(value) => update('title', value)} required />
             <TextArea label="Objective" value={request.objective} onChange={(value) => update('objective', value)} required />
             <Field label="Source URL" value={request.sourceUrl} onChange={(value) => update('sourceUrl', value)} />
-            <p className="text-xs text-on-surface-variant" aria-live="polite">{requestHelpText}</p>
+            <p className="text-xs text-[var(--color-pib-text-muted)]" aria-live="polite">{requestHelpText}</p>
             <button type="submit" disabled={submittingRequest || !requestCanSubmit} className="pib-btn-primary w-full">
               {submittingRequest ? 'Sending...' : 'Send request'}
             </button>
           </form>
           ) : (
-            <div className="pib-card-section p-5 text-sm text-on-surface-variant">
+            <div className="pib-card-section p-5 text-sm text-[var(--color-pib-text-muted)]">
               YouTube video requests are disabled for your organisation role.
             </div>
           )}
@@ -740,9 +740,9 @@ function ChannelChoices({
 }) {
   return (
     <fieldset className="space-y-2">
-      <legend className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Channel</legend>
+      <legend className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Channel</legend>
       {channels.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-[var(--color-pib-line)] p-3 text-sm text-on-surface-variant">
+        <div className="rounded-lg border border-dashed border-[var(--color-pib-line)] p-3 text-sm text-[var(--color-pib-text-muted)]">
           Link a YouTube channel before sending a request.
         </div>
       ) : (
@@ -756,8 +756,8 @@ function ChannelChoices({
                 className={[
                   'flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm transition',
                   checked
-                    ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10 text-on-surface'
-                    : 'border-[var(--color-outline-variant)] bg-[var(--color-surface)] text-on-surface-variant hover:border-[var(--color-primary)]',
+                    ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10 text-[var(--color-pib-text)]'
+                    : 'border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] text-[var(--color-pib-text-muted)] hover:border-[var(--color-primary)]',
                 ].join(' ')}
               >
                 <input
@@ -770,8 +770,8 @@ function ChannelChoices({
                   className="mt-1"
                 />
                 <span className="min-w-0">
-                  <span className="block break-words font-medium text-on-surface">{channelChoiceLabel(channel)}</span>
-                  <span className="block break-words text-xs text-on-surface-variant">{channelChoiceMeta(channel)}</span>
+                  <span className="block break-words font-medium text-[var(--color-pib-text)]">{channelChoiceLabel(channel)}</span>
+                  <span className="block break-words text-xs text-[var(--color-pib-text-muted)]">{channelChoiceMeta(channel)}</span>
                 </span>
               </label>
             )
@@ -795,12 +795,12 @@ function Field({
 }) {
   return (
     <label className="block text-sm">
-      <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">{label}</span>
+      <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</span>
       <input
         required={required}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+        className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm"
       />
     </label>
   )
@@ -819,13 +819,13 @@ function TextArea({
 }) {
   return (
     <label className="block text-sm">
-      <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">{label}</span>
+      <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</span>
       <textarea
         required={required}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         rows={3}
-        className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm"
+        className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm"
       />
     </label>
   )

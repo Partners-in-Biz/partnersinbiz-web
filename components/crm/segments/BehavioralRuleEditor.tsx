@@ -29,9 +29,9 @@ const SCOPES: Array<{ value: BehavioralScope; label: string }> = [
   { value: 'link-url', label: 'Link URL contains' },
 ]
 
-const FIELD_LABEL_CLS = 'text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant'
+const FIELD_LABEL_CLS = 'text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]'
 const INPUT_CLS =
-  'h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface outline-none transition focus:border-[var(--color-accent-v2)]'
+  'h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-[var(--color-pib-text)] outline-none transition focus:border-[var(--color-accent-v2)]'
 
 interface ScopeOption {
   id: string
@@ -86,13 +86,13 @@ export function BehavioralRuleEditor({
       <div className="flex items-center justify-between">
         <div>
           <p className={FIELD_LABEL_CLS}>Behavioral rules</p>
-          <p className="mt-1 text-[11px] leading-4 text-on-surface-variant">
+          <p className="mt-1 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
             Filter by email engagement. All rules combine with AND.
           </p>
         </div>
         <div className="flex items-center gap-2">
           {liveCountLoading ? (
-            <span className="text-[11px] text-on-surface-variant">
+            <span className="text-[11px] text-[var(--color-pib-text-muted)]">
               counting…
             </span>
           ) : typeof liveCount === 'number' ? (
@@ -101,7 +101,7 @@ export function BehavioralRuleEditor({
           <button
             type="button"
             onClick={addRule}
-            className="flex h-8 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+            className="flex h-8 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
           >
             <span className="material-symbols-outlined text-[16px]">add</span>
             Add rule
@@ -110,7 +110,7 @@ export function BehavioralRuleEditor({
       </div>
 
       {rules.length === 0 ? (
-        <div className="rounded-md border border-dashed border-[var(--color-card-border)] py-2.5 text-center text-[11px] text-on-surface-variant">
+        <div className="rounded-md border border-dashed border-[var(--color-card-border)] py-2.5 text-center text-[11px] text-[var(--color-pib-text-muted)]">
           No behavioral rules. Click <strong>Add rule</strong> to filter by email engagement.
         </div>
       ) : (
@@ -225,7 +225,7 @@ function RuleRow({ rule, onChange, onRemove }: RuleRowProps) {
         <button
           type="button"
           onClick={onRemove}
-          className="text-[11px] text-on-surface-variant transition hover:text-red-300"
+          className="text-[11px] text-[var(--color-pib-text-muted)] transition hover:text-red-300"
         >
           Remove rule
         </button>

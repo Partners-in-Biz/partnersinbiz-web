@@ -68,15 +68,15 @@ function nextAction(video: YouTubeVideoProject, onReview: (id: string) => void, 
     )
   }
   if (video.status === 'publish_ready' || video.status === 'scheduled') {
-    return <span className="text-xs text-on-surface-variant">Awaiting PiB publish</span>
+    return <span className="text-xs text-[var(--color-pib-text-muted)]">Awaiting PiB publish</span>
   }
-  return <span className="text-xs text-on-surface-variant">PiB is preparing this</span>
+  return <span className="text-xs text-[var(--color-pib-text-muted)]">PiB is preparing this</span>
 }
 
 export function YouTubeStudioPipelineBoard({ videos, onReview, onRepurpose }: YouTubeStudioPipelineBoardProps) {
   if (videos.length === 0) {
     return (
-      <div className="pib-card-section p-6 text-sm text-on-surface-variant">
+      <div className="pib-card-section p-6 text-sm text-[var(--color-pib-text-muted)]">
         No active video work yet. Request a PiB video or create an edit project to start the workflow.
       </div>
     )
@@ -88,12 +88,12 @@ export function YouTubeStudioPipelineBoard({ videos, onReview, onRepurpose }: Yo
         const columnVideos = videos.filter((video) => column.statuses.includes(video.status))
         return (
           <section key={column.key} className="min-w-[280px] space-y-3">
-            <h3 className="flex items-center justify-between gap-3 text-xs font-label uppercase tracking-widest text-on-surface-variant">
+            <h3 className="pib-label flex items-center justify-between gap-3">
               <span>{column.label}</span>
               <span aria-label={`${column.label} count`}>({columnVideos.length})</span>
             </h3>
             {columnVideos.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-[var(--color-pib-line)] p-4 text-xs leading-relaxed text-on-surface-variant">
+              <div className="rounded-lg border border-dashed border-[var(--color-pib-line)] p-4 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
                 {column.emptyHint}
               </div>
             ) : (

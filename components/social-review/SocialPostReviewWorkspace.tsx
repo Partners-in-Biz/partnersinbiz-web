@@ -149,7 +149,7 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 const COMMENT_KIND_META: Record<string, { label: string; tone: string }> = {
-  note: { label: 'Note', tone: 'bg-surface-container-high text-on-surface-variant' },
+  note: { label: 'Note', tone: 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]' },
   rejection: { label: 'Sent back', tone: 'bg-red-500/10 text-red-300' },
   qa_rejection: { label: 'QA rejection', tone: 'bg-red-500/10 text-red-300' },
   client_rejection: { label: 'Client rejection', tone: 'bg-rose-500/10 text-rose-300' },
@@ -247,17 +247,17 @@ function visibleStatus(status?: string): string {
 
 export function PlatformChip({ platform }: { platform: string }) {
   const config = PLATFORM_COLORS[platform] ?? {
-    bg: 'bg-surface-container-high',
+    bg: 'bg-[var(--color-pib-surface-2)]',
     label: platform.slice(0, 2).toUpperCase(),
     full: platform,
   }
 
   return (
-    <span className="inline-flex items-center gap-1.5 pl-1 pr-2 py-0.5 rounded-full bg-surface-container-high text-xs">
+    <span className="inline-flex items-center gap-1.5 pl-1 pr-2 py-0.5 rounded-full bg-[var(--color-pib-surface-2)] text-xs">
       <span className={`${config.bg} text-white text-[9px] px-1.5 py-0.5 rounded font-bold`}>
         {config.label}
       </span>
-      <span className="text-on-surface">{config.full}</span>
+      <span className="text-[var(--color-pib-text)]">{config.full}</span>
     </span>
   )
 }
@@ -273,7 +273,7 @@ function Notice({ notice }: { notice: ReviewNotice }) {
         style={{
           background: 'var(--color-sidebar, var(--color-surface))',
           border: `1px solid ${border}`,
-          color: 'var(--color-on-surface, var(--color-pib-text))',
+          color: 'var(--color-pib-text)',
         }}
       >
         {notice.text}
@@ -299,7 +299,7 @@ function MediaGrid({ media }: { media: SocialReviewMedia[] }) {
           return (
             <div
               key={(typeof item === 'object' && item.id) || `${url}-${index}`}
-              className="aspect-square rounded-lg overflow-hidden bg-surface-container-high border border-outline-variant/30"
+              className="aspect-square rounded-lg overflow-hidden bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)]/30"
             >
               {isVideo ? (
                 <video src={url} className="w-full h-full object-cover" muted playsInline />
@@ -330,7 +330,7 @@ function RolePill({ role }: { role?: string }) {
         ? 'bg-violet-500/10 text-violet-300'
         : normalized === 'ai'
           ? 'bg-sky-500/10 text-sky-300'
-          : 'bg-surface-container-high text-on-surface-variant'
+          : 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]'
 
   return (
     <span className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded ${tone}`}>
@@ -359,11 +359,11 @@ function CommentThread({
   }
 
   if (comments.length === 0) {
-    return <p className="text-xs text-on-surface-variant py-2">{emptyLabel}</p>
+    return <p className="text-xs text-[var(--color-pib-text-muted)] py-2">{emptyLabel}</p>
   }
 
   return (
-    <div className="space-y-1 divide-y divide-[var(--color-outline-variant)]/40">
+    <div className="space-y-1 divide-y divide-[var(--color-pib-line)]/40">
       {comments.map(comment => {
         const kind = comment.kind ?? 'note'
         const meta = COMMENT_KIND_META[kind] ?? COMMENT_KIND_META.note
@@ -379,7 +379,7 @@ function CommentThread({
         return (
           <div key={comment.id} className="text-sm py-3" style={style}>
             <div className="flex items-center gap-2 flex-wrap mb-1">
-              <span className="font-medium text-on-surface">
+              <span className="font-medium text-[var(--color-pib-text)]">
                 {comment.userName || comment.userId || 'Unknown'}
               </span>
               <RolePill role={comment.userRole} />
@@ -393,11 +393,11 @@ function CommentThread({
                   agent picked up
                 </span>
               ) : null}
-              <span className="text-on-surface-variant ml-auto text-xs flex-shrink-0">
+              <span className="text-[var(--color-pib-text-muted)] ml-auto text-xs flex-shrink-0">
                 {fmtRelative(comment.createdAt)}
               </span>
             </div>
-            <p className="text-on-surface whitespace-pre-wrap break-words">{comment.text}</p>
+            <p className="text-[var(--color-pib-text)] whitespace-pre-wrap break-words">{comment.text}</p>
           </div>
         )
       })}
@@ -503,11 +503,11 @@ export function SocialPostReviewWorkspace({
   if (loadError || !post) {
     return (
       <div className="space-y-4">
-        <Link href={backHref} className="text-xs text-on-surface-variant hover:text-on-surface transition-colors">
+        <Link href={backHref} className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">
           &larr; Back to {backLabel}
         </Link>
         <div className="pib-card p-8 text-center">
-          <p className="text-on-surface-variant">{loadError || 'This post is no longer available.'}</p>
+          <p className="text-[var(--color-pib-text-muted)]">{loadError || 'This post is no longer available.'}</p>
         </div>
       </div>
     )
@@ -522,11 +522,11 @@ export function SocialPostReviewWorkspace({
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <Link href={backHref} className="text-xs text-on-surface-variant hover:text-on-surface transition-colors">
+          <Link href={backHref} className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">
             &larr; Back to {backLabel}
           </Link>
           <p className="eyebrow mt-2">{eyebrow}</p>
-          <h1 className="font-headline text-2xl md:text-3xl text-on-surface mt-1">{title}</h1>
+          <h1 className="font-headline text-2xl md:text-3xl text-[var(--color-pib-text)] mt-1">{title}</h1>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <span
@@ -539,7 +539,7 @@ export function SocialPostReviewWorkspace({
             {resolvedStatus}
           </span>
           {regenerationCount > 0 ? (
-            <span className="text-[10px] uppercase tracking-wider text-on-surface-variant bg-surface-container-high px-2 py-1 rounded">
+            <span className="text-[10px] uppercase tracking-wider text-[var(--color-pib-text-muted)] bg-[var(--color-pib-surface-2)] px-2 py-1 rounded">
               Revision {regenerationCount}
             </span>
           ) : null}
@@ -553,7 +553,7 @@ export function SocialPostReviewWorkspace({
               <p className="eyebrow mb-2">Platforms</p>
               <div className="flex flex-wrap gap-2">
                 {platforms.length === 0 ? (
-                  <span className="text-xs text-on-surface-variant">No platforms set</span>
+                  <span className="text-xs text-[var(--color-pib-text-muted)]">No platforms set</span>
                 ) : (
                   platforms.map(platform => <PlatformChip key={platform} platform={platform} />)
                 )}
@@ -563,14 +563,14 @@ export function SocialPostReviewWorkspace({
             {scheduled ? (
               <div>
                 <p className="eyebrow mb-2">Scheduled for</p>
-                <p className="text-sm text-on-surface">{fmtScheduled(scheduled)}</p>
+                <p className="text-sm text-[var(--color-pib-text)]">{fmtScheduled(scheduled)}</p>
               </div>
             ) : null}
 
             <div>
               <p className="eyebrow mb-2">Content</p>
-              <div className="rounded-xl bg-surface-container-low border border-outline-variant/40 p-4 text-sm text-on-surface leading-relaxed whitespace-pre-wrap break-words">
-                {text || <span className="text-on-surface-variant italic">(empty content)</span>}
+              <div className="rounded-xl bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)]/40 p-4 text-sm text-[var(--color-pib-text)] leading-relaxed whitespace-pre-wrap break-words">
+                {text || <span className="text-[var(--color-pib-text-muted)] italic">(empty content)</span>}
               </div>
             </div>
 
@@ -585,7 +585,7 @@ export function SocialPostReviewWorkspace({
                     return (
                       <span
                         key={`${tag}-${index}`}
-                        className="text-xs px-2 py-1 rounded-full bg-surface-container-high text-on-surface"
+                        className="text-xs px-2 py-1 rounded-full bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)]"
                       >
                         {tag}
                       </span>
@@ -598,7 +598,7 @@ export function SocialPostReviewWorkspace({
             {aiPrompt ? (
               <div>
                 <p className="eyebrow mb-2">Original prompt</p>
-                <p className="text-xs font-mono text-on-surface-variant bg-surface-container-high rounded-lg px-3 py-2 leading-relaxed whitespace-pre-wrap break-words">
+                <p className="text-xs font-mono text-[var(--color-pib-text-muted)] bg-[var(--color-pib-surface-2)] rounded-lg px-3 py-2 leading-relaxed whitespace-pre-wrap break-words">
                   {aiPrompt}
                 </p>
               </div>
@@ -614,12 +614,12 @@ export function SocialPostReviewWorkspace({
               >
                 <div>
                   <p className="eyebrow">previous version</p>
-                  <p className="text-sm text-on-surface mt-1">View original before regeneration</p>
+                  <p className="text-sm text-[var(--color-pib-text)] mt-1">View original before regeneration</p>
                 </div>
-                <span className="text-on-surface-variant text-lg">{showOriginal ? '-' : '+'}</span>
+                <span className="text-[var(--color-pib-text-muted)] text-lg">{showOriginal ? '-' : '+'}</span>
               </button>
               {showOriginal ? (
-                <div className="mt-3 rounded-xl bg-surface-container-low border border-outline-variant/40 p-4 text-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap break-words">
+                <div className="mt-3 rounded-xl bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)]/40 p-4 text-sm text-[var(--color-pib-text-muted)] leading-relaxed whitespace-pre-wrap break-words">
                   {original}
                 </div>
               ) : null}
@@ -631,9 +631,9 @@ export function SocialPostReviewWorkspace({
           <div className="pib-card space-y-3">
             <div>
               <p className="eyebrow">decision</p>
-              <h2 className="font-headline text-lg text-on-surface mt-1">{decisionTitle}</h2>
+              <h2 className="font-headline text-lg text-[var(--color-pib-text)] mt-1">{decisionTitle}</h2>
               {decisionDescription ? (
-                <p className="text-xs text-on-surface-variant mt-1">{decisionDescription}</p>
+                <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">{decisionDescription}</p>
               ) : null}
             </div>
 
@@ -661,7 +661,7 @@ export function SocialPostReviewWorkspace({
                     : secondaryApproveAction.label}
                 </button>
                 {secondaryApproveAction.helpText ? (
-                  <p className="text-[11px] text-on-surface-variant mt-1.5 leading-snug">
+                  <p className="text-[11px] text-[var(--color-pib-text-muted)] mt-1.5 leading-snug">
                     {secondaryApproveAction.helpText}
                   </p>
                 ) : null}
@@ -683,7 +683,7 @@ export function SocialPostReviewWorkspace({
                 </button>
 
                 {rejectOpen ? (
-                  <div className="pt-2 border-t border-outline-variant/40 space-y-2">
+                  <div className="pt-2 border-t border-[var(--color-pib-line)]/40 space-y-2">
                     <label className="pib-label" htmlFor="social-review-reject-reason">
                       What should be changed?
                     </label>
@@ -698,7 +698,7 @@ export function SocialPostReviewWorkspace({
                     />
                     {rejectError ? <p className="text-xs text-red-400">{rejectError}</p> : null}
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11px] text-on-surface-variant">
+                      <span className="text-[11px] text-[var(--color-pib-text-muted)]">
                         {rejectReason.trim().length}/{rejectAction.minLength ?? 10} min
                       </span>
                       <div className="flex gap-2">
@@ -731,7 +731,7 @@ export function SocialPostReviewWorkspace({
             ) : null}
 
             {unavailableActionMessage ? (
-              <p className="text-[11px] text-on-surface-variant">{unavailableActionMessage}</p>
+              <p className="text-[11px] text-[var(--color-pib-text-muted)]">{unavailableActionMessage}</p>
             ) : null}
 
             {manualAction ? (
@@ -740,7 +740,7 @@ export function SocialPostReviewWorkspace({
                   type="button"
                   onClick={() => runButtonAction(manualAction)}
                   disabled={manualAction.disabled || manualAction.busy}
-                  className="text-xs text-on-surface-variant hover:text-on-surface underline underline-offset-2 disabled:opacity-50"
+                  className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] underline underline-offset-2 disabled:opacity-50"
                 >
                   {manualAction.busy ? manualAction.busyLabel ?? 'Working...' : manualAction.label}
                 </button>
@@ -751,7 +751,7 @@ export function SocialPostReviewWorkspace({
           <div className="pib-card space-y-4">
             <div>
               <p className="eyebrow">activity</p>
-              <h2 className="font-headline text-lg text-on-surface mt-1">{conversationTitle}</h2>
+              <h2 className="font-headline text-lg text-[var(--color-pib-text)] mt-1">{conversationTitle}</h2>
             </div>
 
             <CommentThread
@@ -761,7 +761,7 @@ export function SocialPostReviewWorkspace({
             />
 
             {onAddComment ? (
-              <div className="pt-2 border-t border-outline-variant/40 space-y-2">
+              <div className="pt-2 border-t border-[var(--color-pib-line)]/40 space-y-2">
                 <label className="pib-label" htmlFor="social-review-note">
                   Add a note
                 </label>

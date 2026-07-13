@@ -53,7 +53,7 @@ export function DateRangePicker({
             className={`px-2.5 py-1.5 rounded text-xs font-medium transition-colors ${
               activePreset === p.days
                 ? 'bg-amber-400/20 text-amber-400'
-                : 'text-on-surface-variant hover:text-on-surface bg-[var(--color-surface-container)]'
+                : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] bg-[var(--color-pib-surface-2)]'
             }`}
           >
             {p.label}
@@ -61,7 +61,7 @@ export function DateRangePicker({
         ))}
       </div>
       <div>
-        <label className="text-[10px] uppercase tracking-wide text-on-surface-variant font-label block">From</label>
+        <label className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)] font-label block">From</label>
         <input
           type="date"
           value={value.from}
@@ -71,7 +71,7 @@ export function DateRangePicker({
         />
       </div>
       <div>
-        <label className="text-[10px] uppercase tracking-wide text-on-surface-variant font-label block">To</label>
+        <label className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)] font-label block">To</label>
         <input
           type="date"
           value={value.to}

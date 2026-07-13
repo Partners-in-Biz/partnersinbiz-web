@@ -109,8 +109,8 @@ export function DealPipelineCommandBar({
       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
         <div className="flex min-w-0 items-center gap-2 pr-1">
           <div className="min-w-0">
-            <p className="truncate text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Deal command runway</p>
-            <h2 className="truncate text-xs font-semibold leading-tight text-on-surface">Pipeline lens and revenue risk</h2>
+            <p className="truncate text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Deal command runway</p>
+            <h2 className="truncate text-xs font-semibold leading-tight text-[var(--color-pib-text)]">Pipeline lens and revenue risk</h2>
           </div>
         </div>
 
@@ -127,7 +127,7 @@ export function DealPipelineCommandBar({
                 'flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-[11px] transition',
                 active
                   ? 'border-primary/30 bg-primary/10 text-primary'
-                  : 'border-[var(--color-card-border)] text-on-surface-variant hover:text-on-surface',
+                  : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]',
               ].join(' ')}
             >
               <span className="material-symbols-outlined text-[13px]" aria-hidden="true">{button.icon}</span>
@@ -139,14 +139,14 @@ export function DealPipelineCommandBar({
 
         <div className="ml-auto flex min-w-0 flex-wrap items-center gap-1.5">
           <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-1 text-right">
-            <p className="text-[9px] font-label uppercase tracking-[0.18em] text-on-surface-variant">Weighted open value</p>
-            <p className="text-xs font-semibold leading-4 text-on-surface">
+            <p className="text-[9px] font-label uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">Weighted open value</p>
+            <p className="text-xs font-semibold leading-4 text-[var(--color-pib-text)]">
               {openPipeline.priced > 0
                 ? formatMoney(openPipeline.weightedValue, primaryCurrency)
                 : openDeals.length > 0
                   ? 'Forecast value needed'
                   : 'No open deals'}
-              <span className="ml-1.5 font-normal text-[10px] text-on-surface-variant">
+              <span className="ml-1.5 font-normal text-[10px] text-[var(--color-pib-text-muted)]">
                 {openPipeline.unpriced > 0
                   ? `${openPipeline.unpriced} unpriced open ${openPipeline.unpriced === 1 ? 'deal' : 'deals'}`
                   : openDeals.length > 0
@@ -159,18 +159,18 @@ export function DealPipelineCommandBar({
           <label className="block min-w-[200px]">
             <span className="sr-only">Search deals</span>
             <div className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-transparent px-2">
-              <span className="material-symbols-outlined text-[15px] text-on-surface-variant">search</span>
+              <span className="material-symbols-outlined text-[15px] text-[var(--color-pib-text-muted)]">search</span>
               <input
                 value={search}
                 onChange={(event) => onSearchChange(event.target.value)}
                 aria-label="Search deals"
                 placeholder="Search title, company, contact, or id"
-                className="min-w-0 flex-1 bg-transparent text-xs text-on-surface outline-none placeholder:text-on-surface-variant"
+                className="min-w-0 flex-1 bg-transparent text-xs text-[var(--color-pib-text)] outline-none placeholder:text-[var(--color-pib-text-muted)]"
               />
             </div>
           </label>
         </div>
-        <p className="px-1 text-[11px] leading-4 text-on-surface-variant">
+        <p className="px-1 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
           Use this lens before editing stages, forecast probability, or opening a deal record.
         </p>
       </div>

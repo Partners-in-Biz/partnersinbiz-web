@@ -12,9 +12,9 @@ function Skeleton({ className = '' }: { className?: string }) {
 }
 
 const STATUS_STYLES: Record<SeoArticleStatus, string> = {
-  draft: 'bg-on-surface/10 text-on-surface-variant',
-  scheduled: 'bg-amber-500/10 text-amber-400',
-  published: 'bg-green-500/10 text-green-400',
+  draft: 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]',
+  scheduled: 'bg-[var(--color-pib-amber-soft)] text-[var(--color-pib-amber)]',
+  published: 'bg-[var(--color-pib-green-soft)] text-[var(--color-pib-green)]',
 }
 
 function fmtDate(iso: string | null): string {
@@ -95,46 +95,46 @@ export default function SeoArticlesPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">Content / SEO</p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">SEO Articles</h1>
-          <p className="text-sm text-on-surface-variant mt-0.5 max-w-2xl">
+    <div className="space-y-8 max-w-6xl mx-auto">
+      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="min-w-0">
+          <p className="eyebrow">Content · SEO</p>
+          <h1 className="pib-page-title mt-2">SEO Articles</h1>
+          <p className="pib-page-sub max-w-2xl">
             Write, optimise, schedule and publish SEO content for the platform site. Each article is scored
             live for on-page SEO and readability.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 self-start md:self-auto">
-          <button onClick={createArticle} disabled={creating} className="pib-btn-primary text-sm font-label">
+          <button onClick={createArticle} disabled={creating} className="btn-pib-primary">
             {creating ? 'Creating…' : '+ New article'}
           </button>
-          <Link href="/admin/content/analytics" className="pib-btn-ghost text-sm font-label">
+          <Link href="/admin/content/analytics" className="btn-pib-ghost">
             Analytics
           </Link>
         </div>
-      </div>
+      </header>
 
       {topError && (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">{topError}</div>
+        <div className="pib-card px-4 py-3 text-sm text-[var(--color-error)]">{topError}</div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="pib-card p-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Total</p>
-          <p className="text-2xl font-headline font-bold text-on-surface mt-1">{counts.total}</p>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="pib-stat-card">
+          <p className="pib-label">Total</p>
+          <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{counts.total}</p>
         </div>
-        <div className="pib-card p-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Published</p>
-          <p className="text-2xl font-headline font-bold text-on-surface mt-1">{counts.published}</p>
+        <div className="pib-stat-card">
+          <p className="pib-label">Published</p>
+          <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{counts.published}</p>
         </div>
-        <div className="pib-card p-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Drafts</p>
-          <p className="text-2xl font-headline font-bold text-on-surface mt-1">{counts.drafts}</p>
+        <div className="pib-stat-card">
+          <p className="pib-label">Drafts</p>
+          <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{counts.drafts}</p>
         </div>
-        <div className="pib-card p-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Total views</p>
-          <p className="text-2xl font-headline font-bold text-on-surface mt-1">{counts.views.toLocaleString()}</p>
+        <div className="pib-stat-card">
+          <p className="pib-label">Total views</p>
+          <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{counts.views.toLocaleString()}</p>
         </div>
       </div>
 
@@ -144,9 +144,9 @@ export default function SeoArticlesPage() {
             key={f}
             onClick={() => setFilter(f)}
             className={`text-xs font-label px-3 py-1.5 rounded-full capitalize transition-colors ${
-              filter === f ? 'text-on-surface' : 'text-on-surface-variant hover:text-on-surface'
+              filter === f ? 'text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
             }`}
-            style={filter === f ? { background: 'var(--color-accent-v2)', color: '#0b0b0b' } : undefined}
+            style={filter === f ? { background: 'var(--color-pib-green)', color: 'var(--color-pib-ink)' } : undefined}
           >
             {f}
           </button>
@@ -161,8 +161,8 @@ export default function SeoArticlesPage() {
         </div>
       ) : visible.length === 0 ? (
         <div className="pib-card p-8 text-center">
-          <p className="text-sm text-on-surface-variant">No articles {filter !== 'all' ? `with status “${filter}”` : 'yet'}.</p>
-          <button onClick={createArticle} disabled={creating} className="pib-btn-primary text-sm font-label mt-4">
+          <p className="text-sm text-[var(--color-pib-text-muted)]">No articles {filter !== 'all' ? `with status “${filter}”` : 'yet'}.</p>
+          <button onClick={createArticle} disabled={creating} className="btn-pib-primary text-sm font-label mt-4">
             + New article
           </button>
         </div>
@@ -170,20 +170,20 @@ export default function SeoArticlesPage() {
         <div className="pib-card overflow-hidden p-0">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[var(--color-card-border)] text-left">
-                <th className="px-4 py-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant">Title</th>
-                <th className="px-4 py-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant">Status</th>
-                <th className="px-4 py-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant text-right">Views</th>
-                <th className="px-4 py-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant">Published</th>
+              <tr className="border-b border-[var(--color-pib-line)] text-left">
+                <th className="px-4 py-3 font-label text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">Title</th>
+                <th className="px-4 py-3 font-label text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">Status</th>
+                <th className="px-4 py-3 font-label text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] text-right">Views</th>
+                <th className="px-4 py-3 font-label text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">Published</th>
               </tr>
             </thead>
             <tbody>
               {visible.map((a) => (
-                <tr key={a.id} className="border-b border-[var(--color-card-border)] last:border-0 hover:bg-on-surface/5 transition-colors">
+                <tr key={a.id} className="border-b border-[var(--color-pib-line)] last:border-0 hover:bg-[var(--color-row-hover)] transition-colors">
                   <td className="px-4 py-3">
                     <Link href={`/admin/content/seo/${a.id}`} className="block">
-                      <span className="text-on-surface font-medium">{a.title}</span>
-                      <span className="block text-xs text-on-surface-variant font-mono mt-0.5">/{a.slug}</span>
+                      <span className="text-[var(--color-pib-text)] font-medium">{a.title}</span>
+                      <span className="block text-xs text-[var(--color-pib-text-muted)] font-mono mt-0.5">/{a.slug}</span>
                     </Link>
                   </td>
                   <td className="px-4 py-3">
@@ -191,8 +191,8 @@ export default function SeoArticlesPage() {
                       {a.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right text-on-surface tabular-nums">{(a.views ?? 0).toLocaleString()}</td>
-                  <td className="px-4 py-3 text-on-surface-variant">
+                  <td className="px-4 py-3 text-right text-[var(--color-pib-text)] tabular-nums">{(a.views ?? 0).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">
                     {a.status === 'scheduled' ? `→ ${fmtDate(a.scheduledFor)}` : fmtDate(a.publishedAt)}
                   </td>
                 </tr>

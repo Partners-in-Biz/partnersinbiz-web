@@ -86,7 +86,7 @@ export default function ConditionPicker({ mode, value, onChange }: Props) {
       <select
         value={value.kind}
         onChange={(e) => setKind(e.target.value)}
-        className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+        className="w-full pib-input"
       >
         {kinds.map((k) => (
           <option key={k.value} value={k.value}>
@@ -101,7 +101,7 @@ export default function ConditionPicker({ mode, value, onChange }: Props) {
           value={value.urlSubstring}
           onChange={(e) => onChange({ ...value, urlSubstring: e.target.value })}
           placeholder="URL contains (e.g. /pricing)"
-          className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+          className="w-full pib-input"
         />
       )}
       {(value.kind === 'contact-has-tag' || value.kind === 'contact-tag-added') && (
@@ -110,14 +110,14 @@ export default function ConditionPicker({ mode, value, onChange }: Props) {
           value={value.tag}
           onChange={(e) => onChange({ ...value, tag: e.target.value })}
           placeholder="Tag (e.g. demo-booked)"
-          className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+          className="w-full pib-input"
         />
       )}
       {(value.kind === 'contact-at-stage' || value.kind === 'contact-stage-reached') && (
         <select
           value={value.stage}
           onChange={(e) => onChange({ ...value, stage: e.target.value })}
-          className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+          className="w-full pib-input"
         >
           {['new', 'contacted', 'replied', 'demo', 'proposal', 'won', 'lost'].map((s) => (
             <option key={s} value={s}>
@@ -132,12 +132,12 @@ export default function ConditionPicker({ mode, value, onChange }: Props) {
           min={0}
           value={value.days}
           onChange={(e) => onChange({ ...value, days: parseInt(e.target.value) || 0 })}
-          className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+          className="w-full pib-input"
         />
       )}
       {value.kind === 'business-hours' && (
         <div className="grid grid-cols-2 gap-2">
-          <label className="text-xs text-on-surface-variant">
+          <label className="text-xs text-[var(--color-pib-text-muted)]">
             Start hour
             <input
               type="number"
@@ -147,10 +147,10 @@ export default function ConditionPicker({ mode, value, onChange }: Props) {
               onChange={(e) =>
                 onChange({ ...value, startHourLocal: parseInt(e.target.value) || 0 })
               }
-              className="mt-1 w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+              className="mt-1 w-full pib-input"
             />
           </label>
-          <label className="text-xs text-on-surface-variant">
+          <label className="text-xs text-[var(--color-pib-text-muted)]">
             End hour
             <input
               type="number"
@@ -160,7 +160,7 @@ export default function ConditionPicker({ mode, value, onChange }: Props) {
               onChange={(e) =>
                 onChange({ ...value, endHourLocal: parseInt(e.target.value) || 0 })
               }
-              className="mt-1 w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+              className="mt-1 w-full pib-input"
             />
           </label>
         </div>
@@ -182,7 +182,7 @@ export default function ConditionPicker({ mode, value, onChange }: Props) {
                 className={`px-2 py-1 rounded text-xs ${
                   active
                     ? 'bg-primary text-on-primary'
-                    : 'bg-surface-container text-on-surface-variant'
+                    : 'bg-[var(--color-pib-surface-soft)] text-[var(--color-pib-text-muted)]'
                 }`}
               >
                 {label}
@@ -197,7 +197,7 @@ export default function ConditionPicker({ mode, value, onChange }: Props) {
           value={value.goalId}
           onChange={(e) => onChange({ ...value, goalId: e.target.value })}
           placeholder="Goal id"
-          className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+          className="w-full pib-input"
         />
       )}
     </div>

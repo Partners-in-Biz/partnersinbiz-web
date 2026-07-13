@@ -562,11 +562,11 @@ export default function InvoiceDetailPage() {
       {editingDraft && invoice.canEdit && invoice.status === 'draft' && (
         <div className="pib-card space-y-4">
           <div>
-            <p className="text-sm font-medium text-on-surface">Draft invoice editor</p>
-            <p className="text-xs text-on-surface-variant mt-0.5">Update the editable draft fields before sending this invoice.</p>
+            <p className="text-sm font-medium text-[var(--color-pib-text)]">Draft invoice editor</p>
+            <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">Update the editable draft fields before sending this invoice.</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="text-xs text-on-surface-variant">Due date
+            <label className="text-xs text-[var(--color-pib-text-muted)]">Due date
               <input
                 type="date"
                 value={draftForm.dueDate}
@@ -574,7 +574,7 @@ export default function InvoiceDetailPage() {
                 className="pib-input mt-1 w-full"
               />
             </label>
-            <label className="text-xs text-on-surface-variant">Tax rate
+            <label className="text-xs text-[var(--color-pib-text-muted)]">Tax rate
               <input
                 type="number"
                 min="0"
@@ -584,14 +584,14 @@ export default function InvoiceDetailPage() {
                 className="pib-input mt-1 w-full"
               />
             </label>
-            <label className="text-xs text-on-surface-variant sm:col-span-2">Line item description
+            <label className="text-xs text-[var(--color-pib-text-muted)] sm:col-span-2">Line item description
               <input
                 value={draftForm.description}
                 onChange={(event) => setDraftForm((current) => ({ ...current, description: event.target.value }))}
                 className="pib-input mt-1 w-full"
               />
             </label>
-            <label className="text-xs text-on-surface-variant">Quantity
+            <label className="text-xs text-[var(--color-pib-text-muted)]">Quantity
               <input
                 type="number"
                 min="1"
@@ -600,7 +600,7 @@ export default function InvoiceDetailPage() {
                 className="pib-input mt-1 w-full"
               />
             </label>
-            <label className="text-xs text-on-surface-variant">Unit price
+            <label className="text-xs text-[var(--color-pib-text-muted)]">Unit price
               <input
                 type="number"
                 min="0"
@@ -610,7 +610,7 @@ export default function InvoiceDetailPage() {
                 className="pib-input mt-1 w-full"
               />
             </label>
-            <label className="text-xs text-on-surface-variant sm:col-span-2">Notes
+            <label className="text-xs text-[var(--color-pib-text-muted)] sm:col-span-2">Notes
               <textarea
                 value={draftForm.notes}
                 onChange={(event) => setDraftForm((current) => ({ ...current, notes: event.target.value }))}
@@ -634,13 +634,13 @@ export default function InvoiceDetailPage() {
       <div className="pib-card space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-on-surface">Recurring Invoice</p>
+            <p className="text-sm font-medium text-[var(--color-pib-text)]">Recurring Invoice</p>
             {schedule ? (
-              <p className="text-xs text-on-surface-variant mt-0.5">
+              <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">
                 {INTERVAL_LABELS[schedule.interval as RecurrenceInterval] ?? schedule.interval} · Status: {schedule.status}
               </p>
             ) : (
-              <p className="text-xs text-on-surface-variant mt-0.5">Not set up</p>
+              <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">Not set up</p>
             )}
           </div>
           {schedule ? (
@@ -662,10 +662,10 @@ export default function InvoiceDetailPage() {
         </div>
 
         {showRecurringForm && !schedule && (
-          <div className="space-y-3 border-t border-[var(--color-card-border)] pt-4">
+          <div className="space-y-3 border-t border-[var(--color-pib-line)] pt-4">
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant block mb-1">Interval</label>
+                <label className="pib-label block mb-1">Interval</label>
                 <select
                   value={recurringInterval}
                   onChange={e => setRecurringInterval(e.target.value as RecurrenceInterval)}
@@ -677,7 +677,7 @@ export default function InvoiceDetailPage() {
                 </select>
               </div>
               <div>
-                <label className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant block mb-1">Start Date</label>
+                <label className="pib-label block mb-1">Start Date</label>
                 <input
                   type="date"
                   value={recurringStartDate}
@@ -686,7 +686,7 @@ export default function InvoiceDetailPage() {
                 />
               </div>
               <div>
-                <label className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant block mb-1">End Date (optional)</label>
+                <label className="pib-label block mb-1">End Date (optional)</label>
                 <input
                   type="date"
                   value={recurringEndDate}

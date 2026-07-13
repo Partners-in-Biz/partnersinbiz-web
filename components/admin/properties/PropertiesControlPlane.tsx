@@ -260,8 +260,8 @@ export function PropertiesControlPlane() {
               { label: 'Number', value: metrics.number },
             ].map((m) => (
               <div key={m.label} className="pib-card p-5">
-                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{m.label}</p>
-                <p className="mt-3 text-2xl font-semibold text-on-surface">{m.value}</p>
+                <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{m.label}</p>
+                <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">{m.value}</p>
               </div>
             ))}
           </section>
@@ -278,7 +278,7 @@ export function PropertiesControlPlane() {
               <div className="overflow-x-auto">
                 <table className="min-w-full">
                   <thead>
-                    <tr className="border-b border-[var(--color-pib-line)] text-left text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                    <tr className="border-b border-[var(--color-pib-line)] text-left text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                       <th className="px-4 py-3">Key</th>
                       <th className="px-4 py-3">Type</th>
                       <th className="px-4 py-3">Default</th>
@@ -290,10 +290,10 @@ export function PropertiesControlPlane() {
                   <tbody>
                     {data.flags.map((flag) => (
                       <tr key={flag.key} className="border-b border-[var(--color-pib-line)]/60 align-top last:border-b-0">
-                        <td className="px-4 py-3"><code className="text-sm text-on-surface">{flag.key}</code></td>
+                        <td className="px-4 py-3"><code className="text-sm text-[var(--color-pib-text)]">{flag.key}</code></td>
                         <td className="px-4 py-3"><StatusPill tone="info">{flag.type}</StatusPill></td>
-                        <td className="px-4 py-3 text-sm text-on-surface"><code>{renderValue(flag.defaultValue)}</code></td>
-                        <td className="px-4 py-3 text-sm text-on-surface-variant">{flag.description || '—'}</td>
+                        <td className="px-4 py-3 text-sm text-[var(--color-pib-text)]"><code>{renderValue(flag.defaultValue)}</code></td>
+                        <td className="px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">{flag.description || '—'}</td>
                         <td className="px-4 py-3">
                           <StatusPill tone={flag.overrideCount > 0 ? 'accent' : 'neutral'}>
                             {flag.overrideCount}
@@ -317,12 +317,12 @@ export function PropertiesControlPlane() {
           <Surface header={<span className="font-label">Per-org overrides</span>} className="overflow-hidden">
             {ovError && <p className="px-4 pt-3 text-sm text-red-400">{ovError}</p>}
             {data.orgOverrides.length === 0 ? (
-              <div className="px-4 py-6 text-sm text-on-surface-variant">No per-org overrides set.</div>
+              <div className="px-4 py-6 text-sm text-[var(--color-pib-text-muted)]">No per-org overrides set.</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full">
                   <thead>
-                    <tr className="border-b border-[var(--color-pib-line)] text-left text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                    <tr className="border-b border-[var(--color-pib-line)] text-left text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                       <th className="px-4 py-3">Flag</th>
                       <th className="px-4 py-3">Org</th>
                       <th className="px-4 py-3">Value</th>
@@ -332,9 +332,9 @@ export function PropertiesControlPlane() {
                   <tbody>
                     {data.orgOverrides.map((o) => (
                       <tr key={`${o.flagKey}:${o.orgId}`} className="border-b border-[var(--color-pib-line)]/60 last:border-b-0">
-                        <td className="px-4 py-3"><code className="text-sm text-on-surface">{o.flagKey}</code></td>
-                        <td className="px-4 py-3 text-sm text-on-surface">{o.orgName}<span className="ml-2 text-xs text-on-surface-variant">{o.orgId}</span></td>
-                        <td className="px-4 py-3 text-sm text-on-surface"><code>{renderValue(o.value)}</code></td>
+                        <td className="px-4 py-3"><code className="text-sm text-[var(--color-pib-text)]">{o.flagKey}</code></td>
+                        <td className="px-4 py-3 text-sm text-[var(--color-pib-text)]">{o.orgName}<span className="ml-2 text-xs text-[var(--color-pib-text-muted)]">{o.orgId}</span></td>
+                        <td className="px-4 py-3 text-sm text-[var(--color-pib-text)]"><code>{renderValue(o.value)}</code></td>
                         <td className="px-4 py-3">
                           <div className="flex justify-end gap-2">
                             <button
@@ -355,7 +355,7 @@ export function PropertiesControlPlane() {
             )}
 
             <div className="border-t border-[var(--color-pib-line)] p-4">
-              <p className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Add / edit override</p>
+              <p className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Add / edit override</p>
               <div className="mt-3 grid gap-3 md:grid-cols-4">
                 <select className="pib-input" value={ovFlag} onChange={(e) => { setOvFlag(e.target.value); setOvValue('') }}>
                   <option value="">Select flag…</option>
@@ -389,18 +389,18 @@ export function PropertiesControlPlane() {
           {/* Audit log */}
           <Surface header={<span className="font-label">Recent feature-flag activity</span>} className="overflow-hidden">
             {data.audit.length === 0 ? (
-              <div className="px-4 py-6 text-sm text-on-surface-variant">No feature-flag changes recorded yet.</div>
+              <div className="px-4 py-6 text-sm text-[var(--color-pib-text-muted)]">No feature-flag changes recorded yet.</div>
             ) : (
               <div className="divide-y divide-[var(--color-pib-line)]/60">
                 {data.audit.map((a) => (
                   <div key={a.id} className="flex items-start justify-between gap-4 px-4 py-3">
                     <div className="min-w-0">
-                      <p className="text-sm text-on-surface">{a.summary}</p>
-                      <p className="mt-1 text-xs text-on-surface-variant">
+                      <p className="text-sm text-[var(--color-pib-text)]">{a.summary}</p>
+                      <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
                         <code>{a.action}</code> · {a.actorUid || 'unknown'} ({a.actorRole || '—'})
                       </p>
                     </div>
-                    <span className="shrink-0 text-xs text-on-surface-variant">{formatDateTime(a.createdAt)}</span>
+                    <span className="shrink-0 text-xs text-[var(--color-pib-text-muted)]">{formatDateTime(a.createdAt)}</span>
                   </div>
                 ))}
               </div>
@@ -428,18 +428,18 @@ export function PropertiesControlPlane() {
           {formError && <p className="text-sm text-red-400">{formError}</p>}
           {!editingKey && (
             <label className="block">
-              <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Key</span>
+              <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Key</span>
               <input
                 className="pib-input mt-1 w-full"
                 placeholder="my_feature.flag"
                 value={formKey}
                 onChange={(e) => setFormKey(e.target.value)}
               />
-              <span className="mt-1 block text-xs text-on-surface-variant">lowercase, letters/numbers/._-, starts with a letter</span>
+              <span className="mt-1 block text-xs text-[var(--color-pib-text-muted)]">lowercase, letters/numbers/._-, starts with a letter</span>
             </label>
           )}
           <label className="block">
-            <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Type</span>
+            <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Type</span>
             <select
               className="pib-input mt-1 w-full"
               value={formType}
@@ -453,7 +453,7 @@ export function PropertiesControlPlane() {
             </select>
           </label>
           <label className="block">
-            <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Default value</span>
+            <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Default value</span>
             {formType === 'boolean' ? (
               <select className="pib-input mt-1 w-full" value={formDefault} onChange={(e) => setFormDefault(e.target.value)}>
                 <option value="true">true</option>
@@ -469,7 +469,7 @@ export function PropertiesControlPlane() {
             )}
           </label>
           <label className="block">
-            <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Description</span>
+            <span className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Description</span>
             <textarea
               className="pib-input mt-1 w-full"
               rows={2}
@@ -496,9 +496,9 @@ export function PropertiesControlPlane() {
         }
       >
         {deleteError && <p className="mb-3 text-sm text-red-400">{deleteError}</p>}
-        <p className="text-sm text-on-surface-variant">
+        <p className="text-sm text-[var(--color-pib-text-muted)]">
           {deleteTarget && deleteTarget.overrideCount > 0 ? (
-            <>This flag has <strong className="text-on-surface">{deleteTarget.overrideCount}</strong> per-org override{deleteTarget.overrideCount === 1 ? '' : 's'} that will be orphaned.</>
+            <>This flag has <strong className="text-[var(--color-pib-text)]">{deleteTarget.overrideCount}</strong> per-org override{deleteTarget.overrideCount === 1 ? '' : 's'} that will be orphaned.</>
           ) : (
             'This flag has no per-org overrides.'
           )}

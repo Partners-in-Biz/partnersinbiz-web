@@ -103,7 +103,7 @@ export function DealDetailDrawer({
   const dealValueLabel = hasDealValue ? fmtValue(deal.value, deal.currency) : 'No value captured'
   const weightedValue = hasDealValue ? deal.value * (probability / 100) : null
 
-  const labelCls = 'block text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant mb-1'
+  const labelCls = 'block text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)] mb-1'
 
   // Convert to quote state
   const [convertingQuote, setConvertingQuote] = useState(false)
@@ -150,7 +150,7 @@ export function DealDetailDrawer({
         {/* Header */}
         <div className="flex min-h-11 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-card-border)] px-4 py-2">
           <div className="flex items-center gap-3 min-w-0">
-            <p className="text-sm font-semibold text-on-surface truncate">{dealLabel}</p>
+            <p className="text-sm font-semibold text-[var(--color-pib-text)] truncate">{dealLabel}</p>
             {stage && (
               <span
                 className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
@@ -166,7 +166,7 @@ export function DealDetailDrawer({
               type="button"
               onClick={handleConvertToQuote}
               disabled={convertingQuote}
-              className="cursor-pointer inline-flex h-7 items-center rounded-md border border-[var(--color-card-border)] px-2 text-[10px] font-label uppercase tracking-wide text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface disabled:opacity-50 disabled:cursor-not-allowed"
+              className="cursor-pointer inline-flex h-7 items-center rounded-md border border-[var(--color-card-border)] px-2 text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] disabled:opacity-50 disabled:cursor-not-allowed"
               title="Convert to quote"
             >
               {convertingQuote ? 'Creating…' : 'Quote'}
@@ -175,7 +175,7 @@ export function DealDetailDrawer({
               <button
                 type="button"
                 onClick={onEdit}
-                className="cursor-pointer flex h-7 w-7 items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
+                className="cursor-pointer flex h-7 w-7 items-center justify-center rounded-md text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                 title="Edit deal"
               >
                 <span className="material-symbols-outlined text-[16px]">edit</span>
@@ -184,7 +184,7 @@ export function DealDetailDrawer({
             <button
               type="button"
               onClick={onClose}
-              className="cursor-pointer flex h-7 w-7 items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
+              className="cursor-pointer flex h-7 w-7 items-center justify-center rounded-md text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
             >
               <span className="material-symbols-outlined text-[16px]">close</span>
             </button>
@@ -224,19 +224,19 @@ export function DealDetailDrawer({
                   type="button"
                   aria-label={`${hasDealValue ? 'Edit' : 'Add'} value for ${dealLabel} from deal detail`}
                   onClick={onEdit}
-                  className="text-left text-lg font-semibold text-on-surface transition-colors hover:text-[var(--color-accent-text)]"
+                  className="text-left text-lg font-semibold text-[var(--color-pib-text)] transition-colors hover:text-[var(--color-accent-text)]"
                 >
                   {dealValueLabel}
                 </button>
               ) : (
-                <p className="text-lg font-semibold text-on-surface">
+                <p className="text-lg font-semibold text-[var(--color-pib-text)]">
                   {dealValueLabel}
                 </p>
               )}
             </div>
             <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
               <p className={labelCls}>Weighted</p>
-              <p className="text-sm font-mono font-semibold text-on-surface">
+              <p className="text-sm font-mono font-semibold text-[var(--color-pib-text)]">
                 {weightedValue === null ? 'Value needed' : fmtValue(weightedValue, deal.currency)}
               </p>
             </div>
@@ -263,7 +263,7 @@ export function DealDetailDrawer({
           {showLostReason && deal.lostReason && (
             <div>
               <p className={labelCls}>Lost reason</p>
-              <p className="text-xs leading-5 text-on-surface-variant whitespace-pre-wrap rounded-md px-3 py-2 bg-white/[0.03] border border-[var(--color-card-border)]">
+              <p className="text-xs leading-5 text-[var(--color-pib-text-muted)] whitespace-pre-wrap rounded-md px-3 py-2 bg-white/[0.03] border border-[var(--color-card-border)]">
                 {deal.lostReason}
               </p>
             </div>
@@ -273,7 +273,7 @@ export function DealDetailDrawer({
           {deal.notes && (
             <div>
               <p className={labelCls}>Notes</p>
-              <p className="text-xs leading-5 text-on-surface whitespace-pre-wrap">{deal.notes}</p>
+              <p className="text-xs leading-5 text-[var(--color-pib-text)] whitespace-pre-wrap">{deal.notes}</p>
             </div>
           )}
 
@@ -284,7 +284,7 @@ export function DealDetailDrawer({
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className={labelCls}>Relationship context</p>
-                <p className="text-xs leading-5 text-on-surface-variant">
+                <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">
                   People, account, owner, and timing signals for this opportunity.
                 </p>
               </div>
@@ -308,13 +308,13 @@ export function DealDetailDrawer({
                   </a>
                 ) : (
                   <div className="space-y-2">
-                    <p className="text-xs text-on-surface-variant">No decision-maker linked</p>
+                    <p className="text-xs text-[var(--color-pib-text-muted)]">No decision-maker linked</p>
                     {onEdit ? (
                       <button
                         type="button"
                         aria-label={`Link decision-maker for ${dealLabel}`}
                         onClick={onEdit}
-                        className="inline-flex h-7 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 text-[11px] font-medium text-[var(--color-accent-text)] transition-colors hover:bg-white/[0.05] hover:text-on-surface"
+                        className="inline-flex h-7 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 text-[11px] font-medium text-[var(--color-accent-text)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                       >
                         <span className="material-symbols-outlined text-[13px]" aria-hidden="true">person_add</span>
                         Link decision-maker
@@ -334,13 +334,13 @@ export function DealDetailDrawer({
                   </a>
                 ) : (
                   <div className="space-y-2">
-                    <p className="text-xs text-on-surface-variant">{readableCompany || 'No company linked'}</p>
+                    <p className="text-xs text-[var(--color-pib-text-muted)]">{readableCompany || 'No company linked'}</p>
                     {onEdit ? (
                       <button
                         type="button"
                         aria-label={`Link company for ${dealLabel}`}
                         onClick={onEdit}
-                        className="inline-flex h-7 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 text-[11px] font-medium text-[var(--color-accent-text)] transition-colors hover:bg-white/[0.05] hover:text-on-surface"
+                        className="inline-flex h-7 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 text-[11px] font-medium text-[var(--color-accent-text)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                       >
                         <span className="material-symbols-outlined text-[13px]" aria-hidden="true">add_business</span>
                         Link company
@@ -353,11 +353,11 @@ export function DealDetailDrawer({
                 <p className={labelCls}>Owner</p>
                 {needsOwner ? (
                   <div className="space-y-2">
-                    <p className="text-[10px] font-label uppercase tracking-[0.18em] text-on-surface-variant">
+                    <p className="text-[10px] font-label uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
                       Deal owner missing
                     </p>
-                    <h3 className="text-xs font-semibold text-on-surface">Assign forecast ownership</h3>
-                    <p className="text-xs leading-5 text-on-surface-variant">
+                    <h3 className="text-xs font-semibold text-[var(--color-pib-text)]">Assign forecast ownership</h3>
+                    <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">
                       No team member owns this opportunity. Assign an owner so follow-up, forecast review, and handoff accountability are visible before the deal stalls.
                     </p>
                     {onEdit ? (
@@ -365,7 +365,7 @@ export function DealDetailDrawer({
                         type="button"
                         aria-label={`Assign owner for ${dealLabel}`}
                         onClick={onEdit}
-                        className="inline-flex h-7 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-[11px] text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                        className="inline-flex h-7 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-[11px] text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                       >
                         <span className="material-symbols-outlined text-[13px]" aria-hidden="true">person_add</span>
                         Assign owner
@@ -373,18 +373,18 @@ export function DealDetailDrawer({
                     ) : null}
                   </div>
                 ) : (
-                  <p className="text-xs font-semibold text-on-surface">{ownerLabel}</p>
+                  <p className="text-xs font-semibold text-[var(--color-pib-text)]">{ownerLabel}</p>
                 )}
               </div>
               <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
                 <p className={labelCls}>Close date</p>
                 {needsCloseDate ? (
                   <div className="space-y-2">
-                    <p className="text-[10px] font-label uppercase tracking-[0.18em] text-on-surface-variant">
+                    <p className="text-[10px] font-label uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
                       {closeDateLabel === 'No close date' ? 'Close date missing' : closeDateLabel}
                     </p>
-                    <h3 className="text-xs font-semibold text-on-surface">{closeDateActionHeading}</h3>
-                    <p className="text-xs leading-5 text-on-surface-variant">
+                    <h3 className="text-xs font-semibold text-[var(--color-pib-text)]">{closeDateActionHeading}</h3>
+                    <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">
                       {closeDateActionDescription}
                     </p>
                     {onEdit ? (
@@ -392,7 +392,7 @@ export function DealDetailDrawer({
                         type="button"
                         aria-label={`${closeDateActionLabel} for ${dealLabel}`}
                         onClick={onEdit}
-                        className="inline-flex h-7 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-[11px] text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                        className="inline-flex h-7 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-[11px] text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                       >
                         <span className="material-symbols-outlined text-[13px]" aria-hidden="true">event_upcoming</span>
                         {closeDateActionLabel}
@@ -400,7 +400,7 @@ export function DealDetailDrawer({
                     ) : null}
                   </div>
                 ) : (
-                  <p className="text-xs font-semibold text-on-surface">{closeDateLabel}</p>
+                  <p className="text-xs font-semibold text-[var(--color-pib-text)]">{closeDateLabel}</p>
                 )}
               </div>
             </div>

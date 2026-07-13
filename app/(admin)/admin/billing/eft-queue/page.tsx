@@ -133,11 +133,11 @@ export default function EftQueuePage() {
     <div className="space-y-6 max-w-5xl mx-auto">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Billing / Payments
           </p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">EFT Verification Queue</h1>
-          <p className="text-sm text-on-surface-variant mt-0.5">
+          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">EFT Verification Queue</h1>
+          <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5">
             Review client EFT proof-of-payment uploads and confirm or reject each one.
           </p>
         </div>
@@ -164,7 +164,7 @@ export default function EftQueuePage() {
           <Skeleton className="h-40 rounded-xl" />
         </div>
       ) : items.length === 0 ? (
-        <div className="pib-card p-8 text-center text-sm text-on-surface-variant">
+        <div className="pib-card p-8 text-center text-sm text-[var(--color-pib-text-muted)]">
           No EFT proofs awaiting verification.
         </div>
       ) : (
@@ -180,10 +180,10 @@ export default function EftQueuePage() {
                   {/* Details */}
                   <div className="flex-1 min-w-0 space-y-3">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h2 className="text-base font-semibold text-on-surface">{item.invoiceNumber}</h2>
+                      <h2 className="text-base font-semibold text-[var(--color-pib-text)]">{item.invoiceNumber}</h2>
                       <span
                         className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full"
-                        style={{ background: 'var(--color-accent-v2)20', color: 'var(--color-accent-v2)' }}
+                        style={{ background: 'var(--color-pib-accent)20', color: 'var(--color-pib-accent)' }}
                       >
                         Pending verification
                       </span>
@@ -191,36 +191,36 @@ export default function EftQueuePage() {
 
                     <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
                       <div>
-                        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Client</p>
-                        <p className="text-on-surface truncate">{item.orgName ?? item.orgId ?? '—'}</p>
+                        <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Client</p>
+                        <p className="text-[var(--color-pib-text)] truncate">{item.orgName ?? item.orgId ?? '—'}</p>
                       </div>
                       <div>
-                        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Amount</p>
-                        <p className="text-on-surface font-semibold">{money(item.total, item.currency)}</p>
+                        <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Amount</p>
+                        <p className="text-[var(--color-pib-text)] font-semibold">{money(item.total, item.currency)}</p>
                       </div>
                       <div>
-                        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Uploaded</p>
-                        <p className="text-on-surface">{formatDate(uploadedMs)}</p>
+                        <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Uploaded</p>
+                        <p className="text-[var(--color-pib-text)]">{formatDate(uploadedMs)}</p>
                       </div>
                       <div>
-                        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Currency</p>
-                        <p className="text-on-surface">{item.currency}</p>
+                        <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Currency</p>
+                        <p className="text-[var(--color-pib-text)]">{item.currency}</p>
                       </div>
                     </div>
 
                     {item.paymentProofNote && (
-                      <div className="rounded-md border border-on-surface/10 bg-on-surface/5 p-3">
-                        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+                      <div className="rounded-md border border-[var(--color-pib-text)]/10 bg-[var(--color-pib-text)]/5 p-3">
+                        <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
                           Client note
                         </p>
-                        <p className="text-sm text-on-surface-variant">{item.paymentProofNote}</p>
+                        <p className="text-sm text-[var(--color-pib-text-muted)]">{item.paymentProofNote}</p>
                       </div>
                     )}
 
                     {/* Confirm controls */}
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-end pt-1">
                       <label className="block flex-1">
-                        <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
+                        <span className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                           Reference (optional)
                         </span>
                         <input
@@ -233,7 +233,7 @@ export default function EftQueuePage() {
                         />
                       </label>
                       <label className="block flex-1">
-                        <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
+                        <span className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                           Amount (optional)
                         </span>
                         <input
@@ -276,9 +276,9 @@ export default function EftQueuePage() {
                     </div>
 
                     {rejectOpen && (
-                      <div className="rounded-md border border-on-surface/10 bg-on-surface/5 p-3 space-y-2">
+                      <div className="rounded-md border border-[var(--color-pib-text)]/10 bg-[var(--color-pib-text)]/5 p-3 space-y-2">
                         <label className="block">
-                          <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
+                          <span className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                             Rejection reason
                           </span>
                           <input
@@ -304,7 +304,7 @@ export default function EftQueuePage() {
 
                   {/* Proof preview */}
                   <div className="w-full lg:w-64 flex-shrink-0">
-                    <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-2">
+                    <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-2">
                       Proof of payment
                     </p>
                     {item.proofUrl ? (
@@ -314,7 +314,7 @@ export default function EftQueuePage() {
                           <img
                             src={item.proofUrl}
                             alt={`Proof for ${item.invoiceNumber}`}
-                            className="w-full rounded-md border border-on-surface/10 object-contain max-h-64 bg-on-surface/5"
+                            className="w-full rounded-md border border-[var(--color-pib-text)]/10 object-contain max-h-64 bg-[var(--color-pib-text)]/5"
                           />
                         </a>
                       ) : (
@@ -328,7 +328,7 @@ export default function EftQueuePage() {
                         </a>
                       )
                     ) : (
-                      <p className="text-sm text-on-surface-variant">No proof file attached</p>
+                      <p className="text-sm text-[var(--color-pib-text-muted)]">No proof file attached</p>
                     )}
                   </div>
                 </div>

@@ -156,7 +156,7 @@ const LinkedInPreview = ({ content, mediaItems, charLimit, userName = 'Your Name
   const truncateAt = 210
 
   return (
-    <div className="bg-surface-container rounded-2xl p-4 text-on-surface w-full max-w-sm border border-outline-variant/20">
+    <div className="bg-[var(--color-pib-surface)] rounded-2xl p-4 text-[var(--color-pib-text)] w-full max-w-sm border border-[var(--color-pib-line)]/20">
       {/* Header */}
       <div className="flex items-start gap-3 mb-3">
         <div className="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
@@ -167,20 +167,20 @@ const LinkedInPreview = ({ content, mediaItems, charLimit, userName = 'Your Name
             <span className="font-semibold text-sm">{userName}</span>
             <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-1.5 py-0.5 rounded-full">1st</span>
           </div>
-          <p className="text-on-surface-variant text-xs">Professional Title (placeholder)</p>
-          <span className="text-on-surface-variant text-xs">now · 🌐</span>
+          <p className="text-[var(--color-pib-text-muted)] text-xs">Professional Title (placeholder)</p>
+          <span className="text-[var(--color-pib-text-muted)] text-xs">now · 🌐</span>
         </div>
       </div>
 
       {/* Content */}
-      <div className="text-sm text-on-surface leading-relaxed mb-3">
+      <div className="text-sm text-[var(--color-pib-text)] leading-relaxed mb-3">
         {content.length > 0 ? (
           <>
             {renderFormattedText(isOverLimit ? content.slice(0, truncateAt) : content)}
-            {isOverLimit && <span className="text-on-surface-variant">...see more</span>}
+            {isOverLimit && <span className="text-[var(--color-pib-text-muted)]">...see more</span>}
           </>
         ) : (
-          <span className="text-on-surface-variant">Your post will appear here</span>
+          <span className="text-[var(--color-pib-text-muted)]">Your post will appear here</span>
         )}
       </div>
 
@@ -192,7 +192,7 @@ const LinkedInPreview = ({ content, mediaItems, charLimit, userName = 'Your Name
       )}
 
       {/* Engagement */}
-      <div className="flex justify-around text-on-surface-variant text-sm border-t border-outline-variant/20 pt-3">
+      <div className="flex justify-around text-[var(--color-pib-text-muted)] text-sm border-t border-[var(--color-pib-line)]/20 pt-3">
         <span>👍 Like</span>
         <span>💬 Comment</span>
         <span>🔁 Repost</span>
@@ -223,7 +223,7 @@ const InstagramPreview = ({ content, mediaItems, charLimit, userName = 'yourname
       </div>
 
       {/* Image */}
-      <div className="bg-surface w-full h-96 flex items-center justify-center">
+      <div className="bg-[var(--color-pib-surface)] w-full h-96 flex items-center justify-center">
         {mediaItems.length > 0 ? (
           <img src={mediaItems[0].url} alt="media" className="w-full h-full object-cover" />
         ) : (
@@ -269,7 +269,7 @@ const InstagramPreview = ({ content, mediaItems, charLimit, userName = 'yourname
 // Facebook Preview
 const FacebookPreview = ({ content, mediaItems, charLimit, userName = 'Your Name', userHandle = '@yourhandle', userAvatar }: any) => {
   return (
-    <div className="bg-surface-container rounded-2xl p-4 text-on-surface w-full max-w-sm border border-outline-variant/20">
+    <div className="bg-[var(--color-pib-surface)] rounded-2xl p-4 text-[var(--color-pib-text)] w-full max-w-sm border border-[var(--color-pib-line)]/20">
       {/* Header */}
       <div className="flex items-start gap-3 mb-3">
         <div className="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
@@ -277,16 +277,16 @@ const FacebookPreview = ({ content, mediaItems, charLimit, userName = 'Your Name
         </div>
         <div className="flex-1">
           <div className="font-semibold text-sm">{userName}</div>
-          <span className="text-on-surface-variant text-xs">Just now · 🌐</span>
+          <span className="text-[var(--color-pib-text-muted)] text-xs">Just now · 🌐</span>
         </div>
       </div>
 
       {/* Content */}
-      <div className="text-sm text-on-surface leading-relaxed mb-3">
+      <div className="text-sm text-[var(--color-pib-text)] leading-relaxed mb-3">
         {content.length > 0 ? (
           renderFormattedText(content)
         ) : (
-          <span className="text-on-surface-variant">Your post will appear here</span>
+          <span className="text-[var(--color-pib-text-muted)]">Your post will appear here</span>
         )}
       </div>
 
@@ -298,7 +298,7 @@ const FacebookPreview = ({ content, mediaItems, charLimit, userName = 'Your Name
       )}
 
       {/* Engagement */}
-      <div className="flex justify-around text-on-surface-variant text-sm border-t border-outline-variant/20 pt-3">
+      <div className="flex justify-around text-[var(--color-pib-text-muted)] text-sm border-t border-[var(--color-pib-line)]/20 pt-3">
         <span>👍 Like</span>
         <span>💬 Comment</span>
         <span>↗ Share</span>
@@ -377,7 +377,7 @@ const GenericPreview = ({ platform, content, mediaItems, charLimit, userName = '
   const charPercent = (content.length / charLimit) * 100
 
   return (
-    <div className="bg-surface-container rounded-2xl p-4 text-on-surface w-full max-w-sm border border-outline-variant/20">
+    <div className="bg-[var(--color-pib-surface)] rounded-2xl p-4 text-[var(--color-pib-text)] w-full max-w-sm border border-[var(--color-pib-line)]/20">
       {/* Header */}
       <div className="flex items-start gap-3 mb-3">
         <div className="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center text-xs font-bold flex-shrink-0 text-white">
@@ -385,23 +385,23 @@ const GenericPreview = ({ platform, content, mediaItems, charLimit, userName = '
         </div>
         <div className="flex-1">
           <span className="font-semibold text-sm">{userName}</span>
-          <p className="text-on-surface-variant text-xs capitalize">{platform}</p>
+          <p className="text-[var(--color-pib-text-muted)] text-xs capitalize">{platform}</p>
         </div>
       </div>
 
       {/* Content */}
-      <div className="text-sm text-on-surface leading-relaxed mb-3">
+      <div className="text-sm text-[var(--color-pib-text)] leading-relaxed mb-3">
         {content.length > 0 ? (
           renderFormattedText(content.slice(0, charLimit))
         ) : (
-          <span className="text-on-surface-variant">Your post will appear here</span>
+          <span className="text-[var(--color-pib-text-muted)]">Your post will appear here</span>
         )}
       </div>
 
       {/* Character count bar */}
       {content.length > 0 && (
         <div className="mb-3 flex items-center gap-2">
-          <div className="flex-1 h-1.5 bg-surface rounded-full overflow-hidden">
+          <div className="flex-1 h-1.5 bg-[var(--color-pib-surface)] rounded-full overflow-hidden">
             <div
               className={`h-full transition-colors ${
                 content.length > charLimit ? 'bg-red-500' : charPercent > 80 ? 'bg-amber-500' : 'bg-gray-500'
@@ -410,7 +410,7 @@ const GenericPreview = ({ platform, content, mediaItems, charLimit, userName = '
             />
           </div>
           <span className={`text-xs font-medium ${
-            content.length > charLimit ? 'text-red-400' : charPercent > 80 ? 'text-amber-400' : 'text-on-surface-variant'
+            content.length > charLimit ? 'text-red-400' : charPercent > 80 ? 'text-amber-400' : 'text-[var(--color-pib-text-muted)]'
           }`}>
             {content.length}/{charLimit}
           </span>

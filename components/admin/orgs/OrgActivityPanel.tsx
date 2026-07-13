@@ -38,7 +38,7 @@ export function OrgActivityPanel({ slug }: { slug: string }) {
     return () => { cancelled = true }
   }, [slug])
 
-  if (loading) return <Surface className="text-on-surface-variant text-sm">Loading activity…</Surface>
+  if (loading) return <Surface className="text-[var(--color-pib-text-muted)] text-sm">Loading activity…</Surface>
   if (error) return <Surface className="text-red-400 text-sm">{error}</Surface>
 
   return (
@@ -53,8 +53,8 @@ export function OrgActivityPanel({ slug }: { slug: string }) {
                 {ACTION_ICON[e.action] ?? 'bolt'}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm text-on-surface">{e.summary || e.action}</p>
-                <p className="text-xs text-on-surface-variant">
+                <p className="text-sm text-[var(--color-pib-text)]">{e.summary || e.action}</p>
+                <p className="text-xs text-[var(--color-pib-text-muted)]">
                   {e.action} · {e.actorRole} · {formatDateTime(e.createdAt)}
                 </p>
               </div>

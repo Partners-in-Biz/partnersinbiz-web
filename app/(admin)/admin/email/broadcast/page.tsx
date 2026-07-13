@@ -31,7 +31,7 @@ const STATUS_CLS: Record<string, string> = {
   sent: 'bg-green-500/10 text-green-400',
   sending: 'bg-sky-500/10 text-sky-400',
   scheduled: 'bg-amber-500/10 text-amber-400',
-  draft: 'bg-on-surface/10 text-on-surface-variant',
+  draft: 'bg-[var(--color-pib-text)]/10 text-[var(--color-pib-text-muted)]',
 }
 
 function fmtTime(iso: string | null): string {
@@ -182,11 +182,11 @@ export default function EmailBroadcastPage() {
     <div className="space-y-6 max-w-5xl mx-auto">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Platform / Email
           </p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Platform Broadcast</h1>
-          <p className="text-sm text-on-surface-variant mt-0.5 max-w-2xl">
+          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Platform Broadcast</h1>
+          <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5 max-w-2xl">
             Send a one-off email to platform users. Target by audience, preview with merge tags, send
             a test, then dispatch now or schedule.
           </p>
@@ -206,10 +206,10 @@ export default function EmailBroadcastPage() {
       <div className="pib-card p-5 space-y-4">
         {/* Audience */}
         <div>
-          <p className="text-xs font-label uppercase tracking-wide text-on-surface-variant mb-2">Audience</p>
+          <p className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)] mb-2">Audience</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <label className="block">
-              <span className="text-[11px] text-on-surface-variant">Source</span>
+              <span className="text-[11px] text-[var(--color-pib-text-muted)]">Source</span>
               <select
                 value={source}
                 onChange={(e) => setSource(e.target.value as RecipientSource)}
@@ -222,7 +222,7 @@ export default function EmailBroadcastPage() {
             </label>
             {source === 'by_role' && (
               <label className="block">
-                <span className="text-[11px] text-on-surface-variant">Role</span>
+                <span className="text-[11px] text-[var(--color-pib-text-muted)]">Role</span>
                 <select value={role} onChange={(e) => setRole(e.target.value)} className="pib-input w-full mt-1">
                   <option value="client">client</option>
                   <option value="admin">admin</option>
@@ -233,7 +233,7 @@ export default function EmailBroadcastPage() {
             )}
             {source === 'by_org' && (
               <label className="block">
-                <span className="text-[11px] text-on-surface-variant">Org ID</span>
+                <span className="text-[11px] text-[var(--color-pib-text-muted)]">Org ID</span>
                 <input
                   type="text"
                   value={orgId}
@@ -244,14 +244,14 @@ export default function EmailBroadcastPage() {
               </label>
             )}
             <div className="flex items-end">
-              <div className="pib-card w-full p-3 bg-[var(--color-surface-container)]">
-                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+              <div className="pib-card w-full p-3 bg-[var(--color-pib-surface-2)]">
+                <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                   Live recipients
                 </p>
-                <p className="text-xl font-headline font-bold text-on-surface">
+                <p className="text-xl font-headline font-bold text-[var(--color-pib-text)]">
                   {counting ? '…' : count ?? '—'}
                 </p>
-                {countDesc && <p className="text-[11px] text-on-surface-variant">{countDesc}</p>}
+                {countDesc && <p className="text-[11px] text-[var(--color-pib-text-muted)]">{countDesc}</p>}
               </div>
             </div>
           </div>
@@ -259,7 +259,7 @@ export default function EmailBroadcastPage() {
 
         {/* Subject + editor */}
         <label className="block">
-          <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">Subject</span>
+          <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Subject</span>
           <input
             type="text"
             value={subject}
@@ -271,7 +271,7 @@ export default function EmailBroadcastPage() {
 
         <div>
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+            <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
               HTML content
             </span>
             <div className="flex items-center gap-2">
@@ -280,7 +280,7 @@ export default function EmailBroadcastPage() {
                   key={tag}
                   type="button"
                   onClick={() => setHtml((h) => h + ' ' + tag)}
-                  className="text-[11px] font-mono px-2 py-0.5 rounded bg-on-surface/10 text-on-surface-variant hover:text-on-surface"
+                  className="text-[11px] font-mono px-2 py-0.5 rounded bg-[var(--color-pib-text)]/10 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
                 >
                   {tag}
                 </button>
@@ -288,7 +288,7 @@ export default function EmailBroadcastPage() {
               <button
                 type="button"
                 onClick={() => setShowPreview((s) => !s)}
-                className="text-[11px] font-label text-on-surface-variant hover:text-on-surface"
+                className="text-[11px] font-label text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
               >
                 {showPreview ? 'Hide preview' : 'Show preview'}
               </button>
@@ -304,7 +304,7 @@ export default function EmailBroadcastPage() {
             {showPreview && (
               <iframe
                 title="preview"
-                className="w-full min-h-[260px] rounded-md border border-[var(--color-card-border)] bg-white"
+                className="w-full min-h-[260px] rounded-md border border-[var(--color-pib-line)] bg-white"
                 sandbox=""
                 srcDoc={html}
               />
@@ -315,7 +315,7 @@ export default function EmailBroadcastPage() {
         {/* Test send */}
         <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
           <label className="block flex-1">
-            <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+            <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
               Send a test to
             </span>
             <input
@@ -332,9 +332,9 @@ export default function EmailBroadcastPage() {
         </div>
 
         {/* Schedule + send */}
-        <div className="flex flex-col sm:flex-row gap-3 sm:items-end border-t border-[var(--color-card-border)] pt-4">
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-end border-t border-[var(--color-pib-line)] pt-4">
           <label className="block flex-1">
-            <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+            <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
               Schedule for (optional)
             </span>
             <input
@@ -359,19 +359,19 @@ export default function EmailBroadcastPage() {
 
       {/* History */}
       <div className="pib-card p-5">
-        <h2 className="text-lg font-headline font-bold text-on-surface mb-3">History</h2>
+        <h2 className="text-lg font-headline font-bold text-[var(--color-pib-text)] mb-3">History</h2>
         {loading ? (
           <div className="space-y-2">
             <Skeleton className="h-12 rounded-lg" />
             <Skeleton className="h-12 rounded-lg" />
           </div>
         ) : history.length === 0 ? (
-          <p className="text-sm text-on-surface-variant">No broadcasts yet.</p>
+          <p className="text-sm text-[var(--color-pib-text-muted)]">No broadcasts yet.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-[10px] font-label uppercase tracking-widest text-on-surface-variant border-b border-[var(--color-card-border)]">
+                <tr className="text-left text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] border-b border-[var(--color-pib-line)]">
                   <th className="py-2 pr-3">Subject</th>
                   <th className="py-2 pr-3">Status</th>
                   <th className="py-2 pr-3">Audience</th>
@@ -382,20 +382,20 @@ export default function EmailBroadcastPage() {
               </thead>
               <tbody>
                 {history.map((b) => (
-                  <tr key={b.id} className="border-b border-[var(--color-card-border)]/50">
-                    <td className="py-2 pr-3 text-on-surface max-w-[220px] truncate">{b.subject}</td>
+                  <tr key={b.id} className="border-b border-[var(--color-pib-line)]/50">
+                    <td className="py-2 pr-3 text-[var(--color-pib-text)] max-w-[220px] truncate">{b.subject}</td>
                     <td className="py-2 pr-3">
-                      <span className={`text-[11px] font-label px-2 py-0.5 rounded-full ${STATUS_CLS[b.status] ?? 'bg-on-surface/10 text-on-surface-variant'}`}>
+                      <span className={`text-[11px] font-label px-2 py-0.5 rounded-full ${STATUS_CLS[b.status] ?? 'bg-[var(--color-pib-text)]/10 text-[var(--color-pib-text-muted)]'}`}>
                         {b.status}
                       </span>
                     </td>
-                    <td className="py-2 pr-3 text-on-surface-variant text-xs">{b.recipientDescription}</td>
-                    <td className="py-2 pr-3 text-on-surface-variant text-xs">{b.recipientCount}</td>
-                    <td className="py-2 pr-3 text-on-surface-variant text-xs">
+                    <td className="py-2 pr-3 text-[var(--color-pib-text-muted)] text-xs">{b.recipientDescription}</td>
+                    <td className="py-2 pr-3 text-[var(--color-pib-text-muted)] text-xs">{b.recipientCount}</td>
+                    <td className="py-2 pr-3 text-[var(--color-pib-text-muted)] text-xs">
                       {b.sentCount}
                       {b.suppressedCount ? ` (${b.suppressedCount} sup)` : ''}
                     </td>
-                    <td className="py-2 pr-3 text-on-surface-variant text-xs whitespace-nowrap">
+                    <td className="py-2 pr-3 text-[var(--color-pib-text-muted)] text-xs whitespace-nowrap">
                       {fmtTime(b.sentAt ?? b.scheduledFor ?? b.createdAt)}
                     </td>
                   </tr>

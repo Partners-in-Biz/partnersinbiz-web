@@ -87,15 +87,15 @@ export function RuntimeExecutionSection({
   return (
     <section role="region" aria-label="Execution" data-emphasized={important || undefined} className="rounded-xl border border-[var(--color-card-border)] bg-black/10">
       <button type="button" aria-label={expanded ? 'Collapse execution' : 'Expand execution'} aria-expanded={expanded} onClick={() => setExpanded((value) => !value)} className="flex w-full items-center justify-between gap-2 p-2.5 text-left">
-        <span className="flex items-center gap-2 text-xs font-semibold text-on-surface"><span className="material-symbols-outlined text-[16px]">developer_board</span>Execution</span>
-        <span className="flex items-center gap-1.5"><span className="rounded-full bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-on-surface-variant">{status}</span><span className="material-symbols-outlined text-[15px] text-on-surface-variant">{expanded ? 'expand_less' : 'expand_more'}</span></span>
+        <span className="flex items-center gap-2 text-xs font-semibold text-[var(--color-pib-text)]"><span className="material-symbols-outlined text-[16px]">developer_board</span>Execution</span>
+        <span className="flex items-center gap-1.5"><span className="rounded-full bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">{status}</span><span className="material-symbols-outlined text-[15px] text-[var(--color-pib-text-muted)]">{expanded ? 'expand_less' : 'expand_more'}</span></span>
       </button>
       {expanded && <div className="space-y-3 border-t border-[var(--color-card-border)] p-2.5 text-xs">
-        <div><div className="mb-1 text-[10px] uppercase tracking-wide text-on-surface-variant">Selected runtime</div><div className="truncate font-medium text-on-surface">{modelLabel(runtimeModel, runtimeProvider)}</div>{runtimeModel && <div className="truncate font-mono text-[10px] text-on-surface-variant" title={runtimeModel}>{runtimeModel}</div>}</div>
-        <div><div className="mb-1 text-[10px] uppercase tracking-wide text-on-surface-variant">Run</div><div className="flex items-center gap-2"><span className="min-w-0 flex-1 truncate font-mono text-[10px] text-on-surface-variant" title={activeMessage.runId}>{shortRunId(activeMessage.runId)}</span><button type="button" onClick={copyRunId} aria-label="Copy run ID" className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-on-surface-variant"><span className="material-symbols-outlined text-[13px]">{copiedRunId ? 'check' : 'content_copy'}</span></button></div>
-          {(canStop && onStop) || (canRetry && onRetry) ? <div className="mt-2 flex gap-2">{canStop && onStop && <button type="button" onClick={onStop} className="inline-flex h-7 items-center gap-1.5 rounded-full border border-red-400/25 bg-red-500/10 px-2.5 text-[11px] font-medium text-red-200"><span aria-hidden="true" className="material-symbols-outlined text-[14px]">stop_circle</span>Stop run</button>}{canRetry && onRetry && <button type="button" onClick={onRetry} className="inline-flex h-7 items-center gap-1.5 rounded-full border border-[var(--color-card-border)] px-2.5 text-[11px] font-medium text-on-surface"><span aria-hidden="true" className="material-symbols-outlined text-[14px]">refresh</span>Retry run</button>}</div> : null}
+        <div><div className="mb-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Selected runtime</div><div className="truncate font-medium text-[var(--color-pib-text)]">{modelLabel(runtimeModel, runtimeProvider)}</div>{runtimeModel && <div className="truncate font-mono text-[10px] text-[var(--color-pib-text-muted)]" title={runtimeModel}>{runtimeModel}</div>}</div>
+        <div><div className="mb-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Run</div><div className="flex items-center gap-2"><span className="min-w-0 flex-1 truncate font-mono text-[10px] text-[var(--color-pib-text-muted)]" title={activeMessage.runId}>{shortRunId(activeMessage.runId)}</span><button type="button" onClick={copyRunId} aria-label="Copy run ID" className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-[var(--color-pib-text-muted)]"><span className="material-symbols-outlined text-[13px]">{copiedRunId ? 'check' : 'content_copy'}</span></button></div>
+          {(canStop && onStop) || (canRetry && onRetry) ? <div className="mt-2 flex gap-2">{canStop && onStop && <button type="button" onClick={onStop} className="inline-flex h-7 items-center gap-1.5 rounded-full border border-red-400/25 bg-red-500/10 px-2.5 text-[11px] font-medium text-red-200"><span aria-hidden="true" className="material-symbols-outlined text-[14px]">stop_circle</span>Stop run</button>}{canRetry && onRetry && <button type="button" onClick={onRetry} className="inline-flex h-7 items-center gap-1.5 rounded-full border border-[var(--color-card-border)] px-2.5 text-[11px] font-medium text-[var(--color-pib-text)]"><span aria-hidden="true" className="material-symbols-outlined text-[14px]">refresh</span>Retry run</button>}</div> : null}
         </div>
-        <div><div className="mb-2 text-[10px] uppercase tracking-wide text-on-surface-variant">Live events</div>{events.length === 0 ? <div className="text-[11px] text-on-surface-variant">No runtime events recorded.</div> : <div className="space-y-1.5">{events.slice(-8).map((event, index) => <div key={index} className="flex items-start gap-1.5 text-[11px] text-on-surface-variant"><span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/70"/><span className="flex min-w-0 items-center gap-1 truncate"><span>{eventLabel(event)}</span>{eventPreview(event) && <span aria-hidden="true">·</span>}{eventPreview(event) && <span>{eventPreview(event)}</span>}</span></div>)}</div>}</div>
+        <div><div className="mb-2 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Live events</div>{events.length === 0 ? <div className="text-[11px] text-[var(--color-pib-text-muted)]">No runtime events recorded.</div> : <div className="space-y-1.5">{events.slice(-8).map((event, index) => <div key={index} className="flex items-start gap-1.5 text-[11px] text-[var(--color-pib-text-muted)]"><span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/70"/><span className="flex min-w-0 items-center gap-1 truncate"><span>{eventLabel(event)}</span>{eventPreview(event) && <span aria-hidden="true">·</span>}{eventPreview(event) && <span>{eventPreview(event)}</span>}</span></div>)}</div>}</div>
       </div>}
     </section>
   )
@@ -134,7 +134,7 @@ export function RuntimeInspectorRail({
         <button
           type="button"
           onClick={() => onCollapsedChange?.(false)}
-          className="grid h-8 w-8 place-items-center rounded-lg text-on-surface-variant hover:bg-white/[0.08] hover:text-on-surface"
+          className="grid h-8 w-8 place-items-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
           aria-label="Expand runtime inspector"
           title="Expand runtime inspector"
         >
@@ -152,7 +152,7 @@ export function RuntimeInspectorRail({
           title={`Runtime status: ${status}`}
         />
         {events.length > 0 && (
-          <span className="rounded-full bg-white/[0.06] px-1 text-[10px] text-on-surface-variant" title="Live runtime events">
+          <span className="rounded-full bg-white/[0.06] px-1 text-[10px] text-[var(--color-pib-text-muted)]" title="Live runtime events">
             {events.length}
           </span>
         )}
@@ -173,7 +173,7 @@ export function RuntimeInspectorRail({
     >
       <div className="border-b border-[var(--color-card-border)] px-3 py-3">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-xs font-semibold text-on-surface">
+          <div className="flex items-center gap-2 text-xs font-semibold text-[var(--color-pib-text)]">
             <span className="material-symbols-outlined text-[16px]">developer_board</span>
             Runtime inspector
           </div>
@@ -181,7 +181,7 @@ export function RuntimeInspectorRail({
             <button
               type="button"
               onClick={() => onCollapsedChange(true)}
-              className="grid h-7 w-7 place-items-center rounded-full text-on-surface-variant hover:bg-white/[0.08] hover:text-on-surface"
+              className="grid h-7 w-7 place-items-center rounded-full text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
               aria-label="Collapse runtime inspector"
               title="Collapse runtime inspector"
             >
@@ -189,33 +189,33 @@ export function RuntimeInspectorRail({
             </button>
           )}
         </div>
-        <div className="mt-1 truncate text-[11px] text-on-surface-variant">
+        <div className="mt-1 truncate text-[11px] text-[var(--color-pib-text-muted)]">
           Hermes run, model, provider and live event status
         </div>
       </div>
 
       <div className="space-y-3 overflow-y-auto p-3 text-xs">
         <section className="rounded-xl border border-[var(--color-card-border)] bg-black/10 p-2.5">
-          <div className="mb-1 text-[10px] uppercase tracking-wide text-on-surface-variant">Selected runtime</div>
-          <div className="truncate font-medium text-on-surface">{modelLabel(runtimeModel, runtimeProvider)}</div>
+          <div className="mb-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Selected runtime</div>
+          <div className="truncate font-medium text-[var(--color-pib-text)]">{modelLabel(runtimeModel, runtimeProvider)}</div>
           {runtimeModel && (
-            <div className="truncate font-mono text-[10px] text-on-surface-variant" title={runtimeModel}>{runtimeModel}</div>
+            <div className="truncate font-mono text-[10px] text-[var(--color-pib-text-muted)]" title={runtimeModel}>{runtimeModel}</div>
           )}
-          <div className="truncate text-[11px] text-on-surface-variant">
+          <div className="truncate text-[11px] text-[var(--color-pib-text-muted)]">
             {catalog?.source === 'agent-default' ? 'Agent default fallback' : catalog?.source === 'hermes' ? 'Hermes catalogue' : 'No catalogue loaded'}
           </div>
         </section>
 
         <section className="rounded-xl border border-[var(--color-card-border)] bg-black/10 p-2.5">
-          <div className="mb-1 text-[10px] uppercase tracking-wide text-on-surface-variant">Latest run</div>
+          <div className="mb-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Latest run</div>
           {activeMessage ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
-                <span className="truncate text-on-surface">{activeMessage.authorDisplayName}</span>
-                <span className="rounded-full bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-on-surface-variant">{status}</span>
+                <span className="truncate text-[var(--color-pib-text)]">{activeMessage.authorDisplayName}</span>
+                <span className="rounded-full bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">{status}</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="min-w-0 flex-1 truncate font-mono text-[10px] text-on-surface-variant" title={activeMessage.runId}>
+                <div className="min-w-0 flex-1 truncate font-mono text-[10px] text-[var(--color-pib-text-muted)]" title={activeMessage.runId}>
                   {shortRunId(activeMessage.runId)}
                 </div>
                 {activeMessage.runId && (
@@ -223,7 +223,7 @@ export function RuntimeInspectorRail({
                     type="button"
                     onClick={copyRunId}
                     aria-label="Copy run ID"
-                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-on-surface-variant hover:border-primary/40 hover:text-on-surface"
+                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-[var(--color-pib-text-muted)] hover:border-primary/40 hover:text-[var(--color-pib-text)]"
                   >
                     <span className="material-symbols-outlined text-[13px]">{copiedRunId ? 'check' : 'content_copy'}</span>
                   </button>
@@ -241,18 +241,18 @@ export function RuntimeInspectorRail({
               )}
             </div>
           ) : (
-            <div className="text-[11px] text-on-surface-variant">No active run yet.</div>
+            <div className="text-[11px] text-[var(--color-pib-text-muted)]">No active run yet.</div>
           )}
         </section>
 
         <section className="rounded-xl border border-[var(--color-card-border)] bg-black/10 p-2.5">
-          <div className="mb-2 text-[10px] uppercase tracking-wide text-on-surface-variant">Live events</div>
+          <div className="mb-2 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Live events</div>
           {events.length === 0 ? (
-            <div className="text-[11px] text-on-surface-variant">Events will appear here while Pip is working.</div>
+            <div className="text-[11px] text-[var(--color-pib-text-muted)]">Events will appear here while Pip is working.</div>
           ) : (
             <div className="space-y-1.5">
               {events.slice(-8).map((event, index) => (
-                <div key={index} className="flex items-start gap-1.5 text-[11px] text-on-surface-variant">
+                <div key={index} className="flex items-start gap-1.5 text-[11px] text-[var(--color-pib-text-muted)]">
                   <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/70" />
                   <span className="flex min-w-0 items-center gap-1 truncate">
                     <span>{eventLabel(event)}</span>

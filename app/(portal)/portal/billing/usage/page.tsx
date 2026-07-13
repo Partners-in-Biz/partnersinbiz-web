@@ -69,7 +69,7 @@ function MeterCard({ meter, thresholds }: { meter: Meter; thresholds: { warning:
     <div className="pib-card space-y-4 p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <span className="material-symbols-outlined text-[24px] text-[var(--color-pib-accent)]" aria-hidden="true">
+          <span className="pib-icon-tint-cyan material-symbols-outlined" aria-hidden="true">
             {METER_ICON[meter.key] ?? 'monitoring'}
           </span>
           <div>
@@ -217,8 +217,8 @@ export default function PortalUsagePage() {
         ))}
       </section>
 
-      <section className="pib-card p-5">
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Overage policy</p>
+      <section className="pib-card">
+        <p className="pib-label">Overage policy</p>
         <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{data.overagePolicy}</p>
       </section>
     </div>

@@ -283,69 +283,67 @@ export default function PlansPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
-            Settings / Billing
-          </p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Subscription Plans</h1>
-          <p className="text-sm text-on-surface-variant mt-0.5 max-w-2xl">
+    <div className="space-y-8 max-w-6xl mx-auto">
+      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="min-w-0">
+          <p className="eyebrow">Admin · Billing</p>
+          <h1 className="pib-page-title mt-2">Subscription Plans</h1>
+          <p className="pib-page-sub max-w-2xl">
             Plans drive FeatureGate capabilities and per-organisation limits. Billing is realised through
             EFT and PayPal invoices — there is no Stripe / card-on-file processor.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 self-start md:self-auto">
-          <button onClick={openCreate} className="pib-btn-primary text-sm font-label">
+          <button onClick={openCreate} className="btn-pib-primary">
             + New plan
           </button>
-          <Link href="/admin/settings" className="pib-btn-ghost text-sm font-label">
+          <Link href="/admin/settings" className="btn-pib-ghost">
             Back to settings
           </Link>
         </div>
-      </div>
+      </header>
 
       {topError && (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+        <div className="pib-card px-4 py-3 text-sm text-[var(--color-error)]">
           {topError}
         </div>
       )}
 
       {notice && (
-        <div className="pib-card border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-400">
+        <div className="pib-card px-4 py-3 text-sm text-[var(--color-pib-green)]">
           {notice}
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className="pib-card p-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Total plans</p>
-          <p className="text-2xl font-headline font-bold text-on-surface mt-1">{plans.length}</p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="pib-stat-card">
+          <p className="pib-label">Total plans</p>
+          <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{plans.length}</p>
         </div>
-        <div className="pib-card p-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Active &amp; offered</p>
-          <p className="text-2xl font-headline font-bold text-on-surface mt-1">{activeCount}</p>
+        <div className="pib-stat-card">
+          <p className="pib-label">Active &amp; offered</p>
+          <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{activeCount}</p>
         </div>
-        <div className="pib-card p-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Archived</p>
-          <p className="text-2xl font-headline font-bold text-on-surface mt-1">{archivedCount}</p>
+        <div className="pib-stat-card">
+          <p className="pib-label">Archived</p>
+          <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{archivedCount}</p>
         </div>
       </div>
 
       {showEditor && (
         <form onSubmit={handleSave} className="pib-card p-5 space-y-5">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-headline font-bold text-on-surface">
+            <h2 className="text-lg font-headline font-bold text-[var(--color-pib-text)]">
               {editingId ? 'Edit plan' : 'New plan'}
             </h2>
-            <button type="button" onClick={closeEditor} className="pib-btn-ghost text-xs font-label">
+            <button type="button" onClick={closeEditor} className="btn-pib-ghost text-xs font-label">
               Cancel
             </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label className="block">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+              <span className="pib-label">
                 Key {editingId && <span className="normal-case tracking-normal">(immutable)</span>}
               </span>
               <input
@@ -359,7 +357,7 @@ export default function PlansPage() {
               />
             </label>
             <label className="block">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">Name</span>
+              <span className="pib-label">Name</span>
               <input
                 type="text"
                 value={form.name}
@@ -370,7 +368,7 @@ export default function PlansPage() {
               />
             </label>
             <label className="block md:col-span-2">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">Description</span>
+              <span className="pib-label">Description</span>
               <textarea
                 value={form.description}
                 onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
@@ -380,7 +378,7 @@ export default function PlansPage() {
               />
             </label>
             <label className="block">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">Price (ZAR, Rands)</span>
+              <span className="pib-label">Price (ZAR, Rands)</span>
               <input
                 type="number"
                 min={0}
@@ -392,7 +390,7 @@ export default function PlansPage() {
               />
             </label>
             <label className="block">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">Interval</span>
+              <span className="pib-label">Interval</span>
               <select
                 value={form.interval}
                 onChange={(e) => setForm((p) => ({ ...p, interval: e.target.value as BillingInterval }))}
@@ -406,7 +404,7 @@ export default function PlansPage() {
               </select>
             </label>
             <label className="block">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">Sort order</span>
+              <span className="pib-label">Sort order</span>
               <input
                 type="number"
                 step="1"
@@ -416,7 +414,7 @@ export default function PlansPage() {
               />
             </label>
             <label className="block">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+              <span className="pib-label">
                 Trial days (blank = none)
               </span>
               <input
@@ -436,19 +434,19 @@ export default function PlansPage() {
                 onChange={(e) => setForm((p) => ({ ...p, active: e.target.checked }))}
                 className="h-4 w-4"
               />
-              <span className="text-sm text-on-surface">Active (offered on the pricing page)</span>
+              <span className="text-sm text-[var(--color-pib-text)]">Active (offered on the pricing page)</span>
             </label>
           </div>
 
           <div>
-            <p className="text-xs font-label uppercase tracking-wide text-on-surface-variant mb-2">
+            <p className="pib-label mb-2">
               Feature flags (FeatureGate)
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
               {KNOWN_FEATURE_FLAGS.map((flag) => (
                 <label
                   key={flag.key}
-                  className="flex items-center gap-2 rounded-md border border-on-surface/10 bg-on-surface/5 px-3 py-2"
+                  className="flex items-center gap-2 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2"
                 >
                   <input
                     type="checkbox"
@@ -456,20 +454,20 @@ export default function PlansPage() {
                     onChange={(e) => setFlag(flag.key, e.target.checked)}
                     className="h-4 w-4"
                   />
-                  <span className="text-sm text-on-surface">{flag.label}</span>
+                  <span className="text-sm text-[var(--color-pib-text)]">{flag.label}</span>
                 </label>
               ))}
             </div>
           </div>
 
           <div>
-            <p className="text-xs font-label uppercase tracking-wide text-on-surface-variant mb-2">
+            <p className="pib-label mb-2">
               Usage limits (use -1 for unlimited)
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {LIMIT_KEYS.map((key) => (
                 <label key={key} className="block">
-                  <span className="text-[11px] text-on-surface-variant">{limitLabel(key)}</span>
+                  <span className="text-[11px] text-[var(--color-pib-text-muted)]">{limitLabel(key)}</span>
                   <input
                     type="number"
                     step="1"
@@ -483,13 +481,13 @@ export default function PlansPage() {
             </div>
           </div>
 
-          {formError && <p className="text-xs text-red-400">{formError}</p>}
+          {formError && <p className="text-xs text-[var(--color-error)]">{formError}</p>}
 
           <div className="flex justify-end gap-2">
-            <button type="button" onClick={closeEditor} className="pib-btn-ghost text-sm font-label">
+            <button type="button" onClick={closeEditor} className="btn-pib-ghost text-sm font-label">
               Cancel
             </button>
-            <button type="submit" disabled={saving} className="pib-btn-primary text-sm font-label">
+            <button type="submit" disabled={saving} className="btn-pib-primary text-sm font-label">
               {saving ? 'Saving...' : editingId ? 'Save changes' : 'Create plan'}
             </button>
           </div>
@@ -504,11 +502,11 @@ export default function PlansPage() {
         </div>
       ) : plans.length === 0 ? (
         <div className="pib-card p-8 text-center">
-          <p className="text-sm text-on-surface-variant">No plans yet.</p>
-          <p className="text-xs text-on-surface-variant/60 mt-1">
+          <p className="text-sm text-[var(--color-pib-text-muted)]">No plans yet.</p>
+          <p className="text-xs text-[var(--color-pib-text-faint)] mt-1">
             Create your first plan to start gating features and limits for client organisations.
           </p>
-          <button onClick={openCreate} className="pib-btn-primary text-sm font-label mt-4">
+          <button onClick={openCreate} className="btn-pib-primary text-sm font-label mt-4">
             + New plan
           </button>
         </div>
@@ -525,35 +523,32 @@ export default function PlansPage() {
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-base font-semibold text-on-surface">{plan.name}</p>
-                      <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-on-surface/10 text-on-surface-variant">
+                      <p className="text-base font-semibold text-[var(--color-pib-text)]">{plan.name}</p>
+                      <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]">
                         {plan.key}
                       </span>
                       {plan.archived ? (
-                        <span className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full bg-on-surface/10 text-on-surface-variant">
+                        <span className="pib-pill">
                           Archived
                         </span>
                       ) : plan.active ? (
-                        <span
-                          className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full"
-                          style={{ background: 'var(--color-accent-v2)20', color: 'var(--color-accent-v2)' }}
-                        >
+                        <span className="pib-pill pib-pill-cyan">
                           Active
                         </span>
                       ) : (
-                        <span className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400">
+                        <span className="pib-pill pib-pill-warn">
                           Inactive
                         </span>
                       )}
                     </div>
                     {plan.description && (
-                      <p className="text-sm text-on-surface-variant mt-1 max-w-2xl">{plan.description}</p>
+                      <p className="text-sm text-[var(--color-pib-text-muted)] mt-1 max-w-2xl">{plan.description}</p>
                     )}
                     <div className="flex items-baseline gap-1 mt-2">
-                      <span className="text-xl font-headline font-bold text-on-surface">
+                      <span className="text-xl font-headline font-bold text-[var(--color-pib-text)]">
                         {formatZar(plan.priceZar)}
                       </span>
-                      <span className="text-xs text-on-surface-variant">
+                      <span className="text-xs text-[var(--color-pib-text-muted)]">
                         {intervalSuffix(plan.interval) || `· ${intervalLabel(plan.interval)}`}
                       </span>
                     </div>
@@ -563,7 +558,7 @@ export default function PlansPage() {
                     <button
                       onClick={() => openEdit(plan)}
                       disabled={busy}
-                      className="pib-btn-secondary text-xs font-label"
+                      className="btn-pib-secondary text-xs font-label"
                     >
                       Edit
                     </button>
@@ -571,7 +566,7 @@ export default function PlansPage() {
                       <button
                         onClick={() => toggleActive(plan)}
                         disabled={busy}
-                        className="pib-btn-ghost text-xs font-label"
+                        className="btn-pib-ghost text-xs font-label"
                       >
                         {busy ? 'Working...' : plan.active ? 'Deactivate' : 'Activate'}
                       </button>
@@ -579,34 +574,34 @@ export default function PlansPage() {
                     <button
                       onClick={() => toggleArchive(plan)}
                       disabled={busy}
-                      className="pib-btn-ghost text-xs font-label"
+                      className="btn-pib-ghost text-xs font-label"
                     >
                       {busy ? 'Working...' : plan.archived ? 'Restore' : 'Archive'}
                     </button>
                   </div>
                 </div>
 
-                <div className="mt-3 flex flex-wrap gap-3 text-xs text-on-surface-variant">
+                <div className="mt-3 flex flex-wrap gap-3 text-xs text-[var(--color-pib-text-muted)]">
                   <span className="inline-flex items-center gap-1">
                     <span className="font-label uppercase tracking-wide text-[10px]">Features</span>
-                    <span className="text-on-surface">{flagCount}</span>
+                    <span className="text-[var(--color-pib-text)]">{flagCount}</span>
                   </span>
                   <span className="inline-flex items-center gap-1">
                     <span className="font-label uppercase tracking-wide text-[10px]">Seats</span>
-                    <span className="text-on-surface">{limitDisplay(plan.limits?.seats)}</span>
+                    <span className="text-[var(--color-pib-text)]">{limitDisplay(plan.limits?.seats)}</span>
                   </span>
                   <span className="inline-flex items-center gap-1">
                     <span className="font-label uppercase tracking-wide text-[10px]">Orgs</span>
-                    <span className="text-on-surface">{limitDisplay(plan.limits?.organizations)}</span>
+                    <span className="text-[var(--color-pib-text)]">{limitDisplay(plan.limits?.organizations)}</span>
                   </span>
                   <span className="inline-flex items-center gap-1">
                     <span className="font-label uppercase tracking-wide text-[10px]">Social / mo</span>
-                    <span className="text-on-surface">{limitDisplay(plan.limits?.socialPostsPerMonth)}</span>
+                    <span className="text-[var(--color-pib-text)]">{limitDisplay(plan.limits?.socialPostsPerMonth)}</span>
                   </span>
                   {plan.trialDays ? (
                     <span className="inline-flex items-center gap-1">
                       <span className="font-label uppercase tracking-wide text-[10px]">Trial</span>
-                      <span className="text-on-surface">{plan.trialDays}d</span>
+                      <span className="text-[var(--color-pib-text)]">{plan.trialDays}d</span>
                     </span>
                   ) : null}
                 </div>

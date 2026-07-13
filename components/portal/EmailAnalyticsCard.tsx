@@ -31,14 +31,14 @@ export function EmailAnalyticsCard({ orgId }: { orgId?: string }) {
   }, [orgId])
 
   if (loading) {
-    return <div className="h-32 rounded-xl bg-surface-container animate-pulse" />
+    return <div className="h-32 rounded-xl bg-[var(--color-pib-surface-soft)] animate-pulse" />
   }
 
   if (!data) {
     return (
-      <div className="rounded-xl bg-surface-container p-4">
-        <h3 className="text-sm font-medium text-on-surface mb-1">Email analytics</h3>
-        <p className="text-on-surface-variant text-xs">No email activity yet.</p>
+      <div className="rounded-xl bg-[var(--color-pib-surface-soft)] p-4">
+        <h3 className="text-sm font-medium text-[var(--color-pib-text)] mb-1">Email analytics</h3>
+        <p className="text-[var(--color-pib-text-muted)] text-xs">No email activity yet.</p>
       </div>
     )
   }
@@ -52,18 +52,18 @@ export function EmailAnalyticsCard({ orgId }: { orgId?: string }) {
   ]
 
   return (
-    <div className="rounded-xl bg-surface-container p-4">
+    <div className="rounded-xl bg-[var(--color-pib-surface-soft)] p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium text-on-surface">Email (last 30 days)</h3>
+        <h3 className="text-sm font-medium text-[var(--color-pib-text)]">Email (last 30 days)</h3>
         <Link href="/portal/email-analytics" className="text-xs text-amber-500 hover:underline">
           View full report →
         </Link>
       </div>
       <div className="grid grid-cols-4 gap-2">
         {tiles.map((t) => (
-          <div key={t.label} className="bg-surface rounded-lg p-2">
-            <div className="text-[10px] uppercase tracking-wide text-on-surface-variant">{t.label}</div>
-            <div className="text-base font-semibold text-on-surface">{t.value}</div>
+          <div key={t.label} className="bg-[var(--color-pib-surface)] rounded-lg p-2">
+            <div className="pib-label">{t.label}</div>
+            <div className="text-base font-semibold text-[var(--color-pib-text)]">{t.value}</div>
           </div>
         ))}
       </div>

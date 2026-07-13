@@ -90,9 +90,9 @@ function Signal({
     <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
       <div className="flex items-center gap-1.5">
         <span className="material-symbols-outlined text-[14px] text-primary">{icon}</span>
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-on-surface-variant">{label}</p>
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">{label}</p>
       </div>
-      <p className="mt-1 text-sm font-semibold text-on-surface">{value}</p>
+      <p className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">{value}</p>
     </div>
   )
 }
@@ -115,7 +115,7 @@ function EngagementCommandButtons({
           type="button"
           onClick={actions.onLogNote}
           aria-label={`Log note from engagement cockpit for ${contactName}`}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
         >
           <span aria-hidden="true" className="material-symbols-outlined text-[14px]">edit_note</span>
           Log note
@@ -126,7 +126,7 @@ function EngagementCommandButtons({
           type="button"
           onClick={actions.onSendEmail}
           aria-label={`Send email from engagement cockpit to ${contactName}`}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
         >
           <span aria-hidden="true" className="material-symbols-outlined text-[14px]">outgoing_mail</span>
           Send email
@@ -137,7 +137,7 @@ function EngagementCommandButtons({
           type="button"
           onClick={actions.onScheduleMeeting}
           aria-label={`Schedule meeting from engagement cockpit with ${contactName}`}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
         >
           <span aria-hidden="true" className="material-symbols-outlined text-[14px]">event</span>
           Schedule meeting
@@ -183,16 +183,16 @@ export function ContactEngagementPanel({
   return (
     <section className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
       <div className="flex h-9 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black/[0.08] px-3">
-        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Engagement cockpit</p>
-        <p className="text-xs text-on-surface-variant">
-          <span className="text-sm font-semibold text-on-surface">{health}%</span>
+        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Engagement cockpit</p>
+        <p className="text-xs text-[var(--color-pib-text-muted)]">
+          <span className="text-sm font-semibold text-[var(--color-pib-text)]">{health}%</span>
           {' '}
           <span className="text-[10px] uppercase tracking-[0.18em]">active</span>
         </p>
       </div>
 
       <div className="space-y-2 p-3">
-        <p className="text-xs leading-5 text-on-surface-variant">
+        <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">
           Cadence, response depth, and the next relationship move in one view.
         </p>
 
@@ -216,12 +216,12 @@ export function ContactEngagementPanel({
               <span className="material-symbols-outlined text-[16px] text-primary">tips_and_updates</span>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-semibold text-on-surface">{suggestionActionLabel}</p>
-                  <span className="inline-flex h-5 items-center rounded-full border border-[var(--color-card-border)] px-2 text-[10px] uppercase tracking-[0.18em] text-on-surface-variant">
+                  <p className="text-sm font-semibold text-[var(--color-pib-text)]">{suggestionActionLabel}</p>
+                  <span className="inline-flex h-5 items-center rounded-full border border-[var(--color-card-border)] px-2 text-[10px] uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
                     {suggestion.urgency}
                   </span>
                 </div>
-                <p className="mt-0.5 text-xs leading-5 text-on-surface-variant">{suggestionReasonLabel}</p>
+                <p className="mt-0.5 text-xs leading-5 text-[var(--color-pib-text-muted)]">{suggestionReasonLabel}</p>
                 {actions?.onStartSuggestion ? (
                   <button
                     type="button"
@@ -247,11 +247,11 @@ export function ContactEngagementPanel({
                 psychology
               </span>
               <div>
-                <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">
+                <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">
                   Next best action missing
                 </p>
-                <h3 className="mt-0.5 text-sm font-semibold text-on-surface">Create the next relationship signal</h3>
-                <p className="mt-0.5 text-xs leading-5 text-on-surface-variant">
+                <h3 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">Create the next relationship signal</h3>
+                <p className="mt-0.5 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                   No AI recommendation is ready yet. Log a note, send an email, or schedule the next touch so the team has enough context to keep the relationship moving.
                 </p>
               </div>

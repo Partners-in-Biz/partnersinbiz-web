@@ -176,21 +176,21 @@ export default function AgentRunSession({
   return (
     <div className="flex h-full flex-col gap-4 overflow-hidden -mx-4 -my-8 lg:mx-0 lg:my-0 h-[calc(100dvh-56px)] lg:h-[calc(100dvh-120px)]">
       <div className="hidden shrink-0 lg:block">
-        <p className="mb-1 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+        <p className="mb-1 text-[10px] pib-label">
           Workspace / Agent Session
         </p>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-headline font-bold text-on-surface">
+            <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">
               {taskTitle || 'Agent session'}
             </h1>
-            <p className="mt-1 text-sm text-on-surface-variant">
+            <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
               The actual Hermes run attached to this ticket.
             </p>
           </div>
           <Link
             href={`/admin/org/${orgSlug}/messages`}
-            className="inline-flex items-center gap-1 rounded border border-[var(--color-card-border)] px-3 py-2 text-[10px] font-label uppercase tracking-wide text-on-surface-variant transition-colors hover:text-on-surface"
+            className="inline-flex items-center gap-1 rounded border border-[var(--color-pib-line)] px-3 py-2 text-[10px] pib-label transition-colors hover:text-[var(--color-pib-text)]"
           >
             <span className="material-symbols-outlined text-[14px]">forum</span>
             Messages
@@ -198,13 +198,13 @@ export default function AgentRunSession({
         </div>
       </div>
 
-      <section className="shrink-0 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-4">
+      <section className="shrink-0 pib-card p-4">
         <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-1 rounded bg-[var(--color-accent-v2)]/10 px-2 py-1 text-[10px] font-label uppercase tracking-wide text-[var(--color-accent-v2)]">
             <span className="material-symbols-outlined text-[13px]">smart_toy</span>
             {agentId}
           </span>
-          <span className="rounded bg-white/5 px-2 py-1 font-mono text-[10px] text-on-surface-variant">
+          <span className="rounded bg-white/5 px-2 py-1 font-mono text-[10px] text-[var(--color-pib-text-muted)]">
             {runId}
           </span>
           <span className="rounded bg-sky-500/10 px-2 py-1 text-[10px] font-label uppercase tracking-wide text-sky-300">
@@ -219,7 +219,7 @@ export default function AgentRunSession({
             {loading ? 'loading' : runLoadState === 'missing' ? 'run missing' : status}
           </span>
           {taskId && (
-            <span className="rounded bg-white/5 px-2 py-1 font-mono text-[10px] text-on-surface-variant">
+            <span className="rounded bg-white/5 px-2 py-1 font-mono text-[10px] text-[var(--color-pib-text-muted)]">
               task {taskId}
             </span>
           )}
@@ -233,11 +233,11 @@ export default function AgentRunSession({
       )}
 
       <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_420px]">
-        <section className="min-h-0 overflow-hidden rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]">
-          <div className="flex items-center justify-between border-b border-[var(--color-card-border)] px-4 py-3">
+        <section className="min-h-0 overflow-hidden rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)]">
+          <div className="flex items-center justify-between border-b border-[var(--color-pib-line)] px-4 py-3">
             <div>
-              <h2 className="text-sm font-semibold text-on-surface">Ticket chat</h2>
-              <p className="mt-0.5 text-xs text-on-surface-variant">Direct conversation scoped to this ticket.</p>
+              <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Ticket chat</h2>
+              <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">Direct conversation scoped to this ticket.</p>
             </div>
           </div>
           <div className="h-[calc(100%-57px)] min-h-0">
@@ -257,10 +257,10 @@ export default function AgentRunSession({
         </section>
 
         <aside className="grid min-h-0 gap-4 lg:grid-rows-[minmax(0,1fr)_auto]">
-          <section className="min-h-0 overflow-hidden rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]">
-            <div className="flex items-center justify-between border-b border-[var(--color-card-border)] px-4 py-3">
-              <h2 className="text-sm font-semibold text-on-surface">Session events</h2>
-              <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
+          <section className="min-h-0 overflow-hidden rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)]">
+            <div className="flex items-center justify-between border-b border-[var(--color-pib-line)] px-4 py-3">
+              <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Session events</h2>
+              <span className="text-[10px] pib-label">
                 {events.length} event{events.length === 1 ? '' : 's'}
               </span>
             </div>
@@ -268,23 +268,23 @@ export default function AgentRunSession({
               {events.length > 0 ? (
                 <div className="space-y-3">
                   {events.map((event) => (
-                    <article key={event.id} className="rounded border border-[var(--color-card-border)] bg-black/20 p-3">
+                    <article key={event.id} className="rounded border border-[var(--color-pib-line)] bg-black/20 p-3">
                       <div className="mb-2 flex items-center justify-between gap-3">
                         <span className="text-[10px] font-label uppercase tracking-wide text-[var(--color-accent-v2)]">
                           {event.type}
                         </span>
-                        <time className="text-[10px] text-on-surface-variant">
+                        <time className="text-[10px] text-[var(--color-pib-text-muted)]">
                           {new Date(event.receivedAt).toLocaleTimeString()}
                         </time>
                       </div>
-                      <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed text-on-surface-variant">
+                      <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
                         {formatPayload(event.payload)}
                       </pre>
                     </article>
                   ))}
                 </div>
               ) : (
-                <div className="flex h-full min-h-[260px] items-center justify-center rounded border border-dashed border-[var(--color-card-border)] px-4 text-center text-sm text-on-surface-variant">
+                <div className="flex h-full min-h-[260px] items-center justify-center rounded border border-dashed border-[var(--color-pib-line)] px-4 text-center text-sm text-[var(--color-pib-text-muted)]">
                   {loading
                     ? 'Loading the agent run...'
                     : runLoadState === 'missing'
@@ -295,24 +295,24 @@ export default function AgentRunSession({
             </div>
           </section>
 
-          <section className="max-h-[36vh] min-h-[220px] overflow-y-auto rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-4">
-            <h2 className="text-sm font-semibold text-on-surface">Run result</h2>
-            <p className="mt-1 text-xs text-on-surface-variant">
+          <section className="max-h-[36vh] min-h-[220px] overflow-y-auto pib-card p-4">
+            <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Run result</h2>
+            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
               Status and final output returned by the selected agent gateway.
             </p>
             <div className="mt-4 space-y-4">
               <div>
-                <p className="mb-1 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Status</p>
-                <p className="text-sm text-on-surface">{loading ? 'Loading...' : runLoadState === 'missing' ? 'Run missing' : status}</p>
+                <p className="mb-1 text-[10px] pib-label">Status</p>
+                <p className="text-sm text-[var(--color-pib-text)]">{loading ? 'Loading...' : runLoadState === 'missing' ? 'Run missing' : status}</p>
               </div>
               <div>
-                <p className="mb-1 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Output</p>
+                <p className="mb-1 text-[10px] pib-label">Output</p>
                 {outputText ? (
-                  <pre className="max-h-[38vh] overflow-auto whitespace-pre-wrap break-words rounded border border-[var(--color-card-border)] bg-black/20 p-3 text-xs leading-relaxed text-on-surface-variant">
+                  <pre className="max-h-[38vh] overflow-auto whitespace-pre-wrap break-words rounded border border-[var(--color-pib-line)] bg-black/20 p-3 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
                     {outputText}
                   </pre>
                 ) : (
-                  <p className="rounded border border-dashed border-[var(--color-card-border)] p-3 text-xs text-on-surface-variant">
+                  <p className="rounded border border-dashed border-[var(--color-pib-line)] p-3 text-xs text-[var(--color-pib-text-muted)]">
                     {runLoadState === 'missing'
                       ? 'Hermes no longer has this run. Continue from the ticket chat.'
                       : 'No final output returned yet.'}

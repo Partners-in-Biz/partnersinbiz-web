@@ -87,7 +87,7 @@ function SortableStageRow({ stage, canRemove, onChange, onRemove }: SortableStag
         aria-label={`Drag to reorder stage ${stage.label}`}
         {...attributes}
         {...listeners}
-        className="shrink-0 cursor-grab touch-none text-on-surface-variant transition hover:text-on-surface active:cursor-grabbing"
+        className="shrink-0 cursor-grab touch-none text-[var(--color-pib-text-muted)] transition hover:text-[var(--color-pib-text)] active:cursor-grabbing"
       >
         <span className="material-symbols-outlined text-[16px]">drag_indicator</span>
       </button>
@@ -99,7 +99,7 @@ function SortableStageRow({ stage, canRemove, onChange, onRemove }: SortableStag
         value={stage.label}
         onChange={(e) => onChange(stage.id, 'label', e.target.value)}
         placeholder="Stage name"
-        className="h-8 min-w-0 flex-1 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface placeholder:text-on-surface-variant"
+        className="h-8 min-w-0 flex-1 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)]"
       />
 
       {/* Kind select */}
@@ -107,7 +107,7 @@ function SortableStageRow({ stage, canRemove, onChange, onRemove }: SortableStag
         aria-label={`Stage kind for ${stage.id}`}
         value={stage.kind}
         onChange={(e) => onChange(stage.id, 'kind', e.target.value as StageKind)}
-        className="h-8 w-24 shrink-0 cursor-pointer rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface"
+        className="h-8 w-24 shrink-0 cursor-pointer rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-[var(--color-pib-text)]"
       >
         {ALL_KINDS.map((k) => (
           <option key={k} value={k}>{KIND_LABELS[k]}</option>
@@ -126,7 +126,7 @@ function SortableStageRow({ stage, canRemove, onChange, onRemove }: SortableStag
           onChange={(e) => onChange(stage.id, 'probability', parseInt(e.target.value, 10))}
           className="w-20 cursor-pointer"
         />
-        <span className="w-8 text-right text-xs tabular-nums text-on-surface-variant">
+        <span className="w-8 text-right text-xs tabular-nums text-[var(--color-pib-text-muted)]">
           {stage.probability}%
         </span>
       </div>
@@ -146,7 +146,7 @@ function SortableStageRow({ stage, canRemove, onChange, onRemove }: SortableStag
         aria-label={`Remove stage ${stage.label}`}
         onClick={() => onRemove(stage.id)}
         disabled={!canRemove}
-        className="shrink-0 cursor-pointer text-on-surface-variant transition hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-30"
+        className="shrink-0 cursor-pointer text-[var(--color-pib-text-muted)] transition hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-30"
       >
         <span className="material-symbols-outlined text-[16px]">close</span>
       </button>

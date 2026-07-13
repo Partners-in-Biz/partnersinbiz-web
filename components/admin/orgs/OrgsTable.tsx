@@ -166,7 +166,7 @@ export default function OrgsTable({ orgs }: { orgs: AdminOrgRow[] }) {
       <button
         type="button"
         onClick={() => toggleSort(k)}
-        className={`flex items-center gap-1 text-[10px] font-label uppercase tracking-widest transition-colors hover:text-on-surface ${active ? 'text-on-surface' : 'text-on-surface-variant'} ${align === 'right' ? 'ml-auto' : ''}`}
+        className={`flex items-center gap-1 text-[10px] font-label uppercase tracking-widest transition-colors hover:text-[var(--color-pib-text)] ${active ? 'text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)]'} ${align === 'right' ? 'ml-auto' : ''}`}
       >
         <span>{label}</span>
         <span aria-hidden className="text-[9px] leading-none">
@@ -185,12 +185,12 @@ export default function OrgsTable({ orgs }: { orgs: AdminOrgRow[] }) {
           placeholder="Search by name or owner email..."
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(0) }}
-          className="flex-1 min-w-[220px] px-4 py-2.5 text-sm bg-[var(--color-card)] border border-[var(--color-card-border)] rounded-[var(--radius-btn)] text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-[var(--color-accent-v2)] transition-colors"
+          className="flex-1 min-w-[220px] px-4 py-2.5 text-sm bg-[var(--color-card)] border border-[var(--color-card-border)] rounded-[var(--radius-btn)] text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:outline-none focus:border-[var(--color-accent-v2)] transition-colors"
         />
         <select
           value={planFilter}
           onChange={(e) => { setPlanFilter(e.target.value); setPage(0) }}
-          className="px-3 py-2.5 text-sm bg-[var(--color-card)] border border-[var(--color-card-border)] rounded-[var(--radius-btn)] text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
+          className="px-3 py-2.5 text-sm bg-[var(--color-card)] border border-[var(--color-card-border)] rounded-[var(--radius-btn)] text-[var(--color-pib-text)] focus:outline-none focus:border-[var(--color-accent-v2)]"
         >
           <option value="">All plans</option>
           {planOptions.map((p) => (
@@ -200,7 +200,7 @@ export default function OrgsTable({ orgs }: { orgs: AdminOrgRow[] }) {
         <select
           value={statusFilter}
           onChange={(e) => { setStatusFilter(e.target.value); setPage(0) }}
-          className="px-3 py-2.5 text-sm bg-[var(--color-card)] border border-[var(--color-card-border)] rounded-[var(--radius-btn)] text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
+          className="px-3 py-2.5 text-sm bg-[var(--color-card)] border border-[var(--color-card-border)] rounded-[var(--radius-btn)] text-[var(--color-pib-text)] focus:outline-none focus:border-[var(--color-accent-v2)]"
         >
           <option value="">All statuses</option>
           {statusOptions.map((s) => (
@@ -217,7 +217,7 @@ export default function OrgsTable({ orgs }: { orgs: AdminOrgRow[] }) {
         </button>
       </div>
 
-      <p className="text-xs text-on-surface-variant">
+      <p className="text-xs text-[var(--color-pib-text-muted)]">
         Showing {filtered.length === 0 ? 0 : safePage * PAGE_SIZE + 1}
         –{Math.min(filtered.length, safePage * PAGE_SIZE + PAGE_SIZE)} of {filtered.length}
         {filtered.length !== orgs.length ? ` (filtered from ${orgs.length})` : ''}
@@ -236,13 +236,13 @@ export default function OrgsTable({ orgs }: { orgs: AdminOrgRow[] }) {
             <div className="flex justify-end"><SortHeader label="Sends 30d" k="sends30d" align="right" /></div>
             <SortHeader label="Created" k="createdAt" />
             <SortHeader label="Status" k="status" />
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant text-right">Open</p>
+            <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] text-right">Open</p>
           </div>
 
           {/* Rows */}
           {pageRows.length === 0 ? (
             <div className="py-12 text-center">
-              <p className="text-on-surface-variant text-sm">No organisations match your filters.</p>
+              <p className="text-[var(--color-pib-text-muted)] text-sm">No organisations match your filters.</p>
             </div>
           ) : (
             <div className="divide-y divide-[var(--color-card-border)]">
@@ -252,19 +252,19 @@ export default function OrgsTable({ orgs }: { orgs: AdminOrgRow[] }) {
                   className="grid grid-cols-[minmax(180px,2.2fr)_minmax(160px,1.8fr)_90px_100px_90px_100px_110px_100px_70px] gap-3 items-center px-5 py-3.5 hover:bg-[var(--color-row-hover)] transition-colors"
                 >
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-on-surface truncate">{org.name}</p>
+                    <p className="text-sm font-medium text-[var(--color-pib-text)] truncate">{org.name}</p>
                     {org.description ? (
-                      <p className="text-xs text-on-surface-variant truncate mt-0.5">{org.description}</p>
+                      <p className="text-xs text-[var(--color-pib-text-muted)] truncate mt-0.5">{org.description}</p>
                     ) : null}
                   </div>
-                  <p className="text-sm text-on-surface-variant truncate" title={org.ownerEmail}>
+                  <p className="text-sm text-[var(--color-pib-text-muted)] truncate" title={org.ownerEmail}>
                     {org.ownerEmail || '—'}
                   </p>
-                  <p className="text-sm text-on-surface-variant">{planLabel(org.plan)}</p>
-                  <p className="text-sm text-on-surface text-right tabular-nums">{org.mrr > 0 ? zar(org.mrr) : '—'}</p>
-                  <p className="text-sm text-on-surface-variant text-right tabular-nums">{org.contacts.toLocaleString('en-ZA')}</p>
-                  <p className="text-sm text-on-surface-variant text-right tabular-nums">{org.sends30d.toLocaleString('en-ZA')}</p>
-                  <p className="text-xs text-on-surface-variant">{fmtDate(org.createdAt)}</p>
+                  <p className="text-sm text-[var(--color-pib-text-muted)]">{planLabel(org.plan)}</p>
+                  <p className="text-sm text-[var(--color-pib-text)] text-right tabular-nums">{org.mrr > 0 ? zar(org.mrr) : '—'}</p>
+                  <p className="text-sm text-[var(--color-pib-text-muted)] text-right tabular-nums">{org.contacts.toLocaleString('en-ZA')}</p>
+                  <p className="text-sm text-[var(--color-pib-text-muted)] text-right tabular-nums">{org.sends30d.toLocaleString('en-ZA')}</p>
+                  <p className="text-xs text-[var(--color-pib-text-muted)]">{fmtDate(org.createdAt)}</p>
                   <div>
                     <StatusPill tone={STATUS_TONE[org.status] ?? 'neutral'} dot>
                       {STATUS_LABEL[org.status] ?? org.status}
@@ -297,7 +297,7 @@ export default function OrgsTable({ orgs }: { orgs: AdminOrgRow[] }) {
           >
             ← Previous
           </button>
-          <p className="text-xs text-on-surface-variant">Page {safePage + 1} of {pageCount}</p>
+          <p className="text-xs text-[var(--color-pib-text-muted)]">Page {safePage + 1} of {pageCount}</p>
           <button
             type="button"
             onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}

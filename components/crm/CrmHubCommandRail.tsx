@@ -62,7 +62,7 @@ export function CrmHubCommandRail({
   return (
     <section className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
       <div className="flex h-9 items-center border-b border-[var(--color-card-border)] px-3">
-        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">CRM operating rail</p>
+        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">CRM operating rail</p>
       </div>
       <div className="grid divide-y divide-[var(--color-card-border)] lg:grid-cols-3 lg:divide-x lg:divide-y-0">
         {actions.map((action) => (
@@ -76,8 +76,8 @@ export function CrmHubCommandRail({
               <span className="material-symbols-outlined text-[16px]">{action.icon}</span>
             </span>
             <span className="min-w-0">
-              <h2 className="text-sm font-semibold text-on-surface">{action.title}</h2>
-              <p className="mt-0.5 text-xs leading-5 text-on-surface-variant">{action.detail}</p>
+              <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">{action.title}</h2>
+              <p className="mt-0.5 text-xs leading-5 text-[var(--color-pib-text-muted)]">{action.detail}</p>
               <p className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-[var(--color-accent-text)]">
                 {action.cta}
                 <span className="material-symbols-outlined text-[13px]" aria-hidden="true">arrow_forward</span>

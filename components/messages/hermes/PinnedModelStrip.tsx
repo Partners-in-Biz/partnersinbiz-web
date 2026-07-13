@@ -26,7 +26,7 @@ export default function PinnedModelStrip({
 
   return (
     <div className="mb-3 rounded-xl border border-[var(--color-card-border)] bg-white/[0.03] p-2" data-testid="pinned-model-strip">
-      <div className="mb-2 flex items-center gap-1.5 px-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
+      <div className="pib-label mb-2 flex items-center gap-1.5 px-1">
         <span className="material-symbols-outlined text-[13px]">star</span>
         Pinned models
       </div>
@@ -42,7 +42,7 @@ export default function PinnedModelStrip({
                 disabled={!model.available}
                 className={[
                   'max-w-[180px] truncate px-2.5 py-1 text-[11px] transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-                  active ? 'bg-primary/20 text-primary' : 'text-on-surface-variant hover:bg-white/[0.08] hover:text-on-surface',
+                  active ? 'bg-primary/20 text-primary' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]',
                 ].join(' ')}
                 title={model.model}
               >
@@ -51,7 +51,7 @@ export default function PinnedModelStrip({
               <button
                 type="button"
                 onClick={() => onTogglePin(model)}
-                className="grid h-6 w-6 place-items-center text-on-surface-variant hover:bg-white/[0.08] hover:text-on-surface"
+                className="grid h-6 w-6 place-items-center text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
                 aria-label={pinned ? `Unpin ${model.displayName}` : `Pin ${model.displayName}`}
               >
                 <span className="material-symbols-outlined text-[13px]">{pinned ? 'close' : 'star'}</span>

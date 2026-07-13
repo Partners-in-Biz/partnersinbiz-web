@@ -72,7 +72,7 @@ function initialChip(node: CanvasReviewPanelNode): ReviewChipState {
 const CHIP_CLASSES: Record<ReviewChipState['tone'], string> = {
   approved: 'bg-emerald-500/15 text-emerald-500',
   changes: 'bg-amber-500/15 text-amber-500',
-  pending: 'bg-surface text-on-surface-variant',
+  pending: 'bg-[var(--color-pib-surface)] text-[var(--color-pib-text-muted)]',
 }
 
 export function CanvasReviewPanel({ canvasId, orgId, nodes, onReviewed }: CanvasReviewPanelProps) {
@@ -127,18 +127,18 @@ export function CanvasReviewPanel({ canvasId, orgId, nodes, onReviewed }: Canvas
 
   if (!reviewable.length) {
     return (
-      <div className="rounded-xl bg-surface-container p-4">
-        <h3 className="text-sm font-medium text-on-surface mb-1">Review &amp; approve</h3>
-        <p className="text-on-surface-variant text-xs">Nothing is ready for review yet. Check back once your team shares creative output.</p>
+      <div className="rounded-xl bg-[var(--color-pib-surface-muted)] p-4">
+        <h3 className="text-sm font-medium text-[var(--color-pib-text)] mb-1">Review &amp; approve</h3>
+        <p className="text-[var(--color-pib-text-muted)] text-xs">Nothing is ready for review yet. Check back once your team shares creative output.</p>
       </div>
     )
   }
 
   return (
-    <div className="rounded-xl bg-surface-container p-4">
+    <div className="rounded-xl bg-[var(--color-pib-surface-muted)] p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium text-on-surface">Review &amp; approve</h3>
-        <span className="text-xs text-on-surface-variant">{reviewable.length} item{reviewable.length === 1 ? '' : 's'}</span>
+        <h3 className="text-sm font-medium text-[var(--color-pib-text)]">Review &amp; approve</h3>
+        <span className="text-xs text-[var(--color-pib-text-muted)]">{reviewable.length} item{reviewable.length === 1 ? '' : 's'}</span>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {reviewable.map((node) => {
@@ -150,9 +150,9 @@ export function CanvasReviewPanel({ canvasId, orgId, nodes, onReviewed }: Canvas
           const persistedNote = node.review?.clientNote || persistedClientReview(node).note
 
           return (
-            <div key={node.id} data-testid={`review-card-${node.id}`} className="bg-surface rounded-lg p-3 flex flex-col gap-2">
+            <div key={node.id} data-testid={`review-card-${node.id}`} className="bg-[var(--color-pib-surface)] rounded-lg p-3 flex flex-col gap-2">
               <div className="flex items-start justify-between gap-2">
-                <div className="text-sm font-medium text-on-surface truncate" title={node.title || node.id}>
+                <div className="text-sm font-medium text-[var(--color-pib-text)] truncate" title={node.title || node.id}>
                   {node.title || node.id}
                 </div>
                 <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${CHIP_CLASSES[chip.tone]}`}>
@@ -165,14 +165,14 @@ export function CanvasReviewPanel({ canvasId, orgId, nodes, onReviewed }: Canvas
                 <img
                   src={imageUrl}
                   alt={node.title || 'Creative output'}
-                  className="h-32 w-full rounded-md object-cover bg-surface-container"
+                  className="h-32 w-full rounded-md object-cover bg-[var(--color-pib-surface-muted)]"
                 />
               ) : snippet ? (
-                <p className="text-xs text-on-surface-variant line-clamp-4 whitespace-pre-wrap">{snippet}</p>
+                <p className="text-xs text-[var(--color-pib-text-muted)] line-clamp-4 whitespace-pre-wrap">{snippet}</p>
               ) : null}
 
               {persistedNote && !noteOpen && (
-                <p className="text-[11px] text-on-surface-variant italic">Note: {persistedNote}</p>
+                <p className="text-[11px] text-[var(--color-pib-text-muted)] italic">Note: {persistedNote}</p>
               )}
 
               {noteOpen && (
@@ -184,7 +184,7 @@ export function CanvasReviewPanel({ canvasId, orgId, nodes, onReviewed }: Canvas
                     rows={3}
                     placeholder="What should change?"
                     aria-label={`Change request note for ${node.title || node.id}`}
-                    className="w-full rounded-md bg-surface-container p-2 text-xs text-on-surface placeholder:text-on-surface-variant outline-none"
+                    className="w-full rounded-md bg-[var(--color-pib-surface-muted)] p-2 text-xs text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] outline-none"
                   />
                   <div className="flex gap-2">
                     <button
@@ -199,7 +199,7 @@ export function CanvasReviewPanel({ canvasId, orgId, nodes, onReviewed }: Canvas
                       type="button"
                       disabled={busy}
                       onClick={() => setNoteOpenFor(null)}
-                      className="rounded-full px-3 py-1.5 text-xs text-on-surface-variant hover:bg-surface-container"
+                      className="rounded-full px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)]"
                     >
                       Cancel
                     </button>
@@ -224,7 +224,7 @@ export function CanvasReviewPanel({ canvasId, orgId, nodes, onReviewed }: Canvas
                       setNoteOpenFor(node.id)
                       setErrors((current) => ({ ...current, [node.id]: '' }))
                     }}
-                    className="rounded-full px-3 py-1.5 text-xs font-medium text-on-surface-variant hover:bg-surface-container"
+                    className="rounded-full px-3 py-1.5 text-xs font-medium text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-muted)]"
                   >
                     Request changes
                   </button>
@@ -294,10 +294,10 @@ export function PortalCanvasReviewSection({ orgId }: { orgId?: string }) {
     return () => { cancelled = true }
   }, [selectedId, query])
 
-  if (loading) return <div className="h-24 rounded-xl bg-surface-container animate-pulse" />
+  if (loading) return <div className="h-24 rounded-xl bg-[var(--color-pib-surface-muted)] animate-pulse" />
   if (loadError) {
     return (
-      <div className="rounded-xl bg-surface-container p-4">
+      <div className="rounded-xl bg-[var(--color-pib-surface-muted)] p-4">
         <p className="text-xs text-red-500">{loadError}</p>
       </div>
     )
@@ -311,7 +311,7 @@ export function PortalCanvasReviewSection({ orgId }: { orgId?: string }) {
           value={selectedId}
           onChange={(event) => { setNodes(null); setSelectedId(event.target.value) }}
           aria-label="Select canvas to review"
-          className="w-full max-w-sm rounded-md bg-surface-container p-2 text-sm text-on-surface outline-none"
+          className="w-full max-w-sm rounded-md bg-[var(--color-pib-surface-muted)] p-2 text-sm text-[var(--color-pib-text)] outline-none"
         >
           {canvases.map((canvas) => (
             <option key={canvas.id} value={canvas.id}>{canvas.title || canvas.id}</option>
@@ -321,7 +321,7 @@ export function PortalCanvasReviewSection({ orgId }: { orgId?: string }) {
       {selectedId && nodes !== null && (
         <CanvasReviewPanel canvasId={selectedId} orgId={orgId} nodes={nodes} />
       )}
-      {selectedId && nodes === null && <div className="h-24 rounded-xl bg-surface-container animate-pulse" />}
+      {selectedId && nodes === null && <div className="h-24 rounded-xl bg-[var(--color-pib-surface-muted)] animate-pulse" />}
     </div>
   )
 }

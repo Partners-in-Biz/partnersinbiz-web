@@ -149,7 +149,7 @@ export function ContactForm({ onSave, onCancel, initial = {}, contextName, redir
     const errorId = `${id}-error`
     return (
       <div className="flex flex-col gap-1">
-        <label htmlFor={id} className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{label}</label>
+        <label htmlFor={id} className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</label>
         <input
           id={id}
           type={type}
@@ -162,7 +162,7 @@ export function ContactForm({ onSave, onCancel, initial = {}, contextName, redir
             setForm((f) => ({ ...f, [key]: value }))
             clearFieldError(key)
           }}
-          className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm text-on-surface"
+          className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm text-[var(--color-pib-text)]"
         />
         {fieldError && (
           <p id={errorId} role="alert" className="text-[11px]" style={{ color: 'var(--color-accent)' }}>
@@ -182,12 +182,12 @@ export function ContactForm({ onSave, onCancel, initial = {}, contextName, redir
 
   const select = (label: string, key: ContactTextField, options: readonly string[]) => (
     <div className="flex flex-col gap-1">
-      <label className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{label}</label>
+      <label className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</label>
       <select
         aria-label={contextualLabel(`Contact ${label.toLowerCase()}`)}
         value={form[key]}
         onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-        className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm text-on-surface"
+        className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm text-[var(--color-pib-text)]"
       >
         {options.map((o) => <option key={o} value={o} className="bg-black">{o}</option>)}
       </select>
@@ -220,20 +220,20 @@ export function ContactForm({ onSave, onCancel, initial = {}, contextName, redir
       {select('Type', 'type', TYPES)}
       {select('Stage', 'stage', STAGES)}
       <div className="flex flex-col gap-1">
-        <label htmlFor="crm-contact-status" className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Status</label>
+        <label htmlFor="crm-contact-status" className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Status</label>
         <select
           id="crm-contact-status"
           aria-label={contextualLabel('Contact status')}
           value={form.status}
           onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
-          className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm text-on-surface"
+          className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm text-[var(--color-pib-text)]"
         >
           {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value} className="bg-black">{o.label}</option>)}
         </select>
-        <p className="text-[11px] text-on-surface-variant">Sets the subscription state — Unsubscribed and Bounced exclude this contact from marketing sends.</p>
+        <p className="text-[11px] text-[var(--color-pib-text-muted)]">Sets the subscription state — Unsubscribed and Bounced exclude this contact from marketing sends.</p>
       </div>
       <div className="flex flex-col gap-1">
-        <label htmlFor="admin-crm-contact-tags" className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+        <label htmlFor="admin-crm-contact-tags" className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
           Tags
         </label>
         <input
@@ -243,21 +243,21 @@ export function ContactForm({ onSave, onCancel, initial = {}, contextName, redir
           value={form.tagsInput}
           onChange={(e) => setForm((f) => ({ ...f, tagsInput: e.target.value }))}
           placeholder="vip, newsletter, key-account"
-          className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm text-on-surface placeholder:text-on-surface-variant"
+          className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)]"
         />
-        <p className="text-[11px] text-on-surface-variant">Separate tags with commas so saved views, filters, and automation segments stay accurate.</p>
+        <p className="text-[11px] text-[var(--color-pib-text-muted)]">Separate tags with commas so saved views, filters, and automation segments stay accurate.</p>
       </div>
       <div className="flex flex-col gap-2">
-        <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Agreement roles</span>
+        <span className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Agreement roles</span>
         <div className="grid gap-2 sm:grid-cols-2">
           {AGREEMENT_ROLES.map((role) => (
-            <label key={role.value} className="flex items-center gap-2 rounded-md border border-[var(--color-card-border)] px-2.5 py-1.5 text-xs text-on-surface-variant">
+            <label key={role.value} className="flex items-center gap-2 rounded-md border border-[var(--color-card-border)] px-2.5 py-1.5 text-xs text-[var(--color-pib-text-muted)]">
               <input
                 type="checkbox"
                 aria-label={contextualLabel(`${role.label} role`)}
                 checked={form.agreementRoles.includes(role.value)}
                 onChange={() => toggleAgreementRole(role.value)}
-                className="h-4 w-4 rounded border-outline text-primary"
+                className="h-4 w-4 rounded border-[var(--color-pib-line)] text-primary"
               />
               <span>{role.label}</span>
             </label>
@@ -265,14 +265,14 @@ export function ContactForm({ onSave, onCancel, initial = {}, contextName, redir
         </div>
       </div>
       <div className="flex flex-col gap-1">
-        <label htmlFor="crm-contact-notes" className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Notes</label>
+        <label htmlFor="crm-contact-notes" className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Notes</label>
         <textarea
           id="crm-contact-notes"
           aria-label={contextualLabel('Contact notes')}
           value={form.notes}
           onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
           rows={3}
-          className="w-full resize-none rounded-md border border-[var(--color-card-border)] bg-transparent p-2 text-sm text-on-surface"
+          className="w-full resize-none rounded-md border border-[var(--color-card-border)] bg-transparent p-2 text-sm text-[var(--color-pib-text)]"
         />
       </div>
       {error && <p className="text-[11px]" style={{ color: 'var(--color-accent)' }}>{error}</p>}
@@ -288,7 +288,7 @@ export function ContactForm({ onSave, onCancel, initial = {}, contextName, redir
         <button
           type="button"
           onClick={onCancel}
-          className="flex h-9 flex-1 items-center justify-center rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+          className="flex h-9 flex-1 items-center justify-center rounded-md border border-[var(--color-card-border)] px-3 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
           aria-label={contextualLabel('Cancel contact')}
         >
           Cancel

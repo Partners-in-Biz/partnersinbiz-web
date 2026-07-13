@@ -180,16 +180,16 @@ export function CountBar({
     <div className="flex items-center gap-3 text-sm">
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="text-on-surface truncate" title={label}>
+          <span className="text-[var(--color-pib-text)] truncate" title={label}>
             {label.length > 60 ? label.slice(0, 59) + '…' : label}
           </span>
-          <span className="text-on-surface-variant text-xs tabular-nums whitespace-nowrap">
+          <span className="text-[var(--color-pib-text-muted)] text-xs tabular-nums whitespace-nowrap">
             {rightLabel ?? value.toLocaleString()}
           </span>
         </div>
-        <div className="h-1.5 mt-1 rounded-full bg-surface-container-high overflow-hidden">
+        <div className="h-1.5 mt-1 rounded-full bg-[var(--color-pib-line)] overflow-hidden">
           <div
-            className="h-full bg-amber-500"
+            className="h-full bg-[var(--color-pib-blue)]"
             style={{ width: `${pct}%` }}
           />
         </div>
@@ -234,8 +234,8 @@ export function Donut({
         {data.map((d, i) => (
           <li key={d.label + i} className="flex items-center gap-2">
             <span className="inline-block w-3 h-3 rounded-sm" style={{ background: PALETTE[i % PALETTE.length] }} />
-            <span className="text-on-surface-variant">{d.label}</span>
-            <span className="text-on-surface tabular-nums">{d.value}</span>
+            <span className="text-[var(--color-pib-text-muted)]">{d.label}</span>
+            <span className="text-[var(--color-pib-text)] tabular-nums">{d.value}</span>
           </li>
         ))}
       </ul>

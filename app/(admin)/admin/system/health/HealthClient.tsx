@@ -41,7 +41,7 @@ const STATUS_META: Record<ServiceStatus, { dot: string; label: string; text: str
   ok: { dot: 'bg-emerald-500', label: 'Operational', text: 'text-emerald-400' },
   degraded: { dot: 'bg-amber-500', label: 'Degraded', text: 'text-amber-400' },
   down: { dot: 'bg-red-500', label: 'Down', text: 'text-red-400' },
-  'not-configured': { dot: 'bg-white/30', label: 'Not configured', text: 'text-on-surface-variant' },
+  'not-configured': { dot: 'bg-white/30', label: 'Not configured', text: 'text-[var(--color-pib-text-muted)]' },
 }
 
 function Skeleton({ className = '' }: { className?: string }) {
@@ -166,11 +166,11 @@ export default function HealthClient() {
     <div className="space-y-6 max-w-5xl mx-auto">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             System
           </p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Service Health</h1>
-          <p className="text-sm text-on-surface-variant mt-1">
+          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Service Health</h1>
+          <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
             Live per-service probes with real measured latency, 30-day uptime, and incident history.
             Auto-refreshes every 30s.
           </p>
@@ -205,27 +205,27 @@ export default function HealthClient() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <span className={`inline-block w-2.5 h-2.5 rounded-full ${meta.dot}`} />
-                      <h3 className="font-headline font-semibold text-on-surface">{svc.name}</h3>
+                      <h3 className="font-headline font-semibold text-[var(--color-pib-text)]">{svc.name}</h3>
                     </div>
                     <span className={`text-xs font-label ${meta.text}`}>{meta.label}</span>
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
                     <div>
-                      <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Latency</p>
-                      <p className="font-mono text-on-surface">{fmtLatency(svc.latencyMs, svc.latencyInstrumented)}</p>
+                      <p className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Latency</p>
+                      <p className="font-mono text-[var(--color-pib-text)]">{fmtLatency(svc.latencyMs, svc.latencyInstrumented)}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Uptime (30d)</p>
-                      <p className="font-mono text-on-surface">
+                      <p className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Uptime (30d)</p>
+                      <p className="font-mono text-[var(--color-pib-text)]">
                         {up && up.uptimePct !== null ? `${up.uptimePct}%` : 'no data'}
                         {up && up.totalChecks > 0 && (
-                          <span className="text-on-surface-variant text-xs"> ({up.totalChecks} chk)</span>
+                          <span className="text-[var(--color-pib-text-muted)] text-xs"> ({up.totalChecks} chk)</span>
                         )}
                       </p>
                     </div>
                   </div>
-                  {svc.detail && <p className="mt-2 text-xs text-on-surface-variant">{svc.detail}</p>}
-                  <p className="mt-2 text-[10px] text-on-surface-variant">Checked {timeAgo(svc.lastCheckedAt)}</p>
+                  {svc.detail && <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{svc.detail}</p>}
+                  <p className="mt-2 text-[10px] text-[var(--color-pib-text-muted)]">Checked {timeAgo(svc.lastCheckedAt)}</p>
                 </div>
               )
             })}
@@ -234,15 +234,15 @@ export default function HealthClient() {
       {/* Firebase / Social / PayPal breakdown */}
       {!loading && (
         <div className="pib-card p-4">
-          <h2 className="font-headline font-semibold text-on-surface mb-3">Breakdown</h2>
+          <h2 className="font-headline font-semibold text-[var(--color-pib-text)] mb-3">Breakdown</h2>
           <div className="grid gap-3 sm:grid-cols-3 text-sm">
             {[
               { label: 'Firebase', keys: ['firestore', 'auth'] },
               { label: 'PayPal', keys: ['paypal'] },
               { label: 'Social', keys: ['social'] },
             ].map((group) => (
-              <div key={group.label} className="rounded-lg border border-outline/40 p-3">
-                <p className="text-[10px] uppercase tracking-wide text-on-surface-variant mb-2">{group.label}</p>
+              <div key={group.label} className="rounded-lg border border-[var(--color-pib-line-strong)]/40 p-3">
+                <p className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)] mb-2">{group.label}</p>
                 <div className="space-y-1.5">
                   {group.keys.map((k) => {
                     const svc = services.find((s) => s.key === k)
@@ -250,11 +250,11 @@ export default function HealthClient() {
                     const meta = STATUS_META[svc.status]
                     return (
                       <div key={k} className="flex items-center justify-between gap-2">
-                        <span className="flex items-center gap-1.5 text-on-surface">
+                        <span className="flex items-center gap-1.5 text-[var(--color-pib-text)]">
                           <span className={`inline-block w-2 h-2 rounded-full ${meta.dot}`} />
                           {svc.name}
                         </span>
-                        <span className="font-mono text-xs text-on-surface-variant">
+                        <span className="font-mono text-xs text-[var(--color-pib-text-muted)]">
                           {fmtLatency(svc.latencyMs, svc.latencyInstrumented)}
                         </span>
                       </div>
@@ -269,26 +269,26 @@ export default function HealthClient() {
 
       {/* Incidents */}
       <div className="pib-card p-4">
-        <h2 className="font-headline font-semibold text-on-surface mb-1">Incidents (30d)</h2>
-        <p className="text-xs text-on-surface-variant mb-3">{uptimeNote}</p>
+        <h2 className="font-headline font-semibold text-[var(--color-pib-text)] mb-1">Incidents (30d)</h2>
+        <p className="text-xs text-[var(--color-pib-text-muted)] mb-3">{uptimeNote}</p>
         {incidents.length === 0 ? (
-          <p className="text-sm text-on-surface-variant py-4 text-center">
+          <p className="text-sm text-[var(--color-pib-text-muted)] py-4 text-center">
             No degraded/down periods recorded in the last 30 days.
           </p>
         ) : (
           <div className="space-y-2">
             {incidents.map((inc, i) => (
-              <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-outline/40 p-2.5 text-sm">
+              <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-pib-line-strong)]/40 p-2.5 text-sm">
                 <div className="flex items-center gap-2">
                   <span
                     className={`inline-block w-2 h-2 rounded-full ${inc.worstStatus === 'down' ? 'bg-red-500' : 'bg-amber-500'}`}
                   />
-                  <span className="text-on-surface font-label">{inc.serviceName}</span>
+                  <span className="text-[var(--color-pib-text)] font-label">{inc.serviceName}</span>
                   <span className={`text-xs ${inc.worstStatus === 'down' ? 'text-red-400' : 'text-amber-400'}`}>
                     {inc.worstStatus}
                   </span>
                 </div>
-                <div className="text-xs text-on-surface-variant">
+                <div className="text-xs text-[var(--color-pib-text-muted)]">
                   {new Date(inc.startedAt).toLocaleString()} → {inc.endedAt ? new Date(inc.endedAt).toLocaleString() : 'ongoing'}{' '}
                   ({inc.checks} chk)
                 </div>
@@ -301,18 +301,18 @@ export default function HealthClient() {
       {/* Alert settings */}
       <form onSubmit={saveAlerts} className="pib-card p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-headline font-semibold text-on-surface">Alert Settings</h2>
+          <h2 className="font-headline font-semibold text-[var(--color-pib-text)]">Alert Settings</h2>
           {!isSuperAdmin && (
-            <span className="text-xs text-on-surface-variant">Super admin only — view only</span>
+            <span className="text-xs text-[var(--color-pib-text-muted)]">Super admin only — view only</span>
           )}
         </div>
         <div className="space-y-2">
           {Object.entries(alerts).map(([key, cfg]) => {
             const svc = services.find((s) => s.key === key)
             return (
-              <div key={key} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 rounded-lg border border-outline/40 p-2.5">
-                <span className="text-sm text-on-surface font-label capitalize">{svc?.name ?? key}</span>
-                <label className="flex items-center gap-1.5 text-xs text-on-surface-variant">
+              <div key={key} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 rounded-lg border border-[var(--color-pib-line-strong)]/40 p-2.5">
+                <span className="text-sm text-[var(--color-pib-text)] font-label capitalize">{svc?.name ?? key}</span>
+                <label className="flex items-center gap-1.5 text-xs text-[var(--color-pib-text-muted)]">
                   threshold
                   <input
                     type="number"
@@ -326,7 +326,7 @@ export default function HealthClient() {
                   />
                   ms
                 </label>
-                <label className="flex items-center gap-1.5 text-xs text-on-surface-variant">
+                <label className="flex items-center gap-1.5 text-xs text-[var(--color-pib-text-muted)]">
                   <input
                     type="checkbox"
                     checked={cfg.enabled}
@@ -344,7 +344,7 @@ export default function HealthClient() {
             <button type="submit" disabled={savingAlerts} className="pib-btn-primary text-sm font-label disabled:opacity-50">
               {savingAlerts ? 'Saving…' : 'Save thresholds'}
             </button>
-            {alertsMsg && <span className="text-xs text-on-surface-variant">{alertsMsg}</span>}
+            {alertsMsg && <span className="text-xs text-[var(--color-pib-text-muted)]">{alertsMsg}</span>}
           </div>
         )}
       </form>

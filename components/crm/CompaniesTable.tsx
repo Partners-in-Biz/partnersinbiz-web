@@ -101,7 +101,7 @@ export function CompaniesTable({
             {COLUMNS.map((col) => (
               <th
                 key={col.key}
-                className="px-3 py-2 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant whitespace-nowrap"
+                className="px-3 py-2 text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)] whitespace-nowrap"
               >
                 {col.label}
               </th>
@@ -123,9 +123,9 @@ export function CompaniesTable({
                   <span className="material-symbols-outlined grid h-8 w-8 place-items-center rounded-md bg-primary/10 text-[19px] text-primary">
                     {state.icon}
                   </span>
-                  <p className="mt-3 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">{state.eyebrow}</p>
-                  <h3 className="mt-1.5 text-sm font-semibold text-on-surface">{state.title}</h3>
-                  <p className="mt-1.5 max-w-md text-xs leading-5 text-on-surface-variant">
+                  <p className="mt-3 text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">{state.eyebrow}</p>
+                  <h3 className="mt-1.5 text-sm font-semibold text-[var(--color-pib-text)]">{state.title}</h3>
+                  <p className="mt-1.5 max-w-md text-xs leading-5 text-[var(--color-pib-text-muted)]">
                     {state.description}
                   </p>
                   <div className="mt-3 flex flex-wrap justify-center gap-1.5">
@@ -150,7 +150,7 @@ export function CompaniesTable({
                         </Link>
                         <Link
                           href={migrateHref}
-                          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-3 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                         >
                           <span className="material-symbols-outlined text-[15px]">sync_alt</span>
                           Migrate from contacts

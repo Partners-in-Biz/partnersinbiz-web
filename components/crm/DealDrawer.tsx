@@ -170,10 +170,10 @@ function ContactPicker({
           }}
           onFocus={() => results.length > 0 && setOpen(true)}
           placeholder="Search contacts..."
-          className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none pr-8"
+          className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-[var(--color-accent-v2)] focus:outline-none pr-8"
         />
         {loading ? (
-          <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-[16px] text-on-surface-variant animate-spin">progress_activity</span>
+          <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-[16px] text-[var(--color-pib-text-muted)] animate-spin">progress_activity</span>
         ) : contactId ? (
           <button
             type="button"
@@ -182,7 +182,7 @@ function ContactPicker({
               setResults([])
               onChange(null)
             }}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
             aria-label={clearLabel}
           >
             <span className="material-symbols-outlined text-[16px]">close</span>
@@ -201,18 +201,18 @@ function ContactPicker({
                   person_add
                 </span>
                 <div className="min-w-0">
-                  <p className="text-[10px] font-label uppercase tracking-[0.18em] text-on-surface-variant">
+                  <p className="text-[10px] font-label uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
                     Deal contact required
                   </p>
-                  <h3 className="text-xs font-semibold text-on-surface">No matching deal contacts</h3>
+                  <h3 className="text-xs font-semibold text-[var(--color-pib-text)]">No matching deal contacts</h3>
                 </div>
               </div>
-              <p className="text-xs leading-5 text-on-surface-variant">
+              <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">
                 Create or link a contact before this opportunity can carry owner, email, quote, and activity history.
               </p>
               <Link
                 href={createContactHref}
-                className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-xs font-medium text-on-surface transition-colors hover:border-[var(--color-accent-v2)] hover:text-[var(--color-accent-v2)]"
+                className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-xs font-medium text-[var(--color-pib-text)] transition-colors hover:border-[var(--color-accent-v2)] hover:text-[var(--color-accent-v2)]"
               >
                 <span aria-hidden="true" className="material-symbols-outlined text-[14px]">contacts</span>
                 Create contact for this deal
@@ -226,8 +226,8 @@ function ContactPicker({
                 onClick={() => select(contact)}
                 className="w-full px-3 py-1.5 text-left transition-colors hover:bg-white/[0.05]"
               >
-                <p className="text-xs font-medium text-on-surface">{contact.name || contact.email || contact.id}</p>
-                <p className="text-[11px] text-on-surface-variant">{[contact.email, contact.company].filter(Boolean).join(' · ')}</p>
+                <p className="text-xs font-medium text-[var(--color-pib-text)]">{contact.name || contact.email || contact.id}</p>
+                <p className="text-[11px] text-[var(--color-pib-text-muted)]">{[contact.email, contact.company].filter(Boolean).join(' · ')}</p>
               </button>
             ))
           )}
@@ -459,7 +459,7 @@ export function DealDrawer({
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
-  const labelCls = 'block text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant mb-1'
+  const labelCls = 'block text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)] mb-1'
   const sectionCls = 'space-y-3'
 
   return (
@@ -481,13 +481,13 @@ export function DealDrawer({
       >
         {/* Header */}
         <div className="flex h-11 shrink-0 items-center justify-between border-b border-[var(--color-card-border)] px-4">
-          <p className="text-sm font-semibold text-on-surface">
+          <p className="text-sm font-semibold text-[var(--color-pib-text)]">
             {isEdit ? 'Edit Deal' : 'New Deal'}
           </p>
           <button
             type="button"
             onClick={onClose}
-            className="cursor-pointer flex h-7 w-7 items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
+            className="cursor-pointer flex h-7 w-7 items-center justify-center rounded-md text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
             aria-label={closeDrawerLabel}
           >
             <span className="material-symbols-outlined text-[16px]">close</span>
@@ -506,7 +506,7 @@ export function DealDrawer({
               onChange={e => setTitle(e.target.value)}
               placeholder="e.g. Acme Corp — Annual License"
               required
-              className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
+              className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-[var(--color-accent-v2)] focus:outline-none"
             />
           </div>
 
@@ -552,7 +552,7 @@ export function DealDrawer({
                 step={0.01}
                 value={value}
                 onChange={e => setValue(parseFloat(e.target.value) || 0)}
-                className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
+                className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-[var(--color-accent-v2)] focus:outline-none"
               />
             </div>
             <div>
@@ -561,7 +561,7 @@ export function DealDrawer({
                 aria-label={fieldLabel('Deal currency')}
                 value={currency}
                 onChange={e => setCurrency(e.target.value as Currency)}
-                className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
+                className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-[var(--color-accent-v2)] focus:outline-none"
               >
                 {CURRENCIES.map(c => (
                   <option key={c} value={c}>{c}</option>
@@ -578,7 +578,7 @@ export function DealDrawer({
               type="date"
               value={expectedCloseDate}
               onChange={e => setExpectedCloseDate(e.target.value)}
-              className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
+              className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-[var(--color-accent-v2)] focus:outline-none"
             />
           </div>
 
@@ -598,7 +598,7 @@ export function DealDrawer({
                     setSelectedStageId('')
                     setProbabilityOverridden(false)
                   }}
-                  className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
+                  className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-[var(--color-accent-v2)] focus:outline-none"
                 >
                   {pipelines.map(p => (
                     <option key={p.id} value={p.id}>{p.name}</option>
@@ -616,7 +616,7 @@ export function DealDrawer({
                   aria-label={fieldLabel('Deal stage')}
                   value={selectedStageId}
                   onChange={e => handleStageChange(e.target.value)}
-                  className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
+                  className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-[var(--color-accent-v2)] focus:outline-none"
                 >
                   {stages.map(s => (
                     <option key={s.id} value={s.id}>{s.label}</option>
@@ -648,13 +648,13 @@ export function DealDrawer({
                   max={100}
                   value={probability}
                   onChange={e => handleProbabilityChange(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
-                  className="h-8 w-16 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface text-right focus:border-[var(--color-accent-v2)] focus:outline-none"
+                  className="h-8 w-16 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-[var(--color-pib-text)] text-right focus:border-[var(--color-accent-v2)] focus:outline-none"
                 />
-                <span className="text-on-surface-variant text-xs">%</span>
+                <span className="text-[var(--color-pib-text-muted)] text-xs">%</span>
               </div>
             </div>
             <div className="flex items-center justify-between mt-1">
-              <span className="text-[11px] text-on-surface-variant">
+              <span className="text-[11px] text-[var(--color-pib-text-muted)]">
                 {probabilityOverridden ? 'overridden' : 'from stage'}
               </span>
               {probabilityOverridden && (
@@ -680,7 +680,7 @@ export function DealDrawer({
                 onChange={e => setLostReason(e.target.value)}
                 placeholder="Why was this deal lost?"
                 rows={2}
-                className="w-full rounded-md border border-[var(--color-card-border)] bg-transparent p-2 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none resize-none"
+                className="w-full rounded-md border border-[var(--color-card-border)] bg-transparent p-2 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-[var(--color-accent-v2)] focus:outline-none resize-none"
               />
             </div>
           )}
@@ -693,7 +693,7 @@ export function DealDrawer({
               value={notes}
               onChange={e => setNotes(e.target.value)}
               rows={2}
-              className="w-full rounded-md border border-[var(--color-card-border)] bg-transparent p-2 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none resize-none"
+              className="w-full rounded-md border border-[var(--color-card-border)] bg-transparent p-2 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-[var(--color-accent-v2)] focus:outline-none resize-none"
             />
           </div>
 
@@ -722,7 +722,7 @@ export function DealDrawer({
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-8 cursor-pointer items-center rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+            className="inline-flex h-8 cursor-pointer items-center rounded-md border border-[var(--color-card-border)] px-3 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
             aria-label={cancelDealLabel}
           >
             Cancel

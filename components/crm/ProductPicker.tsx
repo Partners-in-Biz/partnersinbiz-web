@@ -102,14 +102,14 @@ export function ProductPicker({ orgId, orgScope, onSelect, onAdHoc, placeholder 
           onKeyDown={handleKeyDown}
           placeholder={loading ? 'Loading products…' : placeholder}
           disabled={loading}
-          className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 pr-8 text-xs text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
+          className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 pr-8 text-xs text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-[var(--color-accent-v2)] focus:outline-none"
         />
         {query && (
           <button
             type="button"
             aria-label="Clear"
             onClick={clear}
-            className="cursor-pointer absolute right-2 text-on-surface-variant hover:text-on-surface transition-colors"
+            className="cursor-pointer absolute right-2 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
           >
             <span className="material-symbols-outlined text-[16px]">close</span>
           </button>
@@ -135,8 +135,8 @@ export function ProductPicker({ orgId, orgScope, onSelect, onAdHoc, placeholder 
                     aria-label={`Select product ${displayName}`}
                     className="cursor-pointer w-full text-left px-2.5 py-1.5 hover:bg-white/[0.05] transition-colors"
                   >
-                    <p className="text-xs font-medium text-on-surface">{displayName}</p>
-                    <p className="text-[11px] text-on-surface-variant font-mono">
+                    <p className="text-xs font-medium text-[var(--color-pib-text)]">{displayName}</p>
+                    <p className="text-[11px] text-[var(--color-pib-text-muted)] font-mono">
                       {product.currency} {product.unitPrice.toFixed(2)}
                       {product.unit ? ` / ${product.unit}` : ''}
                     </p>
@@ -147,7 +147,7 @@ export function ProductPicker({ orgId, orgScope, onSelect, onAdHoc, placeholder 
             </ul>
           ) : (
             <div className="px-2.5 py-2">
-              <p className="text-xs text-on-surface-variant">
+              <p className="text-xs text-[var(--color-pib-text-muted)]">
                 {query.trim() ? 'No matching products' : 'No products set up yet'}
               </p>
               {!query.trim() && (

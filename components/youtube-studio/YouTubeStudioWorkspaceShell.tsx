@@ -22,8 +22,8 @@ interface YouTubeStudioWorkspaceShellProps {
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
     <div className="pib-card-section px-4 py-3 text-center">
-      <p className="text-xs text-on-surface-variant">{label}</p>
-      <p className="text-xl font-bold text-on-surface">{value}</p>
+      <p className="text-xs text-[var(--color-pib-text-muted)]">{label}</p>
+      <p className="text-xl font-bold text-[var(--color-pib-text)]">{value}</p>
     </div>
   )
 }

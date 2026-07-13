@@ -29,8 +29,8 @@ function WorkQueueItemCard({ item, actions }: { item: WorkQueueItem; actions: Re
     <article className="pib-card-section min-w-0 space-y-3 p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-label uppercase tracking-widest text-on-surface-variant">{KIND_LABEL[item.kind]}</p>
-          <h4 className="break-words font-headline text-base font-semibold text-on-surface">{item.title}</h4>
+          <p className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{KIND_LABEL[item.kind]}</p>
+          <h4 className="break-words font-headline text-base font-semibold text-[var(--color-pib-text)]">{item.title}</h4>
         </div>
         <StatusPill status={itemStatus(item)} />
       </div>
@@ -47,7 +47,7 @@ export function YouTubeStudioWorkQueue({ groups, renderItemActions }: YouTubeStu
 
   if (totalItems === 0) {
     return (
-      <div className="pib-card-section p-6 text-sm text-on-surface-variant">
+      <div className="pib-card-section p-6 text-sm text-[var(--color-pib-text-muted)]">
         No video work yet. Create a video edit or request a PiB video to start the workflow.
       </div>
     )
@@ -59,12 +59,12 @@ export function YouTubeStudioWorkQueue({ groups, renderItemActions }: YouTubeStu
         const items = groups[group.key]
         return (
           <section key={group.key} className="space-y-3">
-            <h3 className="flex items-center gap-2 font-headline text-lg font-semibold text-on-surface">
+            <h3 className="flex items-center gap-2 font-headline text-lg font-semibold text-[var(--color-pib-text)]">
               {group.label}
-              <span className="text-sm font-normal text-on-surface-variant">({items.length})</span>
+              <span className="text-sm font-normal text-[var(--color-pib-text-muted)]">({items.length})</span>
             </h3>
             {items.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-[var(--color-pib-line)] p-3 text-xs text-on-surface-variant">
+              <p className="rounded-lg border border-dashed border-[var(--color-pib-line)] p-3 text-xs text-[var(--color-pib-text-muted)]">
                 {group.emptyHint}
               </p>
             ) : (

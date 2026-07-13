@@ -29,7 +29,7 @@ interface SocialPostReviewQueueCardProps {
 }
 
 const STATUS_TONES: Record<SocialPostReviewQueueTone, string> = {
-  neutral: 'bg-surface-container-high text-on-surface-variant',
+  neutral: 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]',
   warning: 'bg-amber-500/10 text-amber-400',
   info: 'bg-indigo-500/10 text-indigo-400',
   success: 'bg-green-500/10 text-green-400',
@@ -95,7 +95,7 @@ function MediaThumbs({ post }: { post: SocialPostReviewPost }) {
           return (
             <div
               key={index}
-              className="w-12 h-12 rounded border border-outline-variant/40 bg-surface-container-high flex items-center justify-center text-[10px] text-on-surface-variant"
+              className="w-12 h-12 rounded border border-[var(--color-pib-line)]/40 bg-[var(--color-pib-surface-2)] flex items-center justify-center text-[10px] text-[var(--color-pib-text-muted)]"
             >
               media
             </div>
@@ -108,12 +108,12 @@ function MediaThumbs({ post }: { post: SocialPostReviewPost }) {
             key={`${url}-${index}`}
             src={url}
             alt=""
-            className="w-12 h-12 rounded border border-outline-variant/40 object-cover"
+            className="w-12 h-12 rounded border border-[var(--color-pib-line)]/40 object-cover"
           />
         )
       })}
       {media.length > visible.length ? (
-        <div className="w-12 h-12 rounded border border-outline-variant/40 bg-surface-container-high flex items-center justify-center text-[10px] text-on-surface-variant">
+        <div className="w-12 h-12 rounded border border-[var(--color-pib-line)]/40 bg-[var(--color-pib-surface-2)] flex items-center justify-center text-[10px] text-[var(--color-pib-text-muted)]">
           +{media.length - visible.length}
         </div>
       ) : null}
@@ -143,7 +143,7 @@ export function SocialPostReviewQueueCard({
   const topRow = (
     <div className="flex items-center gap-2 flex-wrap">
       {platforms.length === 0 ? (
-        <span className="text-[10px] uppercase tracking-wide text-on-surface-variant">
+        <span className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
           {emptyPlatformsLabel}
         </span>
       ) : (
@@ -157,15 +157,15 @@ export function SocialPostReviewQueueCard({
   const body = (
     <>
       {topRow}
-      <p className="text-sm text-on-surface leading-relaxed whitespace-pre-wrap break-words line-clamp-3">
-        {preview ? preview : <span className="text-on-surface-variant italic">(empty content)</span>}
+      <p className="text-sm text-[var(--color-pib-text)] leading-relaxed whitespace-pre-wrap break-words line-clamp-3">
+        {preview ? preview : <span className="text-[var(--color-pib-text-muted)] italic">(empty content)</span>}
       </p>
       {showMediaThumbs ? <MediaThumbs post={post} /> : null}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-on-surface-variant">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--color-pib-text-muted)]">
         {showCreatedBy ? (
           <>
             <span>
-              by <span className="text-on-surface">{author}</span>
+              by <span className="text-[var(--color-pib-text)]">{author}</span>
             </span>
             <span>-</span>
           </>
