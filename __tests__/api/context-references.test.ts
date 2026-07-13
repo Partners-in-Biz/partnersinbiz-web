@@ -65,6 +65,17 @@ describe('context reference API routes', () => {
     expect(body.data.refs[0]).toMatchObject({ id: 'project-1' })
   })
 
+  it('accepts the Studio artifact namespace without widening workspace artifacts', async () => {
+    const { GET } = await import('@/app/api/v1/context-references/search/route')
+    const req = new NextRequest('http://localhost/api/v1/context-references/search?orgId=org-1&type=studioartifacts&q=launch')
+
+    const res = await GET(req)
+    expect(res.status).toBe(200)
+    expect(mockSearchContextReferences).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'studio_artifact', orgId: 'org-1', query: 'launch',
+    }))
+  })
+
   it('patches pinned conversation context after verifying participant access', async () => {
     const { PATCH } = await import('@/app/api/v1/conversations/[convId]/context/route')
     const req = new NextRequest('http://localhost/api/v1/conversations/conv-1/context', {

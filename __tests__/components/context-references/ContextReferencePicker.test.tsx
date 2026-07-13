@@ -21,6 +21,8 @@ describe('ContextReferencePicker', () => {
     expect(screen.getByRole('button', { name: 'Use @tasks:' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Use @businesses:' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Use @products:' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Use @studios:' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Use @studioartifacts:' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Use @products:' }))
 

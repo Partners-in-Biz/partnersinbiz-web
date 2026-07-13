@@ -77,4 +77,12 @@ describe('context reference composer helpers', () => {
       expect.objectContaining({ namespace: 'products', type: 'product' }),
     ])
   })
+
+  it('offers Studio and Studio artifact mention namespaces', () => {
+    expect(contextTypeFromMentionNamespace('studios')).toBe('studio')
+    expect(contextTypeFromMentionNamespace('studioartifacts')).toBe('studio_artifact')
+    expect(filterContextReferenceMentionOptions('').map((option) => option.namespace)).toEqual(
+      expect.arrayContaining(['studios', 'studioartifacts']),
+    )
+  })
 })
