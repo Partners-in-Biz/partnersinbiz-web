@@ -72,6 +72,9 @@ export interface ReplyRouteRecord {
   fromEmail: string
   receivedAt: unknown
   slaMinutes: number
+  slaDueAt: Timestamp
+  escalationState: 'not_due'
+  escalationPath: string[]
 }
 
 export interface PersistedReplyRoute extends ReplyRouteRecord {
@@ -91,6 +94,15 @@ function clean(value: unknown): string {
 
 function recordId(prefix: string, value: string): string {
   return `${prefix}_${createHash('sha256').update(value).digest('hex')}`
+}
+
+function receivedTimestamp(value: unknown): Timestamp {
+  if (value instanceof Timestamp) return value
+  if (value instanceof Date && Number.isFinite(value.getTime())) return Timestamp.fromDate(value)
+  if (value && typeof value === 'object' && typeof (value as { toMillis?: unknown }).toMillis === 'function') {
+    return Timestamp.fromMillis((value as { toMillis(): number }).toMillis())
+  }
+  return Timestamp.now()
 }
 
 async function activeMember(deps: ReplyRoutingDependencies, orgId: string, uid: string): Promise<boolean> {
@@ -142,6 +154,9 @@ export async function routeReplyToSales(
     }
   }
 
+  const receivedAt = receivedTimestamp(input.receivedAt)
+  const slaDueAt = Timestamp.fromMillis(receivedAt.toMillis() + Math.max(1, Math.min(10_080, Math.floor(slaMinutes || 60))) * 60_000)
+  const escalationPath = [ownerUserId ? `user:${ownerUserId}` : '', queueId ? `queue:${queueId}` : '', 'organisation_fallback'].filter(Boolean)
   return dependencies.persist({
     idempotencyKey: `${orgId}:${clean(input.inboundId)}`,
     orgId,
@@ -162,8 +177,11 @@ export async function routeReplyToSales(
     subject: clean(input.subject),
     bodyText: typeof input.bodyText === 'string' ? input.bodyText : '',
     fromEmail: clean(input.fromEmail).toLowerCase(),
-    receivedAt: input.receivedAt,
+    receivedAt,
     slaMinutes: Math.max(1, Math.min(10_080, Math.floor(slaMinutes || 60))),
+    slaDueAt,
+    escalationState: 'not_due',
+    escalationPath,
     ...(input.salesClassification ? { classification: input.salesClassification } : {}),
   })
 }
@@ -206,7 +224,6 @@ export const firestoreReplyRoutingDependencies: ReplyRoutingDependencies = {
     const notificationRef = adminDb.collection('notifications').doc(recordId('email_reply', record.idempotencyKey))
     const inboundRef = adminDb.collection('inbound_emails').doc(record.inboundId)
     const now = FieldValue.serverTimestamp()
-    const dueAt = Timestamp.fromMillis(Date.now() + record.slaMinutes * 60_000)
 
     const enrollmentDocs: Array<{ ref: FirebaseFirestore.DocumentReference }> = []
     if (record.stopOnReply && record.sequenceId && record.contactId) {
@@ -304,7 +321,9 @@ export const firestoreReplyRoutingDependencies: ReplyRoutingDependencies = {
         assignedTo: record.ownerUserId ? { type: 'user', id: record.ownerUserId } : null,
         queueId: record.queueId,
         contactId: record.contactId || null,
-        dueAt,
+        dueAt: record.slaDueAt,
+        escalationState: record.escalationState,
+        escalationPath: record.escalationPath,
         source: 'email_reply',
         sourceId: record.inboundId,
         createdAt: now,

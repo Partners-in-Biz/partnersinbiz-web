@@ -1,6 +1,15 @@
 {
   "indexes": [
     {
+      "collectionGroup": "email_reply_routes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "orgId", "order": "ASCENDING" },
+        { "fieldPath": "receivedAt", "order": "DESCENDING" },
+        { "fieldPath": "__name__", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "linked_device_cleanup_runs",
       "queryScope": "COLLECTION",
       "fields": [

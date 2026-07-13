@@ -4,6 +4,7 @@ import { withTenant } from '@/lib/api/tenant'
 import { apiError, apiErrorFromException, apiSuccess } from '@/lib/api/response'
 import { correctReplyClassification } from '@/lib/email-marketing/reply-queue'
 import type { SalesReplyClassification } from '@/lib/email-marketing/reply-classification'
+import { createHash } from 'node:crypto'
 
 const CLASSIFICATIONS = new Set(['positive', 'negative', 'out_of_office', 'neutral'])
 
@@ -29,7 +30,9 @@ export const PATCH = withAuth('client', withTenant(async (req: NextRequest, user
     const classification = typeof body.classification === 'string' ? body.classification : ''
     if (!CLASSIFICATIONS.has(classification)) return apiError('Invalid classification', 400)
     const reason = typeof body.reason === 'string' ? body.reason.trim().slice(0, 500) : ''
-    const reply = await correctReplyClassification(orgId, id, classification as SalesReplyClassification, user.uid, reason)
+    const suppliedKey = req.headers.get('idempotency-key')?.trim().slice(0, 200)
+    const idempotencyKey = suppliedKey || createHash('sha256').update(`${id}:${classification}:${user.uid}:${reason}`).digest('hex')
+    const reply = await correctReplyClassification(orgId, id, classification as SalesReplyClassification, user.uid, reason, idempotencyKey)
     return reply ? apiSuccess({ reply }) : apiError('Reply not found', 404)
   } catch (error) { return apiErrorFromException(error) }
 }))
