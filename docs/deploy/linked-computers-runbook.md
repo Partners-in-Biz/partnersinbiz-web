@@ -78,11 +78,11 @@ npx tsx scripts/cleanup-linked-runtime-transports.ts --device-id=DEVICE_ID
 Review the counts before requesting approval. Apply is explicit and may be scoped to one device:
 
 ```bash
-npx tsx scripts/cleanup-linked-runtime-transports.ts --apply --device-id=DEVICE_ID
-npx tsx scripts/cleanup-linked-runtime-transports.ts --apply
+npx tsx scripts/cleanup-linked-runtime-transports.ts --apply --run-id=RUN_ID --device-id=DEVICE_ID
+npx tsx scripts/cleanup-linked-runtime-transports.ts --apply --run-id=RUN_ID
 ```
 
-Apply deletes `linked_device_runtime_transports` documents and removes only the allowlisted legacy endpoint/token fields from linked device, credential, and rotation-delivery rows. It retains device credentials, credential hashes, rotation credentials, mappings, grants, queue jobs, and audits. Operations are idempotent and write one counts-only `legacy_transport.cleaned` audit. Production apply requires explicit approval.
+Apply creates a durable `linked_computer_migration_runs` row before mutations. Every mutation batch atomically writes its counts-only audit and cumulative checkpoint; completion or failure is recorded on the run. Resume a failed apply with the same `--run-id` and scope. A new run ID safely reconstructs remaining work from current state. Apply deletes `linked_device_runtime_transports` documents and removes only the allowlisted legacy endpoint/token fields from linked device, credential, and rotation-delivery rows. It retains device credentials, credential hashes, rotation credentials, mappings, grants, queue jobs, and audits. Production apply requires explicit approval.
 
 ## Incident and debugging checklist
 
