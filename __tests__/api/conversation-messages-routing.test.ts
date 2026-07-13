@@ -21,7 +21,6 @@ const mockCreateHermesRun = jest.fn()
 const mockResolveAuthorizedWorkingDirectory = jest.fn()
 const mockGetAgentDispatchHermesProfileLink = jest.fn()
 const mockIsConfiguredCompatibilityRuntimeTarget = jest.fn()
-const mockGetLinkedComputerHermesProfileLink = jest.fn()
 const mockAuthorizeLinkedComputerDispatch = jest.fn()
 const mockEnqueueLinkedRun = jest.fn()
 const mockWaitForLinkedRunClaim = jest.fn()
@@ -63,9 +62,6 @@ jest.mock('@/lib/agents/team', () => ({
   callAgentPath: mockCallAgentPath,
 }))
 
-jest.mock('@/lib/linked-computers/transport', () => ({
-  getLinkedComputerHermesProfileLink: mockGetLinkedComputerHermesProfileLink,
-}))
 
 jest.mock('@/lib/linked-computers/runtime-targets', () => ({
   ...jest.requireActual('@/lib/linked-computers/runtime-targets'),
@@ -416,8 +412,6 @@ describe('unified conversation message routing', () => {
     mockIsConfiguredCompatibilityRuntimeTarget.mockResolvedValue(false)
     const binding = { kind: 'linked-computer', deviceId: 'device-a', runtimeTargetId: 'linked-device:device-a', machineLabel: 'Office Mac', mappingId: 'map-a', workspaceId: 'partners', credentialVersion: 2, runtimeVersion: '2.0.0', platform: 'macos', lastSeenAt: new Date().toISOString(), publicKey: keys.publicKey.export({ type: 'spki', format: 'pem' }).toString() }
     mockAuthorizeLinkedComputerDispatch.mockResolvedValue(binding)
-    const transportLink = { orgId: 'pib-platform-owner', profile: 'pip', baseUrl: 'https://device.example', apiKey: 'private-token', enabled: true, runtimeTargetId: binding.runtimeTargetId, runtimeKind: 'linked-computer', machineLabel: 'Office Mac', capabilities: { runs: true }, permissions: { client: true } }
-    mockGetLinkedComputerHermesProfileLink.mockResolvedValue(transportLink)
     const acceptedAt = new Date().toISOString()
     const receipt = { deviceId: 'device-a', runtimeTargetId: binding.runtimeTargetId, credentialVersion: 2, mappingId: 'map-a', runtimeVersion: '2.0.0', acceptedAt, toolStartedAt: acceptedAt, outcome: 'accepted', runId: 'run-1', requestId: 'assistant-1', signature: '' }
     receipt.signature = sign(null, Buffer.from(receiptPayload(receipt)), keys.privateKey).toString('base64url')
@@ -428,7 +422,6 @@ describe('unified conversation message routing', () => {
     expect(response.status).toBe(201)
     expect(mockEnqueueLinkedRun).toHaveBeenCalledWith(expect.objectContaining({ deviceId: 'device-a', mappingId: 'map-a', requestId: 'assistant-1' }))
     expect(mockWaitForLinkedRunClaim).toHaveBeenCalledWith(expect.objectContaining({ jobId: 'job-linked-1' }))
-    expect(mockGetLinkedComputerHermesProfileLink).not.toHaveBeenCalled()
     expect(mockGetAgentDispatchHermesProfileLink).not.toHaveBeenCalled()
     expect(mockCreateHermesRun).not.toHaveBeenCalled()
   })

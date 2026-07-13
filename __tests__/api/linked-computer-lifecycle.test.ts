@@ -184,26 +184,25 @@ describe('linked computer lifecycle HTTP boundaries', () => {
   it('redelivers a pending rotation without a transport token to a signed previous-version heartbeat', async () => {
     const claim = jest.fn(async () => ({ rotationDeliveryId: 'delivery-1', credential: 'new-credential', credentialVersion: 2 }))
     const req = new NextRequest('https://test/api/v1/linked-computers/device-a/heartbeat', { method: 'POST', body: '{"runtimeVersion":"2.0.0","health":"ok","claimRotation":true}' })
-    const response = await handleDeviceHeartbeat(req, 'device-a', async () => ({ deviceId: 'device-a', ownerUserId: 'user-a', credentialVersion: 1 }), jest.fn(async () => undefined), jest.fn(), jest.fn(), claim)
+    const response = await handleDeviceHeartbeat(req, 'device-a', async () => ({ deviceId: 'device-a', ownerUserId: 'user-a', credentialVersion: 1 }), jest.fn(async () => undefined), claim)
     expect(claim).toHaveBeenCalledWith({ deviceId: 'device-a', authenticatedCredentialVersion: 1 })
     expect((await response.json()).data.rotation).toEqual({ rotationDeliveryId: 'delivery-1', credential: 'new-credential', credentialVersion: 2 })
   })
 
-  it('updates the private runtime endpoint only after signed device authentication', async () => {
+  it('rejects legacy runtime endpoint registration after signed device authentication', async () => {
     const auth = jest.fn(async () => ({ deviceId: 'device-a', ownerUserId: 'user-a', credentialVersion: 3 }))
-    const updateTransport = jest.fn(async () => undefined)
     const req = new NextRequest('https://test/api/v1/linked-computers/device-a/heartbeat', { method: 'POST', body: '{"runtimeVersion":"2.0.0","health":"ok","runtimeEndpoint":"https://device.example"}' })
-    expect((await handleDeviceHeartbeat(req, 'device-a', auth as never, jest.fn(async () => undefined), updateTransport)).status).toBe(200)
-    expect(updateTransport).toHaveBeenCalledWith({ deviceId: 'device-a', endpoint: 'https://device.example', credentialVersion: 3 })
+    const response = await handleDeviceHeartbeat(req, 'device-a', auth as never, jest.fn(async () => undefined))
+    expect(response.status).toBe(400)
+    expect(await response.text()).not.toContain('device.example')
   })
 
-  it('bootstraps a Stage 1 device transport once through the signed heartbeat action', async () => {
+  it('rejects legacy transport bootstrap and never returns a token', async () => {
     const auth = jest.fn(async () => ({ deviceId: 'device-a', ownerUserId: 'user-a', credentialVersion: 3 }))
-    const bindTransport = jest.fn(async () => ({ transportToken: 'returned-once' }))
     const req = new NextRequest('https://test/api/v1/linked-computers/device-a/heartbeat', { method: 'POST', body: '{"runtimeVersion":"2.0.0","health":"ok","runtimeEndpoint":"https://device.example","bootstrapTransport":true}' })
-    const response = await handleDeviceHeartbeat(req, 'device-a', auth as never, jest.fn(async () => undefined), jest.fn(async () => undefined), bindTransport)
+    const response = await handleDeviceHeartbeat(req, 'device-a', auth as never, jest.fn(async () => undefined))
     expect(response.headers.get('cache-control')).toBe('no-store')
-    expect((await response.json()).data.transportToken).toBe('returned-once')
-    expect(bindTransport).toHaveBeenCalledWith({ deviceId: 'device-a', endpoint: 'https://device.example', credentialVersion: 3 })
+    expect(response.status).toBe(400)
+    expect(await response.text()).not.toMatch(/transportToken|returned-once|device.example/)
   })
 })

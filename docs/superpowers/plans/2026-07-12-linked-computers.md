@@ -141,5 +141,6 @@
 - [ ] Run typecheck, lint ratchet, targeted ESLint, index validation, `git diff --check`, and production build sequentially.
 - [ ] Run two-user/two-org emulator acceptance proving cross-tenant denial, pairing replay denial, membership-loss denial, rotation/revocation, offline no-fallback, and redaction.
 - [ ] Verify outbound queue claim/progress/completion, lease renewal/reclaim fencing, signed callbacks, encrypted payload storage, replay nonces, and TTL policy declarations.
+- [ ] Prove pairing and heartbeat reject legacy endpoint/token fields, remove the direct transport adapter, and run the legacy transport cleanup in dry-run mode before any explicitly approved apply.
 - [ ] Document installer signing/notarisation and production credentials as explicit release gates; do not claim those gates passed without artifacts.
 - [ ] Commit the runbook/evidence contract with `docs(devices): add linked computer operations runbook`.

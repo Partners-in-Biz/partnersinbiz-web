@@ -43,11 +43,11 @@ describe('linked computer pairing HTTP redaction', () => {
       method: 'POST', body: JSON.stringify(payload), headers: { 'content-type': 'application/json' },
     })
     const response = await handlePairingExchange(request, async () => ({
-      deviceId: 'device-a', credential: 'device-credential', credentialVersion: 1, transportToken: 'transport-token',
+      deviceId: 'device-a', credential: 'device-credential', credentialVersion: 1,
     }))
     expect(response.headers.get('cache-control')).toBe('no-store')
     const json = await response.json()
-    expect(Object.keys(json.data).sort()).toEqual(['credential', 'credentialVersion', 'deviceId', 'transportToken'])
+    expect(Object.keys(json.data).sort()).toEqual(['credential', 'credentialVersion', 'deviceId'])
     expect(JSON.stringify(logSpies.flatMap((spy) => spy.mock.calls))).not.toMatch(/pairing-secret|machine-proof|device-credential|transport-token/)
   })
 

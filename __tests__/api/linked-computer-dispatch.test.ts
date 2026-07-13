@@ -5,7 +5,6 @@ import {
   requireMatchingExecutionReceipt,
 } from '@/lib/linked-computers/runtime-targets'
 import { generateKeyPairSync, sign } from 'node:crypto'
-import { decryptLinkedTransportToken, encryptLinkedTransportToken, validateLinkedRuntimeEndpoint } from '@/lib/linked-computers/transport'
 
 type Row = Record<string, unknown>
 
@@ -99,20 +98,4 @@ describe('linked computer runtime authorization', () => {
     expect(() => requireMatchingExecutionReceipt(authorized, { ...receipt, mappingId: 'map-other' }, { publicKey: keys.publicKey.export({ type: 'spki', format: 'pem' }).toString(), runId: 'run-1', requestId: 'assistant-1', nowMs: () => now + 2 })).toThrow('linked computers: execution receipt mismatch')
   })
 
-  it('encrypts private transport tokens with the shared master key and device context', () => {
-    process.env.SOCIAL_TOKEN_MASTER_KEY = 'test-linked-runtime-master-key'
-    const encrypted = encryptLinkedTransportToken('outbound-secret', 'owned')
-    expect(JSON.stringify(encrypted)).not.toContain('outbound-secret')
-    expect(decryptLinkedTransportToken(encrypted, 'owned')).toBe('outbound-secret')
-    expect(() => decryptLinkedTransportToken(encrypted, 'shared')).toThrow()
-  })
-
-  it('fails closed without a hostname allowlist and rejects private DNS answers', async () => {
-    delete process.env.LINKED_RUNTIME_ALLOWED_HOSTS
-    await expect(validateLinkedRuntimeEndpoint('https://runtime.example.com', { resolveHost: async () => ['203.0.113.10'] })).rejects.toThrow('allowlist')
-    process.env.LINKED_RUNTIME_ALLOWED_HOSTS = 'runtime.example.com,*.trusted.example'
-    await expect(validateLinkedRuntimeEndpoint('https://runtime.example.com', { resolveHost: async () => ['10.0.0.2'] })).rejects.toThrow('address')
-    await expect(validateLinkedRuntimeEndpoint('https://node.trusted.example', { resolveHost: async () => ['8.8.8.8', '2606:4700:4700::1111'] })).resolves.toBe('https://node.trusted.example')
-    await expect(validateLinkedRuntimeEndpoint('https://8.8.8.8', { resolveHost: async () => ['8.8.8.8'] })).rejects.toThrow('hostname')
-  })
 })

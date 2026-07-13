@@ -116,24 +116,36 @@ describe('linked computer one-time pairing', () => {
   })
 
   it('atomically consumes once, binds a new active device to the challenge owner, and returns one credential', async () => {
-    process.env.SOCIAL_TOKEN_MASTER_KEY = 'pairing-transport-test-key'
-    process.env.LINKED_RUNTIME_ALLOWED_HOSTS = 'runtime.example.test'
     const { db, rows } = fakeDb()
     const pairing = await createPairing({ actorUserId: 'user-a' }, { db, now, nowMs: () => nowMs })
     const m = machine()
     const input = { challengeId: pairing.challengeId, secret: pairing.secret, deviceId: 'device-a', publicKey: m.publicKey,
       proof: proof(m.privateKey, pairing.challengeId, pairing.secret, 'device-a', m.publicKey), label: 'Mac', platform: 'macos' as const,
-      architecture: 'arm64' as const, runtimeVersion: '1.0.0', runtimeEndpoint: 'https://runtime.example.test' }
-    const result = await exchangePairing(input, { db, now, nowMs: () => nowMs + 1, resolveHost: async () => ['8.8.8.8'] })
+      architecture: 'arm64' as const, runtimeVersion: '1.0.0' }
+    const result = await exchangePairing(input, { db, now, nowMs: () => nowMs + 1 })
     expect(result).toMatchObject({ deviceId: 'device-a', credentialVersion: 1 })
-    expect(Object.keys(result).sort()).toEqual(['credential', 'credentialVersion', 'deviceId', 'transportToken'])
+    expect(Object.keys(result).sort()).toEqual(['credential', 'credentialVersion', 'deviceId'])
     expect(result.credential).toBeTruthy()
     expect(rows.get('linked_devices/device-a')).toMatchObject({ ownerUserId: 'user-a', status: 'active', credentialVersion: 1 })
     expect(rows.get('linked_device_credentials/device-a')).not.toHaveProperty('credential')
-    expect(rows.get('linked_device_runtime_transports/device-a')).toMatchObject({ deviceId: 'device-a', endpoint: 'https://runtime.example.test', enabled: true, state: 'active' })
-    expect(JSON.stringify(rows.get('linked_device_runtime_transports/device-a'))).not.toContain(result.transportToken)
+    expect(rows.has('linked_device_runtime_transports/device-a')).toBe(false)
     expect(JSON.stringify([...rows.values()])).not.toContain(result.credential)
-    await expect(exchangePairing(input, { db, now, nowMs: () => nowMs + 2, resolveHost: async () => ['8.8.8.8'] })).rejects.toThrow('already consumed')
+    await expect(exchangePairing(input, { db, now, nowMs: () => nowMs + 2 })).rejects.toThrow('already consumed')
+  })
+
+  it('rejects legacy endpoint and transport-token fields without creating device state', async () => {
+    const { db, rows } = fakeDb()
+    const pairing = await createPairing({ actorUserId: 'user-a' }, { db, now, nowMs: () => nowMs })
+    const m = machine()
+    const base = { challengeId: pairing.challengeId, secret: pairing.secret, deviceId: 'device-a', publicKey: m.publicKey,
+      proof: proof(m.privateKey, pairing.challengeId, pairing.secret, 'device-a', m.publicKey), label: 'Mac', platform: 'macos' as const,
+      architecture: 'arm64' as const, runtimeVersion: '1.0.0' }
+    await expect(exchangePairing({ ...base, runtimeEndpoint: 'https://device.example' } as never, { db, now, nowMs: () => nowMs + 1 }))
+      .rejects.toThrow('legacy transport fields')
+    await expect(exchangePairing({ ...base, transportToken: 'token' } as never, { db, now, nowMs: () => nowMs + 1 }))
+      .rejects.toThrow('legacy transport fields')
+    expect(rows.has('linked_devices/device-a')).toBe(false)
+    expect(rows.has('linked_device_runtime_transports/device-a')).toBe(false)
   })
 
   it('allows exactly one winner when identical valid exchanges race', async () => {

@@ -64,6 +64,8 @@ Linked computers do not expose a public listener, accept an inbound tunnel, or r
 
 The runtime returns signed acceptance, progress, and terminal receipts bound to the exact job, request, device, mapping, credential version, attempt, lease token, output/error digests, machine label, runtime version, timestamps, and outcome. PiB verifies the receipt before updating conversation state and displays the accepted device rather than merely echoing the requested label. Prompts are encrypted at rest in the queue, terminal output is comprehensively redacted, and TTL cleanup is required for jobs and replay nonces.
 
+Pairing and heartbeat schemas reject legacy `runtimeEndpoint`, `bootstrapTransport`, and `transportToken` fields. Pairing returns only device ID, device credential, and credential version. No normal source path creates or reads `linked_device_runtime_transports`. Existing rows and legacy endpoint/token fields are removed by a scoped, idempotent, dry-run-first cleanup migration with counts-only auditing.
+
 ## Product experience
 
 Linked Computers settings supports:

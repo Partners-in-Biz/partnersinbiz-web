@@ -6,6 +6,8 @@ Date: 2026-07-13
 
 Linked computers are outbound-only clients. PiB authorises an organisation, user, device, grant, Workspace mapping, capability, heartbeat and credential, then encrypts the logical request into `linked_device_run_jobs`. The device polls fixed PiB HTTPS claim/progress/completion endpoints. It never exposes a public listener, registers a runtime URL, or requires an inbound tunnel.
 
+Pairing and heartbeat reject `runtimeEndpoint`, `bootstrapTransport`, and `transportToken`. The server has no direct linked-device Hermes adapter and does not create or read `linked_device_runtime_transports` during normal operation.
+
 Every device request signs the method, exact path, timestamp, fresh request ID and raw body. Queue work is fenced by device, credential version, attempt and opaque lease token. The runtime resolves the server-issued mapping ID in its private `0600` registry, invokes Hermes over loopback, and submits signed body-digest receipts. PiB verifies the receipt before finalising the assistant message.
 
 ## Pairing
@@ -63,6 +65,24 @@ Release manifests must use canonical Ed25519 signatures, strict SemVer, exact ch
 3. Roll back the application with a normal revert on `development`; production promotion requires separate approval.
 4. Roll back a runtime only to its stored, signed previous bundle. If signature/hash/platform/version validation fails, keep the current version and investigate.
 5. For compromise, revoke then remove the device, rotate affected release/device keys, inspect audit rows and nonce/replay activity, and do not reuse pairing material.
+
+## Legacy direct-transport cleanup
+
+The cleanup is dry-run by default and prints counts only; it never prints field values:
+
+```bash
+npx tsx scripts/cleanup-linked-runtime-transports.ts
+npx tsx scripts/cleanup-linked-runtime-transports.ts --device-id=DEVICE_ID
+```
+
+Review the counts before requesting approval. Apply is explicit and may be scoped to one device:
+
+```bash
+npx tsx scripts/cleanup-linked-runtime-transports.ts --apply --device-id=DEVICE_ID
+npx tsx scripts/cleanup-linked-runtime-transports.ts --apply
+```
+
+Apply deletes `linked_device_runtime_transports` documents and removes only the allowlisted legacy endpoint/token fields from linked device, credential, and rotation-delivery rows. It retains device credentials, credential hashes, rotation credentials, mappings, grants, queue jobs, and audits. Operations are idempotent and write one counts-only `legacy_transport.cleaned` audit. Production apply requires explicit approval.
 
 ## Incident and debugging checklist
 
