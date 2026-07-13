@@ -253,9 +253,10 @@ export const marketingStudioArtifactChatContextAdapter: ChatContextAdapter = {
       authorizeMarketingStudioMutation(user, orgId, 'create'),
       authorizeMarketingStudioMutation(user, orgId, 'approvePublish'),
     ])
-    let [runs, versions, credits, exports] = await Promise.all([
+    const [loadedRuns, versions, credits, exports] = await Promise.all([
       listCreativeCanvasRuns(canvasId, orgId), listCreativeCanvasVersions(canvasId, orgId), getCanvasCredits(orgId), listExports(canvasId, orgId),
     ])
+    let runs = loadedRuns
     if (artifactId?.startsWith('marketing_studio:run:')) {
       const runId = artifactId.slice('marketing_studio:run:'.length)
       const runSnap = await adminDb.collection(CREATIVE_CANVAS_RUN_COLLECTION).doc(runId).get()

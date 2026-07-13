@@ -212,7 +212,7 @@ export const youtubeStudioChatContextAdapter: ChatContextAdapter = {
     const channel = channelSnap.exists ? channelSnap.data() as YouTubeChannelWorkspace | undefined : undefined
     if (!channel || channel.deleted || channel.orgId !== ref.orgId) return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' }
     if (user.role === 'client' && channel.visibility?.showInClientPortal === false) return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' }
-    let [productionDrafts, sourceAssets, renderJobs, clipCandidates, packets, releasePlans, analytics] = await Promise.all([
+    const [loadedProductionDrafts, loadedSourceAssets, loadedRenderJobs, clipCandidates, loadedPackets, loadedReleasePlans, analytics] = await Promise.all([
       boundedChildren<YouTubeProductionDraft>(YOUTUBE_COLLECTIONS.productionDrafts, ref.orgId, videoId),
       boundedChildren<YouTubeSourceAsset>(YOUTUBE_COLLECTIONS.sourceAssets, ref.orgId, videoId),
       boundedChildren<YouTubeRenderJob>(YOUTUBE_COLLECTIONS.renderJobs, ref.orgId, videoId),
@@ -221,6 +221,11 @@ export const youtubeStudioChatContextAdapter: ChatContextAdapter = {
       boundedChildren<YouTubeReleasePlan>(YOUTUBE_COLLECTIONS.releasePlans, ref.orgId, videoId),
       boundedChildren<YouTubeAnalyticsSnapshot>(YOUTUBE_COLLECTIONS.analytics, ref.orgId, videoId),
     ])
+    let productionDrafts = loadedProductionDrafts
+    let sourceAssets = loadedSourceAssets
+    let renderJobs = loadedRenderJobs
+    let packets = loadedPackets
+    let releasePlans = loadedReleasePlans
     if (artifactId && artifactId !== id) {
       const match = /^youtube_studio:(production_draft|thumbnail|render|clip_pack|publishing_packet|release_plan):(.+)$/.exec(artifactId)
       const collection = match && ({ production_draft: YOUTUBE_COLLECTIONS.productionDrafts, thumbnail: YOUTUBE_COLLECTIONS.sourceAssets, render: YOUTUBE_COLLECTIONS.renderJobs, clip_pack: YOUTUBE_COLLECTIONS.renderJobs, publishing_packet: YOUTUBE_COLLECTIONS.packets, release_plan: YOUTUBE_COLLECTIONS.releasePlans } as const)[match[1] as 'production_draft']
