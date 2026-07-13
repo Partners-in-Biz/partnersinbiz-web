@@ -110,6 +110,19 @@ function visibilityBadge(conversation: Conversation): string | null {
   return 'Private'
 }
 
+function contextGlyph(conversation: Conversation): { icon: string; label: string } | null {
+  const context = conversation.contextRefs?.[0]
+  if (!context) return null
+  const icons: Partial<Record<ContextReference['type'], string>> = {
+    project: 'rocket_launch',
+    studio: 'design_services',
+    studio_artifact: 'draft',
+    company: 'business',
+    contact: 'person',
+  }
+  return { icon: icons[context.type] ?? 'label', label: context.label }
+}
+
 export default function ConversationListItem({
   conversation: c,
   active,
@@ -125,6 +138,7 @@ export default function ConversationListItem({
   const leadAgentDot = leadAgent?.kind === 'agent' ? (AGENT_COLORS[leadAgent.agentId] ?? 'bg-white/40') : 'bg-white/30'
   const workspaceRuntime = runtimeBadge(c)
   const workspaceVisibility = visibilityBadge(c)
+  const context = contextGlyph(c)
 
   if (compact) {
     return (
@@ -132,7 +146,7 @@ export default function ConversationListItem({
         type="button"
         data-testid={`conversation-row-${c.id}`}
         onClick={onClick}
-        className={`group w-full rounded-md px-2 py-1.5 text-left transition-colors ${
+        className={`group w-full rounded-md px-2 py-1.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/60 ${
           active
             ? 'bg-white/[0.08] text-on-surface ring-1 ring-white/[0.06]'
             : 'text-on-surface-variant hover:bg-white/[0.045] hover:text-on-surface'
@@ -140,6 +154,11 @@ export default function ConversationListItem({
       >
         <div className="flex min-w-0 items-center gap-1.5">
           <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${leadAgentDot}`} />
+          {context && (
+            <span className="material-symbols-outlined shrink-0 text-[13px] text-primary/85" title={`Context: ${context.label}`} aria-label={`Context: ${context.label}`}>
+              {context.icon}
+            </span>
+          )}
           <span className="min-w-0 flex-1 truncate text-[12px] font-medium leading-4 text-on-surface">
             {c.title || 'Untitled'}
           </span>
@@ -193,7 +212,7 @@ export default function ConversationListItem({
       type="button"
       data-testid={`conversation-row-${c.id}`}
       onClick={onClick}
-      className={`w-full text-left transition-colors group ${compact ? 'rounded-md px-2 py-1.5' : 'rounded-lg px-3 py-2.5'} ${
+      className={`w-full text-left outline-none transition-colors group focus-visible:ring-2 focus-visible:ring-primary/60 ${compact ? 'rounded-md px-2 py-1.5' : 'rounded-lg px-3 py-2.5'} ${
         active
           ? 'bg-[var(--color-card-active,rgba(255,255,255,0.08))] text-on-surface'
           : 'text-on-surface-variant hover:bg-[var(--color-card-hover,rgba(255,255,255,0.04))]'

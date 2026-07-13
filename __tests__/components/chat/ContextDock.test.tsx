@@ -27,6 +27,7 @@ it('is an accessible adaptive dock, omits empty sections, closes on Escape, and 
   expect(screen.getByRole('dialog', { name: 'Marketing Studio context' })).toHaveAttribute('data-presentation', 'sheet')
   expect(screen.queryByText('Empty')).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Close context dock' })).toHaveFocus()
+  expect(screen.getByRole('button', { name: 'Close context dock' })).toHaveClass('focus-visible:ring-2')
   fireEvent.keyDown(document, { key: 'Escape' })
   expect(close).toHaveBeenCalled()
   rerender(<><button>Open context</button><ContextDock model={model} open={false} onClose={close} /></>)

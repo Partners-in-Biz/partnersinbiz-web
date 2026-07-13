@@ -9,9 +9,11 @@ it('activates the Dock on click and reveals provenance progressively', () => {
   expect(screen.queryByText(/veo-3/)).not.toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: /Inspect Launch cut/i }))
   expect(activate).toHaveBeenCalledWith(artifact)
+  expect(screen.getByRole('button', { name: /Inspect Launch cut/i })).toHaveClass('focus-visible:ring-2')
   fireEvent.click(screen.getByRole('button', { name: /Show provenance/i }))
   expect(screen.getByText(/veo-3/)).toBeInTheDocument()
   expect(screen.getByText(/google/)).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /Hide provenance/i })).toHaveClass('focus-visible:ring-2')
 })
 
 it('renders media preview, lifecycle metadata, review state, and executes actions through the handler', () => {
@@ -24,6 +26,7 @@ it('renders media preview, lifecycle metadata, review state, and executes action
   expect(screen.getByText(/vera/)).toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: 'Review' }))
   expect(onAction).toHaveBeenCalledWith(actionable.actions[0])
+  expect(screen.getByRole('button', { name: 'Review' })).toHaveClass('focus-visible:ring-2')
 })
 
 it('rejects executable and data preview URLs', () => {
@@ -32,4 +35,15 @@ it('rejects executable and data preview URLs', () => {
   expect(screen.queryByLabelText('Video preview for Launch cut')).not.toBeInTheDocument()
   expect(document.querySelector('[src^="javascript:"]')).toBeNull()
   expect(document.querySelector('[src^="data:"]')).toBeNull()
+})
+
+it('gives the selected artifact a readable visual state and preserves its exact deep link', () => {
+  const linked = { ...artifact, actions: [{ id: 'open', label: 'Open exact editor', href: '/portal/video-editor/projects/v1?cut=cut-7' }] }
+  render(<ContextArtifactCard artifact={linked} selected />)
+
+  const card = screen.getByRole('article')
+  expect(card).toHaveAttribute('data-selected', 'true')
+  expect(card).toHaveClass('border-primary/55')
+  expect(card).toHaveClass('bg-primary/[0.08]')
+  expect(screen.getByRole('link', { name: 'Open exact editor' })).toHaveAttribute('href', '/portal/video-editor/projects/v1?cut=cut-7')
 })
