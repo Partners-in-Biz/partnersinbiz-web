@@ -545,7 +545,7 @@ describe('context reference registry', () => {
       .map((result) => result.value as MockQuery)
       .filter((query) => query?.limit?.mock.calls.length > 0)
       .flatMap((query) => query.limit.mock.calls.map(([value]) => value))
-    expect(exactLimits).toEqual([24, 24, 24, 24])
+    expect(exactLimits).toEqual([24, 24, 24, 24, 24])
     expect(mockCollection.mock.calls.filter(([name]) => name === 'organizations')).toHaveLength(1)
 
     mockCollection.mockClear()
@@ -568,10 +568,10 @@ describe('context reference registry', () => {
       '/portal/video-editor?projectId=video-1',
       '/admin/org/elemental/book-studio/book-1',
       '/admin/org/elemental/youtube-studio/editor/yt-1',
+      '/admin/org/elemental/mobile-apps?appId=app-1',
     ])
 
     await expect(resolveContextReferences([
-      { type: 'studio_artifact', id: 'mobile_apps:app:app-1' },
       { type: 'studio_artifact', id: 'book_studio:chapter:chapter-1' },
       { type: 'studio_artifact', id: 'youtube_studio:channel:channel-1' },
     ], admin, 'org-1')).resolves.toEqual([])
@@ -594,6 +594,48 @@ describe('context reference registry', () => {
       uid: 'client-3', role: 'client', orgId: 'org-3', orgIds: ['org-3'], authKind: 'session',
       memberAccessPolicy: { preset: 'full', modules, recordScopes: { crm: 'all', projects: 'all' } },
     }, 'org-3')).resolves.toEqual([])
+  })
+
+  it('uses the shared canonical identity for Mobile App resolve and search results', async () => {
+    const { resolveContextReferences, searchContextReferences } = await import('@/lib/context-references/registry')
+    const user = { uid: 'admin-1', role: 'admin' as const, authKind: 'session' as const }
+    await expect(resolveContextReferences([
+      { type: 'studio_artifact', id: 'mobile_apps:app:app-1' },
+    ], user, 'org-1')).resolves.toEqual([
+      expect.objectContaining({ id: 'mobile_apps:org:b3JnLTE:app:YXBwLTE', orgId: 'org-1' }),
+    ])
+    await expect(searchContextReferences({ type: 'studio_artifact', query: 'client', orgId: 'org-1', user })).resolves.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: 'mobile_apps:org:b3JnLTE:app:YXBwLTE' })]),
+    )
+  })
+
+  it('retains legacy context ids for Video, Book, and YouTube resolve and search results', async () => {
+    const { resolveContextReferences, searchContextReferences } = await import('@/lib/context-references/registry')
+    const user = { uid: 'admin-1', role: 'admin' as const, authKind: 'session' as const }
+    await expect(resolveContextReferences([
+      { type: 'studio_artifact', id: 'video_editor:project:video-1' },
+      { type: 'studio_artifact', id: 'book_studio:project:book-1' },
+      { type: 'studio_artifact', id: 'youtube_studio:video_project:yt-1' },
+    ], user, 'org-1')).resolves.toEqual([
+      expect.objectContaining({ id: 'video_editor:project:video-1' }),
+      expect.objectContaining({ id: 'book_studio:project:book-1' }),
+      expect.objectContaining({ id: 'youtube_studio:video_project:yt-1' }),
+    ])
+    await expect(searchContextReferences({ type: 'studio_artifact', query: 'launch', orgId: 'org-1', user })).resolves.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: 'video_editor:project:video-1' })]),
+    )
+  })
+
+  it('rejects a module-disabled canonical Mobile App reference before reading the app', async () => {
+    const { resolveContextReferences } = await import('@/lib/context-references/registry')
+    mockCollection.mockClear()
+    await expect(resolveContextReferences([
+      { type: 'studio_artifact', id: 'mobile_apps:org:b3JnLTE:app:YXBwLTE', orgId: 'org-1' },
+    ], {
+      uid: 'client-1', role: 'client', orgId: 'org-1', orgIds: ['org-1'], authKind: 'session',
+      memberAccessPolicy: { preset: 'custom', modules: { mobileApps: false }, recordScopes: {} },
+    } as never, 'org-1')).resolves.toEqual([])
+    expect(mockCollection.mock.calls.filter(([name]) => name === 'mobile_apps')).toHaveLength(0)
   })
 
   it('round-trips colon-containing Firestore ids through one encoded opaque segment', async () => {

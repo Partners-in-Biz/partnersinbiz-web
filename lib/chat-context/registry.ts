@@ -10,6 +10,9 @@ import { projectChatContextAdapter } from '@/lib/chat-context/adapters/project'
 import { marketingStudioChatContextAdapter } from '@/lib/chat-context/adapters/marketingStudio'
 import { marketingStudioArtifactChatContextAdapter } from '@/lib/chat-context/adapters/marketingStudioArtifact'
 import { videoEditorChatContextAdapter } from '@/lib/chat-context/adapters/videoEditor'
+import { mobileAppsChatContextAdapter } from '@/lib/chat-context/adapters/mobileApps'
+import { bookStudioChatContextAdapter } from '@/lib/chat-context/adapters/bookStudio'
+import { youtubeStudioChatContextAdapter } from '@/lib/chat-context/adapters/youtubeStudio'
 
 export type ChatContextAdapters = Partial<Record<ChatContextKind, ChatContextAdapter>>
 
@@ -33,6 +36,9 @@ export const chatContextRegistry = createChatContextRegistry({
     resolve(input) {
       if (input.id.startsWith('marketing_studio:')) return marketingStudioArtifactChatContextAdapter.resolve(input)
       if (input.id.startsWith('video_editor:')) return videoEditorChatContextAdapter.resolve(input)
+      if (input.id.startsWith('mobile_apps:')) return mobileAppsChatContextAdapter.resolve(input)
+      if (input.id.startsWith('book_studio:')) return bookStudioChatContextAdapter.resolve(input)
+      if (input.id.startsWith('youtube_studio:')) return youtubeStudioChatContextAdapter.resolve(input)
       return Promise.resolve({ ok: false, reason: 'not_found' as const, status: 404, error: 'Context unavailable' })
     },
   },

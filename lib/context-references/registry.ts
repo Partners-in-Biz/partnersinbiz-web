@@ -3,7 +3,8 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import type { ApiUser } from '@/lib/api/types'
 import type { StudioKind } from '@/lib/chat-context/types'
-import { marketingCanvasContextId, parseMarketingCanvasContextId } from '@/lib/chat-context/marketingCanvasIdentity'
+import { parseMarketingCanvasContextId } from '@/lib/chat-context/marketingCanvasIdentity'
+import { parseStudioArtifactContextId, studioArtifactContextId } from '@/lib/chat-context/studioArtifactIdentity'
 import { canAccessModule, type WorkspaceModuleKey } from '@/lib/orgMembers/access-policy'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import { isPortalModuleEnabled, type PortalModuleKey } from '@/lib/organizations/portal-modules'
@@ -130,12 +131,20 @@ const STUDIO_DEFINITIONS: Record<StudioKind, StudioDefinition> = {
   },
   mobile_apps: {
     label: 'Mobile Apps', route: '/portal/mobile-apps', adminRoute: (org) => clean(org.slug) ? `/admin/org/${encodeURIComponent(clean(org.slug))}/mobile-apps` : '/portal/mobile-apps', moduleKey: 'mobileApps', portalModuleKey: 'mobileApps',
-    resources: {},
+    resources: {
+      app: { collection: 'mobile_apps', exactHref: (id, base) => `${base}?appId=${encodeURIComponent(id)}` },
+    },
   },
 }
 
 function studioKindFrom(value: string): StudioKind | null {
   return Object.prototype.hasOwnProperty.call(STUDIO_DEFINITIONS, value) ? value as StudioKind : null
+}
+
+function studioArtifactReferenceId(studioKind: StudioKind, orgId: string, resourceType: string, resourceId: string): string {
+  return studioKind === 'marketing_studio' || studioKind === 'mobile_apps'
+    ? studioArtifactContextId({ studioKind, orgId, resourceType, resourceId })
+    : `${studioKind}:${resourceType}:${encodeURIComponent(resourceId)}`
 }
 
 function portalSettingsFrom(data: RawDoc): { portalModules?: Partial<Record<PortalModuleKey, boolean>> } | undefined {
@@ -630,25 +639,31 @@ async function resolveStudio(input: ResolverInput): Promise<ContextReference | n
 
 async function resolveStudioArtifact(input: ResolverInput): Promise<ContextReference | null> {
   const marketingIdentity = parseMarketingCanvasContextId(input.seed.id)
+  const canonicalIdentity = parseStudioArtifactContextId(input.seed.id)
   const parts = input.seed.id.split(':')
-  if (!marketingIdentity && (parts.length !== 3 || parts.some((part) => !part))) return null
-  const studioKind = marketingIdentity ? 'marketing_studio' : studioKindFrom(parts[0])
+  if (!marketingIdentity && !canonicalIdentity && (parts.length !== 3 || parts.some((part) => !part))) return null
+  const studioKind = marketingIdentity ? 'marketing_studio' : canonicalIdentity?.studioKind ?? studioKindFrom(parts[0])
   if (!studioKind) return null
   const definition = STUDIO_DEFINITIONS[studioKind]
-  const resourceType = marketingIdentity ? 'canvas' : parts[1]
+  const resourceType = marketingIdentity ? 'canvas' : canonicalIdentity?.resourceType ?? parts[1]
   let resourceId = ''
   if (marketingIdentity) resourceId = marketingIdentity.canvasId
+  else if (canonicalIdentity) resourceId = canonicalIdentity.resourceId
   else try { resourceId = decodeURIComponent(parts[2]) } catch { return null }
   if (!resourceId) return null
   const resource = definition.resources[resourceType]
   if (!resource?.exactHref) return null
+  const knownOrgId = canonicalIdentity?.orgId ?? marketingIdentity?.orgId ?? expectedOrgId(input.seed, input.defaultOrgId)
+  const preloadedOrgData = knownOrgId ? await loadStudioOrg(input, knownOrgId, definition) : null
+  if (knownOrgId && !preloadedOrgData) return null
   const record = await getDoc(resource.collection, resourceId)
   if (!record) return null
   const data = record.data() ?? {}
   const orgId = docOrgId(data)
   const lifecycle = clean(data.lifecycleStatus || data.status).toLowerCase()
-  if (!orgId || (marketingIdentity?.orgId && marketingIdentity.orgId !== orgId) || isDeleted(data) || lifecycle === 'deleted' || (lifecycle === 'archived' && studioKind !== 'video_editor')) return null
-  const orgData = await loadStudioOrg(input, orgId, definition)
+  const encodedOrgId = marketingIdentity?.orgId ?? canonicalIdentity?.orgId
+  if (!orgId || (knownOrgId && knownOrgId !== orgId) || (encodedOrgId && encodedOrgId !== orgId) || isDeleted(data) || lifecycle === 'deleted' || (lifecycle === 'archived' && studioKind !== 'video_editor')) return null
+  const orgData = preloadedOrgData ?? await loadStudioOrg(input, orgId, definition)
   if (!orgData) return null
   const canonicalRoute = input.user.role === 'client' ? definition.route : definition.adminRoute?.(orgData) ?? definition.route
   const rawHref = resource.exactHref(record.id, canonicalRoute, data)
@@ -656,7 +671,7 @@ async function resolveStudioArtifact(input: ResolverInput): Promise<ContextRefer
   if (/(?:\?|&)[^=]+=(&|$)/.test(exactHref) || exactHref.startsWith(`${canonicalRoute}/?`)) return null
   const label = clean(data.title) || clean(data.name) || clean(data.label) || `${definition.label} ${resourceType.replace(/_/g, ' ')}`
   return makeRef({
-    type: 'studio_artifact', id: studioKind === 'marketing_studio' ? marketingCanvasContextId(orgId, record.id) : `${studioKind}:${resourceType}:${encodeURIComponent(record.id)}`, orgId, label,
+    type: 'studio_artifact', id: studioArtifactReferenceId(studioKind, orgId, resourceType, record.id), orgId, label,
     origin: origin(input.seed), href: exactHref,
     summary: resourceType.replace(/_/g, ' '),
   })
@@ -846,7 +861,7 @@ export async function searchContextReferences(input: SearchContextReferencesInpu
         if (!rawHref) continue
         const exactHref = source.studioKind === 'marketing_studio' ? `${rawHref}&orgId=${encodeURIComponent(input.orgId)}` : rawHref
         refs.push(makeRef({
-          type: 'studio_artifact', id: source.studioKind === 'marketing_studio' ? marketingCanvasContextId(input.orgId, doc.id) : `${source.studioKind}:${source.resourceType}:${encodeURIComponent(doc.id)}`,
+          type: 'studio_artifact', id: studioArtifactReferenceId(source.studioKind, input.orgId, source.resourceType, doc.id),
           orgId: input.orgId, label: clean(data.title) || clean(data.name) || clean(data.label) || `${definition.label} ${source.resourceType.replace(/_/g, ' ')}`,
           origin: 'mention', href: exactHref, summary: source.resourceType.replace(/_/g, ' '),
         }))
