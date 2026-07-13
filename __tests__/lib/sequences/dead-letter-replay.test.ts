@@ -18,6 +18,25 @@ describe('buildDeadLetterReplayDecision', () => {
     expect(buildDeadLetterReplayDecision({ ...enrollment, status: 'active', replayKey: 'retry-1' } as never, 'retry-1', { uid: 'u-1', displayName: 'Peet', kind: 'human' }, 'NOW' as never)).toEqual({ idempotent: true, patch: null })
   })
 
+  it('returns an idempotent no-op when a late retry key exists in replay history', () => {
+    const replayedAt = 'EARLIER' as never
+    const withLaterFailure = {
+      ...enrollment,
+      replayKey: 'retry-newer',
+      deadLetterHistory: [{
+        ...enrollment.deadLetter!,
+        replayKey: 'retry-older',
+        replayedAt,
+        replayedByRef: { uid: 'u-1', displayName: 'Peet', kind: 'human' as const },
+      }],
+    }
+
+    expect(buildDeadLetterReplayDecision(withLaterFailure, 'retry-older', { uid: 'u-1', displayName: 'Peet', kind: 'human' }, 'NOW' as never)).toEqual({
+      idempotent: true,
+      patch: null,
+    })
+  })
+
   it('rejects non-dead-letter enrollments for a new key', () => {
     expect(() => buildDeadLetterReplayDecision({ ...enrollment, status: 'active' } as never, 'retry-2', { uid: 'u-1', displayName: 'Peet', kind: 'human' }, 'NOW' as never)).toThrow(/not replayable/i)
   })

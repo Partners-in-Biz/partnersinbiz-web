@@ -16,7 +16,8 @@ export function buildDeadLetterReplayDecision(
   actor: MemberRef,
   now: Timestamp,
 ): { idempotent: boolean; patch: Record<string, unknown> | null } {
-  if (enrollment.replayKey === replayKey) {
+  const priorReplay = enrollment.deadLetterHistory?.some((entry) => entry.replayKey === replayKey) ?? false
+  if (enrollment.replayKey === replayKey || priorReplay) {
     return { idempotent: true, patch: null }
   }
   if (enrollment.status !== 'dead_letter' || !enrollment.deadLetter?.replayable) {
@@ -49,7 +50,7 @@ export async function replaySequenceDeadLetter(args: {
   enrollmentId: string
   replayKey: string
   actor: MemberRef
-}): Promise<{ enrollmentId: string; idempotent: boolean }> {
+}): Promise<{ enrollmentId: string; idempotent: boolean; status: SequenceEnrollment['status'] }> {
   const enrollmentRef = adminDb.collection('sequence_enrollments').doc(args.enrollmentId)
   const sequenceRef = adminDb.collection('sequences').doc(args.sequenceId)
   return adminDb.runTransaction(async (transaction) => {
@@ -68,6 +69,10 @@ export async function replaySequenceDeadLetter(args: {
     }
     const decision = buildDeadLetterReplayDecision(enrollment, args.replayKey, args.actor, Timestamp.now())
     if (decision.patch) transaction.update(enrollmentRef, decision.patch)
-    return { enrollmentId: args.enrollmentId, idempotent: decision.idempotent }
+    return {
+      enrollmentId: args.enrollmentId,
+      idempotent: decision.idempotent,
+      status: decision.idempotent ? enrollment.status : 'active',
+    }
   })
 }
