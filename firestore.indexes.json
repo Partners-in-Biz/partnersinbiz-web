@@ -1,6 +1,14 @@
 {
   "indexes": [
     {
+      "collectionGroup": "linked_device_cleanup_runs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "leaseExpiresAt", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "linked_device_workspace_mappings",
       "queryScope": "COLLECTION",
       "fields": [

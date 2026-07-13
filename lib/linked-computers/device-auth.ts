@@ -83,3 +83,25 @@ export async function authenticateDeviceRequest(
     return { deviceId: input.deviceId, ownerUserId: String(device.ownerUserId), credentialVersion: input.credentialVersion }
   })
 }
+
+export async function authenticateDeviceRevocationRequest(input: DeviceAuthInput, options: { db?: LinkedComputerPairingDb; nowMs?: () => number } = {}): Promise<{ deviceId: string; ownerUserId: string; credentialVersion: number; status: string }> {
+  const expectedPath = `/api/v1/linked-computers/${input.deviceId}/revoke`
+  if (input.method.toUpperCase() !== 'POST' || input.path !== expectedPath) throw new Error('linked computers: revocation authentication route required')
+  const db = options.db ?? (adminDb as unknown as LinkedComputerPairingDb)
+  const now = options.nowMs?.() ?? Date.now(); const requestTime = Number(input.timestamp)
+  if (!Number.isFinite(requestTime) || Math.abs(now - requestTime) > MAX_CLOCK_SKEW_MS || !/^[A-Za-z0-9_-]{16,128}$/.test(input.requestId)) throw new Error('linked computers: invalid revocation request')
+  return db.runTransaction(async (tx) => {
+    const deviceRef = db.collection('linked_devices').doc(input.deviceId); const credentialRef = db.collection('linked_device_credentials').doc(input.deviceId)
+    const nonceRef = db.collection('linked_device_request_nonces').doc(createHash('sha256').update(`${input.deviceId}\n${input.requestId}`).digest('hex'))
+    const [deviceSnap, credentialSnap, nonceSnap] = await Promise.all([tx.get(deviceRef), tx.get(credentialRef), tx.get(nonceRef)])
+    if (!deviceSnap.exists || !credentialSnap.exists || nonceSnap.exists) throw new Error('linked computers: revocation authentication failed')
+    const device = deviceSnap.data() ?? {}; const credential = credentialSnap.data() ?? {}
+    if (!['active', 'revoked', 'removed'].includes(String(device.status)) || Number(device.credentialVersion) !== input.credentialVersion || Number(credential.credentialVersion) !== input.credentialVersion
+      || !constantTimeSecretMatch(input.credential, String(credential.credentialHash ?? ''))) throw new Error('linked computers: revocation authentication failed')
+    let valid = false
+    try { valid = verify(null, Buffer.from(deviceRequestPayload(input)), String(device.publicKey ?? ''), Buffer.from(input.signature, 'base64url')) } catch { valid = false }
+    if (!valid) throw new Error('linked computers: revocation authentication failed')
+    tx.create(nonceRef, { deviceId: input.deviceId, requestIdHash: createHash('sha256').update(input.requestId).digest('hex'), credentialVersion: input.credentialVersion, requestTimestamp: requestTime, expiresAt: Timestamp.fromMillis(Math.max(now, requestTime) + MAX_CLOCK_SKEW_MS) })
+    return { deviceId: input.deviceId, ownerUserId: String(device.ownerUserId), credentialVersion: input.credentialVersion, status: String(device.status) }
+  })
+}

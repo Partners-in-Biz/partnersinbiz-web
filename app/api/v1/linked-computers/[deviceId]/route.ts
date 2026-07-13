@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
-import { updateOwnedDevice, removeOwnedDevice, processDeviceCleanupBatch } from '@/lib/linked-computers/store'
+import { updateOwnedDevice, removeOwnedDevice, kickDeviceCleanup } from '@/lib/linked-computers/store'
 import { lifecycleError, noStoreHeaders } from '@/lib/linked-computers/http'
 
 type Context = { params: Promise<{ deviceId: string }> }
@@ -14,7 +14,7 @@ export async function handleLinkedComputerUpdate(req: NextRequest, user: { uid: 
     return NextResponse.json({ success: true }, { headers: noStoreHeaders })
   } catch (error) { return lifecycleError(error) }
 }
-export async function handleLinkedComputerRemove(user: { uid: string }, deviceId: string, remove = removeOwnedDevice, cleanup = processDeviceCleanupBatch): Promise<Response> {
+export async function handleLinkedComputerRemove(user: { uid: string }, deviceId: string, remove = removeOwnedDevice, cleanup = kickDeviceCleanup): Promise<Response> {
   try {
     await remove({ deviceId, actorUserId: user.uid })
     const cleanupStatus = await cleanup(deviceId).catch(() => ({ done: false, processed: 0, phase: 'retryable' }))

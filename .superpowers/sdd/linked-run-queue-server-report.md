@@ -115,3 +115,9 @@ Revoke/remove routes now kick one bounded cleanup batch after the authority-kill
 The scheduled linked-device cleanup worker leases a bounded set of durable cleanup runs, fences concurrent workers, processes one bounded phase batch, checkpoints pending/completed state, and records a secret-free retryable failure with backoff. Vercel invokes it every five minutes through the established cron authorization convention.
 
 Canonical Task 7 readiness remains invalidated. A fresh integrated verification must be appended only after the final source commit is stable.
+
+## Terminal revoke retry and cleanup fencing
+
+A narrowly scoped signed revocation authenticator accepts retained current device identity only on the exact revoke route. It permits a terminal device to recover a lost 202 response, while timestamp, signature, version, credential hash, path and nonce replay checks remain enforced. It grants no authority on any other endpoint. Terminal retries return `already_revoked` without repeating authority mutations.
+
+Cleanup runs now use unpredictable lease tokens plus worker IDs. Initial route kicks and scheduled work both acquire a lease; every batch verifies the current running lease. Expired running leases are discoverable and reclaimable, while the previous worker token is fenced. The cleanup-run status/lease index supports the bounded reclaim query.

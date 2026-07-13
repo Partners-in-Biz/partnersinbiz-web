@@ -405,12 +405,14 @@ export async function removeOwnedDevice(input: { deviceId: string; actorUserId: 
   })
 }
 
-export async function processDeviceCleanupBatch(deviceId: string, options: { db?: any; limit?: number } = {}): Promise<{ done: boolean; processed: number; phase: string }> {
+export async function processDeviceCleanupBatch(deviceId: string, options: { db?: any; limit?: number; workerId?: string; leaseToken?: string } = {}): Promise<{ done: boolean; processed: number; phase: string }> {
   const db = options.db ?? adminDb
   const limit = Math.min(Math.max(1, options.limit ?? 75), 100)
   const cleanupRef = db.collection('linked_device_cleanup_runs').doc(deviceId)
   const cleanupSnap = await cleanupRef.get()
   if (!cleanupSnap.exists) throw new Error('linked computers: cleanup run not found')
+  const cleanupRow = cleanupSnap.data() ?? {}
+  if (!options.workerId || !options.leaseToken || cleanupRow.status !== 'running' || cleanupRow.leaseOwner !== options.workerId || cleanupRow.leaseToken !== options.leaseToken) throw new Error('linked computers: cleanup lease fenced')
   const phase = String(cleanupSnap.data()?.phase ?? 'mappings')
   if (phase === 'mappings' || phase === 'grants') {
     const collection = phase === 'mappings' ? MAPPINGS : GRANTS
@@ -438,31 +440,41 @@ export async function processDeviceCleanupBatch(deviceId: string, options: { db?
   return { done: true, processed: 0, phase }
 }
 
+async function claimDeviceCleanupLease(deviceId: string, db: any, workerId: string, nowMs: number) {
+  const ref = db.collection('linked_device_cleanup_runs').doc(deviceId); const leaseToken = randomBytes(24).toString('base64url')
+  const won = await db.runTransaction(async (tx: any) => { const snap = await tx.get(ref); const row = snap.data() ?? {}; const expiry = row.leaseExpiresAt?.toMillis?.() ?? Date.parse(String(row.leaseExpiresAt ?? '')); if (!snap.exists || row.status === 'completed' || (row.status === 'running' && Number.isFinite(expiry) && expiry > nowMs)) return false; tx.set(ref, { status: 'running', leaseOwner: workerId, leaseToken, leaseExpiresAt: Timestamp.fromMillis(nowMs + 60_000), attempts: Number(row.attempts ?? 0) + 1, updatedAt: FieldValue.serverTimestamp() }, { merge: true }); return true })
+  return won ? leaseToken : null
+}
+
+export async function kickDeviceCleanup(deviceId: string, options: { db?: any; nowMs?: number } = {}) {
+  const db = options.db ?? adminDb; const workerId = `kick:${randomUUID()}`; const token = await claimDeviceCleanupLease(deviceId, db, workerId, options.nowMs ?? Date.now())
+  if (!token) return { done: false, processed: 0, phase: 'leased' }
+  const result = await processDeviceCleanupBatch(deviceId, { db, workerId, leaseToken: token })
+  await db.collection('linked_device_cleanup_runs').doc(deviceId).set(result.done ? { status: 'completed', leaseOwner: null, leaseToken: null, leaseExpiresAt: null } : { status: 'pending', leaseOwner: null, leaseToken: null, leaseExpiresAt: null }, { merge: true })
+  return result
+}
+
 export async function runDeviceCleanupWorker(options: { db?: any; maxRuns?: number; nowMs?: number; workerId?: string } = {}) {
   const db = options.db ?? adminDb
   const nowMs = options.nowMs ?? Date.now()
   const workerId = options.workerId ?? randomUUID()
-  const snap = await db.collection('linked_device_cleanup_runs').where('status', 'in', ['pending', 'retryable']).limit(Math.min(options.maxRuns ?? 5, 10)).get()
+  const maxRuns = Math.min(options.maxRuns ?? 5, 10)
+  const [readySnap, runningSnap] = await Promise.all([db.collection('linked_device_cleanup_runs').where('status', 'in', ['pending', 'retryable']).limit(maxRuns).get(), db.collection('linked_device_cleanup_runs').where('status', '==', 'running').where('leaseExpiresAt', '<=', Timestamp.fromMillis(nowMs)).limit(maxRuns).get()])
+  const docs = [...readySnap.docs, ...runningSnap.docs].filter((doc, index, all) => all.findIndex((item) => item.id === doc.id) === index).slice(0, maxRuns)
   const results: Array<{ deviceId: string; status: string }> = []
-  for (const doc of snap.docs) {
-    const leased = await db.runTransaction(async (tx: any) => {
-      const current = await tx.get(doc.ref); const row = current.data() ?? {}
-      const leaseMs = row.leaseExpiresAt?.toMillis?.() ?? Date.parse(String(row.leaseExpiresAt ?? ''))
-      if (!current.exists || row.status === 'completed' || (Number.isFinite(leaseMs) && leaseMs > nowMs)) return false
-      tx.set(doc.ref, { status: 'running', leaseOwner: workerId, leaseExpiresAt: Timestamp.fromMillis(nowMs + 60_000), attempts: Number(row.attempts ?? 0) + 1, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
-      return true
-    })
-    if (!leased) continue
+  for (const doc of docs) {
+    const leaseToken = await claimDeviceCleanupLease(doc.id, db, workerId, nowMs)
+    if (!leaseToken) continue
     try {
-      const result = await processDeviceCleanupBatch(doc.id, { db })
-      await doc.ref.set(result.done ? { status: 'completed', leaseOwner: null, leaseExpiresAt: null, completedAt: FieldValue.serverTimestamp() } : { status: 'pending', leaseOwner: null, leaseExpiresAt: null, nextAttemptAt: FieldValue.serverTimestamp() }, { merge: true })
+      const result = await processDeviceCleanupBatch(doc.id, { db, workerId, leaseToken })
+      await doc.ref.set(result.done ? { status: 'completed', leaseOwner: null, leaseToken: null, leaseExpiresAt: null, completedAt: FieldValue.serverTimestamp() } : { status: 'pending', leaseOwner: null, leaseToken: null, leaseExpiresAt: null, nextAttemptAt: FieldValue.serverTimestamp() }, { merge: true })
       results.push({ deviceId: doc.id, status: result.done ? 'completed' : 'pending' })
     } catch {
       await doc.ref.set({ status: 'retryable', leaseOwner: null, leaseExpiresAt: null, nextAttemptAt: Timestamp.fromMillis(nowMs + 60_000), lastError: 'Cleanup batch failed' }, { merge: true })
       results.push({ deviceId: doc.id, status: 'retryable' })
     }
   }
-  return { scanned: snap.docs.length, processed: results.length, results }
+  return { scanned: docs.length, processed: results.length, results }
 }
 
 export async function putDeviceGrant(input: {
