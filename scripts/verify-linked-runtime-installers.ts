@@ -66,6 +66,8 @@ requireText('macOS', mac, /PIB_ALLOW_UNSIGNED_DEV/)
 requireText('macOS unsigned marker', mac, /\.unsigned-dev/)
 rejectText('macOS signature path', mac, /metadata\.json\.sig/)
 requireText('Windows', win, /AllowUnsignedDev/)
+requireText('Windows force-local warning',win,/ForceLocal[\s\S]*FORCE LOCAL/)
+requireText('macOS revoke-only retention',mac,/Remote revoke pending[\s\S]*revoke-only recovery mode/)
 requireText('Windows unsigned marker', win, /\.unsigned-dev/)
 requireText('Windows rollback stop fence', win, /Rollback-Runtime[\s\S]*sc\.exe stop[\s\S]*Wait-ServiceStopped/)
 

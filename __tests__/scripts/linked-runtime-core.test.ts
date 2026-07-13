@@ -21,8 +21,8 @@ describe('linked runtime executable core', () => {
     const receipt = createReceipt({ deviceId:'d', targetId:'t', machineLabel:'m', acceptedAt:'a', toolStartedAt:'b', runtimeVersion:'1', outcome:'completed' }, keys.privateKey)
     expect(receipt.signature).toBeTruthy(); expect(redactLog('credential=abc transportToken=xyz pairingCode=123')).not.toMatch(/abc|xyz|123/)
   })
-  it('cleans locally when remote revoke is offline', async () => {
-    const cleanup = jest.fn(); await expect(revokeAndCleanup(async()=>{throw new Error('offline')}, cleanup)).resolves.toEqual({ remoteRevokePending: true }); expect(cleanup).toHaveBeenCalled()
+  it('retains the only secure identity when remote revoke is offline', async () => {
+    const cleanup = jest.fn(); await expect(revokeAndCleanup(async()=>{throw new Error('offline')}, cleanup)).resolves.toEqual({ remoteRevokePending: true }); expect(cleanup).not.toHaveBeenCalled()
   })
   it('atomically activates and re-verifies a signed previous release before rollback', () => {
     const dir=fs.mkdtempSync(path.join(os.tmpdir(),'pib-release-')), current=path.join(dir,'runtime')

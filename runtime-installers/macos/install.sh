@@ -10,7 +10,7 @@ METADATA_URL="${PIB_RUNTIME_METADATA_URL:-$API_BASE/runtime/macos/stable.json}"
 PUBLIC_KEY="${PIB_RUNTIME_UPDATE_PUBLIC_KEY:-}"
 RELEASE_MANAGER="${PIB_RELEASE_MANAGER:-$(dirname "$0")/pib-release-manager}"
 
-usage() { echo "usage: install.sh install|pair|update|rollback|uninstall|revoke [challengeId]"; }
+usage() { echo "usage: install.sh install|pair|update|rollback|uninstall|revoke [challengeId|--force-local]"; }
 require_root() { [[ $EUID -ne 0 ]] || { echo "Run as the paired desktop user, not root." >&2; exit 1; }; }
 
 # Runtime credentials (device credential and signing private key)
@@ -70,10 +70,10 @@ pair_runtime() {
 
 update_runtime() { install_runtime; }
 rollback_runtime() { require_root; [[ -x "$ROOT/previous/pib-runtime" ]] || { echo 'No verified previous release.' >&2; return 1; }; verify_release "$ROOT/previous/manifest.json" "$ROOT/previous/pib-runtime" rollback offline; mv "$ROOT/current" "$ROOT/swap"; mv "$ROOT/previous" "$ROOT/current"; mv "$ROOT/swap" "$ROOT/previous"; launchctl kickstart -k "gui/$(id -u)/$LABEL"; }
-revoke_runtime() { [[ -x "$BIN" ]] && "$BIN" revoke --signed-request --execution-receipt; delete_credentials; }
-uninstall_runtime() { require_root; revoke_runtime; launchctl bootout "gui/$(id -u)" "$PLIST" >/dev/null 2>&1 || true; rm -f "$PLIST"; rm -rf "$ROOT"; }
+revoke_runtime() { [[ -x "$BIN" ]]||return 0;if ! "$BIN" revoke;then launchctl kickstart -k "gui/$(id -u)/$LABEL" >/dev/null 2>&1||true;return 1;fi; }
+uninstall_runtime() { require_root;local force="${1:-}";if ! revoke_runtime;then if [[ "$force" != --force-local ]];then echo 'Remote revoke pending. Runtime and secure identity retained in revoke-only recovery mode.' >&2;return 1;fi;echo 'WARNING: forcing local removal leaves only a nonsecret recovery marker; revoke this computer in the PiB portal.' >&2;delete_credentials;fi;launchctl bootout "gui/$(id -u)" "$PLIST" >/dev/null 2>&1 || true;rm -f "$PLIST";rm -rf "$ROOT"; }
 
 if [[ "${PIB_INSTALLER_LIBRARY:-0}" != 1 ]];then case "${1:-}" in
   install) install_runtime;; pair) pair_runtime "${2:-}";; update) update_runtime;; rollback) rollback_runtime;;
-  revoke) revoke_runtime;; uninstall) uninstall_runtime;; *) usage; exit 2;;
+  revoke) revoke_runtime;; uninstall) uninstall_runtime "${2:-}";; *) usage; exit 2;;
 esac;fi

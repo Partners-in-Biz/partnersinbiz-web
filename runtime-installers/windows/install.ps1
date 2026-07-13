@@ -2,7 +2,8 @@
 param(
   [ValidateSet('Install','Pair','Update','Rollback','Revoke','Uninstall')] [string]$Action = 'Install',
   [ValidatePattern('^[A-Za-z0-9_-]{1,128}$')] [string]$ChallengeId,
-  [switch]$AllowUnsignedDev
+  [switch]$AllowUnsignedDev,
+  [switch]$ForceLocal
 )
 $ErrorActionPreference = 'Stop'
 $Root = Join-Path $env:ProgramFiles 'Partners in Biz'
@@ -65,7 +66,7 @@ function Pair-Runtime {
 }
 function Update-Runtime { Install-Runtime }
 function Rollback-Runtime { Assert-Administrator; if(-not(Test-Path $Previous)){throw 'No verified previous release.'};$previous=Split-Path $Previous;Test-ReleaseSignature (Join-Path $previous 'metadata.json') $Previous -AllowDowngrade;& sc.exe stop PartnersInBizRuntime|Out-Null;Wait-ServiceStopped;$current=Split-Path $Binary;$swap=Join-Path $Root 'swap';Move-Item $current $swap;Move-Item $previous $current;Move-Item $swap $previous;& sc.exe start PartnersInBizRuntime;if($LASTEXITCODE -ne 0){throw 'Runtime service failed to restart after rollback.'} }
-function Revoke-Runtime { if(Get-Service PartnersInBizRuntime -ErrorAction SilentlyContinue){& sc.exe control PartnersInBizRuntime 128|Out-Null;Start-Sleep -Seconds 2}elseif(Test-Path $Binary){& $Binary revoke};Remove-RuntimeCredential }
-function Uninstall-Runtime { Assert-Administrator; Revoke-Runtime; & sc.exe stop PartnersInBizRuntime; & sc.exe delete PartnersInBizRuntime; Remove-Item -Recurse -Force $Root -ErrorAction SilentlyContinue }
+function Revoke-Runtime { if(Get-Service PartnersInBizRuntime -ErrorAction SilentlyContinue){& sc.exe control PartnersInBizRuntime 128|Out-Null;Start-Sleep -Seconds 3}elseif(Test-Path $Binary){& $Binary revoke} }
+function Uninstall-Runtime { Assert-Administrator;Revoke-Runtime;$pending=Join-Path $env:ProgramData 'PartnersInBiz\revocation-pending.json';if(Test-Path $pending){if(-not $ForceLocal){throw 'Remote revoke pending. Runtime and secure identity retained in revoke-only recovery mode.'};Write-Warning 'FORCE LOCAL: revoke this computer in the PiB portal; only the nonsecret recovery marker will remain.';Remove-RuntimeCredential};& sc.exe stop PartnersInBizRuntime;& sc.exe delete PartnersInBizRuntime;Remove-Item -Recurse -Force $Root -ErrorAction SilentlyContinue }
 
 switch ($Action) { 'Install' { Install-Runtime }; 'Pair' { Pair-Runtime }; 'Update' { Update-Runtime }; 'Rollback' { Rollback-Runtime }; 'Revoke' { Revoke-Runtime }; 'Uninstall' { Uninstall-Runtime } }
