@@ -1,5 +1,6 @@
 export function safePreviewUrl(value?: string): string | undefined {
   if (!value) return undefined
+  if (value.length > 2048) return undefined
   try {
     const url = new URL(value, typeof window === 'undefined' ? 'https://partnersinbiz.com' : window.location.origin)
     const relative = value.startsWith('/') && !value.startsWith('//')
