@@ -41,6 +41,7 @@ describe('agent skill policy manifest', () => {
       'crm-hygiene-gather',
       'data-analyst',
       'docs-lead',
+      'email-marketing-governance',
       'email-outreach',
       'evidence-ledger',
       'geo-seo-service',
