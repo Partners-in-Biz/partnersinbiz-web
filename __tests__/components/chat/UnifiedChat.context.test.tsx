@@ -216,7 +216,14 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
 })
 
 describe('UnifiedChat project pulse integration', () => {
+  const projectSeenKey = 'pib.messages.projectSeen.v1:org-1:conv-1:project-1'
+
+  afterEach(() => {
+    window.localStorage.removeItem(projectSeenKey)
+  })
+
   it('loads project progress, anchors a living bundle, opens the lens, and resolves approval through the task API', async () => {
+    window.localStorage.setItem(projectSeenKey, String(Date.parse('2026-07-12T08:00:00.000Z')))
     const conversation = { ...baseConversation, contextRefs: [projectRef] }
     const progress = {
       project: { id: 'project-1', name: 'Launch Project', status: 'active' },
@@ -229,7 +236,7 @@ describe('UnifiedChat project pulse integration', () => {
       tasks: [
         {
           id: 'draft', title: 'Draft copy', columnId: 'in_progress', agentStatus: 'in-progress', state: 'running',
-          unresolvedDependencyIds: [], assigneeAgentId: 'maya',
+          unresolvedDependencyIds: [], assigneeAgentId: 'maya', updatedAt: '2026-07-12T09:30:00.000Z',
           chatOrigin: { conversationId: 'conv-1', requestMessageId: 'm-1', responseMessageId: 'm-2', bundleId: 'bundle-1', sequence: 0 },
         },
         {
@@ -247,10 +254,16 @@ describe('UnifiedChat project pulse integration', () => {
       if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [] } })
       if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [conversation] } })
       if (url === '/api/v1/conversations/conv-1/messages') {
-        return jsonResponse({ data: { messages: [{
-          id: 'm-2', conversationId: 'conv-1', role: 'assistant', content: 'I created the linked work.',
-          authorKind: 'agent', authorId: 'pip', authorDisplayName: 'Pip', status: 'completed', createdAt: '2026-07-12T09:00:00.000Z',
-        }] } })
+        return jsonResponse({ data: { messages: [
+          {
+            id: 'm-2', conversationId: 'conv-1', role: 'assistant', content: 'I created the linked work.',
+            authorKind: 'agent', authorId: 'pip', authorDisplayName: 'Pip', status: 'completed', createdAt: '2026-07-12T09:00:00.000Z',
+          },
+          {
+            id: 'm-3', conversationId: 'conv-1', role: 'assistant', content: 'This is an unrelated later response.',
+            authorKind: 'agent', authorId: 'pip', authorDisplayName: 'Pip', status: 'completed', createdAt: '2026-07-12T09:05:00.000Z',
+          },
+        ] } })
       }
       if (url === '/api/v1/projects/project-1/chat-progress') return jsonResponse({ data: progress })
       if (url === '/api/v1/projects/project-1/tasks/approval' && init?.method === 'PATCH') return jsonResponse({ data: { updated: true } })
@@ -270,8 +283,29 @@ describe('UnifiedChat project pulse integration', () => {
     )
 
     expect(await screen.findByTestId('project-pulse')).toHaveTextContent('0/2 complete')
-    expect(await screen.findByText('2 linked tasks')).toBeInTheDocument()
+    const conversationLog = screen.getByRole('log', { name: 'Conversation messages' })
+    const matchingMessage = await screen.findByText('I created the linked work.')
+    const unrelatedMessage = screen.getByText('This is an unrelated later response.')
+    const directMessageChild = (element: HTMLElement) => {
+      if (!conversationLog.contains(element)) throw new Error('Message is outside the conversation log')
+      let node = element
+      while (node.parentElement !== conversationLog) {
+        if (!node.parentElement || !conversationLog.contains(node.parentElement)) {
+          throw new Error('Message does not resolve to a direct conversation-log child')
+        }
+        node = node.parentElement
+      }
+      return node
+    }
+    expect(within(directMessageChild(matchingMessage)).getByText('2 linked tasks')).toBeInTheDocument()
+    expect(within(directMessageChild(unrelatedMessage)).queryByText('2 linked tasks')).not.toBeInTheDocument()
     expect(screen.getByTestId('project-composer-chip')).toHaveTextContent('Launch Project')
+
+    const routineUpdates = await screen.findByRole('button', { name: /1 project update/i })
+    expect(window.localStorage.getItem(projectSeenKey)).toBe(String(Date.parse(progress.asOf)))
+    fireEvent.click(routineUpdates)
+    expect(screen.queryByRole('button', { name: /project update/i })).not.toBeInTheDocument()
+    expect(Number(window.localStorage.getItem(projectSeenKey))).toBeGreaterThanOrEqual(Date.parse(progress.asOf))
 
     fireEvent.click(screen.getByRole('button', { name: /Open project lens/i }))
     expect(screen.getByRole('dialog', { name: 'Launch Project project tasks' })).toBeInTheDocument()
