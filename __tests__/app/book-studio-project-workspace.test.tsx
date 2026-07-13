@@ -161,6 +161,58 @@ describe('BookProjectWorkspace', () => {
     jest.clearAllMocks()
   })
 
+  it('consumes a deep-linked tab and exposes stable chapter anchors', async () => {
+    installFetch({ projects: [storyProject], chapters: chaptersForStory, pages: [] })
+    const { rerender } = render(<BookProjectWorkspace orgId="org-1" projectId="project-story" initialTab="metadata" />)
+    expect(await screen.findByText('The Proof Chronicles')).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Metadata' })).toHaveAttribute('aria-selected', 'true')
+
+    rerender(<BookProjectWorkspace orgId="org-1" projectId="project-story" initialTab="content" />)
+    await waitFor(() => expect(document.getElementById('chapter-chapter-1')).toBeInTheDocument())
+  })
+
+  it('scrolls and focuses a safely decoded chapter anchor after async loading', async () => {
+    installFetch({ projects: [storyProject], chapters: [{ ...chaptersForStory[0], id: 'chapter#50%' }], pages: [] })
+    window.history.replaceState({}, '', '#chapter-chapter%2350%25')
+    const scrollIntoView = jest.fn()
+    Element.prototype.scrollIntoView = scrollIntoView
+
+    render(<BookProjectWorkspace orgId="org-1" projectId="project-story" initialTab="content" />)
+
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalled())
+    expect(document.activeElement).toBe(document.getElementById('chapter-chapter%2350%25')?.querySelector('button'))
+    window.history.replaceState({}, '', '#')
+  })
+
+  it('ignores malformed encoded anchors without scrolling or focusing', async () => {
+    installFetch({ projects: [storyProject], chapters: chaptersForStory, pages: [] })
+    window.history.replaceState({}, '', '#chapter-bad%')
+    const scrollIntoView = jest.fn()
+    Element.prototype.scrollIntoView = scrollIntoView
+
+    render(<BookProjectWorkspace orgId="org-1" projectId="project-story" initialTab="content" />)
+
+    await screen.findAllByText('Chapter One')
+    expect(scrollIntoView).not.toHaveBeenCalled()
+    window.history.replaceState({}, '', '#')
+  })
+
+  it('scrolls to the exact duplicate or missing-role assembly output', async () => {
+    const manifest = { status: 'generated', qaStatus: 'pending_review', files: [{ role: 'cover_pdf', label: 'Cover A' }, { role: 'cover_pdf', label: 'Cover B' }, { label: 'Other' }] }
+    installFetch({ projects: [{ ...storyProject, packageManifest: manifest }], chapters: chaptersForStory, pages: [] })
+    window.history.replaceState({}, '', '#output-cover_pdf%3A1')
+    const scrollIntoView = jest.fn()
+    Element.prototype.scrollIntoView = scrollIntoView
+
+    render(<BookProjectWorkspace orgId="org-1" projectId="project-story" initialTab="assembly" />)
+
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalledTimes(1))
+    expect(document.getElementById('output-cover_pdf%3A0')).toBeInTheDocument()
+    expect(document.getElementById('output-cover_pdf%3A1')).toBeInTheDocument()
+    expect(document.getElementById('output-output%3A2')).toBeInTheDocument()
+    window.history.replaceState({}, '', '#')
+  })
+
   it('renders header and pages for a colouring project', async () => {
     installFetch()
     render(<BookProjectWorkspace orgId="org-1" projectId="project-1" />)

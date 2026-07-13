@@ -76,7 +76,7 @@ function PageRow({
   const isPuzzle = page.kind === 'puzzle'
 
   return (
-    <li className="rounded-2xl border border-[var(--color-pib-border)] p-4" aria-label={page.title ?? `Page ${index + 1}`}>
+    <li id={`page-${encodeURIComponent(page.id)}`} className="rounded-2xl border border-[var(--color-pib-border)] p-4" aria-label={page.title ?? `Page ${index + 1}`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3">
           {page.imageUrl ? (

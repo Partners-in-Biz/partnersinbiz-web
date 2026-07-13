@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic'
 
 interface PortalBookProjectPageProps {
   params: Promise<{ bookId: string }>
-  searchParams?: Promise<{ orgId?: string }>
+  searchParams?: Promise<{ orgId?: string; tab?: string }>
 }
 
 export default async function PortalBookProjectPage({ params, searchParams }: PortalBookProjectPageProps) {
@@ -13,5 +13,6 @@ export default async function PortalBookProjectPage({ params, searchParams }: Po
   if (!bookId) redirect('/portal/book-studio')
   const search = await searchParams
   const orgId = typeof search?.orgId === 'string' ? search.orgId : undefined
-  return <BookProjectPortalMount projectId={bookId} orgId={orgId} />
+  const initialTab = search?.tab === 'metadata' || search?.tab === 'assembly' ? search.tab : 'content'
+  return <BookProjectPortalMount projectId={bookId} orgId={orgId} initialTab={initialTab} />
 }

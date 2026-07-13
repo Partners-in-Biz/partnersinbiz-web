@@ -112,7 +112,7 @@ export function BookProjectChaptersPanel({
               {ordered.map((chapter, index) => {
                 const isSelected = chapter.id === selected?.id
                 return (
-                  <li key={chapter.id}>
+                  <li key={chapter.id} id={`chapter-${encodeURIComponent(chapter.id)}`}>
                     <button
                       type="button"
                       onClick={() => setSelectedId(chapter.id)}

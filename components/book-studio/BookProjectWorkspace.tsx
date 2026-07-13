@@ -28,6 +28,7 @@ type BookProjectWorkspaceProps = {
   projectId: string
   surface?: BookStudioSurface
   capabilities?: BookStudioCapabilities
+  initialTab?: Tab
 }
 
 type Tab = 'content' | 'metadata' | 'assembly'
@@ -39,13 +40,18 @@ export function BookProjectWorkspace({
   projectId,
   surface = 'admin',
   capabilities = DEFAULT_ADMIN_CAPABILITIES,
+  initialTab = 'content',
 }: BookProjectWorkspaceProps) {
   const [project, setProject] = useState<BookProject | null>(null)
   const [chapters, setChapters] = useState<BookChapter[]>([])
   const [pages, setPages] = useState<BookPage[]>([])
   const [loading, setLoading] = useState(true)
   const [notice, setNotice] = useState('')
-  const [tab, setTab] = useState<Tab>('content')
+  const [tab, setTab] = useState<Tab>(initialTab)
+
+  useEffect(() => {
+    setTab(initialTab)
+  }, [initialTab])
 
   const [savingMetadata, setSavingMetadata] = useState(false)
   const [addingPage, setAddingPage] = useState(false)
@@ -60,6 +66,7 @@ export function BookProjectWorkspace({
   const [requestingDraft, setRequestingDraft] = useState(false)
 
   const loadRequestIdRef = useRef(0)
+  const handledAnchorRef = useRef('')
 
   const load = useCallback(async () => {
     const requestId = loadRequestIdRef.current + 1
@@ -103,6 +110,28 @@ export function BookProjectWorkspace({
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    if (loading || typeof window === 'undefined' || !window.location.hash) return
+    const rawHash = window.location.hash.slice(1)
+    if (!/^(chapter|page|output)-/.test(rawHash) || handledAnchorRef.current === rawHash) return
+    let targetId = rawHash
+    try {
+      const separator = rawHash.indexOf('-')
+      const prefix = rawHash.slice(0, separator + 1)
+      targetId = `${prefix}${encodeURIComponent(decodeURIComponent(rawHash.slice(separator + 1)))}`
+    } catch {
+      return
+    }
+    const target = document.getElementById(targetId)
+    if (!target) return
+    handledAnchorRef.current = rawHash
+    target.scrollIntoView?.({ block: 'center' })
+    const focusTarget = target.matches('button, a, input, textarea, select, [tabindex]')
+      ? target as HTMLElement
+      : target.querySelector<HTMLElement>('button, a, input, textarea, select, [tabindex]')
+    focusTarget?.focus({ preventScroll: true })
+  }, [loading, tab, chapters, pages, manifest])
 
   async function saveMetadata(metadata: BookProjectMetadata) {
     setSavingMetadata(true)
