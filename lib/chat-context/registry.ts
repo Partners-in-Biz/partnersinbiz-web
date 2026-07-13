@@ -9,6 +9,7 @@ import {
 import { projectChatContextAdapter } from '@/lib/chat-context/adapters/project'
 import { marketingStudioChatContextAdapter } from '@/lib/chat-context/adapters/marketingStudio'
 import { marketingStudioArtifactChatContextAdapter } from '@/lib/chat-context/adapters/marketingStudioArtifact'
+import { videoEditorChatContextAdapter } from '@/lib/chat-context/adapters/videoEditor'
 
 export type ChatContextAdapters = Partial<Record<ChatContextKind, ChatContextAdapter>>
 
@@ -28,5 +29,11 @@ export function createChatContextRegistry(adapters: ChatContextAdapters) {
 export const chatContextRegistry = createChatContextRegistry({
   project: projectChatContextAdapter,
   studio: marketingStudioChatContextAdapter,
-  studio_artifact: marketingStudioArtifactChatContextAdapter,
+  studio_artifact: {
+    resolve(input) {
+      if (input.id.startsWith('marketing_studio:')) return marketingStudioArtifactChatContextAdapter.resolve(input)
+      if (input.id.startsWith('video_editor:')) return videoEditorChatContextAdapter.resolve(input)
+      return Promise.resolve({ ok: false, reason: 'not_found' as const, status: 404, error: 'Context unavailable' })
+    },
+  },
 })
