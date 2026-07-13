@@ -2731,6 +2731,7 @@ export default function UnifiedChat({
                     loading={modelCatalogLoading}
                     disabled={!activeConversation}
                     compact
+                    placement="top"
                     onSelect={setSelectedRuntime}
                     onRefresh={loadModelCatalog}
                   />
@@ -3052,6 +3053,7 @@ export default function UnifiedChat({
                     loading={modelCatalogLoading}
                     disabled={!activeConversation}
                     compact
+                    placement="top"
                     onSelect={setSelectedRuntime}
                     onRefresh={loadModelCatalog}
                   />
@@ -3117,15 +3119,20 @@ export default function UnifiedChat({
       {/* ── New conversation modal ──────────────────────────────────────── */}
       {showNewModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-end justify-center overflow-hidden bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4"
           onClick={(e) => {
             if (e.target === e.currentTarget) setShowNewModal(false)
           }}
         >
-          <div className="w-full max-w-md rounded-xl border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] shadow-2xl">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="new-conversation-title"
+            className="flex max-h-[100dvh] w-full max-w-md flex-col overflow-hidden rounded-t-xl border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-xl"
+          >
             {/* Modal header */}
-            <div className="flex items-center justify-between border-b border-[var(--color-card-border)] px-5 py-4">
-              <h2 className="text-sm font-medium text-[var(--color-pib-text)]">New conversation</h2>
+            <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-card-border)] px-4 py-3 sm:px-5 sm:py-4">
+              <h2 id="new-conversation-title" className="text-sm font-medium text-[var(--color-pib-text)]">New conversation</h2>
               <button
                 type="button"
                 onClick={() => setShowNewModal(false)}
@@ -3137,7 +3144,7 @@ export default function UnifiedChat({
             </div>
 
             {/* Modal body */}
-            <div className="p-5 space-y-4">
+            <div data-testid="new-conversation-scroll-body" className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 sm:p-5">
               {/* Optional title */}
               <div>
                 <label className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] block mb-1.5">
@@ -3157,7 +3164,7 @@ export default function UnifiedChat({
                 <label className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] block mb-1.5">
                   Participants (max 5)
                 </label>
-                <div className="max-h-[300px] overflow-y-auto">
+                <div className="sm:max-h-[300px] sm:overflow-y-auto">
                   <ParticipantPicker
                     orgId={orgId}
                     onSelect={setNewParticipants}
@@ -3291,7 +3298,7 @@ export default function UnifiedChat({
             </div>
 
             {/* Modal footer */}
-            <div className="flex items-center justify-end gap-2 border-t border-[var(--color-card-border)] px-5 py-4">
+            <div className="flex shrink-0 items-center justify-end gap-2 border-t border-[var(--color-card-border)] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-5 sm:py-4">
               <button
                 type="button"
                 onClick={() => setShowNewModal(false)}

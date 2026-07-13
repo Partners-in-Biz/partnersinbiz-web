@@ -583,6 +583,7 @@ describe('Portal contact detail page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Choose nurture sequence for Jane Client' }))
 
     expect(await screen.findByRole('dialog', { name: 'Enroll Jane Client in a nurture sequence' })).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Enroll Jane Client in a nurture sequence' })).toHaveClass('max-h-[calc(100dvh-1rem)]', 'overflow-y-auto')
     expect(screen.getByRole('heading', { name: 'Enroll Jane Client in a nurture sequence' })).toBeInTheDocument()
     expect(screen.getByText('Choose an approved sequence so outreach steps, accountability, and follow-up timing are visible to the team from this contact record.')).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'Nurture sequence for Jane Client' })).toBeInTheDocument()

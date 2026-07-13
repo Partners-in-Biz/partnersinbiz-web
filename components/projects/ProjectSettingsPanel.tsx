@@ -56,7 +56,7 @@ export function ProjectSettingsPanel({
   return (
     <div className="flex-1 overflow-auto pb-6">
       <div className="max-w-4xl space-y-6">
-        <div className="pib-card p-5">
+        <div className="pib-card rounded-[var(--radius-card)] p-5">
           <p className="pib-label">Project settings</p>
           <h2 className="mt-1 text-2xl font-headline font-bold text-[var(--color-pib-text)]">Manage this board</h2>
           <p className="mt-2 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">Update the client-facing project details while keeping the same polished board styling.</p>

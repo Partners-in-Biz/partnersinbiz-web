@@ -84,4 +84,12 @@ describe('NewBookDialog', () => {
     expect(await screen.findByText(/Title is required/i)).toBeInTheDocument()
     expect(createRecord).not.toHaveBeenCalled()
   })
+
+  it('bounds the format workflow to the viewport and scrolls its body on small screens', () => {
+    render(<NewBookDialog orgId="org-1" surface="admin" open onClose={() => {}} onCreated={() => {}} />)
+
+    expect(screen.getByRole('dialog', { name: 'New book' })).toHaveClass('overflow-hidden')
+    expect(screen.getByTestId('new-book-panel')).toHaveClass('max-h-[calc(100dvh-1rem)]', 'flex-col', 'overflow-hidden')
+    expect(screen.getByTestId('new-book-scroll-body')).toHaveClass('min-h-0', 'flex-1', 'overflow-y-auto')
+  })
 })

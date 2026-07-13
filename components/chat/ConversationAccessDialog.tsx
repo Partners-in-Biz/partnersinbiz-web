@@ -172,9 +172,9 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
         role="dialog"
         aria-modal="true"
         aria-labelledby="conversation-access-title"
-        className="w-full max-w-lg overflow-hidden rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card)] shadow-2xl"
+        className="flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card)] shadow-2xl"
       >
-        <header className="flex items-start justify-between gap-4 border-b border-[var(--color-card-border)] p-5">
+        <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--color-card-border)] p-5">
           <div>
             <p className="text-[10px] font-label uppercase tracking-[0.2em] text-primary">Workspace access</p>
             <h2 id="conversation-access-title" className="mt-1 text-lg font-semibold text-[var(--color-pib-text)]">Manage conversation access</h2>
@@ -185,7 +185,7 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
           </button>
         </header>
 
-        <div className="max-h-[65vh] space-y-5 overflow-y-auto p-5">
+        <div data-testid="conversation-access-scroll-body" className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-5">
           <fieldset className="space-y-2">
             <legend className="mb-2 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Who can open this conversation?</legend>
             {OPTIONS.map((option) => (
@@ -227,7 +227,7 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
           {error && <p role="alert" className="rounded-lg border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">{error}</p>}
         </div>
 
-        <footer className="flex justify-end gap-2 border-t border-[var(--color-card-border)] p-4">
+        <footer className="flex shrink-0 justify-end gap-2 border-t border-[var(--color-card-border)] p-4">
           <button type="button" onClick={onClose} disabled={saving} className="pib-btn-secondary text-xs">Cancel</button>
           <button type="button" onClick={save} disabled={saving || loading} className="pib-btn-primary text-xs">
             {saving ? 'Saving…' : 'Save access'}

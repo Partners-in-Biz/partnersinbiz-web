@@ -1280,7 +1280,7 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
   return (
     <div className="flex-1 overflow-auto pb-6">
       <div className="max-w-6xl space-y-5">
-        <section className="pib-card p-5">
+        <section className="pib-card rounded-[var(--radius-card)] p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="pib-label">Project health</p>

@@ -110,6 +110,26 @@ describe('UnifiedChat upload and finalize error handling', () => {
 })
 
 describe('UnifiedChat Workspace catalogue privacy', () => {
+  it('keeps the new conversation action visible by scrolling the modal body inside the phone viewport', async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents') || url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [] } })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [baseConversation] } })
+      if (url === '/api/v1/conversations/conv-1/messages') return jsonResponse({ data: { messages: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" />)
+    fireEvent.click(await screen.findByRole('button', { name: /new conversation/i }))
+
+    const dialog = screen.getByRole('dialog', { name: 'New conversation' })
+    expect(dialog).toHaveClass('max-h-[100dvh]', 'flex-col', 'overflow-hidden')
+    expect(screen.getByTestId('new-conversation-scroll-body')).toHaveClass('min-h-0', 'flex-1', 'overflow-y-auto')
+    expect(screen.getByRole('button', { name: 'Start conversation' }).parentElement).toHaveClass('shrink-0')
+  })
+
   it('renders friendly VPS-canonical scope copy without raw filesystem paths', async () => {
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {
       const url = String(input)

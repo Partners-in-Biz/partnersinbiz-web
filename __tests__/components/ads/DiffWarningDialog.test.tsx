@@ -33,6 +33,9 @@ describe('DiffWarningDialog', () => {
     expect(screen.getByText(/2 issues found/)).toBeInTheDocument()
     expect(screen.getByText('Cannot change on live campaign')).toBeInTheDocument()
     expect(screen.getByText('Budget changes apply immediately')).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Review changes' })).toHaveClass('overflow-hidden')
+    expect(screen.getByTestId('diff-warning-panel')).toHaveClass('max-h-[calc(100dvh-2rem)]', 'flex-col', 'overflow-hidden')
+    expect(screen.getByTestId('diff-warning-list')).toHaveClass('min-h-0', 'flex-1', 'overflow-y-auto')
   })
 
   it('disables Proceed when any warning is an error', () => {

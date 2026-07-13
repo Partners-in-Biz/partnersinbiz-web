@@ -52,6 +52,8 @@ describe('HermesMessagesShell', () => {
     )
 
     expect(screen.getByTestId('hermes-messages-shell')).toBeInTheDocument()
+    expect(screen.getByTestId('hermes-messages-shell')).toHaveClass('min-h-0', 'lg:min-h-[640px]')
+    expect(screen.getByTestId('hermes-messages-shell')).not.toHaveClass('min-h-[640px]')
     expect(screen.getByTestId('hermes-messages-shell-topbar')).toHaveTextContent('Client portal / Messages')
     expect(screen.getByTestId('hermes-messages-shell-topbar')).toHaveTextContent('Agents enabled')
     expect(screen.getByTestId('hermes-messages-shell-topbar')).toHaveTextContent('Safe /v1 runs')
