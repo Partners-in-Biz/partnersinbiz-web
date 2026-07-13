@@ -121,3 +121,9 @@ Canonical Task 7 readiness remains invalidated. A fresh integrated verification 
 A narrowly scoped signed revocation authenticator accepts retained current device identity only on the exact revoke route. It permits a terminal device to recover a lost 202 response, while timestamp, signature, version, credential hash, path and nonce replay checks remain enforced. It grants no authority on any other endpoint. Terminal retries return `already_revoked` without repeating authority mutations.
 
 Cleanup runs now use unpredictable lease tokens plus worker IDs. Initial route kicks and scheduled work both acquire a lease; every batch verifies the current running lease. Expired running leases are discoverable and reclaimable, while the previous worker token is fenced. The cleanup-run status/lease index supports the bounded reclaim query.
+
+## Cleanup checkpoint fencing
+
+Every cleanup-run checkpoint, cumulative count, phase transition, completion, retry state and error marker now executes through a conditional Firestore transaction that re-reads the run and requires `running` status, exact worker ID, exact unpredictable lease token, and an unexpired lease. A stale worker receives the typed `linked_device_cleanup_lease_lost` result. Success, catch, and retry paths explicitly preserve a replacement worker's lease and state.
+
+Source-item changes remain idempotent; the authoritative cleanup-run checkpoint can advance only under the active lease.

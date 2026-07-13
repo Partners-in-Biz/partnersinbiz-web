@@ -405,15 +405,24 @@ export async function removeOwnedDevice(input: { deviceId: string; actorUserId: 
   })
 }
 
-export async function processDeviceCleanupBatch(deviceId: string, options: { db?: any; limit?: number; workerId?: string; leaseToken?: string } = {}): Promise<{ done: boolean; processed: number; phase: string }> {
+export class DeviceCleanupLeaseLostError extends Error { readonly code = 'linked_device_cleanup_lease_lost'; constructor() { super('linked computers: cleanup lease lost') } }
+
+async function mutateCleanupRunWithLease(db: any, deviceId: string, workerId: string, leaseToken: string, patch: Record<string, unknown>, nowMs = Date.now()) {
+  const ref = db.collection('linked_device_cleanup_runs').doc(deviceId)
+  return db.runTransaction(async (tx: any) => {
+    const snap = await tx.get(ref); const row = snap.data() ?? {}; const expiry = row.leaseExpiresAt?.toMillis?.() ?? Date.parse(String(row.leaseExpiresAt ?? ''))
+    if (!snap.exists || row.status !== 'running' || row.leaseOwner !== workerId || row.leaseToken !== leaseToken || !Number.isFinite(expiry) || expiry <= nowMs) throw new DeviceCleanupLeaseLostError()
+    if (Object.keys(patch).length) tx.set(ref, { ...patch, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+    return row
+  })
+}
+
+export async function processDeviceCleanupBatch(deviceId: string, options: { db?: any; limit?: number; workerId?: string; leaseToken?: string; nowMs?: number } = {}): Promise<{ done: boolean; processed: number; phase: string }> {
   const db = options.db ?? adminDb
   const limit = Math.min(Math.max(1, options.limit ?? 75), 100)
-  const cleanupRef = db.collection('linked_device_cleanup_runs').doc(deviceId)
-  const cleanupSnap = await cleanupRef.get()
-  if (!cleanupSnap.exists) throw new Error('linked computers: cleanup run not found')
-  const cleanupRow = cleanupSnap.data() ?? {}
-  if (!options.workerId || !options.leaseToken || cleanupRow.status !== 'running' || cleanupRow.leaseOwner !== options.workerId || cleanupRow.leaseToken !== options.leaseToken) throw new Error('linked computers: cleanup lease fenced')
-  const phase = String(cleanupSnap.data()?.phase ?? 'mappings')
+  if (!options.workerId || !options.leaseToken) throw new DeviceCleanupLeaseLostError()
+  const cleanupRow = await mutateCleanupRunWithLease(db, deviceId, options.workerId, options.leaseToken, {}, options.nowMs)
+  const phase = String(cleanupRow.phase ?? 'mappings')
   if (phase === 'mappings' || phase === 'grants') {
     const collection = phase === 'mappings' ? MAPPINGS : GRANTS
     const terminal = phase === 'mappings' ? 'removed' : 'revoked'
@@ -422,19 +431,19 @@ export async function processDeviceCleanupBatch(deviceId: string, options: { db?
     if (docs.length) {
       const batch = db.batch()
       for (const doc of docs) batch.set(doc.ref, { status: terminal, [`${terminal}At`]: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() }, { merge: true })
-      batch.set(cleanupRef, { processed: FieldValue.increment(docs.length), updatedAt: FieldValue.serverTimestamp() }, { merge: true })
       await batch.commit()
+      await mutateCleanupRunWithLease(db, deviceId, options.workerId, options.leaseToken, { processed: FieldValue.increment(docs.length) }, options.nowMs)
       return { done: false, processed: docs.length, phase }
     }
-    await cleanupRef.set({ phase: phase === 'mappings' ? 'grants' : 'jobs', updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+    await mutateCleanupRunWithLease(db, deviceId, options.workerId, options.leaseToken, { phase: phase === 'mappings' ? 'grants' : 'jobs' }, options.nowMs)
     return { done: false, processed: 0, phase }
   }
   if (phase === 'jobs') {
     const snap = await db.collection('linked_device_run_jobs').where('deviceId', '==', deviceId).where('status', 'in', ['queued', 'claimed', 'running']).limit(Math.min(limit, 50)).get()
     const docs = snap.docs
     for (const doc of docs) await cancelLinkedRun(doc.id, 'Linked computer access revoked')
-    if (docs.length) { await cleanupRef.set({ processed: FieldValue.increment(docs.length), updatedAt: FieldValue.serverTimestamp() }, { merge: true }); return { done: false, processed: docs.length, phase } }
-    await cleanupRef.set({ phase: 'complete', status: 'completed', completedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+    if (docs.length) { await mutateCleanupRunWithLease(db, deviceId, options.workerId, options.leaseToken, { processed: FieldValue.increment(docs.length) }, options.nowMs); return { done: false, processed: docs.length, phase } }
+    await mutateCleanupRunWithLease(db, deviceId, options.workerId, options.leaseToken, { phase: 'complete', status: 'completed', completedAt: FieldValue.serverTimestamp(), leaseOwner: null, leaseToken: null, leaseExpiresAt: null }, options.nowMs)
     return { done: true, processed: 0, phase: 'complete' }
   }
   return { done: true, processed: 0, phase }
@@ -449,8 +458,8 @@ async function claimDeviceCleanupLease(deviceId: string, db: any, workerId: stri
 export async function kickDeviceCleanup(deviceId: string, options: { db?: any; nowMs?: number } = {}) {
   const db = options.db ?? adminDb; const workerId = `kick:${randomUUID()}`; const token = await claimDeviceCleanupLease(deviceId, db, workerId, options.nowMs ?? Date.now())
   if (!token) return { done: false, processed: 0, phase: 'leased' }
-  const result = await processDeviceCleanupBatch(deviceId, { db, workerId, leaseToken: token })
-  await db.collection('linked_device_cleanup_runs').doc(deviceId).set(result.done ? { status: 'completed', leaseOwner: null, leaseToken: null, leaseExpiresAt: null } : { status: 'pending', leaseOwner: null, leaseToken: null, leaseExpiresAt: null }, { merge: true })
+  const result = await processDeviceCleanupBatch(deviceId, { db, workerId, leaseToken: token, nowMs: options.nowMs })
+  if (!result.done) await mutateCleanupRunWithLease(db, deviceId, workerId, token, { status: 'pending', leaseOwner: null, leaseToken: null, leaseExpiresAt: null }, options.nowMs)
   return result
 }
 
@@ -466,11 +475,13 @@ export async function runDeviceCleanupWorker(options: { db?: any; maxRuns?: numb
     const leaseToken = await claimDeviceCleanupLease(doc.id, db, workerId, nowMs)
     if (!leaseToken) continue
     try {
-      const result = await processDeviceCleanupBatch(doc.id, { db, workerId, leaseToken })
-      await doc.ref.set(result.done ? { status: 'completed', leaseOwner: null, leaseToken: null, leaseExpiresAt: null, completedAt: FieldValue.serverTimestamp() } : { status: 'pending', leaseOwner: null, leaseToken: null, leaseExpiresAt: null, nextAttemptAt: FieldValue.serverTimestamp() }, { merge: true })
+      const result = await processDeviceCleanupBatch(doc.id, { db, workerId, leaseToken, nowMs })
+      if (!result.done) await mutateCleanupRunWithLease(db, doc.id, workerId, leaseToken, { status: 'pending', leaseOwner: null, leaseToken: null, leaseExpiresAt: null, nextAttemptAt: FieldValue.serverTimestamp() }, nowMs)
       results.push({ deviceId: doc.id, status: result.done ? 'completed' : 'pending' })
-    } catch {
-      await doc.ref.set({ status: 'retryable', leaseOwner: null, leaseExpiresAt: null, nextAttemptAt: Timestamp.fromMillis(nowMs + 60_000), lastError: 'Cleanup batch failed' }, { merge: true })
+    } catch (error) {
+      if (error instanceof DeviceCleanupLeaseLostError) { results.push({ deviceId: doc.id, status: 'lease_lost' }); continue }
+      try { await mutateCleanupRunWithLease(db, doc.id, workerId, leaseToken, { status: 'retryable', leaseOwner: null, leaseToken: null, leaseExpiresAt: null, nextAttemptAt: Timestamp.fromMillis(nowMs + 60_000), lastError: 'Cleanup batch failed' }, nowMs) }
+      catch (leaseError) { if (leaseError instanceof DeviceCleanupLeaseLostError) { results.push({ deviceId: doc.id, status: 'lease_lost' }); continue }; throw leaseError }
       results.push({ deviceId: doc.id, status: 'retryable' })
     }
   }
