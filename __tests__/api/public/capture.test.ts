@@ -23,6 +23,7 @@ jest.mock('@/lib/consent-ledger/store', () => ({
 
 import { POST } from '@/app/api/public/capture/[publicKey]/route'
 import { checkFormRateLimit } from '@/lib/forms/ratelimit'
+import { buildEmailApprovalSnapshotHash } from '@/lib/email-marketing/approval-snapshot'
 
 const docRef = { update: mockUpdate, get: mockGet, ref: { update: mockUpdate } }
 
@@ -89,6 +90,32 @@ function mockExistingContactLookup(existing: { id: string; tags?: string[] } | n
       docs: [{ id: existing.id, data: () => existing, ref: { update: mockUpdate } }],
     })
   }
+}
+
+function approvedSequence(overrides: Record<string, unknown> = {}) {
+  const sequence = {
+    orgId: 'org-1', status: 'active', name: 'Lead nurture', createdBy: 'maker-1', createdByType: 'user',
+    steps: [{ delayDays: 0, subject: 'Welcome', bodyText: 'Hi' }], deleted: false, ...overrides,
+  }
+  return {
+    ...sequence,
+    approvalState: {
+      status: 'approved', approvedBy: 'checker-1', approvedByType: 'user', approvalTaskId: 'task-1',
+      approvedSnapshotHash: buildEmailApprovalSnapshotHash(sequence),
+    },
+  }
+}
+
+function mockApprovalEvidence() {
+  mockGet
+    .mockResolvedValueOnce({ exists: true, data: () => ({ settings: { emailMarketing: { approvalRequired: true, makerChecker: true } } }) })
+    .mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        orgId: 'org-1', status: 'done', approvalStatus: 'approved', createdBy: 'requester-1', requestedBy: 'requester-1', deleted: false,
+        linkedResource: { type: 'email_sequence', id: 'seq-1' },
+      }),
+    })
 }
 
 describe('POST /api/public/capture/[publicKey]', () => {
@@ -245,14 +272,10 @@ describe('POST /api/public/capture/[publicKey]', () => {
     mockGet
       .mockResolvedValueOnce({
         exists: true,
-        data: () => ({
-          orgId: 'org-1',
-          status: 'active',
-          name: 'Lead nurture',
-          steps: [{ delayDays: 0, subject: 'Welcome', bodyText: 'Hi' }],
-          deleted: false,
-        }),
+        data: () => approvedSequence(),
       })
+    mockApprovalEvidence()
+    mockGet
       .mockResolvedValueOnce({ empty: true, docs: [] })
 
     const res = await POST(makeReq({ email: 'jane@x.com' }), params)
@@ -278,12 +301,10 @@ describe('POST /api/public/capture/[publicKey]', () => {
     mockGet
       .mockResolvedValueOnce({
         exists: true,
-        data: () => ({
-          orgId: 'org-1', status: 'active', name: 'Lead nurture',
-          steps: [{ delayDays: 0, subject: 'Welcome', bodyText: 'Hi' }],
-          reentryPolicy: { mode: 'after_exit' }, deleted: false,
-        }),
+        data: () => approvedSequence({ reentryPolicy: { mode: 'after_exit' } }),
       })
+    mockApprovalEvidence()
+    mockGet
       .mockResolvedValueOnce({
         empty: false,
         docs: [{ id: 'old-enrollment', data: () => ({ orgId: 'org-1', sequenceId: 'seq-1', contactId: 'contact-new', status: 'exited' }) }],
@@ -302,16 +323,31 @@ describe('POST /api/public/capture/[publicKey]', () => {
     mockGet
       .mockResolvedValueOnce({
         exists: true,
-        data: () => ({
-          orgId: 'org-1', status: 'active', name: 'Lead nurture',
-          steps: [{ delayDays: 0, subject: 'Welcome', bodyText: 'Hi' }],
-          reentryPolicy: { mode: 'never' }, deleted: false,
-        }),
+        data: () => approvedSequence({ reentryPolicy: { mode: 'never' } }),
       })
+    mockApprovalEvidence()
+    mockGet
       .mockResolvedValueOnce({
         empty: false,
         docs: [{ id: 'old-enrollment', data: () => ({ orgId: 'org-1', sequenceId: 'seq-1', contactId: 'contact-new', status: 'exited' }) }],
       })
+
+    const res = await POST(makeReq({ email: 'jane@x.com' }), params)
+
+    expect(res.status).toBe(201)
+    expect(mockAdd.mock.calls.some((c) => c[0]?.sequenceId === 'seq-1')).toBe(false)
+  })
+
+  it('denies direct sequence auto-enrollment when approval snapshot is invalid', async () => {
+    mockSourceLookup({ ...enabledSource, autoSequenceIds: ['seq-1'] })
+    mockExistingContactLookup(null)
+    mockAdd.mockResolvedValueOnce({ id: 'contact-new' })
+    const sequence = approvedSequence()
+    mockGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ ...sequence, approvalState: { ...sequence.approvalState, approvedSnapshotHash: 'stale' } }),
+    })
+    mockApprovalEvidence()
 
     const res = await POST(makeReq({ email: 'jane@x.com' }), params)
 
