@@ -1,4 +1,6 @@
 import { createHash, generateKeyPairSync, sign, verify, type KeyLike } from 'node:crypto'
+export type JSONPrimitive=string|number|boolean|null
+export type JSONValue=JSONPrimitive|JSONValue[]|{[key:string]:JSONValue}
 
 export type ReleaseManifest = { channel:string; platform:string; architecture:string; version:string; minimumVersion:string; sha256:string; payloadUrl?:string }
 export function canonicalJson(value: unknown): string { if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`; if (value && typeof value === 'object') return `{${Object.entries(value as Record<string,unknown>).sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>`${JSON.stringify(k)}:${canonicalJson(v)}`).join(',')}}`; return JSON.stringify(value) }
