@@ -1,5 +1,6 @@
 import type { ChatContextAdapter } from '@/lib/chat-context/access'
 import { listCreativeCanvases } from '@/lib/creative-canvas/store'
+import { resolveContextReferences } from '@/lib/context-references/registry'
 
 function allowedOrgId(id: string, user: Parameters<ChatContextAdapter['resolve']>[0]['user']): string | null {
   const prefix = 'marketing_studio:'
@@ -13,6 +14,8 @@ export const marketingStudioChatContextAdapter: ChatContextAdapter = {
   async resolve({ id, user }) {
     const orgId = allowedOrgId(id, user)
     if (!orgId) return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' }
+    const [reference] = await resolveContextReferences([{ type: 'studio', id, orgId }], user, orgId)
+    if (!reference || reference.id !== id || reference.orgId !== orgId) return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' }
     const allCanvases = await listCreativeCanvases(orgId)
     const canvases = user.role === 'client' ? allCanvases.filter((canvas) => canvas.visibility === 'admin_agents_clients') : allCanvases
     const base = user.role === 'client' ? '/portal/creative-canvas' : '/admin/creative-canvas'

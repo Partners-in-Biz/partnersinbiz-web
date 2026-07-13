@@ -13,8 +13,21 @@ import { videoEditorChatContextAdapter } from '@/lib/chat-context/adapters/video
 import { mobileAppsChatContextAdapter } from '@/lib/chat-context/adapters/mobileApps'
 import { bookStudioChatContextAdapter } from '@/lib/chat-context/adapters/bookStudio'
 import { youtubeStudioChatContextAdapter } from '@/lib/chat-context/adapters/youtubeStudio'
+import { nonMarketingStudioRootChatContextAdapter } from '@/lib/chat-context/adapters/studioRoot'
+import type { StudioKind } from '@/lib/chat-context/types'
 
 export type ChatContextAdapters = Partial<Record<ChatContextKind, ChatContextAdapter>>
+type StudioRootAdapters = Record<StudioKind, ChatContextAdapter>
+
+export function createStudioRootNamespaceAdapter(adapters: StudioRootAdapters): ChatContextAdapter {
+  return {
+    resolve(input) {
+      const namespace = input.id.slice(0, input.id.indexOf(':')) as StudioKind
+      const adapter = adapters[namespace]
+      return adapter ? adapter.resolve(input) : Promise.resolve({ ok: false, reason: 'not_found' as const, status: 404 as const, error: 'Context unavailable' })
+    },
+  }
+}
 
 export function createChatContextRegistry(adapters: ChatContextAdapters) {
   return {
@@ -31,7 +44,13 @@ export function createChatContextRegistry(adapters: ChatContextAdapters) {
 
 export const chatContextRegistry = createChatContextRegistry({
   project: projectChatContextAdapter,
-  studio: marketingStudioChatContextAdapter,
+  studio: createStudioRootNamespaceAdapter({
+    marketing_studio: marketingStudioChatContextAdapter,
+    video_editor: nonMarketingStudioRootChatContextAdapter,
+    book_studio: nonMarketingStudioRootChatContextAdapter,
+    youtube_studio: nonMarketingStudioRootChatContextAdapter,
+    mobile_apps: nonMarketingStudioRootChatContextAdapter,
+  }),
   studio_artifact: {
     resolve(input) {
       if (input.id.startsWith('marketing_studio:')) return marketingStudioArtifactChatContextAdapter.resolve(input)

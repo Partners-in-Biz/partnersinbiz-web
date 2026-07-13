@@ -14,6 +14,7 @@ import { buildCreativeCanvasDraftExport, resolveExportableNode } from '@/lib/cre
 import { getCreativeCanvas, CREATIVE_CANVAS_COLLECTION } from '@/lib/creative-canvas/store'
 import { makeBlockId, type Block } from '@/lib/email-builder/types'
 import type { CreativeCanvas, CreativeCanvasActor, CreativeCanvasExport, CreativeCanvasNode } from '@/lib/creative-canvas/types'
+import { authorizeMarketingStudioMutation } from '@/lib/chat-context/marketingMutationAccess'
 
 export const dynamic = 'force-dynamic'
 
@@ -326,6 +327,8 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   const { id } = await (context as RouteContext).params
   const orgId = resolveOrgId(req, user)
   if (!orgId) return apiError('orgId is required', 400)
+  const policyAccess = await authorizeMarketingStudioMutation(user, orgId, 'approvePublish')
+  if (!policyAccess.ok) return apiError(policyAccess.error, policyAccess.status)
 
   const canvas = await getCreativeCanvas(id, orgId)
   if (!canvas) return apiError('Creative canvas not found', 404)

@@ -4,6 +4,7 @@ import type { ChatContextKind, ChatContextReadModel } from '@/lib/chat-context/t
 export interface ChatContextResolveInput {
   kind: ChatContextKind
   id: string
+  artifactId?: string
   user: ApiUser
 }
 

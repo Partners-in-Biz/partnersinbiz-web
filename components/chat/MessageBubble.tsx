@@ -1221,14 +1221,15 @@ function RehydratedStudioArtifacts({ part }: { part: RichMessagePart }) {
   useEffect(() => {
     if (!normalized) return
     let active = true
-    Promise.all(normalized.artifactIds.map(async (id) => {
-      const response = await fetch(`/api/v1/chat-context/studio_artifact/${encodeURIComponent(id)}`)
+    Promise.all(normalized.artifacts.map(async ({ id, contextId }) => {
+      const selector = id === contextId ? '' : `?artifactId=${encodeURIComponent(id)}`
+      const response = await fetch(`/api/v1/chat-context/studio_artifact/${encodeURIComponent(contextId)}${selector}`)
       if (!response.ok) return []
       const payload = await response.json().catch(() => null) as { data?: { artifacts?: ChatArtifactSummary[] } } | null
       return Array.isArray(payload?.data?.artifacts) ? payload.data.artifacts.filter((artifact) => artifact.id === id) : []
     })).then((groups) => { if (active) setArtifacts(groups.flat()) }).catch(() => undefined)
     return () => { active = false }
-  }, [normalized?.artifactIds.join('\u0000')])
+  }, [normalized?.artifacts.map(({ id, contextId }) => `${contextId}\u0001${id}`).join('\u0000')])
   return <ContextArtifactBundle artifacts={artifacts} />
 }
 

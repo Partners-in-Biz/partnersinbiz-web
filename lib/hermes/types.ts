@@ -128,6 +128,8 @@ export type RichMessagePart = {
   statusLabel?: string
   artifactId?: string
   artifactIds?: string[]
+  artifacts?: Array<{ id: string; contextId: string }>
+  contextId?: string
   [key: string]: unknown
 }
 

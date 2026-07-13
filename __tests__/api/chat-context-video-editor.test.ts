@@ -23,6 +23,10 @@ const project = {
 
 function childQuery(docs: Array<{ id: string; data: () => Record<string, unknown> }>) {
   const query = {
+    doc: (id: string) => ({ get: async () => {
+      const match = docs.find((doc) => doc.id === id)
+      return { exists: Boolean(match), data: () => match?.data() }
+    } }),
     where: (...args: unknown[]) => { mockWhere(...args); return query },
     orderBy: (...args: unknown[]) => { mockOrderBy(...args); return query },
     limit: (...args: unknown[]) => { mockLimit(...args); return query },
@@ -59,6 +63,42 @@ describe('Video Editor chat context API', () => {
     expect(mockWhere.mock.calls).toEqual(expect.arrayContaining([["orgId", "==", "org-1"], ["projectId", "==", "project-1"]]))
     expect(mockOrderBy).toHaveBeenCalledWith('updatedAt', 'desc')
     expect(mockLimit).toHaveBeenCalledWith(20)
+  })
+
+  it('returns only an exact child selected after authoritative parent access resolution', async () => {
+    const { GET } = await import('@/app/api/v1/chat-context/[kind]/[id]/route')
+    const id = 'video_editor:project:project-1'
+    const response = await GET(new NextRequest(`http://localhost/api/v1/chat-context/studio_artifact/${id}?artifactId=video_editor%3Arender%3Arender-1`), { params: Promise.resolve({ kind: 'studio_artifact', id }) })
+    const body = await response.json()
+    expect(response.status).toBe(200)
+    expect(body.data.artifacts).toEqual([expect.objectContaining({ id: 'video_editor:render:render-1', resourceId: 'render-1' })])
+    expect(body.data.context.id).toBe(id)
+  })
+
+  it('does not leak parent or sibling data when the selected child does not exist', async () => {
+    const { GET } = await import('@/app/api/v1/chat-context/[kind]/[id]/route')
+    const id = 'video_editor:project:project-1'
+    const response = await GET(new NextRequest(`http://localhost/api/v1/chat-context/studio_artifact/${id}?artifactId=video_editor%3Arender%3Aother`), { params: Promise.resolve({ kind: 'studio_artifact', id }) })
+    expect(response.status).toBe(404)
+  })
+
+  it('directly resolves an old render outside the bounded recent-child window', async () => {
+    const docs = Array.from({ length: 21 }, (_, index) => ({
+      id: index === 20 ? 'old-render' : `recent-${index}`,
+      data: () => ({ orgId: 'org-1', projectId: 'project-1', status: 'rendered', deleted: false, credits: {}, updatedAt: `2026-07-${String(13 - Math.min(index, 12)).padStart(2, '0')}T00:00:00Z` }),
+    }))
+    mockCollection.mockImplementation((name: string) => {
+      if (name === 'video_editor_projects') return { doc: () => ({ get: async () => ({ exists: true, data: () => project }) }) }
+      if (name === 'video_editor_render_jobs') return childQuery(docs)
+      if (name === 'video_editor_transcripts') return childQuery([])
+      throw new Error(`unexpected collection ${name}`)
+    })
+    const { GET } = await import('@/app/api/v1/chat-context/[kind]/[id]/route')
+    const id = 'video_editor:project:project-1'
+    const response = await GET(new NextRequest(`http://localhost/api/v1/chat-context/studio_artifact/${id}?artifactId=video_editor%3Arender%3Aold-render`), { params: Promise.resolve({ kind: 'studio_artifact', id }) })
+    const body = await response.json()
+    expect(response.status).toBe(200)
+    expect(body.data.artifacts).toEqual([expect.objectContaining({ id: 'video_editor:render:old-render' })])
   })
 
   it('returns an indistinguishable 404 when canonical access resolution rejects the project', async () => {

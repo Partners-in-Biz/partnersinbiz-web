@@ -513,7 +513,7 @@ export default function UnifiedChat({
     const previous = projectBundleRefreshRef.current
     if (previous.contextKey === contextKey && now - previous.refreshedAt < 30_000) return
     projectBundleRefreshRef.current = { ...previous, contextKey, refreshedAt: now }
-    void projectChat.refresh().catch(() => {})
+    void projectChat.refresh().catch(() => undefined)
   }, [chatContexts.activeContext?.id, chatContexts.activeContext?.kind, chatContexts.model?.asOf, projectChat.refresh])
   const projectBundleMessageSignal = useMemo(() => {
     const latest = messages[messages.length - 1]
@@ -530,12 +530,12 @@ export default function UnifiedChat({
     }
     if (previous.messageSignal === projectBundleMessageSignal) return
     projectBundleRefreshRef.current = { contextKey, refreshedAt: Date.now(), messageSignal: projectBundleMessageSignal }
-    void projectChat.refresh().catch(() => {})
+    void projectChat.refresh().catch(() => undefined)
   }, [chatContexts.activeContext?.id, chatContexts.activeContext?.kind, chatContexts.model, projectBundleMessageSignal, projectChat.refresh])
   const handleContextActionResolved = useCallback(() => {
     if (chatContexts.activeContext?.kind === 'project') {
       projectBundleRefreshRef.current = { ...projectBundleRefreshRef.current, refreshedAt: Date.now() }
-      void projectChat.refresh().catch(() => {})
+      void projectChat.refresh().catch(() => undefined)
     }
     onContextActionResolved?.()
   }, [chatContexts.activeContext?.kind, onContextActionResolved, projectChat.refresh])
@@ -1323,7 +1323,7 @@ export default function UnifiedChat({
       setError(typeof body.error === 'string' ? body.error : `Task approval failed: ${res.status}`)
       return
     }
-    await projectChat.refresh().catch(() => {})
+    await projectChat.refresh().catch(() => undefined)
   }, [projectChat, projectTaskHref])
 
   const addSelectionToComposer = useCallback((selectedText: string) => {

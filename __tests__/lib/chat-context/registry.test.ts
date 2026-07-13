@@ -48,4 +48,14 @@ describe('chat context adapter registry', () => {
     })
     expect(project.resolve).not.toHaveBeenCalled()
   })
+
+  it.each(['marketing_studio', 'video_editor', 'book_studio', 'youtube_studio', 'mobile_apps'])('routes the %s root namespace to its Studio adapter', async (namespace) => {
+    const { createStudioRootNamespaceAdapter } = await import('@/lib/chat-context/registry')
+    const adapters = Object.fromEntries(['marketing_studio', 'video_editor', 'book_studio', 'youtube_studio', 'mobile_apps'].map((key) => [key, { resolve: jest.fn().mockResolvedValue({ ok: true, model: readModel(key) }) }]))
+    const adapter = createStudioRootNamespaceAdapter(adapters as never)
+
+    await adapter.resolve({ kind: 'studio', id: `${namespace}:org-1`, user })
+
+    expect(adapters[namespace].resolve).toHaveBeenCalledWith({ kind: 'studio', id: `${namespace}:org-1`, user })
+  })
 })

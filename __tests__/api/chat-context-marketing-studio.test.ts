@@ -6,11 +6,13 @@ const mockListRuns = jest.fn()
 const mockListVersions = jest.fn()
 const mockGetCredits = jest.fn()
 const mockCollection = jest.fn()
+const mockResolveContextReferences = jest.fn()
 let mockAuthUser: Record<string, unknown>
 const mockWithAuth = jest.fn((_role: string, handler: any) => async (req: NextRequest, ctx?: unknown) => handler(req, mockAuthUser, ctx))
 
 jest.mock('@/lib/api/auth', () => ({ withAuth: (role: string, handler: unknown) => mockWithAuth(role, handler) }))
 jest.mock('@/lib/firebase/admin', () => ({ adminDb: { collection: (...args: unknown[]) => mockCollection(...args) } }))
+jest.mock('@/lib/context-references/registry', () => ({ resolveContextReferences: (...args: unknown[]) => mockResolveContextReferences(...args) }))
 jest.mock('@/lib/creative-canvas/store', () => ({
   getCreativeCanvas: (...args: unknown[]) => mockGetCreativeCanvas(...args),
   listCreativeCanvases: (...args: unknown[]) => mockListCreativeCanvases(...args),
@@ -27,6 +29,7 @@ beforeEach(() => {
   mockListVersions.mockResolvedValue([])
   mockGetCredits.mockResolvedValue({ orgId: 'org-1', used: 0, limit: null })
   mockListCreativeCanvases.mockResolvedValue([])
+  mockResolveContextReferences.mockImplementation(async (refs: Array<{ id: string; orgId?: string }>) => refs.map((ref) => ({ type: 'studio', id: ref.id, orgId: ref.orgId ?? ref.id.split(':')[1], label: 'Marketing Studio', href: '/portal/creative-canvas' })))
   mockCollection.mockReturnValue({ where: () => ({ where: () => ({ get: async () => ({ docs: [] }) }) }) })
 })
 

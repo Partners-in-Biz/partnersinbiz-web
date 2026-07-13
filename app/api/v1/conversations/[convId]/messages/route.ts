@@ -275,7 +275,7 @@ function buildStudioArtifactOrchestrationContext(input: { dispatchAgentId: Agent
     'confirmation resumes the same Hermes run via existing UI actions;',
     'preserve existing model/provider routing policy;',
     'publish/store submission/external sharing never bypasses approval.',
-    'Return created artifacts as studio_artifact or studio_artifact_bundle rich parts containing stable artifactIds only.',
+    'Return created artifacts as studio_artifact or studio_artifact_bundle rich parts containing stable identities only: artifacts:[{"id":"<exact artifact id>","contextId":"<authoritative parent Studio context id>"}]. For a parent artifact, id and contextId are the same. Never include snapshots, titles, statuses, previews, URLs, or other mutable fields.',
     '---',
     '',
   ].join('\n')

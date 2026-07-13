@@ -93,4 +93,17 @@ describe('Video Editor chat context mapping', () => {
     expect(model.attention.flatMap((item) => item.actions ?? []).every((action) => !action.method)).toBe(true)
     expect(model.capabilities).toEqual(['view', 'review_output'])
   })
+
+  it('suppresses client mutations when Marketing create is denied by organisation policy', () => {
+    const failed = job('failed')
+    const model = buildVideoEditorProjectModel({
+      project, jobs: [failed], transcripts: [], role: 'client',
+      mutationCapabilities: { canCreate: false },
+    })
+
+    expect(model.artifacts.flatMap((item) => item.actions).every((action) => !action.method)).toBe(true)
+    expect(model.attention.flatMap((item) => item.actions ?? []).every((action) => !action.method)).toBe(true)
+    expect(model.capabilities).not.toContain('create_draft')
+    expect(model.capabilities).not.toContain('render')
+  })
 })

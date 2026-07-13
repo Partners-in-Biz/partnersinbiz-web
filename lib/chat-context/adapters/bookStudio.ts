@@ -52,6 +52,7 @@ export function buildBookStudioProjectModel(input: {
   capabilities: BookStudioCapabilities
   role: ApiRole
   href?: string
+  artifactId?: string
 }): ChatContextReadModel {
   const { project, capabilities } = input
   const lifecycle = resolveLifecycleState(project)
@@ -61,7 +62,11 @@ export function buildBookStudioProjectModel(input: {
   const assembleHref = `/api/v1/book-studio/projects/${encodeURIComponent(project.id)}/assemble${apiScope}`
   const canvasHref = `/api/v1/book-studio/projects/${encodeURIComponent(project.id)}/open-in-canvas${apiScope}`
   const manifest = capabilities.canPublishingPackets && project.packageManifest && typeof project.packageManifest === 'object' ? project.packageManifest as Record<string, unknown> : undefined
-  const files = Array.isArray(manifest?.files) ? manifest.files.slice(0, 10) as Array<Record<string, unknown>> : []
+  const allFiles = Array.isArray(manifest?.files) ? manifest.files as Array<Record<string, unknown>> : []
+  const requestedFileIndex = input.artifactId?.startsWith('book_studio:') ? Number(input.artifactId.split(':').at(-1)) : NaN
+  const files = Number.isInteger(requestedFileIndex) && requestedFileIndex >= 0 && requestedFileIndex < allFiles.length
+    ? [Object.assign({}, allFiles[requestedFileIndex], { __sourceIndex: requestedFileIndex })]
+    : allFiles.slice(0, 10)
   const qaStatus = label(manifest?.qaStatus, 'missing_evidence')
   const nextLifecycle = TRANSITIONS[lifecycle].find((state) => state !== 'draft')
   const embeddedRights = capabilities.canEvidenceRights && project.rightsLedger && typeof project.rightsLedger === 'object' ? project.rightsLedger as Record<string, unknown> : undefined
@@ -90,7 +95,8 @@ export function buildBookStudioProjectModel(input: {
       ...(capabilities.canApprovalGates && nextLifecycle && transitionGuard.ok && lifecycle !== 'archived' && (input.role !== 'client' || nextLifecycle === 'content_complete') ? [{ id: 'transition', label: `Move to ${titleCase(nextLifecycle)}`, href: transitionHref, method: 'POST' as const, body: { orgId: project.orgId, toState: nextLifecycle } }] : []),
     ],
   }]
-  for (const [fileIndex, file] of files.entries()) {
+  for (const [visibleIndex, file] of files.entries()) {
+    const fileIndex = typeof file.__sourceIndex === 'number' ? file.__sourceIndex : visibleIndex
     const role = label(file.role, 'output')
     const url = safePreviewUrl(typeof file.href === 'string' ? file.href : undefined)
     const outputAnchor = bookOutputAnchor(file, fileIndex)
@@ -141,7 +147,7 @@ async function scopedRecords(collection: string, orgId: string, projectId: strin
 }
 
 export const bookStudioChatContextAdapter: ChatContextAdapter = {
-  async resolve({ id, user }) {
+  async resolve({ id, artifactId, user }) {
     if (!id.startsWith('book_studio:project:')) return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' }
     let projectId: string
     try { projectId = decodeURIComponent(id.slice('book_studio:project:'.length)) } catch { return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' } }
@@ -156,11 +162,18 @@ export const bookStudioChatContextAdapter: ChatContextAdapter = {
     if (!orgSnap.exists) return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' }
     const capabilities = resolveBookStudioCapabilities(orgSnap.data()?.settings, user.role, user.role === 'admin' || user.role === 'ai')
     if (!capabilities.canView) return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' }
-    const [chapters, pages, rightsLedgers, publishingPackets] = await Promise.all([
+    const [chapters, pages, rightsLedgers, recentPublishingPackets] = await Promise.all([
       scopedRecords('book_studio_chapters', ref.orgId, projectId), scopedRecords('book_studio_pages', ref.orgId, projectId),
       capabilities.canEvidenceRights ? scopedRecords('book_studio_rights_ledgers', ref.orgId, projectId) : Promise.resolve([]),
       capabilities.canPublishingPackets ? scopedRecords('book_studio_publishing_packets', ref.orgId, projectId) : Promise.resolve([]),
     ])
-    return { ok: true, model: buildBookStudioProjectModel({ project: { id: projectId, ...project }, chapters, pages, rightsLedgers, publishingPackets, capabilities, role: user.role, href: ref.href }) }
+    let publishingPackets = recentPublishingPackets
+    if (capabilities.canPublishingPackets && artifactId?.startsWith('book_studio:publishing_packet:')) {
+      const packetId = artifactId.slice('book_studio:publishing_packet:'.length)
+      const packetSnap = await adminDb.collection('book_studio_publishing_packets').doc(packetId).get()
+      const packet = packetSnap.exists ? { id: packetId, ...packetSnap.data() } as RecordWithId : undefined
+      if (packet && packet.orgId === ref.orgId && packet.projectId === projectId && !packet.deleted) publishingPackets = [packet]
+    }
+    return { ok: true, model: buildBookStudioProjectModel({ project: { id: projectId, ...project }, chapters, pages, rightsLedgers, publishingPackets, capabilities, role: user.role, href: ref.href, artifactId }) }
   },
 }

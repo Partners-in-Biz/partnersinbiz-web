@@ -140,4 +140,18 @@ describe('Marketing Studio chat context mapping', () => {
       expect(model.artifacts.find((item) => item.resourceId === 'image-1')?.actions.map((action) => action.id)).toEqual(['open'])
     }
   })
+
+  it('derives client mutation actions from Marketing policy capabilities', () => {
+    const readyCanvas = { ...canvas, status: 'approved' as const, nodes: canvas.nodes.map((node) => node.id === 'image-1' ? { ...node, review: { status: 'passed' as const, rightsStatus: 'cleared' as const, brandStatus: 'passed' as const } } : node) }
+    const model = buildMarketingStudioCanvasModel({
+      canvas: readyCanvas,
+      runs: [{ ...run, status: 'failed', error: { code: 'x', message: 'Nope', retryable: true } }],
+      versions: [], exports: [], credits: { used: 0, limit: null }, role: 'client',
+      mutationCapabilities: { canCreate: false, canApprovePublish: false },
+    })
+
+    expect(model.artifacts.flatMap((item) => item.actions).every((action) => !action.method)).toBe(true)
+    expect(model.attention.flatMap((item) => item.actions ?? []).every((action) => !action.method)).toBe(true)
+    expect(model.capabilities).toEqual(['view'])
+  })
 })

@@ -6,9 +6,10 @@ import { marketingCanvasContextId, parseMarketingCanvasContextId } from '@/lib/c
 import { buildCreativeCanvasAssetGallery } from '@/lib/creative-canvas/assets'
 import { listCreativeCanvasVersions } from '@/lib/creative-canvas/collaboration'
 import { getCanvasCredits, type CanvasCreditState } from '@/lib/creative-canvas/credits'
-import { listCreativeCanvasRuns } from '@/lib/creative-canvas/runs'
+import { CREATIVE_CANVAS_RUN_COLLECTION, listCreativeCanvasRuns } from '@/lib/creative-canvas/runs'
 import { CREATIVE_CANVAS_COLLECTION, getCreativeCanvas } from '@/lib/creative-canvas/store'
 import type { CreativeCanvas, CreativeCanvasExport, CreativeCanvasRun, CreativeCanvasVersion } from '@/lib/creative-canvas/types'
+import { authorizeMarketingStudioMutation } from '@/lib/chat-context/marketingMutationAccess'
 
 type StoredExport = Pick<CreativeCanvasExport, 'nodeId' | 'status'> & { id: string; target?: CreativeCanvasExport['target']; createdAt?: unknown }
 
@@ -85,8 +86,11 @@ export function buildMarketingStudioCanvasModel(input: {
   exports: StoredExport[]
   credits: Pick<CanvasCreditState, 'used' | 'limit'>
   role: ApiRole
+  mutationCapabilities?: { canCreate: boolean; canApprovePublish: boolean }
 }): ChatContextReadModel {
   const { canvas, runs, credits, role } = input
+  const canCreate = input.mutationCapabilities?.canCreate !== false
+  const canApprovePublish = input.mutationCapabilities?.canApprovePublish !== false
   const assets = buildCreativeCanvasAssetGallery({ nodes: canvas.nodes, runs })
   const runByOutputNode = new Map(runs.filter((run) => run.output?.outputNodeId).map((run) => [run.output!.outputNodeId!, run]))
   const completedExportNodes = new Set(input.exports.filter((item) => item.status === 'completed').map((item) => item.nodeId))
@@ -126,12 +130,12 @@ export function buildMarketingStudioCanvasModel(input: {
     const apiBase = `/api/v1/creative-canvas/${encodeURIComponent(canvas.id)}`
     const actions: ChatArtifactSummary['actions'] = [{ id: 'open', label: 'Open canvas', href: nodeHref }]
     if (!ready) {
-      if (canOfferReviewActions(canvas, node, role)) actions.push(
+      if (canApprovePublish && canOfferReviewActions(canvas, node, role)) actions.push(
           { id: 'review', label: 'Review', href: mutationHref(`${apiBase}/nodes/${encodeURIComponent(node.id)}/review`, canvas.orgId), method: 'PUT', body: { action: 'approve' } },
           { id: 'request-changes', label: 'Request changes', href: mutationHref(`${apiBase}/nodes/${encodeURIComponent(node.id)}/review`, canvas.orgId), method: 'PUT', body: { action: 'request_changes' } },
         )
     } else {
-      actions.push({ id: 'export', label: completedExportNodes.has(node.id) ? 'Export again' : 'Export', href: mutationHref(`${apiBase}/exports/draft`, canvas.orgId), method: 'POST', body: { nodeId: node.id, target: asset.suggestedExportTarget ?? 'campaign_asset' } })
+      if (canApprovePublish) actions.push({ id: 'export', label: completedExportNodes.has(node.id) ? 'Export again' : 'Export', href: mutationHref(`${apiBase}/exports/draft`, canvas.orgId), method: 'POST', body: { nodeId: node.id, target: asset.suggestedExportTarget ?? 'campaign_asset' } })
     }
     artifacts.push({
       id: `marketing_studio:asset:${encodeURIComponent(asset.id)}`, studioKind: 'marketing_studio', resourceType: 'canvas_output', resourceId: node.id,
@@ -165,7 +169,7 @@ export function buildMarketingStudioCanvasModel(input: {
   }
 
   for (const run of runs.filter((item) => item.status === 'failed')) {
-    const actions: ContextAttentionSummary['actions'] = run.error?.retryable === true
+    const actions: ContextAttentionSummary['actions'] = canCreate && run.error?.retryable === true
       ? [{ id: 'retry', label: 'Retry', href: mutationHref(`/api/v1/creative-canvas/${encodeURIComponent(canvas.id)}/runs/${encodeURIComponent(run.id)}/retry`, canvas.orgId), method: 'PUT' }]
       : undefined
     attention.push({
@@ -194,7 +198,7 @@ export function buildMarketingStudioCanvasModel(input: {
       ],
       next: attention[0] ? { id: attention[0].id, label: attention[0].label, state: attention[0].state, href: attention[0].href, actions: attention[0].actions } : undefined,
     },
-    groups: input.exports.length ? [{ id: 'exports', label: 'Exports', items: input.exports.map((item) => ({ id: item.id, label: item.target ? label(item.target) : 'Canvas export', state: item.status === 'completed' ? 'complete' : item.status === 'failed' || item.status === 'blocked' ? 'blocked' : 'ready', detail: `${label(item.status)} · node ${item.nodeId}`, updatedAt: dateString(item.createdAt) })) }] : [], artifacts, attention, activity: [], capabilities: ['view', 'review', 'request_changes', 'retry', 'export'], asOf: new Date().toISOString(),
+    groups: input.exports.length ? [{ id: 'exports', label: 'Exports', items: input.exports.map((item) => ({ id: item.id, label: item.target ? label(item.target) : 'Canvas export', state: item.status === 'completed' ? 'complete' : item.status === 'failed' || item.status === 'blocked' ? 'blocked' : 'ready', detail: `${label(item.status)} · node ${item.nodeId}`, updatedAt: dateString(item.createdAt) })) }] : [], artifacts, attention, activity: [], capabilities: ['view', ...(canApprovePublish ? ['review', 'request_changes', 'export'] : []), ...(canCreate ? ['retry'] : [])], asOf: new Date().toISOString(),
   }
 }
 
@@ -240,14 +244,24 @@ async function resolveCanvasIdentity(id: string, user: Parameters<ChatContextAda
 }
 
 export const marketingStudioArtifactChatContextAdapter: ChatContextAdapter = {
-  async resolve({ id, user }) {
+  async resolve({ id, artifactId, user }) {
     const resolved = await resolveCanvasIdentity(id, user)
     if (!resolved) return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' }
     const { canvasId, orgId, canvas } = resolved
     if (user.role === 'client' && canvas.visibility !== 'admin_agents_clients') return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' }
-    const [runs, versions, credits, exports] = await Promise.all([
+    const [createAccess, approveAccess] = await Promise.all([
+      authorizeMarketingStudioMutation(user, orgId, 'create'),
+      authorizeMarketingStudioMutation(user, orgId, 'approvePublish'),
+    ])
+    let [runs, versions, credits, exports] = await Promise.all([
       listCreativeCanvasRuns(canvasId, orgId), listCreativeCanvasVersions(canvasId, orgId), getCanvasCredits(orgId), listExports(canvasId, orgId),
     ])
-    return { ok: true, model: buildMarketingStudioCanvasModel({ canvas, runs, versions, credits, exports, role: user.role }) }
+    if (artifactId?.startsWith('marketing_studio:run:')) {
+      const runId = artifactId.slice('marketing_studio:run:'.length)
+      const runSnap = await adminDb.collection(CREATIVE_CANVAS_RUN_COLLECTION).doc(runId).get()
+      const run = runSnap.exists ? { id: runId, ...runSnap.data() } as CreativeCanvasRun & { id: string } : undefined
+      if (run && run.orgId === orgId && run.canvasId === canvasId) runs = [run]
+    }
+    return { ok: true, model: buildMarketingStudioCanvasModel({ canvas, runs, versions, credits, exports, role: user.role, mutationCapabilities: { canCreate: createAccess.ok, canApprovePublish: approveAccess.ok } }) }
   },
 }

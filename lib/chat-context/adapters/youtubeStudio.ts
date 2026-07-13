@@ -196,7 +196,7 @@ async function boundedChildren<T extends { orgId: string; videoProjectId?: strin
 }
 
 export const youtubeStudioChatContextAdapter: ChatContextAdapter = {
-  async resolve({ id, user }) {
+  async resolve({ id, artifactId, user }) {
     if (!id.startsWith('youtube_studio:video_project:')) return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' }
     let videoId: string
     try { videoId = decodeURIComponent(id.slice('youtube_studio:video_project:'.length)) } catch { return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' } }
@@ -212,7 +212,7 @@ export const youtubeStudioChatContextAdapter: ChatContextAdapter = {
     const channel = channelSnap.exists ? channelSnap.data() as YouTubeChannelWorkspace | undefined : undefined
     if (!channel || channel.deleted || channel.orgId !== ref.orgId) return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' }
     if (user.role === 'client' && channel.visibility?.showInClientPortal === false) return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' }
-    const [productionDrafts, sourceAssets, renderJobs, clipCandidates, packets, releasePlans, analytics] = await Promise.all([
+    let [productionDrafts, sourceAssets, renderJobs, clipCandidates, packets, releasePlans, analytics] = await Promise.all([
       boundedChildren<YouTubeProductionDraft>(YOUTUBE_COLLECTIONS.productionDrafts, ref.orgId, videoId),
       boundedChildren<YouTubeSourceAsset>(YOUTUBE_COLLECTIONS.sourceAssets, ref.orgId, videoId),
       boundedChildren<YouTubeRenderJob>(YOUTUBE_COLLECTIONS.renderJobs, ref.orgId, videoId),
@@ -221,6 +221,21 @@ export const youtubeStudioChatContextAdapter: ChatContextAdapter = {
       boundedChildren<YouTubeReleasePlan>(YOUTUBE_COLLECTIONS.releasePlans, ref.orgId, videoId),
       boundedChildren<YouTubeAnalyticsSnapshot>(YOUTUBE_COLLECTIONS.analytics, ref.orgId, videoId),
     ])
+    if (artifactId && artifactId !== id) {
+      const match = /^youtube_studio:(production_draft|thumbnail|render|clip_pack|publishing_packet|release_plan):(.+)$/.exec(artifactId)
+      const collection = match && ({ production_draft: YOUTUBE_COLLECTIONS.productionDrafts, thumbnail: YOUTUBE_COLLECTIONS.sourceAssets, render: YOUTUBE_COLLECTIONS.renderJobs, clip_pack: YOUTUBE_COLLECTIONS.renderJobs, publishing_packet: YOUTUBE_COLLECTIONS.packets, release_plan: YOUTUBE_COLLECTIONS.releasePlans } as const)[match[1] as 'production_draft']
+      if (match && collection) {
+        const childSnap = await adminDb.collection(collection).doc(match[2]).get()
+        const child = childSnap.exists ? { id: match[2], ...childSnap.data() } as Record<string, unknown> : undefined
+        if (child && child.orgId === ref.orgId && child.videoProjectId === videoId && child.deleted !== true) {
+          if (match[1] === 'production_draft') productionDrafts = [child as unknown as Identified<YouTubeProductionDraft>]
+          if (match[1] === 'thumbnail') sourceAssets = [child as unknown as Identified<YouTubeSourceAsset>]
+          if (match[1] === 'render' || match[1] === 'clip_pack') renderJobs = [child as unknown as Identified<YouTubeRenderJob>]
+          if (match[1] === 'publishing_packet') packets = [child as unknown as Identified<YouTubePublishingPacket>]
+          if (match[1] === 'release_plan') releasePlans = [child as unknown as Identified<YouTubeReleasePlan>]
+        }
+      }
+    }
     return { ok: true, model: buildYouTubeStudioProjectModel({ channel: { id: video.channelWorkspaceId, ...channel }, video: { id: videoId, ...video }, productionDrafts, sourceAssets, renderJobs, clipCandidates, packets, releasePlans, analytics, role: user.role, href: ref.href }) }
   },
 }

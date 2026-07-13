@@ -5,6 +5,7 @@ import type { ChatArtifactSummary, ChatContextReadModel, ContextDisplayState } f
 import { resolveContextReferences } from '@/lib/context-references/registry'
 import { VIDEO_EDITOR_COLLECTIONS } from '@/lib/video-editor/api'
 import type { VideoEditorProject, VideoEditorRenderJob, VideoEditorTranscript } from '@/lib/video-editor/types'
+import { authorizeMarketingStudioMutation } from '@/lib/chat-context/marketingMutationAccess'
 
 const RECENT_VIDEO_EDITOR_CHILD_LIMIT = 20
 
@@ -35,9 +36,11 @@ export function buildVideoEditorProjectModel(input: {
   jobs: Array<VideoEditorRenderJob & { id: string }>
   transcripts: Array<VideoEditorTranscript & { id: string }>
   role: ApiRole
+  mutationCapabilities?: { canCreate: boolean }
 }): ChatContextReadModel {
   const { project } = input
   const readOnly = project.status === 'archived'
+  const canCreate = !readOnly && input.mutationCapabilities?.canCreate !== false
   const href = exactEditorHref(project.id, project.orgId)
   const renderHref = `/api/v1/video-editor/projects/${encodeURIComponent(project.id)}/render`
   const jobs = input.jobs.filter((job) => !job.deleted).sort((a, b) => timestamp(b.updatedAt ?? b.createdAt) - timestamp(a.updatedAt ?? a.createdAt)).slice(0, RECENT_VIDEO_EDITOR_CHILD_LIMIT)
@@ -52,11 +55,11 @@ export function buildVideoEditorProjectModel(input: {
     provenance: { provider: job.providerJobId ? 'video_editor_runtime' : undefined }, href,
     actions: [
       { id: job.status === 'rendered' ? 'review-output' : 'open', label: job.status === 'rendered' ? 'Review output' : 'Open project', href },
-      ...(!readOnly && job.status === 'failed' ? [{ id: 'retry-render', label: 'Retry render', href: renderHref, method: 'POST' as const }] : []),
+      ...(canCreate && job.status === 'failed' ? [{ id: 'retry-render', label: 'Retry render', href: renderHref, method: 'POST' as const }] : []),
     ],
   }))
   const projectActions: ChatArtifactSummary['actions'] = [{ id: 'open', label: 'Open project', href }]
-  if (!readOnly) {
+  if (canCreate) {
     projectActions.push(
       { id: 'render', label: 'Render', href: renderHref, method: 'POST' },
       { id: 'create-draft', label: 'Create draft', href: '/api/v1/video-editor/projects', method: 'POST', body: { orgId: project.orgId, title: `${project.title} draft` } },
@@ -73,7 +76,7 @@ export function buildVideoEditorProjectModel(input: {
   const attention = [
     ...jobs.filter((job) => job.status === 'failed').map((job) => ({
       id: `render-failure:${job.id}`, label: 'Render failed', state: 'blocked' as const, detail: failureDetail('render'), href,
-      actions: readOnly
+      actions: !canCreate
         ? [{ id: 'open', label: 'Open project', href }]
         : [{ id: 'retry-render', label: 'Retry render', href: renderHref, method: 'POST' as const }],
     })),
@@ -92,7 +95,7 @@ export function buildVideoEditorProjectModel(input: {
     groups: [
       { id: 'timeline', label: 'Timeline', items: project.timeline.tracks.map((track) => ({ id: track.id, label: track.label || titleCase(track.kind), state: 'ready', detail: `${track.clips.length} clip${track.clips.length === 1 ? '' : 's'}`, href })) },
       ...(jobs.length ? [{ id: 'render-jobs', label: 'Render jobs', items: jobs.map((job) => ({ id: job.id, label: `Render ${job.id}`, state: renderState(job.status), detail: titleCase(job.status), updatedAt: dateString(job.updatedAt ?? job.createdAt), href })) }] : []),
-    ], artifacts, attention, activity: [], capabilities: readOnly ? ['view', 'review_output'] : ['view', 'create_draft', 'render', 'review_output', 'handoff'], asOf: new Date().toISOString(),
+    ], artifacts, attention, activity: [], capabilities: canCreate ? ['view', 'create_draft', 'render', 'review_output', 'handoff'] : ['view', 'review_output'], asOf: new Date().toISOString(),
   }
 }
 
@@ -111,7 +114,7 @@ function dateString(value: unknown): string | undefined {
 }
 
 export const videoEditorChatContextAdapter: ChatContextAdapter = {
-  async resolve({ id, user }) {
+  async resolve({ id, artifactId, user }) {
     if (!id.startsWith('video_editor:project:')) return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' }
     let projectId: string
     try { projectId = decodeURIComponent(id.slice('video_editor:project:'.length)) } catch { return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' } }
@@ -125,16 +128,25 @@ export const videoEditorChatContextAdapter: ChatContextAdapter = {
     const ref = refs.find((item) => item.type === 'studio_artifact' && item.id.startsWith('video_editor:project:'))
     if (!ref?.orgId) return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' }
     if (ref.id !== id || data.orgId !== ref.orgId) return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' }
-    const [jobSnap, transcriptSnap] = await Promise.all([
+    const createAccess = await authorizeMarketingStudioMutation(user, ref.orgId, 'create')
+    const exactRenderId = artifactId?.startsWith('video_editor:render:')
+      ? artifactId.slice('video_editor:render:'.length)
+      : undefined
+    const [jobSnap, transcriptSnap, exactRenderSnap] = await Promise.all([
       adminDb.collection(VIDEO_EDITOR_COLLECTIONS.renderJobs)
         .where('orgId', '==', ref.orgId).where('projectId', '==', projectId)
         .orderBy('updatedAt', 'desc').limit(RECENT_VIDEO_EDITOR_CHILD_LIMIT).get(),
       adminDb.collection(VIDEO_EDITOR_COLLECTIONS.transcripts)
         .where('orgId', '==', ref.orgId).where('projectId', '==', projectId)
         .orderBy('updatedAt', 'desc').limit(RECENT_VIDEO_EDITOR_CHILD_LIMIT).get(),
+      exactRenderId ? adminDb.collection(VIDEO_EDITOR_COLLECTIONS.renderJobs).doc(exactRenderId).get() : Promise.resolve(null),
     ])
-    const jobs = jobSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as VideoEditorRenderJob & { id: string })).filter((job) => !job.deleted && job.orgId === ref.orgId)
+    let jobs = jobSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as VideoEditorRenderJob & { id: string })).filter((job) => !job.deleted && job.orgId === ref.orgId && job.projectId === projectId)
+    if (exactRenderId && exactRenderSnap?.exists) {
+      const exact = { id: exactRenderId, ...exactRenderSnap.data() } as VideoEditorRenderJob & { id: string }
+      if (!exact.deleted && exact.orgId === ref.orgId && exact.projectId === projectId) jobs = [exact]
+    }
     const transcripts = transcriptSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as VideoEditorTranscript & { id: string })).filter((transcript) => !transcript.deleted && transcript.orgId === ref.orgId)
-    return { ok: true, model: buildVideoEditorProjectModel({ project: { id: projectId, ...data }, jobs, transcripts, role: user.role }) }
+    return { ok: true, model: buildVideoEditorProjectModel({ project: { id: projectId, ...data }, jobs, transcripts, role: user.role, mutationCapabilities: { canCreate: createAccess.ok } }) }
   },
 }
