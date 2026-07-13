@@ -10,7 +10,7 @@ const mockUser = { uid: 'client-1', role: 'client' as const, orgId: 'client-org'
 
 jest.mock('@/lib/firebase/admin', () => ({ adminDb: { collection: mockCollection } }))
 jest.mock('@/lib/api/auth', () => ({
-  withAuth: (...args: any[]) => mockWithAuth(...args),
+  withAuth: (role: string, handler: unknown) => mockWithAuth(role, handler),
 }))
 jest.mock('@/lib/projects/access', () => ({
   getProjectForUser: (...args: unknown[]) => mockGetProjectForUser(...args),

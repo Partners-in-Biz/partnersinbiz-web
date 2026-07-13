@@ -7,8 +7,8 @@ import {
   type ChatContextResolveResult,
 } from '@/lib/chat-context/access'
 import { projectChatContextAdapter } from '@/lib/chat-context/adapters/project'
-import { studioChatContextAdapter } from '@/lib/chat-context/adapters/studio'
-import { studioArtifactChatContextAdapter } from '@/lib/chat-context/adapters/studioArtifact'
+import { marketingStudioChatContextAdapter } from '@/lib/chat-context/adapters/marketingStudio'
+import { marketingStudioArtifactChatContextAdapter } from '@/lib/chat-context/adapters/marketingStudioArtifact'
 
 export type ChatContextAdapters = Partial<Record<ChatContextKind, ChatContextAdapter>>
 
@@ -27,6 +27,6 @@ export function createChatContextRegistry(adapters: ChatContextAdapters) {
 
 export const chatContextRegistry = createChatContextRegistry({
   project: projectChatContextAdapter,
-  studio: studioChatContextAdapter,
-  studio_artifact: studioArtifactChatContextAdapter,
+  studio: marketingStudioChatContextAdapter,
+  studio_artifact: marketingStudioArtifactChatContextAdapter,
 })

@@ -485,7 +485,7 @@ describe('context reference registry', () => {
         type: 'studio', id: 'marketing_studio:org-1', orgId: 'org-1', label: 'Marketing Studio', href: '/admin/creative-canvas',
       }),
       expect.objectContaining({
-        type: 'studio_artifact', id: 'marketing_studio:canvas:canvas-1', orgId: 'org-1', label: 'Launch campaign canvas', href: '/admin/creative-canvas?canvasId=canvas-1',
+        type: 'studio_artifact', id: 'marketing_studio:org:b3JnLTE:canvas:Y2FudmFzLTE', orgId: 'org-1', label: 'Launch campaign canvas', href: '/admin/creative-canvas?canvasId=canvas-1&orgId=org-1',
       }),
     ])
   })
@@ -520,7 +520,7 @@ describe('context reference registry', () => {
     )
     mockCollection.mockClear()
     await expect(searchContextReferences({ type: 'studio_artifact', query: 'launch', orgId: 'org-1', user })).resolves.toEqual(
-      expect.arrayContaining([expect.objectContaining({ id: 'marketing_studio:canvas:canvas-1' })]),
+      expect.arrayContaining([expect.objectContaining({ id: 'marketing_studio:org:b3JnLTE:canvas:Y2FudmFzLTE' })]),
     )
     const exactLimits = mockCollection.mock.results
       .map((result) => result.value as MockQuery)
@@ -545,7 +545,7 @@ describe('context reference registry', () => {
       { type: 'studio_artifact', id: 'mobile_apps:app:app-1' },
     ], admin, 'org-1')
     expect(refs.map((ref) => ref.href)).toEqual([
-      '/admin/creative-canvas?canvasId=canvas-1',
+      '/admin/creative-canvas?canvasId=canvas-1&orgId=org-1',
       '/portal/video-editor?projectId=video-1',
       '/admin/org/elemental/book-studio/book-1',
       '/admin/org/elemental/youtube-studio/editor/yt-1',
@@ -582,7 +582,16 @@ describe('context reference registry', () => {
     await expect(resolveContextReferences([
       { type: 'studio_artifact', id: 'marketing_studio:canvas:canvas%3Acolon' },
     ], { uid: 'admin-1', role: 'admin', authKind: 'session' }, 'org-1')).resolves.toEqual([
-      expect.objectContaining({ id: 'marketing_studio:canvas:canvas%3Acolon', href: '/admin/creative-canvas?canvasId=canvas%3Acolon' }),
+      expect.objectContaining({ id: 'marketing_studio:org:b3JnLTE:canvas:Y2FudmFzOmNvbG9u', href: '/admin/creative-canvas?canvasId=canvas%3Acolon&orgId=org-1' }),
+    ])
+  })
+
+  it('migrates a superadmin legacy canvas reference using the authoritative record organisation', async () => {
+    const { resolveContextReferences } = await import('@/lib/context-references/registry')
+    await expect(resolveContextReferences([
+      { type: 'studio_artifact', id: 'marketing_studio:canvas:canvas-1' },
+    ], { uid: 'admin-1', role: 'admin', authKind: 'session' })).resolves.toEqual([
+      expect.objectContaining({ id: 'marketing_studio:org:b3JnLTE:canvas:Y2FudmFzLTE', orgId: 'org-1' }),
     ])
   })
 })
