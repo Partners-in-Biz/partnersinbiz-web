@@ -2,6 +2,7 @@ const update = jest.fn()
 const appendEmailEvent = jest.fn()
 const claimEmailEventProjection = jest.fn()
 const completeEmailEventProjection = jest.fn()
+const addSuppression = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: {
@@ -28,7 +29,7 @@ jest.mock('@/lib/firebase/admin', () => ({
 }))
 jest.mock('@/lib/email-events/store', () => ({ appendEmailEvent: (...args: unknown[]) => appendEmailEvent(...args), claimEmailEventProjection: (...args: unknown[]) => claimEmailEventProjection(...args), completeEmailEventProjection: (...args: unknown[]) => completeEmailEventProjection(...args) }))
 jest.mock('@/lib/consent-ledger/store', () => ({ appendConsentEvent: jest.fn() }))
-jest.mock('@/lib/email/suppressions', () => ({ addSuppression: jest.fn(), temporaryExpiryFromNow: jest.fn() }))
+jest.mock('@/lib/email/suppressions', () => ({ addSuppression: (...args: unknown[]) => addSuppression(...args), temporaryExpiryFromNow: jest.fn() }))
 jest.mock('@/lib/ab-testing/cronHelpers', () => ({ incrementVariantStat: jest.fn() }))
 jest.mock('@/lib/email-events/effects', () => ({ applyFirestoreProjectionEffect: jest.fn().mockResolvedValue(true), applyVariantProjectionEffect: jest.fn().mockResolvedValue(true) }))
 
@@ -39,6 +40,7 @@ describe('SES email event ledger integration', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     delete process.env.SES_SNS_TOPIC_ARN
+    addSuppression.mockResolvedValue(undefined)
   })
 
   it('uses the SNS message id as the immutable provider-event dedupe key', async () => {
@@ -69,5 +71,20 @@ describe('SES email event ledger integration', () => {
       event: 'delivered',
     }))
     expect(update).not.toHaveBeenCalled()
+  })
+
+  it('keeps complaint projection retryable when suppression fails', async () => {
+    appendEmailEvent.mockResolvedValue({ id: 'evt-ses-fail', created: true })
+    claimEmailEventProjection.mockResolvedValue('lease-ses')
+    addSuppression.mockRejectedValue(new Error('suppression unavailable'))
+    const request = new NextRequest('http://localhost/api/v1/email/webhook/ses', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ Type: 'Notification', MessageId: 'sns-fail', Message: JSON.stringify({
+        eventType: 'Complaint', mail: { messageId: 'ses-message-1', destination: ['person@example.com'] },
+        complaint: { complainedRecipients: [{ emailAddress: 'person@example.com' }] },
+      }) }),
+    })
+    await expect(POST(request)).rejects.toThrow('suppression unavailable')
+    expect(completeEmailEventProjection).not.toHaveBeenCalled()
   })
 })

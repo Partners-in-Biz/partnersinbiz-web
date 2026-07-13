@@ -1,4 +1,4 @@
-import { appendEmailEvent } from '@/lib/email-events/store'
+import { appendEmailEvent, claimEmailEventProjection, completeEmailEventProjection } from '@/lib/email-events/store'
 
 function fakeDb(existing: Record<string, Record<string, unknown>> = {}) {
   const rows = new Map(Object.entries(existing))
@@ -17,6 +17,9 @@ function fakeDb(existing: Record<string, Record<string, unknown>> = {}) {
           if (rows.has(ref.id)) throw new Error('already exists')
           rows.set(ref.id, value)
           creates.push({ id: ref.id, value })
+        },
+        set: (ref: { id: string }, value: Record<string, unknown>) => {
+          rows.set(ref.id, { ...(rows.get(ref.id) ?? {}), ...value })
         },
       }),
     ),
@@ -65,5 +68,18 @@ describe('appendEmailEvent', () => {
     await expect(appendEmailEvent({ ...input, orgId: '' }, { db: db as never })).rejects.toThrow(
       'orgId is required',
     )
+  })
+
+  it('rejects active leases, reclaims expired leases, and requires the matching completion token', async () => {
+    const { db, rows } = fakeDb()
+    const first = await claimEmailEventProjection('evt-lease', { db: db as never, token: 'token-1', leaseMs: 60_000 })
+    expect(first).toBe('token-1')
+    expect(await claimEmailEventProjection('evt-lease', { db: db as never, token: 'token-2' })).toBeNull()
+    const row = rows.get('evt-lease')!
+    row.leaseExpiresAt = 0
+    expect(await claimEmailEventProjection('evt-lease', { db: db as never, token: 'token-3' })).toBe('token-3')
+    expect(await completeEmailEventProjection('evt-lease', 'wrong', { db: db as never })).toBe(false)
+    expect(await completeEmailEventProjection('evt-lease', 'token-3', { db: db as never })).toBe(true)
+    expect(await claimEmailEventProjection('evt-lease', { db: db as never, token: 'token-4' })).toBeNull()
   })
 })
