@@ -3,7 +3,7 @@ import { getProjectForUser } from '@/lib/projects/access'
 import { buildProjectChatProgress, type ProjectChatTaskItem, type ProjectChatTaskSource } from '@/lib/projects/chatProgress'
 import { filterProjectItemsForAccess } from '@/lib/projects/collaboration'
 import { taskOrderMillis } from '@/lib/projects/taskPayload'
-import type { ContextDisplayState, ContextItemSummary } from '@/lib/chat-context/types'
+import type { ContextActivitySummary, ContextDisplayState, ContextItemSummary } from '@/lib/chat-context/types'
 import type { ChatContextAdapter } from '@/lib/chat-context/access'
 
 function cleanString(value: unknown): string {
@@ -74,6 +74,17 @@ function summary(task: ProjectChatTaskItem): ContextItemSummary {
   }
 }
 
+export function projectRoutineActivity(tasks: ProjectChatTaskItem[]): ContextActivitySummary[] {
+  return tasks.flatMap((task) => {
+    const type = task.state === 'ready' ? 'pickup'
+      : task.state === 'running' ? 'running'
+        : task.state === 'waiting' || task.state === 'review' ? 'waiting'
+          : null
+    const occurredAt = updatedAt(task.updatedAt)
+    return type && occurredAt ? [{ id: `project-task:${task.id}`, type, label: task.title, occurredAt }] : []
+  })
+}
+
 export const projectChatContextAdapter: ChatContextAdapter = {
   async resolve({ id: projectId, user }) {
     const access = await getProjectForUser(projectId, user)
@@ -136,7 +147,7 @@ export const projectChatContextAdapter: ChatContextAdapter = {
           label: progress.attention.title,
           state: progress.attention.state === 'needs_input' ? 'needs_input' : 'blocked',
         }] : [],
-        activity: [],
+        activity: projectRoutineActivity(progress.tasks),
         capabilities: ['view'],
         asOf,
       },

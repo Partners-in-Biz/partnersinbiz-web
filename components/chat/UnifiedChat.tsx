@@ -40,6 +40,9 @@ import VoiceInputButton from './VoiceInputButton'
 import ModelProviderPicker, { type MessageModelCatalog, type ModelRuntimeSelection } from '@/components/messages/hermes/ModelProviderPicker'
 import { LivingTaskBundle, ProjectLens, ProjectPulse } from '@/components/chat/project/ProjectChatExperience'
 import { useProjectChatProgress } from '@/components/chat/project/useProjectChatProgress'
+import { useChatContexts } from '@/components/chat/context/useChatContexts'
+import { ChatContextExperience } from '@/components/chat/context/ChatContextExperience'
+import { ContextArtifactBundle } from '@/components/chat/context/ContextArtifactBundle'
 import type { ProjectChatTaskItem } from '@/lib/projects/chatProgress'
 import RuntimeInspectorRail from '@/components/messages/hermes/RuntimeInspectorRail'
 
@@ -394,7 +397,7 @@ export default function UnifiedChat({
   const [historyCursor, setHistoryCursor] = useState<number | null>(null)
   const [queuedDraftsByConversation, setQueuedDraftsByConversation] = useState<Record<string, QueuedComposerDraft[]>>({})
   const [runtimeInspectorOpen, setRuntimeInspectorOpen] = useState(false)
-  const [projectLensOpen, setProjectLensOpen] = useState(false)
+  const [contextArtifactRequest, setContextArtifactRequest] = useState<{ id: string; nonce: number }>()
   const [pinnedConversationIds, setPinnedConversationIds] = useState<string[]>(() => readPinnedConversationIds(orgId))
 
   // Agent map for looking up colorKey / iconKey for bubbles
@@ -449,6 +452,7 @@ export default function UnifiedChat({
 
   // Mobile header "…" menu
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false)
+  const [projectLensOpen, setProjectLensOpen] = useState(false)
 
   // Refs
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -473,7 +477,21 @@ export default function UnifiedChat({
     () => conversations.find((c) => c.id === activeId) ?? null,
     [conversations, activeId],
   )
-  const projectChat = useProjectChatProgress(orgId, activeConversation)
+  const useGenericContext = Boolean(activeConversation && (activeConversation.contextRefs ?? []).some((ref) => {
+    const kind = ref.type
+    return kind === 'studio' || kind === 'studio_artifact'
+  }))
+  const chatContexts = useChatContexts(orgId, activeConversation, useGenericContext)
+  const projectChat = useProjectChatProgress(
+    orgId,
+    activeConversation,
+    !useGenericContext,
+  )
+  useEffect(() => {
+    if (useGenericContext && chatContexts.activeContext?.kind === 'project') {
+      void projectChat.refresh().catch(() => {})
+    }
+  }, [chatContexts.activeContext?.id, chatContexts.activeContext?.kind, projectChat.refresh, useGenericContext])
   const activeModelAgentId = useMemo<AgentId | null>(() => {
     const agentIds = activeConversation?.participantAgentIds ?? []
     if (agentIds.length === 0) return null
@@ -491,6 +509,7 @@ export default function UnifiedChat({
     ) ?? null
   }, [messages])
   const activeRuntimeEvents = activeRuntimeMessage ? (liveEvents[activeRuntimeMessage.id] ?? []) : []
+  useEffect(() => { setProjectLensOpen(false) }, [activeId, projectChat.activeProjectId])
   const hasInFlightAgentRun = useMemo(
     () => messages.some((message) =>
       message.role === 'assistant' && (
@@ -906,7 +925,6 @@ export default function UnifiedChat({
 
   // Close header menu when switching conversations
   useEffect(() => { setHeaderMenuOpen(false) }, [activeId])
-  useEffect(() => { setProjectLensOpen(false) }, [activeId, projectChat.activeProjectId])
 
   // Cleanup polling + SSE on unmount
   useEffect(() => () => {
@@ -2404,7 +2422,7 @@ export default function UnifiedChat({
           )}
         </div>
 
-        {projectChat.progress && projectChat.activeProjectId && (
+        {!useGenericContext && projectChat.progress && projectChat.activeProjectId && (
           <ProjectPulse
             progress={projectChat.progress}
             projects={projectChat.projects}
@@ -2413,6 +2431,7 @@ export default function UnifiedChat({
             onOpen={() => setProjectLensOpen(true)}
           />
         )}
+        {useGenericContext && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} />}
 
         {/* Messages */}
         <div
@@ -2477,6 +2496,14 @@ export default function UnifiedChat({
                       canApprove={userRole === 'admin'}
                     />
                   )}
+                  {(chatContexts.model?.artifacts.filter((artifact) => artifact.conversationOrigin?.responseMessageId === m.id).length ?? 0) > 0 && (
+                    <ContextArtifactBundle
+                      artifacts={chatContexts.model?.artifacts.filter((artifact) => artifact.conversationOrigin?.responseMessageId === m.id) ?? []}
+                      onActivate={(artifact) => {
+                        setContextArtifactRequest({ id: artifact.id, nonce: Date.now() })
+                      }}
+                    />
+                  )}
 
                   {/* Approval card */}
                   {m.role === 'assistant' &&
@@ -2520,15 +2547,21 @@ export default function UnifiedChat({
                 </div>
               )
             })}
-          {projectChat.routineUpdateCount > 0 && (
+          {chatContexts.routineUpdateCount > 0 && (
             <button
               type="button"
-              onClick={projectChat.dismissRoutineUpdates}
+              onClick={chatContexts.dismissRoutineUpdates}
               className="ml-0 inline-flex items-center gap-2 rounded-md border border-white/10 bg-black/15 px-3 py-2 text-[11px] text-on-surface-variant hover:bg-white/[0.05] lg:ml-10"
             >
               <span className="material-symbols-outlined text-[14px] text-primary" aria-hidden="true">update</span>
-              {projectChat.routineUpdateCount} project update{projectChat.routineUpdateCount === 1 ? '' : 's'}
+              {chatContexts.routineUpdateCount} routine update{chatContexts.routineUpdateCount === 1 ? '' : 's'}
               <span className="material-symbols-outlined text-[13px]" aria-hidden="true">expand_more</span>
+            </button>
+          )}
+          {!useGenericContext && projectChat.routineUpdateCount > 0 && (
+            <button type="button" onClick={projectChat.dismissRoutineUpdates} className="ml-0 inline-flex items-center gap-2 rounded-md border border-white/10 bg-black/15 px-3 py-2 text-[11px] text-on-surface-variant hover:bg-white/[0.05] lg:ml-10">
+              <span className="material-symbols-outlined text-[14px] text-primary" aria-hidden="true">update</span>
+              {projectChat.routineUpdateCount} project update{projectChat.routineUpdateCount === 1 ? '' : 's'}
             </button>
           )}
         </div>
@@ -2986,16 +3019,10 @@ export default function UnifiedChat({
           )}
         </form>
 
-        {projectChat.progress && (
-          <ProjectLens
-            progress={projectChat.progress}
-            open={projectLensOpen}
-            onClose={() => setProjectLensOpen(false)}
-            onTaskAction={handleProjectTaskAction}
-            taskHref={projectTaskHref}
-            canApprove={userRole === 'admin'}
-          />
+        {!useGenericContext && projectChat.progress && (
+          <ProjectLens progress={projectChat.progress} open={projectLensOpen} onClose={() => setProjectLensOpen(false)} onTaskAction={handleProjectTaskAction} taskHref={projectTaskHref} canApprove={userRole === 'admin'} />
         )}
+
       </section>
 
       {showRuntimeInspectorRail && (

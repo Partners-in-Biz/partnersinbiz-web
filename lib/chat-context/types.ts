@@ -24,9 +24,10 @@ export interface ChatContextAction {
   id: string
   label: string
   href?: string
-  method?: 'POST' | 'PATCH' | 'DELETE'
+  method?: 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   destructive?: boolean
   requiresApproval?: boolean
+  body?: Record<string, unknown>
 }
 
 export interface ContextItemSummary {
@@ -58,7 +59,7 @@ export interface ChatArtifactSummary {
   version?: string
   updatedAt?: string
   provenance?: { agentId?: string; model?: string; provider?: string; sourceIds?: string[] }
-  review?: { required: boolean; status: string; reviewer?: string }
+  review?: { required: boolean; status: string; reviewer?: string; approvalGateTaskId?: string }
   href: string
   actions: ChatContextAction[]
   conversationOrigin?: ConversationOrigin

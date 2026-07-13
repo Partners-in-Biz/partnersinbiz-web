@@ -4,6 +4,11 @@ import { useEffect, useRef, useState } from 'react'
 
 import type { ProjectChatProgress, ProjectChatTaskItem, ProjectChatTaskState } from '@/lib/projects/chatProgress'
 
+// Compatibility surface: Project Pulse and Living Thread remain exported while
+// non-project objects use the generic Context Pulse and Context Dock.
+export { ContextPulse } from '@/components/chat/context/ContextPulse'
+export { ContextDock } from '@/components/chat/context/ContextDock'
+
 export interface ProjectOption {
   id: string
   label: string

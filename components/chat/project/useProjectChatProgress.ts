@@ -7,6 +7,9 @@ import type { ProjectOption } from './ProjectChatExperience'
 
 const PROJECT_PROGRESS_REFRESH_MS = 5_000
 
+// Compatibility coordinator for the shipped Project Pulse. Generic Studio and
+// artifact contexts are coordinated by useChatContexts, never concurrently.
+
 function updatedAtMillis(value: unknown): number {
   if (typeof value === 'string') return Date.parse(value) || 0
   if (typeof value === 'number') return value
@@ -38,7 +41,7 @@ function seenStorageKey(orgId: string, conversationId: string, projectId: string
   return `pib.messages.projectSeen.v1:${orgId}:${conversationId}:${projectId}`
 }
 
-export function useProjectChatProgress(orgId: string, conversation: ProjectConversation | null) {
+export function useProjectChatProgress(orgId: string, conversation: ProjectConversation | null, autoPoll = true) {
   const projects = useMemo(() => projectOptions(conversation), [conversation])
   const defaultProjectId = useMemo(() => selectActiveProjectId(conversation ?? {}), [conversation])
   const [activeProjectId, setActiveProjectId] = useState<string | null>(defaultProjectId)
@@ -79,7 +82,7 @@ export function useProjectChatProgress(orgId: string, conversation: ProjectConve
   }, [activeProjectId, conversation, orgId])
 
   useEffect(() => {
-    if (!conversation || !activeProjectId) return
+    if (!autoPoll || !conversation || !activeProjectId) return
     let cancelled = false
     const load = () => {
       if (cancelled || document.visibilityState === 'hidden') return
@@ -94,7 +97,7 @@ export function useProjectChatProgress(orgId: string, conversation: ProjectConve
       window.clearInterval(interval)
       document.removeEventListener('visibilitychange', onVisibility)
     }
-  }, [activeProjectId, conversation, refresh])
+  }, [activeProjectId, autoPoll, conversation, refresh])
 
   const tasksByResponseMessageId = useMemo(() => {
     const groups = new Map<string, ProjectChatTaskItem[]>()
