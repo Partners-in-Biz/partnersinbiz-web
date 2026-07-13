@@ -1,7 +1,22 @@
 // __tests__/api/v1/email/webhook.test.ts
 const mockVerify = jest.fn()
+const mockAppendEmailEvent = jest.fn()
+const mockClaimEmailEventProjection = jest.fn()
+const mockCompleteEmailEventProjection = jest.fn()
 jest.mock('svix', () => ({
   Webhook: jest.fn().mockImplementation(() => ({ verify: mockVerify })),
+}))
+jest.mock('@/lib/email-events/store', () => ({
+  appendEmailEvent: (...args: unknown[]) => mockAppendEmailEvent(...args),
+  claimEmailEventProjection: (...args: unknown[]) => mockClaimEmailEventProjection(...args),
+  completeEmailEventProjection: (...args: unknown[]) => mockCompleteEmailEventProjection(...args),
+}))
+jest.mock('@/lib/email-events/effects', () => ({
+  applyFirestoreProjectionEffect: ({ targetRef, update }: {
+    targetRef: { update: (value: unknown) => Promise<unknown> }
+    update: unknown
+  }) => targetRef.update(update),
+  applyVariantProjectionEffect: jest.fn().mockResolvedValue(true),
 }))
 
 import { POST } from '@/app/api/v1/email/webhook/route'
@@ -23,14 +38,17 @@ const mockQuery = {
   get: jest.fn(),
 }
 
-function mockEmail(id: string, extra: { campaignId?: string; contactId?: string } = {}) {
+function mockEmail(
+  id: string,
+  extra: { orgId?: string; campaignId?: string; contactId?: string } = {},
+) {
   mockQuery.get.mockResolvedValue({
     empty: false,
     docs: [
       {
         id,
         ref: { update: mockDocUpdate },
-        data: () => extra,
+        data: () => ({ orgId: 'org-a', ...extra }),
       },
     ],
   })
@@ -43,6 +61,18 @@ function mockEmail(id: string, extra: { campaignId?: string; contactId?: string 
     }
     return mockQuery
   })
+}
+
+function mockEmails(rows: Array<{ id: string; orgId?: string }>) {
+  mockQuery.get.mockResolvedValue({
+    empty: rows.length === 0,
+    docs: rows.map(({ id, orgId }) => ({
+      id,
+      ref: { update: mockDocUpdate },
+      data: () => ({ orgId }),
+    })),
+  })
+  ;(adminDb.collection as jest.Mock).mockReturnValue(mockQuery)
 }
 
 function mockNoEmail() {
@@ -63,6 +93,9 @@ describe('POST /api/v1/email/webhook', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     delete process.env.RESEND_WEBHOOK_SECRET
+    mockAppendEmailEvent.mockResolvedValue({ id: 'event-1', created: true })
+    mockClaimEmailEventProjection.mockResolvedValue('lease-1')
+    mockCompleteEmailEventProjection.mockResolvedValue(true)
   })
   afterAll(() => {
     if (ORIGINAL_ENV === undefined) delete process.env.RESEND_WEBHOOK_SECRET
@@ -79,6 +112,25 @@ describe('POST /api/v1/email/webhook', () => {
     mockNoEmail()
     const res = await POST(makeReq({ type: 'email.opened', data: { email_id: 'unknown' } }))
     expect(res.status).toBe(200)
+    expect(mockDocUpdate).not.toHaveBeenCalled()
+  })
+
+  it('rejects an email row without tenant ownership', async () => {
+    mockEmails([{ id: 'email-doc-1' }])
+    const res = await POST(makeReq({ type: 'email.opened', data: { email_id: 'resend-1' } }))
+    expect(res.status).toBe(409)
+    expect(await res.json()).toEqual({ error: 'Provider event target is not tenant-safe' })
+    expect(mockDocUpdate).not.toHaveBeenCalled()
+  })
+
+  it('rejects an ambiguous provider id across email rows', async () => {
+    mockEmails([
+      { id: 'email-doc-1', orgId: 'org-a' },
+      { id: 'email-doc-2', orgId: 'org-b' },
+    ])
+    const res = await POST(makeReq({ type: 'email.opened', data: { email_id: 'resend-1' } }))
+    expect(res.status).toBe(409)
+    expect(await res.json()).toEqual({ error: 'Provider event target is not tenant-safe' })
     expect(mockDocUpdate).not.toHaveBeenCalled()
   })
 
