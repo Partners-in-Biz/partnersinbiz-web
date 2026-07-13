@@ -361,6 +361,23 @@ export async function createCreativeCanvas(
   return serializeCreativeCanvas(ref.id, payload)
 }
 
+/** Create a lineage-bound Canvas at its pre-reserved canonical identity. */
+export async function createCreativeCanvasAtId(
+  input: unknown,
+  orgId: string,
+  actor: CreativeCanvasActor,
+  id: string,
+): Promise<CreativeCanvas & { id: string }> {
+  const data = sanitizeCreativeCanvasInput(input, orgId, actor)
+  const payload = {
+    ...data,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  }
+  await adminDb.collection(CREATIVE_CANVAS_COLLECTION).doc(id).create(payload)
+  return serializeCreativeCanvas(id, payload)
+}
+
 export async function createCreativeCanvasTemplate(
   input: unknown,
   orgId: string,

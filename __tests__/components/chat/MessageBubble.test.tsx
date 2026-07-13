@@ -637,4 +637,28 @@ describe('MessageBubble', () => {
     expect(screen.queryByText(/"rich_parts"/)).not.toBeInTheDocument()
     expect(screen.getByText('Waiting for agent activity...')).toBeInTheDocument()
   })
+
+  it('rehydrates Studio artifacts by stable ID instead of rendering stale snapshots', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({
+      success: true,
+      data: {
+        artifacts: [{
+          id: 'marketing_studio:org:b3JnLTE:canvas:Y2FudmFzLTE', studioKind: 'marketing_studio',
+          resourceType: 'canvas', resourceId: 'canvas-1', title: 'Current campaign', artifactKind: 'canvas',
+          state: 'ready', statusLabel: 'Current status', href: '/canvas/current', actions: [],
+        }],
+      },
+    }), { status: 200 }))
+
+    render(<MessageBubble currentUserUid="user-1" message={{
+      id: 'artifact-message', conversationId: 'conv-1', role: 'assistant', content: '', authorKind: 'agent',
+      authorId: 'pip', authorDisplayName: 'Pip', status: 'completed',
+      richParts: [{ type: 'studio_artifact', artifactId: 'marketing_studio:org:b3JnLTE:canvas:Y2FudmFzLTE', title: 'Stale campaign' }],
+    }} />)
+
+    expect(await screen.findByText('Current campaign')).toBeInTheDocument()
+    expect(screen.queryByText('Stale campaign')).not.toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/v1/chat-context/studio_artifact/marketing_studio%3Aorg%3Ab3JnLTE%3Acanvas%3AY2FudmFzLTE'))
+    fetchMock.mockRestore()
+  })
 })

@@ -13,6 +13,9 @@ import {
 import type { ContextReference } from '@/lib/context-references/types'
 import type { SlashCommandPayload } from '@/lib/chat/slash-commands'
 import { copyToClipboard } from '@/lib/utils/clipboard'
+import { normalizeStudioArtifactPart } from '@/lib/chat-context/artifactPayload'
+import type { ChatArtifactSummary } from '@/lib/chat-context/types'
+import { ContextArtifactBundle } from './context/ContextArtifactBundle'
 
 // Matches Phase 1 ConversationMessage shape
 export interface ConversationMessage {
@@ -1072,6 +1075,9 @@ function RichMessagePartView({
   onQuoteSelection?: (text: string) => void
 }) {
   const type = String(part.type).toLowerCase()
+  if (type === 'studio_artifact' || type === 'studio_artifact_bundle') {
+    return <RehydratedStudioArtifacts part={part} />
+  }
   if (type === 'markdown') {
     return <ChatMessageContent content={partContent(part)} />
   }
@@ -1207,6 +1213,23 @@ function RichMessagePartView({
     return <ProjectTaskProposal part={part} />
   }
   return partContent(part) ? <ChatMessageContent content={partContent(part)} /> : null
+}
+
+function RehydratedStudioArtifacts({ part }: { part: RichMessagePart }) {
+  const normalized = normalizeStudioArtifactPart(part)
+  const [artifacts, setArtifacts] = useState<ChatArtifactSummary[]>([])
+  useEffect(() => {
+    if (!normalized) return
+    let active = true
+    Promise.all(normalized.artifactIds.map(async (id) => {
+      const response = await fetch(`/api/v1/chat-context/studio_artifact/${encodeURIComponent(id)}`)
+      if (!response.ok) return []
+      const payload = await response.json().catch(() => null) as { data?: { artifacts?: ChatArtifactSummary[] } } | null
+      return Array.isArray(payload?.data?.artifacts) ? payload.data.artifacts.filter((artifact) => artifact.id === id) : []
+    })).then((groups) => { if (active) setArtifacts(groups.flat()) }).catch(() => undefined)
+    return () => { active = false }
+  }, [normalized?.artifactIds.join('\u0000')])
+  return <ContextArtifactBundle artifacts={artifacts} />
 }
 
 function RichMessageParts({

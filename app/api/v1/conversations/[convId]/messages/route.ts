@@ -265,6 +265,22 @@ function buildOrchestrationContext(conversation: Conversation, dispatchAgentId: 
   ].join('\n')
 }
 
+function buildStudioArtifactOrchestrationContext(input: { dispatchAgentId: AgentId; conversationId: string; requestMessageId: string; responseMessageId: string }): string {
+  if (input.dispatchAgentId !== 'pip') return ''
+  return [
+    '[Studio artifact orchestration]',
+    `For every artifact created from this turn, send conversationOrigin exactly as {"conversationId":"${input.conversationId}","requestMessageId":"${input.requestMessageId}","responseMessageId":"${input.responseMessageId}","bundleId":"${input.responseMessageId}","sequence":0}; increment sequence for each additional artifact in the same bundle.`,
+    'clear, bounded, low-risk, reversible draft → immediate create;',
+    'ambiguous, multi-artifact, materially paid, sensitive, approval-gated, rights-sensitive, or publish-intended work → structured preview first;',
+    'confirmation resumes the same Hermes run via existing UI actions;',
+    'preserve existing model/provider routing policy;',
+    'publish/store submission/external sharing never bypasses approval.',
+    'Return created artifacts as studio_artifact or studio_artifact_bundle rich parts containing stable artifactIds only.',
+    '---',
+    '',
+  ].join('\n')
+}
+
 function buildProjectChatOrchestrationContext(input: {
   conversation: Conversation
   dispatchAgentId: AgentId
@@ -511,6 +527,12 @@ export const POST = withAuth(
         requestMessageId: message.id,
         responseMessageId: assistantMessage.id,
       })
+      const studioArtifactOrchestrationContext = buildStudioArtifactOrchestrationContext({
+        dispatchAgentId: agentId,
+        conversationId: convId,
+        requestMessageId: message.id,
+        responseMessageId: assistantMessage.id,
+      })
       const agentSkillsContext = buildAgentSkillsPromptBlock(agentData, agentId)
       const decisionDataRuleContext = buildDecisionDataOperatingRuleContext()
       const attachedContext = buildAttachedContextBlock(resolvedContextRefs)
@@ -518,7 +540,7 @@ export const POST = withAuth(
       const attachmentContext = attachments.length > 0
         ? `\n\n[Attachments]\n${attachments.map((attachment) => `- ${attachment.name}: ${attachment.url} (${attachment.contentType}, ${attachment.sizeBytes} bytes)`).join('\n')}`
         : ''
-      const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + projectChatOrchestrationContext + agentSkillsContext + decisionDataRuleContext + attachedContext + conversationHistory + commandContext + content + attachmentContext
+      const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + projectChatOrchestrationContext + studioArtifactOrchestrationContext + agentSkillsContext + decisionDataRuleContext + attachedContext + conversationHistory + commandContext + content + attachmentContext
       if (linkedComputerBinding) {
         const projectId = conversation.workspaceContext?.projectId
         const queued = await enqueueLinkedRun({

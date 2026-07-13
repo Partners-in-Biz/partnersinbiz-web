@@ -9,7 +9,8 @@ function isConversationOrigin(value: unknown): value is ConversationOrigin {
   if (!value || typeof value !== 'object') return false
   const origin = value as Record<string, unknown>
   return ['conversationId', 'requestMessageId', 'responseMessageId', 'bundleId'].every(
-    key => typeof origin[key] === 'string' && origin[key].length > 0 && origin[key].trim() === origin[key],
+    key => typeof origin[key] === 'string' && origin[key].length > 0 && origin[key].length <= 200
+      && origin[key].trim() === origin[key] && !/[\/\u0000-\u001f\u007f]/.test(origin[key] as string),
   ) && Number.isSafeInteger(origin.sequence) && (origin.sequence as number) >= 0
 }
 

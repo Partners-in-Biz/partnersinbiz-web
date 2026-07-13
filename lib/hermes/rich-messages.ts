@@ -1,4 +1,5 @@
 import type { ChatEvent, ChatUiAction, RichMessagePart, RichModelOption } from './types'
+import { normalizeStudioArtifactPart } from '@/lib/chat-context/artifactPayload'
 
 type PlainRecord = Record<string, unknown>
 
@@ -197,6 +198,9 @@ function normalizeRichPart(value: unknown): RichMessagePart | null {
   const type = cleanString(record.type) ?? cleanString(record.kind)
   if (!type) return null
   const normalizedType = normalizeRichPartType(type)
+  if (normalizedType === 'studio_artifact' || normalizedType === 'studio_artifact_bundle') {
+    return normalizeStudioArtifactPart({ ...record, type: normalizedType })
+  }
   const actionId = cleanString(record.actionId) ?? cleanString(record.action_id)
   const known = [
     'type',
