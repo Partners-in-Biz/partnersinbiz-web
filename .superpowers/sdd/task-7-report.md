@@ -8,7 +8,7 @@ Task 7 source commit: `c32c335283aba92cd638bef7245f34b4647c9e02` (`docs(devices)
 
 ## Status
 
-Prior source verification was invalidated by subsequent lifecycle and cleanup changes. Source implementation gates are pending a fresh final integrated verification on the final commit. External acceptance gates explicitly listed below also remain unpassed: Firebase emulator/isolated-project tenancy, native Windows packaging/VM lifecycle, native signed/notarised macOS lifecycle, production Firestore TTL deployment/readback, real-device `pwd`, signing, rollback, and production approval. No production deployment, Firestore index/TTL deployment, production signing, or production promotion was performed.
+Fresh final integrated source verification passed on 2026-07-13: 27 suites/297 tests, full typecheck, quality ratchet (`explicitAny=714`, `emptyCatch=198`), and the production build (308/308 static pages). External acceptance gates explicitly listed below remain unpassed: Firebase emulator/isolated-project tenancy, native Windows packaging/VM lifecycle, native signed/notarised macOS lifecycle, production Firestore TTL deployment/readback, real-device `pwd`, signing, rollback, and production approval. No production deployment, Firestore index/TTL deployment, production signing, or production promotion was performed.
 
 ## Architecture and operations deliverables
 
