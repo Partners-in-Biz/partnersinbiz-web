@@ -93,6 +93,8 @@ export interface SequenceWorkflowSnapshot {
   quietHours?: SequenceQuietHours
   reentryPolicy?: SequenceReentryPolicy
   maxActiveEnrollments?: number
+  /** Exact resource shape whose approval evidence was accepted at activation. */
+  approvalResource?: Record<string, unknown>
 }
 
 export interface SequenceStep {
@@ -259,6 +261,9 @@ export interface SequenceEnrollment {
     evaluatedAt: Timestamp | null
     nextAllowedAt: Timestamp | null
   }
+  pausedReason?: string
+  workflowValidationError?: string
+  workflowValidationFailedAt?: Timestamp | null
 }
 
 export type EnrollmentInput = Omit<SequenceEnrollment, 'id' | 'enrolledAt'>

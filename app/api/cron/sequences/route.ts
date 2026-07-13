@@ -29,7 +29,7 @@ import { resolveSenderForRecipient } from '@/lib/email-marketing/sender-resoluti
 import { buildSenderRecipientContext } from '@/lib/email-marketing/sender-context'
 import { resolveCanonicalEmailConsent } from '@/lib/consent-ledger/decision'
 import { assertEmailMarketingDispatchApproval } from '@/lib/email-marketing/agent-governance'
-import { runtimeSequenceForEnrollment } from '@/lib/sequences/workflow-version'
+import { approvalResourceForSequenceRuntime, runtimeSequenceForEnrollment } from '@/lib/sequences/workflow-version'
 import { evaluateQuietHours } from '@/lib/sequences/scheduling'
 import { deliveryFailureState } from '@/lib/sequences/delivery'
 import { goalCompletionState } from '@/lib/sequences/goals'
@@ -68,10 +68,42 @@ export async function GET(req: NextRequest) {
 
       const seqSnap = await adminDb.collection('sequences').doc(enrollment.sequenceId).get()
       if (!seqSnap.exists) continue
-      const editableSequence = { id: enrollment.sequenceId, ...(seqSnap.data() ?? {}) } as import('@/lib/sequences/types').Sequence
+      const editableSequence = { ...(seqSnap.data() ?? {}), id: enrollment.sequenceId } as import('@/lib/sequences/types').Sequence
       if (editableSequence.orgId !== enrollmentOrgId) throw new Error('Sequence organisation mismatch')
+      if (editableSequence.deleted || editableSequence.status !== 'active') {
+        await enrollDoc.ref.update({
+          status: 'paused',
+          pausedReason: editableSequence.deleted ? 'sequence-deleted' : 'sequence-not-active',
+          nextSendAt: null,
+          updatedAt: FieldValue.serverTimestamp(),
+        })
+        continue
+      }
+      let seq: ReturnType<typeof runtimeSequenceForEnrollment>
       try {
-        await assertEmailMarketingDispatchApproval(editableSequence as unknown as Record<string, unknown>, {
+        seq = runtimeSequenceForEnrollment(editableSequence, enrollment)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Invalid workflow pin'
+        await enrollDoc.ref.update({
+          status: 'paused',
+          pausedReason: 'invalid-workflow-pin',
+          workflowValidationError: message.slice(0, 500),
+          workflowValidationFailedAt: now,
+          nextSendAt: null,
+          updatedAt: FieldValue.serverTimestamp(),
+        })
+        await adminDb.collection('activities').add({
+          orgId: enrollmentOrgId,
+          contactId: enrollment.contactId,
+          type: 'sequence_workflow_validation_failed',
+          summary: 'Sequence enrollment paused because its immutable workflow pin failed validation',
+          metadata: { sequenceId: enrollment.sequenceId, enrollmentId: enrollDoc.id, reason: message.slice(0, 500) },
+          createdAt: FieldValue.serverTimestamp(),
+        })
+        continue
+      }
+      try {
+        await assertEmailMarketingDispatchApproval(approvalResourceForSequenceRuntime(seq), {
           orgId: enrollmentOrgId, resourceType: 'email_sequence', resourceId: enrollment.sequenceId,
         })
       } catch (error) {
@@ -82,7 +114,6 @@ export async function GET(req: NextRequest) {
         })
         continue
       }
-      const seq = runtimeSequenceForEnrollment(editableSequence, enrollment)
       const steps: SequenceStep[] = seq.steps ?? []
       const goals: SequenceGoal[] | undefined = seq.goals
 

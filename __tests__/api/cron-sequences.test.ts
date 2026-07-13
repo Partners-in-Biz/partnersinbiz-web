@@ -1,5 +1,7 @@
 // __tests__/api/cron-sequences.test.ts
 import { NextRequest } from 'next/server'
+import { buildWorkflowVersion } from '@/lib/sequences/workflow-version'
+import type { Sequence } from '@/lib/sequences/types'
 
 const mockGet = jest.fn()
 const mockAdd = jest.fn()
@@ -69,6 +71,7 @@ process.env.CRON_SECRET = 'cron-secret'
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockGet.mockReset()
   mockAssertEmailMarketingDispatchApproval.mockResolvedValue(undefined)
   activeLeaseToken = undefined
   const query = { where: mockWhere, orderBy: mockOrderBy, limit: mockLimit, get: mockGet }
@@ -122,6 +125,7 @@ describe('GET /api/cron/sequences', () => {
     const seqData = {
       orgId: 'org1',
       name: 'Welcome',
+      status: 'active',
       steps: [
         { stepNumber: 1, delayDays: 0, subject: 'Step 1', bodyHtml: '<p>Hello</p>', bodyText: 'Hello' },
         { stepNumber: 2, delayDays: 3, subject: 'Step 2', bodyHtml: '<p>Follow</p>', bodyText: 'Follow' },
@@ -151,6 +155,68 @@ describe('GET /api/cron/sequences', () => {
     expect(mockSendCampaignEmail).toHaveBeenCalledTimes(1)
   })
 
+  it('validates and sends the enrollment-pinned v1 approval after the sequence activates v2', async () => {
+    jest.resetModules()
+    const approvalV1 = { status: 'approved' as const, approvedBy: 'human-1', approvedByType: 'user' as const, approvalTaskId: 'task-v1', approvedSnapshotHash: 'hash-v1' }
+    const base = {
+      id: 'seq1', orgId: 'org1', name: 'Welcome', description: '', status: 'active' as const,
+      steps: [{ stepNumber: 0, delayDays: 0, subject: 'V1 subject', bodyHtml: '<p>V1</p>', bodyText: 'V1' }],
+      approvalState: approvalV1, createdAt: null, updatedAt: null,
+    } satisfies Sequence
+    const v1 = buildWorkflowVersion(base, { activatedAtIso: '2026-07-13T08:00:00.000Z', version: 1 })
+    const dueEnrollment = {
+      id: 'e-v1', ref: { update: mockUpdate }, data: () => ({
+        sequenceId: 'seq1', contactId: 'c1', orgId: 'org1', campaignId: '', currentStep: 0,
+        status: 'active', nextSendAt: { toDate: () => new Date(Date.now() - 1000) },
+        workflowVersionId: v1.id, workflowVersion: 1, workflowContentHash: v1.contentHash, workflowSnapshot: v1,
+      }),
+    }
+    mockGet
+      .mockResolvedValueOnce({ docs: [dueEnrollment] })
+      .mockResolvedValueOnce({ exists: true, data: () => ({
+        ...base, id: undefined,
+        steps: [{ ...base.steps[0], subject: 'V2 subject', bodyHtml: '<p>V2</p>', bodyText: 'V2' }],
+        approvalState: { ...approvalV1, approvalTaskId: 'task-v2', approvedSnapshotHash: 'hash-v2' },
+        activeWorkflowVersion: 2,
+      }) })
+      .mockResolvedValueOnce({ exists: true, data: () => ({ orgId: 'org1', name: 'Alice', email: 'alice@example.com' }) })
+      .mockResolvedValueOnce({ exists: true, data: () => ({ name: 'Test Org' }) })
+    mockAdd.mockResolvedValue({ id: 'email-v1' })
+
+    const { GET } = await import('@/app/api/cron/sequences/route')
+    await GET(new NextRequest('http://localhost/api/cron/sequences', { headers: { Authorization: 'Bearer cron-secret' } }))
+
+    expect(mockAssertEmailMarketingDispatchApproval).toHaveBeenCalledWith(
+      expect.objectContaining({ steps: expect.arrayContaining([expect.objectContaining({ subject: 'V1 subject' })]), approvalState: expect.objectContaining({ approvalTaskId: 'task-v1' }) }),
+      expect.objectContaining({ resourceId: 'seq1' }),
+    )
+    expect(mockSendCampaignEmail).toHaveBeenCalledWith(expect.objectContaining({ subject: 'V1 subject' }))
+  })
+
+  it('pauses and audits a malformed claimed workflow pin instead of falling back to mutable steps', async () => {
+    jest.resetModules()
+    const dueEnrollment = {
+      id: 'e-bad-pin', ref: { update: mockUpdate }, data: () => ({
+        sequenceId: 'seq1', contactId: 'c1', orgId: 'org1', campaignId: '', currentStep: 0,
+        status: 'active', nextSendAt: { toDate: () => new Date(Date.now() - 1000) }, workflowVersionId: 'claimed-v1',
+      }),
+    }
+    mockGet
+      .mockResolvedValueOnce({ docs: [dueEnrollment] })
+      .mockResolvedValueOnce({ exists: true, data: () => ({ orgId: 'org1', status: 'active', steps: [{ stepNumber: 0, subject: 'Mutable' }] }) })
+    mockAdd.mockResolvedValue({ id: 'audit-1' })
+
+    const { GET } = await import('@/app/api/cron/sequences/route')
+    await GET(new NextRequest('http://localhost/api/cron/sequences', { headers: { Authorization: 'Bearer cron-secret' } }))
+
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'paused', pausedReason: 'invalid-workflow-pin', nextSendAt: null,
+      workflowValidationError: expect.stringMatching(/workflow pin/i),
+    }))
+    expect(mockAssertEmailMarketingDispatchApproval).not.toHaveBeenCalled()
+    expect(mockSendCampaignEmail).not.toHaveBeenCalled()
+  })
+
   it('marks enrollment completed when on last step', async () => {
     jest.resetModules()
     const dueEnrollment = {
@@ -169,6 +235,7 @@ describe('GET /api/cron/sequences', () => {
     const seqData = {
       orgId: 'org1',
       name: 'Welcome',
+      status: 'active',
       steps: [{ stepNumber: 1, delayDays: 0, subject: 'Only Step', bodyHtml: '<p>Done</p>', bodyText: 'Done' }],
     }
     const contactData = { orgId: 'org1', name: 'Bob', email: 'bob@example.com' }
@@ -240,6 +307,7 @@ describe('GET /api/cron/sequences', () => {
       .mockResolvedValueOnce({ exists: true, data: () => ({
         orgId: 'org1',
         name: 'Welcome',
+        status: 'active',
         steps: [{ stepNumber: 1, delayDays: 0, subject: 'Only step', bodyHtml: '<p>Hi</p>', bodyText: 'Hi' }],
       }) })
       .mockResolvedValueOnce({ exists: true, data: () => ({ orgId: 'org1', name: 'Alice', email: 'alice@example.com' }) })
@@ -275,6 +343,7 @@ describe('GET /api/cron/sequences', () => {
         .mockResolvedValueOnce({ docs: [dueEnrollment] })
         .mockResolvedValueOnce({ exists: true, data: () => ({
           orgId: 'org1', name: 'Welcome',
+          status: 'active',
           quietHours: { enabled: true, startMinuteLocal: 20 * 60, endMinuteLocal: 8 * 60, timezoneMode: 'recipient' },
           steps: [{ stepNumber: 0, delayDays: 0, subject: 'Hi', bodyHtml: '<p>Hi</p>', bodyText: 'Hi' }],
         }) })
@@ -306,6 +375,7 @@ describe('GET /api/cron/sequences', () => {
       .mockResolvedValueOnce({ docs: [dueEnrollment] })
       .mockResolvedValueOnce({ exists: true, data: () => ({
         orgId: 'org1', name: 'Welcome',
+        status: 'active',
         steps: [{ stepNumber: 0, delayDays: 0, subject: 'Hi', bodyHtml: '<p>Hi</p>', bodyText: 'Hi' }],
       }) })
       .mockResolvedValueOnce({ exists: true, data: () => ({ orgId: 'org1', name: 'Alice', email: 'alice@example.com' }) })
@@ -337,6 +407,7 @@ describe('GET /api/cron/sequences', () => {
       .mockResolvedValueOnce({ docs: [dueEnrollment] })
       .mockResolvedValueOnce({ exists: true, data: () => ({
         orgId: 'org1', name: 'SMS journey',
+        status: 'active',
         steps: [
           { stepNumber: 0, delayDays: 0, channel: 'sms', smsBody: 'Hello', subject: '', bodyHtml: '', bodyText: '' },
           { stepNumber: 1, delayDays: 1, subject: 'Next', bodyHtml: '<p>Next</p>', bodyText: 'Next' },
@@ -365,7 +436,7 @@ describe('GET /api/cron/sequences', () => {
     }
     mockGet
       .mockResolvedValueOnce({ docs: [dueEnrollment] })
-      .mockResolvedValueOnce({ exists: true, data: () => ({ orgId: 'org1', steps: [{ stepNumber: 0, delayDays: 0, channel: 'sms', smsBody: 'Hello' }] }) })
+      .mockResolvedValueOnce({ exists: true, data: () => ({ orgId: 'org1', status: 'active', steps: [{ stepNumber: 0, delayDays: 0, channel: 'sms', smsBody: 'Hello' }] }) })
       .mockResolvedValueOnce({ exists: true, data: () => ({ orgId: 'org1', name: 'Alice', email: 'alice@example.com' }) })
       .mockResolvedValueOnce({ exists: true, data: () => ({ name: 'Test Org' }) })
     mockSendSmsToContact.mockResolvedValueOnce({ status: 'failed', reason: 'Twilio unavailable' })
