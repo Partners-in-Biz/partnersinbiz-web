@@ -107,3 +107,11 @@ Signed mapping confirmation now delegates to the central transactional policy wi
 Privacy redaction now covers database/auth assignment variants, arbitrary connection URIs with userinfo, quoted/escaped values, and percent-encoded credentials.
 
 Prior Task 7 readiness evidence is invalidated by these lifecycle changes. Readiness can pass only after a fresh final integrated verification on the final source commit.
+
+## Durable cleanup executor
+
+Revoke/remove routes now kick one bounded cleanup batch after the authority-kill transaction and return HTTP 202 with an explicit cleanup state. Failures to kick do not roll back or delay credential invalidation.
+
+The scheduled linked-device cleanup worker leases a bounded set of durable cleanup runs, fences concurrent workers, processes one bounded phase batch, checkpoints pending/completed state, and records a secret-free retryable failure with backoff. Vercel invokes it every five minutes through the established cron authorization convention.
+
+Canonical Task 7 readiness remains invalidated. A fresh integrated verification must be appended only after the final source commit is stable.

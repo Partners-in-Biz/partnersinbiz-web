@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/youtube-studio-publish",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/linked-device-cleanup",
+      "schedule": "*/5 * * * *"
     }
   ],
   "ignoreCommand": "node scripts/vercel-ignore-build.mjs"

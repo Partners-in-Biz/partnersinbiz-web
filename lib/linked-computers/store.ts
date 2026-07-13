@@ -438,6 +438,33 @@ export async function processDeviceCleanupBatch(deviceId: string, options: { db?
   return { done: true, processed: 0, phase }
 }
 
+export async function runDeviceCleanupWorker(options: { db?: any; maxRuns?: number; nowMs?: number; workerId?: string } = {}) {
+  const db = options.db ?? adminDb
+  const nowMs = options.nowMs ?? Date.now()
+  const workerId = options.workerId ?? randomUUID()
+  const snap = await db.collection('linked_device_cleanup_runs').where('status', 'in', ['pending', 'retryable']).limit(Math.min(options.maxRuns ?? 5, 10)).get()
+  const results: Array<{ deviceId: string; status: string }> = []
+  for (const doc of snap.docs) {
+    const leased = await db.runTransaction(async (tx: any) => {
+      const current = await tx.get(doc.ref); const row = current.data() ?? {}
+      const leaseMs = row.leaseExpiresAt?.toMillis?.() ?? Date.parse(String(row.leaseExpiresAt ?? ''))
+      if (!current.exists || row.status === 'completed' || (Number.isFinite(leaseMs) && leaseMs > nowMs)) return false
+      tx.set(doc.ref, { status: 'running', leaseOwner: workerId, leaseExpiresAt: Timestamp.fromMillis(nowMs + 60_000), attempts: Number(row.attempts ?? 0) + 1, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+      return true
+    })
+    if (!leased) continue
+    try {
+      const result = await processDeviceCleanupBatch(doc.id, { db })
+      await doc.ref.set(result.done ? { status: 'completed', leaseOwner: null, leaseExpiresAt: null, completedAt: FieldValue.serverTimestamp() } : { status: 'pending', leaseOwner: null, leaseExpiresAt: null, nextAttemptAt: FieldValue.serverTimestamp() }, { merge: true })
+      results.push({ deviceId: doc.id, status: result.done ? 'completed' : 'pending' })
+    } catch {
+      await doc.ref.set({ status: 'retryable', leaseOwner: null, leaseExpiresAt: null, nextAttemptAt: Timestamp.fromMillis(nowMs + 60_000), lastError: 'Cleanup batch failed' }, { merge: true })
+      results.push({ deviceId: doc.id, status: 'retryable' })
+    }
+  }
+  return { scanned: snap.docs.length, processed: results.length, results }
+}
+
 export async function putDeviceGrant(input: {
   deviceId: string
   orgId: string

@@ -159,8 +159,8 @@ describe('linked computer lifecycle HTTP boundaries', () => {
       'linked_device_workspace_mappings/map-a': { mappingId: 'map-a', deviceId: 'device-a', orgId: 'org-a', status: 'active' },
     })
     const remove = jest.fn((input) => removeOwnedDevice(input, { db: db as never, now: () => 'server-time' }))
-    const response = await handleLinkedComputerRemove({ uid: 'owner-a' }, 'device-a', remove)
-    expect(response.status).toBe(200)
+    const response = await handleLinkedComputerRemove({ uid: 'owner-a' }, 'device-a', remove, async () => ({ done: false, processed: 1, phase: 'mappings' }))
+    expect(response.status).toBe(202)
     expect(remove).toHaveBeenCalledWith({ deviceId: 'device-a', actorUserId: 'owner-a' })
     expect(rows.get('linked_devices/device-a')).toMatchObject({ status: 'removed' })
     expect(rows.get('linked_device_credentials/device-a')).toMatchObject({ revokedAt: 'server-time' })
