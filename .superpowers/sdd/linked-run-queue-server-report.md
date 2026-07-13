@@ -131,3 +131,5 @@ Source-item changes remain idempotent; the authoritative cleanup-run checkpoint 
 Deterministic A/B race coverage now proves worker A acquires and expires, worker B reclaims with a different token, stale A success and retry/error mutations both receive the typed lease-lost error with byte-for-byte unchanged run state, and B retains ownership through checkpoint and successful completion.
 
 Legacy store coverage was reconciled with the hardened contracts: mappings are created pending and activated only through central signed confirmation, while device removal asserts the immediate authority kill and then drives the durable cleanup phases through completion before checking mapping/grant terminal state. The complete store suite is green without weakening production transitions.
+
+The final cleanup executor uses narrow Firestore-like document, query, batch and transaction interfaces rather than new explicit `any` surfaces. The repository quality ratchet passes at 714 explicit-any occurrences, below the 716 baseline.

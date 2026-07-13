@@ -30,6 +30,13 @@ const ROTATION_DELIVERIES = 'linked_device_rotation_deliveries'
 
 interface RefLike { id: string; path?: string }
 interface SnapshotLike { exists: boolean; data(): Record<string, unknown> | undefined }
+interface CleanupDocLike extends RefLike { get(): Promise<SnapshotLike>; set(value: Record<string, unknown>, options?: { merge?: boolean }): Promise<unknown> }
+interface CleanupQuerySnapshotLike { docs: Array<{ id: string; ref: CleanupDocLike; data(): Record<string, unknown> }> }
+interface CleanupQueryLike { where(field: string, op: string, value: unknown): CleanupQueryLike; limit(value: number): CleanupQueryLike; get(): Promise<CleanupQuerySnapshotLike> }
+interface CleanupCollectionLike extends CleanupQueryLike { doc(id: string): CleanupDocLike }
+interface CleanupTransactionLike { get(ref: RefLike): Promise<SnapshotLike>; create(ref: RefLike, value: Record<string, unknown>): void; set(ref: RefLike, value: Record<string, unknown>, options?: { merge?: boolean }): void; update(ref: RefLike, value: Record<string, unknown>): void }
+interface CleanupBatchLike { set(ref: RefLike, value: Record<string, unknown>, options?: { merge?: boolean }): void; commit(): Promise<unknown> }
+interface CleanupDbLike { collection(name: string): CleanupCollectionLike; runTransaction<T>(fn: (tx: CleanupTransactionLike) => Promise<T>): Promise<T>; batch(): CleanupBatchLike }
 interface TransactionLike {
   get(ref: RefLike): Promise<SnapshotLike>
   create(ref: RefLike, value: Record<string, unknown>): void
@@ -379,8 +386,8 @@ export async function revokeDeviceCredential(input: {
 }
 
 export async function removeOwnedDevice(input: { deviceId: string; actorUserId: string }, options: StoreOptions = {}): Promise<void> {
-  const db = (options.db ?? adminDb) as any
-  await db.runTransaction(async (tx: any) => {
+  const db = (options.db ?? adminDb) as unknown as CleanupDbLike
+  await db.runTransaction(async (tx) => {
     const deviceRef = db.collection(DEVICES).doc(input.deviceId)
     const credentialRef = db.collection('linked_device_credentials').doc(input.deviceId)
     const deliveryRef = db.collection(ROTATION_DELIVERIES).doc(input.deviceId)
@@ -390,35 +397,35 @@ export async function removeOwnedDevice(input: { deviceId: string; actorUserId: 
       tx.get(deliveryRef),
     ])
     if (!deviceSnap.exists) throw new Error('linked computers: device not found')
-    const device = deviceSnap.data() as LinkedDevice
+    const device = deviceSnap.data() as unknown as LinkedDevice
     if (device.ownerUserId !== input.actorUserId) throw new Error('linked computers: device owner required')
     if (device.status === 'removed') throw new Error('linked computers: invalid status transition')
     const at = timestamp(options)
     tx.update(deviceRef, { status: 'removed', removedAt: at, revokedAt: device.revokedAt ?? at, updatedAt: at })
     if (credentialSnap.exists) {
       tx.update(credentialRef, { revokedAt: at, previousCredentialHash: null, previousCredentialVersion: null, previousCredentialExpiresAt: null })
-      tx.create(auditRef(db), { eventId: randomUUID(), action: 'credential.revoked', actorUserId: input.actorUserId, deviceId: input.deviceId, createdAt: at })
+      tx.create(auditRef(db as unknown as DbLike), { eventId: randomUUID(), action: 'credential.revoked', actorUserId: input.actorUserId, deviceId: input.deviceId, createdAt: at })
     }
     if (deliverySnap.exists) tx.update(deliveryRef, { encryptedCredential: null, removedAt: at, terminalState: 'removed', cleanupAt: Timestamp.fromMillis((options.nowMs?.() ?? Date.now()) + CREDENTIAL_ROTATION_OVERLAP_MS) })
     tx.set(cleanupRef, { deviceId: input.deviceId, status: 'pending', phase: 'mappings', processed: 0, createdAt: at, updatedAt: at }, { merge: true })
-    tx.create(auditRef(db), { eventId: randomUUID(), action: 'device.status_changed', actorUserId: input.actorUserId, deviceId: input.deviceId, fromStatus: device.status, toStatus: 'removed', createdAt: at })
+    tx.create(auditRef(db as unknown as DbLike), { eventId: randomUUID(), action: 'device.status_changed', actorUserId: input.actorUserId, deviceId: input.deviceId, fromStatus: device.status, toStatus: 'removed', createdAt: at })
   })
 }
 
 export class DeviceCleanupLeaseLostError extends Error { readonly code = 'linked_device_cleanup_lease_lost'; constructor() { super('linked computers: cleanup lease lost') } }
 
-export async function mutateCleanupRunWithLease(db: any, deviceId: string, workerId: string, leaseToken: string, patch: Record<string, unknown>, nowMs = Date.now()) {
+export async function mutateCleanupRunWithLease(db: CleanupDbLike, deviceId: string, workerId: string, leaseToken: string, patch: Record<string, unknown>, nowMs = Date.now()) {
   const ref = db.collection('linked_device_cleanup_runs').doc(deviceId)
-  return db.runTransaction(async (tx: any) => {
-    const snap = await tx.get(ref); const row = snap.data() ?? {}; const expiry = row.leaseExpiresAt?.toMillis?.() ?? Date.parse(String(row.leaseExpiresAt ?? ''))
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref); const row = snap.data() ?? {}; const lease = row.leaseExpiresAt as { toMillis?: () => number } | undefined; const expiry = lease?.toMillis?.() ?? Date.parse(String(row.leaseExpiresAt ?? ''))
     if (!snap.exists || row.status !== 'running' || row.leaseOwner !== workerId || row.leaseToken !== leaseToken || !Number.isFinite(expiry) || expiry <= nowMs) throw new DeviceCleanupLeaseLostError()
     if (Object.keys(patch).length) tx.set(ref, { ...patch, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
     return row
   })
 }
 
-export async function processDeviceCleanupBatch(deviceId: string, options: { db?: any; limit?: number; workerId?: string; leaseToken?: string; nowMs?: number } = {}): Promise<{ done: boolean; processed: number; phase: string }> {
-  const db = options.db ?? adminDb
+export async function processDeviceCleanupBatch(deviceId: string, options: { db?: CleanupDbLike; limit?: number; workerId?: string; leaseToken?: string; nowMs?: number } = {}): Promise<{ done: boolean; processed: number; phase: string }> {
+  const db = options.db ?? (adminDb as unknown as CleanupDbLike)
   const limit = Math.min(Math.max(1, options.limit ?? 75), 100)
   if (!options.workerId || !options.leaseToken) throw new DeviceCleanupLeaseLostError()
   const cleanupRow = await mutateCleanupRunWithLease(db, deviceId, options.workerId, options.leaseToken, {}, options.nowMs)
@@ -449,22 +456,22 @@ export async function processDeviceCleanupBatch(deviceId: string, options: { db?
   return { done: true, processed: 0, phase }
 }
 
-export async function claimDeviceCleanupLease(deviceId: string, db: any, workerId: string, nowMs: number) {
+export async function claimDeviceCleanupLease(deviceId: string, db: CleanupDbLike, workerId: string, nowMs: number) {
   const ref = db.collection('linked_device_cleanup_runs').doc(deviceId); const leaseToken = randomBytes(24).toString('base64url')
-  const won = await db.runTransaction(async (tx: any) => { const snap = await tx.get(ref); const row = snap.data() ?? {}; const expiry = row.leaseExpiresAt?.toMillis?.() ?? Date.parse(String(row.leaseExpiresAt ?? '')); if (!snap.exists || row.status === 'completed' || (row.status === 'running' && Number.isFinite(expiry) && expiry > nowMs)) return false; tx.set(ref, { status: 'running', leaseOwner: workerId, leaseToken, leaseExpiresAt: Timestamp.fromMillis(nowMs + 60_000), attempts: Number(row.attempts ?? 0) + 1, updatedAt: FieldValue.serverTimestamp() }, { merge: true }); return true })
+  const won = await db.runTransaction(async (tx) => { const snap = await tx.get(ref); const row = snap.data() ?? {}; const leaseValue = row.leaseExpiresAt as { toMillis?: () => number } | undefined; const expiry = leaseValue?.toMillis?.() ?? Date.parse(String(row.leaseExpiresAt ?? '')); if (!snap.exists || row.status === 'completed' || (row.status === 'running' && Number.isFinite(expiry) && expiry > nowMs)) return false; tx.set(ref, { status: 'running', leaseOwner: workerId, leaseToken, leaseExpiresAt: Timestamp.fromMillis(nowMs + 60_000), attempts: Number(row.attempts ?? 0) + 1, updatedAt: FieldValue.serverTimestamp() }, { merge: true }); return true })
   return won ? leaseToken : null
 }
 
-export async function kickDeviceCleanup(deviceId: string, options: { db?: any; nowMs?: number } = {}) {
-  const db = options.db ?? adminDb; const workerId = `kick:${randomUUID()}`; const token = await claimDeviceCleanupLease(deviceId, db, workerId, options.nowMs ?? Date.now())
+export async function kickDeviceCleanup(deviceId: string, options: { db?: CleanupDbLike; nowMs?: number } = {}) {
+  const db = options.db ?? (adminDb as unknown as CleanupDbLike); const workerId = `kick:${randomUUID()}`; const token = await claimDeviceCleanupLease(deviceId, db, workerId, options.nowMs ?? Date.now())
   if (!token) return { done: false, processed: 0, phase: 'leased' }
   const result = await processDeviceCleanupBatch(deviceId, { db, workerId, leaseToken: token, nowMs: options.nowMs })
   if (!result.done) await mutateCleanupRunWithLease(db, deviceId, workerId, token, { status: 'pending', leaseOwner: null, leaseToken: null, leaseExpiresAt: null }, options.nowMs)
   return result
 }
 
-export async function runDeviceCleanupWorker(options: { db?: any; maxRuns?: number; nowMs?: number; workerId?: string } = {}) {
-  const db = options.db ?? adminDb
+export async function runDeviceCleanupWorker(options: { db?: CleanupDbLike; maxRuns?: number; nowMs?: number; workerId?: string } = {}) {
+  const db = options.db ?? (adminDb as unknown as CleanupDbLike)
   const nowMs = options.nowMs ?? Date.now()
   const workerId = options.workerId ?? randomUUID()
   const maxRuns = Math.min(options.maxRuns ?? 5, 10)
