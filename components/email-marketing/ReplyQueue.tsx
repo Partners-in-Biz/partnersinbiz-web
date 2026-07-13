@@ -54,7 +54,14 @@ export function ReplyQueue({ scope }: { scope: PortalOrgRouteScope }) {
       method: 'PATCH', headers: { 'content-type': 'application/json', 'idempotency-key': crypto.randomUUID() }, body: JSON.stringify({ classification: next }),
     })
     if (!response.ok) { setError('Could not save classification correction'); return }
-    setItems((current) => current.map((entry) => entry.id === item.id ? { ...entry, classification: next, corrected: true } : entry))
+    const payload = await response.json()
+    const effective = payload.data?.reply
+    setItems((current) => current.map((entry) => entry.id === item.id ? {
+      ...entry,
+      classification: effective?.classification ?? entry.classification,
+      corrected: effective?.corrected ?? entry.corrected,
+      correctedBy: effective?.correctedBy ?? entry.correctedBy,
+    } : entry))
   }
 
   return (

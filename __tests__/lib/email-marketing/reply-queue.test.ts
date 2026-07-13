@@ -46,3 +46,17 @@ it('scans stable datastore pages beyond 500 records for selective filters', asyn
   expect(queryPage).toHaveBeenCalledTimes(7)
   expect(result.nextCursor).toBeTruthy()
 })
+
+it('does not emit a cursor when an exact-size page exhausts the datastore', async () => {
+  const result = await listReplyQueue('org-1', { cursor: null, limit: 2 }, {
+    queryPage: async () => ({
+      docs: [
+        { id: 'reply-2', data: { orgId: 'org-1', receivedAt: 2_000 } },
+        { id: 'reply-1', data: { orgId: 'org-1', receivedAt: 1_000 } },
+      ],
+      nextCursor: null,
+    }),
+  })
+  expect(result.items).toHaveLength(2)
+  expect(result.nextCursor).toBeNull()
+})

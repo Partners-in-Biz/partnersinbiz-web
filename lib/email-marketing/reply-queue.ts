@@ -64,16 +64,20 @@ export async function listReplyQueue(orgId: string, filters: ReplyQueueFilters, 
   let hasMore = false
   do {
     const page = await dependencies.queryPage(orgId, datastoreCursor, 100)
-    for (const doc of page.docs) {
+    for (let index = 0; index < page.docs.length; index += 1) {
+      const doc = page.docs[index]
       const item = normalizeReplyQueueItem(doc.id, doc.data)
       if (matches(item, filters)) items.push(item)
-      if (items.length >= filters.limit) break
+      if (items.length >= filters.limit) {
+        hasMore = index < page.docs.length - 1 || Boolean(page.nextCursor)
+        break
+      }
     }
     datastoreCursor = page.nextCursor
-    hasMore = Boolean(page.nextCursor)
+    if (items.length < filters.limit) hasMore = Boolean(page.nextCursor)
     if (items.length >= filters.limit || !datastoreCursor) break
   } while (true)
-  return { items, nextCursor: items.length === filters.limit && (hasMore || items.length > 0) ? publicCursor(items[items.length - 1]) : null }
+  return { items, nextCursor: items.length === filters.limit && hasMore ? publicCursor(items[items.length - 1]) : null }
 }
 
 function decodeCursor(cursor: string | null): { receivedAt: number; id: string } | null {
@@ -100,6 +104,8 @@ export const firestoreReplyQueueDependencies: ReplyQueueDependencies = {
 
 export async function correctReplyClassification(orgId: string, id: string, classification: SalesReplyClassification, actorUid: string, reason: string, idempotencyKey: string) {
   const routeRef = adminDb.collection('email_reply_routes').doc(id)
+  const canonicalReason = text(reason) || null
+  const requestHash = createHash('sha256').update(JSON.stringify({ orgId, id, classification, actorUid, reason: canonicalReason })).digest('hex')
   const auditId = `correction_${createHash('sha256').update(`${orgId}:${id}:${idempotencyKey}`).digest('hex')}`
   return adminDb.runTransaction(async (tx) => {
     const routeSnapshot = await tx.get(routeRef)
@@ -113,10 +119,21 @@ export async function correctReplyClassification(orgId: string, id: string, clas
     if (inboundSnapshot && (!inboundSnapshot.exists || inboundSnapshot.data()?.orgId !== orgId)) {
       throw new Error('Inbound reply does not belong to route organisation')
     }
-    if (auditSnapshot.exists) return { ...previous, classification, corrected: true, correctedBy: actorUid }
-    const correction = { classification, correctedBy: actorUid, reason: text(reason) || null, idempotencyKey, correctedAt: FieldValue.serverTimestamp() }
+    if (auditSnapshot.exists) {
+      const audit = auditSnapshot.data() ?? {}
+      if (audit.requestHash !== requestHash) {
+        throw Object.assign(new Error('Idempotency key was already used for a different correction'), { status: 409 })
+      }
+      const storedResponse = (audit.storedResponse ?? {}) as Record<string, unknown>
+      const staleReplay = previous.classification !== storedResponse.classification || previous.correctedBy !== storedResponse.correctedBy
+      return staleReplay
+        ? { ...previous, replayed: true, staleReplay: true, idempotentResponse: storedResponse }
+        : { ...previous, ...storedResponse, replayed: true, staleReplay: false }
+    }
+    const correction = { classification, correctedBy: actorUid, reason: canonicalReason, idempotencyKey, requestHash, correctedAt: FieldValue.serverTimestamp() }
+    const storedResponse = { id, classification, corrected: true, correctedBy: actorUid, modelClassification: previous.modelClassification }
     tx.update(routeRef, { classificationCorrection: correction, effectiveClassification: classification, updatedAt: FieldValue.serverTimestamp() })
-    tx.create(auditRef, { orgId, replyRouteId: id, inboundId: previous.inboundId || null, previousClassification: previous.classification, modelClassification: previous.modelClassification, classification, reason: correction.reason, actorUid, idempotencyKey, createdAt: FieldValue.serverTimestamp() })
+    tx.create(auditRef, { orgId, replyRouteId: id, inboundId: previous.inboundId || null, previousClassification: previous.classification, modelClassification: previous.modelClassification, classification, reason: correction.reason, actorUid, idempotencyKey, requestHash, storedResponse, createdAt: FieldValue.serverTimestamp() })
     if (inboundRef) tx.set(inboundRef, { classificationCorrection: correction, effectiveClassification: classification }, { merge: true })
     return { ...previous, classification, corrected: true, correctedBy: actorUid }
   })
