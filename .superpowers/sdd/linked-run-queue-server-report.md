@@ -89,3 +89,11 @@ Rotation deliveries now carry a Firestore `cleanupAt` TTL timestamp. Expiry clea
 Acknowledgment now requires an active device, current version, unexpired delivery, live ciphertext, and a non-terminal state. Idempotent success is limited to the exact already-acknowledged delivery; cleared-but-unacknowledged or expired deliveries fail closed. Credential rotation is active-device-only and cannot start while paused.
 
 Cleanup verification: 37 lifecycle/pairing tests passed; full typecheck, targeted ESLint, index JSON validation, and diff checks passed.
+
+## Integrated security truth pass
+
+- Previous overlap credentials are restricted to the explicit heartbeat rotation-delivery action; generic heartbeat and all other device APIs require the current credential.
+- A current credential may continue a pre-rotation accepted job only when the stored acceptance predates credential issuance and the same registered device key signs the new-version receipt.
+- Linked runtime versions use strict semantic-version parsing and a central minimum. Invalid/old runtimes are update-required and cannot dispatch; production fails closed when the minimum is absent.
+- Accepted-device UI data is derived only from the verified stored acceptance receipt snapshot.
+- Output is redacted before truncation, including unterminated PEM material, high-entropy tokens, paths, URLs, and credentials; uncertain remnants collapse to `[redacted output]` while signed hashes/lengths preserve integrity evidence.

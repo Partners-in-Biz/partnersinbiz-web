@@ -29,7 +29,8 @@ export interface PublicAuthorizedRuntimeTarget {
   mappingId: string
   workspaceId: string
   kind: 'linked-computer'
-  selectable: true
+  selectable: boolean
+  updateRequired?: boolean
   lastSeenAt: string
 }
 
@@ -45,6 +46,21 @@ export interface AuthorizedLinkedComputerDispatch {
   platform: 'macos' | 'windows'
   lastSeenAt: string
   publicKey: string
+  updateRequired?: boolean
+}
+
+export function parseLinkedRuntimeVersion(value: string): [number, number, number] | null {
+  const match = value.match(/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$/)
+  return match ? [Number(match[1]), Number(match[2]), Number(match[3])] : null
+}
+
+export function linkedRuntimeUpdateRequired(version: string, minimum = process.env.LINKED_RUNTIME_MIN_VERSION): boolean {
+  const current = parseLinkedRuntimeVersion(version)
+  const required = minimum ? parseLinkedRuntimeVersion(minimum) : null
+  if (!required) return process.env.NODE_ENV === 'production' || Boolean(minimum)
+  if (!current) return true
+  for (let i = 0; i < 3; i++) { if (current[i] !== required[i]) return current[i] < required[i] }
+  return false
 }
 
 export interface LinkedComputerExecutionReceipt {
@@ -121,6 +137,7 @@ async function resolveCandidates(input: ResolveInput, options: ResolveOptions): 
       machineLabel: device.label, mappingId: mapping.mappingId, credentialVersion: device.credentialVersion,
       runtimeVersion: device.runtimeVersion, platform: device.platform, lastSeenAt: new Date(seen).toISOString(),
       workspaceId: mapping.workspaceId, publicKey: String((device as LinkedDevice & { publicKey?: string }).publicKey ?? ''),
+      updateRequired: linkedRuntimeUpdateRequired(device.runtimeVersion),
     })
   }
   return candidates
@@ -132,7 +149,8 @@ export async function discoverAuthorizedRuntimeTargets(input: ResolveInput, opti
     id: target.runtimeTargetId, deviceId: target.deviceId, label: target.machineLabel,
     platform: target.platform, runtimeVersion: target.runtimeVersion, mappingId: target.mappingId,
     workspaceId: target.workspaceId,
-    kind: 'linked-computer', selectable: true,
+    kind: 'linked-computer', selectable: !target.updateRequired,
+    ...(target.updateRequired ? { updateRequired: true } : {}),
     lastSeenAt: target.lastSeenAt,
   }))
 }
@@ -140,7 +158,10 @@ export async function discoverAuthorizedRuntimeTargets(input: ResolveInput, opti
 export async function authorizeLinkedComputerDispatch(input: ResolveInput & { runtimeTargetId: string }, options: ResolveOptions = {}): Promise<AuthorizedLinkedComputerDispatch> {
   const candidates = await resolveCandidates(input, options)
   const selected = candidates.find((target) => target.runtimeTargetId === input.runtimeTargetId || target.deviceId === input.runtimeTargetId)
-  if (selected) return selected
+  if (selected) {
+    if (selected.updateRequired) throw new LinkedComputerDispatchError('linked_device_update_required')
+    return selected
+  }
   const db = options.db ?? (adminDb as unknown as DbLike)
   const devices = await allRows<LinkedDevice & { health?: string }>(db, 'linked_devices')
   const device = devices.find((row) => row.runtimeTargetId === input.runtimeTargetId || row.deviceId === input.runtimeTargetId)

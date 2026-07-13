@@ -154,10 +154,19 @@ export async function updateLinkedRunFromDevice(input: {
   const result = await adminDb.runTransaction(async (tx) => {
     const jobRef = adminDb.collection(LINKED_RUN_JOBS).doc(input.jobId)
     const deviceRef = adminDb.collection('linked_devices').doc(input.deviceId)
-    const [jobSnap, deviceSnap] = await Promise.all([tx.get(jobRef), tx.get(deviceRef)])
-    if (!jobSnap.exists || !deviceSnap.exists) throw new Error('linked computers: run not found')
-    const job = fromStored(jobSnap.data() ?? {})
+    const credentialRef = adminDb.collection('linked_device_credentials').doc(input.deviceId)
+    const [jobSnap, deviceSnap, credentialSnap] = await Promise.all([tx.get(jobRef), tx.get(deviceRef), tx.get(credentialRef)])
+    if (!jobSnap.exists || !deviceSnap.exists || !credentialSnap.exists) throw new Error('linked computers: run not found')
+    const storedJob = fromStored(jobSnap.data() ?? {})
     const device = deviceSnap.data() ?? {}
+    const credential = credentialSnap.data() ?? {}
+    const issuedMs = timestampMs(credential.issuedAt)
+    const acceptedMs = Date.parse(String(storedJob.acceptanceReceipt?.acceptedAt ?? ''))
+    const rotationContinuity = storedJob.credentialVersion !== input.credentialVersion
+      && Number(credential.previousCredentialVersion) === storedJob.credentialVersion
+      && Number(device.credentialVersion) === input.credentialVersion
+      && Number.isFinite(acceptedMs) && issuedMs != null && acceptedMs < issuedMs
+    const job = rotationContinuity ? { ...storedJob, credentialVersion: input.credentialVersion } : storedJob
     const output = typeof input.output === 'string' ? input.output : ''
     const error = typeof input.error === 'string' ? input.error : ''
     const acceptedRuntimeVersion = job.acceptedRuntimeVersion ?? String(device.runtimeVersion ?? '')
@@ -176,7 +185,7 @@ export async function updateLinkedRunFromDevice(input: {
       ? transitionLinkedRun(job, { type: 'progress', deviceId: input.deviceId, credentialVersion: input.credentialVersion, nowMs, attempt: input.receipt.attempt, leaseToken: input.receipt.leaseToken, leaseMs: DEFAULT_LEASE_MS })
       : transitionLinkedRun(job, { type: 'complete', deviceId: input.deviceId, credentialVersion: input.credentialVersion, nowMs, outcome: input.outcome ?? 'completed', attempt: input.receipt.attempt, leaseToken: input.receipt.leaseToken })
     const safeOutput = sanitizeLinkedResult(output); const safeError = sanitizeLinkedResult(error)
-    tx.update(jobRef, { ...toStored(next), ...(!job.acceptedRuntimeVersion && input.receipt.event === 'accepted' ? { acceptedRuntimeVersion, acceptedMachineLabel } : {}), ...(input.event === 'progress' ? { acceptanceReceipt: input.receipt } : { receipt: input.receipt, finalizationState: 'complete' }), output: safeOutput, error: safeError })
+    tx.update(jobRef, { ...toStored(next), ...(rotationContinuity ? { rotationContinuedFromCredentialVersion: storedJob.credentialVersion } : {}), ...(!job.acceptedRuntimeVersion && input.receipt.event === 'accepted' ? { acceptedRuntimeVersion, acceptedMachineLabel } : {}), ...(input.event === 'progress' ? { acceptanceReceipt: input.receipt } : { receipt: input.receipt, finalizationState: 'complete' }), output: safeOutput, error: safeError })
     if (input.event === 'complete') {
       const status = input.outcome === 'completed' ? 'completed' : 'failed'
       const content = status === 'completed' ? safeOutput : (safeError || `Linked computer run ${input.outcome ?? 'failed'}`)
@@ -186,6 +195,12 @@ export async function updateLinkedRunFromDevice(input: {
     return next
   })
   return result
+}
+
+function timestampMs(value: unknown): number | null {
+  if (value && typeof (value as { toMillis?: () => number }).toMillis === 'function') return (value as { toMillis(): number }).toMillis()
+  const ms = Date.parse(String(value ?? ''))
+  return Number.isFinite(ms) ? ms : null
 }
 
 export async function waitForLinkedRunClaim(job: LinkedRunJob, options: { timeoutMs?: number; pollMs?: number } = {}) {

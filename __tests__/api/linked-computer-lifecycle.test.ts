@@ -34,8 +34,8 @@ function fakeDb(seed: Record<string, Row>) {
   return { db, rows }
 }
 
-function request(credential: string, version: number, privateKey: ReturnType<typeof generateKeyPairSync>['privateKey'], requestId: string, timestamp = '1000000') {
-  const base = { deviceId: 'device-a', credential, credentialVersion: version, timestamp, requestId, method: 'POST', path: '/api/v1/linked-computers/device-a/heartbeat', body: '{"health":"ok"}' }
+function request(credential: string, version: number, privateKey: ReturnType<typeof generateKeyPairSync>['privateKey'], requestId: string, timestamp = '1000000', body = '{"health":"ok"}') {
+  const base = { deviceId: 'device-a', credential, credentialVersion: version, timestamp, requestId, method: 'POST', path: '/api/v1/linked-computers/device-a/heartbeat', body }
   return { ...base, signature: sign(null, Buffer.from(deviceRequestPayload(base)), privateKey).toString('base64url') }
 }
 
@@ -59,7 +59,8 @@ describe('linked computer credential lifecycle', () => {
     await expect(acknowledgeDeviceRotation({ deviceId: 'device-a', authenticatedCredentialVersion: 2, rotationDeliveryId: claimed!.rotationDeliveryId }, { db: db as never, now: () => 'acked', nowMs: () => 1_000_003 })).resolves.toEqual({ acknowledged: true, credentialVersion: 2 })
     await expect(acknowledgeDeviceRotation({ deviceId: 'device-a', authenticatedCredentialVersion: 2, rotationDeliveryId: claimed!.rotationDeliveryId }, { db: db as never, now: () => 'acked-again', nowMs: () => 1_000_004 })).resolves.toEqual({ acknowledged: true, credentialVersion: 2 })
     await expect(claimPendingDeviceRotation({ deviceId: 'device-a', authenticatedCredentialVersion: 1 }, { db: db as never, now: () => 'after-ack', nowMs: () => 1_000_003 })).resolves.toBeNull()
-    await expect(authenticateDeviceRequest(request(oldCredential, 1, keys.privateKey, 'request-old-valid'), { db: db as never, nowMs: () => 1_000_001 })).resolves.toMatchObject({ credentialVersion: 1 })
+    await expect(authenticateDeviceRequest(request(oldCredential, 1, keys.privateKey, 'request-old-generic'), { db: db as never, nowMs: () => 1_000_001 })).rejects.toThrow('restricted')
+    await expect(authenticateDeviceRequest(request(oldCredential, 1, keys.privateKey, 'request-old-valid', '1000000', '{"health":"ok","claimRotation":true}'), { db: db as never, nowMs: () => 1_000_001 })).resolves.toMatchObject({ credentialVersion: 1 })
     await expect(authenticateDeviceRequest(request(oldCredential, 1, keys.privateKey, 'request-old-expired', '1360001'), { db: db as never, nowMs: () => 1_360_001 })).rejects.toThrow('version mismatch')
     expect(rows.get('linked_devices/device-a')).toMatchObject({ credentialVersion: 2 })
   })

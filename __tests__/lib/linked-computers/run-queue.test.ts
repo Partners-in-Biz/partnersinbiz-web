@@ -52,6 +52,8 @@ describe('linked run queue security transitions', () => {
     const unsafe = 'Authorization: Bearer abc apiKey=xyz /etc/passwd C:\\Users\\Peet\\secret \\\\server\\share\\file PRIVATE KEY----- {"nested":{"token":"nested secret with \\\"escaped\\\" suffix"}}'
     expect(sanitizeLinkedResult(unsafe)).not.toMatch(/abc|xyz|passwd|Peet|server|nested secret|escaped|suffix|PRIVATE KEY/i)
     expect(sanitizeLinkedResult('{"nested":{"password":"value with spaces and \\\"escapes\\\" trailing"}}')).not.toMatch(/value with|escapes|trailing/)
+    expect(sanitizeLinkedResult(`safe prefix -----BEGIN PRIVATE KEY-----\n${'A'.repeat(200)}`)).not.toContain('AAAA')
+    expect(sanitizeLinkedResult(`unlabelled ${'z9K_'.repeat(20)} tail`)).not.toContain('z9K_')
   })
 
   it('denies cross-device, stale credential and out-of-order completion while making duplicate completion idempotent', () => {

@@ -79,7 +79,7 @@ beforeEach(() => {
   jest.clearAllMocks()
   mockIsConfiguredCompatibilityRuntimeTarget.mockResolvedValue(true)
   mockEnqueueLinkedRun.mockResolvedValue({ jobId: 'job-linked-1' })
-  mockWaitForLinkedRunClaim.mockResolvedValue({ status: 'claimed', claimedAtMs: Date.now() })
+  mockWaitForLinkedRunClaim.mockResolvedValue({ status: 'running', acceptanceReceipt: { deviceId: 'device-a', machineLabel: 'Verified Mac', runtimeVersion: '2.0.0', acceptedAt: '2026-07-13T09:00:00.000Z' } })
   mockCancelLinkedRun.mockResolvedValue(undefined)
   mockUser = { uid: 'client-1', role: 'client', orgId: 'pib-platform-owner' }
   organizationSettings = {}

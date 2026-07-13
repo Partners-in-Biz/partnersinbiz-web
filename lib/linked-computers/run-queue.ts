@@ -30,6 +30,7 @@ export interface LinkedRunJob {
   completedAtMs?: number
   acceptedRuntimeVersion?: string
   acceptedMachineLabel?: string
+  acceptanceReceipt?: LinkedRunReceipt
   conversationId: string
   assistantMessageId: string
   agentId: string
@@ -113,9 +114,9 @@ export function transitionLinkedRun(job: LinkedRunJob, event:
 }
 
 export function sanitizeLinkedResult(value: string): string {
-  return value.slice(0, 1_000_000)
-    .replace(/-----BEGIN[\s\S]{0,100}?PRIVATE KEY-----[\s\S]*?-----END[\s\S]{0,100}?PRIVATE KEY-----/gi, '[redacted-private-key]')
-    .replace(/(?:-----BEGIN\s*)?PRIVATE KEY-----[^\r\n}]*/gi, '[redacted-private-key]')
+  const redacted = value
+    .replace(/-----BEGIN[^\r\n]*PRIVATE KEY-----[\s\S]*?(?:-----END[^\r\n]*PRIVATE KEY-----|$)/gi, '[redacted-private-key]')
+    .replace(/(?:-----BEGIN\s*)?PRIVATE KEY-----[\s\S]*$/gi, '[redacted-private-key]')
     .replace(/\bAuthorization\s*:\s*(?:Bearer\s+)?[^\s,;]+/gi, 'Authorization: [redacted]')
     .replace(/\bBearer\s+[A-Za-z0-9._~+\/-]+=*/gi, 'Bearer [redacted]')
     .replace(/(["'](?:api[_-]?key|token|secret|password|credential)["']\s*:\s*["'])((?:\\.|(?!\1)[^"'\\])*)(["'])/gi, '$1[redacted]$3')
@@ -124,6 +125,10 @@ export function sanitizeLinkedResult(value: string): string {
     .replace(/\b[A-Za-z]:\\[^\s)\]}]+/g, '[redacted-path]')
     .replace(/(^|[\s("'])\/(?!\/)[^\s)\]}"']+/gm, '$1[redacted-path]')
     .replace(/(?:https?:\/\/)[^\s)\]}]+/gi, '[redacted-url]')
+    .replace(/\b[A-Za-z0-9_+\/.=-]{40,}\b/g, '[redacted-token]')
+  const safe = redacted.slice(0, 1_000_000)
+  if (/PRIVATE KEY|Authorization\s*:|Bearer\s+[A-Za-z0-9]|(?:token|secret|password|api[_-]?key)\s*[:=]\s*(?!\[redacted\])/i.test(safe)) return '[redacted output]'
+  return safe
 }
 
 export function linkedRunReceiptPayload(receipt: Omit<LinkedRunReceipt, 'signature'> | LinkedRunReceipt): string {

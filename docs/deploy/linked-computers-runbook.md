@@ -90,6 +90,14 @@ Apply creates a durable `linked_computer_migration_runs` row before mutations. E
 - Offline/stale: check signed heartbeat, server timestamp, health, minimum version and active credential. Do not select a replacement automatically.
 - Missing target: check current actor/owner membership, active grant/capability and exact Workspace mapping.
 - Queue: inspect logical IDs/status/attempt/lease time only. Never dump encrypted payloads or credentials. A stale lease may be reclaimed; a stale token must not complete.
+
+## Source-ready security truth
+
+The server source is ready for staged acceptance only when `LINKED_RUNTIME_MIN_VERSION` is configured to a valid semantic version in production. Older/invalid runtimes are update-required and nonselectable. Previous-version credentials are authorised only for the explicit rotation-delivery claim; every other device API requires the current credential.
+
+Accepted device identity comes from the verified stored acceptance receipt, not the requested target label. Result persistence uses the safe result contract and redaction boundary. Signed hashes and byte lengths remain the integrity record when display output must be replaced with `[redacted output]`.
+
+This wording does not claim installer signing/notarisation, production deployment, real-device acceptance, or rollback drills have passed. Those remain release gates.
 - Callback: check request nonce, credential version, receipt signature/body digests, registered machine/version and job/request/mapping/attempt/lease binding.
 - Filesystem: use the runtime `status` command and safe mapping labels. Physical paths remain local and must not enter browser/API evidence.
 

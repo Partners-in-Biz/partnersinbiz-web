@@ -3,6 +3,7 @@ import {
   discoverAuthorizedRuntimeTargets,
   linkedComputerReceiptPayload,
   requireMatchingExecutionReceipt,
+  linkedRuntimeUpdateRequired,
 } from '@/lib/linked-computers/runtime-targets'
 import { generateKeyPairSync, sign } from 'node:crypto'
 
@@ -50,6 +51,13 @@ const base = {
 }
 
 describe('linked computer runtime authorization', () => {
+  it('enforces strict minimum linked runtime semver', () => {
+    expect(linkedRuntimeUpdateRequired('2.0.0', '2.0.0')).toBe(false)
+    expect(linkedRuntimeUpdateRequired('2.1.0', '2.0.0')).toBe(false)
+    expect(linkedRuntimeUpdateRequired('1.9.9', '2.0.0')).toBe(true)
+    expect(linkedRuntimeUpdateRequired('invalid', '2.0.0')).toBe(true)
+    expect(linkedRuntimeUpdateRequired('2.0.0', 'invalid')).toBe(true)
+  })
   it('discovers only owned or explicitly shared, granted, fresh, healthy and mapped devices', async () => {
     const targets = await discoverAuthorizedRuntimeTargets({ userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a' }, { db: fakeDb(base), nowMs: () => now })
     expect(targets.map((target) => target.deviceId)).toEqual(['owned', 'shared'])

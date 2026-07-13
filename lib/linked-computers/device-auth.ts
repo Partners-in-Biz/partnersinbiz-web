@@ -55,6 +55,11 @@ export async function authenticateDeviceRequest(
       && Number(storedCredential.credentialVersion) === input.credentialVersion
     const previousVersion = Number(storedCredential.previousCredentialVersion) === input.credentialVersion
       && currentTime <= Date.parse(String(storedCredential.previousCredentialExpiresAt ?? ''))
+    if (previousVersion) {
+      let rotationClaim = false
+      try { rotationClaim = input.path.endsWith(`/linked-computers/${input.deviceId}/heartbeat`) && JSON.parse(input.body)?.claimRotation === true } catch { rotationClaim = false }
+      if (!rotationClaim) throw new Error('linked computers: previous credential restricted to rotation delivery')
+    }
     if (!currentVersion && !previousVersion) {
       throw new Error('linked computers: device credential version mismatch')
     }

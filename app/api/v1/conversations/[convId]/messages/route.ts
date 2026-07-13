@@ -539,12 +539,14 @@ export const POST = withAuth(
         })
         try {
           const claimed = await waitForLinkedRunClaim(queued)
+          const verifiedAcceptance = claimed.acceptanceReceipt
+          if (!verifiedAcceptance) throw new Error('linked computers: signed acceptance required')
           const acceptedDevice = {
-            deviceId: linkedComputerBinding.deviceId,
+            deviceId: verifiedAcceptance.deviceId,
             runtimeTargetId: linkedComputerBinding.runtimeTargetId,
-            machineLabel: linkedComputerBinding.machineLabel,
-            runtimeVersion: linkedComputerBinding.runtimeVersion,
-            acceptedAt: new Date(claimed.claimedAtMs ?? Date.now()).toISOString(),
+            machineLabel: verifiedAcceptance.machineLabel,
+            runtimeVersion: verifiedAcceptance.runtimeVersion,
+            acceptedAt: verifiedAcceptance.acceptedAt,
             outcome: 'accepted',
           }
           await messagesCollection(convId).doc(assistantMessage.id).update({
