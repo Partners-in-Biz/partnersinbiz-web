@@ -5,6 +5,7 @@ import { scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-
 import type { SoftwareBuildEvidenceRow, AgentOutputReviewStatus, AgentOutputReviewArtifact, AgentOutputQualityCheck, AgentOutputApprovalGate, AgentOutputReviewCard, AgentLearningReviewLink, AgentLearningReviewCard, BriefingCard, Mode } from './cockpit/cockpitTypes'
 import { useBriefingFeed } from './cockpit/useBriefingFeed'
 import { CockpitShell } from './cockpit/CockpitShell'
+import { sanitizeContextReferenceSeeds, type ContextReferenceSeed, type ContextReferenceType } from '@/lib/context-references/types'
 
 const ACTION_CONTROL_GRID_CLASS = 'mt-3 grid min-w-0 grid-cols-1 gap-2'
 const ACTION_CONTEXT_GRID_CLASS = 'mt-2 grid min-w-0 grid-cols-1 gap-2'
@@ -12,6 +13,39 @@ const ACTION_CONTROL_CLASS = 'pib-btn-secondary min-w-0 w-full items-start justi
 const ACTION_CONTROL_LINK_CLASS = `${ACTION_CONTROL_CLASS} inline-flex`
 const ACTION_CONTROL_ICON_CLASS = 'material-symbols-outlined shrink-0 text-[15px]'
 const SOURCE_ACTION_CONTROL_CLASS = 'pib-btn-secondary min-w-0 w-full items-center justify-center whitespace-normal rounded-lg px-3 py-2 text-center text-xs leading-4'
+
+export function briefingContextSeed(item: BriefingCard, mode: Mode, portalScope?: PortalOrgRouteScope): ContextReferenceSeed {
+  const supplied = item.metadata?.contextReference
+  const orgId = item.orgId || item.context.orgId || undefined
+  const base = {
+    orgId,
+    href: mode === 'admin' ? adminSourceHref(item) ?? undefined : sourceHref(item, mode, portalScope) ?? undefined,
+    summary: humanReadableCopy(item.excerpt || item.summary),
+  }
+  const parsed = sanitizeContextReferenceSeeds([supplied])[0]
+  if (parsed) {
+    return { ...base, ...parsed, orgId, label: parsed.label || item.title }
+  }
+  const candidates: Array<[ContextReferenceType, string | null | undefined, string | null | undefined]> = [
+    ['task', item.context.taskId, item.context.taskTitle],
+    ['document', item.context.documentId, item.context.documentTitle],
+    ['contact', item.context.contactId, item.context.contactName],
+    ['company', item.context.companyId, item.context.companyName],
+    ['deal', item.context.dealId, item.context.dealTitle],
+    ['invoice', item.context.invoiceId, item.context.invoiceNumber],
+    ['quote', item.context.quoteId, item.context.quoteNumber],
+    ['report', item.context.reportId, item.context.reportTitle],
+    ['workspace_artifact', item.context.workspaceArtifactId, item.context.workspaceArtifactTitle],
+    ['calendar_event', item.context.calendarEventId, item.context.calendarEventTitle],
+    ['project', item.context.projectId, item.context.projectName],
+  ]
+  const domain = candidates.find(([, id]) => typeof id === 'string' && id.trim())
+  if (domain) {
+    const [type, id, label] = domain
+    return { ...base, type, id: id!.trim(), label: label?.trim() || item.title, metadata: { sourceType: item.source.type, sourceId: item.source.id } }
+  }
+  return { ...base, type: 'report', id: `briefing:${item.id}`, label: item.title, metadata: { sourceType: item.source.type, sourceId: item.source.id } }
+}
 
 function ActionControlLabel({ children }: { children: ReactNode }) {
   return (
@@ -3660,15 +3694,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
       generatedAt={feed?.generatedAt}
       loading={loading}
       onRefresh={() => { void loadFeed() }}
-      selectedContextSeed={selected ? {
-        type: 'report',
-        id: `briefing:${selected.id}`,
-        orgId: selected.orgId || selected.context.orgId || orgId || undefined,
-        label: selected.title,
-        href: mode === 'admin' ? adminSourceHref(selected) ?? undefined : sourceHref(selected, mode, portalScope) ?? undefined,
-        summary: humanReadableCopy(selected.excerpt || selected.summary),
-        metadata: { sourceType: selected.source.type, sourceId: selected.source.id },
-      } : null}
+      selectedContextSeed={selected ? briefingContextSeed(selected, mode, portalScope) : null}
       workFeedContent={workFeedContent}
     />
   )

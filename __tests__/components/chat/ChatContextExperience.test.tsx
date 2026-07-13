@@ -74,14 +74,16 @@ describe('useChatContexts', () => {
 
   it('executes Dock mutations and refreshes the active context immediately', async () => {
     const refresh = jest.fn(async () => undefined)
+    const onActionResolved = jest.fn()
     global.fetch = jest.fn(async () => ({ ok: true })) as jest.Mock
     const model = { context: { kind: 'studio' as const, id: 's1', orgId: 'o1', label: 'Studio', icon: 'campaign' }, pulse: { label: 'Studio', metrics: [] }, groups: [], artifacts: [], attention: [{ id: 'blocked', label: 'Blocked', state: 'blocked' as const, actions: [{ id: 'retry', label: 'Retry', href: '/api/retry', method: 'POST' as const }] }], activity: [], capabilities: [], asOf: '2026-07-13T00:00:00Z' }
     const context = { contexts: [{ kind: 'studio' as const, id: 's1', label: 'Studio' }], activeContext: { kind: 'studio' as const, id: 's1' }, setActiveContext: jest.fn(), model, error: null, refresh, routineUpdateCount: 0, dismissRoutineUpdates: jest.fn() }
-    render(<ChatContextExperience context={context} />)
+    render(<ChatContextExperience context={context} onActionResolved={onActionResolved} />)
     fireEvent.click(screen.getByRole('button', { name: 'Open context dock' }))
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/retry', expect.objectContaining({ method: 'POST' })))
     expect(refresh).toHaveBeenCalled()
+    expect(onActionResolved).toHaveBeenCalledTimes(1)
   })
 
   it('reports a failed Dock mutation without refreshing or rejecting unhandled', async () => {

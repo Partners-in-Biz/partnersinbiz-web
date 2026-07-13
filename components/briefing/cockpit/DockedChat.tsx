@@ -8,10 +8,11 @@ export type DockedChatProps = {
   currentUserDisplayName: string
   orgName?: string
   contextSeed?: ContextReferenceSeed | null
+  onContextActionResolved?: () => void
   onClose?: () => void
 }
 
-export function DockedChat({ orgId, currentUserUid, currentUserDisplayName, orgName, contextSeed, onClose }: DockedChatProps) {
+export function DockedChat({ orgId, currentUserUid, currentUserDisplayName, orgName, contextSeed, onContextActionResolved, onClose }: DockedChatProps) {
   if (!orgId || !currentUserUid) {
     return <div className="p-4 text-sm text-on-surface-variant">Sign in to chat with Pip.</div>
   }
@@ -37,7 +38,9 @@ export function DockedChat({ orgId, currentUserUid, currentUserDisplayName, orgN
           allowSendMessages
           allowAgentParticipants
           compact
+          preferCurrentPageContext
           currentPageContext={contextSeed ?? undefined}
+          onContextActionResolved={onContextActionResolved}
         />
       </div>
     </div>

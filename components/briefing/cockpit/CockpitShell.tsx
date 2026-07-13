@@ -94,6 +94,7 @@ export function CockpitShell({
                 orgId: resolvedChatOrgId || undefined,
                 label: 'Current Briefings queue',
               }}
+              onContextActionResolved={onRefresh}
               onClose={() => setShowChat(false)}
             />
           </aside>

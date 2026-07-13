@@ -38,7 +38,7 @@ import ConversationListItem, { type Conversation } from './ConversationListItem'
 import ConversationAccessDialog from './ConversationAccessDialog'
 import VoiceInputButton from './VoiceInputButton'
 import ModelProviderPicker, { type MessageModelCatalog, type ModelRuntimeSelection } from '@/components/messages/hermes/ModelProviderPicker'
-import { LivingTaskBundle, ProjectLens, ProjectPulse } from '@/components/chat/project/ProjectChatExperience'
+import { LivingTaskBundle } from '@/components/chat/project/ProjectChatExperience'
 import { useProjectChatProgress } from '@/components/chat/project/useProjectChatProgress'
 import { useChatContexts } from '@/components/chat/context/useChatContexts'
 import { ChatContextExperience } from '@/components/chat/context/ChatContextExperience'
@@ -84,6 +84,8 @@ export interface UnifiedChatProps {
   allowSendMessages?: boolean
   allowArchiveConversations?: boolean
   currentPageContext?: ContextReferenceSeed | null
+  preferCurrentPageContext?: boolean
+  onContextActionResolved?: () => void
   compact?: boolean
   layoutVariant?: 'classic' | 'hermes'
 }
@@ -351,6 +353,15 @@ function mergeContextRefs(existing: ContextReference[], incoming: ContextReferen
   return Array.from(refs.values()).slice(0, MAX_CONTEXT_REFS)
 }
 
+export function findRelatedConversationId(
+  conversations: Array<Pick<Conversation, 'id' | 'contextRefs'>>,
+  context: Pick<ContextReferenceSeed, 'type' | 'id'>,
+): string | null {
+  return conversations.find((conversation) =>
+    conversation.contextRefs?.some((ref) => ref.type === context.type && ref.id === context.id),
+  )?.id ?? null
+}
+
 export default function UnifiedChat({
   orgId,
   currentUserUid,
@@ -371,6 +382,8 @@ export default function UnifiedChat({
   allowSendMessages = true,
   allowArchiveConversations = true,
   currentPageContext,
+  preferCurrentPageContext = false,
+  onContextActionResolved,
   compact = false,
   layoutVariant = 'classic',
 }: UnifiedChatProps) {
@@ -452,7 +465,7 @@ export default function UnifiedChat({
 
   // Mobile header "…" menu
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false)
-  const [projectLensOpen, setProjectLensOpen] = useState(false)
+  const [conversationFilter, setConversationFilter] = useState('')
 
   // Refs
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -477,21 +490,55 @@ export default function UnifiedChat({
     () => conversations.find((c) => c.id === activeId) ?? null,
     [conversations, activeId],
   )
-  const useGenericContext = Boolean(activeConversation && (activeConversation.contextRefs ?? []).some((ref) => {
-    const kind = ref.type
-    return kind === 'studio' || kind === 'studio_artifact'
-  }))
-  const chatContexts = useChatContexts(orgId, activeConversation, useGenericContext)
+  useEffect(() => {
+    if (!preferCurrentPageContext || !currentPageContext) return
+    const relatedId = findRelatedConversationId(conversations, currentPageContext)
+    setActiveId((current) => current === relatedId ? current : relatedId)
+  }, [conversations, currentPageContext?.id, currentPageContext?.type, preferCurrentPageContext])
+  const hasDockContext = Boolean(activeConversation && (
+    (activeConversation.scope === 'project' && activeConversation.scopeRefId) ||
+    (activeConversation.contextRefs ?? []).some((ref) => ref.type === 'project' || ref.type === 'studio' || ref.type === 'studio_artifact')
+  ))
+  const chatContexts = useChatContexts(orgId, activeConversation, hasDockContext)
   const projectChat = useProjectChatProgress(
     orgId,
     activeConversation,
-    !useGenericContext,
+    false,
   )
+  const projectBundleRefreshRef = useRef<{ contextKey: string; refreshedAt: number; messageSignal: string }>({ contextKey: '', refreshedAt: 0, messageSignal: '' })
   useEffect(() => {
-    if (useGenericContext && chatContexts.activeContext?.kind === 'project') {
+    if (chatContexts.activeContext?.kind !== 'project' || !chatContexts.model) return
+    const contextKey = `${chatContexts.activeContext.kind}:${chatContexts.activeContext.id}`
+    const now = Date.now()
+    const previous = projectBundleRefreshRef.current
+    if (previous.contextKey === contextKey && now - previous.refreshedAt < 30_000) return
+    projectBundleRefreshRef.current = { ...previous, contextKey, refreshedAt: now }
+    void projectChat.refresh().catch(() => {})
+  }, [chatContexts.activeContext?.id, chatContexts.activeContext?.kind, chatContexts.model?.asOf, projectChat.refresh])
+  const projectBundleMessageSignal = useMemo(() => {
+    const latest = messages[messages.length - 1]
+    const eventCount = Object.values(liveEvents).reduce((total, events) => total + events.length, 0)
+    return `${latest?.id ?? ''}:${latest?.status ?? ''}:${eventCount}`
+  }, [liveEvents, messages])
+  useEffect(() => {
+    if (chatContexts.activeContext?.kind !== 'project' || !chatContexts.model) return
+    const contextKey = `${chatContexts.activeContext.kind}:${chatContexts.activeContext.id}`
+    const previous = projectBundleRefreshRef.current
+    if (previous.contextKey !== contextKey || !previous.messageSignal) {
+      projectBundleRefreshRef.current = { ...previous, contextKey, messageSignal: projectBundleMessageSignal }
+      return
+    }
+    if (previous.messageSignal === projectBundleMessageSignal) return
+    projectBundleRefreshRef.current = { contextKey, refreshedAt: Date.now(), messageSignal: projectBundleMessageSignal }
+    void projectChat.refresh().catch(() => {})
+  }, [chatContexts.activeContext?.id, chatContexts.activeContext?.kind, chatContexts.model, projectBundleMessageSignal, projectChat.refresh])
+  const handleContextActionResolved = useCallback(() => {
+    if (chatContexts.activeContext?.kind === 'project') {
+      projectBundleRefreshRef.current = { ...projectBundleRefreshRef.current, refreshedAt: Date.now() }
       void projectChat.refresh().catch(() => {})
     }
-  }, [chatContexts.activeContext?.id, chatContexts.activeContext?.kind, projectChat.refresh, useGenericContext])
+    onContextActionResolved?.()
+  }, [chatContexts.activeContext?.kind, onContextActionResolved, projectChat.refresh])
   const activeModelAgentId = useMemo<AgentId | null>(() => {
     const agentIds = activeConversation?.participantAgentIds ?? []
     if (agentIds.length === 0) return null
@@ -509,7 +556,6 @@ export default function UnifiedChat({
     ) ?? null
   }, [messages])
   const activeRuntimeEvents = activeRuntimeMessage ? (liveEvents[activeRuntimeMessage.id] ?? []) : []
-  useEffect(() => { setProjectLensOpen(false) }, [activeId, projectChat.activeProjectId])
   const hasInFlightAgentRun = useMemo(
     () => messages.some((message) =>
       message.role === 'assistant' && (
@@ -553,10 +599,20 @@ export default function UnifiedChat({
     () => conversations.filter((conversation) => !conversation.archived),
     [conversations],
   )
+  const filteredConversations = useMemo(() => {
+    const query = conversationFilter.trim().toLocaleLowerCase()
+    if (!query) return visibleConversations
+    return visibleConversations.filter((conversation) => [
+      conversation.title,
+      conversation.lastMessagePreview,
+      conversation.workspaceContext?.orgName,
+      ...(conversation.contextRefs ?? []).map((ref) => ref.label),
+    ].some((value) => value?.toLocaleLowerCase().includes(query)))
+  }, [conversationFilter, visibleConversations])
   const pinnedConversationIdSet = useMemo(() => new Set(pinnedConversationIds), [pinnedConversationIds])
   const hermesSessionSections = useMemo(
-    () => buildHermesSessionSections(conversations, pinnedConversationIds),
-    [conversations, pinnedConversationIds],
+    () => buildHermesSessionSections(filteredConversations, pinnedConversationIds),
+    [filteredConversations, pinnedConversationIds],
   )
   const menuConversation = useMemo(
     () => conversations.find((conversation) => conversation.id === menuOpenId) ?? null,
@@ -721,7 +777,8 @@ export default function UnifiedChat({
       setConversations(nextList)
       if (!activeId && nextList.length) {
         const preferred = initialConvId && nextList.find((c) => c.id === initialConvId)
-        setActiveId(preferred ? initialConvId! : nextList[0].id)
+        const relatedId = preferCurrentPageContext && currentPageContext ? findRelatedConversationId(nextList, currentPageContext) : null
+        setActiveId(preferred ? initialConvId! : relatedId ?? (preferCurrentPageContext ? null : nextList[0].id))
       } else if (
         !activeId &&
         nextList.length === 0 &&
@@ -771,6 +828,7 @@ export default function UnifiedChat({
     orgId,
     autoCreateTitle,
     currentPageContext,
+    preferCurrentPageContext,
     coerceContextRef,
   ])
 
@@ -1790,7 +1848,9 @@ export default function UnifiedChat({
             : activeSlashCommand
               ? slashArgs || activeSlashCommand.description
               : input
-        let refsForSend = contextRefs
+        let refsForSend = preferCurrentPageContext && currentPageContext && !convId
+          ? [coerceContextRef(currentPageContext)]
+          : contextRefs
         if (shouldUseCurrentPage) {
           refsForSend = await pinCurrentPageContext()
           if (!messageText.trim() && attachments.length === 0) {
@@ -1948,6 +2008,9 @@ export default function UnifiedChat({
       queueCurrentComposerDraft,
       rememberComposerPrompt,
       contextRefs,
+      preferCurrentPageContext,
+      currentPageContext,
+      coerceContextRef,
       pinCurrentPageContext,
 	      allowAgentParticipants,
 	      allowStartConversations,
@@ -2053,10 +2116,26 @@ export default function UnifiedChat({
           {hermesLayout ? 'Sessions' : 'Conversations'}
         </div>
 
+        <label className="relative block">
+          <span className="material-symbols-outlined pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[14px] text-on-surface-variant" aria-hidden="true">search</span>
+          <input
+            type="search"
+            aria-label="Filter conversations"
+            value={conversationFilter}
+            onChange={(event) => setConversationFilter(event.target.value)}
+            placeholder="Filter conversations"
+            className={hermesLayout
+              ? 'h-8 w-full rounded-md border border-[var(--color-card-border)] bg-black/10 pl-7 pr-2 text-xs text-on-surface outline-none placeholder:text-on-surface-variant/65 focus:border-primary/50 focus:ring-1 focus:ring-primary/30'
+              : 'h-9 w-full rounded-lg border border-[var(--color-card-border)] bg-transparent pl-8 pr-2 text-sm text-on-surface outline-none placeholder:text-on-surface-variant focus:border-primary/50 focus:ring-1 focus:ring-primary/30'}
+          />
+        </label>
+
         <div className={hermesLayout ? 'flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-0.5' : 'flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto'}>
-          {visibleConversations.length === 0 && (
+          {filteredConversations.length === 0 && (
             <div className="text-xs text-on-surface-variant px-2 py-3">
-              {allowStartConversations ? 'No conversations yet. Start one.' : 'No conversations yet.'}
+              {conversationFilter.trim()
+                ? 'No conversations match your filter.'
+                : allowStartConversations ? 'No conversations yet. Start one.' : 'No conversations yet.'}
             </div>
           )}
           {hermesLayout
@@ -2119,7 +2198,7 @@ export default function UnifiedChat({
                               setMenuOpenId(c.id)
                             }
                           }}
-                          className={`absolute right-1 top-1/2 hidden h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-[11px] text-on-surface-variant hover:bg-white/[0.08] hover:text-on-surface group-hover/conv:flex ${
+                          className={`absolute right-1 top-1/2 hidden h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-[11px] text-on-surface-variant outline-none hover:bg-white/[0.08] hover:text-on-surface focus-visible:flex focus-visible:ring-2 focus-visible:ring-primary/60 group-hover/conv:flex ${
                             menuOpenId === c.id ? '!flex' : ''
                           }`}
                           aria-label={`Conversation options for ${c.title || 'Untitled'}`}
@@ -2132,7 +2211,7 @@ export default function UnifiedChat({
                 </div>
               </div>
             ))
-            : visibleConversations.map((c) => (
+            : filteredConversations.map((c) => (
               <div key={c.id} className="relative group/conv">
                 {renamingId === c.id ? (
                   <div className="flex items-center gap-1 rounded-lg px-2 py-1.5">
@@ -2183,7 +2262,7 @@ export default function UnifiedChat({
                         setMenuOpenId(c.id)
                       }
                     }}
-                    className={`absolute right-1 top-1/2 -translate-y-1/2 hidden group-hover/conv:flex items-center justify-center w-6 h-6 rounded text-on-surface-variant hover:text-on-surface hover:bg-[var(--color-card-hover,rgba(255,255,255,0.08))] ${
+                    className={`absolute right-1 top-1/2 -translate-y-1/2 hidden group-hover/conv:flex items-center justify-center w-6 h-6 rounded text-on-surface-variant outline-none hover:text-on-surface hover:bg-[var(--color-card-hover,rgba(255,255,255,0.08))] focus-visible:flex focus-visible:ring-2 focus-visible:ring-primary/60 ${
                       menuOpenId === c.id ? '!flex' : ''
                     }`}
                     aria-label="Conversation options"
@@ -2432,16 +2511,7 @@ export default function UnifiedChat({
           )}
         </div>
 
-        {!useGenericContext && projectChat.progress && projectChat.activeProjectId && (
-          <ProjectPulse
-            progress={projectChat.progress}
-            projects={projectChat.projects}
-            activeProjectId={projectChat.activeProjectId}
-            onProjectChange={projectChat.setActiveProjectId}
-            onOpen={() => setProjectLensOpen(true)}
-          />
-        )}
-        {(useGenericContext || runtimeExecution) && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} execution={runtimeExecution} executionRequest={executionDockRequest} />}
+        {(hasDockContext || runtimeExecution) && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} execution={runtimeExecution} executionRequest={executionDockRequest} onActionResolved={handleContextActionResolved} />}
 
         {/* Messages */}
         <div
@@ -2568,7 +2638,7 @@ export default function UnifiedChat({
               <span className="material-symbols-outlined text-[13px]" aria-hidden="true">expand_more</span>
             </button>
           )}
-          {!useGenericContext && projectChat.routineUpdateCount > 0 && (
+          {projectChat.routineUpdateCount > 0 && (
             <button type="button" onClick={projectChat.dismissRoutineUpdates} className="ml-0 inline-flex items-center gap-2 rounded-md border border-white/10 bg-black/15 px-3 py-2 text-[11px] text-on-surface-variant hover:bg-white/[0.05] lg:ml-10">
               <span className="material-symbols-outlined text-[14px] text-primary" aria-hidden="true">update</span>
               {projectChat.routineUpdateCount} project update{projectChat.routineUpdateCount === 1 ? '' : 's'}
@@ -3028,10 +3098,6 @@ export default function UnifiedChat({
             </div>
           )}
         </form>
-
-        {!useGenericContext && projectChat.progress && (
-          <ProjectLens progress={projectChat.progress} open={projectLensOpen} onClose={() => setProjectLensOpen(false)} onTaskAction={handleProjectTaskAction} taskHref={projectTaskHref} canApprove={userRole === 'admin'} />
-        )}
 
       </section>
 

@@ -13,7 +13,7 @@ const executionOnlyModel: ChatContextReadModel = {
   pulse: { label: 'Execution', metrics: [] }, groups: [], artifacts: [], attention: [], activity: [], capabilities: [], asOf: '',
 }
 
-export function ChatContextExperience({ context, compact = false, artifactRequest, execution, executionRequest }: { context: ReturnTypeOfUseChatContexts; compact?: boolean; artifactRequest?: { id: string; nonce: number }; execution?: RuntimeExecution; executionRequest?: number }) {
+export function ChatContextExperience({ context, compact = false, artifactRequest, execution, executionRequest, onActionResolved }: { context: ReturnTypeOfUseChatContexts; compact?: boolean; artifactRequest?: { id: string; nonce: number }; execution?: RuntimeExecution; executionRequest?: number; onActionResolved?: () => void }) {
   const [open, setOpen] = useState(false)
   const [activeArtifactId, setActiveArtifactId] = useState<string>()
   const [actionError, setActionError] = useState<string | null>(null)
@@ -43,6 +43,7 @@ export function ChatContextExperience({ context, compact = false, artifactReques
         throw new Error(safeError || `Context action failed (${response.status}). Try again.`)
       }
       await context.refresh()
+      onActionResolved?.()
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : 'Context action failed. Try again.')
     } finally {

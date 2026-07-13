@@ -4,8 +4,10 @@ const mockBriefingControlDesk = jest.fn(
   ({
     mode,
     portalScope,
+    currentUser,
   }: {
     mode: string
+    currentUser?: { uid: string }
     portalScope?: {
       orgId?: string
       orgSlug?: string
@@ -20,6 +22,7 @@ const mockBriefingControlDesk = jest.fn(
       data-org-slug={portalScope?.orgSlug ?? ''}
       data-source-company-id={portalScope?.sourceCompanyId ?? ''}
       data-source-company-name={portalScope?.sourceCompanyName ?? ''}
+      data-signed-in={currentUser ? 'true' : 'false'}
     />
   ),
 )
@@ -43,6 +46,7 @@ jest.mock('@/lib/firebase/admin', () => ({
 jest.mock('@/components/briefing/BriefingControlDesk', () => ({
   BriefingControlDesk: (props: {
     mode: string
+    currentUser?: { uid: string }
     portalScope?: {
       orgId?: string
       orgSlug?: string
@@ -76,5 +80,6 @@ describe('portal briefings page', () => {
     expect(screen.getByTestId('briefing-control-desk')).toHaveAttribute('data-org-slug', 'client-one')
     expect(screen.getByTestId('briefing-control-desk')).toHaveAttribute('data-source-company-id', 'company-1')
     expect(screen.getByTestId('briefing-control-desk')).toHaveAttribute('data-source-company-name', 'Lumen')
+    expect(screen.getByTestId('briefing-control-desk')).toHaveAttribute('data-signed-in', 'false')
   })
 })

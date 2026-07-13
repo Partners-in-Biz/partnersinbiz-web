@@ -1,6 +1,7 @@
 import React from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { BriefingControlDesk } from '@/components/briefing/BriefingControlDesk'
+import { BriefingControlDesk, briefingContextSeed } from '@/components/briefing/BriefingControlDesk'
+import { findRelatedConversationId } from '@/components/chat/UnifiedChat'
 
 const briefingItem = {
   id: 'task:item-1',
@@ -61,6 +62,74 @@ const briefingItem = {
   ],
   occurredAt: '2026-05-31T10:00:00.000Z',
 }
+
+describe('Briefings living context handoff', () => {
+  it('passes the most specific authoritative reference instead of a synthetic briefing report', () => {
+    expect(briefingContextSeed(briefingItem as never, 'admin')).toMatchObject({
+      type: 'task',
+      id: 'task-1',
+      orgId: 'org-1',
+      label: 'Update homepage',
+      metadata: { sourceType: 'agent-output', sourceId: 'item-1' },
+    })
+  })
+
+  it('preserves an adapter supplied Studio artifact reference exactly', () => {
+    const studioItem = {
+      ...briefingItem,
+      id: 'studio:video-1',
+      context: { orgId: 'org-1', orgName: 'Client One' },
+      metadata: {
+        contextReference: {
+          type: 'studio_artifact',
+          id: 'youtube_studio:video:video-1',
+          label: 'Launch film',
+        },
+      },
+    }
+
+    expect(briefingContextSeed(studioItem as never, 'portal')).toMatchObject({
+      type: 'studio_artifact',
+      id: 'youtube_studio:video:video-1',
+      orgId: 'org-1',
+      label: 'Launch film',
+    })
+  })
+
+  it('accepts any valid adapter context reference and rejects invalid metadata', () => {
+    expect(briefingContextSeed({
+      ...contactBriefingItem,
+      metadata: { contextReference: { type: 'company', id: 'company-1', label: 'Acme' } },
+    } as never, 'portal')).toMatchObject({ type: 'company', id: 'company-1', orgId: 'org-1', label: 'Acme' })
+    expect(briefingContextSeed({
+      ...contactBriefingItem,
+      metadata: { contextReference: { type: 'not-supported', id: 'unsafe' } },
+    } as never, 'portal')).toMatchObject({ type: 'contact', id: 'contact-1' })
+  })
+
+  it('binds adapter references to the selected card organisation', () => {
+    expect(briefingContextSeed({
+      ...contactBriefingItem,
+      metadata: { contextReference: { type: 'contact', id: 'contact-1', orgId: 'other-org', label: 'Ava Owner' } },
+    } as never, 'portal')).toMatchObject({ type: 'contact', id: 'contact-1', orgId: 'org-1' })
+  })
+
+  it('falls back to the most specific domain reference before a project or synthetic report', () => {
+    expect(briefingContextSeed(briefingItem as never, 'admin')).toMatchObject({ type: 'task', id: 'task-1' })
+    expect(briefingContextSeed(documentBriefingItem as never, 'portal')).toMatchObject({ type: 'document', id: 'doc-1' })
+    expect(briefingContextSeed(invoiceBriefingItem as never, 'portal')).toMatchObject({ type: 'invoice', id: 'invoice-1' })
+  })
+
+  it('reuses only a permitted conversation carrying the exact selected context', () => {
+    expect(findRelatedConversationId([
+      { id: 'unrelated', contextRefs: [{ type: 'project', id: 'project-2' }] },
+      { id: 'related', contextRefs: [{ type: 'project', id: 'project-1' }] },
+    ] as never, { type: 'project', id: 'project-1' })).toBe('related')
+    expect(findRelatedConversationId([
+      { id: 'unrelated', contextRefs: [{ type: 'project', id: 'project-2' }] },
+    ] as never, { type: 'project', id: 'project-1' })).toBeNull()
+  })
+})
 
 const agentLearningBriefingItem = {
   id: 'agent-learning-review:task-learning-1',
