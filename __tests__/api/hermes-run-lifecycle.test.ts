@@ -57,6 +57,7 @@ function profileDoc(overrides: Record<string, unknown> = {}) {
       baseUrl: 'http://127.0.0.1:8651/',
       apiKey: 'secret-key',
       enabled: true,
+      runtimeTargetId: 'local',
       capabilities: { runs: true, dashboard: true, cron: true, models: true, tools: true, files: true, terminal: true },
       permissions: { superAdmin: true, restrictedAdmin: true, client: false, allowedUserIds: [] },
       ...overrides,
@@ -69,7 +70,7 @@ describe('GET /api/v1/admin/hermes/profiles/[orgId]/runs/[runId]', () => {
     ;(global.fetch as jest.Mock).mockResolvedValue({
       ok: true,
       status: 200,
-      text: async () => JSON.stringify({ run_id: 'run-1', status: 'started' }),
+      text: async () => JSON.stringify({ run_id: 'run-1', status: 'totally-unknown', endpoint: 'https://gateway.example/v1/runs', apiKey: 'super-secret' }),
     })
 
     const { createHermesRun } = await import('@/lib/hermes/server')
@@ -79,6 +80,7 @@ describe('GET /api/v1/admin/hermes/profiles/[orgId]/runs/[runId]', () => {
       baseUrl: 'http://127.0.0.1:8651',
       apiKey: 'secret-key',
       enabled: true,
+      runtimeTargetId: 'local',
       capabilities: { runs: true, dashboard: false, cron: false, models: false, tools: false, files: false, terminal: false },
       permissions: { superAdmin: false, restrictedAdmin: false, client: true, allowedUserIds: [] },
     }, 'user-1', {
@@ -86,18 +88,22 @@ describe('GET /api/v1/admin/hermes/profiles/[orgId]/runs/[runId]', () => {
       conversation_id: 'conv-1',
       model: 'openai/gpt-5.5',
       provider: 'openai',
+      dispatch: { requestedRuntimeTargetId: 'local' },
       metadata: {
         source: 'pib-unified-chat',
         conversationId: 'conv-1',
         messageId: 'msg-1',
         dispatchAgentId: 'pip',
+        requestedRuntimeTargetId: 'local',
+        runtimeTargetId: 'local',
+        localWorkingPath: '/Users/peet/private',
       },
     })
 
     expect(result.runDocId).toBe('stored-run-1')
     expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
       hermesRunId: 'run-1',
-      status: 'started',
+      status: 'submitted',
       conversationId: 'conv-1',
       model: 'openai/gpt-5.5',
       provider: 'openai',
@@ -107,6 +113,33 @@ describe('GET /api/v1/admin/hermes/profiles/[orgId]/runs/[runId]', () => {
         messageId: 'msg-1',
         dispatchAgentId: 'pip',
       }),
+      executionReceipt: expect.objectContaining({
+        requestedRuntimeTargetId: 'local',
+        acceptedRuntimeTargetId: 'local',
+        outcome: 'accepted',
+        requestedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+        acceptedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+      }),
+      response: { runId: 'run-1' },
+    }))
+    expect(result.data).toEqual({ runId: 'run-1' })
+    expect(result.executionReceipt).toEqual(expect.objectContaining({
+      requestedRuntimeTargetId: 'local', acceptedRuntimeTargetId: 'local', outcome: 'accepted',
+    }))
+    expect(() => JSON.stringify(result.executionReceipt)).not.toThrow()
+    expect(JSON.stringify(mockAdd.mock.calls)).not.toMatch(/gateway\.example|super-secret|Users\/peet/)
+  })
+
+  it('uses a concrete safe legacy runtime identity when routing has no target id', async () => {
+    ;(global.fetch as jest.Mock).mockResolvedValue({ ok: true, status: 202, text: async () => JSON.stringify({ run_id: 'run-legacy', status: 'queued' }) })
+    const { createHermesRun } = await import('@/lib/hermes/server')
+    const result = await createHermesRun({
+      orgId: 'org-a', profile: 'legacy', baseUrl: 'http://127.0.0.1:8651', enabled: true,
+      capabilities: { runs: true, dashboard: false, cron: false, models: false, tools: false, files: false, terminal: false },
+      permissions: { superAdmin: false, restrictedAdmin: false, client: true, allowedUserIds: [] },
+    }, 'user-1', { prompt: 'Hello' })
+    expect(result.executionReceipt).toEqual(expect.objectContaining({
+      requestedRuntimeTargetId: 'legacy-profile', acceptedRuntimeTargetId: 'legacy-profile', outcome: 'accepted',
     }))
   })
 

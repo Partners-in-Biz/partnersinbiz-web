@@ -10,6 +10,7 @@ export interface OrgFeatureFlags {
   show_creative_canvas: boolean
   enable_social_listening: boolean
   show_whatsapp: boolean
+  emailMarketingStudioV2: boolean
 }
 
 export const DEFAULT_FEATURE_FLAGS: OrgFeatureFlags = {
@@ -17,6 +18,7 @@ export const DEFAULT_FEATURE_FLAGS: OrgFeatureFlags = {
   show_creative_canvas: true,
   enable_social_listening: false,
   show_whatsapp: false,
+  emailMarketingStudioV2: false,
 }
 
 function coerceFlag(value: unknown, fallback: boolean): boolean {
@@ -33,6 +35,7 @@ export function resolveFeatureFlags(raw: unknown): OrgFeatureFlags {
     show_creative_canvas: coerceFlag(flags.show_creative_canvas, DEFAULT_FEATURE_FLAGS.show_creative_canvas),
     enable_social_listening: coerceFlag(flags.enable_social_listening, DEFAULT_FEATURE_FLAGS.enable_social_listening),
     show_whatsapp: coerceFlag(flags.show_whatsapp, DEFAULT_FEATURE_FLAGS.show_whatsapp),
+    emailMarketingStudioV2: coerceFlag(flags.emailMarketingStudioV2, DEFAULT_FEATURE_FLAGS.emailMarketingStudioV2),
   }
 }
 

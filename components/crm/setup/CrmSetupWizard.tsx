@@ -68,37 +68,42 @@ function templateIcon(kind: CrmStarterTemplate['kind']) {
 
 function SetupLoadingState() {
   return (
-    <div className="max-w-5xl space-y-6">
-      <div>
-        <p className="eyebrow">CRM setup</p>
-        <h1 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Preparing CRM setup workspace</h1>
-        <p className="mt-2 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
-          Loading pipeline templates, import status, and launch blockers for this workspace.
-        </p>
+    <div className="max-w-5xl space-y-2">
+      <div className="flex h-11 items-center gap-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 px-3">
+        <span className="material-symbols-outlined grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-[15px] text-primary" aria-hidden="true">
+          rocket_launch
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">CRM setup</p>
+          <h1 className="truncate text-sm font-semibold leading-tight text-on-surface">Preparing CRM setup workspace</h1>
+        </div>
       </div>
+      <p className="px-1 text-xs text-on-surface-variant">
+        Loading pipeline templates, import status, and launch blockers for this workspace.
+      </p>
 
-      <section className="bento-card !p-6 space-y-5" aria-label="CRM setup loading preview">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <p className="eyebrow">Setup command center</p>
-            <h2 className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">CRM launch readiness</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
+      <section className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45" aria-label="CRM setup loading preview">
+        <div className="flex flex-col gap-3 border-b border-[var(--color-card-border)] p-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Setup command center</p>
+            <h2 className="mt-1 text-sm font-semibold text-on-surface">CRM launch readiness</h2>
+            <p className="mt-1 max-w-2xl text-xs leading-5 text-on-surface-variant">
               We are preparing the workflow, starter assets, and first actions before the team starts editing setup.
             </p>
           </div>
-          <div className="min-w-[150px] rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-4">
-            <p className="eyebrow !text-[10px]">Readiness</p>
-            <div className="pib-skeleton mt-3 h-9 w-20 rounded" />
-            <div className="pib-skeleton mt-4 h-2 w-full rounded-full" />
+          <div className="min-w-[150px] shrink-0 rounded-md border border-[var(--color-card-border)] bg-black/10 px-3 py-2">
+            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Readiness</p>
+            <div className="pib-skeleton mt-2 h-6 w-16 rounded" />
+            <div className="pib-skeleton mt-2 h-1.5 w-full rounded-full" />
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-2 p-3 sm:grid-cols-2 xl:grid-cols-4">
           {['Workflow', 'Starter templates', 'Pipelines', 'Next actions'].map((label) => (
-            <div key={label} className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
-              <p className="eyebrow !text-[10px]">{label}</p>
-              <div className="pib-skeleton mt-3 h-4 w-28 rounded" />
-              <div className="pib-skeleton mt-3 h-3 w-20 rounded" />
+            <div key={label} className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+              <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">{label}</p>
+              <div className="pib-skeleton mt-2 h-3.5 w-28 rounded" />
+              <div className="pib-skeleton mt-2 h-2.5 w-20 rounded" />
             </div>
           ))}
         </div>
@@ -200,85 +205,93 @@ export function CrmSetupWizard() {
   if (loading) return <SetupLoadingState />
   if (!setup) {
     return (
-      <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">
+      <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/45 px-3 py-2 text-xs text-on-surface-variant">
         {error ?? 'Setup could not be loaded.'}
       </div>
     )
   }
 
   return (
-    <div className="max-w-5xl space-y-6">
-      <div>
-        <h1 className="text-lg font-semibold mb-1">CRM setup</h1>
-        <p className="text-sm text-[var(--color-pib-text-muted)]">
+    <div className="max-w-5xl space-y-2">
+      <div className="flex h-11 items-center gap-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 px-3">
+        <span className="material-symbols-outlined grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-[15px] text-primary" aria-hidden="true">
+          rocket_launch
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Settings / CRM</p>
+          <h1 className="truncate text-sm font-semibold leading-tight text-on-surface">CRM setup</h1>
+        </div>
+        <p className="ml-auto hidden truncate text-xs text-on-surface-variant sm:block">
           Set the first version of your sales workflow, import plan, and starter templates.
         </p>
       </div>
 
       {error && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+        <div className="rounded-lg border border-red-400/40 bg-red-400/10 px-3 py-2 text-xs text-red-100">
           {error}
         </div>
       )}
       {message && (
-        <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-accent-soft)] px-4 py-3 text-sm text-[var(--color-pib-text)]">
+        <div className="rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-100">
           {message}
         </div>
       )}
 
       <CrmSetupCommandCenter setup={setup} recommendedTemplates={recommendedTemplates} portalPath={setupPortalPath} />
 
-      <section className="grid gap-4 md:grid-cols-2">
+      <section className="grid gap-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3 md:grid-cols-2">
         <Field label="Sales process">
-          <select className="pib-input w-full" value={setup.salesProcess} onChange={(e) => update('salesProcess', e.target.value as CrmSalesProcess)}>
+          <select className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface" value={setup.salesProcess} onChange={(e) => update('salesProcess', e.target.value as CrmSalesProcess)}>
             {SALES_PROCESS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </Field>
         <Field label="Pipeline preference">
-          <select className="pib-input w-full" value={setup.pipelinePreference} onChange={(e) => update('pipelinePreference', e.target.value as CrmPipelinePreference)}>
+          <select className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface" value={setup.pipelinePreference} onChange={(e) => update('pipelinePreference', e.target.value as CrmPipelinePreference)}>
             {PIPELINE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </Field>
         <Field label="CSV import status">
-          <select className="pib-input w-full" value={setup.importStatus} onChange={(e) => update('importStatus', e.target.value as CrmImportStatus)}>
+          <select className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface" value={setup.importStatus} onChange={(e) => update('importStatus', e.target.value as CrmImportStatus)}>
             {IMPORT_STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </Field>
         <Field label="Gmail connection">
-          <select className="pib-input w-full" value={setup.gmailIntent} onChange={(e) => update('gmailIntent', e.target.value as CrmGmailIntent)}>
+          <select className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface" value={setup.gmailIntent} onChange={(e) => update('gmailIntent', e.target.value as CrmGmailIntent)}>
             {GMAIL_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </Field>
       </section>
 
-      <section role="region" aria-label="Team rollout plan" className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <p className="eyebrow !text-[10px]">CEO rollout</p>
-            <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Team rollout plan</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+      <section role="region" aria-label="Team rollout plan" className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+        <div className="flex flex-col gap-2 border-b border-[var(--color-card-border)] p-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">CEO rollout</p>
+            <h2 className="mt-1 text-sm font-semibold text-on-surface">Team rollout plan</h2>
+            <p className="mt-1 max-w-2xl text-xs leading-5 text-on-surface-variant">
               Capture who owns setup, what the team should launch first, and which decisions need to be visible before CRM becomes daily operating rhythm.
             </p>
           </div>
-          <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">
+          <div className="shrink-0 rounded-md border border-[var(--color-card-border)] bg-black/10 px-2.5 py-1.5 text-[11px] text-on-surface-variant">
             {setup.notes?.trim() ? 'Notes captured' : 'Notes needed'}
           </div>
         </div>
 
-        <div className="mt-5 grid gap-3 md:grid-cols-3">
+        <div className="grid gap-2 border-b border-[var(--color-card-border)] p-3 md:grid-cols-3">
           {TEAM_ROLLOUT_PLAN.map((step) => (
-            <div key={step.title} className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
-              <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]" aria-hidden="true">{step.icon}</span>
-              <h3 className="mt-3 text-sm font-semibold text-[var(--color-pib-text)]">{step.title}</h3>
-              <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">{step.description}</p>
+            <div key={step.title} className="flex items-start gap-2 rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+              <span className="material-symbols-outlined mt-0.5 text-[16px] text-primary" aria-hidden="true">{step.icon}</span>
+              <div className="min-w-0">
+                <h3 className="text-xs font-semibold text-on-surface">{step.title}</h3>
+                <p className="mt-0.5 text-[11px] leading-4 text-on-surface-variant">{step.description}</p>
+              </div>
             </div>
           ))}
         </div>
 
-        <label className="mt-5 block space-y-2">
-          <span className="block text-xs font-label text-[var(--color-pib-text-muted)]">CRM rollout notes</span>
+        <label className="block space-y-1.5 p-3">
+          <span className="block text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">CRM rollout notes</span>
           <textarea
-            className="pib-input min-h-[120px] w-full resize-y"
+            className="min-h-[96px] w-full resize-y rounded-md border border-[var(--color-card-border)] bg-transparent p-2 text-xs text-on-surface"
             value={setup.notes ?? ''}
             onChange={(e) => update('notes', e.target.value)}
             placeholder="Example: Mandy owns import, sales reviews pipeline Mondays, support handles renewals."
@@ -286,48 +299,56 @@ export function CrmSetupWizard() {
         </label>
       </section>
 
-      <section className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-sm font-semibold">Import contacts</h2>
-            <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+      <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h2 className="text-xs font-semibold text-on-surface">Import contacts</h2>
+            <p className="mt-0.5 text-[11px] leading-4 text-on-surface-variant">
               Use the existing CSV importer once your source file is ready. Validate first to preview mapping and skipped rows.
             </p>
           </div>
-          <Link href={setupPortalPath('/portal/capture-sources/import')} className="btn-pib-secondary inline-flex items-center gap-1.5 text-sm">
+          <Link
+            href={setupPortalPath('/portal/capture-sources/import')}
+            className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+          >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">upload_file</span>
             Open CSV import
           </Link>
         </div>
       </section>
 
-      <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Starter templates</h2>
-          <button type="button" onClick={saveSetup} disabled={saving} className="btn-pib-accent inline-flex items-center gap-1.5 text-sm disabled:opacity-50">
+      <section className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+        <div className="flex h-11 items-center justify-between border-b border-[var(--color-card-border)] px-3">
+          <h2 className="text-xs font-semibold text-on-surface">Starter templates</h2>
+          <button
+            type="button"
+            onClick={saveSetup}
+            disabled={saving}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition disabled:opacity-50"
+          >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">save</span>
             {saving ? 'Saving...' : 'Save setup'}
           </button>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-2 p-3 md:grid-cols-2">
           {recommendedTemplates.map((template) => {
             const selected = setup.selectedTemplateIds.includes(template.id)
             const applied = template.kind === 'pipeline' && setup.appliedPipelineTemplateIds.includes(template.id)
             return (
-              <div key={template.id} className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
-                <div className="flex items-start gap-3">
-                  <span className="material-symbols-outlined mt-0.5 text-[20px] text-[var(--color-pib-accent)]" aria-hidden="true">{templateIcon(template.kind)}</span>
+              <div key={template.id} className="rounded-md border border-[var(--color-card-border)] bg-black/10 p-2.5">
+                <div className="flex items-start gap-2">
+                  <span className="material-symbols-outlined mt-0.5 text-[16px] text-primary" aria-hidden="true">{templateIcon(template.kind)}</span>
                   <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-sm font-semibold">{template.name}</h3>
-                      <span className="rounded border border-[var(--color-pib-line)] px-1.5 py-0.5 text-[10px] uppercase text-[var(--color-pib-text-muted)]">{template.kind}</span>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <h3 className="text-xs font-semibold text-on-surface">{template.name}</h3>
+                      <span className="rounded border border-[var(--color-card-border)] px-1.5 py-0.5 text-[10px] uppercase text-on-surface-variant">{template.kind}</span>
                     </div>
-                    <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{template.description}</p>
+                    <p className="mt-1 text-[11px] leading-4 text-on-surface-variant">{template.description}</p>
                   </div>
                 </div>
-                <div className="mt-4 flex flex-wrap items-center gap-2">
-                  <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-on-surface-variant">
                     <input
                       type="checkbox"
                       checked={selected}
@@ -341,7 +362,7 @@ export function CrmSetupWizard() {
                       type="button"
                       onClick={() => applyPipelineTemplate(template.id)}
                       disabled={applied || applyingId === template.id}
-                      className="btn-pib-secondary inline-flex items-center gap-1.5 text-sm disabled:opacity-50"
+                      className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface disabled:opacity-50"
                       aria-label={
                         applied
                           ? `${template.name} template applied`
@@ -367,7 +388,7 @@ export function CrmSetupWizard() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="space-y-1">
-      <span className="block text-xs font-label text-[var(--color-pib-text-muted)]">{label}</span>
+      <span className="block text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">{label}</span>
       {children}
     </label>
   )

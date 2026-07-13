@@ -41,6 +41,10 @@ import {
   type ThemeConfig,
 } from '@/lib/email-builder/types'
 import { CampaignReviewPanel } from '@/components/campaigns/CampaignReviewPanel'
+import { MergeFieldBrowser } from '@/components/email-marketing/MergeFieldBrowser'
+import { PreflightPanel } from '@/components/email-marketing/PreflightPanel'
+import { SenderPolicyEditor } from '@/components/email-marketing/SenderPolicyEditor'
+import { runEmailPreflight } from '@/lib/email-marketing/preflight'
 
 const BLOCK_TYPES: BlockType[] = ['hero', 'heading', 'paragraph', 'button', 'image', 'divider', 'spacer', 'columns', 'footer']
 
@@ -70,6 +74,8 @@ interface CampaignSeed {
   scheduledAtIso: string | null
   postalAddress: string
   hasVerifiedDomain: boolean
+  senderPolicyId: string
+  replyPolicyId: string
 }
 
 interface Props {
@@ -77,6 +83,15 @@ interface Props {
   overviewHref: string
   brandPrimary?: string
   brandBackground?: string
+}
+
+export function buildCampaignEditorSavePayload(input: {
+  subject: string
+  previewText: string
+  emailDocument: EmailDocument
+  senderPolicyId: string
+}) {
+  return input
 }
 
 function defaultBlock(type: BlockType, ctx: { orgName: string; address: string }): Block {
@@ -177,6 +192,7 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
   const [statusMsg, setStatusMsg] = useState<string | null>(null)
   const [status, setStatus] = useState(campaign.status)
   const [scheduledAtIso, setScheduledAtIso] = useState<string | null>(campaign.scheduledAtIso)
+  const [senderPolicyId, setSenderPolicyId] = useState(campaign.senderPolicyId)
 
   const [testOpen, setTestOpen] = useState(false)
   const [reviewOpen, setReviewOpen] = useState(false)
@@ -187,6 +203,10 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
   const liveDoc = useMemo<EmailDocument>(
     () => ({ ...doc, subject, preheader: previewText }),
     [doc, subject, previewText],
+  )
+  const preflight = useMemo(
+    () => runEmailPreflight(liveDoc, { renderedHtmlBytes: new TextEncoder().encode(previewHtml).length }),
+    [liveDoc, previewHtml],
   )
 
   // Debounced preview render
@@ -262,6 +282,12 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
 
   const selectedBlock = useMemo(() => doc.blocks.find((b) => b.id === selectedId) ?? null, [doc.blocks, selectedId])
   const updateTheme = (patch: Partial<ThemeConfig>) => setDoc((d) => ({ ...d, theme: { ...d.theme, ...patch } }))
+  const updateFallback = (key: string, value: string) => {
+    setDoc((current) => ({
+      ...current,
+      mergeTagFallbacks: { ...current.mergeTagFallbacks, [key]: value },
+    }))
+  }
 
   async function save(): Promise<boolean> {
     setSaving(true)
@@ -270,11 +296,12 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
       const res = await fetch(`/api/v1/campaigns/${campaign.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: JSON.stringify(buildCampaignEditorSavePayload({
           subject,
           previewText,
           emailDocument: liveDoc,
-        }),
+          senderPolicyId,
+        })),
       })
       const body = await res.json().catch(() => null)
       if (!res.ok) {
@@ -294,6 +321,10 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
   }
 
   async function openReview() {
+    if (preflight.blocking) {
+      setStatusMsg('Resolve the blocking preflight issues before review.')
+      return
+    }
     const ok = await save()
     if (ok) setReviewOpen(true)
   }
@@ -329,7 +360,7 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
           <button onClick={() => save()} disabled={saving || readOnly} className="btn-pib-secondary disabled:opacity-50">
             {saving ? 'Saving…' : 'Save'}
           </button>
-          <button onClick={openReview} disabled={readOnly} className="btn-pib-primary disabled:opacity-50">
+          <button onClick={openReview} disabled={readOnly || preflight.blocking} className="btn-pib-primary disabled:opacity-50" title={preflight.blocking ? 'Resolve blocking preflight issues first' : undefined}>
             Review &amp; send
             <span className="material-symbols-outlined text-base">arrow_forward</span>
           </button>
@@ -359,6 +390,27 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
             <Field label="Font">
               <Select value={doc.theme.fontFamily} onChange={(v) => updateTheme({ fontFamily: v })} options={FONT_OPTIONS} />
             </Field>
+          </div>
+
+          <div className="pib-card">
+            <SenderPolicyEditor
+              orgId={campaign.orgId}
+              value={senderPolicyId}
+              onChange={setSenderPolicyId}
+              disabled={readOnly}
+            />
+          </div>
+
+          <div className="pib-card">
+            <MergeFieldBrowser
+              fallbacks={doc.mergeTagFallbacks ?? {}}
+              onFallbackChange={updateFallback}
+              onInsert={(token) => setSubject((current) => `${current}${current.endsWith(' ') || !current ? '' : ' '}${token}`)}
+            />
+          </div>
+
+          <div className="pib-card">
+            <PreflightPanel result={preflight} />
           </div>
 
           <div className="pib-card">
@@ -399,7 +451,7 @@ export function EmailCampaignEditor({ campaign, overviewHref, brandPrimary, bran
               <span className="text-xs text-[var(--color-pib-text-muted)]">Preview:</span>
               <button onClick={() => setPreviewMode('desktop')} className={`text-xs px-2 py-1 rounded ${previewMode === 'desktop' ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]' : 'text-[var(--color-pib-text-muted)]'}`}>Desktop</button>
               <button onClick={() => setPreviewMode('mobile')} className={`text-xs px-2 py-1 rounded ${previewMode === 'mobile' ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]' : 'text-[var(--color-pib-text-muted)]'}`}>Mobile</button>
-              <button onClick={() => setPreviewMode('inbox')} className={`text-xs px-2 py-1 rounded ${previewMode === 'inbox' ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]' : 'text-[var(--color-pib-text-muted)]'}`}>Inbox preview</button>
+              <button onClick={() => setPreviewMode('inbox')} className={`text-xs px-2 py-1 rounded ${previewMode === 'inbox' ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]' : 'text-[var(--color-pib-text-muted)]'}`}>Client compatibility</button>
             </div>
             {previewMode === 'inbox' ? (
               <InboxPreview campaignId={campaign.id} doc={liveDoc} />
@@ -568,6 +620,9 @@ function InboxPreview({ campaignId, doc }: { campaignId: string; doc: EmailDocum
 
   return (
     <div className="bg-zinc-950/40">
+      <p className="border-b border-[var(--color-pib-line)] px-4 py-2 text-xs text-[var(--color-pib-text-muted)]">
+        Code-based compatibility previews highlight known client constraints. They are not screenshots and cannot promise inbox placement.
+      </p>
       <div className="flex flex-wrap items-center gap-1 border-b border-[var(--color-pib-line)] px-4 py-2">
         {renders.map((r) => (
           <button

@@ -29,6 +29,10 @@ const SCOPES: Array<{ value: BehavioralScope; label: string }> = [
   { value: 'link-url', label: 'Link URL contains' },
 ]
 
+const FIELD_LABEL_CLS = 'text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant'
+const INPUT_CLS =
+  'h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface outline-none transition focus:border-[var(--color-accent-v2)]'
+
 interface ScopeOption {
   id: string
   label: string
@@ -78,31 +82,35 @@ export function BehavioralRuleEditor({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <div className="flex items-center justify-between">
         <div>
-          <p className="eyebrow !text-[10px]">Behavioral rules</p>
-          <p className="text-[11px] text-[var(--color-pib-text-muted)] mt-1">
+          <p className={FIELD_LABEL_CLS}>Behavioral rules</p>
+          <p className="mt-1 text-[11px] leading-4 text-on-surface-variant">
             Filter by email engagement. All rules combine with AND.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {liveCountLoading ? (
-            <span className="text-[11px] font-mono text-[var(--color-pib-text-muted)]">
+            <span className="text-[11px] text-on-surface-variant">
               counting…
             </span>
           ) : typeof liveCount === 'number' ? (
-            <span className="pill">{liveCount} match{liveCount === 1 ? '' : 'es'}</span>
+            <span className="flex h-7 shrink-0 items-center rounded-full border border-primary/30 bg-primary/10 px-2.5 text-[11px] text-primary">{liveCount} match{liveCount === 1 ? '' : 'es'}</span>
           ) : null}
-          <button type="button" onClick={addRule} className="btn-pib-secondary !py-1.5 !px-3 !text-xs">
-            <span className="material-symbols-outlined text-base">add</span>
+          <button
+            type="button"
+            onClick={addRule}
+            className="flex h-8 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+          >
+            <span className="material-symbols-outlined text-[16px]">add</span>
             Add rule
           </button>
         </div>
       </div>
 
       {rules.length === 0 ? (
-        <div className="text-[11px] text-[var(--color-pib-text-muted)] py-3 border border-dashed border-[var(--color-pib-line)] rounded text-center">
+        <div className="rounded-md border border-dashed border-[var(--color-card-border)] py-2.5 text-center text-[11px] text-on-surface-variant">
           No behavioral rules. Click <strong>Add rule</strong> to filter by email engagement.
         </div>
       ) : (
@@ -139,16 +147,16 @@ function RuleRow({ rule, onChange, onRemove }: RuleRowProps) {
   const isReply = rule.op === 'has-replied' || rule.op === 'has-not-replied'
 
   return (
-    <div className="border border-[var(--color-pib-line)] rounded p-3 space-y-2 bg-[var(--color-pib-surface,rgba(255,255,255,0.02))]">
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
+    <div className="space-y-2 rounded-md border border-[var(--color-card-border)] bg-black/10 p-2">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
         <div className="md:col-span-3">
-          <label className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+          <label className={FIELD_LABEL_CLS}>
             Action
           </label>
           <select
             value={rule.op}
             onChange={(e) => onChange({ op: e.target.value as BehavioralOp })}
-            className="pib-input w-full"
+            className={INPUT_CLS}
           >
             {OPS.map((o) => (
               <option key={o.value} value={o.value} className="bg-black">
@@ -158,7 +166,7 @@ function RuleRow({ rule, onChange, onRemove }: RuleRowProps) {
           </select>
         </div>
         <div className="md:col-span-3">
-          <label className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+          <label className={FIELD_LABEL_CLS}>
             Scope
           </label>
           <select
@@ -169,7 +177,7 @@ function RuleRow({ rule, onChange, onRemove }: RuleRowProps) {
                 scopeId: undefined,
               })
             }
-            className="pib-input w-full"
+            className={INPUT_CLS}
           >
             {SCOPES.map((s) => (
               <option
@@ -197,7 +205,7 @@ function RuleRow({ rule, onChange, onRemove }: RuleRowProps) {
           )}
         </div>
         <div className="md:col-span-2">
-          <label className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+          <label className={FIELD_LABEL_CLS}>
             Within days
           </label>
           <input
@@ -209,7 +217,7 @@ function RuleRow({ rule, onChange, onRemove }: RuleRowProps) {
               onChange({ withinDays: Number.isFinite(n) && n > 0 ? n : undefined })
             }}
             placeholder="any time"
-            className="pib-input w-full"
+            className={INPUT_CLS}
           />
         </div>
       </div>
@@ -217,7 +225,7 @@ function RuleRow({ rule, onChange, onRemove }: RuleRowProps) {
         <button
           type="button"
           onClick={onRemove}
-          className="text-[11px] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-danger,#FCA5A5)] transition-colors"
+          className="text-[11px] text-on-surface-variant transition hover:text-red-300"
         >
           Remove rule
         </button>
@@ -282,14 +290,14 @@ function ScopeIdInput({ scope, scopeId, scopeStepNumber, onChange }: ScopeIdInpu
   if (scope === 'topic') {
     return (
       <>
-        <label className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+        <label className={FIELD_LABEL_CLS}>
           Topic ID
         </label>
         <input
           value={scopeId}
           onChange={(e) => onChange(e.target.value)}
           placeholder="newsletter"
-          className="pib-input w-full"
+          className={INPUT_CLS}
         />
       </>
     )
@@ -297,14 +305,14 @@ function ScopeIdInput({ scope, scopeId, scopeStepNumber, onChange }: ScopeIdInpu
   if (scope === 'link-url') {
     return (
       <>
-        <label className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+        <label className={FIELD_LABEL_CLS}>
           URL contains
         </label>
         <input
           value={scopeId}
           onChange={(e) => onChange(e.target.value)}
           placeholder="/pricing"
-          className="pib-input w-full"
+          className={INPUT_CLS}
         />
       </>
     )
@@ -312,14 +320,14 @@ function ScopeIdInput({ scope, scopeId, scopeStepNumber, onChange }: ScopeIdInpu
   if (scope === 'sequence-step') {
     return (
       <>
-        <label className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+        <label className={FIELD_LABEL_CLS}>
           Sequence + step #
         </label>
         <div className="grid grid-cols-3 gap-2">
           <select
             value={scopeId}
             onChange={(e) => onChange(e.target.value, scopeStepNumber)}
-            className="pib-input col-span-2"
+            className={`${INPUT_CLS} col-span-2`}
             disabled={loading}
           >
             <option value="" className="bg-black">
@@ -340,7 +348,7 @@ function ScopeIdInput({ scope, scopeId, scopeStepNumber, onChange }: ScopeIdInpu
               onChange(scopeId, Number.isFinite(n) ? n : undefined)
             }}
             placeholder="Step #"
-            className="pib-input"
+            className={INPUT_CLS}
           />
         </div>
       </>
@@ -355,13 +363,13 @@ function ScopeIdInput({ scope, scopeId, scopeStepNumber, onChange }: ScopeIdInpu
   }
   return (
     <>
-      <label className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+      <label className={FIELD_LABEL_CLS}>
         {labelMap[scope] ?? 'Scope'}
       </label>
       <select
         value={scopeId}
         onChange={(e) => onChange(e.target.value)}
-        className="pib-input w-full"
+        className={INPUT_CLS}
         disabled={loading}
       >
         <option value="" className="bg-black">

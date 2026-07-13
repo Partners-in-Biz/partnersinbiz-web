@@ -7,6 +7,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { listRules, createRule } from '@/lib/automations/store'
 import type { AutomationAction, AutomationRuleInput, TriggerEvent } from '@/lib/automations/types'
 import { validateAutomationActionsForSave } from '@/lib/automations/validation'
+import { assertEmailMarketingAgentAction } from '@/lib/email-marketing/agent-governance'
 
 export const dynamic = 'force-dynamic'
 
@@ -99,6 +100,17 @@ export const POST = withCrmAuth('admin', async (req, ctx) => {
     ...(typeof rest.delayMinutes === 'number' && Number.isFinite(rest.delayMinutes) && rest.delayMinutes >= 0
       ? { delayMinutes: Math.trunc(rest.delayMinutes) }
       : {}),
+  }
+
+  if (input.enabled && ctx.user) {
+    try {
+      assertEmailMarketingAgentAction(
+        { uid: ctx.user.uid, role: 'ai', authKind: ctx.user.authKind, agentId: ctx.user.agentId },
+        'email_marketing_send', null,
+      )
+    } catch (error) {
+      return apiError(error instanceof Error ? error.message : 'Create agent automations disabled and request approval before activation', 403)
+    }
   }
 
   try {

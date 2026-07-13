@@ -1,5 +1,4 @@
-import { HubPage } from '@/components/navigation/HubPage'
-import { buildMarketingHubProps } from '@/components/navigation/marketingHubConfig'
+import { MarketingStudioEntry } from '@/components/email-marketing/MarketingStudioEntry'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,14 +17,13 @@ export default async function PortalMarketingPage({
   const params = await searchParams
 
   return (
-    <HubPage
-      {...buildMarketingHubProps({
-        surface: 'portal',
+    <MarketingStudioEntry
+      scope={{
         orgId: params?.orgId,
         orgSlug: params?.orgSlug,
         sourceCompanyId: params?.sourceCompanyId,
         sourceCompanyName: params?.sourceCompanyName,
-      })}
+      }}
     />
   )
 }

@@ -79,6 +79,8 @@ export default async function EditEmailCampaignPage({
         scheduledAtIso: toIso(data.scheduledAt),
         postalAddress: brandKit.postalAddress || '',
         hasVerifiedDomain,
+        senderPolicyId: typeof data.senderPolicyId === 'string' ? data.senderPolicyId : '',
+        replyPolicyId: typeof data.replyPolicyId === 'string' ? data.replyPolicyId : '',
       }}
       overviewHref={overviewHref}
       brandPrimary={brandKit.primaryColor}

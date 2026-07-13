@@ -187,10 +187,10 @@ describe('finalize route', () => {
     expect(mockUpdateMessage).not.toHaveBeenCalled()
   })
 
-  it('marks interrupted Hermes runs as failed with the preserved reason', async () => {
+  it('marks interrupted Hermes runs as failed with a stable safe reason', async () => {
     mockCallHermesJson.mockResolvedValue({
       response: { ok: true },
-      data: { status: 'interrupted', error: 'gateway restarted while run was active' },
+      data: { status: 'interrupted', error: 'POST https://gateway.example apiKey=super-secret /Users/peet/private' },
     })
 
     const { POST } = await import(
@@ -206,18 +206,19 @@ describe('finalize route', () => {
     expect(mockUpdateMessage).toHaveBeenCalledWith(
       'conv1', 'msg1',
       expect.objectContaining({
-        content: 'gateway restarted while run was active',
+        content: 'The agent run was interrupted before completion.',
         status: 'failed',
-        error: 'gateway restarted while run was active',
+        error: 'The agent run was interrupted before completion.',
         runId: 'run-1',
       }),
     )
     expect(mockTouchConversation).toHaveBeenCalledWith(
       'conv1',
       expect.objectContaining({
-        lastMessagePreview: '[run interrupted] gateway restarted while run was active',
+        lastMessagePreview: '[run interrupted] The agent run was interrupted before completion.',
         lastMessageRole: 'assistant',
       }),
     )
+    expect(JSON.stringify(body) + JSON.stringify(mockUpdateMessage.mock.calls)).not.toMatch(/super-secret|gateway\.example|Users\/peet/)
   })
 })

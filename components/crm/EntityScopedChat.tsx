@@ -107,7 +107,7 @@ export function EntityScopedChat({
 
   if (!user) {
     return (
-      <div className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-5 text-sm text-[var(--color-pib-text-muted)]">
+      <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3 text-xs text-on-surface-variant">
         Sign in to use the {entityType}-scoped chat for {entityLabel}.
       </div>
     )
@@ -118,7 +118,7 @@ export function EntityScopedChat({
   return (
     <section
       aria-label={`${entityLabel} ${entityType}-scoped chat`}
-      className={compact ? 'min-h-[420px] overflow-hidden rounded-2xl border border-[var(--color-pib-line)]' : 'bento-card !p-0 min-h-[520px] overflow-hidden'}
+      className={compact ? 'min-h-[420px] overflow-hidden rounded-xl border border-[var(--color-card-border)]' : 'min-h-[520px] overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45'}
     >
       <UnifiedChat
         orgId={orgId}

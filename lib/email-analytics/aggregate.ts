@@ -27,6 +27,11 @@ export interface DateRange {
 
 export interface OrgEmailOverview {
   range: { from: string; to: string }
+  measurement: {
+    primaryMetrics: Array<'clickRate' | 'deliveryRate' | 'bounceRate' | 'unsubRate'>
+    openRateReliability: 'directional'
+    note: string
+  }
   totals: {
     sent: number
     delivered: number
@@ -569,6 +574,11 @@ export async function getOrgEmailOverview(
 
   return {
     range: { from: toIso(range.from), to: toIso(range.to) },
+    measurement: {
+      primaryMetrics: ['clickRate', 'deliveryRate', 'bounceRate', 'unsubRate'],
+      openRateReliability: 'directional',
+      note: 'Open metrics are directional because privacy prefetching can inflate them; optimise for clicks, replies, conversions, deliverability, and revenue.',
+    },
     totals: { sent, delivered, opened, clicked, bounced, unsubscribed, failed },
     rates: {
       deliveryRate: safeRate(delivered, sent),

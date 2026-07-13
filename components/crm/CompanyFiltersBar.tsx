@@ -52,10 +52,10 @@ function FilterChip({ label, active, options, selectedValue, formatOption = (val
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label={selectedLabel ? `${label}: ${selectedLabel}` : label}
-        className={`cursor-pointer text-xs font-label px-3 py-1.5 rounded-full border transition-colors flex items-center gap-1.5 ${
+        className={`flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-2.5 text-[11px] transition-colors ${
           active
-            ? 'border-[var(--color-accent-v2)] text-[var(--color-accent-v2)] bg-[color-mix(in_oklab,var(--color-accent-v2)_10%,transparent)]'
-            : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:border-[var(--color-pib-text-muted)]'
+            ? 'border-primary/30 bg-primary/10 text-primary'
+            : 'border-[var(--color-card-border)] text-on-surface-variant hover:bg-white/[0.05] hover:text-on-surface'
         }`}
       >
         {label}
@@ -68,11 +68,11 @@ function FilterChip({ label, active, options, selectedValue, formatOption = (val
       </button>
 
       {open && (
-        <div className="absolute top-full mt-1 left-0 z-50 min-w-[160px] pib-card rounded-lg overflow-hidden shadow-lg">
+        <div className="absolute top-full mt-1 left-0 z-50 min-w-[160px] overflow-hidden rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)]">
           <button
             type="button"
             onClick={() => { onSelect(undefined); setOpen(false) }}
-            className="cursor-pointer w-full text-left text-xs px-3 py-2 text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] transition-colors"
+            className="cursor-pointer w-full px-2.5 py-1.5 text-left text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
           >
             All
           </button>
@@ -83,10 +83,10 @@ function FilterChip({ label, active, options, selectedValue, formatOption = (val
                 key={opt}
                 type="button"
                 onClick={() => { onSelect(opt); setOpen(false) }}
-                className={`cursor-pointer w-full text-left text-xs px-3 py-2 hover:bg-white/[0.05] transition-colors ${
+                className={`cursor-pointer w-full px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-white/[0.05] ${
                   selectedValue === opt
-                    ? 'text-[var(--color-accent-v2)]'
-                    : 'text-[var(--color-pib-text)]'
+                    ? 'text-primary'
+                    : 'text-on-surface'
                 }`}
               >
                 {optionLabel}
@@ -125,10 +125,10 @@ export function CompanyFiltersBar({ value, onChange }: CompanyFiltersBarProps) {
   }, [])
 
   return (
-    <div className="flex items-center gap-2 flex-wrap">
+    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
       {/* Search */}
       <div className="relative">
-        <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[16px] text-[var(--color-pib-text-muted)]">
+        <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-[16px] text-on-surface-variant">
           search
         </span>
         <input
@@ -136,7 +136,7 @@ export function CompanyFiltersBar({ value, onChange }: CompanyFiltersBarProps) {
           value={search}
           onChange={(e) => handleSearch(e.target.value)}
           placeholder="Search companies…"
-          className="pib-input pl-8 text-sm !w-48"
+          className="h-8 w-48 rounded-md border border-[var(--color-card-border)] bg-transparent pl-7 pr-2 text-xs text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none"
         />
       </div>
 
@@ -179,7 +179,7 @@ export function CompanyFiltersBar({ value, onChange }: CompanyFiltersBarProps) {
         <button
           type="button"
           onClick={() => { setSearch(''); onChange({ orgId: value.orgId }) }}
-          className="cursor-pointer text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors flex items-center gap-1"
+          className="flex h-8 cursor-pointer items-center gap-1 rounded-md px-2 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
         >
           <span className="material-symbols-outlined text-[14px]">close</span>
           Clear

@@ -27,6 +27,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { actorFrom } from '@/lib/api/actor'
 import type { ApiUser } from '@/lib/api/types'
+import { assertEmailMarketingAgentAction, organizationRequiresEmailApproval } from '@/lib/email-marketing/agent-governance'
 import {
   sendCampaignEmail,
   htmlToPlainText,
@@ -127,6 +128,11 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
 })
 
 export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser) => {
+  try {
+    assertEmailMarketingAgentAction(user, 'email_marketing_send', null)
+  } catch (error) {
+    return apiError(error instanceof Error ? error.message : 'Legacy admin broadcast is not authorised', 403)
+  }
   const body = await req.json().catch(() => ({}))
   const subject = (typeof body.subject === 'string' ? body.subject : '').trim()
   const html = typeof body.html === 'string' ? body.html : ''
@@ -136,6 +142,9 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser) =>
   if (!subject) return apiError('subject is required')
   if (!html.trim()) return apiError('html content is required')
   if (!filter) return apiError('A valid recipientFilter is required')
+  if (filter.source === 'by_org' && filter.orgId && await organizationRequiresEmailApproval(filter.orgId)) {
+    return apiError('This organisation requires maker-checker approval; create and approve a governed broadcast before sending.', 403)
+  }
 
   let scheduledForMs: number | null = null
   if (mode === 'schedule') {

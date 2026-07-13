@@ -9,9 +9,13 @@ const mockCollection = jest.fn()
 const mockWhere = jest.fn()
 const mockOrderBy = jest.fn()
 const mockLimit = jest.fn()
+const mockAssertEmailMarketingAgentAction = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
+}))
+jest.mock('@/lib/email-marketing/agent-governance', () => ({
+  assertEmailMarketingAgentActionWithTask: mockAssertEmailMarketingAgentAction,
 }))
 jest.mock('@/lib/auth/middleware', () => ({
   withAuth: (_role: string, handler: (...args: unknown[]) => unknown) => handler,
@@ -22,6 +26,7 @@ const authHeader = { Authorization: 'Bearer test-key' }
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockAssertEmailMarketingAgentAction.mockReturnValue({ ok: true, gateRequired: false })
   const query = { where: mockWhere, orderBy: mockOrderBy, limit: mockLimit, get: mockGet }
   mockWhere.mockReturnValue(query)
   mockOrderBy.mockReturnValue(query)
@@ -94,6 +99,19 @@ describe('POST /api/v1/sequences/[id]/enroll', () => {
     const params = { params: Promise.resolve({ id: 'seq1' }) }
     const res = await POST(req, params)
     expect(res.status).toBe(422)
+  })
+
+  it('blocks enrollment when agent approval governance fails', async () => {
+    mockGet.mockResolvedValue({ exists: true, id: 'seq1', data: () => ({ orgId: 'org-test', status: 'active', approvalState: null, deleted: false }) })
+    mockAssertEmailMarketingAgentAction.mockImplementation(() => { throw new Error('human approval required') })
+    const { POST } = await import('@/app/api/v1/sequences/[id]/enroll/route')
+    const req = new NextRequest('http://localhost/api/v1/sequences/seq1/enroll', {
+      method: 'POST', headers: { ...authHeader, 'Content-Type': 'application/json' }, body: JSON.stringify({ contactIds: ['c1'] }),
+    })
+    const res = await POST(req, { params: Promise.resolve({ id: 'seq1' }) })
+
+    expect(res.status).toBe(403)
+    expect(mockAdd).not.toHaveBeenCalled()
   })
 })
 

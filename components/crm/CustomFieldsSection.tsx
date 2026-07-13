@@ -54,13 +54,13 @@ export function CustomFieldsSection({ definitions, values, onChange, mode, empty
   if (mode === 'read' && allValuesEmpty(definitions, values)) {
     return (
       <div className="flex flex-wrap items-center gap-2">
-        <p className="text-sm text-[var(--color-pib-text-muted)] italic">No custom fields set.</p>
+        <p className="text-xs italic text-on-surface-variant">No custom fields set.</p>
         {emptyAction && (
           <button
             type="button"
             onClick={emptyAction.onClick}
             aria-label={emptyAction.ariaLabel}
-            className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-xs font-medium text-[var(--color-pib-text)] transition-colors hover:bg-white/10"
+            className="inline-flex h-8 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
           >
             <span className="material-symbols-outlined text-[14px]">edit_note</span>
             {emptyAction.label}
@@ -78,14 +78,14 @@ export function CustomFieldsSection({ definitions, values, onChange, mode, empty
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {mode === 'read' && action && (
         <div className="flex justify-end">
           <button
             type="button"
             onClick={action.onClick}
             aria-label={action.ariaLabel}
-            className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-xs font-medium text-[var(--color-pib-text)] transition-colors hover:bg-white/10"
+            className="inline-flex h-8 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
           >
             <span className="material-symbols-outlined text-[14px]">edit_note</span>
             {action.label}
@@ -94,13 +94,13 @@ export function CustomFieldsSection({ definitions, values, onChange, mode, empty
       )}
       {Array.from(groups.entries()).map(([group, defs]) => (
         <section key={group}>
-          <h4 className="text-xs font-label text-[var(--color-pib-text-muted)] uppercase tracking-wider mb-3">
+          <h4 className="mb-2 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">
             {group}
           </h4>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             {defs.map((def) => (
               <div key={def.key} className="space-y-1">
-                <label className="block text-xs font-label text-[var(--color-pib-text-muted)]">
+                <label className="block text-[11px] font-label text-on-surface-variant">
                   {def.label}
                   {def.required && mode === 'edit' && (
                     <span className="text-red-400 ml-0.5">*</span>

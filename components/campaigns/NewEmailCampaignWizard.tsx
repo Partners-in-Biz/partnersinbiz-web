@@ -10,6 +10,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { AudienceEligibilityPanel } from '@/components/email-marketing/AudienceEligibilityPanel'
+import type { AudienceDefinition, AudienceEstimate } from '@/lib/email-marketing/audience-types'
 
 const SHARED_DOMAIN = 'partnersinbiz.online'
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -80,6 +82,8 @@ export function NewEmailCampaignWizard({ orgId, backHref, editHrefTemplate, defa
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loadingOptions, setLoadingOptions] = useState(true)
+  const [audienceEstimate, setAudienceEstimate] = useState<AudienceEstimate | null>(null)
+  const [estimatingAudience, setEstimatingAudience] = useState(false)
 
   const orgQuery = orgId ? `?orgId=${encodeURIComponent(orgId)}` : ''
 
@@ -143,6 +147,57 @@ export function NewEmailCampaignWizard({ orgId, backHref, editHrefTemplate, defa
     return contacts.filter((c) => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q)).slice(0, 50)
   }, [contacts, contactQuery])
 
+  const audienceDefinition = useMemo<AudienceDefinition | null>(() => {
+    const include = recipientMode === 'segment'
+      ? (segmentId ? [{ type: 'segment' as const, segmentId }] : [])
+      : recipientMode === 'tag'
+        ? (tagId ? [{ type: 'tags' as const, tags: [tagId] }] : [])
+        : (contactIds.length ? [{ type: 'contacts' as const, contactIds }] : [])
+    if (!include.length) return null
+    return {
+      schemaVersion: 1,
+      include,
+      exclude: exclusionContactIds.length
+        ? [{ type: 'contacts', contactIds: exclusionContactIds }]
+        : undefined,
+      topicId: 'newsletter',
+      holdoutPercent: 0,
+    }
+  }, [contactIds, exclusionContactIds, recipientMode, segmentId, tagId])
+
+  useEffect(() => {
+    if (!audienceDefinition) {
+      setAudienceEstimate(null)
+      return
+    }
+    const controller = new AbortController()
+    const timer = window.setTimeout(async () => {
+      setEstimatingAudience(true)
+      try {
+        const response = await fetch(`/api/v1/email-marketing/audiences/estimate${orgQuery}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ definition: audienceDefinition }),
+          signal: controller.signal,
+        })
+        const body = await response.json().catch(() => null)
+        if (!response.ok) throw new Error('Audience estimate failed')
+        const data = unwrap<{ estimate: AudienceEstimate }>(body)
+        setAudienceEstimate(data?.estimate ?? null)
+      } catch (estimateError) {
+        if (!(estimateError instanceof DOMException && estimateError.name === 'AbortError')) {
+          setAudienceEstimate(null)
+        }
+      } finally {
+        if (!controller.signal.aborted) setEstimatingAudience(false)
+      }
+    }, 350)
+    return () => {
+      window.clearTimeout(timer)
+      controller.abort()
+    }
+  }, [audienceDefinition, orgQuery])
+
   const validate = useCallback((): string | null => {
     if (!name.trim()) return 'Campaign name is required.'
     if (!subject.trim()) return 'Subject line is required.'
@@ -173,6 +228,7 @@ export function NewEmailCampaignWizard({ orgId, backHref, editHrefTemplate, defa
         fromDomainId,
         replyTo: replyTo.trim(),
         exclusionContactIds,
+        audienceDefinition,
       }
       if (recipientMode === 'segment') payload.segmentId = segmentId
       if (recipientMode === 'tag') payload.tagId = tagId
@@ -412,6 +468,7 @@ export function NewEmailCampaignWizard({ orgId, backHref, editHrefTemplate, defa
             ))}
           </div>
         </details>
+        <AudienceEligibilityPanel estimate={audienceEstimate} loading={estimatingAudience} />
       </section>
 
       <div className="flex items-center gap-3">

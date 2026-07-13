@@ -180,18 +180,18 @@ export function ContactMergePanel({ contact, apiPath, onMerged }: ContactMergePa
     : []
 
   return (
-    <section className="bento-card !p-5" aria-label={`Merge duplicate for ${contactLabel(contact)}`}>
+    <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3" aria-label={`Merge duplicate for ${contactLabel(contact)}`}>
       <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="eyebrow !text-[10px]">Data hygiene</p>
-          <h2 className="mt-1 font-display text-lg text-[var(--color-pib-text)]">Merge duplicate</h2>
+        <div className="min-w-0">
+          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Data hygiene</p>
+          <h2 className="text-sm font-semibold text-on-surface">Merge duplicate</h2>
         </div>
         {!open && (
           <button
             type="button"
             onClick={() => setOpen(true)}
             aria-label={`Find and merge a duplicate of ${contactLabel(contact)}`}
-            className="btn-pib-secondary inline-flex items-center gap-1.5 text-xs"
+            className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
           >
             <span className="material-symbols-outlined text-[14px]" aria-hidden="true">merge</span>
             Merge duplicate
@@ -200,8 +200,8 @@ export function ContactMergePanel({ contact, apiPath, onMerged }: ContactMergePa
       </div>
 
       {open && (
-        <div className="mt-4 space-y-4">
-          <p className="text-sm leading-6 text-[var(--color-pib-text-muted)]">
+        <div className="mt-3 space-y-3">
+          <p className="text-xs leading-5 text-on-surface-variant">
             Search for another contact in this workspace that is the same person. The current contact
             ({contactLabel(contact)}) is kept; the duplicate is merged away.
           </p>
@@ -215,42 +215,42 @@ export function ContactMergePanel({ contact, apiPath, onMerged }: ContactMergePa
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search by name or email…"
-                className="input-pib w-full text-sm"
+                className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface placeholder:text-on-surface-variant"
                 aria-label="Search contacts to merge"
                 autoComplete="off"
               />
-              {searchError && <p className="mt-2 text-xs text-red-400">{searchError}</p>}
-              <div className="mt-3">
+              {searchError && <p className="mt-2 text-xs text-red-300">{searchError}</p>}
+              <div className="mt-2">
                 {searching ? (
-                  <p className="text-xs text-[var(--color-pib-text-muted)]">Searching…</p>
+                  <p className="text-xs text-on-surface-variant">Searching…</p>
                 ) : search.trim().length < 2 ? (
-                  <p className="text-xs text-[var(--color-pib-text-muted)]">
+                  <p className="text-xs text-on-surface-variant">
                     Type at least 2 characters to search.
                   </p>
                 ) : results.length === 0 ? (
-                  <p className="text-xs text-[var(--color-pib-text-muted)]">No matching contacts found.</p>
+                  <p className="text-xs text-on-surface-variant">No matching contacts found.</p>
                 ) : (
-                  <ul className="space-y-2">
+                  <ul className="space-y-1.5">
                     {results.map((c) => (
                       <li key={c.id}>
                         <button
                           type="button"
                           onClick={() => pickDuplicate(c)}
                           aria-label={`Select ${contactLabel(c)} as the duplicate to merge`}
-                          className="flex w-full items-center justify-between gap-3 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] px-3 py-2 text-left transition-colors hover:border-[var(--color-pib-accent)]"
+                          className="flex w-full items-center justify-between gap-3 rounded-md border border-[var(--color-card-border)] px-2 py-1.5 text-left transition hover:bg-white/[0.04]"
                         >
                           <span className="min-w-0">
-                            <span className="block truncate text-sm font-medium text-[var(--color-pib-text)]">
+                            <span className="block truncate text-xs font-medium text-on-surface">
                               {contactLabel(c)}
                             </span>
-                            <span className="block truncate text-xs text-[var(--color-pib-text-muted)]">
+                            <span className="block truncate text-[11px] text-on-surface-variant">
                               {c.email?.trim() || 'No email'}
                               {c.companyName?.trim() || c.company?.trim()
                                 ? ` · ${c.companyName?.trim() || c.company?.trim()}`
                                 : ''}
                             </span>
                           </span>
-                          <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-accent)]" aria-hidden="true">
+                          <span className="material-symbols-outlined text-[16px] text-primary" aria-hidden="true">
                             arrow_forward
                           </span>
                         </button>
@@ -259,11 +259,11 @@ export function ContactMergePanel({ contact, apiPath, onMerged }: ContactMergePa
                   </ul>
                 )}
               </div>
-              <div className="mt-3 flex justify-end">
+              <div className="mt-2 flex justify-end">
                 <button
                   type="button"
                   onClick={() => { reset(); setOpen(false) }}
-                  className="btn-pib-secondary text-xs"
+                  className="flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
                   aria-label="Cancel merge"
                 >
                   Cancel
@@ -273,38 +273,38 @@ export function ContactMergePanel({ contact, apiPath, onMerged }: ContactMergePa
           )}
 
           {duplicate && (
-            <div className="space-y-4">
-              <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
+            <div className="space-y-3">
+              <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 p-2">
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div>
-                    <p className="font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Keep (winner)</p>
-                    <p className="mt-1 truncate text-sm font-medium text-[var(--color-pib-text)]">{contactLabel(contact)}</p>
+                    <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Keep (winner)</p>
+                    <p className="mt-0.5 truncate text-xs font-medium text-on-surface">{contactLabel(contact)}</p>
                   </div>
                   <div>
-                    <p className="font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Merge away (loser)</p>
-                    <p className="mt-1 truncate text-sm font-medium text-[var(--color-pib-text)]">{contactLabel(duplicate)}</p>
+                    <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Merge away (loser)</p>
+                    <p className="mt-0.5 truncate text-xs font-medium text-on-surface">{contactLabel(duplicate)}</p>
                   </div>
                 </div>
               </div>
 
               {conflicts.length === 0 ? (
-                <p className="text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                <p className="text-xs leading-5 text-on-surface-variant">
                   No conflicting fields. The winner keeps its values; any blanks are backfilled from the
                   duplicate, and tags are combined.
                 </p>
               ) : (
                 <div>
-                  <p className="text-xs text-[var(--color-pib-text-muted)]">
+                  <p className="text-xs text-on-surface-variant">
                     Choose which value to keep for each conflicting field:
                   </p>
-                  <ul className="mt-2 space-y-3">
+                  <ul className="mt-2 space-y-2">
                     {conflicts.map(({ key, label }) => {
                       const w = fieldValue(contact, key)
                       const l = fieldValue(duplicate, key)
                       const choice = resolutions[key as string] ?? 'winner'
                       return (
-                        <li key={key as string} className="rounded-lg border border-[var(--color-pib-line)] p-3">
-                          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                        <li key={key as string} className="rounded-md border border-[var(--color-card-border)] p-2">
+                          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">
                             {label}
                           </p>
                           <div className="mt-2 grid grid-cols-2 gap-2">
@@ -313,10 +313,10 @@ export function ContactMergePanel({ contact, apiPath, onMerged }: ContactMergePa
                               onClick={() => setResolutions((prev) => ({ ...prev, [key as string]: 'winner' }))}
                               aria-pressed={choice === 'winner'}
                               aria-label={`Keep ${label} "${w || 'blank'}" from ${contactLabel(contact)}`}
-                              className={`rounded-md border px-2 py-1.5 text-left text-xs transition-colors ${
+                              className={`rounded-md border px-2 py-1.5 text-left text-xs transition ${
                                 choice === 'winner'
-                                  ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent)]/[0.08] text-[var(--color-pib-text)]'
-                                  : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
+                                  ? 'border-primary/30 bg-primary/10 text-primary'
+                                  : 'border-[var(--color-card-border)] text-on-surface-variant hover:text-on-surface'
                               }`}
                             >
                               {w || <span className="italic opacity-70">blank</span>}
@@ -326,10 +326,10 @@ export function ContactMergePanel({ contact, apiPath, onMerged }: ContactMergePa
                               onClick={() => setResolutions((prev) => ({ ...prev, [key as string]: 'loser' }))}
                               aria-pressed={choice === 'loser'}
                               aria-label={`Keep ${label} "${l || 'blank'}" from ${contactLabel(duplicate)}`}
-                              className={`rounded-md border px-2 py-1.5 text-left text-xs transition-colors ${
+                              className={`rounded-md border px-2 py-1.5 text-left text-xs transition ${
                                 choice === 'loser'
-                                  ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent)]/[0.08] text-[var(--color-pib-text)]'
-                                  : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
+                                  ? 'border-primary/30 bg-primary/10 text-primary'
+                                  : 'border-[var(--color-card-border)] text-on-surface-variant hover:text-on-surface'
                               }`}
                             >
                               {l || <span className="italic opacity-70">blank</span>}
@@ -342,13 +342,13 @@ export function ContactMergePanel({ contact, apiPath, onMerged }: ContactMergePa
                 </div>
               )}
 
-              {mergeError && <p className="text-xs text-red-400">{mergeError}</p>}
+              {mergeError && <p className="text-xs text-red-300">{mergeError}</p>}
 
               <div className="flex items-center justify-between gap-2">
                 <button
                   type="button"
                   onClick={() => { setDuplicate(null); setResolutions({}); setMergeError('') }}
-                  className="btn-pib-secondary text-xs"
+                  className="flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
                   aria-label="Choose a different duplicate"
                 >
                   Back to search
@@ -357,7 +357,7 @@ export function ContactMergePanel({ contact, apiPath, onMerged }: ContactMergePa
                   type="button"
                   onClick={confirmMerge}
                   disabled={merging}
-                  className="btn-pib-primary inline-flex items-center gap-1.5 text-xs disabled:opacity-50"
+                  className="flex h-8 items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition disabled:opacity-50"
                   aria-label={`Confirm merge of ${contactLabel(duplicate)} into ${contactLabel(contact)}`}
                 >
                   <span className="material-symbols-outlined text-[14px]" aria-hidden="true">merge</span>

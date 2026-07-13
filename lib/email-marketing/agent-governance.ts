@@ -1,0 +1,191 @@
+import type { ApiUser } from '@/lib/api/types'
+import {
+  AgentCapabilityError,
+  assertAgentCapability,
+} from '@/lib/agents/capabilities'
+import type { AgentCapability } from '@/lib/agents/skill-policy'
+import { adminDb } from '@/lib/firebase/admin'
+import { approvalSnapshotMatches } from '@/lib/email-marketing/approval-snapshot'
+
+export interface EmailMarketingApprovalEvidence {
+  status?: string | null
+  approvedBy?: string | null
+  approvedByType?: string | null
+  approvalTaskId?: string | null
+  approvedSnapshotHash?: string | null
+}
+
+export async function getOrganizationEmailApprovalPolicy(orgId: string): Promise<{ required: boolean; makerChecker: boolean }> {
+  const snap = await adminDb.collection('organizations').doc(orgId).get()
+  const data = snap.exists ? snap.data() as Record<string, unknown> : {}
+  const settings = (data.settings && typeof data.settings === 'object' ? data.settings : {}) as Record<string, unknown>
+  const policy = (settings.emailMarketing && typeof settings.emailMarketing === 'object' ? settings.emailMarketing : {}) as Record<string, unknown>
+  const makerChecker = policy.makerChecker === true
+  return { required: policy.approvalRequired === true || makerChecker, makerChecker }
+}
+
+export async function organizationRequiresEmailApproval(orgId: string): Promise<boolean> {
+  return (await getOrganizationEmailApprovalPolicy(orgId)).required
+}
+
+export async function assertEmailMarketingDispatchApproval(
+  resource: Record<string, unknown>,
+  context: EmailMarketingApprovalContext,
+  options: { forceRequired?: boolean } = {},
+): Promise<void> {
+  const policy = await getOrganizationEmailApprovalPolicy(context.orgId)
+  const required = options.forceRequired === true || resource.createdByType === 'agent' || policy.required
+  if (!required) return
+  const evidence = resource.approvalState as EmailMarketingApprovalEvidence | undefined
+  const taskId = evidence?.approvalTaskId?.trim()
+  if (!taskId) throw new EmailMarketingApprovalError('Email dispatch requires persisted human approval evidence.')
+  const taskSnap = await adminDb.collection('tasks').doc(taskId).get()
+  validateEmailMarketingApprovalTask(evidence, taskSnap.exists ? taskSnap.data() as ApprovalTaskLike : null, {
+    ...context, makerChecker: policy.makerChecker,
+    resourceCreatorUid: typeof resource.createdBy === 'string' ? resource.createdBy : null,
+  })
+  if (!approvalSnapshotMatches(resource, evidence?.approvedSnapshotHash)) {
+    throw new EmailMarketingApprovalError('Email approval snapshot no longer matches content, audience, sender, or schedule.')
+  }
+}
+
+interface ApprovalTaskLike {
+  orgId?: string | null
+  status?: string | null
+  approvalStatus?: string | null
+  deleted?: boolean
+  linkedResource?: { type?: string | null; id?: string | null } | null
+  createdBy?: string | null
+  requestedBy?: string | null
+}
+
+export interface EmailMarketingApprovalContext {
+  orgId: string
+  resourceType: 'email_broadcast' | 'email_campaign' | 'email_sequence' | 'email_automation'
+  resourceId: string
+  makerChecker?: boolean
+  resourceCreatorUid?: string | null
+}
+
+export class EmailMarketingApprovalError extends AgentCapabilityError {
+  constructor(message: string) {
+    super(message)
+    this.name = 'EmailMarketingApprovalError'
+  }
+}
+
+export function invalidatedEmailApprovalState(reason: string) {
+  return {
+    status: 'revoked' as const,
+    approvedBy: null,
+    approvedByType: null,
+    approvedAt: null,
+    approvalTaskId: null,
+    approvedSnapshotHash: null,
+    invalidatedAt: new Date(),
+    invalidatedReason: reason,
+  }
+}
+
+function approvalContext(evidence: EmailMarketingApprovalEvidence | null | undefined) {
+  if (evidence?.status?.trim().toLowerCase() !== 'approved') {
+    throw new EmailMarketingApprovalError('Agent email launch/send requires human approval before execution.')
+  }
+  if (evidence.approvedByType !== 'user' || !evidence.approvedBy?.trim()) {
+    throw new EmailMarketingApprovalError('Agent email launch/send requires human approval recorded by an authenticated user.')
+  }
+  if (!evidence.approvalTaskId?.trim()) {
+    throw new EmailMarketingApprovalError('Agent email launch/send requires a linked approval task as evidence.')
+  }
+
+  return {
+    approvalStatus: evidence.status,
+    approvalGateTaskId: evidence.approvalTaskId,
+  }
+}
+
+export function validateEmailMarketingApprovalTask(
+  evidence: EmailMarketingApprovalEvidence | null | undefined,
+  task: ApprovalTaskLike | null | undefined,
+  context: EmailMarketingApprovalContext,
+): EmailMarketingApprovalEvidence {
+  approvalContext(evidence)
+  if (!task || task.deleted || task.orgId !== context.orgId) {
+    throw new EmailMarketingApprovalError('Approval task must exist in the same organisation as the email resource.')
+  }
+  if (task.status !== 'done' || task.approvalStatus !== 'approved') {
+    throw new EmailMarketingApprovalError('Approval task must be completed with an approved human decision.')
+  }
+  if (task.linkedResource?.type !== context.resourceType || task.linkedResource?.id !== context.resourceId) {
+    throw new EmailMarketingApprovalError('Approval task must be linked to this exact email resource.')
+  }
+  if (context.makerChecker) {
+    const approver = evidence?.approvedBy?.trim()
+    const makers = [context.resourceCreatorUid, task.createdBy, task.requestedBy].filter(Boolean)
+    if (!approver || makers.includes(approver)) {
+      throw new EmailMarketingApprovalError('Maker-checker policy requires an independent human approver.')
+    }
+  }
+  return evidence!
+}
+
+export async function assertEmailMarketingAgentActionWithTask(
+  user: Pick<ApiUser, 'uid' | 'role' | 'authKind' | 'agentId'>,
+  capability: Extract<AgentCapability, 'email_marketing_send'>,
+  evidence: EmailMarketingApprovalEvidence | null | undefined,
+  context: EmailMarketingApprovalContext,
+  resource?: Record<string, unknown>,
+): Promise<{ ok: true; gateRequired: boolean }> {
+  if (user.authKind !== 'agent_api_key' && user.authKind !== 'legacy_ai_key') {
+    return { ok: true, gateRequired: false }
+  }
+  if (user.authKind === 'legacy_ai_key') {
+    return assertEmailMarketingAgentAction(user, capability, evidence)
+  }
+  const taskId = evidence?.approvalTaskId?.trim()
+  if (!taskId) throw new EmailMarketingApprovalError('Agent email launch/send requires a linked approval task as evidence.')
+  const taskSnap = await adminDb.collection('tasks').doc(taskId).get()
+  const verified = validateEmailMarketingApprovalTask(
+    evidence,
+    taskSnap.exists ? taskSnap.data() as ApprovalTaskLike : null,
+    context,
+  )
+  if (resource && !approvalSnapshotMatches(resource, evidence?.approvedSnapshotHash)) {
+    throw new EmailMarketingApprovalError('Email approval snapshot no longer matches content, audience, sender, or schedule.')
+  }
+  return assertEmailMarketingAgentAction(user, capability, verified)
+}
+
+/**
+ * Enforces the named-agent capability manifest for email-marketing operations.
+ *
+ * Callers must resolve and verify the resource's organisation scope before
+ * invoking this guard. Launch/send actions additionally require approval
+ * evidence loaded from the same server-side resource; request booleans and
+ * headers are never accepted as evidence.
+ */
+export function assertEmailMarketingAgentAction(
+  user: Pick<ApiUser, 'uid' | 'role' | 'authKind' | 'agentId'>,
+  capability: Extract<AgentCapability,
+    | 'email_marketing_read'
+    | 'email_marketing_draft'
+    | 'email_marketing_manage_audience'
+    | 'email_marketing_manage_sender'
+    | 'email_marketing_preflight'
+    | 'email_marketing_request_approval'
+    | 'email_marketing_analyze'
+    | 'email_marketing_send'>,
+  evidence?: EmailMarketingApprovalEvidence | null,
+): { ok: true; gateRequired: boolean } {
+  if (user.authKind !== 'agent_api_key' && user.authKind !== 'legacy_ai_key') {
+    return { ok: true, gateRequired: false }
+  }
+  if (user.authKind === 'legacy_ai_key') {
+    throw new EmailMarketingApprovalError('Email-marketing agent actions require a named agent API key; legacy shared AI keys cannot bypass policy.')
+  }
+
+  const context = capability === 'email_marketing_send'
+    ? approvalContext(evidence)
+    : {}
+  return assertAgentCapability(user, capability, context)
+}

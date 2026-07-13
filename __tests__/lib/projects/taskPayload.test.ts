@@ -70,6 +70,41 @@ describe('project task payload helpers', () => {
     expect(result.value.columnId).toBe('todo')
   })
 
+  it('sanitizes optional chat origin lineage on task creation', () => {
+    const result = buildProjectTaskCreateData({
+      title: 'Draft campaign copy',
+      chatOrigin: {
+        conversationId: ' conv-1 ',
+        requestMessageId: ' user-message-1 ',
+        responseMessageId: ' assistant-message-1 ',
+        bundleId: ' launch-chain ',
+        sequence: 2,
+        ignored: 'nope',
+      },
+    }, 'project-1', 'org-1')
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.value.chatOrigin).toEqual({
+      conversationId: 'conv-1',
+      requestMessageId: 'user-message-1',
+      responseMessageId: 'assistant-message-1',
+      bundleId: 'launch-chain',
+      sequence: 2,
+    })
+  })
+
+  it('rejects incomplete chat origin lineage', () => {
+    const result = buildProjectTaskCreateData({
+      title: 'Draft campaign copy',
+      chatOrigin: { conversationId: 'conv-1', bundleId: 'launch-chain' },
+    }, 'project-1', 'org-1')
+
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.error).toMatch(/chatOrigin/)
+  })
+
   it('rejects attachment objects without a persisted url and name', () => {
     const result = buildProjectTaskCreateData(
       {

@@ -49,7 +49,7 @@ export function ContactArchiveControl({
           role="alertdialog"
           aria-labelledby="contact-archive-confirm-title"
           aria-describedby="contact-archive-confirm-description"
-          className="rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-3 shadow-xl"
+          className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2"
         >
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex gap-3">
@@ -58,7 +58,7 @@ export function ContactArchiveControl({
               </span>
               <div>
                 <p className="eyebrow !text-[10px] text-red-200">Archive confirmation</p>
-                <h3 id="contact-archive-confirm-title" className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
+                <h3 id="contact-archive-confirm-title" className="mt-1 text-sm font-semibold text-on-surface">
                   Archive {contactName}?
                 </h3>
                 <p id="contact-archive-confirm-description" className="mt-2 text-sm text-red-100/90">
@@ -70,7 +70,7 @@ export function ContactArchiveControl({
               <button
                 type="button"
                 onClick={() => setConfirmOpen(false)}
-                className="btn-pib-secondary text-xs"
+                className="flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
                 aria-label="Cancel archive contact"
               >
                 Cancel

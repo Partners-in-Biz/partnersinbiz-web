@@ -62,7 +62,7 @@ function Field({ label, htmlFor, required, error, children }: {
 }) {
   return (
     <div className="space-y-1">
-      <label htmlFor={htmlFor} className="block text-xs font-label text-[var(--color-pib-text-muted)]">
+      <label htmlFor={htmlFor} className="block text-xs font-label text-on-surface-variant">
         {label}{required && <span className="text-red-400 ml-0.5">*</span>}
       </label>
       {children}
@@ -73,8 +73,8 @@ function Field({ label, htmlFor, required, error, children }: {
 
 function SectionDivider({ title }: { title: string }) {
   return (
-    <div className="pt-4 pb-1 border-t border-[var(--color-pib-line)]">
-      <p className="text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]">{title}</p>
+    <div className="pt-4 pb-1 border-t border-[var(--color-card-border)]">
+      <p className="text-[10px] font-label uppercase tracking-wider text-on-surface-variant">{title}</p>
     </div>
   )
 }
@@ -110,7 +110,7 @@ function OptionsEditor({
             placeholder="Label"
             value={opt.label}
             onChange={(e) => updateOption(idx, 'label', e.target.value)}
-            className="pib-input flex-1"
+            className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface flex-1"
           />
           <input
             type="text"
@@ -118,7 +118,7 @@ function OptionsEditor({
             placeholder="Value"
             value={opt.value}
             onChange={(e) => updateOption(idx, 'value', e.target.value)}
-            className="pib-input flex-1"
+            className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface flex-1"
           />
           <input
             type="color"
@@ -131,7 +131,7 @@ function OptionsEditor({
             type="button"
             onClick={() => removeOption(idx)}
             aria-label={`Remove option ${idx + 1}`}
-            className="cursor-pointer text-[var(--color-pib-text-muted)] hover:text-red-400 transition-colors"
+            className="cursor-pointer text-on-surface-variant hover:text-red-400 transition-colors"
           >
             <span className="material-symbols-outlined text-[18px]">close</span>
           </button>
@@ -298,22 +298,22 @@ export function CustomFieldDefinitionDrawer({
   return (
     <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label={title}>
       <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
-      <div className="relative w-full max-w-lg h-full bg-[var(--color-pib-surface)] flex flex-col shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-lg h-full bg-transparent flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-pib-line)] shrink-0">
-          <h2 className="text-base font-semibold text-[var(--color-pib-text)]">{title}</h2>
+        <div className="flex h-11 shrink-0 items-center justify-between border-b border-[var(--color-card-border)] px-3">
+          <h2 className="text-base font-semibold text-on-surface">{title}</h2>
           <button
             type="button"
             aria-label={`Close ${title} drawer`}
             onClick={onClose}
-            className="cursor-pointer text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
+            className="cursor-pointer text-on-surface-variant hover:text-on-surface transition-colors"
           >
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
 
         {/* Scrollable form */}
-        <form onSubmit={handleSubmit} id="cfd-form" className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+        <form onSubmit={handleSubmit} id="cfd-form" className="flex-1 space-y-3 overflow-y-auto p-3">
           {/* Identity */}
           <Field label="Label" htmlFor="cfd-label" required error={errors.label}>
             <input
@@ -322,7 +322,7 @@ export function CustomFieldDefinitionDrawer({
               value={form.label}
               onChange={(e) => handleLabelChange(e.target.value)}
               placeholder="e.g. Contract Start Date"
-              className="pib-input w-full"
+              className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface w-full"
             />
           </Field>
 
@@ -333,9 +333,9 @@ export function CustomFieldDefinitionDrawer({
               value={form.key}
               onChange={(e) => handleKeyChange(e.target.value)}
               placeholder="e.g. contract_start_date"
-              className="pib-input w-full font-mono text-sm"
+              className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface w-full font-mono"
             />
-            <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">
+            <p className="text-xs text-on-surface-variant mt-1">
               Lowercase letters, numbers, underscores. Max 40 chars.
             </p>
           </Field>
@@ -347,7 +347,7 @@ export function CustomFieldDefinitionDrawer({
               value={form.helpText}
               onChange={(e) => set('helpText', e.target.value)}
               placeholder="Shown below the input"
-              className="pib-input w-full"
+              className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface w-full"
             />
           </Field>
 
@@ -358,7 +358,7 @@ export function CustomFieldDefinitionDrawer({
               value={form.group}
               onChange={(e) => set('group', e.target.value)}
               placeholder="e.g. Billing, Compliance"
-              className="pib-input w-full"
+              className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface w-full"
             />
           </Field>
 
@@ -371,14 +371,14 @@ export function CustomFieldDefinitionDrawer({
                 value={form.type}
                 onChange={(e) => set('type', e.target.value as CustomFieldType)}
                 disabled={mode === 'edit'}
-                className="pib-input w-full disabled:opacity-60 disabled:cursor-not-allowed"
+                className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface w-full disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {ALL_TYPES.map((t) => (
                   <option key={t} value={t}>{TYPE_LABELS[t]}</option>
                 ))}
               </select>
               {mode === 'edit' && (
-                <span className="absolute right-8 top-1/2 -translate-y-1/2 text-xs text-[var(--color-pib-text-muted)] pointer-events-none hidden group-hover/type:block">
+                <span className="absolute right-8 top-1/2 -translate-y-1/2 text-xs text-on-surface-variant pointer-events-none hidden group-hover/type:block">
                   Type cannot be changed after creation
                 </span>
               )}
@@ -386,7 +386,7 @@ export function CustomFieldDefinitionDrawer({
           </Field>
 
           {/* Required */}
-          <label className="flex items-center gap-2 cursor-pointer text-sm text-[var(--color-pib-text)]">
+          <label className="flex items-center gap-2 cursor-pointer text-sm text-on-surface">
             <input
               type="checkbox"
               checked={form.required}
@@ -419,7 +419,7 @@ export function CustomFieldDefinitionDrawer({
                     min={0}
                     value={form.minLength}
                     onChange={(e) => set('minLength', e.target.value)}
-                    className="pib-input w-full"
+                    className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface w-full"
                   />
                 </Field>
                 <Field label="Max length" htmlFor="cfd-maxlen">
@@ -429,7 +429,7 @@ export function CustomFieldDefinitionDrawer({
                     min={0}
                     value={form.maxLength}
                     onChange={(e) => set('maxLength', e.target.value)}
-                    className="pib-input w-full"
+                    className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface w-full"
                   />
                 </Field>
               </div>
@@ -449,7 +449,7 @@ export function CustomFieldDefinitionDrawer({
                     maxLength={3}
                     onChange={(e) => set('currencyCode', e.target.value.toUpperCase())}
                     placeholder="USD"
-                    className="pib-input w-24 uppercase"
+                    className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface w-24 uppercase"
                   />
                 </Field>
               )}
@@ -460,7 +460,7 @@ export function CustomFieldDefinitionDrawer({
                     type="number"
                     value={form.min}
                     onChange={(e) => set('min', e.target.value)}
-                    className="pib-input w-full"
+                    className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface w-full"
                   />
                 </Field>
                 <Field label="Max value" htmlFor="cfd-max">
@@ -469,7 +469,7 @@ export function CustomFieldDefinitionDrawer({
                     type="number"
                     value={form.max}
                     onChange={(e) => set('max', e.target.value)}
-                    className="pib-input w-full"
+                    className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface w-full"
                   />
                 </Field>
               </div>
@@ -478,12 +478,12 @@ export function CustomFieldDefinitionDrawer({
         </form>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[var(--color-pib-line)] shrink-0">
+        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-[var(--color-card-border)] p-3">
           <button
             type="button"
             onClick={onClose}
             aria-label={`Cancel ${title}`}
-            className="cursor-pointer btn-pib-secondary"
+            className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
           >
             Cancel
           </button>
@@ -492,7 +492,7 @@ export function CustomFieldDefinitionDrawer({
             form="cfd-form"
             disabled={saving}
             aria-label="Save field"
-            className="cursor-pointer btn-pib-accent disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+            className="cursor-pointer h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
           >
             {saving ? (
               <>

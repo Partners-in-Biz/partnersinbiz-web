@@ -47,7 +47,7 @@ export function ContactIntelligenceStack({
   }
 }) {
   return (
-    <div className="space-y-5">
+    <div className="space-y-2">
       <ContactEngagementPanel
         profile={{
           lastContactedAt: contact.lastContactedAt,

@@ -133,10 +133,10 @@ function DealCard({
       {...listeners}
     >
       <div
-        className="pib-card cursor-pointer select-none transition-all duration-150 hover:border-[var(--color-accent-v2)]"
-        style={{ padding: '10px', borderLeft: `3px solid ${stageColor}` }}
+        className="cursor-pointer select-none rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)]/60 px-2.5 py-2 transition hover:bg-white/[0.04]"
+        style={{ borderLeft: `2px solid ${stageColor}` }}
       >
-        <p className="text-sm font-medium text-on-surface mb-2 leading-snug">{titleLabel}</p>
+        <p className="text-xs font-medium text-on-surface mb-1.5 leading-snug">{titleLabel}</p>
         <div className="flex items-center justify-between gap-2">
           {onEditDeal ? (
             <button
@@ -147,12 +147,12 @@ function DealCard({
                 onEditDeal(deal)
               }}
               aria-label={`${hasValue ? 'Edit' : 'Add'} value for ${titleLabel} from deal board`}
-              className="text-xs font-mono text-on-surface-variant font-semibold transition-colors hover:text-[var(--color-pib-accent)]"
+              className="text-[11px] font-mono text-on-surface-variant font-semibold transition-colors hover:text-on-surface"
             >
               {valueLabel}
             </button>
           ) : (
-            <span className="text-xs font-mono text-on-surface-variant font-semibold">
+            <span className="text-[11px] font-mono text-on-surface-variant font-semibold">
               {valueLabel}
             </span>
           )}
@@ -160,8 +160,7 @@ function DealCard({
             <Link
               href={contactHref}
               onClick={e => e.stopPropagation()}
-              className="text-[10px] font-label px-2 py-0.5 rounded-full truncate max-w-[120px]"
-              style={{ background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)' }}
+              className="text-[10px] font-label px-2 py-0.5 rounded-full border border-[var(--color-card-border)] text-on-surface-variant truncate max-w-[120px]"
               title="View contact"
             >
               {readableContactLabel}
@@ -172,16 +171,16 @@ function DealCard({
           <Link
             href={companyHref}
             onClick={e => e.stopPropagation()}
-            className="text-xs text-gray-500 truncate mt-1 block hover:underline"
+            className="text-[11px] text-on-surface-variant truncate mt-1 block hover:underline"
             title="View company"
           >
             {readableCompanyLabel}
           </Link>
         ) : readableCompanyLabel ? (
-          <span className="text-xs text-gray-500 truncate mt-1 block">{readableCompanyLabel}</span>
+          <span className="text-[11px] text-on-surface-variant truncate mt-1 block">{readableCompanyLabel}</span>
         ) : null}
         {daysLabel && (
-          <div className="mt-2 flex items-center gap-1 text-[10px] text-on-surface-variant" title="Time in current stage">
+          <div className="mt-1.5 flex items-center gap-1 text-[10px] text-on-surface-variant" title="Time in current stage">
             <span className="material-symbols-outlined text-[12px] leading-none" aria-hidden="true">schedule</span>
             <span className="font-label">{daysLabel} in stage</span>
           </div>
@@ -220,23 +219,20 @@ function DealColumn({
   const columnTotal = formatColumnTotal(deals)
 
   return (
-    <div className="flex flex-col w-64 shrink-0">
+    <div className="flex flex-col w-56 shrink-0">
       {/* Column header */}
-      <div className="mb-3 px-1">
+      <div className="mb-2 px-1">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-          <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">
+          <span className="text-[10px] font-label uppercase tracking-[0.18em] text-on-surface-variant">
             {stage.label}
           </span>
-          <span
-            className="text-[9px] font-label px-1.5 py-0.5 rounded-full ml-auto"
-            style={{ background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)' }}
-          >
+          <span className="text-[9px] font-label px-1.5 py-0.5 rounded-full ml-auto border border-[var(--color-card-border)] text-on-surface-variant">
             {deals.length}
           </span>
         </div>
         {/* US-059: per-column total value */}
-        <p className="mt-1 text-[11px] font-mono font-semibold text-on-surface-variant" title="Total value of deals in this stage">
+        <p className="mt-0.5 text-[11px] font-mono font-semibold text-on-surface-variant" title="Total value of deals in this stage">
           {columnTotal}
         </p>
       </div>
@@ -245,7 +241,7 @@ function DealColumn({
       <SortableContext items={dealIds} strategy={verticalListSortingStrategy}>
         <div
           ref={setNodeRef}
-          className="flex flex-col gap-2 min-h-24 flex-1 rounded-lg transition-colors"
+          className="flex flex-col gap-1.5 min-h-24 flex-1 rounded-md transition-colors"
           style={isOver ? { background: 'color-mix(in oklab, var(--color-accent-v2) 8%, transparent)' } : undefined}
         >
           {deals.map(deal => (
@@ -263,10 +259,9 @@ function DealColumn({
           ))}
           {deals.length === 0 && (
             <div
-              className="rounded-[var(--radius-card)] border border-dashed flex items-center justify-center py-8"
-              style={{ borderColor: 'var(--color-card-border)' }}
+              className="rounded-md border border-dashed border-[var(--color-card-border)] flex items-center justify-center py-6"
             >
-              <p className="text-xs text-on-surface-variant">Drop here</p>
+              <p className="text-[11px] text-on-surface-variant">Drop here</p>
             </div>
           )}
         </div>
@@ -282,11 +277,11 @@ function DragGhost({ deal, stageColor = '#6b7280' }: { deal: Deal; stageColor?: 
 
   return (
     <div
-      className="pib-card select-none w-64"
-      style={{ padding: '10px', borderLeft: `3px solid ${stageColor}`, opacity: 0.9 }}
+      className="select-none w-56 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-2.5 py-2"
+      style={{ borderLeft: `2px solid ${stageColor}`, opacity: 0.9 }}
     >
-      <p className="text-sm font-medium text-on-surface mb-2 leading-snug">{titleLabel}</p>
-      <span className="text-xs font-mono text-on-surface-variant font-semibold">
+      <p className="text-xs font-medium text-on-surface mb-1.5 leading-snug">{titleLabel}</p>
+      <span className="text-[11px] font-mono text-on-surface-variant font-semibold">
         {formatValue(deal.value, deal.currency)}
       </span>
     </div>
@@ -309,7 +304,7 @@ export interface DealKanbanProps {
 }
 
 function Skeleton() {
-  return <div className="pib-skeleton h-16 rounded-lg" />
+  return <div className="pib-skeleton h-14 rounded-md" />
 }
 
 export function DealKanban({
@@ -398,17 +393,17 @@ export function DealKanban({
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: 400 }}>
+      <div className="flex gap-3 overflow-x-auto rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3" style={{ minHeight: 400 }}>
         {stages.map(stage =>
           loading ? (
-            <div key={stage.id} className="flex flex-col w-64 shrink-0">
-              <div className="flex items-center gap-2 mb-3 px-1">
+            <div key={stage.id} className="flex flex-col w-56 shrink-0">
+              <div className="flex items-center gap-2 mb-2 px-1">
                 <div className="w-2 h-2 rounded-full" style={{ background: stage.color ?? '#6b7280' }} />
-                <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">
+                <span className="text-[10px] font-label uppercase tracking-[0.18em] text-on-surface-variant">
                   {stage.label}
                 </span>
               </div>
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-1.5">
                 <Skeleton /><Skeleton /><Skeleton />
               </div>
             </div>

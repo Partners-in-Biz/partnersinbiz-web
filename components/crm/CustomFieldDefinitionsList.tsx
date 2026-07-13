@@ -50,7 +50,7 @@ const TYPE_LABELS: Record<CustomFieldType, string> = {
 
 function TypeChip({ type }: { type: string }) {
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)]">
+    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono border border-[var(--color-card-border)] text-on-surface-variant">
       {TYPE_LABELS[type as CustomFieldType] ?? type}
     </span>
   )
@@ -120,9 +120,9 @@ function SortableRow({
     <div
       ref={setNodeRef}
       style={style}
-      className="bento-card !p-0 overflow-hidden"
+      className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-0 overflow-hidden"
     >
-      <div className="flex flex-col gap-4 p-4 lg:flex-row lg:items-start">
+      <div className="flex flex-col gap-3 p-3 lg:flex-row lg:items-start">
         <div className="flex items-start gap-3 min-w-0 flex-1">
           {/* Drag handle (admin only) */}
           {isAdmin && canReorder && (
@@ -131,7 +131,7 @@ function SortableRow({
               aria-label={`Drag to reorder ${displayName}`}
               {...attributes}
               {...listeners}
-              className="cursor-grab active:cursor-grabbing text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors touch-none"
+              className="cursor-grab active:cursor-grabbing text-on-surface-variant hover:text-on-surface transition-colors touch-none"
             >
               <span className="material-symbols-outlined text-[18px]">drag_indicator</span>
             </button>
@@ -140,7 +140,7 @@ function SortableRow({
           {/* Label + key */}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <p className="text-base font-semibold text-[var(--color-pib-text)] truncate">{displayName}</p>
+              <p className="text-base font-semibold text-on-surface truncate">{displayName}</p>
               <TypeChip type={def.type} />
               {def.required && (
                 <span className="rounded-full bg-red-400/10 px-2 py-0.5 text-[10px] font-medium text-red-200">Required</span>
@@ -149,9 +149,9 @@ function SortableRow({
                 {health >= 80 ? 'Ready' : `${health}% setup`}
               </span>
             </div>
-            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)] font-mono truncate">{keyDisplay}</p>
+            <p className="mt-1 text-xs text-on-surface-variant font-mono truncate">{keyDisplay}</p>
             <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-              <p className="text-xs text-[var(--color-pib-text-muted)] line-clamp-2">
+              <p className="text-xs text-on-surface-variant line-clamp-2">
                 {hasHelpText
                   ? def.helpText
                   : 'No help text yet. Add context so the team knows when and why to capture this data.'}
@@ -161,7 +161,7 @@ function SortableRow({
                   type="button"
                   aria-label={`Add help text for ${displayName}`}
                   onClick={() => onEdit(def)}
-                  className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-text)] transition-colors hover:border-[var(--color-accent-v2)]/40 hover:bg-[var(--color-accent-v2)]/10"
+                  className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-[var(--color-card-border)] bg-white/[0.03] px-2 py-1 text-[11px] font-medium text-on-surface transition-colors hover:border-[var(--color-accent-v2)]/40 hover:bg-[var(--color-accent-v2)]/10"
                 >
                   <span className="material-symbols-outlined text-[13px]">edit_note</span>
                   Add help text
@@ -171,12 +171,12 @@ function SortableRow({
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 text-center lg:w-[250px]">
-          <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-2">
-            <p className="truncate text-xs font-medium text-[var(--color-pib-text)]" title={def.group || 'Other'}>{def.group || 'Other'}</p>
-            <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">Group</p>
+        <div className="grid grid-cols-3 divide-x divide-[var(--color-card-border)] border border-[var(--color-card-border)] text-center lg:w-[250px]">
+          <div className="p-2">
+            <p className="truncate text-xs font-medium text-on-surface" title={def.group || 'Other'}>{def.group || 'Other'}</p>
+            <p className="mt-1 text-[10px] uppercase tracking-widest text-on-surface-variant">Group</p>
           </div>
-          <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-2">
+          <div className="p-2">
             {missingOptions ? (
               <div className="flex min-h-[28px] flex-col items-center justify-center gap-1">
                 <p className="text-[11px] font-medium text-amber-200">Options missing</p>
@@ -185,7 +185,7 @@ function SortableRow({
                     type="button"
                     aria-label={`Add options for ${displayName}`}
                     onClick={() => onEdit(def)}
-                    className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-amber-300/20 bg-amber-300/10 px-2 py-1 text-[11px] font-medium text-amber-100 transition-colors hover:border-amber-200/50 hover:bg-amber-300/15"
+                    className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-amber-300/20 bg-amber-300/10 px-2 py-1 text-[11px] font-medium text-amber-100 transition-colors hover:border-amber-200/50 hover:bg-amber-300/15"
                   >
                     <span className="material-symbols-outlined text-[13px]">add_circle</span>
                     Add
@@ -193,26 +193,26 @@ function SortableRow({
                 )}
               </div>
             ) : (
-              <p className="font-display text-lg text-[var(--color-pib-text)]">{optionCount || (hasConstraint ? 'Set' : '-')}</p>
+              <p className="text-sm font-semibold text-on-surface">{optionCount || (hasConstraint ? 'Set' : '-')}</p>
             )}
-            <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">Rules</p>
+            <p className="mt-1 text-[10px] uppercase tracking-widest text-on-surface-variant">Rules</p>
           </div>
-          <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-2">
-            <p className="font-display text-lg text-[var(--color-pib-text)]">{def.order}</p>
-            <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">Order</p>
+          <div className="p-2">
+            <p className="text-sm font-semibold text-on-surface">{def.order}</p>
+            <p className="mt-1 text-[10px] uppercase tracking-widest text-on-surface-variant">Order</p>
           </div>
         </div>
       </div>
 
       {/* Actions (admin only) */}
       {isAdmin && (
-        <div className="flex items-center justify-end gap-1 border-t border-[var(--color-pib-line)] px-3 py-2">
+        <div className="flex items-center justify-end gap-1 border-t border-[var(--color-card-border)] px-3 py-2">
           <button
             type="button"
             aria-label={`Edit ${displayName}`}
             onClick={() => onEdit(def)}
             title="Edit field"
-            className="cursor-pointer w-8 h-8 flex items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.06] transition-colors"
+            className="cursor-pointer w-8 h-8 flex items-center justify-center rounded-md text-on-surface-variant hover:text-on-surface hover:bg-white/[0.06] transition-colors"
           >
             <span className="material-symbols-outlined text-[18px]">edit</span>
           </button>
@@ -221,7 +221,7 @@ function SortableRow({
             aria-label={`Delete ${displayName}`}
             onClick={() => onDelete(def)}
             title="Delete field"
-            className="cursor-pointer w-8 h-8 flex items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-red-400 hover:bg-red-400/[0.08] transition-colors"
+            className="cursor-pointer w-8 h-8 flex items-center justify-center rounded-md text-on-surface-variant hover:text-red-400 hover:bg-red-400/[0.08] transition-colors"
           >
             <span className="material-symbols-outlined text-[18px]">delete</span>
           </button>
@@ -276,7 +276,7 @@ export function CustomFieldDefinitionsList({
 
   if (items.length === 0) {
     return (
-      <p className="text-sm text-[var(--color-pib-text-muted)] italic">
+      <p className="text-sm text-on-surface-variant italic">
         No custom fields defined yet.
       </p>
     )
@@ -289,10 +289,10 @@ export function CustomFieldDefinitionsList({
       onDragEnd={handleDragEnd}
     >
       <SortableContext items={items.map((d) => d.id)} strategy={verticalListSortingStrategy}>
-        <div className="space-y-6">
+        <div className="space-y-3">
           {Array.from(groups.entries()).map(([group, defs]) => (
             <div key={group}>
-              <h4 className="text-xs font-label text-[var(--color-pib-text-muted)] uppercase tracking-wider mb-2">
+              <h4 className="text-xs font-label text-on-surface-variant uppercase tracking-wider mb-2">
                 {group}
               </h4>
               <div className="space-y-2">

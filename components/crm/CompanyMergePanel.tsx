@@ -93,12 +93,12 @@ export function CompanyMergePanel({ company, apiPath, onMerged }: CompanyMergePa
   }
 
   return (
-    <section className="bento-card !p-5" aria-label={`Merge duplicate company for ${companyLabel(company)}`}>
+    <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 p-3" aria-label={`Merge duplicate company for ${companyLabel(company)}`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="eyebrow !text-[10px]">Data hygiene</p>
-          <h2 className="mt-1 font-display text-lg text-[var(--color-pib-text)]">Merge duplicate company</h2>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Data hygiene</p>
+          <h2 className="mt-1 text-sm font-semibold text-on-surface">Merge duplicate company</h2>
+          <p className="mt-1 max-w-3xl text-xs leading-5 text-on-surface-variant">
             Keep this company as the winner and merge another same-workspace company into it. Contacts, deals, quotes, invoices, projects, activities, and form links are re-pointed to the winner.
           </p>
         </div>
@@ -106,7 +106,7 @@ export function CompanyMergePanel({ company, apiPath, onMerged }: CompanyMergePa
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="btn-pib-secondary inline-flex items-center gap-1.5 text-xs"
+            className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
             aria-label={`Find and merge a duplicate of ${companyLabel(company)}`}
           >
             <span className="material-symbols-outlined text-[14px]" aria-hidden="true">merge</span>
@@ -116,7 +116,7 @@ export function CompanyMergePanel({ company, apiPath, onMerged }: CompanyMergePa
       </div>
 
       {open && (
-        <div className="mt-4 space-y-4">
+        <div className="mt-3 space-y-3">
           {!duplicate ? (
             <>
               <label htmlFor="company-merge-search" className="sr-only">Search companies to merge</label>
@@ -126,41 +126,41 @@ export function CompanyMergePanel({ company, apiPath, onMerged }: CompanyMergePa
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search by company name, domain, or website…"
-                className="input-pib w-full text-sm"
+                className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none"
                 autoComplete="off"
               />
-              {searching && <p className="text-xs text-[var(--color-pib-text-muted)]">Searching…</p>}
+              {searching && <p className="text-xs text-on-surface-variant">Searching…</p>}
               {results.length > 0 && (
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   {results.map((candidate) => (
                     <button
                       key={candidate.id}
                       type="button"
                       onClick={() => setDuplicate(candidate)}
-                      className="w-full rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3 text-left transition-colors hover:bg-white/[0.06]"
+                      className="w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 py-2 text-left transition-colors hover:bg-white/[0.05]"
                     >
-                      <span className="block text-sm font-semibold text-[var(--color-pib-text)]">{companyLabel(candidate)}</span>
-                      <span className="mt-1 block text-xs text-[var(--color-pib-text-muted)]">{companySubtitle(candidate) || candidate.id}</span>
+                      <span className="block text-xs font-semibold text-on-surface">{companyLabel(candidate)}</span>
+                      <span className="mt-0.5 block text-[11px] text-on-surface-variant">{companySubtitle(candidate) || candidate.id}</span>
                     </button>
                   ))}
                 </div>
               )}
             </>
           ) : (
-            <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-4">
-              <p className="text-sm font-semibold text-amber-50">Merge {companyLabel(duplicate)} into {companyLabel(company)}?</p>
-              <p className="mt-1 text-sm text-amber-100/85">
+            <div className="rounded-lg border border-amber-400/40 bg-amber-400/10 p-3">
+              <p className="text-xs font-semibold text-amber-50">Merge {companyLabel(duplicate)} into {companyLabel(company)}?</p>
+              <p className="mt-1 text-xs leading-5 text-amber-100/85">
                 The duplicate company will be archived with a mergedIntoId link. Related same-workspace CRM records will point to {companyLabel(company)}.
               </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button type="button" className="btn-pib-secondary text-xs" disabled={merging} onClick={() => setDuplicate(null)}>Choose another</button>
-                <button type="button" className="btn-pib-primary text-xs" disabled={merging} onClick={confirmMerge}>{merging ? 'Merging…' : 'Confirm merge'}</button>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                <button type="button" className="flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface" disabled={merging} onClick={() => setDuplicate(null)}>Choose another</button>
+                <button type="button" className="flex h-8 items-center rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition hover:opacity-90" disabled={merging} onClick={confirmMerge}>{merging ? 'Merging…' : 'Confirm merge'}</button>
               </div>
             </div>
           )}
 
-          {error && <p className="rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-100">{error}</p>}
-          <button type="button" className="text-xs text-[var(--color-pib-text-muted)] underline" disabled={merging} onClick={() => { setOpen(false); setDuplicate(null); setError('') }}>Cancel merge</button>
+          {error && <p className="rounded-lg border border-red-400/40 bg-red-400/10 px-3 py-2 text-xs text-red-100">{error}</p>}
+          <button type="button" className="text-xs text-on-surface-variant underline transition hover:text-on-surface" disabled={merging} onClick={() => { setOpen(false); setDuplicate(null); setError('') }}>Cancel merge</button>
         </div>
       )}
     </section>

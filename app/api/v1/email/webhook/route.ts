@@ -24,7 +24,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
-import { incrementVariantStat, type VariantStatField } from '@/lib/ab-testing/cronHelpers'
+import type { VariantStatField } from '@/lib/ab-testing/cronHelpers'
 import { verifyResendWebhookSignature } from '@/lib/email/resendWebhook'
 import {
   addSuppression,
@@ -35,6 +35,12 @@ import {
   recordSoftBounce,
   SOFT_BOUNCE_ESCALATION_THRESHOLD,
 } from '@/lib/email/bounceTracking'
+import { appendEmailEvent, claimEmailEventProjection, completeEmailEventProjection } from '@/lib/email-events/store'
+import type { EmailEventType } from '@/lib/email-events/types'
+import { classifyOpenPrivacy } from '@/lib/email-events/privacy-classifier'
+import { appendConsentEvent } from '@/lib/consent-ledger/store'
+import { resolveProviderEventTarget } from '@/lib/email-events/provider-target'
+import { applyFirestoreProjectionEffect, applyVariantProjectionEffect } from '@/lib/email-events/effects'
 
 // Resend webhook signature verification uses svix.
 // Set RESEND_WEBHOOK_SECRET (format: whsec_xxxx) in env to verify signatures.
@@ -43,6 +49,18 @@ import {
 // See: https://resend.com/docs/dashboard/webhooks/verify-webhook-requests
 
 let missingSecretWarned = false
+
+function canonicalResendEvent(type: string, machineOpen: boolean): EmailEventType | null {
+  if (type === 'email.delivered') return 'delivered'
+  if (type === 'email.opened') return machineOpen ? 'machine_opened' : 'opened'
+  if (type === 'email.clicked') return 'clicked'
+  if (type === 'email.bounced') return 'bounced'
+  if (type === 'email.delivery_delayed') return 'deferred'
+  if (type === 'email.complained') return 'complained'
+  if (type === 'email.sent') return 'sent'
+  if (type === 'email.failed') return 'failed'
+  return null
+}
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   // Read raw body BEFORE parsing — svix needs the exact bytes to verify the signature.
@@ -85,6 +103,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     data: {
       email_id: string
       to?: string | string[]
+      created_at?: string
+      createdAt?: string
+      click?: { link?: string; user_agent?: string; userAgent?: string }
+      open?: { user_agent?: string; userAgent?: string; privacy_proxy?: boolean; machine?: boolean }
       bounce?: BouncePayloadShape
       bounce_type?: string
       bounceType?: string
@@ -108,13 +130,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const snapshot = await (adminDb.collection('emails') as any)
     .where('resendId', '==', resendEmailId)
-    .limit(1)
+    .limit(2)
     .get()
 
   if (snapshot.empty) {
     return NextResponse.json({ ok: true, note: 'email not found' })
   }
 
+  let target
+  try {
+    target = resolveProviderEventTarget(snapshot.docs.map((doc: { id: string; data(): { orgId?: string } }) => ({
+      id: doc.id,
+      data: doc.data(),
+    })))
+  } catch (error) {
+    console.error('[email/webhook] unsafe provider target', error)
+    return NextResponse.json({ error: 'Provider event target is not tenant-safe' }, { status: 409 })
+  }
+  if (!target) return NextResponse.json({ ok: true, note: 'email not found' })
   const docRef = snapshot.docs[0].ref
   const emailData =
     typeof snapshot.docs[0].data === 'function'
@@ -137,6 +170,60 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const broadcastId = emailData?.broadcastId ?? ''
   const sequenceId = emailData?.sequenceId ?? ''
   const sequenceStep = emailData?.sequenceStep ?? null
+
+  // Append provider truth before mutating projections. A deterministic event
+  // document makes normal Svix retries and concurrent duplicate deliveries a
+  // no-op, preventing duplicate rollups and suppression side effects.
+  const userAgent = data?.open?.user_agent ?? data?.open?.userAgent ?? data?.click?.user_agent ?? data?.click?.userAgent
+  const privacyClassification = classifyOpenPrivacy({
+    userAgent,
+    privacyProxy: data?.open?.privacy_proxy === true,
+    providerMachineFlag: data?.open?.machine === true,
+  })
+  const canonicalEvent = canonicalResendEvent(type, privacyClassification === 'machine')
+  let ledgerEventId = ''
+  let projectionLeaseToken = ''
+  if (canonicalEvent) {
+    const ledger = await appendEmailEvent({
+      orgId: emailOrgId,
+      messageId: snapshot.docs[0].id ?? docRef.id ?? resendEmailId,
+      programId: broadcastId || campaignId || sequenceId || undefined,
+      contactId: contactId || undefined,
+      provider: 'resend',
+      providerMessageId: resendEmailId,
+      providerEventId: req.headers.get('svix-id') || undefined,
+      event: canonicalEvent,
+      providerTimestamp: data?.created_at ?? data?.createdAt,
+      url: data?.click?.link,
+      userAgent,
+      privacyClassification,
+      recipient: emailTo || (Array.isArray(data?.to) ? data.to[0] : data?.to),
+      metadata: type === 'email.bounced' ? { bounce: data?.bounce ?? {}, bounceType: data?.bounce_type ?? data?.bounceType ?? '' } : {},
+    })
+    ledgerEventId = ledger.id
+
+    // A complaint is both a provider event and an explicit global email
+    // revocation. Keep the consent proof independently append-only.
+    if (canonicalEvent === 'complained' && contactId) {
+      await appendConsentEvent({
+        orgId: emailOrgId,
+        contactId,
+        channel: 'email',
+        topicId: '*',
+        state: 'revoked',
+        legalBasis: 'consent',
+        source: 'provider-complaint',
+        sourceEventId: ledger.id,
+        occurredAt: data?.created_at ?? data?.createdAt ?? new Date().toISOString(),
+        proofRef: `resend:${resendEmailId}`,
+      })
+    }
+
+    projectionLeaseToken = (await claimEmailEventProjection(ledger.id)) ?? ''
+    if (!projectionLeaseToken) {
+      return NextResponse.json({ ok: true, replayed: true, eventId: ledger.id })
+    }
+  }
 
   let campaignStatField: string | null = null
 
@@ -320,12 +407,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   if (campaignStatField && campaignId) {
     try {
-      await adminDb.collection('campaigns').doc(campaignId).update({
+      await applyFirestoreProjectionEffect({ eventId: ledgerEventId, effectId: `campaign:${campaignId}:${campaignStatField}`, targetRef: adminDb.collection('campaigns').doc(campaignId), update: {
         [campaignStatField]: FieldValue.increment(1),
         updatedAt: FieldValue.serverTimestamp(),
-      })
+      } })
     } catch (err) {
       console.error('[email/webhook] failed to bump campaign stat', campaignId, campaignStatField, err)
+      throw err
     }
   }
 
@@ -333,12 +421,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // bounced/unsubscribed) so we reuse campaignStatField verbatim.
   if (campaignStatField && broadcastId) {
     try {
-      await adminDb.collection('broadcasts').doc(broadcastId).update({
+      await applyFirestoreProjectionEffect({ eventId: ledgerEventId, effectId: `broadcast:${broadcastId}:${campaignStatField}`, targetRef: adminDb.collection('broadcasts').doc(broadcastId), update: {
         [campaignStatField]: FieldValue.increment(1),
         updatedAt: FieldValue.serverTimestamp(),
-      })
+      } })
     } catch (err) {
       console.error('[email/webhook] failed to bump broadcast stat', broadcastId, campaignStatField, err)
+      throw err
     }
   }
 
@@ -356,14 +445,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (variantId && variantStatField) {
     try {
       if (broadcastId) {
-        await incrementVariantStat({
+        await applyVariantProjectionEffect({ eventId: ledgerEventId,
           targetCollection: 'broadcasts',
           targetId: broadcastId,
           variantId,
           field: variantStatField,
         })
       } else if (sequenceId && typeof sequenceStep === 'number') {
-        await incrementVariantStat({
+        await applyVariantProjectionEffect({ eventId: ledgerEventId,
           targetCollection: 'sequences',
           targetId: sequenceId,
           stepNumber: sequenceStep,
@@ -375,8 +464,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       console.error('[email/webhook] failed to bump variant stat', {
         broadcastId, sequenceId, sequenceStep, variantId, variantStatField, err,
       })
+      throw err
     }
   }
 
-  return NextResponse.json({ ok: true })
+  if (ledgerEventId && projectionLeaseToken) {
+    const completed = await completeEmailEventProjection(ledgerEventId, projectionLeaseToken)
+    if (!completed) throw new Error(`Email event projection lease lost for ${ledgerEventId}`)
+  }
+  return NextResponse.json({ ok: true, ...(ledgerEventId ? { eventId: ledgerEventId } : {}) })
 }

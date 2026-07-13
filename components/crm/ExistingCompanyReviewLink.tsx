@@ -14,7 +14,7 @@ export function ExistingCompanyReviewLink({
   return (
     <Link
       href={href ?? `/portal/companies/${companyId}`}
-      className="inline-flex max-w-[220px] items-center gap-1 rounded-md border border-[var(--color-pib-line)] bg-white/[0.03] px-2.5 py-1 text-xs font-medium text-[var(--color-accent-v2)] transition-colors hover:border-[var(--color-accent-v2)]/50 hover:bg-white/[0.06]"
+      className="inline-flex h-7 max-w-[220px] items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 text-[11px] font-medium text-primary transition-colors hover:bg-primary/15"
       target="_blank"
       rel="noopener noreferrer"
       aria-label={`Open ${label}`}

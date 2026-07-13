@@ -99,6 +99,14 @@ export interface AgentOutput {
   completedAt?: unknown
 }
 
+export interface TaskChatOrigin {
+  conversationId: string
+  requestMessageId: string
+  responseMessageId: string
+  bundleId: string
+  sequence: number
+}
+
 export interface Task {
   id?: string
   orgId: string
@@ -141,6 +149,7 @@ export interface Task {
   sourceResearchItemId?: string | null
   expectedArtifacts?: string[]
   contextRefs?: ContextReference[]
+  chatOrigin?: TaskChatOrigin
 
   createdAt?: unknown
   updatedAt?: unknown

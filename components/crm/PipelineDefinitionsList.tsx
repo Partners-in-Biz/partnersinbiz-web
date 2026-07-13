@@ -18,7 +18,7 @@ export interface PipelineDefinitionsListProps {
 
 function DefaultBadge() {
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-[var(--color-accent-v2)]/10 text-[var(--color-accent-v2)] border border-[var(--color-accent-v2)]/20">
+    <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
       default
     </span>
   )
@@ -26,7 +26,7 @@ function DefaultBadge() {
 
 function ArchivedBadge() {
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] border border-[var(--color-pib-line)]">
+    <span className="inline-flex items-center rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium text-on-surface-variant">
       archived
     </span>
   )
@@ -86,20 +86,20 @@ function PipelineRow({
   const needsSetupReview = isPipelineSetupArtifact(pipeline)
 
   return (
-    <div className="bento-card !p-0 overflow-hidden">
+    <div className="border-b border-[var(--color-card-border)] transition last:border-b-0 hover:bg-white/[0.02]">
       {/* Info */}
-      <div className="flex flex-col gap-4 p-4 lg:flex-row lg:items-start">
+      <div className="flex flex-col gap-3 p-3 lg:flex-row lg:items-start">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-base font-semibold text-[var(--color-pib-text)] truncate">{displayName}</p>
+            <p className="truncate text-sm font-semibold text-on-surface">{displayName}</p>
             {pipeline.isDefault && <DefaultBadge />}
             {pipeline.archived && <ArchivedBadge />}
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${healthScore >= 100 && !needsSetupReview ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-200'}`}>
+            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${healthScore >= 100 && !needsSetupReview ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-100' : 'border-amber-400/40 bg-amber-400/10 text-amber-200'}`}>
               {needsSetupReview ? 'Review setup' : healthScore >= 100 ? 'Ready' : `${healthScore}% setup`}
             </span>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-            <p className="text-xs text-[var(--color-pib-text-muted)] line-clamp-2">
+            <p className="text-xs text-on-surface-variant line-clamp-2">
               {hasOperatingNote
                 ? pipeline.description
                 : 'No operating note yet. Add when this path should be used and what qualifies a deal for each stage.'}
@@ -109,7 +109,7 @@ function PipelineRow({
                 type="button"
                 aria-label={`Add operating note for ${displayName}`}
                 onClick={() => onEdit(pipeline)}
-                className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-text)] transition-colors hover:border-[var(--color-accent-v2)]/40 hover:bg-[var(--color-accent-v2)]/10"
+                className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 py-1 text-[11px] font-medium text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
               >
                 <span className="material-symbols-outlined text-[13px]">edit_note</span>
                 Add note
@@ -117,17 +117,17 @@ function PipelineRow({
             )}
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center gap-2">
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
             {visibleStages.length > 0 ? visibleStages.map((stage) => (
               <span
                 key={stage.id}
                 className={[
-                  'inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px]',
+                  'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-[11px]',
                   stage.kind === 'won'
-                    ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200'
+                    ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-100'
                     : stage.kind === 'lost'
-                      ? 'border-red-400/20 bg-red-400/10 text-red-200'
-                      : 'border-[var(--color-pib-line)] bg-white/[0.03] text-[var(--color-pib-text-muted)]',
+                      ? 'border-red-400/40 bg-red-400/10 text-red-100'
+                      : 'border-[var(--color-card-border)] text-on-surface-variant',
                 ].join(' ')}
                 title={`${stageDisplayName(stage)} (${stage.probability}% probability)`}
               >
@@ -144,7 +144,7 @@ function PipelineRow({
                     type="button"
                     aria-label={`Add stages for ${displayName}`}
                     onClick={() => onEdit(pipeline)}
-                    className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-amber-300/20 bg-amber-300/10 px-2 py-1 text-[11px] font-medium text-amber-100 transition-colors hover:border-amber-200/50 hover:bg-amber-300/15"
+                    className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-amber-400/40 bg-amber-400/10 px-2 py-1 text-[11px] font-medium text-amber-100 transition hover:bg-amber-400/20"
                   >
                     <span className="material-symbols-outlined text-[13px]">add_circle</span>
                     Add stages
@@ -153,34 +153,34 @@ function PipelineRow({
               </span>
             )}
             {stages.length > visibleStages.length && (
-              <span className="text-xs text-[var(--color-pib-text-muted)]">+{stages.length - visibleStages.length} more</span>
+              <span className="text-xs text-on-surface-variant">+{stages.length - visibleStages.length} more</span>
             )}
           </div>
         </div>
 
         <div className="grid grid-cols-4 gap-2 text-center lg:w-[300px]">
-          <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-2">
-            <p className="font-display text-lg text-[var(--color-pib-text)]">{stageCount}</p>
-            <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">Stages</p>
+          <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+            <p className="text-lg font-semibold text-on-surface">{stageCount}</p>
+            <p className="text-[11px] leading-4 text-on-surface-variant">Stages</p>
           </div>
-          <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-2">
-            <p className="font-display text-lg text-[var(--color-pib-text)]">{openCount}</p>
-            <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">Open</p>
+          <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+            <p className="text-lg font-semibold text-on-surface">{openCount}</p>
+            <p className="text-[11px] leading-4 text-on-surface-variant">Open</p>
           </div>
-          <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-2">
-            <p className="font-display text-lg text-emerald-200">{wonCount}</p>
-            <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">Won</p>
+          <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+            <p className="text-lg font-semibold text-emerald-200">{wonCount}</p>
+            <p className="text-[11px] leading-4 text-on-surface-variant">Won</p>
           </div>
-          <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-2">
-            <p className="font-display text-lg text-red-200">{lostCount}</p>
-            <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">Lost</p>
+          <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+            <p className="text-lg font-semibold text-red-200">{lostCount}</p>
+            <p className="text-[11px] leading-4 text-on-surface-variant">Lost</p>
           </div>
         </div>
       </div>
 
       {/* Admin actions */}
       {isAdmin && (
-        <div className="flex items-center justify-end gap-1 border-t border-[var(--color-pib-line)] px-3 py-2">
+        <div className="flex items-center justify-end gap-1 px-3 pb-2">
           {/* Set default (only if not already default and not archived) */}
           {!pipeline.isDefault && !pipeline.archived && (
             needsSetupReview ? (
@@ -188,20 +188,20 @@ function PipelineRow({
                 type="button"
                 aria-label={`Review setup for ${displayName} before setting it as default`}
                 onClick={() => onEdit(pipeline)}
-                className="cursor-pointer w-8 h-8 flex items-center justify-center rounded-lg text-amber-200 hover:text-amber-100 hover:bg-amber-300/[0.10] transition-colors"
+                className="grid h-8 w-8 cursor-pointer place-items-center rounded-md text-amber-200 transition hover:bg-amber-400/10 hover:text-amber-100"
                 title="Review setup before default"
               >
-                <span className="material-symbols-outlined text-[18px]">edit_note</span>
+                <span className="material-symbols-outlined text-[16px]">edit_note</span>
               </button>
             ) : (
             <button
               type="button"
               aria-label={`Set ${displayName} as default`}
               onClick={() => onSetDefault(pipeline)}
-              className="cursor-pointer w-8 h-8 flex items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-accent-v2)] hover:bg-white/[0.06] transition-colors"
+              className="grid h-8 w-8 cursor-pointer place-items-center rounded-md text-on-surface-variant transition hover:bg-white/[0.05] hover:text-primary"
               title="Set as default"
             >
-              <span className="material-symbols-outlined text-[18px]">star</span>
+              <span className="material-symbols-outlined text-[16px]">star</span>
             </button>
             )
           )}
@@ -211,10 +211,10 @@ function PipelineRow({
             type="button"
             aria-label={pipeline.archived ? `Unarchive ${displayName}` : `Archive ${displayName}`}
             onClick={() => onArchive(pipeline)}
-            className="cursor-pointer w-8 h-8 flex items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.06] transition-colors"
+            className="grid h-8 w-8 cursor-pointer place-items-center rounded-md text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
             title={pipeline.archived ? 'Unarchive' : 'Archive'}
           >
-            <span className="material-symbols-outlined text-[18px]">
+            <span className="material-symbols-outlined text-[16px]">
               {pipeline.archived ? 'unarchive' : 'archive'}
             </span>
           </button>
@@ -224,10 +224,10 @@ function PipelineRow({
             type="button"
             aria-label={`Edit ${displayName}`}
             onClick={() => onEdit(pipeline)}
-            className="cursor-pointer w-8 h-8 flex items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.06] transition-colors"
+            className="grid h-8 w-8 cursor-pointer place-items-center rounded-md text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
             title="Edit pipeline"
           >
-            <span className="material-symbols-outlined text-[18px]">edit</span>
+            <span className="material-symbols-outlined text-[16px]">edit</span>
           </button>
 
           {/* Delete */}
@@ -235,10 +235,10 @@ function PipelineRow({
             type="button"
             aria-label={`Delete ${displayName}`}
             onClick={() => onDelete(pipeline)}
-            className="cursor-pointer w-8 h-8 flex items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-red-400 hover:bg-red-400/[0.08] transition-colors"
+            className="grid h-8 w-8 cursor-pointer place-items-center rounded-md text-on-surface-variant transition hover:bg-red-400/10 hover:text-red-300"
             title="Delete pipeline"
           >
-            <span className="material-symbols-outlined text-[18px]">delete</span>
+            <span className="material-symbols-outlined text-[16px]">delete</span>
           </button>
         </div>
       )}
@@ -286,15 +286,15 @@ export function PipelineDefinitionsList({
     ]
 
     return (
-      <div className="bento-card !p-0 overflow-hidden">
+      <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
         <div className="grid gap-0 lg:grid-cols-[1.1fr_1.4fr]">
-          <div className="border-b border-[var(--color-pib-line)] p-6 lg:border-b-0 lg:border-r">
-            <span className="material-symbols-outlined mb-4 block text-[34px] text-[var(--color-accent-v2)]">account_tree</span>
-            <p className="eyebrow !text-[10px]">Pipeline setup</p>
-            <h2 className="mt-2 font-display text-2xl leading-tight text-[var(--color-pib-text)]">
+          <div className="border-b border-[var(--color-card-border)] p-4 lg:border-b-0 lg:border-r">
+            <span className="material-symbols-outlined mb-2 grid h-6 w-6 place-items-center rounded-md bg-primary/10 text-[15px] text-primary">account_tree</span>
+            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Pipeline setup</p>
+            <h2 className="mt-1 text-base font-semibold leading-tight text-on-surface">
               Launch your first revenue path
             </h2>
-            <p className="mt-3 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+            <p className="mt-2 text-xs leading-5 text-on-surface-variant">
               Start with one board that every employee understands: a clear intake stage, open work,
               and trusted won/lost exits for forecasts, automations, and CEO-level reporting.
             </p>
@@ -303,29 +303,29 @@ export function PipelineDefinitionsList({
               <button
                 type="button"
                 onClick={onCreate}
-                className="btn-pib-accent mt-5 inline-flex cursor-pointer items-center gap-1.5 text-sm"
+                className="mt-3 inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition"
               >
                 <span className="material-symbols-outlined text-[16px]">add</span>
                 Create the first pipeline
               </button>
             ) : (
-              <p className="mt-5 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
+              <p className="mt-3 rounded-md border border-[var(--color-card-border)] bg-black/10 px-2.5 py-1.5 text-[11px] text-on-surface-variant">
                 Ask an admin to create the first pipeline before teams start logging deals.
               </p>
             )}
           </div>
 
-          <div className="grid gap-px bg-[var(--color-pib-line)] sm:grid-cols-2">
+          <div className="grid gap-px bg-[var(--color-card-border)] sm:grid-cols-2">
             {blueprint.map((item) => (
-              <div key={item.label} className="bg-[var(--color-pib-surface)] p-5">
-                <div className="flex items-start justify-between gap-3">
+              <div key={item.label} className="bg-[var(--color-card)] p-3">
+                <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-widest text-[var(--color-pib-text-muted)]">{item.label}</p>
-                    <p className="mt-2 font-display text-2xl leading-none text-[var(--color-pib-text)]">{item.value}</p>
+                    <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">{item.label}</p>
+                    <p className="mt-1 text-lg font-semibold leading-none text-on-surface">{item.value}</p>
                   </div>
-                  <span className="material-symbols-outlined text-[21px] text-[var(--color-pib-text-muted)]">{item.icon}</span>
+                  <span className="material-symbols-outlined text-[16px] text-on-surface-variant">{item.icon}</span>
                 </div>
-                <p className="mt-4 text-xs leading-5 text-[var(--color-pib-text-muted)]">{item.copy}</p>
+                <p className="mt-2 text-[11px] leading-4 text-on-surface-variant">{item.copy}</p>
               </div>
             ))}
           </div>
@@ -344,7 +344,7 @@ export function PipelineDefinitionsList({
   })
 
   return (
-    <div className="space-y-2">
+    <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
       {sorted.map((p) => (
         <PipelineRow
           key={p.id}

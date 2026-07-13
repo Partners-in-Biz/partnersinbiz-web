@@ -60,27 +60,29 @@ export function CrmHubCommandRail({
   ]
 
   return (
-    <section className="pib-card-section overflow-hidden">
-      <div className="border-b border-[var(--color-pib-line)] bg-white/[0.02] px-5 py-3.5">
-        <p className="eyebrow !text-[10px]">CRM operating rail</p>
+    <section className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+      <div className="flex h-9 items-center border-b border-[var(--color-card-border)] px-3">
+        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">CRM operating rail</p>
       </div>
-      <div className="grid gap-3 p-4 lg:grid-cols-3">
+      <div className="grid divide-y divide-[var(--color-card-border)] lg:grid-cols-3 lg:divide-x lg:divide-y-0">
         {actions.map((action) => (
           <Link
             key={action.title}
             href={buildHref(action.href)}
             aria-label={action.cta}
-            className="group rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-4 transition-colors hover:border-[var(--color-pib-accent)] hover:bg-white/[0.05]"
+            className="group flex gap-2.5 p-3 transition-colors hover:bg-white/[0.04]"
           >
-            <div className="flex items-start justify-between gap-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
-                <span className="material-symbols-outlined text-[20px]">{action.icon}</span>
-              </span>
-              <span className="material-symbols-outlined text-sm text-[var(--color-pib-text-muted)] transition-transform group-hover:translate-x-0.5">arrow_forward</span>
-            </div>
-            <h2 className="mt-4 text-base font-display text-[var(--color-pib-text)]">{action.title}</h2>
-            <p className="mt-2 min-h-[42px] text-sm leading-6 text-[var(--color-pib-text-muted)]">{action.detail}</p>
-            <p className="mt-4 text-xs font-label text-[var(--color-pib-accent)]">{action.cta}</p>
+            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+              <span className="material-symbols-outlined text-[16px]">{action.icon}</span>
+            </span>
+            <span className="min-w-0">
+              <h2 className="text-sm font-semibold text-on-surface">{action.title}</h2>
+              <p className="mt-0.5 text-xs leading-5 text-on-surface-variant">{action.detail}</p>
+              <p className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-[var(--color-accent-text)]">
+                {action.cta}
+                <span className="material-symbols-outlined text-[13px]" aria-hidden="true">arrow_forward</span>
+              </p>
+            </span>
           </Link>
         ))}
       </div>

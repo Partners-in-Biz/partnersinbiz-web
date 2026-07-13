@@ -162,4 +162,24 @@ describe('POST /api/v1/admin/hermes/profiles/[orgId]/runs', () => {
     )
     expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({ orgId: 'org-a', profile: 'client-a', hermesRunId: 'hermes-run-1', requestedBy: 'super-1' }))
   })
+
+  it('never reflects a malicious nested upstream run payload', async () => {
+    mockGet.mockResolvedValue(profileDoc())
+    ;(global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      status: 202,
+      text: async () => JSON.stringify({
+        run_id: 'hermes-run-safe', status: 'unknown-secret-status',
+        nested: { endpoint: 'https://gateway.example/v1/runs', authorization: 'Bearer super-secret', path: '/Users/peet/private' },
+      }),
+    })
+    const { POST } = await import('@/app/api/v1/admin/hermes/profiles/[orgId]/runs/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/admin/hermes/profiles/org-a/runs', {
+      method: 'POST', body: JSON.stringify({ prompt: 'safe' }),
+    }), { params: Promise.resolve({ orgId: 'org-a' }) })
+    const serialized = await res.text()
+    expect(serialized).toContain('hermes-run-safe')
+    expect(serialized).toContain('legacy-profile')
+    expect(serialized).not.toMatch(/unknown-secret-status|gateway\.example|super-secret|Users\/peet|nested/)
+  })
 })

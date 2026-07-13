@@ -517,6 +517,53 @@ describe('MessageBubble', () => {
     expect(handleQuote).toHaveBeenCalledWith('Approved: publish the Hunt and Gun document and give me the client share link.')
   })
 
+  it('renders a project task proposal with routing and one create action', () => {
+    const handleAction = jest.fn()
+    const Bubble = MessageBubble as any
+
+    render(
+      <Bubble
+        currentUserUid="user-1"
+        onUiAction={handleAction}
+        message={{
+          id: 'proposal-message',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: '',
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'completed',
+          runId: 'run-1',
+          richParts: [{
+            type: 'project_task_proposal',
+            title: 'Proposed launch chain',
+            projectId: 'project-1',
+            bundleId: 'bundle-1',
+            tasks: [
+              { title: 'Draft campaign copy', assigneeAgentId: 'maya', modelPolicy: 'Auto', dependencySequence: [] },
+              { title: 'Build email automation', assigneeAgentId: 'theo', modelPolicy: 'Auto', dependencySequence: [0], reviewerAgentId: 'qa-release' },
+            ],
+          }],
+          uiActions: [{ id: 'create-chain', type: 'custom', label: 'Create tasks', actionId: 'create-chain', variant: 'primary' }],
+        }}
+      />,
+    )
+
+    expect(screen.getByLabelText('Proposed launch chain')).toBeInTheDocument()
+    expect(screen.getByText('Draft campaign copy')).toBeInTheDocument()
+    expect(screen.getByText('Build email automation')).toBeInTheDocument()
+    expect(screen.getByText(/maya/i)).toBeInTheDocument()
+    expect(screen.getByText(/after task 1/i)).toBeInTheDocument()
+    expect(screen.getByText(/review: qa-release/i)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create tasks' }))
+    expect(handleAction).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'proposal-message' }),
+      expect.objectContaining({ id: 'create-chain', type: 'custom' }),
+    )
+  })
+
   it('renders a rich JSON content envelope instead of showing raw JSON text', async () => {
     const handleAction = jest.fn()
     const Bubble = MessageBubble as any

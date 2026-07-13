@@ -83,18 +83,15 @@ interface SegmentOption {
 }
 
 function StatusBadge({ status }: { status: ContactStatus }) {
-  const color =
+  const tone =
     status === 'active'
-      ? 'var(--color-pib-success)'
+      ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-100'
       : status === 'bounced'
-      ? 'var(--color-pib-danger, #FCA5A5)'
-      : 'var(--color-pib-accent)'
+      ? 'border-red-400/40 bg-red-400/10 text-red-100'
+      : 'border-primary/30 bg-primary/10 text-primary'
   const label = status.charAt(0).toUpperCase() + status.slice(1)
   return (
-    <span
-      className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full capitalize font-mono"
-      style={{ background: `${color}20`, color }}
-    >
+    <span className={`inline-flex h-6 items-center rounded-full border px-2 text-[10px] font-mono uppercase tracking-wider ${tone}`}>
       {label}
     </span>
   )
@@ -126,22 +123,26 @@ function useInlineToast() {
       {toasts.map(t => (
         <div
           key={t.id}
-          className="pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-[var(--radius-card)] shadow-lg min-w-72 max-w-sm"
-          style={{
-            background: 'var(--color-sidebar)',
-            border: `1px solid ${t.tone === 'success' ? '#4ade80' : t.tone === 'error' ? '#ef4444' : '#60a5fa'}`,
-          }}
+          className={`pointer-events-auto flex min-w-72 max-w-sm items-center gap-2 rounded-lg border bg-[var(--color-card)] px-3 py-2 ${
+            t.tone === 'success'
+              ? 'border-emerald-400/40'
+              : t.tone === 'error'
+                ? 'border-red-400/40'
+                : 'border-primary/40'
+          }`}
         >
           <span
-            className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-            style={{
-              background: t.tone === 'success' ? 'rgba(74,222,128,0.15)' : t.tone === 'error' ? 'rgba(239,68,68,0.15)' : 'rgba(96,165,250,0.15)',
-              color: t.tone === 'success' ? '#4ade80' : t.tone === 'error' ? '#ef4444' : '#60a5fa',
-            }}
+            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+              t.tone === 'success'
+                ? 'bg-emerald-400/10 text-emerald-100'
+                : t.tone === 'error'
+                  ? 'bg-red-400/10 text-red-100'
+                  : 'bg-primary/10 text-primary'
+            }`}
           >
             {t.tone === 'success' ? '✓' : t.tone === 'error' ? '✕' : 'i'}
           </span>
-          <span className="text-sm text-[var(--color-pib-text)]">{t.message}</span>
+          <span className="text-xs text-on-surface">{t.message}</span>
         </div>
       ))}
     </div>
@@ -152,33 +153,27 @@ function useInlineToast() {
 function StageBadge({ stage }: { stage: string }) {
   const win = ['won', 'demo', 'replied']
   const lost = ['lost']
-  const color = lost.includes(stage)
-    ? 'var(--color-pib-danger, #FCA5A5)'
+  const tone = lost.includes(stage)
+    ? 'border-red-400/40 bg-red-400/10 text-red-100'
     : win.includes(stage)
-    ? 'var(--color-pib-success)'
-    : 'var(--color-pib-accent)'
+    ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-100'
+    : 'border-primary/30 bg-primary/10 text-primary'
   return (
-    <span
-      className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full capitalize font-mono"
-      style={{ background: `${color}20`, color }}
-    >
+    <span className={`inline-flex h-6 items-center rounded-full border px-2 text-[10px] font-mono uppercase tracking-wider ${tone}`}>
       {readableContactLabel(stage)}
     </span>
   )
 }
 
 function TypeBadge({ type }: { type: string }) {
-  const color =
+  const tone =
     type === 'client'
-      ? 'var(--color-pib-success)'
+      ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-100'
       : type === 'churned'
-      ? 'var(--color-pib-danger, #FCA5A5)'
-      : 'var(--color-pib-accent)'
+      ? 'border-red-400/40 bg-red-400/10 text-red-100'
+      : 'border-primary/30 bg-primary/10 text-primary'
   return (
-    <span
-      className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full capitalize font-mono"
-      style={{ background: `${color}20`, color }}
-    >
+    <span className={`inline-flex h-6 items-center rounded-full border px-2 text-[10px] font-mono uppercase tracking-wider ${tone}`}>
       {readableContactLabel(type)}
     </span>
   )
@@ -751,85 +746,92 @@ export function ContactsWorkspace({
         : 'Add your first contact to start building your audience.'
 
   return (
-    <div className="space-y-8">
+    <div className="flex min-h-0 flex-col gap-2">
       {toastNode}
 
-      <header>
-        <p className="eyebrow">CRM</p>
-        <div className="flex items-end justify-between gap-4 flex-wrap mt-2">
-          <div>
-            <h1 className="pib-page-title">Contacts</h1>
-            <p className="pib-page-sub max-w-2xl">
-              {contactCountLabel}
-            </p>
+      <header className="flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 px-3 py-1.5">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="material-symbols-outlined grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-[15px] text-primary" aria-hidden="true">
+            contacts
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">CRM</p>
+            <div className="flex min-w-0 items-center gap-2">
+              <h1 className="truncate text-sm font-semibold leading-tight text-on-surface">Contacts</h1>
+              <p className="hidden truncate text-xs text-on-surface-variant sm:inline">
+                {contactCountLabel}
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleFindDuplicates}
-              disabled={duplicatesLoading || !canLoadContacts}
-              className="btn-pib-secondary text-xs flex items-center gap-1.5 disabled:opacity-50"
-            >
-              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">merge</span>
-              {duplicatesLoading ? 'Scanning…' : 'Find duplicates'}
-            </button>
-            <button
-              onClick={exportFiltered}
-              disabled={!canLoadContacts}
-              aria-label="Export contacts as CSV"
-              className="btn-pib-secondary text-xs flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">file_download</span>
-              Export CSV
-            </button>
-            <button
-              onClick={() => canLoadContacts && setShowNew(true)}
-              disabled={!canLoadContacts}
-              aria-label="New contact"
-              className="btn-pib-accent disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <span className="material-symbols-outlined text-base" aria-hidden="true">add</span>
-              New contact
-            </button>
-          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={handleFindDuplicates}
+            disabled={duplicatesLoading || !canLoadContacts}
+            className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface disabled:opacity-50"
+          >
+            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">merge</span>
+            {duplicatesLoading ? 'Scanning…' : 'Find duplicates'}
+          </button>
+          <button
+            onClick={exportFiltered}
+            disabled={!canLoadContacts}
+            aria-label="Export contacts as CSV"
+            className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">file_download</span>
+            Export CSV
+          </button>
+          <button
+            onClick={() => canLoadContacts && setShowNew(true)}
+            disabled={!canLoadContacts}
+            aria-label="New contact"
+            className="flex h-8 items-center gap-1 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+            New contact
+          </button>
         </div>
       </header>
 
       {isAdmin && !selectedOrgId && (
-        <section className="pib-card space-y-2">
-          <label htmlFor="contactOrgId" className="pib-label">Client workspace</label>
-          <select
-            id="contactOrgId"
-            value={contactOrgId}
-            onChange={(event) => setContactOrgId(event.target.value)}
-            className="pib-select max-w-md"
-          >
-            <option value="">Select workspace before adding or viewing contacts...</option>
-            {orgs
-              .filter((org) => org.type === 'client')
-              .map((org) => (
-                <option key={org.id} value={org.id}>{org.name}</option>
-              ))}
-          </select>
-          <p className="text-xs text-on-surface-variant">
-            Contacts are always scoped to one client organisation so leads, automations, and handoffs do not bleed across workspaces.
-          </p>
+        <section className="shrink-0 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 px-2 py-1.5">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <label htmlFor="contactOrgId" className="px-1 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Client workspace</label>
+            <select
+              id="contactOrgId"
+              value={contactOrgId}
+              onChange={(event) => setContactOrgId(event.target.value)}
+              className="h-8 max-w-md rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface"
+            >
+              <option value="">Select workspace before adding or viewing contacts...</option>
+              {orgs
+                .filter((org) => org.type === 'client')
+                .map((org) => (
+                  <option key={org.id} value={org.id}>{org.name}</option>
+                ))}
+            </select>
+            <p className="min-w-0 flex-1 truncate px-1 text-xs text-on-surface-variant">
+              Contacts are always scoped to one client organisation so leads, automations, and handoffs do not bleed across workspaces.
+            </p>
+          </div>
         </section>
       )}
 
       <section
         role="region"
         aria-label="Today's contact cockpit"
-        className="space-y-4"
+        className="shrink-0 space-y-2"
       >
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-          <div className="min-w-0 xl:max-w-sm">
-            <p className="eyebrow !text-[10px]">Executive lens</p>
-            <h2 className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">Today&apos;s contact cockpit</h2>
-            <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
-              Follow-up pressure, owner gaps, customer volume, and the current working lens in one board-ready view.
-            </p>
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 px-2 py-1.5">
+          <div className="min-w-0 px-1">
+            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Executive lens</p>
+            <h2 className="truncate text-xs font-semibold text-on-surface">Today&apos;s contact cockpit</h2>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <p className="min-w-[16rem] flex-1 px-1 text-[11px] leading-4 text-on-surface-variant">
+            Follow-up pressure, owner gaps, customer volume, and the current working lens in one board-ready view.
+          </p>
+          <div className="ml-auto flex flex-wrap items-center gap-1">
             <button
               type="button"
               onClick={() => {
@@ -837,8 +839,10 @@ export function ContactsWorkspace({
                 setFollowUpLens('stale')
               }}
               className={[
-                'btn-pib-secondary text-xs',
-                followUpLens === 'stale' ? 'border-amber-400/50 bg-amber-400/10 text-amber-100' : '',
+                'flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-[11px] transition',
+                followUpLens === 'stale'
+                  ? 'border-primary/30 bg-primary/10 text-primary'
+                  : 'border-[var(--color-card-border)] text-on-surface-variant hover:text-on-surface',
               ].join(' ')}
               aria-label="Show contacts needing follow-up"
             >
@@ -852,8 +856,10 @@ export function ContactsWorkspace({
                 setFollowUpLens('all')
               }}
               className={[
-                'btn-pib-secondary text-xs',
-                ownerLens === 'unowned' ? 'border-amber-400/50 bg-amber-400/10 text-amber-100' : '',
+                'flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-[11px] transition',
+                ownerLens === 'unowned'
+                  ? 'border-primary/30 bg-primary/10 text-primary'
+                  : 'border-[var(--color-card-border)] text-on-surface-variant hover:text-on-surface',
               ].join(' ')}
               aria-label="Show owner gaps"
             >
@@ -866,7 +872,7 @@ export function ContactsWorkspace({
                 setOwnerLens('all')
                 setFollowUpLens('all')
               }}
-              className="btn-pib-secondary text-xs"
+              className="flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-[var(--color-card-border)] px-2.5 text-[11px] text-on-surface-variant transition hover:text-on-surface"
               aria-label="Show full contact audience"
             >
               <span className="material-symbols-outlined text-[14px]" aria-hidden="true">groups</span>
@@ -875,56 +881,56 @@ export function ContactsWorkspace({
           </div>
         </div>
 
-        <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-4">
-            <div className="flex items-start justify-between gap-3">
-              <p className="eyebrow !text-[10px]">Follow-up</p>
-              <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-accent)]" aria-hidden="true">edit_note</span>
+        <div className="grid min-w-0 grid-cols-2 gap-2 lg:grid-cols-4">
+          <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-lg font-semibold leading-6 text-on-surface">
+                {followUpDueContacts.length} {followUpDueContacts.length === 1 ? 'follow-up due' : 'follow-ups due'}
+              </p>
+              <span className="material-symbols-outlined text-[16px] text-on-surface-variant" aria-hidden="true">edit_note</span>
             </div>
-            <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">
-              {followUpDueContacts.length} {followUpDueContacts.length === 1 ? 'follow-up due' : 'follow-ups due'}
-            </p>
+            <p className="text-[11px] leading-4 text-on-surface-variant">Follow-up</p>
           </div>
-          <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-4">
-            <div className="flex items-start justify-between gap-3">
-              <p className="eyebrow !text-[10px]">Owner gaps</p>
-              <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-accent)]" aria-hidden="true">supervisor_account</span>
+          <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-lg font-semibold leading-6 text-on-surface">
+                {unownedContacts.length} {unownedContacts.length === 1 ? 'owner gap' : 'owner gaps'}
+              </p>
+              <span className="material-symbols-outlined text-[16px] text-on-surface-variant" aria-hidden="true">supervisor_account</span>
             </div>
-            <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">
-              {unownedContacts.length} {unownedContacts.length === 1 ? 'owner gap' : 'owner gaps'}
-            </p>
+            <p className="text-[11px] leading-4 text-on-surface-variant">Owner gaps</p>
           </div>
-          <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-4">
-            <div className="flex items-start justify-between gap-3">
-              <p className="eyebrow !text-[10px]">Customers</p>
-              <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-accent)]" aria-hidden="true">handshake</span>
+          <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-lg font-semibold leading-6 text-on-surface">
+                {clientContacts.length} {clientContacts.length === 1 ? 'client' : 'clients'}
+              </p>
+              <span className="material-symbols-outlined text-[16px] text-on-surface-variant" aria-hidden="true">handshake</span>
             </div>
-            <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">
-              {clientContacts.length} {clientContacts.length === 1 ? 'client' : 'clients'}
-            </p>
+            <p className="text-[11px] leading-4 text-on-surface-variant">Customers</p>
           </div>
-          <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-4">
-            <div className="flex items-start justify-between gap-3">
-              <p className="eyebrow !text-[10px]">Visible</p>
-              <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-accent)]" aria-hidden="true">filter_alt</span>
+          <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-lg font-semibold leading-6 text-on-surface">
+                {displayedContacts.length} visible
+              </p>
+              <span className="material-symbols-outlined text-[16px] text-on-surface-variant" aria-hidden="true">filter_alt</span>
             </div>
-            <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">
-              {displayedContacts.length} visible
-            </p>
+            <p className="text-[11px] leading-4 text-on-surface-variant">Visible</p>
           </div>
         </div>
       </section>
 
-      <section className="grid gap-3 md:grid-cols-3">
-        <div className="pib-stat-card">
-          <div className="flex items-start justify-between gap-3">
-            <p className="eyebrow !text-[10px]">Owner coverage</p>
-            <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">supervisor_account</span>
+      <section className="grid shrink-0 gap-2 md:grid-cols-3">
+        <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-lg font-semibold leading-6 text-on-surface">
+              {Math.round(ownerCoverage * 100)}%
+            </p>
+            <span className="material-symbols-outlined text-[16px] text-on-surface-variant" aria-hidden="true">supervisor_account</span>
           </div>
-          <p className="mt-3 font-display tracking-tight leading-none text-3xl text-[var(--color-pib-text)]">
-            {Math.round(ownerCoverage * 100)}%
-          </p>
-          <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">
+          <p className="text-[11px] leading-4 text-on-surface-variant">Owner coverage</p>
+          <p className="text-[11px] leading-4 text-on-surface-variant">
             {unownedContacts.length} unowned
           </p>
         </div>
@@ -932,34 +938,38 @@ export function ContactsWorkspace({
           type="button"
           onClick={() => setOwnerLens(ownerLens === 'unowned' ? 'all' : 'unowned')}
           className={[
-            'rounded-[var(--radius-card)] border p-4 text-left transition-colors',
+            'rounded-md border px-2 py-2 text-left transition',
             ownerLens === 'unowned'
-              ? 'border-amber-400/40 bg-amber-400/10'
-              : 'border-[var(--color-pib-line)] bg-white/[0.03] hover:bg-white/[0.05]',
+              ? 'border-primary/30 bg-primary/10'
+              : 'border-[var(--color-card-border)] bg-black/10 hover:bg-white/[0.04]',
           ].join(' ')}
           aria-label={ownerLens === 'unowned' ? 'Show all contacts' : 'Show unowned contacts needing an owner'}
         >
-          <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">manage_accounts</span>
-          <p className="mt-3 text-sm font-semibold text-[var(--color-pib-text)]">
-            {ownerLens === 'unowned' ? 'Showing owner gaps' : 'Review owner gaps'}
-          </p>
-          <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-xs font-semibold text-on-surface">
+              {ownerLens === 'unowned' ? 'Showing owner gaps' : 'Review owner gaps'}
+            </p>
+            <span className="material-symbols-outlined text-[16px] text-on-surface-variant" aria-hidden="true">manage_accounts</span>
+          </div>
+          <p className="mt-1 text-[11px] leading-4 text-on-surface-variant">
             {unownedContacts.length > 0
               ? `${unownedContacts.length} contacts need an accountable team member before follow-up slips.`
               : 'Every contact in this view has an owner.'}
           </p>
         </button>
-        <div className="rounded-[var(--radius-card)] border border-[var(--color-pib-line)] bg-white/[0.03] p-4">
-          <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">groups</span>
-          <p className="mt-3 text-sm font-semibold text-[var(--color-pib-text)]">Team workload</p>
-          <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
+        <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-xs font-semibold text-on-surface">Team workload</p>
+            <span className="material-symbols-outlined text-[16px] text-on-surface-variant" aria-hidden="true">groups</span>
+          </div>
+          <p className="mt-1 text-[11px] leading-4 text-on-surface-variant">
             Select unowned contacts, assign a team member, and keep the customer base accountable from this workspace.
           </p>
           <button
             type="button"
             onClick={selectUnownedContactsForAssignment}
             disabled={unownedContacts.length === 0}
-            className="btn-pib-secondary mt-4 w-full justify-center text-xs disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-2 flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface disabled:cursor-not-allowed disabled:opacity-50"
             aria-label={
               unownedContacts.length === 1
                 ? 'Select 1 unowned contact for owner assignment'
@@ -978,36 +988,36 @@ export function ContactsWorkspace({
         <section
           role="region"
           aria-label="Contact setup review for visible contacts"
-          className="rounded-[var(--radius-card)] border border-amber-400/30 bg-amber-400/10 p-5"
+          className="shrink-0 rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 py-2"
         >
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex gap-3">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="flex min-w-0 gap-2">
               <span
-                className="material-symbols-outlined mt-0.5 rounded-lg border border-amber-400/25 bg-amber-400/10 p-2 text-[20px] text-amber-200"
+                className="material-symbols-outlined mt-0.5 text-[16px] text-amber-100"
                 aria-hidden="true"
               >
                 rule_settings
               </span>
-              <div>
-                <p className="eyebrow !text-[10px] text-amber-200">Audience hygiene</p>
-                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Contact setup needs review</h2>
-                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+              <div className="min-w-0">
+                <p className="text-[10px] font-label uppercase tracking-[0.22em] text-amber-100">Audience hygiene</p>
+                <h2 className="text-xs font-semibold text-on-surface">Contact setup needs review</h2>
+                <p className="mt-1 text-xs leading-5 text-on-surface-variant">
                   {setupArtifactContacts.length} visible contact{setupArtifactContacts.length === 1 ? ' looks' : 's look'} like smoke-test setup data.
                 </p>
-                <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                <p className="text-[11px] leading-4 text-on-surface-variant">
                   Review these records before the team treats setup residue as real customer relationships.
                 </p>
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {setupArtifactContacts.slice(0, 3).map((contact) => (
                     <span
                       key={contact.id}
-                      className="rounded-full border border-amber-300/20 bg-amber-300/10 px-2.5 py-1 text-xs text-amber-100"
+                      className="flex h-6 shrink-0 items-center rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 text-[11px] text-amber-100"
                     >
                       {contact.name || contact.email || 'Unnamed setup contact'}
                     </span>
                   ))}
                   {setupArtifactContacts.length > 3 && (
-                    <span className="rounded-full border border-amber-300/20 bg-amber-300/10 px-2.5 py-1 text-xs text-amber-100">
+                    <span className="flex h-6 shrink-0 items-center rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 text-[11px] text-amber-100">
                       +{setupArtifactContacts.length - 3} more
                     </span>
                   )}
@@ -1017,7 +1027,7 @@ export function ContactsWorkspace({
             <button
               type="button"
               onClick={selectSetupArtifactContactsForCleanup}
-              className="btn-pib-secondary shrink-0 justify-center text-xs"
+              className="flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-amber-400/40 px-2 text-xs text-amber-100 transition hover:bg-amber-400/10"
               aria-label={
                 setupArtifactContacts.length === 1
                   ? 'Select 1 setup contact for cleanup'
@@ -1035,21 +1045,21 @@ export function ContactsWorkspace({
         <section
           role="status"
           aria-label="Duplicate scan could not run"
-          className="bento-card border-amber-400/25 bg-amber-400/10"
+          className="shrink-0 rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 py-2"
         >
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-start gap-3">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="flex min-w-0 items-start gap-2">
               <span
-                className="material-symbols-outlined mt-0.5 rounded-lg border border-amber-400/25 bg-amber-400/10 p-2 text-[20px] text-amber-200"
+                className="material-symbols-outlined mt-0.5 text-[16px] text-amber-100"
                 aria-hidden="true"
               >
                 warning
               </span>
-              <div>
-                <p className="eyebrow !text-[10px] text-amber-200">Duplicate hygiene</p>
-                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Duplicate scan could not run</h2>
-                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{duplicatesError}</p>
-                <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+              <div className="min-w-0">
+                <p className="text-[10px] font-label uppercase tracking-[0.22em] text-amber-100">Duplicate hygiene</p>
+                <h2 className="text-xs font-semibold text-on-surface">Duplicate scan could not run</h2>
+                <p className="mt-1 text-xs leading-5 text-on-surface-variant">{duplicatesError}</p>
+                <p className="text-[11px] leading-4 text-on-surface-variant">
                   Contacts stay visible, but merge decisions are paused until the duplicate source responds.
                 </p>
               </div>
@@ -1058,7 +1068,7 @@ export function ContactsWorkspace({
               type="button"
               onClick={handleFindDuplicates}
               disabled={duplicatesLoading}
-              className="btn-pib-secondary shrink-0 text-xs disabled:opacity-50"
+              className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-amber-400/40 px-2 text-xs text-amber-100 transition hover:bg-amber-400/10 disabled:opacity-50"
             >
               <span className="material-symbols-outlined text-[14px]" aria-hidden="true">refresh</span>
               Retry scan
@@ -1068,7 +1078,7 @@ export function ContactsWorkspace({
       )}
 
       {/* Filters */}
-      <section className="space-y-2">
+      <section className="shrink-0">
         <SavedViewsBar
           orgScope={apiScope}
           currentFilters={{
@@ -1087,94 +1097,98 @@ export function ContactsWorkspace({
           }}
         />
       </section>
-      <section className="flex flex-wrap gap-3">
-        <input
-          placeholder="Search name, email, company…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pib-input flex-1 min-w-[240px]"
-        />
-        <select
-          value={stageFilter}
-          onChange={(e) => setStageFilter(e.target.value)}
-          className="pib-input !w-auto"
-          aria-label="Filter contacts by stage"
-        >
-          <option value="">All stages</option>
-          {STAGES.map((s) => (
-            <option key={s} value={s} className="bg-black">
-              {readableContactLabel(s)}
-            </option>
-          ))}
-        </select>
-        <select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
-          className="pib-input !w-auto"
-          aria-label="Filter contacts by type"
-        >
-          <option value="">All types</option>
-          {TYPES.map((t) => (
-            <option key={t} value={t} className="bg-black">
-              {readableContactLabel(t)}
-            </option>
-          ))}
-        </select>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as '' | ContactStatus)}
-          className="pib-input !w-auto"
-          aria-label="Filter contacts by subscription status"
-        >
-          <option value="">All statuses</option>
-          {STATUS_OPTIONS.map((s) => (
-            <option key={s.value} value={s.value} className="bg-black">
-              {s.label}
-            </option>
-          ))}
-        </select>
-        <input
-          placeholder="Tags (comma separated)…"
-          value={tagsFilter}
-          onChange={(e) => setTagsFilter(e.target.value)}
-          className="pib-input !w-auto min-w-[180px]"
-          aria-label="Filter contacts by tags"
-        />
-        <select
-          value={sourceFilter}
-          onChange={(e) => setSourceFilter(e.target.value)}
-          className="pib-input !w-auto"
-          aria-label="Filter contacts by UTM source"
-        >
-          <option value="">All sources</option>
-          {(meta.utmSources ?? []).map((src) => (
-            <option key={src} value={src} className="bg-black">
-              {src}
-            </option>
-          ))}
-        </select>
-        <select
-          value={sortByScore ? 'score' : 'recent'}
-          onChange={(e) => setSortByScore(e.target.value === 'score')}
-          className="pib-input !w-auto"
-          aria-label="Sort contacts"
-        >
-          <option value="recent" className="bg-black">Newest first</option>
-          <option value="score" className="bg-black">Highest lead score</option>
-        </select>
-        <button
-          type="button"
-          onClick={() => setHighScoreOnly((v) => !v)}
-          aria-pressed={highScoreOnly}
-          aria-label={`Toggle high score filter (lead score ${HIGH_SCORE_THRESHOLD} or higher)`}
-          className={[
-            'btn-pib-secondary text-xs',
-            highScoreOnly ? 'border-amber-400/50 bg-amber-400/10 text-amber-100' : '',
-          ].join(' ')}
-        >
-          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">trending_up</span>
-          High score (&ge;{HIGH_SCORE_THRESHOLD})
-        </button>
+      <section className="shrink-0 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/65 px-2 py-1.5">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <input
+            placeholder="Search name, email, company…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-8 min-w-[200px] flex-1 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface placeholder:text-on-surface-variant"
+          />
+          <select
+            value={stageFilter}
+            onChange={(e) => setStageFilter(e.target.value)}
+            className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface"
+            aria-label="Filter contacts by stage"
+          >
+            <option value="">All stages</option>
+            {STAGES.map((s) => (
+              <option key={s} value={s} className="bg-black">
+                {readableContactLabel(s)}
+              </option>
+            ))}
+          </select>
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface"
+            aria-label="Filter contacts by type"
+          >
+            <option value="">All types</option>
+            {TYPES.map((t) => (
+              <option key={t} value={t} className="bg-black">
+                {readableContactLabel(t)}
+              </option>
+            ))}
+          </select>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as '' | ContactStatus)}
+            className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface"
+            aria-label="Filter contacts by subscription status"
+          >
+            <option value="">All statuses</option>
+            {STATUS_OPTIONS.map((s) => (
+              <option key={s.value} value={s.value} className="bg-black">
+                {s.label}
+              </option>
+            ))}
+          </select>
+          <input
+            placeholder="Tags (comma separated)…"
+            value={tagsFilter}
+            onChange={(e) => setTagsFilter(e.target.value)}
+            className="h-8 min-w-[150px] rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface placeholder:text-on-surface-variant"
+            aria-label="Filter contacts by tags"
+          />
+          <select
+            value={sourceFilter}
+            onChange={(e) => setSourceFilter(e.target.value)}
+            className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface"
+            aria-label="Filter contacts by UTM source"
+          >
+            <option value="">All sources</option>
+            {(meta.utmSources ?? []).map((src) => (
+              <option key={src} value={src} className="bg-black">
+                {src}
+              </option>
+            ))}
+          </select>
+          <select
+            value={sortByScore ? 'score' : 'recent'}
+            onChange={(e) => setSortByScore(e.target.value === 'score')}
+            className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface"
+            aria-label="Sort contacts"
+          >
+            <option value="recent" className="bg-black">Newest first</option>
+            <option value="score" className="bg-black">Highest lead score</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => setHighScoreOnly((v) => !v)}
+            aria-pressed={highScoreOnly}
+            aria-label={`Toggle high score filter (lead score ${HIGH_SCORE_THRESHOLD} or higher)`}
+            className={[
+              'flex h-8 items-center gap-1 rounded-md px-2 text-xs transition',
+              highScoreOnly
+                ? 'bg-primary/10 text-primary'
+                : 'text-on-surface-variant hover:bg-white/[0.05] hover:text-on-surface',
+            ].join(' ')}
+          >
+            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">trending_up</span>
+            High score (&ge;{HIGH_SCORE_THRESHOLD})
+          </button>
+        </div>
       </section>
 
       {/* Bulk action bar */}
@@ -1214,27 +1228,27 @@ export function ContactsWorkspace({
           role="alertdialog"
           aria-labelledby="bulk-delete-confirm-title"
           aria-describedby="bulk-delete-confirm-description"
-          className="rounded-[var(--radius-card)] border border-red-500/30 bg-red-500/10 p-4 shadow-xl"
+          className="shrink-0 rounded-xl border border-red-400/40 bg-red-400/10 px-3 py-2"
         >
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex gap-3">
-              <span className="material-symbols-outlined mt-0.5 text-red-300" aria-hidden="true">warning</span>
-              <div>
-                <p className="eyebrow !text-[10px] text-red-200">Bulk delete confirmation</p>
-                <h2 id="bulk-delete-confirm-title" className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="flex min-w-0 gap-2">
+              <span className="material-symbols-outlined mt-0.5 text-[16px] text-red-300" aria-hidden="true">warning</span>
+              <div className="min-w-0">
+                <p className="text-[10px] font-label uppercase tracking-[0.22em] text-red-200">Bulk delete confirmation</p>
+                <h2 id="bulk-delete-confirm-title" className="text-xs font-semibold text-on-surface">
                   Delete {selectedIds.size} selected contact{selectedIds.size === 1 ? '?' : 's?'}
                 </h2>
-                <p id="bulk-delete-confirm-description" className="mt-2 text-sm text-red-100/90">
+                <p id="bulk-delete-confirm-description" className="mt-1 text-xs leading-5 text-red-100/90">
                   This cannot be undone. The selected contacts will be removed from this audience.
                 </p>
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
               <button
                 type="button"
                 aria-label={`Cancel delete ${selectedIds.size} selected contact${selectedIds.size === 1 ? '' : 's'}`}
                 onClick={() => setBulkDeleteConfirmOpen(false)}
-                className="btn-pib-secondary text-xs"
+                className="flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
                 disabled={bulkPending}
               >
                 Cancel
@@ -1242,7 +1256,7 @@ export function ContactsWorkspace({
               <button
                 type="button"
                 onClick={confirmBulkDelete}
-                className="inline-flex items-center gap-1.5 rounded-[var(--radius-card)] border border-red-400/40 bg-red-500/15 px-3 py-2 text-xs font-medium text-red-100 transition-colors hover:bg-red-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-8 items-center gap-1.5 rounded-md border border-red-400/40 bg-red-400/10 px-2 text-xs font-medium text-red-100 transition hover:bg-red-400/20 disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={bulkPending}
                 aria-label={`Confirm delete ${selectedIds.size} selected contact${selectedIds.size === 1 ? '' : 's'}`}
               >
@@ -1256,47 +1270,47 @@ export function ContactsWorkspace({
 
       {/* List */}
       {contactsError ? (
-        <section className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-5">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div className="flex gap-3">
-              <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">warning</span>
-              <div>
-                <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
-                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Contacts could not load</h2>
-                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{contactsError}</p>
+        <section className="shrink-0 rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 py-2">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="flex min-w-0 gap-2">
+              <span className="material-symbols-outlined mt-0.5 text-[16px] text-amber-100" aria-hidden="true">warning</span>
+              <div className="min-w-0">
+                <p className="text-[10px] font-label uppercase tracking-[0.22em] text-amber-100">Source health</p>
+                <h2 className="text-xs font-semibold text-on-surface">Contacts could not load</h2>
+                <p className="mt-1 text-xs leading-5 text-on-surface-variant">{contactsError}</p>
               </div>
             </div>
             <button
               type="button"
               onClick={fetchContacts}
-              className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+              className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-amber-400/40 px-2 text-xs text-amber-100 transition hover:bg-amber-400/10"
               aria-label="Retry loading contacts"
             >
-              <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">refresh</span>
               Retry
             </button>
           </div>
         </section>
       ) : loading ? (
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="pib-skeleton h-12" />
+            <div key={i} className="pib-skeleton h-9" />
           ))}
         </div>
       ) : displayedContacts.length === 0 ? (
-        <div className="bento-card p-10 text-center">
-          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]">contacts</span>
-          <h2 className="font-display text-2xl mt-4">{emptyTitle}</h2>
-          <p className="text-sm text-[var(--color-pib-text-muted)] mt-2">
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center">
+          <span className="material-symbols-outlined text-[19px] text-on-surface-variant">contacts</span>
+          <h2 className="mt-2 text-sm font-semibold text-on-surface">{emptyTitle}</h2>
+          <p className="mt-1 text-xs text-on-surface-variant">
             {emptyDescription}
           </p>
           {hasActiveFilters || ownerLens === 'unowned' ? (
             <button
               onClick={() => { setSearch(''); setStageFilter(''); setTypeFilter(''); setStatusFilter(''); setTagsFilter(''); setSourceFilter(''); setHighScoreOnly(false); setOwnerLens('all'); setFollowUpLens('all') }}
-              className="btn-pib-secondary mt-6"
+              className="mx-auto mt-3 flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
               aria-label={ownerLens === 'unowned' || followUpLens === 'stale' ? 'Show all contacts' : 'Clear filters'}
             >
-              <span className="material-symbols-outlined text-base">filter_alt_off</span>
+              <span className="material-symbols-outlined text-[14px]">filter_alt_off</span>
               {ownerLens === 'unowned' || followUpLens === 'stale' ? 'Show all contacts' : 'Clear filters'}
             </button>
           ) : (
@@ -1304,17 +1318,17 @@ export function ContactsWorkspace({
               onClick={() => canLoadContacts && setShowNew(true)}
               disabled={!canLoadContacts}
               aria-label="Add contact"
-              className="btn-pib-accent mt-6 disabled:cursor-not-allowed disabled:opacity-50"
+              className="mx-auto mt-3 flex h-8 items-center gap-1 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <span className="material-symbols-outlined text-base">add</span>
+              <span className="material-symbols-outlined text-[14px]">add</span>
               Add contact
             </button>
           )}
         </div>
       ) : (
-        <div className="pib-card-section">
+        <div className="min-w-0 overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
           {/* Table header */}
-          <div className="hidden md:grid grid-cols-18 gap-4 px-5 py-3.5 border-b border-[var(--color-pib-line)] bg-white/[0.02]">
+          <div className="hidden md:grid grid-cols-18 gap-4 px-3 py-2 border-b border-[var(--color-card-border)] bg-black/[0.08]">
             {/* Checkbox cell — 1 col */}
             <div className="col-span-1 flex items-center">
               <input
@@ -1322,23 +1336,23 @@ export function ContactsWorkspace({
                 checked={allSelected}
                 ref={el => { if (el) el.indeterminate = someSelected }}
                 onChange={toggleSelectAll}
-                className="w-4 h-4 rounded cursor-pointer accent-[var(--color-pib-accent)]"
+                className="w-4 h-4 rounded cursor-pointer accent-[var(--color-accent-v2)]"
                 aria-label="Select all contacts"
               />
             </div>
-            <p className="col-span-2 eyebrow !text-[10px]">Name</p>
-            <p className="col-span-3 eyebrow !text-[10px]">Email</p>
-            <p className="col-span-2 eyebrow !text-[10px]">Company</p>
-            <p className="col-span-1 eyebrow !text-[10px]">Type</p>
-            <p className="col-span-1 eyebrow !text-[10px]">Stage</p>
-            <p className="col-span-1 eyebrow !text-[10px]">Status</p>
-            <p className="col-span-2 eyebrow !text-[10px]">Last contacted</p>
-            <p className="col-span-2 eyebrow !text-[10px]">Tags</p>
-            <p className="col-span-1 eyebrow !text-[10px]">Lead</p>
-            <p className="col-span-1 eyebrow !text-[10px]">ICP</p>
-            <p className="col-span-1 eyebrow !text-[10px]">AI</p>
+            <p className="col-span-2 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Name</p>
+            <p className="col-span-3 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Email</p>
+            <p className="col-span-2 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Company</p>
+            <p className="col-span-1 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Type</p>
+            <p className="col-span-1 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Stage</p>
+            <p className="col-span-1 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Status</p>
+            <p className="col-span-2 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Last contacted</p>
+            <p className="col-span-2 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Tags</p>
+            <p className="col-span-1 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Lead</p>
+            <p className="col-span-1 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">ICP</p>
+            <p className="col-span-1 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">AI</p>
           </div>
-          <div className="divide-y divide-[var(--color-pib-line)]">
+          <div className="divide-y divide-[var(--color-card-border)]">
               {displayedContacts.map((c) => {
               const isSelected = selectedIds.has(c.id)
               const contactName = c.name || 'Unnamed contact'
@@ -1347,20 +1361,19 @@ export function ContactsWorkspace({
                 <div
                   key={c.id}
                   data-contact-row
-                  className="relative grid grid-cols-1 md:grid-cols-18 gap-3 md:gap-4 items-start md:items-center px-4 py-4 md:px-5 hover:bg-[var(--color-pib-surface-2)] transition-colors"
-                  style={isSelected ? { background: 'var(--color-pib-accent, #7c3aed)10' } : undefined}
+                  className={`relative grid grid-cols-1 md:grid-cols-18 gap-3 md:gap-4 items-start md:items-center px-3 py-2 transition ${isSelected ? 'bg-primary/[0.08]' : 'hover:bg-white/[0.04]'}`}
                 >
                   {/* Checkbox */}
                   <div
                     data-contact-select
-                    className="absolute right-4 top-4 z-10 flex items-center md:static md:col-span-1 md:z-auto"
+                    className="absolute right-3 top-2 z-10 flex items-center md:static md:col-span-1 md:z-auto"
                     onClick={e => e.stopPropagation()}
                   >
                     <input
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => toggleSelect(c.id)}
-                      className="h-5 w-5 rounded cursor-pointer accent-[var(--color-pib-accent)] md:h-4 md:w-4"
+                      className="h-5 w-5 rounded cursor-pointer accent-[var(--color-accent-v2)] md:h-4 md:w-4"
                       aria-label={`Select ${contactName}`}
                     />
                   </div>
@@ -1372,17 +1385,17 @@ export function ContactsWorkspace({
                       <Link
                         href={contactHref(c.id)}
                         aria-label={`Open contact ${contactName}`}
-                        className="font-medium text-[var(--color-pib-accent-hover)] transition-colors hover:text-[var(--color-pib-text)]"
+                        className="text-sm font-medium text-on-surface transition hover:text-primary"
                       >
                         {contactName}
                       </Link>
                     </div>
-                    <div className="md:col-span-3 text-sm text-[var(--color-pib-text-muted)]">
+                    <div className="md:col-span-3 text-xs text-on-surface-variant">
                       {c.email ? (
                         <a
                           href={`mailto:${c.email}`}
                           aria-label={`Email ${c.email} from contacts list`}
-                          className="inline-flex max-w-full items-center gap-1 truncate text-[var(--color-pib-accent)] transition-colors hover:text-[var(--color-pib-text)]"
+                          className="inline-flex max-w-full items-center gap-1 truncate text-on-surface-variant transition hover:text-on-surface"
                         >
                           <span className="material-symbols-outlined text-[14px]" aria-hidden="true">alternate_email</span>
                           <span className="truncate">{c.email}</span>
@@ -1394,20 +1407,20 @@ export function ContactsWorkspace({
                         <a
                           href={`tel:${c.phone.trim()}`}
                           aria-label={`Call ${c.phone.trim()} from contacts list`}
-                          className="mt-1 inline-flex max-w-full items-center gap-1 truncate text-xs text-[var(--color-pib-accent)] transition-colors hover:text-[var(--color-pib-text)]"
+                          className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-[11px] text-on-surface-variant transition hover:text-on-surface"
                         >
                           <span className="material-symbols-outlined text-[13px]" aria-hidden="true">call</span>
                           <span className="truncate">{c.phone.trim()}</span>
                         </a>
                       )}
                     </div>
-                    <div className="md:col-span-2 text-sm text-[var(--color-pib-text-muted)] truncate">
+                    <div className="md:col-span-2 text-xs text-on-surface-variant truncate">
                       {c.company ? (
                         <button
                           type="button"
                           aria-label={`Filter contacts by company ${c.company}`}
                           onClick={() => filterByCompany(c.company as string)}
-                          className="inline-flex max-w-full items-center gap-1 truncate text-left text-[var(--color-pib-accent)] transition-colors hover:text-[var(--color-pib-text)]"
+                          className="inline-flex max-w-full items-center gap-1 truncate text-left text-on-surface-variant transition hover:text-on-surface"
                         >
                           <span className="material-symbols-outlined text-[14px]" aria-hidden="true">business</span>
                           <span className="truncate">{c.company}</span>
@@ -1415,7 +1428,7 @@ export function ContactsWorkspace({
                       ) : (
                         'Company missing'
                       )}
-                      <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">
+                      <p className="mt-0.5 text-[11px] text-on-surface-variant">
                         Owner: <span>{contactOwnerLabel(c)}</span>
                       </p>
                     </div>
@@ -1428,11 +1441,11 @@ export function ContactsWorkspace({
                     <div className="md:col-span-1">
                       <StatusBadge status={deriveContactStatus(c)} />
                     </div>
-                    <div className="md:col-span-2 text-xs font-mono">
+                    <div className="md:col-span-2 text-[11px] font-mono">
                       <Link
                         href={contactHref(c.id, '?activity=note')}
                         aria-label={`Log activity for ${contactName} from last contacted column`}
-                        className="inline-flex max-w-full items-center gap-1 text-[var(--color-pib-accent)] transition-colors hover:text-[var(--color-pib-text)]"
+                        className="inline-flex max-w-full items-center gap-1 text-on-surface-variant transition hover:text-on-surface"
                       >
                         <span className="material-symbols-outlined text-[13px]" aria-hidden="true">edit_note</span>
                         <span className="truncate">{lastContactedLabel}</span>
@@ -1444,20 +1457,20 @@ export function ContactsWorkspace({
                           {c.tags.slice(0, 3).map((tag) => (
                             <span
                               key={tag}
-                              className="rounded-full border border-[var(--color-pib-line)] bg-white/[0.04] px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)] max-w-[120px] truncate"
+                              className="rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-2 py-0.5 text-[10px] text-on-surface-variant max-w-[120px] truncate"
                               title={tag}
                             >
                               {tag}
                             </span>
                           ))}
                           {c.tags.length > 3 && (
-                            <span className="text-[10px] text-[var(--color-pib-text-muted)]">
+                            <span className="text-[10px] text-on-surface-variant">
                               +{c.tags.length - 3}
                             </span>
                           )}
                         </div>
                       ) : (
-                        <span className="text-[11px] text-[var(--color-pib-text-muted)]">—</span>
+                        <span className="text-[11px] text-on-surface-variant">—</span>
                       )}
                     </div>
                     <div className="md:col-span-1">
@@ -1480,35 +1493,35 @@ export function ContactsWorkspace({
       {/* Pagination */}
       {!loading && !contactsError && meta.total > meta.limit && (
         <nav
-          className="flex flex-wrap items-center justify-between gap-3"
+          className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-1"
           aria-label="Contacts pagination"
         >
-          <p className="text-xs text-[var(--color-pib-text-muted)]">
+          <p className="text-xs text-on-surface-variant">
             {(() => {
               const start = (meta.page - 1) * meta.limit + 1
               const end = Math.min(meta.page * meta.limit, meta.total)
               return `Showing ${start}–${end} of ${meta.total}`
             })()}
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={meta.page <= 1}
-              className="btn-pib-secondary text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex h-8 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label="Previous page"
             >
               <span className="material-symbols-outlined text-[14px]" aria-hidden="true">chevron_left</span>
               Prev
             </button>
-            <span className="text-xs text-[var(--color-pib-text-muted)] font-mono">
+            <span className="text-[11px] text-on-surface-variant font-mono">
               Page {meta.page} of {Math.max(1, Math.ceil(meta.total / meta.limit))}
             </span>
             <button
               type="button"
               onClick={() => setPage((p) => p + 1)}
               disabled={meta.page >= Math.ceil(meta.total / meta.limit)}
-              className="btn-pib-secondary text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex h-8 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label="Next page"
             >
               Next
@@ -1521,21 +1534,21 @@ export function ContactsWorkspace({
       {/* Duplicates modal */}
       {showDuplicatesModal && (
         <div className="fixed inset-0 bg-black/60 flex items-start justify-center pt-16 z-50 overflow-y-auto">
-          <div className="bento-card !p-6 w-full max-w-4xl mx-4 mb-8">
+          <div className="w-full max-w-4xl mx-4 mb-8 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)] p-4">
             {mergeError && (
               <section
                 role="status"
                 aria-label="Duplicate merge failed"
-                className="mb-5 rounded-[var(--radius-card)] border border-amber-400/25 bg-amber-400/10 p-4"
+                className="mb-3 rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 py-2"
               >
-                <div className="flex gap-3">
-                  <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">
+                <div className="flex gap-2">
+                  <span className="material-symbols-outlined mt-0.5 text-[16px] text-amber-100" aria-hidden="true">
                     warning
                   </span>
-                  <div>
-                    <p className="eyebrow !text-[10px] text-amber-200">Duplicate merge failed</p>
-                    <p className="mt-1 text-sm leading-6 text-[var(--color-pib-text)]">{mergeError}</p>
-                    <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-label uppercase tracking-[0.22em] text-amber-100">Duplicate merge failed</p>
+                    <p className="mt-1 text-xs leading-5 text-on-surface">{mergeError}</p>
+                    <p className="text-[11px] leading-4 text-on-surface-variant">
                       No records were merged. Review the canonical contact and try again before the team works this list.
                     </p>
                   </div>
@@ -1559,15 +1572,15 @@ export function ContactsWorkspace({
       {showNew && (
         <div className="fixed inset-0 z-50 flex">
           <div className="flex-1 bg-black/60 backdrop-blur-sm" onClick={() => setShowNew(false)} />
-          <div className="w-full max-w-md bg-[var(--color-pib-surface)] border-l border-[var(--color-pib-line)] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-[var(--color-pib-line)] flex items-center justify-between">
-              <h2 className="font-display text-lg">New contact</h2>
+          <div className="w-full max-w-md bg-[var(--color-card)] border-l border-[var(--color-card-border)] overflow-y-auto">
+            <div className="flex h-11 items-center justify-between border-b border-[var(--color-card-border)] px-3">
+              <h2 className="text-sm font-semibold text-on-surface">New contact</h2>
               <button
                 onClick={() => setShowNew(false)}
-                className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
+                className="grid h-8 w-8 place-items-center rounded-md text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
                 aria-label="Close New contact drawer"
               >
-                <span className="material-symbols-outlined text-[20px]">close</span>
+                <span className="material-symbols-outlined text-[16px]">close</span>
               </button>
             </div>
             <ContactForm onSave={createContact} onCancel={() => setShowNew(false)} />

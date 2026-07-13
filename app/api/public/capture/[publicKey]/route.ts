@@ -46,7 +46,9 @@ import { checkFormRateLimit } from '@/lib/forms/ratelimit'
 import { checkQuota } from '@/lib/platform/quotas'
 import type { CaptureSource } from '@/lib/crm/captureSources'
 import type { Campaign } from '@/lib/campaigns/types'
-import type { Sequence } from '@/lib/sequences/types'
+import type { Sequence, SequenceEnrollment } from '@/lib/sequences/types'
+import { evaluateSequenceReentry } from '@/lib/email-marketing/automation-policy'
+import { appendConsentEvent } from '@/lib/consent-ledger/store'
 
 type Params = { params: Promise<{ publicKey: string }> }
 
@@ -210,6 +212,25 @@ export async function POST(req: NextRequest, context: Params) {
     contactId = docRef.id
   }
 
+  // Consent proof is durable and append-only. Persist it before any automatic
+  // enrollment so a capture cannot start marketing sends without ledger truth.
+  if (consentGiven) {
+    await appendConsentEvent({
+      orgId: source.orgId,
+      contactId,
+      channel: 'email',
+      topicId: 'newsletter',
+      state: 'granted',
+      legalBasis: 'consent',
+      source: 'capture',
+      sourceEventId: `public-capture:${source.id}:${contactId}`,
+      sourceId: source.id,
+      occurredAt: new Date().toISOString(),
+      proofRef: `capture_sources/${source.id}`,
+      metadata: consentMetadata,
+    })
+  }
+
   // ── 5. Bump source counter (best-effort) ───────────────────────────────────
   try {
     await sourceDoc.ref.update({
@@ -311,11 +332,16 @@ export async function POST(req: NextRequest, context: Params) {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const existing = await (adminDb.collection('sequence_enrollments') as any)
+        .where('orgId', '==', source.orgId)
         .where('sequenceId', '==', sequenceId)
         .where('contactId', '==', contactId)
-        .limit(1)
         .get()
-      if (!existing.empty) continue
+      const history = existing.docs.map((doc: { id: string; data(): Record<string, unknown> }) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as SequenceEnrollment[]
+      const reentry = evaluateSequenceReentry(history, sequence.reentryPolicy)
+      if (!reentry.allowed) continue
 
       const firstStep = sequence.steps[0]
       const delayMs = (firstStep.delayDays ?? 0) * 24 * 60 * 60 * 1000

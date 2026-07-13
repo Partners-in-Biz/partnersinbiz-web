@@ -24,6 +24,7 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "coverage/**",
+    ".hermes/tmp/**",
     "__tests__/**",
     "**/dist/**",
     "functions/lib/**",

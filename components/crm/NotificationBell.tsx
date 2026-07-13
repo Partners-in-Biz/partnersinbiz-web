@@ -116,14 +116,14 @@ export function NotificationBell({ mode = 'crm', orgId, userId }: NotificationBe
       <button
         onClick={togglePanel}
         title="Notifications"
-        className="relative flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
+        className="relative flex h-8 w-8 items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
         aria-label="Open notifications"
       >
-        <span className="material-symbols-outlined text-[20px]">
+        <span className="material-symbols-outlined text-[18px]">
           {unreadCount > 0 ? 'notifications_active' : 'notifications'}
         </span>
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center px-1 leading-none">
+          <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold leading-none text-white">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -132,17 +132,17 @@ export function NotificationBell({ mode = 'crm', orgId, userId }: NotificationBe
       {/* Dropdown panel */}
       {open && (
         <div
-          className="absolute right-0 top-full mt-2 w-80 rounded-[var(--radius-card)] border border-[var(--color-pib-line)] shadow-xl z-50 overflow-hidden"
-          style={{ background: 'var(--color-sidebar, var(--color-pib-surface))' }}
+          className="absolute right-0 top-full z-50 mt-1.5 w-80 overflow-hidden rounded-lg border border-[var(--color-card-border)]"
+          style={{ background: 'var(--color-sidebar, var(--color-surface-container))' }}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-pib-line)] bg-white/[0.02]">
-            <p className="eyebrow !text-[10px]">Notifications</p>
+          <div className="flex h-9 items-center justify-between border-b border-[var(--color-card-border)] px-3">
+            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Notifications</p>
             {notifications.length > 0 && (
               <button
                 onClick={() => void clearNotifications()}
                 disabled={markingRead}
-                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium text-[var(--color-pib-accent)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium text-[var(--color-accent-text)] transition-colors hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-[13px]" aria-hidden="true">done_all</span>
                 Clear
@@ -153,33 +153,33 @@ export function NotificationBell({ mode = 'crm', orgId, userId }: NotificationBe
           {/* List */}
           <div className="max-h-[400px] overflow-y-auto">
             {loading && notifications.length === 0 ? (
-              <div className="p-4 space-y-2">
+              <div className="space-y-2 p-3">
                 {[...Array(3)].map((_, i) => (
-                  <div key={i} className="pib-skeleton h-12" />
+                  <div key={i} className="pib-skeleton h-9" />
                 ))}
               </div>
             ) : notifications.length === 0 ? (
-              <div className="px-4 py-5">
-                <div className="flex items-start gap-3">
+              <div className="px-3 py-3">
+                <div className="flex items-start gap-2.5">
                   <span
-                    className="material-symbols-outlined rounded-lg border border-emerald-400/30 bg-emerald-400/10 p-2 text-[20px] text-emerald-300"
+                    className="material-symbols-outlined rounded-md border border-emerald-400/40 bg-emerald-400/10 p-1.5 text-[16px] text-emerald-100"
                     aria-hidden="true"
                   >
                     task_alt
                   </span>
                   <div>
-                    <p className="eyebrow !text-[10px]">Quiet inbox</p>
-                    <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">
+                    <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Quiet inbox</p>
+                    <h3 className="mt-0.5 text-sm font-semibold text-on-surface">
                       No CRM alerts need action
                     </h3>
-                    <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
+                    <p className="mt-0.5 text-xs leading-5 text-on-surface-variant">
                       You are clear on owner gaps, deal movement, form submissions, and follow-up automation alerts.
                     </p>
                   </div>
                 </div>
-                <div className="mt-4 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-3 py-2">
-                  <p className="eyebrow !text-[10px]">Monitoring</p>
-                  <p className="mt-1 text-xs font-medium text-[var(--color-pib-text)]">
+                <div className="mt-2.5 rounded-md border border-[var(--color-card-border)] bg-black/10 px-2.5 py-2">
+                  <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Monitoring</p>
+                  <p className="mt-0.5 text-xs font-medium text-on-surface">
                     Watching owner, deal, and intake signals
                   </p>
                 </div>
@@ -187,30 +187,30 @@ export function NotificationBell({ mode = 'crm', orgId, userId }: NotificationBe
             ) : (
               notifications.map(n => {
                 const rowClassName = [
-                  'flex items-start gap-3 px-4 py-3 border-b border-[var(--color-pib-line)] last:border-0 transition-colors text-left w-full',
-                  n.status === 'unread' ? 'bg-[var(--color-pib-accent-soft)]/10' : 'hover:bg-white/[0.02]',
+                  'flex items-start gap-2.5 px-3 py-2 border-b border-[var(--color-card-border)] last:border-0 transition-colors text-left w-full',
+                  n.status === 'unread' ? 'bg-primary/10' : 'hover:bg-white/[0.02]',
                   n.link ? 'cursor-pointer hover:bg-white/[0.04]' : '',
                 ].join(' ')
                 const content = (
                   <>
-                    <div className="shrink-0 w-7 h-7 rounded-full bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] flex items-center justify-center mt-0.5">
-                      <span className="material-symbols-outlined text-[13px] text-[var(--color-pib-text-muted)]">
+                    <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[var(--color-card-border)] bg-black/10">
+                      <span className="material-symbols-outlined text-[13px] text-on-surface-variant">
                         {notifIcon(n.type)}
                       </span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={['text-xs leading-snug', n.status === 'unread' ? 'font-medium text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)]'].join(' ')}>
+                    <div className="min-w-0 flex-1">
+                      <p className={['text-xs leading-snug', n.status === 'unread' ? 'font-medium text-on-surface' : 'text-on-surface-variant'].join(' ')}>
                         {n.title ?? n.body ?? n.type}
                       </p>
                       {n.body && n.title && (
-                        <p className="text-[11px] text-[var(--color-pib-text-muted)] mt-0.5 truncate">{n.body}</p>
+                        <p className="mt-0.5 truncate text-[11px] text-on-surface-variant">{n.body}</p>
                       )}
-                      <p className="text-[10px] text-[var(--color-pib-text-muted)] mt-1 font-mono">
+                      <p className="mt-0.5 font-mono text-[10px] text-on-surface-variant">
                         {fmtTimestamp(n.createdAt)}
                       </p>
                     </div>
                     {n.status === 'unread' && (
-                      <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-[var(--color-pib-accent)] mt-1.5" />
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-accent-v2)]" />
                     )}
                   </>
                 )

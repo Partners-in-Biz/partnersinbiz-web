@@ -43,7 +43,7 @@ function countKind(stages: PipelineStage[], kind: StageKind): number {
 
 function StageWarning({ message }: { message: string }) {
   return (
-    <p className="text-xs text-amber-500 flex items-center gap-1 mt-1">
+    <p className="mt-1 flex items-center gap-1 text-xs text-amber-200">
       <span className="material-symbols-outlined text-[14px]">warning</span>
       {message}
     </p>
@@ -79,7 +79,7 @@ function SortableStageRow({ stage, canRemove, onChange, onRemove }: SortableStag
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-2 px-3 py-2 bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] rounded-lg"
+      className="flex items-center gap-2 rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-1.5"
     >
       {/* Drag handle */}
       <button
@@ -87,9 +87,9 @@ function SortableStageRow({ stage, canRemove, onChange, onRemove }: SortableStag
         aria-label={`Drag to reorder stage ${stage.label}`}
         {...attributes}
         {...listeners}
-        className="cursor-grab active:cursor-grabbing text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors touch-none shrink-0"
+        className="shrink-0 cursor-grab touch-none text-on-surface-variant transition hover:text-on-surface active:cursor-grabbing"
       >
-        <span className="material-symbols-outlined text-[18px]">drag_indicator</span>
+        <span className="material-symbols-outlined text-[16px]">drag_indicator</span>
       </button>
 
       {/* Label input */}
@@ -99,7 +99,7 @@ function SortableStageRow({ stage, canRemove, onChange, onRemove }: SortableStag
         value={stage.label}
         onChange={(e) => onChange(stage.id, 'label', e.target.value)}
         placeholder="Stage name"
-        className="pib-input flex-1 min-w-0 text-sm"
+        className="h-8 min-w-0 flex-1 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface placeholder:text-on-surface-variant"
       />
 
       {/* Kind select */}
@@ -107,7 +107,7 @@ function SortableStageRow({ stage, canRemove, onChange, onRemove }: SortableStag
         aria-label={`Stage kind for ${stage.id}`}
         value={stage.kind}
         onChange={(e) => onChange(stage.id, 'kind', e.target.value as StageKind)}
-        className="pib-input text-sm cursor-pointer w-24 shrink-0"
+        className="h-8 w-24 shrink-0 cursor-pointer rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface"
       >
         {ALL_KINDS.map((k) => (
           <option key={k} value={k}>{KIND_LABELS[k]}</option>
@@ -126,7 +126,7 @@ function SortableStageRow({ stage, canRemove, onChange, onRemove }: SortableStag
           onChange={(e) => onChange(stage.id, 'probability', parseInt(e.target.value, 10))}
           className="w-20 cursor-pointer"
         />
-        <span className="text-xs text-[var(--color-pib-text-muted)] w-8 text-right tabular-nums">
+        <span className="w-8 text-right text-xs tabular-nums text-on-surface-variant">
           {stage.probability}%
         </span>
       </div>
@@ -137,7 +137,7 @@ function SortableStageRow({ stage, canRemove, onChange, onRemove }: SortableStag
         aria-label={`Stage color for ${stage.id}`}
         value={stage.color ?? '#888888'}
         onChange={(e) => onChange(stage.id, 'color', e.target.value)}
-        className="w-7 h-7 rounded cursor-pointer border border-[var(--color-pib-line)] shrink-0"
+        className="h-7 w-7 shrink-0 cursor-pointer rounded border border-[var(--color-card-border)]"
       />
 
       {/* Remove button */}
@@ -146,9 +146,9 @@ function SortableStageRow({ stage, canRemove, onChange, onRemove }: SortableStag
         aria-label={`Remove stage ${stage.label}`}
         onClick={() => onRemove(stage.id)}
         disabled={!canRemove}
-        className="cursor-pointer text-[var(--color-pib-text-muted)] hover:text-red-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+        className="shrink-0 cursor-pointer text-on-surface-variant transition hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-30"
       >
-        <span className="material-symbols-outlined text-[18px]">close</span>
+        <span className="material-symbols-outlined text-[16px]">close</span>
       </button>
     </div>
   )
@@ -230,7 +230,7 @@ export function StageEditor({ stages, onChange }: StageEditorProps) {
       <button
         type="button"
         onClick={handleAddStage}
-        className="cursor-pointer text-xs text-[var(--color-accent-v2)] hover:underline flex items-center gap-1 mt-2"
+        className="mt-2 flex h-8 cursor-pointer items-center gap-1 rounded-md px-2 text-xs text-[var(--color-accent-text)] transition hover:bg-white/[0.05]"
       >
         <span className="material-symbols-outlined text-[14px]">add</span>
         Add stage

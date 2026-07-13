@@ -3,6 +3,15 @@ import { adminDb } from '@/lib/firebase/admin'
 
 export type WorkspaceRuntimeTarget = 'vps' | 'local' | 'auto' | string
 
+export type WorkspaceDispatchFailureCode =
+  | 'workspace_context_invalid'
+  | 'workspace_root_invalid'
+  | 'workspace_directory_missing'
+  | 'workspace_directory_outside_root'
+  | 'workspace_directory_symlink'
+  | 'workspace_project_missing'
+  | 'workspace_project_archived'
+
 export type OrgWorkspaceManifest = {
   schemaVersion: 1
   workspaceId: string

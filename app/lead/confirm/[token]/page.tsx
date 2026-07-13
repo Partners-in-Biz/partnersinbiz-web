@@ -9,6 +9,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { verifyConfirmToken } from '@/lib/lead-capture/token'
 import { performAutoEnroll } from '@/lib/lead-capture/autoEnroll'
+import { appendConsentEvent } from '@/lib/consent-ledger/store'
 import {
   LEAD_CAPTURE_SOURCES,
   LEAD_CAPTURE_SUBMISSIONS,
@@ -50,6 +51,21 @@ async function processToken(token: string): Promise<ConfirmState> {
   }
 
   await submissionRef.update({ confirmedAt: FieldValue.serverTimestamp() })
+  const sourceRecord = source as unknown as Record<string, unknown>
+  await appendConsentEvent({
+    orgId: submission.orgId,
+    contactId: submission.contactId,
+    channel: 'email',
+    topicId: typeof sourceRecord.topicId === 'string' ? sourceRecord.topicId : 'marketing',
+    state: 'confirmed',
+    legalBasis: 'consent',
+    source: 'double-opt-in-confirmation',
+    sourceEventId: `capture:${submission.id}:confirmed`,
+    sourceId: source.id,
+    occurredAt: new Date().toISOString(),
+    doubleOptIn: 'confirmed',
+    proofRef: `${LEAD_CAPTURE_SUBMISSIONS}/${submission.id}`,
+  })
 
   try {
     await performAutoEnroll(submission, source)

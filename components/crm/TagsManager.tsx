@@ -155,13 +155,13 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex min-h-0 flex-col gap-2">
       {/* Create */}
-      <form onSubmit={createTag} className="bento-card !p-5 space-y-3">
-        <p className="eyebrow !text-[10px]">Create tag</p>
-        <div className="flex flex-wrap items-end gap-3">
+      <form onSubmit={createTag} className="space-y-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
+        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Create tag</p>
+        <div className="flex flex-wrap items-end gap-2">
           <div className="flex flex-col gap-1 flex-1 min-w-[12rem]">
-            <label className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+            <label className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">
               Tag name
             </label>
             <input
@@ -169,20 +169,20 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
               onChange={(e) => setNewTag(e.target.value)}
               placeholder="vip"
               maxLength={64}
-              className="pib-input"
+              className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface outline-none transition focus:border-[var(--color-accent-v2)]"
             />
           </div>
-          <button type="submit" disabled={creating} className="btn-pib-accent disabled:opacity-40">
-            <span className="material-symbols-outlined text-base" aria-hidden="true">add</span>
+          <button type="submit" disabled={creating} className="flex h-8 items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition disabled:opacity-40">
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
             {creating ? 'Adding…' : 'Add tag'}
           </button>
         </div>
         {createError && (
-          <p className="text-[11px]" style={{ color: 'var(--color-pib-danger, #FCA5A5)' }}>
+          <p className="text-[11px] text-red-300">
             {createError}
           </p>
         )}
-        <p className="text-[11px] text-[var(--color-pib-text-muted)]">
+        <p className="text-[11px] leading-4 text-on-surface-variant">
           Created tags appear here with zero usage until applied to contacts.
         </p>
       </form>
@@ -192,17 +192,17 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
         <section
           role="alertdialog"
           aria-modal="false"
-          className="rounded-lg border border-red-400/25 bg-red-500/10 p-5"
+          className="rounded-xl border border-red-400/40 bg-red-400/10 p-3"
         >
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div className="flex gap-3">
-              <span className="material-symbols-outlined mt-0.5 text-red-200" aria-hidden="true">warning</span>
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div className="flex gap-2.5">
+              <span className="material-symbols-outlined mt-0.5 text-[18px] text-red-200" aria-hidden="true">warning</span>
               <div>
-                <p className="eyebrow !text-[10px] !text-red-100/80">Tag delete</p>
-                <h2 className="mt-1 font-display text-lg text-red-50">
+                <p className="text-[10px] font-label uppercase tracking-[0.22em] text-red-100/80">Tag delete</p>
+                <h2 className="mt-1 text-sm font-semibold text-red-50">
                   Delete tag &quot;{pendingDelete.tag}&quot;?
                 </h2>
-                <p className="mt-2 max-w-2xl text-sm text-red-100/90">
+                <p className="mt-1 max-w-2xl text-xs leading-5 text-red-100/90">
                   This strips &quot;{pendingDelete.tag}&quot; from {pendingDelete.count} contact
                   {pendingDelete.count === 1 ? '' : 's'} and removes it from the tag registry. Contact
                   records themselves are kept.
@@ -213,7 +213,7 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
               <button
                 type="button"
                 onClick={() => setPendingDelete(null)}
-                className="btn-pib-secondary text-xs"
+                className="flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={deleting}
               >
                 Cancel
@@ -222,7 +222,7 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
                 type="button"
                 onClick={confirmDelete}
                 disabled={deleting}
-                className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-red-300/30 bg-red-500/20 px-3 py-2 text-xs font-semibold text-red-50 transition-colors hover:border-red-200/60 hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-red-400/40 bg-red-400/10 px-3 text-xs font-medium text-red-100 transition hover:bg-red-400/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <span className="material-symbols-outlined text-[15px]" aria-hidden="true">delete</span>
                 {deleting ? 'Deleting…' : 'Delete tag'}
@@ -236,41 +236,41 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
       {loading ? (
         <div className="space-y-2">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="pib-skeleton h-12" />
+            <div key={i} className="pib-skeleton h-10" />
           ))}
         </div>
       ) : loadError ? (
-        <section className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex gap-3">
-              <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">warning</span>
+        <section className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex gap-2.5">
+              <span className="material-symbols-outlined mt-0.5 text-[18px] text-amber-200" aria-hidden="true">warning</span>
               <div>
-                <h2 className="font-display text-xl text-[var(--color-pib-text)]">Tags could not load</h2>
-                <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{loadError}</p>
+                <h2 className="text-sm font-semibold text-on-surface">Tags could not load</h2>
+                <p className="mt-1 text-xs leading-5 text-on-surface-variant">{loadError}</p>
               </div>
             </div>
-            <button type="button" onClick={fetchTags} className="btn-pib-secondary text-sm">
-              <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
+            <button type="button" onClick={fetchTags} className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface">
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
               Retry
             </button>
           </div>
         </section>
       ) : tags.length === 0 ? (
-        <div className="bento-card p-10 text-center">
-          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]" aria-hidden="true">label</span>
-          <h2 className="font-display text-2xl mt-4">No tags yet.</h2>
-          <p className="text-sm text-[var(--color-pib-text-muted)] mt-2">
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center">
+          <span className="material-symbols-outlined text-[19px] text-primary" aria-hidden="true">label</span>
+          <h2 className="mt-2 text-sm font-semibold text-on-surface">No tags yet.</h2>
+          <p className="mt-1 text-xs text-on-surface-variant">
             Tags applied to contacts show up here, or create one above.
           </p>
         </div>
       ) : (
-        <div className="bento-card !p-0 overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+          <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-[var(--color-pib-line)] text-left">
-                <th className="px-4 py-3 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Tag</th>
-                <th className="px-4 py-3 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Usage</th>
-                <th className="px-4 py-3 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono text-right">Actions</th>
+              <tr className="border-b border-[var(--color-card-border)] text-left">
+                <th className="px-3 py-2 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Tag</th>
+                <th className="px-3 py-2 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Usage</th>
+                <th className="px-3 py-2 text-right text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -278,8 +278,8 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
                 const isEditing = editingTag === row.tag
                 const err = rowError?.tag === row.tag ? rowError.message : null
                 return (
-                  <tr key={row.tag} className="border-b border-[var(--color-pib-line)] last:border-0">
-                    <td className="px-4 py-3 align-middle">
+                  <tr key={row.tag} className="border-b border-[var(--color-card-border)] transition hover:bg-white/[0.04] last:border-0">
+                    <td className="px-3 py-2 align-middle">
                       {isEditing ? (
                         <input
                           value={editValue}
@@ -290,43 +290,43 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
                             if (e.key === 'Enter') saveRename(row.tag)
                             if (e.key === 'Escape') setEditingTag(null)
                           }}
-                          className="pib-input !py-1 text-sm"
+                          className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface outline-none transition focus:border-[var(--color-accent-v2)]"
                         />
                       ) : (
                         <span className="inline-flex items-center gap-2">
-                          <span className="text-[11px] font-mono border border-[var(--color-pib-line)] rounded-full px-2 py-0.5 text-[var(--color-pib-text)]">
+                          <span className="rounded-full border border-[var(--color-card-border)] px-2 py-0.5 text-[11px] text-on-surface">
                             {row.tag}
                           </span>
                           {row.registered && row.count === 0 && (
-                            <span className="text-[10px] text-[var(--color-pib-text-muted)]">unused</span>
+                            <span className="text-[10px] text-on-surface-variant">unused</span>
                           )}
                         </span>
                       )}
                       {err && (
-                        <p className="mt-1 text-[11px]" style={{ color: 'var(--color-pib-danger, #FCA5A5)' }}>
+                        <p className="mt-1 text-[11px] text-red-300">
                           {err}
                         </p>
                       )}
                     </td>
-                    <td className="px-4 py-3 align-middle text-[var(--color-pib-text-muted)]">
+                    <td className="px-3 py-2 align-middle text-on-surface-variant">
                       {row.count} contact{row.count === 1 ? '' : 's'}
                     </td>
-                    <td className="px-4 py-3 align-middle">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="px-3 py-2 align-middle">
+                      <div className="flex items-center justify-end gap-1">
                         {isEditing ? (
                           <>
                             <button
                               type="button"
                               onClick={() => saveRename(row.tag)}
                               disabled={savingRename}
-                              className="btn-pib-accent !py-1 !px-3 !text-xs disabled:opacity-40"
+                              className="flex h-8 items-center rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition disabled:opacity-40"
                             >
                               {savingRename ? 'Saving…' : 'Save'}
                             </button>
                             <button
                               type="button"
                               onClick={() => setEditingTag(null)}
-                              className="btn-pib-secondary !py-1 !px-3 !text-xs"
+                              className="flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
                             >
                               Cancel
                             </button>
@@ -336,7 +336,7 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
                             <button
                               type="button"
                               onClick={() => startRename(row)}
-                              className="btn-pib-secondary !py-1.5 !px-2.5 !text-xs"
+                              className="flex h-8 items-center gap-1 rounded-md px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
                               aria-label={`Rename tag ${row.tag}`}
                             >
                               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">edit</span>
@@ -345,10 +345,10 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
                             <button
                               type="button"
                               onClick={() => setPendingDelete(row)}
-                              className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-danger,#FCA5A5)] transition-colors p-1.5"
+                              className="grid h-8 w-8 place-items-center rounded-md text-on-surface-variant transition hover:bg-white/[0.05] hover:text-red-300"
                               aria-label={`Delete tag ${row.tag}`}
                             >
-                              <span className="material-symbols-outlined text-[18px]" aria-hidden="true">delete</span>
+                              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">delete</span>
                             </button>
                           </>
                         )}

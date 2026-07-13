@@ -1,9 +1,13 @@
 import { NextRequest } from 'next/server'
+import { generateKeyPairSync, sign } from 'node:crypto'
 
 type MockUser = {
   uid: string
   role: 'admin' | 'client' | 'ai'
   orgId?: string
+}
+function receiptPayload(receipt: Record<string, unknown>): string {
+  return [receipt.deviceId, receipt.runtimeTargetId, receipt.credentialVersion, receipt.mappingId, receipt.runtimeVersion, receipt.acceptedAt, receipt.toolStartedAt, receipt.outcome, receipt.runId, receipt.requestId].join('\n')
 }
 type MockHandler = (req: NextRequest, user: MockUser, ctx?: unknown) => Promise<Response>
 
@@ -14,7 +18,13 @@ const mockListMessages = jest.fn()
 const mockTouchConversation = jest.fn()
 const mockMessagesCollection = jest.fn()
 const mockCreateHermesRun = jest.fn()
+const mockResolveAuthorizedWorkingDirectory = jest.fn()
 const mockGetAgentDispatchHermesProfileLink = jest.fn()
+const mockIsConfiguredCompatibilityRuntimeTarget = jest.fn()
+const mockAuthorizeLinkedComputerDispatch = jest.fn()
+const mockEnqueueLinkedRun = jest.fn()
+const mockWaitForLinkedRunClaim = jest.fn()
+const mockCancelLinkedRun = jest.fn()
 const mockCallAgentPath = jest.fn()
 
 let mockUser: MockUser = { uid: 'client-1', role: 'client', orgId: 'pib-platform-owner' }
@@ -42,14 +52,35 @@ jest.mock('@/lib/hermes/server', () => ({
   createHermesRun: mockCreateHermesRun,
 }))
 
+jest.mock('@/lib/client-provisioning/working-directory', () => ({
+  resolveAuthorizedWorkingDirectory: mockResolveAuthorizedWorkingDirectory,
+}))
+
 jest.mock('@/lib/agents/team', () => ({
   getAgentDispatchHermesProfileLink: mockGetAgentDispatchHermesProfileLink,
+  isConfiguredCompatibilityRuntimeTarget: mockIsConfiguredCompatibilityRuntimeTarget,
   callAgentPath: mockCallAgentPath,
+}))
+
+
+jest.mock('@/lib/linked-computers/runtime-targets', () => ({
+  ...jest.requireActual('@/lib/linked-computers/runtime-targets'),
+  authorizeLinkedComputerDispatch: mockAuthorizeLinkedComputerDispatch,
+}))
+
+jest.mock('@/lib/linked-computers/run-queue-store', () => ({
+  enqueueLinkedRun: mockEnqueueLinkedRun,
+  waitForLinkedRunClaim: mockWaitForLinkedRunClaim,
+  cancelLinkedRun: mockCancelLinkedRun,
 }))
 
 beforeEach(() => {
   jest.resetModules()
   jest.clearAllMocks()
+  mockIsConfiguredCompatibilityRuntimeTarget.mockResolvedValue(true)
+  mockEnqueueLinkedRun.mockResolvedValue({ jobId: 'job-linked-1' })
+  mockWaitForLinkedRunClaim.mockResolvedValue({ status: 'running', acceptanceReceipt: { deviceId: 'device-a', machineLabel: 'Verified Mac', runtimeVersion: '2.0.0', acceptedAt: '2026-07-13T09:00:00.000Z' } })
+  mockCancelLinkedRun.mockResolvedValue(undefined)
   mockUser = { uid: 'client-1', role: 'client', orgId: 'pib-platform-owner' }
   organizationSettings = {}
   organizationMembers = [{ userId: 'client-1', role: 'member' }]
@@ -161,9 +192,16 @@ beforeEach(() => {
     },
   })
   mockCreateHermesRun.mockResolvedValue({
-    response: { ok: true },
-    data: { run_id: 'run-1' },
+    ok: true,
+    status: 202,
+    data: { runId: 'run-1' },
     runDocId: 'run-doc-1',
+    executionReceipt: { requestedRuntimeTargetId: 'legacy-profile', acceptedRuntimeTargetId: 'legacy-profile', requestedAt: '2026-07-12T20:00:00.000Z', acceptedAt: '2026-07-12T20:00:00.001Z', outcome: 'accepted' },
+  })
+  mockResolveAuthorizedWorkingDirectory.mockResolvedValue({
+    ok: true,
+    directory: '/Users/peetstander/Cowork/Partners in Biz/projects/website',
+    pathClass: 'project',
   })
 })
 
@@ -278,7 +316,41 @@ describe('unified conversation message routing', () => {
     expect(body.data.dispatchAgentId).toBe('pip')
   })
 
+  it('gives Pip project task lineage and smart creation rules for tagged project chat', async () => {
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'pib-platform-owner',
+      participantUids: ['client-1'],
+      participantAgentIds: ['pip'],
+      participants: [
+        { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
+        { kind: 'agent', agentId: 'pip', name: 'Pip' },
+      ],
+      scope: 'project',
+      scopeRefId: 'project-1',
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    const res = await POST(req({ content: 'Plan the next campaign phase' }), { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(res.status).toBe(201)
+    const prompt = mockCreateHermesRun.mock.calls[0][2].prompt as string
+    expect(prompt).toContain('[Project chat orchestration]')
+    expect(prompt).toContain('projectId: project-1')
+    expect(prompt).toContain('conversationId: conv-1')
+    expect(prompt).toContain('requestMessageId: msg-1')
+    expect(prompt).toContain('responseMessageId: assistant-1')
+    expect(prompt).toContain('project_task_proposal')
+    expect(prompt).toContain('Create a clear, bounded, low-risk single task immediately')
+  })
+
   it('enforces the selected local project folder as the Hermes run working directory', async () => {
+    mockGetAgentDispatchHermesProfileLink.mockResolvedValue({
+      orgId: 'pib-platform-owner', profile: 'pip', baseUrl: 'https://local.example', apiKey: 'local-key', enabled: true,
+      runtimeTargetId: 'local', runtimeKind: 'local', machineLabel: "Peet's Mac",
+      capabilities: { runs: true, dashboard: false, cron: false, models: false, tools: true, files: false, terminal: false },
+      permissions: { superAdmin: false, restrictedAdmin: false, client: true, allowedUserIds: [] },
+    })
     mockGetConversation.mockResolvedValue({
       id: 'conv-1',
       orgId: 'pib-platform-owner',
@@ -316,9 +388,182 @@ describe('unified conversation message routing', () => {
     const res = await POST(req(), { params: Promise.resolve({ convId: 'conv-1' }) })
 
     expect(res.status).toBe(201)
+    expect(mockResolveAuthorizedWorkingDirectory).toHaveBeenCalledWith({
+      workspaceContext: expect.objectContaining({ projectId: 'website', runtimeTarget: 'local' }),
+    })
     expect(mockCreateHermesRun.mock.calls[0][2]).toEqual(expect.objectContaining({
       working_directory: '/Users/peetstander/Cowork/Partners in Biz/projects/website',
+      metadata: expect.objectContaining({
+        requestedRuntimeTargetId: 'local',
+        runtimeTargetId: 'local',
+        runtimeKind: 'local',
+        runtimeMachineLabel: "Peet's Mac",
+        workspacePathClass: 'project',
+      }),
     }))
+    const metadata = mockCreateHermesRun.mock.calls[0][2].metadata
+    expect(metadata).not.toHaveProperty('vpsWorkingPath')
+    expect(metadata).not.toHaveProperty('localWorkingPath')
+    expect(metadata).not.toHaveProperty('workspaceContext')
+  })
+
+  it('dispatches an authorized linked target through the outbound claim queue without direct transport', async () => {
+    const keys = generateKeyPairSync('ed25519')
+    mockIsConfiguredCompatibilityRuntimeTarget.mockResolvedValue(false)
+    const binding = { kind: 'linked-computer', deviceId: 'device-a', runtimeTargetId: 'linked-device:device-a', machineLabel: 'Office Mac', mappingId: 'map-a', workspaceId: 'partners', credentialVersion: 2, runtimeVersion: '2.0.0', platform: 'macos', lastSeenAt: new Date().toISOString(), publicKey: keys.publicKey.export({ type: 'spki', format: 'pem' }).toString() }
+    mockAuthorizeLinkedComputerDispatch.mockResolvedValue(binding)
+    const acceptedAt = new Date().toISOString()
+    const receipt = { deviceId: 'device-a', runtimeTargetId: binding.runtimeTargetId, credentialVersion: 2, mappingId: 'map-a', runtimeVersion: '2.0.0', acceptedAt, toolStartedAt: acceptedAt, outcome: 'accepted', runId: 'run-1', requestId: 'assistant-1', signature: '' }
+    receipt.signature = sign(null, Buffer.from(receiptPayload(receipt)), keys.privateKey).toString('base64url')
+    mockCreateHermesRun.mockResolvedValue({ ok: true, status: 202, data: { runId: 'run-1' }, runDocId: 'run-doc-1', executionReceipt: receipt })
+    mockGetConversation.mockResolvedValue({ id: 'conv-1', orgId: 'pib-platform-owner', participantUids: ['client-1'], participantAgentIds: ['pip'], participants: [{ kind: 'user', uid: 'client-1', role: 'client' }, { kind: 'agent', agentId: 'pip', name: 'Pip' }], workspaceContext: { runtimeTarget: binding.runtimeTargetId, runtimeLabel: 'Office Mac', workspaceId: 'partners', orgId: 'pib-platform-owner', orgSlug: 'partners', orgName: 'Partners in Biz', agentDomain: 'partners', sourceOfTruth: 'vps', shareMode: 'private', ownerUserId: 'client-1', companyId: null, contactIds: [] } })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+    const response = await POST(req(), { params: Promise.resolve({ convId: 'conv-1' }) })
+    expect(response.status).toBe(201)
+    expect(mockEnqueueLinkedRun).toHaveBeenCalledWith(expect.objectContaining({ deviceId: 'device-a', mappingId: 'map-a', requestId: 'assistant-1' }))
+    expect(mockWaitForLinkedRunClaim).toHaveBeenCalledWith(expect.objectContaining({ jobId: 'job-linked-1' }))
+    expect(mockGetAgentDispatchHermesProfileLink).not.toHaveBeenCalled()
+    expect(mockCreateHermesRun).not.toHaveBeenCalled()
+  })
+
+  it('keeps an arbitrary configured operator target on the compatibility resolver', async () => {
+    mockIsConfiguredCompatibilityRuntimeTarget.mockResolvedValue(true)
+    mockGetConversation.mockResolvedValue({ id: 'conv-1', orgId: 'pib-platform-owner', participantUids: ['client-1'], participantAgentIds: ['pip'], participants: [{ kind: 'user', uid: 'client-1', role: 'client' }, { kind: 'agent', agentId: 'pip', name: 'Pip' }], workspaceContext: { runtimeTarget: 'operator-cape-town', runtimeLabel: 'Operator Cape Town', workspaceId: 'partners', orgId: 'pib-platform-owner', orgSlug: 'partners', orgName: 'Partners in Biz', agentDomain: 'partners', sourceOfTruth: 'vps', shareMode: 'private', ownerUserId: 'client-1', companyId: null, contactIds: [] } })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+    await POST(req(), { params: Promise.resolve({ convId: 'conv-1' }) })
+    expect(mockGetAgentDispatchHermesProfileLink).toHaveBeenCalledWith('pip', 'pib-platform-owner', { runtimeTarget: 'operator-cape-town' })
+    expect(mockAuthorizeLinkedComputerDispatch).not.toHaveBeenCalled()
+  })
+
+  it('returns a stable safe dispatch failure without reflecting an exception', async () => {
+    const unsafe = 'POST https://gateway.example/v1/runs apiKey=super-secret /Users/peet/private'
+    const update = jest.fn().mockResolvedValue(undefined)
+    mockMessagesCollection.mockReturnValue({ doc: () => ({ update }) })
+    mockCreateHermesRun.mockRejectedValue(new Error(unsafe))
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1', orgId: 'pib-platform-owner', participantUids: ['client-1'], participantAgentIds: ['pip'],
+      participants: [{ kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' }, { kind: 'agent', agentId: 'pip', name: 'Pip' }],
+    })
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined)
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    const res = await POST(req(), { params: Promise.resolve({ convId: 'conv-1' }) })
+    const serialized = JSON.stringify(await readJson(res)) + JSON.stringify(update.mock.calls) + JSON.stringify(errorSpy.mock.calls)
+    expect(serialized).not.toMatch(/gateway\.example|super-secret|Users\/peet/)
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceDispatchFailureCode: 'dispatch_unavailable',
+      error: 'Agent run could not be started on the gateway.',
+    }))
+    errorSpy.mockRestore()
+  })
+
+  it('does not create a Hermes request when an explicit local target is stale', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined)
+    const update = jest.fn().mockResolvedValue(undefined)
+    mockMessagesCollection.mockReturnValue({ doc: () => ({ update }) })
+    mockGetAgentDispatchHermesProfileLink.mockRejectedValue(Object.assign(
+      new Error('Selected runtime target local is stale'),
+      { code: 'runtime_target_stale', requestedTargetId: 'local' },
+    ))
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1', orgId: 'pib-platform-owner', participantUids: ['client-1'], participantAgentIds: ['pip'],
+      participants: [{ kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' }, { kind: 'agent', agentId: 'pip', name: 'Pip' }],
+      workspaceContext: { runtimeTarget: 'local' },
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    const res = await POST(req(), { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockCreateHermesRun).not.toHaveBeenCalled()
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'failed',
+      runtimeDispatchFailureCode: 'runtime_target_stale',
+      requestedRuntimeTargetId: 'local',
+    }))
+    expect(errorSpy).toHaveBeenCalledWith('[conversation-agent-dispatch-failed]', {
+      convId: 'conv-1', agentId: 'pip', code: 'runtime_target_stale', requestedRuntimeTargetId: 'local',
+    })
+    errorSpy.mockRestore()
+  })
+
+  it('does not reflect unsafe target or exception strings into logs or stored metadata', async () => {
+    const unsafe = 'https://evil.example/path\napiKey=super-secret'
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined)
+    const update = jest.fn().mockResolvedValue(undefined)
+    mockMessagesCollection.mockReturnValue({ doc: () => ({ update }) })
+    mockGetAgentDispatchHermesProfileLink.mockRejectedValue(Object.assign(new Error(unsafe), {
+      code: 'runtime_target_invalid_id', requestedTargetId: unsafe,
+    }))
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1', orgId: 'pib-platform-owner', participantUids: ['client-1'], participantAgentIds: ['pip'],
+      participants: [{ kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' }, { kind: 'agent', agentId: 'pip', name: 'Pip' }],
+      workspaceContext: { runtimeTarget: unsafe },
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    await POST(req(), { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(mockCreateHermesRun).not.toHaveBeenCalled()
+    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain('evil.example')
+    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain('super-secret')
+    expect(JSON.stringify(update.mock.calls)).not.toContain('evil.example')
+    expect(JSON.stringify(update.mock.calls)).not.toContain('super-secret')
+    expect(errorSpy).toHaveBeenCalledWith('[conversation-agent-dispatch-failed]', {
+      convId: 'conv-1', agentId: 'pip', code: 'runtime_target_invalid_id', requestedRuntimeTargetId: 'invalid',
+    })
+    errorSpy.mockRestore()
+  })
+
+  it('stores a typed safe failure when workspace directory authorization fails', async () => {
+    const update = jest.fn().mockResolvedValue(undefined)
+    mockMessagesCollection.mockReturnValue({ doc: () => ({ update }) })
+    mockResolveAuthorizedWorkingDirectory.mockResolvedValue({
+      ok: false,
+      code: 'workspace_directory_outside_root',
+    })
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'pib-platform-owner',
+      participantUids: ['client-1'],
+      participantAgentIds: ['pip'],
+      participants: [
+        { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
+        { kind: 'agent', agentId: 'pip', name: 'Pip' },
+      ],
+      workspaceContext: {
+        runtimeTarget: 'local',
+        runtimeLabel: 'Local',
+        workspaceId: 'partners',
+        localPath: '/authorized/root',
+        localWorkingPath: '/secret/path',
+        vpsPath: '/authorized/root',
+        vpsWorkingPath: '/secret/path',
+        orgId: 'pib-platform-owner',
+        orgSlug: 'partners',
+        orgName: 'Partners in Biz',
+        agentDomain: 'partners',
+        agentDomainPath: '/agents/partners',
+        localAgentDomainPath: '/agents/partners',
+        sourceOfTruth: 'vps',
+        shareMode: 'private',
+        ownerUserId: 'client-1',
+        companyId: null,
+        contactIds: [],
+      },
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    const res = await POST(req(), { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockCreateHermesRun).not.toHaveBeenCalled()
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'failed',
+      error: 'The selected workspace directory is unavailable or not authorized.',
+      workspaceDispatchFailureCode: 'workspace_directory_outside_root',
+    }))
+    expect(JSON.stringify(await readJson(res))).not.toContain('/secret/path')
   })
 
   it('includes the CEO data-first dashboard rule in every agent prompt', async () => {

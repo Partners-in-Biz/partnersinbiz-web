@@ -162,7 +162,7 @@ export function ContactForm({ onSave, onCancel, initial = {}, contextName, redir
             setForm((f) => ({ ...f, [key]: value }))
             clearFieldError(key)
           }}
-          className="pib-input"
+          className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm text-on-surface"
         />
         {fieldError && (
           <p id={errorId} role="alert" className="text-[11px]" style={{ color: 'var(--color-accent)' }}>
@@ -187,7 +187,7 @@ export function ContactForm({ onSave, onCancel, initial = {}, contextName, redir
         aria-label={contextualLabel(`Contact ${label.toLowerCase()}`)}
         value={form[key]}
         onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-        className="pib-input"
+        className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm text-on-surface"
       >
         {options.map((o) => <option key={o} value={o} className="bg-black">{o}</option>)}
       </select>
@@ -204,7 +204,7 @@ export function ContactForm({ onSave, onCancel, initial = {}, contextName, redir
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-6">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3 p-4">
       {field('Name *', 'name')}
       {field('Email *', 'email', 'email')}
       {field('Phone', 'phone')}
@@ -226,7 +226,7 @@ export function ContactForm({ onSave, onCancel, initial = {}, contextName, redir
           aria-label={contextualLabel('Contact status')}
           value={form.status}
           onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
-          className="pib-input"
+          className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm text-on-surface"
         >
           {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value} className="bg-black">{o.label}</option>)}
         </select>
@@ -243,7 +243,7 @@ export function ContactForm({ onSave, onCancel, initial = {}, contextName, redir
           value={form.tagsInput}
           onChange={(e) => setForm((f) => ({ ...f, tagsInput: e.target.value }))}
           placeholder="vip, newsletter, key-account"
-          className="pib-input"
+          className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm text-on-surface placeholder:text-on-surface-variant"
         />
         <p className="text-[11px] text-on-surface-variant">Separate tags with commas so saved views, filters, and automation segments stay accurate.</p>
       </div>
@@ -251,7 +251,7 @@ export function ContactForm({ onSave, onCancel, initial = {}, contextName, redir
         <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Agreement roles</span>
         <div className="grid gap-2 sm:grid-cols-2">
           {AGREEMENT_ROLES.map((role) => (
-            <label key={role.value} className="flex items-center gap-2 rounded-md border border-outline-variant/60 px-3 py-2 text-xs text-on-surface-variant">
+            <label key={role.value} className="flex items-center gap-2 rounded-md border border-[var(--color-card-border)] px-2.5 py-1.5 text-xs text-on-surface-variant">
               <input
                 type="checkbox"
                 aria-label={contextualLabel(`${role.label} role`)}
@@ -272,15 +272,15 @@ export function ContactForm({ onSave, onCancel, initial = {}, contextName, redir
           value={form.notes}
           onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
           rows={3}
-          className="pib-input resize-none"
+          className="w-full resize-none rounded-md border border-[var(--color-card-border)] bg-transparent p-2 text-sm text-on-surface"
         />
       </div>
       {error && <p className="text-[11px]" style={{ color: 'var(--color-accent)' }}>{error}</p>}
-      <div className="flex gap-3 pt-2">
+      <div className="flex gap-2 pt-2">
         <button
           type="submit"
           disabled={saving}
-          className="pib-btn-primary flex-1 justify-center text-sm font-label disabled:opacity-40"
+          className="flex h-9 flex-1 items-center justify-center rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition disabled:opacity-40"
           aria-label={contextualLabel('Save contact')}
         >
           {saving ? 'Saving…' : 'Save Contact'}
@@ -288,7 +288,7 @@ export function ContactForm({ onSave, onCancel, initial = {}, contextName, redir
         <button
           type="button"
           onClick={onCancel}
-          className="pib-btn-secondary flex-1 justify-center text-sm font-label"
+          className="flex h-9 flex-1 items-center justify-center rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
           aria-label={contextualLabel('Cancel contact')}
         >
           Cancel

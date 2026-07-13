@@ -87,12 +87,12 @@ function Signal({
   value: string
 }) {
   return (
-    <div className="rounded-md border border-[var(--color-pib-line)] bg-white/[0.025] p-3">
-      <div className="flex items-center gap-2">
-        <span className="material-symbols-outlined text-[17px] text-[var(--color-pib-accent)]">{icon}</span>
-        <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">{label}</p>
+    <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+      <div className="flex items-center gap-1.5">
+        <span className="material-symbols-outlined text-[14px] text-primary">{icon}</span>
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-on-surface-variant">{label}</p>
       </div>
-      <p className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">{value}</p>
+      <p className="mt-1 text-sm font-semibold text-on-surface">{value}</p>
     </div>
   )
 }
@@ -109,13 +109,13 @@ function EngagementCommandButtons({
   if (!hasActions) return null
 
   return (
-    <div className="mt-3 flex flex-wrap gap-2">
+    <div className="mt-2 flex flex-wrap gap-1.5">
       {actions?.onLogNote ? (
         <button
           type="button"
           onClick={actions.onLogNote}
           aria-label={`Log note from engagement cockpit for ${contactName}`}
-          className="btn-pib-secondary inline-flex items-center gap-1.5 text-xs"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
         >
           <span aria-hidden="true" className="material-symbols-outlined text-[14px]">edit_note</span>
           Log note
@@ -126,7 +126,7 @@ function EngagementCommandButtons({
           type="button"
           onClick={actions.onSendEmail}
           aria-label={`Send email from engagement cockpit to ${contactName}`}
-          className="btn-pib-secondary inline-flex items-center gap-1.5 text-xs"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
         >
           <span aria-hidden="true" className="material-symbols-outlined text-[14px]">outgoing_mail</span>
           Send email
@@ -137,7 +137,7 @@ function EngagementCommandButtons({
           type="button"
           onClick={actions.onScheduleMeeting}
           aria-label={`Schedule meeting from engagement cockpit with ${contactName}`}
-          className="btn-pib-secondary inline-flex items-center gap-1.5 text-xs"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
         >
           <span aria-hidden="true" className="material-symbols-outlined text-[14px]">event</span>
           Schedule meeting
@@ -181,83 +181,85 @@ export function ContactEngagementPanel({
   const contactName = actions?.contactName?.trim() || 'this contact'
 
   return (
-    <section className="bento-card !p-5 space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="eyebrow !text-[10px]">Engagement cockpit</p>
-          <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
-            Cadence, response depth, and the next relationship move in one view.
-          </p>
+    <section className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+      <div className="flex h-9 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black/[0.08] px-3">
+        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Engagement cockpit</p>
+        <p className="text-xs text-on-surface-variant">
+          <span className="text-sm font-semibold text-on-surface">{health}%</span>
+          {' '}
+          <span className="text-[10px] uppercase tracking-[0.18em]">active</span>
+        </p>
+      </div>
+
+      <div className="space-y-2 p-3">
+        <p className="text-xs leading-5 text-on-surface-variant">
+          Cadence, response depth, and the next relationship move in one view.
+        </p>
+
+        <div className="h-1 overflow-hidden rounded-full bg-white/10">
+          <div
+            className="h-full rounded-full bg-primary transition-all duration-500"
+            style={{ width: `${health}%` }}
+          />
         </div>
-        <div className="text-right">
-          <p className="font-display text-3xl leading-none text-[var(--color-pib-text)]">{health}%</p>
-          <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">active</p>
+
+        <div className="grid gap-2 sm:grid-cols-4">
+          <Signal icon="local_fire_department" label="Cadence" value={cadence} />
+          <Signal icon="mail" label="Email thread" value={emailThreadLabel(emails.length)} />
+          <Signal icon="inbox" label="Replies" value={inboundReplyLabel(inboundEmails)} />
+          <Signal icon="history" label="Timeline" value={activityTrailLabel(activities.length)} />
         </div>
-      </div>
 
-      <div className="h-2 overflow-hidden rounded-full bg-[var(--color-pib-line-strong)]">
-        <div
-          className="h-full rounded-full bg-[var(--color-pib-accent)] transition-all duration-500"
-          style={{ width: `${health}%` }}
-        />
-      </div>
-
-      <div className="grid gap-2 sm:grid-cols-4">
-        <Signal icon="local_fire_department" label="Cadence" value={cadence} />
-        <Signal icon="mail" label="Email thread" value={emailThreadLabel(emails.length)} />
-        <Signal icon="inbox" label="Replies" value={inboundReplyLabel(inboundEmails)} />
-        <Signal icon="history" label="Timeline" value={activityTrailLabel(activities.length)} />
-      </div>
-
-      {suggestion ? (
-        <div className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
-          <div className="flex items-start gap-3">
-            <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">tips_and_updates</span>
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm font-semibold text-[var(--color-pib-text)]">{suggestionActionLabel}</p>
-                <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-0.5 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">
-                  {suggestion.urgency}
-                </span>
+        {suggestion ? (
+          <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2.5 py-2.5">
+            <div className="flex items-start gap-2.5">
+              <span className="material-symbols-outlined text-[16px] text-primary">tips_and_updates</span>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold text-on-surface">{suggestionActionLabel}</p>
+                  <span className="inline-flex h-5 items-center rounded-full border border-[var(--color-card-border)] px-2 text-[10px] uppercase tracking-[0.18em] text-on-surface-variant">
+                    {suggestion.urgency}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-xs leading-5 text-on-surface-variant">{suggestionReasonLabel}</p>
+                {actions?.onStartSuggestion ? (
+                  <button
+                    type="button"
+                    onClick={() => actions.onStartSuggestion?.(suggestion)}
+                    aria-label={`Start suggested action: ${suggestionActionLabel} for ${contactName}`}
+                    className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-md border border-primary/25 bg-primary/10 px-2.5 text-xs font-medium text-primary transition hover:bg-primary/15"
+                  >
+                    <span aria-hidden="true" className="material-symbols-outlined text-[14px]">play_arrow</span>
+                    Start action
+                  </button>
+                ) : null}
+                <EngagementCommandButtons actions={actions} contactName={contactName} />
               </div>
-              <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">{suggestionReasonLabel}</p>
-              {actions?.onStartSuggestion ? (
-                <button
-                  type="button"
-                  onClick={() => actions.onStartSuggestion?.(suggestion)}
-                  aria-label={`Start suggested action: ${suggestionActionLabel} for ${contactName}`}
-                  className="btn-pib-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
-                >
-                  <span aria-hidden="true" className="material-symbols-outlined text-[14px]">play_arrow</span>
-                  Start action
-                </button>
-              ) : null}
-              <EngagementCommandButtons actions={actions} contactName={contactName} />
             </div>
           </div>
-        </div>
-      ) : (
-        <div className="rounded-md border border-[var(--color-pib-line)] bg-white/[0.025] p-4">
-          <div className="flex items-start gap-3">
-            <span
-              aria-hidden="true"
-              className="material-symbols-outlined flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-white/[0.04] text-[18px] text-[var(--color-pib-accent)]"
-            >
-              psychology
-            </span>
-            <div>
-              <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
-                Next best action missing
-              </p>
-              <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Create the next relationship signal</h3>
-              <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
-                No AI recommendation is ready yet. Log a note, send an email, or schedule the next touch so the team has enough context to keep the relationship moving.
-              </p>
+        ) : (
+          <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2.5 py-2.5">
+            <div className="flex items-start gap-2.5">
+              <span
+                aria-hidden="true"
+                className="material-symbols-outlined grid h-7 w-7 shrink-0 place-items-center rounded-md bg-primary/10 text-[16px] text-primary"
+              >
+                psychology
+              </span>
+              <div>
+                <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">
+                  Next best action missing
+                </p>
+                <h3 className="mt-0.5 text-sm font-semibold text-on-surface">Create the next relationship signal</h3>
+                <p className="mt-0.5 text-xs leading-5 text-on-surface-variant">
+                  No AI recommendation is ready yet. Log a note, send an email, or schedule the next touch so the team has enough context to keep the relationship moving.
+                </p>
+              </div>
             </div>
+            <EngagementCommandButtons actions={actions} contactName={contactName} />
           </div>
-          <EngagementCommandButtons actions={actions} contactName={contactName} />
-        </div>
-      )}
+        )}
+      </div>
     </section>
   )
 }

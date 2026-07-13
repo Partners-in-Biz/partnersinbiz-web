@@ -97,6 +97,12 @@ export interface SequenceStep {
 
 export type SequenceStatus = 'draft' | 'active' | 'paused'
 
+export interface SequenceReentryPolicy {
+  /** active_only preserves legacy behaviour; never prevents any second enrollment. */
+  mode: 'active_only' | 'never' | 'after_exit' | 'after_days'
+  afterDays?: number
+}
+
 export interface Sequence {
   id: string
   orgId: string            // required after Phase 1 backfill
@@ -110,6 +116,18 @@ export interface Sequence {
   topicId?: string
   // Sequence-level exit goals — checked before every step advance.
   goals?: SequenceGoal[]
+  // Explicit lifecycle re-entry behavior. Existing sequences default to active_only.
+  reentryPolicy?: SequenceReentryPolicy
+  // Operational guardrail for simultaneous enrollments in this sequence.
+  maxActiveEnrollments?: number
+  approvalState?: {
+    status: 'pending' | 'approved' | 'rejected' | 'revoked'
+    approvedBy?: string | null
+    approvedByType?: 'user' | 'agent' | 'system' | null
+    approvedAt?: Timestamp | null
+    approvalTaskId?: string | null
+    approvedSnapshotHash?: string | null
+  }
   createdAt: Timestamp | null
   updatedAt: Timestamp | null
   deleted?: boolean
@@ -128,6 +146,8 @@ export type ExitReason =
   | 'branch-exit'
   | 'cycle-detected'
   | 'wait-timeout'
+  | 'delivery-failed'
+  | 'sender-unavailable'
 
 /**
  * One entry on the path an enrollment has taken through a branching sequence.
@@ -170,6 +190,12 @@ export interface SequenceEnrollment {
   visitedSteps?: number[]
   // Full traversal record for the admin UI / debugging.
   path?: EnrollmentPathEntry[]
+  // Short lease used by the sequence worker to prevent overlapping cron runs
+  // from dispatching the same step more than once.
+  processingLeaseToken?: string
+  processingLeaseUntil?: Timestamp | null
+  deliveryAttempts?: number
+  lastDeliveryError?: string
 }
 
 export type EnrollmentInput = Omit<SequenceEnrollment, 'id' | 'enrolledAt'>

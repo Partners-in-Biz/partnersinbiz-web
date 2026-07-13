@@ -20,7 +20,10 @@ import {
   messagesCollection,
 } from '@/lib/conversations/conversations'
 import { createHermesRun } from '@/lib/hermes/server'
-import { getAgentDispatchHermesProfileLink } from '@/lib/agents/team'
+import { authorizeLinkedComputerDispatch, type AuthorizedLinkedComputerDispatch } from '@/lib/linked-computers/runtime-targets'
+import { cancelLinkedRun, enqueueLinkedRun, waitForLinkedRunClaim } from '@/lib/linked-computers/run-queue-store'
+import { getAgentDispatchHermesProfileLink, isConfiguredCompatibilityRuntimeTarget } from '@/lib/agents/team'
+import { safeRuntimeTargetId, type RuntimeTargetSelectionErrorCode } from '@/lib/agents/runtime-targets'
 import { cleanAgentEffort, VALID_AGENT_EFFORTS, type AgentEffort } from '@/lib/agents/runRouting'
 import { buildAttachedContextBlock, resolveContextReferences } from '@/lib/context-references/registry'
 import {
@@ -34,10 +37,13 @@ import { buildAgentSkillsPromptBlock } from '@/lib/chat/agent-skills'
 import { CEO_APPROVAL_CARD_RULE_LINES, buildCeoDataDecisionOperatingRuleLines } from '@/lib/agent/ceo-operating-rule'
 import { validateMessageModelSelection } from '@/lib/messages/model-catalog'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
+import { resolveAuthorizedWorkingDirectory } from '@/lib/client-provisioning/working-directory'
+import { classifyWorkspaceDispatchFailure } from '@/lib/workspaces/dispatch-errors'
 import type { ApiUser } from '@/lib/api/types'
 import { canAccessConversation, canReplyConversation, publicConversationMessageView } from '@/lib/conversations/access'
 import type { AgentTeamDoc } from '@/lib/agents/types'
 import type { AgentId, Conversation, ConversationAttachment, ConversationMessage } from '@/lib/conversations/types'
+import { selectActiveProjectId } from '@/lib/projects/chatProgress'
 
 export const dynamic = 'force-dynamic'
 
@@ -259,6 +265,34 @@ function buildOrchestrationContext(conversation: Conversation, dispatchAgentId: 
   ].join('\n')
 }
 
+function buildProjectChatOrchestrationContext(input: {
+  conversation: Conversation
+  dispatchAgentId: AgentId
+  requestMessageId: string
+  responseMessageId: string
+}): string {
+  if (input.dispatchAgentId !== 'pip') return ''
+  const projectId = selectActiveProjectId(input.conversation)
+  if (!projectId) return ''
+  const bundleId = `${input.conversation.id}:${input.responseMessageId}`
+  return [
+    '[Project chat orchestration]',
+    'You are Pip, the project front door. Projects/Kanban remains the source of truth.',
+    `projectId: ${projectId}`,
+    `conversationId: ${input.conversation.id}`,
+    `requestMessageId: ${input.requestMessageId}`,
+    `responseMessageId: ${input.responseMessageId}`,
+    `bundleId: ${bundleId}`,
+    'Create a clear, bounded, low-risk single task immediately when the request is unambiguous.',
+    'For ambiguous work, more than one task, sensitive capabilities, or approval-gated work, preview the chain and wait for confirmation before creating tasks.',
+    'Every created project task must include chatOrigin with the IDs above plus a zero-based sequence. Preserve assigneeAgentId, agentModel, agentEffort, dependsOn, reviewerAgentId, riskLevel, requiredCapability, approvalGateTaskId, and expectedArtifacts as applicable.',
+    'For a preview, return a structured rich part with type "project_task_proposal", projectId, bundleId, and tasks. Each task must include title, assigneeAgentId, dependencySequence, reviewerAgentId, requiredCapability, agentEffort, and modelPolicy. Include one custom UI action labelled "Create tasks" so confirmation resumes this run.',
+    'Do not manually dispatch dependent tasks from chat. The existing watcher releases and dispatches them when their dependencies and approval gates clear.',
+    '---',
+    '',
+  ].join('\n')
+}
+
 function buildDecisionDataOperatingRuleContext(): string {
   return [
     ...buildCeoDataDecisionOperatingRuleLines({ orgId: 'the current orgId' }),
@@ -411,23 +445,54 @@ export const POST = withAuth(
         status: 'pending',
       })
 
-      let agentLink: Awaited<ReturnType<typeof getAgentDispatchHermesProfileLink>>
+      let agentLink: Awaited<ReturnType<typeof getAgentDispatchHermesProfileLink>> | null = null
+      let linkedComputerBinding: AuthorizedLinkedComputerDispatch | null = null
       try {
-        agentLink = await getAgentDispatchHermesProfileLink(agentId, conversation.orgId, {
-          runtimeTarget: conversation.workspaceContext?.runtimeTarget ?? null,
-        })
-        if (!agentLink) throw new Error(`No reachable runtime target configured for agent_team/${agentId}`)
+        const requestedTarget = conversation.workspaceContext?.runtimeTarget ?? null
+        const compatibilityTarget = requestedTarget
+          ? await isConfiguredCompatibilityRuntimeTarget(agentId, requestedTarget)
+          : true
+        if (requestedTarget && safeRuntimeTargetId(requestedTarget) && !compatibilityTarget) {
+          if (!conversation.workspaceContext) throw new Error('Linked computer dispatch requires a Workspace')
+          linkedComputerBinding = await authorizeLinkedComputerDispatch({
+            userId: user.uid,
+            orgId: conversation.orgId,
+            workspaceId: conversation.workspaceContext.workspaceId,
+            runtimeTargetId: requestedTarget!,
+          })
+        }
+        if (!linkedComputerBinding) {
+          agentLink = await getAgentDispatchHermesProfileLink(agentId, conversation.orgId, { runtimeTarget: requestedTarget })
+          if (!agentLink) throw new Error(`No reachable runtime target configured for agent_team/${agentId}`)
+        }
       } catch (err) {
+        const error = 'Agent dispatch is not configured for this Preview environment.'
+        const runtimeFailure = err && typeof err === 'object'
+          ? err as { code?: unknown; requestedTargetId?: unknown }
+          : null
+        const allowedFailureCodes: RuntimeTargetSelectionErrorCode[] = [
+          'runtime_target_invalid_id', 'runtime_target_not_found', 'runtime_target_disabled',
+          'runtime_target_stale', 'runtime_target_unhealthy', 'runtime_target_missing_api_key',
+        ]
+        const runtimeDispatchFailureCode = typeof runtimeFailure?.code === 'string'
+          && allowedFailureCodes.includes(runtimeFailure.code as RuntimeTargetSelectionErrorCode)
+          ? runtimeFailure.code as RuntimeTargetSelectionErrorCode
+          : undefined
+        const requestedRuntimeTargetId = safeRuntimeTargetId(runtimeFailure?.requestedTargetId)
+          ?? safeRuntimeTargetId(conversation.workspaceContext?.runtimeTarget)
+          ?? (runtimeDispatchFailureCode === 'runtime_target_invalid_id' ? 'invalid' : undefined)
         console.error('[conversation-agent-dispatch-failed]', {
           convId,
           agentId,
-          error: err instanceof Error ? err.message : String(err),
+          code: runtimeDispatchFailureCode ?? 'agent_dispatch_unavailable',
+          ...(requestedRuntimeTargetId ? { requestedRuntimeTargetId } : {}),
         })
-        const error = 'Agent dispatch is not configured for this Preview environment.'
         await messagesCollection(convId).doc(assistantMessage.id).update({
           content: '',
           status: 'failed',
           error,
+          ...(runtimeDispatchFailureCode ? { runtimeDispatchFailureCode } : {}),
+          ...(requestedRuntimeTargetId ? { requestedRuntimeTargetId } : {}),
         })
         return apiSuccess({
           message,
@@ -440,6 +505,12 @@ export const POST = withAuth(
       const convContext = buildConversationContext(conversation, authorDisplayName)
       const workspaceContext = buildWorkspaceContext(conversation)
       const orchestrationContext = buildOrchestrationContext(conversation, agentId)
+      const projectChatOrchestrationContext = buildProjectChatOrchestrationContext({
+        conversation,
+        dispatchAgentId: agentId,
+        requestMessageId: message.id,
+        responseMessageId: assistantMessage.id,
+      })
       const agentSkillsContext = buildAgentSkillsPromptBlock(agentData, agentId)
       const decisionDataRuleContext = buildDecisionDataOperatingRuleContext()
       const attachedContext = buildAttachedContextBlock(resolvedContextRefs)
@@ -447,28 +518,106 @@ export const POST = withAuth(
       const attachmentContext = attachments.length > 0
         ? `\n\n[Attachments]\n${attachments.map((attachment) => `- ${attachment.name}: ${attachment.url} (${attachment.contentType}, ${attachment.sizeBytes} bytes)`).join('\n')}`
         : ''
-      const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + agentSkillsContext + decisionDataRuleContext + attachedContext + conversationHistory + commandContext + content + attachmentContext
-      const selectedWorkingDirectory = conversation.workspaceContext?.runtimeTarget === 'local'
-        ? conversation.workspaceContext.localWorkingPath
-        : conversation.workspaceContext?.vpsWorkingPath
+      const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + projectChatOrchestrationContext + agentSkillsContext + decisionDataRuleContext + attachedContext + conversationHistory + commandContext + content + attachmentContext
+      if (linkedComputerBinding) {
+        const projectId = conversation.workspaceContext?.projectId
+        const queued = await enqueueLinkedRun({
+          requestId: assistantMessage.id,
+          deviceId: linkedComputerBinding.deviceId,
+          runtimeTargetId: linkedComputerBinding.runtimeTargetId,
+          orgId: conversation.orgId,
+          actorUserId: user.uid,
+          workspaceId: linkedComputerBinding.workspaceId,
+          ...(projectId ? { projectId } : {}),
+          mappingId: linkedComputerBinding.mappingId,
+          relativeFolder: projectId ? `Projects/${projectId}` : '.',
+          credentialVersion: linkedComputerBinding.credentialVersion,
+          payload: { prompt: hermesInput, ...(modelSelection?.model ? { model: modelSelection.model } : {}), ...(modelSelection?.provider ? { provider: modelSelection.provider } : {}) },
+          conversationId: convId,
+          assistantMessageId: assistantMessage.id,
+          agentId,
+        })
+        try {
+          const claimed = await waitForLinkedRunClaim(queued)
+          const verifiedAcceptance = claimed.acceptanceReceipt
+          if (!verifiedAcceptance) throw new Error('linked computers: signed acceptance required')
+          const acceptedDevice = {
+            deviceId: verifiedAcceptance.deviceId,
+            runtimeTargetId: linkedComputerBinding.runtimeTargetId,
+            machineLabel: verifiedAcceptance.machineLabel,
+            runtimeVersion: verifiedAcceptance.runtimeVersion,
+            acceptedAt: verifiedAcceptance.acceptedAt,
+            outcome: 'accepted',
+          }
+          await messagesCollection(convId).doc(assistantMessage.id).update({
+            runId: queued.jobId, dispatchAgentId: agentId, acceptedDevice,
+            linkedDeviceId: linkedComputerBinding.deviceId,
+            linkedDeviceMappingId: linkedComputerBinding.mappingId,
+            linkedDeviceCredentialVersion: linkedComputerBinding.credentialVersion,
+          })
+          return apiSuccess({ message, assistantMessage: { ...assistantMessage, runId: queued.jobId, dispatchAgentId: agentId, acceptedDevice }, runId: queued.jobId, dispatchAgentId: agentId }, 201)
+        } catch {
+          const cancelled = await cancelLinkedRun(queued.jobId, 'claim timeout')
+          if (!cancelled.won) {
+            return apiSuccess({ message, assistantMessage: { ...assistantMessage, runId: queued.jobId, dispatchAgentId: agentId, status: cancelled.status }, runId: queued.jobId, dispatchAgentId: agentId }, 201)
+          }
+          const error = 'The linked computer did not accept the run before the secure dispatch timeout.'
+          await messagesCollection(convId).doc(assistantMessage.id).update({ content: '', status: 'failed', error, workspaceDispatchFailureCode: 'linked_device_claim_timeout' })
+          return apiSuccess({ message, assistantMessage: { ...assistantMessage, status: 'failed', error, workspaceDispatchFailureCode: 'linked_device_claim_timeout' } }, 201)
+        }
+      }
+      let selectedWorkingDirectory: string | undefined
+      let workspacePathClass: 'organisation' | 'project' | undefined
+      if (conversation.workspaceContext && !linkedComputerBinding) {
+        const workingDirectory = await resolveAuthorizedWorkingDirectory({
+          workspaceContext: conversation.workspaceContext,
+        })
+        if (!workingDirectory.ok) {
+          const error = 'The selected workspace directory is unavailable or not authorized.'
+          await messagesCollection(convId).doc(assistantMessage.id).update({
+            content: '',
+            status: 'failed',
+            error,
+            workspaceDispatchFailureCode: workingDirectory.code,
+          })
+          return apiSuccess({
+            message,
+            assistantMessage: {
+              ...assistantMessage,
+              status: 'failed',
+              error,
+              workspaceDispatchFailureCode: workingDirectory.code,
+            },
+          }, 201)
+        }
+        selectedWorkingDirectory = workingDirectory.directory
+        workspacePathClass = workingDirectory.pathClass
+      }
 
       // Dispatch Hermes run
-      const runResult = await createHermesRun(agentLink, user.uid, {
+      const dispatchLink = agentLink
+      if (!dispatchLink) throw new Error(`No reachable runtime target configured for agent_team/${agentId}`)
+      const runResult = await createHermesRun(dispatchLink, user.uid, {
         prompt: hermesInput,
         conversation_id: convId,
         ...(selectedWorkingDirectory ? { working_directory: selectedWorkingDirectory } : {}),
         ...(modelSelection?.model ? { model: modelSelection.model } : {}),
         ...(modelSelection?.provider ? { provider: modelSelection.provider } : {}),
         ...(agentEffort ? { reasoning_effort: agentEffort } : {}),
+        dispatch: {
+          requestedRuntimeTargetId: conversation.workspaceContext?.runtimeTarget ?? dispatchLink.runtimeTargetId,
+        },
         metadata: {
           conversationId: convId,
           messageId: assistantMessage.id,
           orgId: conversation.orgId,
-          ...(conversation.workspaceContext ? { workspaceContext: conversation.workspaceContext } : {}),
           ...(conversation.workspaceContext?.workspaceId ? { workspaceId: conversation.workspaceContext.workspaceId } : {}),
           ...(conversation.workspaceContext?.runtimeTarget ? { runtimeTarget: conversation.workspaceContext.runtimeTarget } : {}),
-          ...(conversation.workspaceContext?.vpsWorkingPath ? { vpsWorkingPath: conversation.workspaceContext.vpsWorkingPath } : {}),
-          ...(conversation.workspaceContext?.localWorkingPath ? { localWorkingPath: conversation.workspaceContext.localWorkingPath } : {}),
+          ...(conversation.workspaceContext?.runtimeTarget ? { requestedRuntimeTargetId: conversation.workspaceContext.runtimeTarget } : {}),
+          ...(dispatchLink.runtimeTargetId ? { runtimeTargetId: dispatchLink.runtimeTargetId } : {}),
+          ...(dispatchLink.runtimeKind ? { runtimeKind: dispatchLink.runtimeKind } : {}),
+          ...(dispatchLink.machineLabel ? { runtimeMachineLabel: dispatchLink.machineLabel } : {}),
+          ...(workspacePathClass ? { workspacePathClass } : {}),
           ...(conversation.workspaceContext?.projectId ? { projectId: conversation.workspaceContext.projectId } : {}),
           dispatchAgentId: agentId,
           ...(modelSelection?.model ? { model: modelSelection.model } : {}),
@@ -481,16 +630,17 @@ export const POST = withAuth(
           ...(slashCommand ? { slashCommand } : {}),
         },
       }).catch(async (err) => {
+        const safeFailure = classifyWorkspaceDispatchFailure(err)
         console.error('[conversation-agent-dispatch-failed]', {
           convId,
           agentId,
-          error: err instanceof Error ? err.message : String(err),
+          code: safeFailure.code,
         })
-        const error = 'Agent run could not be started on the gateway.'
         await messagesCollection(convId).doc(assistantMessage.id).update({
           content: '',
           status: 'failed',
-          error,
+          error: safeFailure.message,
+          workspaceDispatchFailureCode: safeFailure.code,
         })
         return null
       })
@@ -507,7 +657,7 @@ export const POST = withAuth(
       }
 
       // Store runId on the pending message if run started
-      if (runResult.response.ok) {
+      if (runResult.ok) {
         const payload =
           runResult.data && typeof runResult.data === 'object'
             ? (runResult.data as Record<string, unknown>)

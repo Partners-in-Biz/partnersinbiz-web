@@ -231,6 +231,8 @@ export interface EmailDocument {
   preheader: string
   blocks: Block[]
   theme: ThemeConfig
+  /** Required fallbacks for recipient fields that can be empty at send time. */
+  mergeTagFallbacks?: Record<string, string>
 }
 
 export const DEFAULT_THEME: ThemeConfig = {

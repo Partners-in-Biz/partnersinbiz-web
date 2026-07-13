@@ -30,6 +30,7 @@ import {
   normalizeResourceRelationshipLinks,
 } from '@/lib/client-documents/linkedValidation'
 import { touchPortalDashboardSummary } from '@/lib/portal/dashboard-summary'
+import { sanitizeAudienceDefinition } from '@/lib/email-marketing/audience-snapshot'
 
 export const dynamic = 'force-dynamic'
 
@@ -197,6 +198,15 @@ async function createEmailCampaign(
     }
   }
 
+  let audienceDefinition = null
+  if (body.audienceDefinition != null) {
+    try {
+      audienceDefinition = sanitizeAudienceDefinition(body.audienceDefinition)
+    } catch (error) {
+      return apiError(error instanceof Error ? error.message : 'Invalid audience definition', 400)
+    }
+  }
+
   const docRef = await adminDb.collection('campaigns').add({
     orgId,
     name,
@@ -211,12 +221,15 @@ async function createEmailCampaign(
       : [],
     tagId: typeof body.tagId === 'string' ? body.tagId : '',
     status: 'draft',
+    senderPolicyId: typeof body.senderPolicyId === 'string' ? body.senderPolicyId.trim() : '',
+    replyPolicyId: typeof body.replyPolicyId === 'string' ? body.replyPolicyId.trim() : '',
     fromDomainId: body.fromDomainId ?? '',
     fromName: body.fromName ?? '',
     fromLocal: body.fromLocal ?? 'campaigns',
     replyTo: body.replyTo ?? '',
     segmentId: body.segmentId ?? '',
     contactIds: Array.isArray(body.contactIds) ? body.contactIds : [],
+    audienceDefinition,
     ...relationships.value,
     sequenceId,
     triggers: {
@@ -229,6 +242,12 @@ async function createEmailCampaign(
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
     createdBy: user.uid,
+    createdByType: user.role === 'ai' ? 'agent' : 'user',
+    approvalState: {
+      status: user.role === 'ai' ? 'pending' : 'not_required',
+      approvedBy: null,
+      approvedAt: null,
+    },
     deleted: false,
   })
   await touchPortalDashboardSummary({

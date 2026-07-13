@@ -74,7 +74,7 @@ export function DealDetailDrawer({
   companyHrefForDeal,
 }: DealDetailDrawerProps) {
   const stage = stages.find(s => s.id === deal.stageId)
-  const stageColor = stage?.color ?? (stage?.kind === 'won' ? '#4ade80' : stage?.kind === 'lost' ? '#ef4444' : '#60a5fa')
+  const stageColor = stage?.color ?? (stage?.kind === 'won' ? 'var(--color-accent-v2)' : stage?.kind === 'lost' ? 'var(--color-error)' : 'var(--color-primary)')
   const showLostReason = isLostStage(stage)
   const dealLabel = deal.title?.trim() || 'Deal name missing'
   const readableContact = contactLabel?.trim() || 'Decision-maker name missing'
@@ -103,7 +103,7 @@ export function DealDetailDrawer({
   const dealValueLabel = hasDealValue ? fmtValue(deal.value, deal.currency) : 'No value captured'
   const weightedValue = hasDealValue ? deal.value * (probability / 100) : null
 
-  const labelCls = 'block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1'
+  const labelCls = 'block text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant mb-1'
 
   // Convert to quote state
   const [convertingQuote, setConvertingQuote] = useState(false)
@@ -145,16 +145,12 @@ export function DealDetailDrawer({
 
       {/* Panel */}
       <div
-        className="relative z-50 h-full w-full max-w-lg flex flex-col overflow-hidden"
-        style={{ background: 'var(--color-pib-surface)', borderLeft: '1px solid var(--color-pib-line)' }}
+        className="relative z-50 h-full w-full max-w-lg flex flex-col overflow-hidden border-l border-[var(--color-card-border)] bg-[var(--color-card)]"
       >
         {/* Header */}
-        <div
-          className="flex items-center justify-between px-5 py-4 border-b shrink-0"
-          style={{ borderColor: 'var(--color-pib-line)' }}
-        >
+        <div className="flex min-h-11 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-card-border)] px-4 py-2">
           <div className="flex items-center gap-3 min-w-0">
-            <p className="text-sm font-semibold text-[var(--color-pib-text)] truncate">{dealLabel}</p>
+            <p className="text-sm font-semibold text-on-surface truncate">{dealLabel}</p>
             {stage && (
               <span
                 className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
@@ -170,7 +166,7 @@ export function DealDetailDrawer({
               type="button"
               onClick={handleConvertToQuote}
               disabled={convertingQuote}
-              className="cursor-pointer text-[10px] font-label uppercase tracking-wide px-2 py-1 rounded border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:border-[var(--color-pib-text-muted)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="cursor-pointer inline-flex h-7 items-center rounded-md border border-[var(--color-card-border)] px-2 text-[10px] font-label uppercase tracking-wide text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface disabled:opacity-50 disabled:cursor-not-allowed"
               title="Convert to quote"
             >
               {convertingQuote ? 'Creating…' : 'Quote'}
@@ -179,31 +175,28 @@ export function DealDetailDrawer({
               <button
                 type="button"
                 onClick={onEdit}
-                className="cursor-pointer text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
+                className="cursor-pointer flex h-7 w-7 items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
                 title="Edit deal"
               >
-                <span className="material-symbols-outlined text-[18px]">edit</span>
+                <span className="material-symbols-outlined text-[16px]">edit</span>
               </button>
             )}
             <button
               type="button"
               onClick={onClose}
-              className="cursor-pointer text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
+              className="cursor-pointer flex h-7 w-7 items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
             >
-              <span className="material-symbols-outlined text-[20px]">close</span>
+              <span className="material-symbols-outlined text-[16px]">close</span>
             </button>
           </div>
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
+        <div className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
           {/* Quote conversion feedback */}
           {quoteResult && (
-            <div
-              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
-              style={{ background: '#4ade8020', border: '1px solid #4ade8040', color: '#4ade80' }}
-            >
-              <span className="material-symbols-outlined text-[16px]">check_circle</span>
+            <div className="flex items-center gap-2 rounded-md border border-emerald-400/40 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-100">
+              <span className="material-symbols-outlined text-[15px]">check_circle</span>
               <span>
                 Quote {quoteResult.quoteNumber} created — view in{' '}
                 <a
@@ -217,16 +210,13 @@ export function DealDetailDrawer({
             </div>
           )}
           {quoteError && (
-            <div
-              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
-              style={{ background: '#f8717120', border: '1px solid #f8717140', color: '#f87171' }}
-            >
-              <span className="material-symbols-outlined text-[16px]">error</span>
+            <div className="flex items-center gap-2 rounded-md border border-red-400/40 bg-red-400/10 px-3 py-2 text-xs text-red-100">
+              <span className="material-symbols-outlined text-[15px]">error</span>
               <span>{quoteError}</span>
             </div>
           )}
           {/* Value + weighted value */}
-          <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex flex-wrap items-center gap-2">
             <div>
               <p className={labelCls}>Deal value</p>
               {onEdit ? (
@@ -234,22 +224,19 @@ export function DealDetailDrawer({
                   type="button"
                   aria-label={`${hasDealValue ? 'Edit' : 'Add'} value for ${dealLabel} from deal detail`}
                   onClick={onEdit}
-                  className="text-left text-xl font-headline font-bold text-[var(--color-pib-text)] transition-colors hover:text-[var(--color-pib-accent)]"
+                  className="text-left text-lg font-semibold text-on-surface transition-colors hover:text-[var(--color-accent-text)]"
                 >
                   {dealValueLabel}
                 </button>
               ) : (
-                <p className="text-xl font-headline font-bold text-[var(--color-pib-text)]">
+                <p className="text-lg font-semibold text-on-surface">
                   {dealValueLabel}
                 </p>
               )}
             </div>
-            <div
-              className="px-3 py-2 rounded-lg"
-              style={{ background: 'var(--color-surface-container)' }}
-            >
+            <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
               <p className={labelCls}>Weighted</p>
-              <p className="text-sm font-mono font-semibold text-[var(--color-pib-text)]">
+              <p className="text-sm font-mono font-semibold text-on-surface">
                 {weightedValue === null ? 'Value needed' : fmtValue(weightedValue, deal.currency)}
               </p>
             </div>
@@ -260,22 +247,13 @@ export function DealDetailDrawer({
             <p className={labelCls}>Probability</p>
             <div className="flex items-center gap-3">
               {/* Progress bar */}
-              <div className="flex-1 h-2 rounded-full bg-white/10 overflow-hidden">
+              <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
                 <div
-                  className="h-full rounded-full transition-all"
-                  style={{
-                    width: `${probability}%`,
-                    background: probability >= 70 ? '#4ade80' : probability >= 40 ? '#facc15' : '#f87171',
-                  }}
+                  className={`h-full rounded-full transition-all ${probability >= 70 ? 'bg-emerald-400' : probability >= 40 ? 'bg-amber-300' : 'bg-red-400'}`}
+                  style={{ width: `${probability}%` }}
                 />
               </div>
-              <span
-                className="text-sm font-mono font-semibold px-2 py-0.5 rounded-full"
-                style={{
-                  background: probability >= 70 ? '#4ade8020' : probability >= 40 ? '#facc1520' : '#f8717120',
-                  color: probability >= 70 ? '#4ade80' : probability >= 40 ? '#facc15' : '#f87171',
-                }}
-              >
+              <span className={`rounded-full px-2 py-0.5 font-mono text-xs font-semibold ${probability >= 70 ? 'bg-emerald-400/10 text-emerald-300' : probability >= 40 ? 'bg-amber-300/10 text-amber-200' : 'bg-red-400/10 text-red-300'}`}>
                 {probability}%
               </span>
             </div>
@@ -285,7 +263,7 @@ export function DealDetailDrawer({
           {showLostReason && deal.lostReason && (
             <div>
               <p className={labelCls}>Lost reason</p>
-              <p className="text-sm text-[var(--color-pib-text-muted)] whitespace-pre-wrap rounded-lg px-3 py-2 bg-white/[0.03] border border-[var(--color-pib-line)]">
+              <p className="text-xs leading-5 text-on-surface-variant whitespace-pre-wrap rounded-md px-3 py-2 bg-white/[0.03] border border-[var(--color-card-border)]">
                 {deal.lostReason}
               </p>
             </div>
@@ -295,48 +273,48 @@ export function DealDetailDrawer({
           {deal.notes && (
             <div>
               <p className={labelCls}>Notes</p>
-              <p className="text-sm text-[var(--color-pib-text)] whitespace-pre-wrap">{deal.notes}</p>
+              <p className="text-xs leading-5 text-on-surface whitespace-pre-wrap">{deal.notes}</p>
             </div>
           )}
 
           <div
-            className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-4"
+            className="rounded-md border border-[var(--color-card-border)] bg-white/[0.02] p-3"
             aria-label="Relationship context"
           >
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className={labelCls}>Relationship context</p>
-                <p className="text-sm text-[var(--color-pib-text-muted)]">
+                <p className="text-xs leading-5 text-on-surface-variant">
                   People, account, owner, and timing signals for this opportunity.
                 </p>
               </div>
               <span
-                className="material-symbols-outlined text-[18px]"
+                className="material-symbols-outlined text-[16px]"
                 style={{ color: stageColor }}
                 aria-hidden="true"
               >
                 hub
               </span>
             </div>
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="rounded-md bg-black/10 px-3 py-2">
+            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
                 <p className={labelCls}>Contact</p>
                 {deal.contactId ? (
                   <a
                     href={contactHref}
-                    className="text-sm font-semibold text-[var(--color-pib-accent)] hover:underline"
+                    className="text-xs font-semibold text-[var(--color-accent-text)] hover:underline"
                   >
                     {readableContact}
                   </a>
                 ) : (
                   <div className="space-y-2">
-                    <p className="text-sm text-[var(--color-pib-text-muted)]">No decision-maker linked</p>
+                    <p className="text-xs text-on-surface-variant">No decision-maker linked</p>
                     {onEdit ? (
                       <button
                         type="button"
                         aria-label={`Link decision-maker for ${dealLabel}`}
                         onClick={onEdit}
-                        className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                        className="inline-flex h-7 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 text-[11px] font-medium text-[var(--color-accent-text)] transition-colors hover:bg-white/[0.05] hover:text-on-surface"
                       >
                         <span className="material-symbols-outlined text-[13px]" aria-hidden="true">person_add</span>
                         Link decision-maker
@@ -345,24 +323,24 @@ export function DealDetailDrawer({
                   </div>
                 )}
               </div>
-              <div className="rounded-md bg-black/10 px-3 py-2">
+              <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
                 <p className={labelCls}>Company</p>
                 {deal.companyId ? (
                   <a
                     href={companyHref}
-                    className="text-sm font-semibold text-[var(--color-pib-accent)] hover:underline"
+                    className="text-xs font-semibold text-[var(--color-accent-text)] hover:underline"
                   >
                     {readableCompany}
                   </a>
                 ) : (
                   <div className="space-y-2">
-                    <p className="text-sm text-[var(--color-pib-text-muted)]">{readableCompany || 'No company linked'}</p>
+                    <p className="text-xs text-on-surface-variant">{readableCompany || 'No company linked'}</p>
                     {onEdit ? (
                       <button
                         type="button"
                         aria-label={`Link company for ${dealLabel}`}
                         onClick={onEdit}
-                        className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+                        className="inline-flex h-7 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 text-[11px] font-medium text-[var(--color-accent-text)] transition-colors hover:bg-white/[0.05] hover:text-on-surface"
                       >
                         <span className="material-symbols-outlined text-[13px]" aria-hidden="true">add_business</span>
                         Link company
@@ -371,15 +349,15 @@ export function DealDetailDrawer({
                   </div>
                 )}
               </div>
-              <div className="rounded-md bg-black/10 px-3 py-2">
+              <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
                 <p className={labelCls}>Owner</p>
                 {needsOwner ? (
                   <div className="space-y-2">
-                    <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                    <p className="text-[10px] font-label uppercase tracking-[0.18em] text-on-surface-variant">
                       Deal owner missing
                     </p>
-                    <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Assign forecast ownership</h3>
-                    <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                    <h3 className="text-xs font-semibold text-on-surface">Assign forecast ownership</h3>
+                    <p className="text-xs leading-5 text-on-surface-variant">
                       No team member owns this opportunity. Assign an owner so follow-up, forecast review, and handoff accountability are visible before the deal stalls.
                     </p>
                     {onEdit ? (
@@ -387,26 +365,26 @@ export function DealDetailDrawer({
                         type="button"
                         aria-label={`Assign owner for ${dealLabel}`}
                         onClick={onEdit}
-                        className="btn-pib-secondary inline-flex items-center gap-1.5 text-xs"
+                        className="inline-flex h-7 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-[11px] text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
                       >
-                        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">person_add</span>
+                        <span className="material-symbols-outlined text-[13px]" aria-hidden="true">person_add</span>
                         Assign owner
                       </button>
                     ) : null}
                   </div>
                 ) : (
-                  <p className="text-sm font-semibold text-[var(--color-pib-text)]">{ownerLabel}</p>
+                  <p className="text-xs font-semibold text-on-surface">{ownerLabel}</p>
                 )}
               </div>
-              <div className="rounded-md bg-black/10 px-3 py-2">
+              <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
                 <p className={labelCls}>Close date</p>
                 {needsCloseDate ? (
                   <div className="space-y-2">
-                    <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                    <p className="text-[10px] font-label uppercase tracking-[0.18em] text-on-surface-variant">
                       {closeDateLabel === 'No close date' ? 'Close date missing' : closeDateLabel}
                     </p>
-                    <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{closeDateActionHeading}</h3>
-                    <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                    <h3 className="text-xs font-semibold text-on-surface">{closeDateActionHeading}</h3>
+                    <p className="text-xs leading-5 text-on-surface-variant">
                       {closeDateActionDescription}
                     </p>
                     {onEdit ? (
@@ -414,15 +392,15 @@ export function DealDetailDrawer({
                         type="button"
                         aria-label={`${closeDateActionLabel} for ${dealLabel}`}
                         onClick={onEdit}
-                        className="btn-pib-secondary inline-flex items-center gap-1.5 text-xs"
+                        className="inline-flex h-7 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-[11px] text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
                       >
-                        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">event_upcoming</span>
+                        <span className="material-symbols-outlined text-[13px]" aria-hidden="true">event_upcoming</span>
                         {closeDateActionLabel}
                       </button>
                     ) : null}
                   </div>
                 ) : (
-                  <p className="text-sm font-semibold text-[var(--color-pib-text)]">{closeDateLabel}</p>
+                  <p className="text-xs font-semibold text-on-surface">{closeDateLabel}</p>
                 )}
               </div>
             </div>

@@ -54,13 +54,13 @@ function productSearchText(product: Product): string {
 
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
   return (
-    <div className="pib-stat-card">
+    <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
       <div className="flex items-start justify-between gap-3">
         <p className="eyebrow !text-[10px]">{label}</p>
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
+        <span className="material-symbols-outlined text-[18px] text-on-surface-variant">{icon}</span>
       </div>
-      <p className="mt-3 font-display text-3xl leading-none text-[var(--color-pib-text)]">{value}</p>
-      <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">{sub}</p>
+      <p className="mt-3 font-display text-lg leading-none text-on-surface">{value}</p>
+      <p className="mt-3 text-xs text-on-surface-variant">{sub}</p>
     </div>
   )
 }
@@ -230,19 +230,19 @@ export default function ProductsPage() {
   ]
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-3">
       <header className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <p className="eyebrow">CRM settings</p>
-          <h1 className="pib-page-title mt-2">Product catalog</h1>
-          <p className="pib-page-sub max-w-2xl">
+          <h1 className="text-base font-semibold text-on-surface mt-2">Product catalog</h1>
+          <p className="text-xs leading-5 text-on-surface-variant max-w-2xl">
             Manage the services and products that power deal line items, quote pricing, and revenue forecasting.
           </p>
         </div>
         <button
           type="button"
           onClick={handleOpenCreate}
-          className="cursor-pointer btn-pib-accent flex items-center gap-1.5 text-sm shrink-0"
+          className="cursor-pointer h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 flex items-center gap-1.5 shrink-0"
         >
           <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
           New product
@@ -262,22 +262,22 @@ export default function ProductsPage() {
             <section
               role="region"
               aria-label="Catalog readiness review"
-              className="rounded-[var(--radius-card)] border border-amber-400/25 bg-amber-400/[0.08] p-5 shadow-[0_18px_40px_rgba(146,64,14,0.14)]"
+              className="rounded-[var(--radius-card)] border border-amber-400/25 bg-amber-400/[0.08] p-5"
             >
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="flex gap-3">
                   <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">rule_settings</span>
                   <div>
                     <p className="eyebrow !text-[10px] text-amber-200">Catalog readiness</p>
-                    <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Quote readiness needs cleanup</h2>
-                    <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                    <h2 className="mt-1 font-display text-xl text-on-surface">Quote readiness needs cleanup</h2>
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-on-surface-variant">
                       Sales teams need pricing, units, descriptions, and currencies before this catalog can support reliable quotes and forecasts.
                     </p>
                     <div className="mt-4 flex flex-wrap items-center gap-2">
                       <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1 text-xs font-semibold text-amber-50">
                         {productDisplayName(firstIncompleteProduct)}
                       </span>
-                      <span className="text-xs text-[var(--color-pib-text-muted)]">
+                      <span className="text-xs text-on-surface-variant">
                         Missing {firstIncompleteHealth.gaps.join(', ')}
                       </span>
                     </div>
@@ -287,7 +287,7 @@ export default function ProductsPage() {
                   type="button"
                   onClick={() => handleOpenEdit(firstIncompleteProduct)}
                   aria-label={`Fix catalog setup for ${productDisplayName(firstIncompleteProduct)}`}
-                  className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+                  className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex shrink-0 items-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-base" aria-hidden="true">edit_note</span>
                   Fix catalog setup
@@ -302,14 +302,14 @@ export default function ProductsPage() {
                 <input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  className="pib-input min-w-[220px] flex-1"
+                  className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface min-w-[220px] flex-1"
                   placeholder="Search product, unit, currency..."
                 />
                 <select
                   aria-label="Filter products by currency"
                   value={currencyFilter}
                   onChange={(event) => setCurrencyFilter(event.target.value)}
-                  className="pib-input !w-auto"
+                  className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface !w-auto"
                 >
                   <option value="">All currencies</option>
                   {currencyCodes.map((currency) => (
@@ -320,7 +320,7 @@ export default function ProductsPage() {
                   aria-label="Filter products by health"
                   value={healthFilter}
                   onChange={(event) => setHealthFilter(event.target.value as 'all' | 'ready' | 'needs-work')}
-                  className="pib-input !w-auto"
+                  className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface !w-auto"
                 >
                   <option value="all">All health</option>
                   <option value="ready">Ready</option>
@@ -332,7 +332,7 @@ export default function ProductsPage() {
                 <button
                   type="button"
                   onClick={() => { setSearch(''); setCurrencyFilter(''); setHealthFilter('all') }}
-                  className="btn-pib-secondary text-xs inline-flex items-center gap-1.5"
+                  className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface text-xs inline-flex items-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-[14px]" aria-hidden="true">filter_alt_off</span>
                   Clear filters
@@ -340,25 +340,25 @@ export default function ProductsPage() {
               ) : null}
             </div>
 
-            <div className="bento-card !p-5 space-y-4">
+            <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-3 space-y-4">
               <div>
                 <p className="eyebrow !text-[10px]">Catalog focus</p>
-                <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
+                <p className="mt-2 text-sm text-on-surface-variant">
                   Quote-ready products need a price, unit, description, and currency. Gaps here become manual work in deals.
                 </p>
               </div>
               <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-                  <p className="font-display text-xl text-[var(--color-pib-text)]">{zeroPriceCount}</p>
-                  <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">No price</p>
+                <div className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.03] p-3">
+                  <p className="font-display text-xl text-on-surface">{zeroPriceCount}</p>
+                  <p className="mt-1 text-[10px] uppercase tracking-widest text-on-surface-variant">No price</p>
                 </div>
-                <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-                  <p className="font-display text-xl text-[var(--color-pib-text)]">{missingUnitCount}</p>
-                  <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">No unit</p>
+                <div className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.03] p-3">
+                  <p className="font-display text-xl text-on-surface">{missingUnitCount}</p>
+                  <p className="mt-1 text-[10px] uppercase tracking-widest text-on-surface-variant">No unit</p>
                 </div>
-                <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
-                  <p className="font-display text-xl text-[var(--color-pib-text)]">{missingDescriptionCount}</p>
-                  <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">No copy</p>
+                <div className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.03] p-3">
+                  <p className="font-display text-xl text-on-surface">{missingDescriptionCount}</p>
+                  <p className="mt-1 text-[10px] uppercase tracking-widest text-on-surface-variant">No copy</p>
                 </div>
               </div>
             </div>
@@ -377,16 +377,16 @@ export default function ProductsPage() {
               <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">warning</span>
               <div>
                 <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
-                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+                <h2 className="mt-1 font-display text-xl text-on-surface">
                   Product catalog could not load
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{fetchError}</p>
+                <p className="mt-2 text-sm leading-6 text-on-surface-variant">{fetchError}</p>
               </div>
             </div>
             <button
               type="button"
               onClick={loadProducts}
-              className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+              className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex shrink-0 items-center gap-1.5"
               aria-label="Retry loading products"
             >
               <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
@@ -395,54 +395,54 @@ export default function ProductsPage() {
           </div>
         </section>
       ) : products.length === 0 ? (
-        <div className="bento-card !p-0 overflow-hidden">
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-0 overflow-hidden">
           <div className="grid gap-0 lg:grid-cols-[1.1fr_1.4fr]">
-            <div className="border-b border-[var(--color-pib-line)] p-6 lg:border-b-0 lg:border-r">
+            <div className="border-b border-[var(--color-card-border)] p-4 lg:border-b-0 lg:border-r">
               <span className="material-symbols-outlined mb-4 block text-[34px] text-[var(--color-accent-v2)]">inventory_2</span>
               <p className="eyebrow !text-[10px]">Catalog setup</p>
-              <h2 className="mt-2 font-display text-2xl leading-tight text-[var(--color-pib-text)]">
+              <h2 className="mt-2 font-display text-2xl leading-tight text-on-surface">
                 Build a quote-ready catalog
               </h2>
-              <p className="mt-3 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+              <p className="mt-3 text-sm leading-6 text-on-surface-variant">
                 Start with the products and services your team sells most often. A clean catalog turns deal line items,
                 quote pricing, and revenue forecasts into repeatable company data instead of manual admin work.
               </p>
               <button
                 type="button"
                 onClick={handleOpenCreate}
-                className="btn-pib-accent mt-5 inline-flex cursor-pointer items-center gap-1.5 text-sm"
+                className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 mt-5 inline-flex cursor-pointer items-center gap-1.5"
               >
                 <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
                 Create the first catalog item
               </button>
             </div>
 
-            <div className="grid gap-px bg-[var(--color-pib-line)] sm:grid-cols-2">
+            <div className="grid gap-px bg-[var(--color-card-border)] sm:grid-cols-2">
               {catalogBlueprint.map((item) => (
-                <div key={item.label} className="bg-[var(--color-pib-surface)] p-5">
+                <div key={item.label} className="bg-[var(--color-card)] p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-widest text-[var(--color-pib-text-muted)]">{item.label}</p>
-                      <p className="mt-2 font-display text-xl leading-none text-[var(--color-pib-text)]">{item.value}</p>
+                      <p className="text-xs font-semibold uppercase tracking-widest text-on-surface-variant">{item.label}</p>
+                      <p className="mt-2 font-display text-xl leading-none text-on-surface">{item.value}</p>
                     </div>
-                    <span className="material-symbols-outlined text-[21px] text-[var(--color-pib-text-muted)]">{item.icon}</span>
+                    <span className="material-symbols-outlined text-[21px] text-on-surface-variant">{item.icon}</span>
                   </div>
-                  <p className="mt-4 text-xs leading-5 text-[var(--color-pib-text-muted)]">{item.copy}</p>
+                  <p className="mt-4 text-xs leading-5 text-on-surface-variant">{item.copy}</p>
                 </div>
               ))}
             </div>
           </div>
         </div>
       ) : filteredProducts.length === 0 ? (
-        <div className="bento-card !p-8 text-center">
-          <span className="material-symbols-outlined text-[32px] text-[var(--color-pib-text-muted)] mb-3 block" aria-hidden="true">search_off</span>
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-4 text-center">
+          <span className="material-symbols-outlined text-[32px] text-on-surface-variant mb-3 block" aria-hidden="true">search_off</span>
           <p className="eyebrow !text-[10px]">Filtered catalog view</p>
-          <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">No products match this view.</h2>
-          <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Clear the product filters to return to the full quote-ready catalog.</p>
+          <h2 className="mt-2 text-lg font-semibold text-on-surface">No products match this view.</h2>
+          <p className="mt-2 text-sm text-on-surface-variant">Clear the product filters to return to the full quote-ready catalog.</p>
           <button
             type="button"
             onClick={clearProductFilters}
-            className="btn-pib-secondary mt-5 inline-flex items-center gap-1.5 text-xs"
+            className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface mt-5 inline-flex items-center gap-1.5 text-xs"
             aria-label="Show all products"
           >
             <span className="material-symbols-outlined text-[15px]" aria-hidden="true">filter_alt_off</span>
@@ -450,16 +450,16 @@ export default function ProductsPage() {
           </button>
         </div>
       ) : (
-        <div className="bento-card !p-0 overflow-hidden">
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-0 overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[var(--color-pib-line)]">
-                <th className="text-left px-4 py-3 text-[10px] font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wider">Name</th>
-                <th className="text-left px-4 py-3 text-[10px] font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wider">Health</th>
-                <th className="text-left px-4 py-3 text-[10px] font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wider">Unit</th>
-                <th className="text-right px-4 py-3 text-[10px] font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wider">Unit Price</th>
-                <th className="text-left px-4 py-3 text-[10px] font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wider">Currency</th>
-                <th className="text-right px-4 py-3 text-[10px] font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wider">Actions</th>
+              <tr className="border-b border-[var(--color-card-border)]">
+                <th className="text-left px-4 py-3 text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider">Name</th>
+                <th className="text-left px-4 py-3 text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider">Health</th>
+                <th className="text-left px-4 py-3 text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider">Unit</th>
+                <th className="text-right px-4 py-3 text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider">Unit Price</th>
+                <th className="text-left px-4 py-3 text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider">Currency</th>
+                <th className="text-right px-4 py-3 text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -473,13 +473,13 @@ export default function ProductsPage() {
                     key={p.id}
                     className={[
                       'transition-colors hover:bg-white/[0.02]',
-                      i < filteredProducts.length - 1 ? 'border-b border-[var(--color-pib-line)]' : '',
+                      i < filteredProducts.length - 1 ? 'border-b border-[var(--color-card-border)]' : '',
                     ].join(' ')}
                   >
                     <td className="px-4 py-3">
-                      <p className="font-medium text-[var(--color-pib-text)]">{displayName}</p>
+                      <p className="font-medium text-on-surface">{displayName}</p>
                       <div className="mt-1 flex max-w-[360px] flex-wrap items-center gap-x-2 gap-y-1">
-                        <p className="max-w-[320px] truncate text-xs text-[var(--color-pib-text-muted)]">
+                        <p className="max-w-[320px] truncate text-xs text-on-surface-variant">
                           {hasDescription ? p.description : 'No product description yet.'}
                         </p>
                         {!hasDescription && (
@@ -487,7 +487,7 @@ export default function ProductsPage() {
                             type="button"
                             onClick={() => handleOpenEdit(p)}
                             aria-label={`Add description for ${displayName}`}
-                            className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-text)] transition-colors hover:border-[var(--color-accent-v2)]/40 hover:bg-[var(--color-accent-v2)]/10"
+                            className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-[var(--color-card-border)] bg-white/[0.03] px-2 py-1 text-[11px] font-medium text-on-surface transition-colors hover:border-[var(--color-accent-v2)]/40 hover:bg-[var(--color-accent-v2)]/10"
                           >
                             <span className="material-symbols-outlined text-[13px]" aria-hidden="true">edit_note</span>
                             Add copy
@@ -498,20 +498,20 @@ export default function ProductsPage() {
                     <td className="px-4 py-3">
                       <div className="min-w-[110px] space-y-1.5">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-mono text-[var(--color-pib-text)]">{health.score}%</span>
+                          <span className="text-xs font-mono text-on-surface">{health.score}%</span>
                           <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${health.score >= 80 ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-200'}`}>
                             {health.score >= 80 ? 'Ready' : 'Needs work'}
                           </span>
                         </div>
-                        <div className="h-1.5 overflow-hidden rounded-full bg-[var(--color-pib-line-strong)]">
+                        <div className="h-1.5 overflow-hidden rounded-full bg-[var(--color-card-border-strong)]">
                           <div
-                            className="h-full rounded-full bg-[var(--color-pib-accent)]"
+                            className="h-full rounded-full bg-primary"
                             style={{ width: `${health.score}%` }}
                           />
                         </div>
                         {health.gaps.length > 0 && (
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                            <p className="text-[10px] text-[var(--color-pib-text-muted)]">Missing {health.gaps.join(', ')}</p>
+                            <p className="text-[10px] text-on-surface-variant">Missing {health.gaps.join(', ')}</p>
                             {pricingGaps.length > 0 && (
                               <button
                                 type="button"
@@ -527,11 +527,11 @@ export default function ProductsPage() {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">
+                    <td className="px-4 py-3 text-on-surface-variant">
                       {p.unit?.trim() ? p.unit : 'Unit not set'}
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums">{fmtMoney(p.unitPrice, p.currency)}</td>
-                    <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">{productCurrencyLabel(p)}</td>
+                    <td className="px-4 py-3 text-on-surface-variant">{productCurrencyLabel(p)}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
                         <button
@@ -539,7 +539,7 @@ export default function ProductsPage() {
                           onClick={() => handleOpenEdit(p)}
                           aria-label={`Edit ${displayName}`}
                           title="Edit product"
-                          className="cursor-pointer w-7 h-7 flex items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.06] transition-colors"
+                          className="cursor-pointer w-7 h-7 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/[0.06] transition-colors"
                         >
                           <span className="material-symbols-outlined text-[16px]">edit</span>
                         </button>
@@ -549,7 +549,7 @@ export default function ProductsPage() {
                           disabled={deletingId === p.id}
                           aria-label={`Delete ${displayName}`}
                           title="Delete product"
-                          className="cursor-pointer w-7 h-7 flex items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-red-400 hover:bg-red-400/[0.08] transition-colors disabled:opacity-50"
+                          className="cursor-pointer w-7 h-7 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-red-400 hover:bg-red-400/[0.08] transition-colors disabled:opacity-50"
                         >
                           <span className="material-symbols-outlined text-[16px]">{deletingId === p.id ? 'hourglass_empty' : 'delete'}</span>
                         </button>
@@ -576,7 +576,7 @@ export default function ProductsPage() {
           role="alertdialog"
           aria-labelledby="delete-product-title"
           aria-describedby="delete-product-description"
-          className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-4xl rounded-lg border border-red-400/30 bg-[var(--color-pib-surface)] p-4 shadow-2xl md:bottom-6"
+          className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-4xl rounded-lg border border-red-400/30 bg-[var(--color-card)] p-4 md:bottom-6"
         >
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex gap-3">
@@ -585,10 +585,10 @@ export default function ProductsPage() {
               </span>
               <div>
                 <p className="eyebrow !text-[10px] text-red-200">Catalog delete confirmation</p>
-                <h2 id="delete-product-title" className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
+                <h2 id="delete-product-title" className="mt-1 font-display text-lg text-on-surface">
                   Delete catalog product &quot;{productDisplayName(pendingDeleteProduct)}&quot;?
                 </h2>
-                <p id="delete-product-description" className="mt-2 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
+                <p id="delete-product-description" className="mt-2 max-w-3xl text-sm text-on-surface-variant">
                   This removes the product from the active catalog used by deal line items, quotes, and revenue reporting. Historical records keep their saved line-item data.
                 </p>
                 {deleteError && (
@@ -598,7 +598,7 @@ export default function ProductsPage() {
                     className="mt-3 rounded-md border border-amber-400/25 bg-amber-400/10 p-3"
                   >
                     <p className="text-sm font-medium text-amber-100">{deleteError}</p>
-                    <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                    <p className="mt-1 text-xs leading-5 text-on-surface-variant">
                       The product stayed in the catalog. Resolve the dependency or archive it before trying again.
                     </p>
                   </div>
@@ -612,7 +612,7 @@ export default function ProductsPage() {
                   setPendingDeleteProduct(null)
                   setDeleteError(null)
                 }}
-                className="btn-pib-secondary text-xs"
+                className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface text-xs"
                 disabled={deletingId === pendingDeleteProduct.id}
                 aria-label={`Cancel delete for catalog product ${productDisplayName(pendingDeleteProduct)}`}
               >

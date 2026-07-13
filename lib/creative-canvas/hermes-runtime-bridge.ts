@@ -245,15 +245,12 @@ export async function submitCreativeCanvasRunToHermes(input: CreativeCanvasHerme
       outputKind: run.input.outputKind,
     },
   })
-  if (!result.response.ok) {
-    const message = result.data && typeof result.data === 'object'
-      ? cleanString((result.data as Record<string, unknown>).error) ?? cleanString((result.data as Record<string, unknown>).message)
-      : undefined
-    throw new Error(message ?? `Hermes run request failed with ${result.response.status}`)
+  if (!result.ok) {
+    throw new Error(result.dispatchError.message)
   }
 
   const body = asRecord(result.data)
-  const hermesRunId = cleanString(body.run_id) ?? cleanString(body.runId) ?? cleanString(body.id)
+  const hermesRunId = cleanString(body.runId)
   if (!hermesRunId) throw new Error('Hermes did not return a run id for Creative Canvas runtime dispatch')
   return {
     providerJobId: hermesRunId,

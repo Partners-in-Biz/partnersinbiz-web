@@ -28,6 +28,11 @@ import { deliverCaptureWebhook } from '@/lib/lead-capture/webhook'
 import { isDisposableEmail } from '@/lib/lead-capture/disposable-domains'
 import { verifyTurnstileToken } from '@/lib/forms/turnstile'
 import {
+  captureAttributionId,
+  normalizeCaptureProvenance,
+} from '@/lib/email-marketing/capture-attribution'
+import { appendConsentEvent } from '@/lib/consent-ledger/store'
+import {
   type CaptureSource,
   type CaptureSubmission,
   type CaptureSourceRateLimit,
@@ -405,6 +410,26 @@ export async function POST(req: NextRequest, context: Params) {
   // US-097: capture UTM attribution from body/query for the created contact.
   const utm = extractUtm(req, body as Record<string, unknown>)
   const utmFields = utmContactFields(utm)
+  const bodyRecord = body as Record<string, unknown>
+  const sourceRecord = source as unknown as Record<string, unknown>
+  const requestReferer =
+    (typeof bodyRecord.referer === 'string' && bodyRecord.referer) ||
+    req.headers.get('referer') ||
+    ''
+  const provenance = normalizeCaptureProvenance({
+    sourceId: source.id,
+    sourceName: source.name,
+    sourceType: sourceRecord.type ?? 'capture-source',
+    campaignId: bodyRecord.campaignId ?? sourceRecord.campaignId,
+    programId: bodyRecord.programId ?? sourceRecord.programId,
+    referrer: requestReferer,
+    landingPage: bodyRecord.landingPage ?? bodyRecord.pageUrl ?? requestReferer,
+    ...utm,
+    gclid: bodyRecord.gclid,
+    fbclid: bodyRecord.fbclid,
+    msclkid: bodyRecord.msclkid,
+    ttclid: bodyRecord.ttclid,
+  })
 
   // 3. Find or create contact
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -435,6 +460,7 @@ export async function POST(req: NextRequest, context: Params) {
     const patch: Record<string, unknown> = {
       tags: mergedTags,
       lastContactedAt: FieldValue.serverTimestamp(),
+      lastTouchAttribution: provenance,
       updatedAt: FieldValue.serverTimestamp(),
     }
     // Don't overwrite name on dedup, but fill blanks
@@ -446,6 +472,7 @@ export async function POST(req: NextRequest, context: Params) {
     for (const [field, value] of Object.entries(utmFields)) {
       if (!existingData[field] && value) patch[field] = value
     }
+    if (!existingData.firstTouchAttribution) patch.firstTouchAttribution = provenance
     await existingDoc.ref.update(patch)
   } else {
     const contactRef = await adminDb.collection('contacts').add({
@@ -468,6 +495,8 @@ export async function POST(req: NextRequest, context: Params) {
       bouncedAt: null,
       // US-097: persist UTM attribution onto the new contact (undefined stripped).
       ...utmFields,
+      firstTouchAttribution: provenance,
+      lastTouchAttribution: provenance,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
       lastContactedAt: FieldValue.serverTimestamp(),
@@ -478,10 +507,7 @@ export async function POST(req: NextRequest, context: Params) {
   // 4. Create the submission
   const ipAddress = ip
   const userAgent = req.headers.get('user-agent') ?? ''
-  const referer =
-    (typeof body.referer === 'string' && body.referer) ||
-    req.headers.get('referer') ||
-    ''
+  const referer = requestReferer
 
   const submissionRef = adminDb.collection(LEAD_CAPTURE_SUBMISSIONS).doc()
   const submissionId = submissionRef.id
@@ -499,8 +525,38 @@ export async function POST(req: NextRequest, context: Params) {
     ipAddress,
     userAgent,
     referer,
+    attribution: provenance,
     createdAt: FieldValue.serverTimestamp(),
   })
+
+  await appendConsentEvent({
+    orgId: source.orgId,
+    contactId,
+    channel: 'email',
+    topicId: typeof sourceRecord.topicId === 'string' ? sourceRecord.topicId : 'marketing',
+    state: doiOn ? 'pending' : 'granted',
+    legalBasis: 'consent',
+    source: doiOn ? 'double-opt-in-request' : 'capture',
+    sourceEventId: `capture:${submissionId}:${doiOn ? 'requested' : 'granted'}`,
+    sourceId: source.id,
+    occurredAt: new Date().toISOString(),
+    doubleOptIn: doiOn ? 'requested' : 'not-applicable',
+    proofRef: `${LEAD_CAPTURE_SUBMISSIONS}/${submissionId}`,
+    metadata: { email, attribution: provenance },
+  })
+
+  await adminDb.collection('crm_attributions')
+    .doc(captureAttributionId(source.orgId, source.id, submissionId))
+    .set({
+      orgId: source.orgId,
+      event: 'capture',
+      submissionId,
+      contactId,
+      captureSourceId: source.id,
+      ...provenance,
+      occurredAt: FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
+    }, { merge: false })
 
   const submission: CaptureSubmission = {
     id: submissionId,

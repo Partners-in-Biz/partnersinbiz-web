@@ -81,21 +81,21 @@ export function CompanyRowsPanel<Row extends CompanyRowsPanelRow>({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {enableFilters ? (
-        <div className="bento-card !p-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_180px]">
+        <div className="grid gap-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/65 px-2 py-1.5 md:grid-cols-[minmax(0,1fr)_180px_180px]">
           <label className="block">
-            <span className="eyebrow !text-[9px]">Search</span>
+            <span className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Search</span>
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={searchPlaceholder}
-              className="pib-input mt-1"
+              className="mt-1 h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none"
             />
           </label>
           <label className="block">
-            <span className="eyebrow !text-[9px]">Status</span>
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="pib-select mt-1">
+            <span className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Status</span>
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="mt-1 h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface focus:outline-none">
               <option value="all">All statuses</option>
               {statusOptions.map((status) => (
                 <option key={status} value={status}>{status.replaceAll('_', ' ')}</option>
@@ -103,11 +103,11 @@ export function CompanyRowsPanel<Row extends CompanyRowsPanelRow>({
             </select>
           </label>
           <label className="block">
-            <span className="eyebrow !text-[9px]">History</span>
+            <span className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">History</span>
             <select
               value={archiveFilter}
               onChange={(event) => setArchiveFilter(event.target.value as 'active' | 'archived' | 'all')}
-              className="pib-select mt-1"
+              className="mt-1 h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface focus:outline-none"
             >
               <option value="active">Active only</option>
               <option value="archived">Archived only</option>
@@ -119,7 +119,7 @@ export function CompanyRowsPanel<Row extends CompanyRowsPanelRow>({
       {filteredRows.length === 0 ? (
         <CompanyRecordEmptyPanel icon="filter_alt_off" label={filteredEmptyLabel ?? emptyLabel} />
       ) : (
-        <div className="bento-card divide-y divide-[var(--color-pib-line)]">
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 divide-y divide-[var(--color-card-border)]">
           {filteredRows.map((row) => {
             const rowTitle = title(row)
             const href = hrefFor?.(row) ?? undefined
@@ -128,22 +128,22 @@ export function CompanyRowsPanel<Row extends CompanyRowsPanelRow>({
               <>
                 <div className="min-w-0">
                   {href && !linkedRow ? (
-                    <Link href={href} className="font-medium text-sm text-[var(--color-accent-v2)] hover:underline">
+                    <Link href={href} className="text-xs font-medium text-primary hover:underline">
                       {rowTitle}
                     </Link>
                   ) : (
-                    <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{rowTitle}</p>
+                    <p className="truncate text-xs font-medium text-on-surface">{rowTitle}</p>
                   )}
                   {meta.length > 0 && (
-                    <p className="mt-1 truncate text-xs text-[var(--color-pib-text-muted)]">
+                    <p className="mt-0.5 truncate text-[11px] text-on-surface-variant">
                       {meta.join(' · ')}
                     </p>
                   )}
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex shrink-0 items-center gap-1.5">
                   {'status' in row ? <CompanyRecordStatusChip value={row.status} emptyLabel={statusEmptyLabel} /> : null}
                   {href && linkedRow ? (
-                    <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">
+                    <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-on-surface-variant">
                       open_in_new
                     </span>
                   ) : null}
@@ -157,7 +157,7 @@ export function CompanyRowsPanel<Row extends CompanyRowsPanelRow>({
                   key={row.id}
                   href={href}
                   aria-label={rowAriaLabel?.(row, rowTitle)}
-                  className="flex items-start justify-between gap-4 px-5 py-4 transition-colors hover:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)] focus:ring-offset-2 focus:ring-offset-[var(--color-pib-bg)]"
+                  className="flex items-start justify-between gap-3 px-3 py-2 transition-colors hover:bg-white/[0.04] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-v2)] focus:ring-offset-2 focus:ring-offset-[var(--color-surface)]"
                 >
                   {rowContent}
                 </Link>
@@ -165,7 +165,7 @@ export function CompanyRowsPanel<Row extends CompanyRowsPanelRow>({
             }
 
             return (
-              <div key={row.id} className="flex items-start justify-between gap-4 px-5 py-4">
+              <div key={row.id} className="flex items-start justify-between gap-3 px-3 py-2">
                 {rowContent}
               </div>
             )

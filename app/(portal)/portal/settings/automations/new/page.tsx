@@ -22,26 +22,26 @@ export default function NewAutomationPage() {
   }
 
   return (
-    <div className="max-w-6xl space-y-6">
+    <div className="max-w-6xl space-y-3">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <button
             type="button"
             onClick={handleCancel}
-            className="cursor-pointer flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] mb-4 transition-colors"
+            className="cursor-pointer flex items-center gap-1 text-xs text-on-surface-variant hover:text-on-surface mb-4 transition-colors"
           >
             <span aria-hidden="true" className="material-symbols-outlined text-[14px]">arrow_back</span>
             Automations
           </button>
           <p className="eyebrow !text-[10px]">Rule builder</p>
-          <h1 className="pib-page-title mt-2">New automation</h1>
-          <p className="pib-page-sub max-w-2xl">
+          <h1 className="text-base font-semibold text-on-surface mt-2">New automation</h1>
+          <p className="text-xs leading-5 text-on-surface-variant max-w-2xl">
             Define the CRM moment, timing, and execution chain so the team gets consistent follow-up without manual chasing.
           </p>
         </div>
-        <div className="bento-card !p-4 w-full max-w-sm">
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-4 w-full max-w-sm">
           <p className="text-xs font-medium">Recommended starting point</p>
-          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+          <p className="mt-1 text-xs text-on-surface-variant">
             Start with one trigger and one high-confidence action, then expand once the rule is live.
           </p>
         </div>

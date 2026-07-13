@@ -14,6 +14,14 @@ export type AgentCapability =
   | 'message_client'
   | 'access_secret'
   | 'delete'
+  | 'email_marketing_read'
+  | 'email_marketing_draft'
+  | 'email_marketing_manage_audience'
+  | 'email_marketing_manage_sender'
+  | 'email_marketing_preflight'
+  | 'email_marketing_request_approval'
+  | 'email_marketing_analyze'
+  | 'email_marketing_send'
 
 export interface AgentCapabilityGate {
   requiresApproval: boolean

@@ -4,6 +4,7 @@ import { apiError, apiSuccess } from '@/lib/api/response'
 import { adminDb } from '@/lib/firebase/admin'
 import { createHermesRun, requireHermesProfileAccess } from '@/lib/hermes/server'
 import { appendMessage, getConversation, listMessages, touchConversation, updateMessage } from '@/lib/hermes/conversations'
+import { safeHermesRunPayload } from '@/lib/workspaces/dispatch-errors'
 
 async function buildOrgContext(orgId: string): Promise<string> {
   try {
@@ -137,9 +138,10 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
     },
   })
 
-  if (!runResult.response.ok) {
-    return apiError('Hermes run request failed', runResult.response.status || 502, {
-      hermes: runResult.data,
+  if (!runResult.ok) {
+    const failure = runResult.dispatchError
+    return apiError(failure.message, runResult.status || 502, {
+      dispatchError: failure,
       userMessage,
       assistantMessage,
     })
@@ -161,6 +163,7 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
     assistantMessage,
     runId,
     runDocId: runResult.runDocId,
-    hermes: runResult.data,
+    hermes: safeHermesRunPayload(runResult.data),
+    ...(runResult.executionReceipt ? { executionReceipt: runResult.executionReceipt } : {}),
   })
 })

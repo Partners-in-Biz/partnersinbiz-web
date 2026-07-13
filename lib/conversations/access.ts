@@ -99,6 +99,24 @@ export function canReplyConversation(user: ApiUser, conversation: Conversation):
   return (conversation.participantUids ?? []).includes(user.uid)
 }
 
+/** Permanent deletion is reserved for the canonical owner or a scoped administrator. */
+export function canDeleteConversation(user: ApiUser, conversation: Conversation): boolean {
+  return canManageConversationAccess(user, conversation)
+}
+
+/** A participant may stop work in their conversation; scoped administrators retain the kill switch. */
+export function canStopConversationRun(user: ApiUser, conversation: Conversation): boolean {
+  if (user.role === 'admin') return canAccessOrg(user, conversation.orgId)
+  return canReplyConversation(user, conversation)
+}
+
+/** Completed agent output may be appended by a scoped administrator or an explicit AI participant. */
+export function canAppendAgentMessage(user: ApiUser, conversation: Conversation): boolean {
+  if (user.role === 'admin') return canAccessOrg(user, conversation.orgId)
+  if (user.role !== 'ai') return false
+  return canAccessConversation(user, conversation)
+}
+
 /** Persistent prompt context is controlled by the canonical owner or scoped administrators. */
 export function canManageConversationContext(user: ApiUser, conversation: Conversation): boolean {
   return canManageConversationAccess(user, conversation)

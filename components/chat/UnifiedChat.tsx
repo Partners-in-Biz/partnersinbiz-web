@@ -38,6 +38,9 @@ import ConversationListItem, { type Conversation } from './ConversationListItem'
 import ConversationAccessDialog from './ConversationAccessDialog'
 import VoiceInputButton from './VoiceInputButton'
 import ModelProviderPicker, { type MessageModelCatalog, type ModelRuntimeSelection } from '@/components/messages/hermes/ModelProviderPicker'
+import { LivingTaskBundle, ProjectLens, ProjectPulse } from '@/components/chat/project/ProjectChatExperience'
+import { useProjectChatProgress } from '@/components/chat/project/useProjectChatProgress'
+import type { ProjectChatTaskItem } from '@/lib/projects/chatProgress'
 import RuntimeInspectorRail from '@/components/messages/hermes/RuntimeInspectorRail'
 
 type AgentId = string
@@ -62,6 +65,7 @@ export interface UnifiedChatProps {
   orgId: string
   currentUserUid: string
   currentUserDisplayName: string
+  userRole?: string
   orgName?: string
   projectId?: string
   scope?: ConversationScope
@@ -118,11 +122,10 @@ interface OrgWorkspaceSummary {
   orgSlug: string
   orgName: string
   agentDomain: string
-  vpsPath: string
-  localPath: string
   sourceOfTruth: 'vps'
   syncMode: string
   defaultRuntimeTarget: string
+  folderVersion: number
 }
 
 interface WorkspaceProjectSummary {
@@ -349,6 +352,7 @@ export default function UnifiedChat({
   orgId,
   currentUserUid,
   currentUserDisplayName,
+  userRole,
   orgName,
   projectId,
   scope,
@@ -390,6 +394,7 @@ export default function UnifiedChat({
   const [historyCursor, setHistoryCursor] = useState<number | null>(null)
   const [queuedDraftsByConversation, setQueuedDraftsByConversation] = useState<Record<string, QueuedComposerDraft[]>>({})
   const [runtimeInspectorOpen, setRuntimeInspectorOpen] = useState(false)
+  const [projectLensOpen, setProjectLensOpen] = useState(false)
   const [pinnedConversationIds, setPinnedConversationIds] = useState<string[]>(() => readPinnedConversationIds(orgId))
 
   // Agent map for looking up colorKey / iconKey for bubbles
@@ -424,11 +429,12 @@ export default function UnifiedChat({
   )
   const [workspaces, setWorkspaces] = useState<OrgWorkspaceSummary[]>([])
   const [workspaceProjects, setWorkspaceProjects] = useState<WorkspaceProjectSummary[]>([])
-  const [workspaceRuntimeTargets, setWorkspaceRuntimeTargets] = useState<WorkspaceRuntimePresence[]>([])
+  const [workspaceRuntimeTargetsByWorkspace, setWorkspaceRuntimeTargetsByWorkspace] = useState<Record<string, WorkspaceRuntimePresence[]>>({})
   const [workspacesLoading, setWorkspacesLoading] = useState(false)
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('')
   const [selectedProjectId, setSelectedProjectId] = useState(projectId ?? '')
-  const [selectedWorkspaceRuntime, setSelectedWorkspaceRuntime] = useState<'vps' | 'local'>('vps')
+  const [selectedWorkspaceRuntime, setSelectedWorkspaceRuntime] = useState<string>('vps')
+  const workspaceRuntimeExplicitRef = useRef(false)
   const [selectedWorkspaceShareMode, setSelectedWorkspaceShareMode] = useState<'private' | 'shared' | 'org'>('private')
   const [creatingConv, setCreatingConv] = useState(false)
 
@@ -467,6 +473,7 @@ export default function UnifiedChat({
     () => conversations.find((c) => c.id === activeId) ?? null,
     [conversations, activeId],
   )
+  const projectChat = useProjectChatProgress(orgId, activeConversation)
   const activeModelAgentId = useMemo<AgentId | null>(() => {
     const agentIds = activeConversation?.participantAgentIds ?? []
     if (agentIds.length === 0) return null
@@ -500,7 +507,23 @@ export default function UnifiedChat({
     () => workspaces.find((workspace) => workspace.workspaceId === selectedWorkspaceId) ?? null,
     [workspaces, selectedWorkspaceId],
   )
+  const workspaceRuntimeTargets = useMemo(
+    () => workspaceRuntimeTargetsByWorkspace[selectedWorkspaceId] ?? [],
+    [workspaceRuntimeTargetsByWorkspace, selectedWorkspaceId],
+  )
+  const selectedWorkspaceRuntimeIsValid = workspaceRuntimeTargets.some(runtime => runtime.id === selectedWorkspaceRuntime && runtime.selectable)
+  useEffect(() => {
+    if (workspaceRuntimeTargets.length === 0) return
+    if (!workspaceRuntimeExplicitRef.current && !workspaceRuntimeTargets.some((runtime) => runtime.id === selectedWorkspaceRuntime && runtime.selectable)) {
+      setSelectedWorkspaceRuntime(workspaceRuntimeTargets.find((runtime) => runtime.selectable)?.id ?? 'vps')
+    }
+  }, [selectedWorkspaceRuntime, workspaceRuntimeTargets])
   const activeWorkspaceContext = activeConversation?.workspaceContext
+  const unavailableActiveRuntime = activeWorkspaceContext
+    ? (workspaceRuntimeTargetsByWorkspace[activeWorkspaceContext.workspaceId] ?? []).find(
+        runtime => runtime.id === activeWorkspaceContext.runtimeTarget && !runtime.selectable,
+      )
+    : undefined
   const activeRuntimeLabel = activeWorkspaceContext?.runtimeLabel
     ?? (activeWorkspaceContext?.runtimeTarget === 'local'
       ? 'Local'
@@ -577,25 +600,30 @@ export default function UnifiedChat({
         const runtimes = Array.isArray(body?.data?.runtimeTargets)
           ? (body.data.runtimeTargets as WorkspaceRuntimePresence[])
           : []
+        const runtimeTargetsByWorkspace = body?.data?.runtimeTargetsByWorkspace && typeof body.data.runtimeTargetsByWorkspace === 'object'
+          ? body.data.runtimeTargetsByWorkspace as Record<string, WorkspaceRuntimePresence[]>
+          : Object.fromEntries(next.map((workspace) => [workspace.workspaceId, runtimes]))
         const projects = Array.isArray(body?.data?.projects)
           ? (body.data.projects as WorkspaceProjectSummary[])
           : []
         setWorkspaces(next)
         setWorkspaceProjects(projects)
-        setWorkspaceRuntimeTargets(runtimes)
-        setSelectedWorkspaceId((current) => current || next[0]?.workspaceId || '')
+        setWorkspaceRuntimeTargetsByWorkspace(runtimeTargetsByWorkspace)
+        const initialWorkspaceId = next[0]?.workspaceId || ''
+        setSelectedWorkspaceId((current) => current || initialWorkspaceId)
         setSelectedProjectId((current) => current || projectId || projects[0]?.id || '')
         setSelectedWorkspaceRuntime((current) => {
-          const currentTarget = runtimes.find((runtime) => runtime.id === current)
+          const initialRuntimes = runtimeTargetsByWorkspace[initialWorkspaceId] ?? runtimes
+          const currentTarget = initialRuntimes.find((runtime) => runtime.id === current)
           if (currentTarget?.selectable) return current
-          return runtimes.some((runtime) => runtime.id === 'vps' && runtime.selectable) ? 'vps' : current
+          return initialRuntimes.find((runtime) => runtime.selectable)?.id ?? current
         })
       })
       .catch(() => {
         if (!cancelled) {
           setWorkspaces([])
           setWorkspaceProjects([])
-          setWorkspaceRuntimeTargets([])
+          setWorkspaceRuntimeTargetsByWorkspace({})
         }
       })
       .finally(() => {
@@ -878,6 +906,7 @@ export default function UnifiedChat({
 
   // Close header menu when switching conversations
   useEffect(() => { setHeaderMenuOpen(false) }, [activeId])
+  useEffect(() => { setProjectLensOpen(false) }, [activeId, projectChat.activeProjectId])
 
   // Cleanup polling + SSE on unmount
   useEffect(() => () => {
@@ -1186,6 +1215,40 @@ export default function UnifiedChat({
     },
     [activeId, initialAgentId, pollFinalize, startEventStream],
   )
+
+  const projectTaskHref = useCallback((taskId: string) => {
+    const projectId = projectChat.activeProjectId ?? ''
+    const base = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')
+      ? `/admin/projects/${encodeURIComponent(projectId)}`
+      : `/portal/projects/${encodeURIComponent(projectId)}`
+    return `${base}?task=${encodeURIComponent(taskId)}`
+  }, [projectChat.activeProjectId])
+
+  const handleProjectTaskAction = useCallback(async (task: ProjectChatTaskItem) => {
+    const projectId = projectChat.activeProjectId
+    if (!projectId) return
+    const approvalTask = task.approvalStatus === 'pending'
+      || task.labels?.some((label) => /approval-gate|approval-required|client-approval|required-approval/.test(label.toLowerCase()))
+    if (!approvalTask) {
+      window.location.assign(projectTaskHref(task.id))
+      return
+    }
+    const res = await fetch(`/api/v1/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(task.id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        columnId: 'done',
+        reviewStatus: 'approved',
+        approvalStatus: 'approved',
+      }),
+    })
+    if (!res.ok) {
+      const body = await readApiResponse(res)
+      setError(typeof body.error === 'string' ? body.error : `Task approval failed: ${res.status}`)
+      return
+    }
+    await projectChat.refresh().catch(() => {})
+  }, [projectChat, projectTaskHref])
 
   const addSelectionToComposer = useCallback((selectedText: string) => {
     const cleaned = selectedText.trim()
@@ -1613,6 +1676,10 @@ export default function UnifiedChat({
       setError('Starting new conversations is disabled for your organisation role.')
       return
     }
+    if ((newScope === 'workspace' || newScope === 'project') && !selectedWorkspaceRuntimeIsValid) {
+      setError('Select an available runtime for this Workspace before starting the conversation.')
+      return
+    }
     setCreatingConv(true)
     setError(null)
     try {
@@ -1668,7 +1735,7 @@ export default function UnifiedChat({
     } finally {
       setCreatingConv(false)
     }
-  }, [allowStartConversations, creatingConv, newParticipants, newTitle, newScope, orgId, projectId, scope, scopeRefId, contextRefs, selectedWorkspaceId, selectedWorkspaceRuntime, selectedWorkspaceShareMode, selectedProjectId])
+  }, [allowStartConversations, creatingConv, newParticipants, newTitle, newScope, orgId, projectId, scope, scopeRefId, contextRefs, selectedWorkspaceId, selectedWorkspaceRuntime, selectedWorkspaceRuntimeIsValid, selectedWorkspaceShareMode, selectedProjectId])
 
   const send = useCallback(
     async (e: FormEvent) => {
@@ -1908,6 +1975,7 @@ export default function UnifiedChat({
   const showComposerContextToolbar = Boolean(
     currentPageContext ||
     contextRefs.length > 0 ||
+    projectChat.progress ||
     (!hermesLayout && (allowAgentParticipants || activeModelAgentId)),
   )
 
@@ -1917,12 +1985,12 @@ export default function UnifiedChat({
       data-layout-variant={layoutVariant}
       className={
         compact
-          ? 'flex h-full min-h-0 min-w-0 flex-1 overflow-hidden'
+          ? 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden'
           : hermesLayout
             ? runtimeInspectorOpen
-              ? 'flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-2 lg:grid-cols-[236px_minmax(0,1fr)] xl:grid-cols-[236px_minmax(0,1fr)_260px]'
-              : 'flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-2 lg:grid-cols-[236px_minmax(0,1fr)] xl:grid-cols-[236px_minmax(0,1fr)_44px]'
-            : 'flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-4 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_280px]'
+              ? 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-2 lg:grid-cols-[236px_minmax(0,1fr)] xl:grid-cols-[236px_minmax(0,1fr)_260px]'
+              : 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-2 lg:grid-cols-[236px_minmax(0,1fr)] xl:grid-cols-[236px_minmax(0,1fr)_44px]'
+            : 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-4 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_280px]'
       }
     >
       {/* ── Left: conversation list ─────────────────────────────────────── */}
@@ -2188,8 +2256,8 @@ export default function UnifiedChat({
       <section
         className={[
           hermesLayout
-            ? 'flex-col overflow-hidden min-h-0 min-w-0 flex-1 rounded-xl border border-[var(--color-card-border)] bg-black/[0.06]'
-            : 'pib-card flex-col overflow-hidden min-h-0 min-w-0 flex-1',
+            ? 'relative flex-col overflow-hidden min-h-0 min-w-0 flex-1 rounded-xl border border-[var(--color-card-border)] bg-black/[0.06]'
+            : 'pib-card relative flex-col overflow-hidden min-h-0 min-w-0 flex-1',
           compact ? '!p-0 !rounded-none !border-0 !bg-transparent' : 'lg:flex max-lg:!p-0 max-lg:!rounded-none max-lg:!border-0 max-lg:!bg-transparent',
           showListOnMobile ? 'hidden' : 'flex',
         ].join(' ')}
@@ -2336,6 +2404,16 @@ export default function UnifiedChat({
           )}
         </div>
 
+        {projectChat.progress && projectChat.activeProjectId && (
+          <ProjectPulse
+            progress={projectChat.progress}
+            projects={projectChat.projects}
+            activeProjectId={projectChat.activeProjectId}
+            onProjectChange={projectChat.setActiveProjectId}
+            onOpen={() => setProjectLensOpen(true)}
+          />
+        )}
+
         {/* Messages */}
         <div
           ref={messagesContainerRef}
@@ -2384,6 +2462,21 @@ export default function UnifiedChat({
                     onQuoteSelection={addSelectionToComposer}
                     onUiAction={handleUiAction}
                   />
+                  {m.acceptedDevice && (
+                    <div className="ml-10 mt-1 flex flex-wrap items-center gap-2 text-[11px] text-on-surface-variant" aria-label="Linked computer execution receipt">
+                      <span className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-2 py-0.5 text-emerald-300">Accepted by {m.acceptedDevice.machineLabel}</span>
+                      <span>Runtime {m.acceptedDevice.runtimeVersion}</span>
+                    </div>
+                  )}
+
+                  {(projectChat.tasksByResponseMessageId.get(m.id)?.length ?? 0) > 0 && (
+                    <LivingTaskBundle
+                      tasks={projectChat.tasksByResponseMessageId.get(m.id) ?? []}
+                      onTaskAction={handleProjectTaskAction}
+                      taskHref={projectTaskHref}
+                      canApprove={userRole === 'admin'}
+                    />
+                  )}
 
                   {/* Approval card */}
                   {m.role === 'assistant' &&
@@ -2427,9 +2520,25 @@ export default function UnifiedChat({
                 </div>
               )
             })}
+          {projectChat.routineUpdateCount > 0 && (
+            <button
+              type="button"
+              onClick={projectChat.dismissRoutineUpdates}
+              className="ml-0 inline-flex items-center gap-2 rounded-md border border-white/10 bg-black/15 px-3 py-2 text-[11px] text-on-surface-variant hover:bg-white/[0.05] lg:ml-10"
+            >
+              <span className="material-symbols-outlined text-[14px] text-primary" aria-hidden="true">update</span>
+              {projectChat.routineUpdateCount} project update{projectChat.routineUpdateCount === 1 ? '' : 's'}
+              <span className="material-symbols-outlined text-[13px]" aria-hidden="true">expand_more</span>
+            </button>
+          )}
         </div>
 
         {/* Error bar */}
+        {unavailableActiveRuntime && (
+          <div role="alert" className="border-t border-red-500/30 bg-red-500/10 px-4 py-2 text-xs text-red-300">
+            {unavailableActiveRuntime.label} is unavailable. Select another computer or try again when it is online. No other runtime was selected.
+          </div>
+        )}
         {error && (
           <div className="px-4 py-2 text-xs text-red-300 border-t border-red-500/30 bg-red-500/10">
             {error}
@@ -2453,6 +2562,15 @@ export default function UnifiedChat({
           {showComposerContextToolbar && (
             <div data-testid="chat-context-toolbar" className="flex items-center justify-between gap-2">
               <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                {projectChat.progress && projectChat.activeProjectId && !contextRefs.some((ref) => ref.type === 'project' && ref.id === projectChat.activeProjectId) && (
+                  <span
+                    data-testid="project-composer-chip"
+                    className="inline-flex h-7 max-w-full items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 text-[11px] text-on-surface"
+                  >
+                    <span className="material-symbols-outlined text-[13px]" aria-hidden="true">folder_managed</span>
+                    <span className="max-w-[180px] truncate">{projectChat.progress.project.name}</span>
+                  </span>
+                )}
                 {currentPageContext && (
                   <button
                     type="button"
@@ -2472,6 +2590,7 @@ export default function UnifiedChat({
                 {contextRefs.map((ref) => (
                   <span
                     key={contextReferenceKey(ref)}
+                    data-testid={ref.type === 'project' && ref.id === projectChat.activeProjectId ? 'project-composer-chip' : undefined}
                     className="inline-flex h-7 max-w-full items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 text-[11px] text-on-surface"
                     title={`${ref.type}: ${contextChipLabel(ref)}`}
                   >
@@ -2866,6 +2985,17 @@ export default function UnifiedChat({
             </div>
           )}
         </form>
+
+        {projectChat.progress && (
+          <ProjectLens
+            progress={projectChat.progress}
+            open={projectLensOpen}
+            onClose={() => setProjectLensOpen(false)}
+            onTaskAction={handleProjectTaskAction}
+            taskHref={projectTaskHref}
+            canApprove={userRole === 'admin'}
+          />
+        )}
       </section>
 
       {showRuntimeInspectorRail && (
@@ -2956,6 +3086,7 @@ export default function UnifiedChat({
                   Conversation context
                 </label>
                 <select
+                  aria-label="Conversation context"
                   value={newScope}
                   onChange={(e) => setNewScope(e.target.value as ConversationScope)}
                   className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface outline-none focus:border-primary/60"
@@ -2990,7 +3121,7 @@ export default function UnifiedChat({
                     ) : (
                       <select
                         value={selectedWorkspaceId}
-                        onChange={(e) => setSelectedWorkspaceId(e.target.value)}
+                        onChange={(e) => { workspaceRuntimeExplicitRef.current = false; setSelectedWorkspaceId(e.target.value); setSelectedWorkspaceRuntime('') }}
                         disabled={workspacesLoading || workspaces.length === 0}
                         className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface outline-none focus:border-primary/60 disabled:opacity-60"
                       >
@@ -3003,23 +3134,27 @@ export default function UnifiedChat({
                     )}
                     {selectedWorkspace && (
                       <div className="mt-1 truncate text-[11px] text-on-surface-variant">
-                        VPS truth · {selectedWorkspace.vpsPath}{newScope === 'project' && selectedProjectId ? `/projects/${selectedProjectId}` : ''}
+                        {newScope === 'project'
+                          ? 'VPS-canonical project scope'
+                          : 'VPS-canonical organisation Workspace'}
                       </div>
                     )}
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                    <label htmlFor="workspace-runtime" className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
                       Runtime
                     </label>
                     <select
+                      id="workspace-runtime"
+                      aria-label="Runtime"
                       value={selectedWorkspaceRuntime}
-                      onChange={(e) => setSelectedWorkspaceRuntime(e.target.value as 'vps' | 'local')}
+                      onChange={(e) => { workspaceRuntimeExplicitRef.current = true; setSelectedWorkspaceRuntime(e.target.value) }}
                       className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface outline-none focus:border-primary/60"
                     >
                       {(workspaceRuntimeTargets.length > 0
                         ? workspaceRuntimeTargets
                         : [{ id: 'vps', label: 'VPS', selectable: true, isLocal: false, isFresh: true, isHealthy: true, enabled: true, lastSeenAt: null, ageSeconds: null, lastHealthStatus: null }]
-                      ).map((runtime) => {
+                      ).filter((runtime) => runtime.selectable || runtime.id === selectedWorkspaceRuntime).map((runtime) => {
                         const status = runtime.isLocal
                           ? runtime.isFresh && runtime.isHealthy
                             ? runtime.ageSeconds != null
@@ -3034,8 +3169,13 @@ export default function UnifiedChat({
                         )
                       })}
                     </select>
+                    {workspaceRuntimeExplicitRef.current && workspaceRuntimeTargets.some(runtime => runtime.id === selectedWorkspaceRuntime && !runtime.selectable) && (
+                      <p role="alert" className="mt-2 text-xs text-red-300">
+                        {workspaceRuntimeTargets.find(runtime => runtime.id === selectedWorkspaceRuntime)?.label ?? 'This computer'} is unavailable. Select another computer or try again when it is online.
+                      </p>
+                    )}
                     <div className="mt-1 text-[11px] text-on-surface-variant">
-                      Stale local runtimes are unavailable; VPS remains the canonical fallback.
+                      Only healthy computers mapped to this Workspace can run files here.
                     </div>
                   </div>
                   <div>
@@ -3077,7 +3217,7 @@ export default function UnifiedChat({
               <button
                 type="button"
                 onClick={handleCreateConversation}
-                disabled={!allowStartConversations || creatingConv || newParticipants.length === 0 || (newScope === 'workspace' && !selectedWorkspaceId) || (newScope === 'project' && (!selectedProjectId || !selectedWorkspaceId))}
+                disabled={!allowStartConversations || creatingConv || newParticipants.length === 0 || ((newScope === 'workspace' || newScope === 'project') && !selectedWorkspaceRuntimeIsValid) || (newScope === 'workspace' && !selectedWorkspaceId) || (newScope === 'project' && (!selectedProjectId || !selectedWorkspaceId))}
                 className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary disabled:opacity-50 hover:opacity-90"
               >
                 {creatingConv ? 'Creating…' : 'Start conversation'}

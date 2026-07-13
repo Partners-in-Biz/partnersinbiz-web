@@ -88,9 +88,11 @@ beforeEach(() => {
   mockTouchConversation.mockResolvedValue(undefined)
   mockListMessages.mockResolvedValue([])
   mockCreateHermesRun.mockResolvedValue({
-    response: { ok: true },
-    data: { run_id: 'run-1' },
+    ok: true,
+    status: 202,
+    data: { runId: 'run-1' },
     runDocId: 'rd-1',
+    executionReceipt: { requestedRuntimeTargetId: 'legacy-profile', acceptedRuntimeTargetId: 'legacy-profile', requestedAt: '2026-07-12T20:00:00.000Z', acceptedAt: '2026-07-12T20:00:00.001Z', outcome: 'accepted' },
   })
   mockOrgDocGet.mockResolvedValue({ exists: false, data: () => undefined })
   mockProjectDocGet.mockResolvedValue({ exists: false, data: () => undefined })
@@ -98,6 +100,22 @@ beforeEach(() => {
 })
 
 describe('messages route — org context injection', () => {
+  it('returns only safe accepted-run fields from an arbitrary upstream payload', async () => {
+    mockCreateHermesRun.mockResolvedValue({
+      ok: true,
+      status: 202,
+      data: { runId: 'run-1', status: 'started' },
+      runDocId: 'rd-1',
+      executionReceipt: { requestedRuntimeTargetId: 'vps', acceptedRuntimeTargetId: 'vps', outcome: 'accepted' },
+    })
+    const { POST } = await import('@/app/api/v1/admin/hermes/profiles/[orgId]/conversations/[convId]/messages/route')
+    const res = await POST(makeRequest({ content: 'safe' }), { params: Promise.resolve({ orgId: 'org1', convId: 'conv1' }) })
+    const serialized = await res.text()
+    expect(serialized).toContain('"runId":"run-1"')
+    expect(serialized).toContain('"executionReceipt"')
+    expect(serialized).not.toMatch(/super-secret|gateway\.example|Users\/peet|working_directory/)
+  })
+
   it('prepends org context block to the first user message', async () => {
     mockOrgDocGet.mockResolvedValue({
       exists: true,

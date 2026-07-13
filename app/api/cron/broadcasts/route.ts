@@ -35,6 +35,7 @@ import {
 import type { AbConfig, Variant } from '@/lib/ab-testing/types'
 import type { Contact } from '@/lib/crm/types'
 import { isLocalDeliveryWindowOpen } from '@/lib/email/send-time'
+import { assertEmailMarketingDispatchApproval } from '@/lib/email-marketing/agent-governance'
 
 export const dynamic = 'force-dynamic'
 // Cron tasks can take longer than the default — give them up to 5 min.
@@ -107,6 +108,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     if (broadcast.deleted) continue
 
     try {
+      await assertEmailMarketingDispatchApproval(broadcast as unknown as Record<string, unknown>, {
+        orgId: broadcast.orgId, resourceType: 'email_broadcast', resourceId: broadcast.id,
+      })
       // Resolve audience first — needed both for the 'scheduled' → 'sending'
       // transition and for resuming 'sending' broadcasts.
       const contacts = await resolveBroadcastAudience(broadcast.orgId, broadcast.audience)
@@ -292,6 +296,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           }
           continue
         }
+
+        await assertEmailMarketingDispatchApproval(broadcast as unknown as Record<string, unknown>, {
+          orgId: broadcast.orgId, resourceType: 'email_broadcast', resourceId: broadcast.id,
+        })
 
         const ab = broadcast.ab
         const variants: Variant[] = (ab?.variants ?? []) as Variant[]

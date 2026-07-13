@@ -54,7 +54,10 @@ function templateKindCount(templates: SetupCommandTemplate[], kind: SetupCommand
 
 function CommandLink({ href, icon, children }: { href: string; icon: string; children: React.ReactNode }) {
   return (
-    <Link href={href} className="btn-pib-secondary justify-center text-xs">
+    <Link
+      href={href}
+      className="flex h-8 items-center justify-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+    >
       <span className="material-symbols-outlined text-[14px]" aria-hidden="true">{icon}</span>
       {children}
     </Link>
@@ -71,60 +74,60 @@ export function CrmSetupCommandCenter({ setup, recommendedTemplates, portalPath 
   const pipelinePreference = setup.pipelinePreference.replace(/_/g, ' ')
 
   return (
-    <section className="bento-card !p-6 space-y-5">
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <p className="eyebrow">Setup command center</p>
-          <h2 className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">CRM launch readiness</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
+    <section className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+      <div className="flex flex-col gap-3 border-b border-[var(--color-card-border)] p-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Setup command center</p>
+          <h2 className="mt-1 text-sm font-semibold text-on-surface">CRM launch readiness</h2>
+          <p className="mt-1 max-w-2xl text-xs leading-5 text-on-surface-variant">
             Turn setup choices into an operating checklist: import data, connect the inbox, apply a pipeline, and build the first automation assets.
           </p>
         </div>
-        <div className="min-w-[150px] rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-4">
-          <p className="eyebrow !text-[10px]">Readiness</p>
-          <p className="mt-2 font-display text-4xl leading-none text-[var(--color-pib-text)]">{readiness}%</p>
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--color-pib-line-strong)]">
+        <div className="min-w-[150px] shrink-0 rounded-md border border-[var(--color-card-border)] bg-black/10 px-3 py-2">
+          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Readiness</p>
+          <p className="mt-1 text-2xl font-semibold leading-none text-on-surface">{readiness}%</p>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
             <div
-              className="h-full rounded-full bg-[var(--color-pib-accent)] transition-all duration-500"
+              className="h-full rounded-full bg-[var(--color-accent-v2)] transition-all duration-500"
               style={{ width: `${readiness}%` }}
             />
           </div>
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
-          <p className="eyebrow !text-[10px]">Workflow</p>
-          <p className="mt-2 text-sm font-semibold capitalize text-[var(--color-pib-text)]">{pipelinePreference}</p>
-          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Recommended setup lane</p>
+      <div className="grid gap-2 border-b border-[var(--color-card-border)] p-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Workflow</p>
+          <p className="mt-1 text-sm font-semibold capitalize text-on-surface">{pipelinePreference}</p>
+          <p className="text-[11px] leading-4 text-on-surface-variant">Recommended setup lane</p>
         </div>
-        <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
-          <p className="eyebrow !text-[10px]">Selected assets</p>
-          <p className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">{setup.selectedTemplateIds.length} starter template{setup.selectedTemplateIds.length === 1 ? '' : 's'}</p>
-          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Chosen for rollout</p>
+        <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Selected assets</p>
+          <p className="mt-1 text-sm font-semibold text-on-surface">{setup.selectedTemplateIds.length} starter template{setup.selectedTemplateIds.length === 1 ? '' : 's'}</p>
+          <p className="text-[11px] leading-4 text-on-surface-variant">Chosen for rollout</p>
         </div>
-        <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
-          <p className="eyebrow !text-[10px]">Pipelines</p>
-          <p className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">{setup.appliedPipelineTemplateIds.length} applied</p>
-          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{pipelineTemplates} recommended</p>
+        <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Pipelines</p>
+          <p className="mt-1 text-sm font-semibold text-on-surface">{setup.appliedPipelineTemplateIds.length} applied</p>
+          <p className="text-[11px] leading-4 text-on-surface-variant">{pipelineTemplates} recommended</p>
         </div>
-        <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
-          <p className="eyebrow !text-[10px]">Template mix</p>
-          <p className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">{sequenceTemplates} sequences / {segmentTemplates} segments</p>
-          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{formTemplates} forms ready</p>
+        <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Template mix</p>
+          <p className="mt-1 text-sm font-semibold text-on-surface">{sequenceTemplates} sequences / {segmentTemplates} segments</p>
+          <p className="text-[11px] leading-4 text-on-surface-variant">{formTemplates} forms ready</p>
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
-        <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
-          <p className="eyebrow !text-[10px]">Readiness blockers</p>
+      <div className="grid lg:grid-cols-[1fr_320px]">
+        <div className="min-w-0 p-3 lg:border-r lg:border-[var(--color-card-border)]">
+          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Readiness blockers</p>
           {blockers.length === 0 ? (
-            <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">Setup is ready for daily CRM use.</p>
+            <p className="mt-2 text-xs text-on-surface-variant">Setup is ready for daily CRM use.</p>
           ) : (
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-2 flex flex-wrap gap-1.5">
               {blockers.map((blocker) => (
-                <span key={blocker} className="inline-flex items-center gap-1 rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-xs text-amber-200">
-                  <span className="material-symbols-outlined text-[14px]">priority_high</span>
+                <span key={blocker} className="inline-flex h-7 items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 text-[11px] text-amber-200">
+                  <span className="material-symbols-outlined text-[13px]">priority_high</span>
                   {blocker}
                 </span>
               ))}
@@ -132,9 +135,9 @@ export function CrmSetupCommandCenter({ setup, recommendedTemplates, portalPath 
           )}
         </div>
 
-        <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.02] p-4">
-          <p className="eyebrow !text-[10px]">Next actions</p>
-          <div className="mt-3 grid gap-2">
+        <div className="min-w-0 border-t border-[var(--color-card-border)] p-3 lg:border-t-0">
+          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Next actions</p>
+          <div className="mt-2 grid gap-1.5">
             <CommandLink href={portalPath('/portal/capture-sources/import')} icon="upload_file">Open CSV import</CommandLink>
             <CommandLink href={portalPath('/portal/settings/pipelines')} icon="account_tree">Review pipelines</CommandLink>
             <CommandLink href={portalPath('/portal/settings/sequences')} icon="route">Build sequences</CommandLink>

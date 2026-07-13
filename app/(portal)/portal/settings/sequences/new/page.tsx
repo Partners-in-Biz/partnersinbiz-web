@@ -27,20 +27,20 @@ export default function NewSequencePage() {
           <button
             type="button"
             onClick={handleCancel}
-            className="cursor-pointer flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] mb-4 transition-colors"
+            className="cursor-pointer flex items-center gap-1 text-xs text-on-surface-variant hover:text-on-surface mb-4 transition-colors"
           >
             <span aria-hidden="true" className="material-symbols-outlined text-[14px]">arrow_back</span>
             Sequences
           </button>
           <p className="eyebrow !text-[10px]">Journey builder</p>
-          <h1 className="pib-page-title mt-2">New sequence</h1>
-          <p className="pib-page-sub max-w-2xl">
+          <h1 className="mt-1 text-base font-semibold text-on-surface">New sequence</h1>
+          <p className="mt-1 max-w-2xl text-xs text-on-surface-variant">
             Build a CRM follow-up path with clear timing, channel choices, and launch readiness before contacts enter it.
           </p>
         </div>
-        <div className="bento-card !p-4 w-full max-w-sm">
+        <div className="w-full max-w-sm rounded-lg border border-[var(--color-card-border)] bg-black/10 p-3">
           <p className="text-xs font-medium">Recommended starting point</p>
-          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+          <p className="mt-1 text-xs text-on-surface-variant">
             Keep the first journey short: one immediate confirmation, one value follow-up, and one human handoff.
           </p>
         </div>

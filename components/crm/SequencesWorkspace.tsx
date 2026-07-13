@@ -23,7 +23,7 @@ const STATUS_META: Record<SequenceStatus, { label: string; icon: string; classNa
   draft: {
     label: 'Draft',
     icon: 'draft',
-    className: 'border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] text-[var(--color-pib-text-muted)]',
+    className: 'border-[var(--color-card-border)] bg-transparent text-on-surface-variant',
   },
   active: {
     label: 'Active',
@@ -114,13 +114,13 @@ function StatusBadge({ status }: { status: SequenceStatus }) {
 
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
   return (
-    <div className="pib-stat-card min-h-[124px]">
+    <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
       <div className="flex items-start justify-between gap-3">
         <p className="eyebrow !text-[10px]">{label}</p>
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
+        <span className="material-symbols-outlined text-[18px] text-on-surface-variant">{icon}</span>
       </div>
-      <p className="mt-3 font-display text-3xl leading-none text-[var(--color-pib-text)]">{value}</p>
-      <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">{sub}</p>
+      <p className="mt-2 text-lg font-semibold leading-none text-on-surface">{value}</p>
+      <p className="mt-2 text-[11px] leading-4 text-on-surface-variant">{sub}</p>
     </div>
   )
 }
@@ -330,18 +330,18 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
   const firstExitGoalReviewName = firstExitGoalReviewSequence ? sequenceDisplayName(firstExitGoalReviewSequence) : 'sequence'
 
   return (
-    <div className="max-w-6xl space-y-6">
+    <div className="max-w-6xl space-y-3">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className="eyebrow !text-[10px]">CRM journeys</p>
-          <h1 className="pib-page-title mt-2">Sequence command center</h1>
-          <p className="pib-page-sub max-w-2xl">
+          <h1 className="mt-1 text-base font-semibold text-on-surface">Sequence command center</h1>
+          <p className="mt-1 max-w-2xl text-xs text-on-surface-variant">
             Build and monitor multi-step email and SMS journeys that turn captured contacts into followed-up opportunities.
           </p>
         </div>
         <Link
           href={sequenceHref(sequenceNewPath(surface))}
-          className="btn-pib-accent flex w-fit shrink-0 items-center gap-1.5 text-sm"
+          className="flex h-8 w-fit shrink-0 items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black"
           aria-label="New sequence"
         >
           <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
@@ -367,23 +367,23 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
         <section
           role="region"
           aria-label="Sequence exit goal review"
-          className="rounded-[var(--radius-card)] border border-amber-400/30 bg-amber-400/10 p-5"
+          className="rounded-[var(--radius-card)] border border-amber-400/30 bg-amber-400/10 p-3"
         >
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex gap-3">
               <span
-                className="material-symbols-outlined mt-0.5 rounded-lg border border-amber-400/25 bg-amber-400/10 p-2 text-[20px] text-amber-200"
+                className="material-symbols-outlined mt-0.5 rounded-md border border-amber-400/25 bg-amber-400/10 p-2 text-[18px] text-amber-200"
                 aria-hidden="true"
               >
                 flag
               </span>
               <div>
                 <p className="eyebrow !text-[10px] text-amber-200">Journey governance</p>
-                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Exit goals need review</h2>
-                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                <h2 className="mt-1 text-base text-on-surface">Exit goals need review</h2>
+                <p className="mt-2 text-sm leading-6 text-on-surface-variant">
                   {activeSequencesWithoutExitGoals.length} active sequence{activeSequencesWithoutExitGoals.length === 1 ? ' can' : 's can'} run without an exit goal.
                 </p>
-                <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                <p className="mt-2 text-xs leading-5 text-on-surface-variant">
                   Add reply, stage, tag, or click goals so automated follow-up stops when the customer has already moved forward.
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -405,7 +405,7 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
             </div>
             <Link
               href={sequenceHref(sequenceEditPath(surface, firstExitGoalReviewSequence.id))}
-              className="btn-pib-secondary shrink-0 justify-center text-xs"
+              className="flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
               aria-label={`Review exit goal for ${firstExitGoalReviewName}`}
             >
               <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit</span>
@@ -415,13 +415,13 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
         </section>
       )}
 
-      <div className={fetchError ? '' : 'grid gap-5 xl:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)]'}>
+      <div className={fetchError ? '' : 'grid gap-3 xl:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)]'}>
         {!fetchError && (
-        <aside className="space-y-5">
-          <div className="bento-card !p-5 space-y-4">
+        <aside className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+          <div className="space-y-3 border-b border-[var(--color-card-border)] p-3">
             <div>
               <h2 className="text-sm font-semibold">Journey view</h2>
-              <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+              <p className="mt-1 text-xs text-on-surface-variant">
                 Find sequence gaps by status, channel, first touch, or content.
               </p>
             </div>
@@ -429,7 +429,7 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search sequences..."
-              className="w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm outline-none focus:border-[var(--color-pib-accent)]"
+              className="w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-3 py-2 text-sm outline-none focus:border-primary/30"
             />
             <div className="grid grid-cols-2 gap-2">
               {[
@@ -444,10 +444,10 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
                   type="button"
                   onClick={() => setFilter(id as ViewFilter)}
                   className={[
-                    'cursor-pointer rounded-lg border px-3 py-2 text-left text-xs transition-colors',
+                    'cursor-pointer rounded-md border px-3 py-2 text-left text-xs transition-colors',
                     filter === id
-                      ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-text)]'
-                      : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-white/[0.03]',
+                      ? 'border-primary/30 bg-primary/10 text-on-surface'
+                      : 'border-[var(--color-card-border)] text-on-surface-variant hover:bg-white/[0.03]',
                   ].join(' ')}
                 >
                   {label}
@@ -456,10 +456,10 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
             </div>
           </div>
 
-          <div className="bento-card !p-5 space-y-4">
+          <div className="space-y-3 p-3">
             <div>
               <h2 className="text-sm font-semibold">Channel focus</h2>
-              <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Check whether journeys are email-only, SMS, or mixed.</p>
+              <p className="mt-1 text-xs text-on-surface-variant">Check whether journeys are email-only, SMS, or mixed.</p>
             </div>
             {[
               ['all', 'All channels', 'All configured sequences'],
@@ -472,17 +472,17 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
                 type="button"
                 onClick={() => setChannelFilter(id as ChannelFilter)}
                 className={[
-                  'cursor-pointer flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition-colors',
+                  'cursor-pointer flex w-full items-center justify-between gap-3 rounded-md border px-3 py-2 text-left transition-colors',
                   channelFilter === id
-                    ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent-soft)]'
-                    : 'border-[var(--color-pib-line)] hover:bg-white/[0.03]',
+                    ? 'border-primary/30 bg-primary/10'
+                    : 'border-[var(--color-card-border)] hover:bg-white/[0.03]',
                 ].join(' ')}
               >
                 <span>
                   <span className="block text-xs font-medium">{label}</span>
-                  <span className="block text-[10px] text-[var(--color-pib-text-muted)]">{sub}</span>
+                  <span className="block text-[10px] text-on-surface-variant">{sub}</span>
                 </span>
-                <span className="text-xs text-[var(--color-pib-text-muted)]">
+                <span className="text-xs text-on-surface-variant">
                   {id === 'all' ? sequences.length : sequences.filter((sequence) => channelsFor(sequence) === id).length}
                 </span>
               </button>
@@ -493,32 +493,32 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
 
         <section>
           {deleteError && (
-            <div className="mb-3 rounded-lg border border-red-400/25 bg-red-400/10 px-4 py-3 text-sm text-red-200">
+            <div className="mb-3 rounded-md border border-red-400/25 bg-red-400/10 px-4 py-3 text-sm text-red-200">
               {deleteError}
             </div>
           )}
 
           {loading ? (
-            <div className="bento-card !p-6">
-              <p className="text-sm text-[var(--color-pib-text-muted)]">Loading sequences...</p>
+            <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4">
+              <p className="text-sm text-on-surface-variant">Loading sequences...</p>
             </div>
           ) : fetchError ? (
-            <section className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-5">
+            <section className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-3">
               <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                 <div className="flex gap-3">
                   <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">warning</span>
                   <div>
                     <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
-                    <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
+                    <h2 className="mt-1 text-base text-on-surface">
                       Follow-up journeys could not load
                     </h2>
-                    <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{fetchError}</p>
+                    <p className="mt-2 text-sm leading-6 text-on-surface-variant">{fetchError}</p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={fetchSequences}
-                  className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+                  className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
                   aria-label="Retry loading follow-up journeys"
                 >
                   <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
@@ -527,21 +527,21 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
               </div>
             </section>
           ) : sequences.length === 0 ? (
-            <div className="bento-card !p-0 overflow-hidden">
+            <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
               <div className="grid gap-0 lg:grid-cols-[1.1fr_1.4fr]">
-                <div className="border-b border-[var(--color-pib-line)] p-6 lg:border-b-0 lg:border-r">
-                  <span className="material-symbols-outlined mb-4 block text-[34px] text-[var(--color-accent-v2)]">route</span>
+                <div className="border-b border-[var(--color-card-border)] p-4 lg:border-b-0 lg:border-r">
+                  <span className="material-symbols-outlined mb-2 block text-[18px] text-[var(--color-accent-v2)]">route</span>
                   <p className="eyebrow !text-[10px]">Journey setup</p>
-                  <h2 className="mt-2 font-display text-2xl leading-tight text-[var(--color-pib-text)]">
+                  <h2 className="mt-2 text-lg leading-tight text-on-surface">
                     Launch your first follow-up journey
                   </h2>
-                  <p className="mt-3 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                  <p className="mt-3 text-sm leading-6 text-on-surface-variant">
                     Start with the customer journey your team repeats most often. A clear sequence turns first response,
                     sales prompts, and handover expectations into a company playbook rather than individual memory.
                   </p>
                   <Link
                     href={sequenceHref(sequenceNewPath(surface))}
-                    className="btn-pib-accent mt-5 inline-flex w-fit items-center gap-1.5 text-sm"
+                    className="mt-3 flex h-8 w-fit items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black"
                     aria-label="Create the first sequence"
                   >
                     <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
@@ -549,32 +549,32 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
                   </Link>
                 </div>
 
-                <div className="grid gap-px bg-[var(--color-pib-line)] sm:grid-cols-2">
+                <div className="grid gap-px bg-[var(--color-card-border)] sm:grid-cols-2">
                   {journeyBlueprint.map((item) => (
-                    <div key={item.label} className="bg-[var(--color-pib-surface)] p-5">
+                    <div key={item.label} className="bg-transparent p-3">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="text-xs font-semibold uppercase tracking-widest text-[var(--color-pib-text-muted)]">{item.label}</p>
-                          <p className="mt-2 font-display text-xl leading-none text-[var(--color-pib-text)]">{item.value}</p>
+                          <p className="text-xs font-semibold uppercase tracking-widest text-on-surface-variant">{item.label}</p>
+                          <p className="mt-2 text-base leading-none text-on-surface">{item.value}</p>
                         </div>
-                        <span className="material-symbols-outlined text-[21px] text-[var(--color-pib-text-muted)]">{item.icon}</span>
+                        <span className="material-symbols-outlined text-[18px] text-on-surface-variant">{item.icon}</span>
                       </div>
-                      <p className="mt-4 text-xs leading-5 text-[var(--color-pib-text-muted)]">{item.copy}</p>
+                      <p className="mt-4 text-xs leading-5 text-on-surface-variant">{item.copy}</p>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
           ) : visibleSequences.length === 0 ? (
-            <div className="bento-card !p-8 text-center">
-              <span className="material-symbols-outlined mb-2 block text-3xl text-[var(--color-pib-text-muted)]" aria-hidden="true">manage_search</span>
+            <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center">
+              <span className="material-symbols-outlined mb-2 block text-[19px] text-on-surface-variant" aria-hidden="true">manage_search</span>
               <p className="eyebrow !text-[10px]">Filtered journey view</p>
-              <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">No sequences match this view.</h2>
-              <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Clear the sequence filters to return to every journey.</p>
+              <h2 className="mt-2 text-lg font-semibold text-on-surface">No sequences match this view.</h2>
+              <p className="mt-2 text-sm text-on-surface-variant">Clear the sequence filters to return to every journey.</p>
               <button
                 type="button"
                 onClick={clearViewFilters}
-                className="btn-pib-secondary mt-5 inline-flex items-center gap-1.5 text-xs"
+                className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
                 aria-label="Show all sequences"
               >
                 <span className="material-symbols-outlined text-[15px]" aria-hidden="true">filter_alt_off</span>
@@ -588,7 +588,7 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
                   role="alertdialog"
                   aria-labelledby="sequence-delete-confirm-title"
                   aria-describedby="sequence-delete-confirm-description"
-                  className="rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-3 shadow-xl"
+                  className="rounded-md border border-red-400/30 bg-red-500/10 px-3 py-2"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex gap-3">
@@ -597,7 +597,7 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
                       </span>
                       <div className="min-w-0">
                         <p className="eyebrow !text-[10px] text-red-200">Sequence delete confirmation</p>
-                        <h2 id="sequence-delete-confirm-title" className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
+                        <h2 id="sequence-delete-confirm-title" className="mt-1 text-sm font-semibold text-on-surface">
                           Delete sequence &quot;{pendingDeleteSequenceName}&quot;?
                         </h2>
                         <p id="sequence-delete-confirm-description" className="mt-2 text-sm text-red-100/90">
@@ -612,7 +612,7 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
                           setPendingDeleteSequence(null)
                           setDeleteError(null)
                         }}
-                        className="btn-pib-secondary text-xs"
+                        className="h-8 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
                         disabled={deletingId !== null}
                         aria-label={`Cancel delete for sequence ${pendingDeleteSequenceName}`}
                       >
@@ -647,7 +647,7 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
                   <article
                     key={seq.id}
                     className={[
-                      'bento-card !p-0 overflow-hidden transition-colors hover:border-[var(--color-pib-accent)]',
+                      'overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 transition-colors hover:border-primary/30',
                       isDeleting ? 'opacity-50 pointer-events-none' : '',
                     ].join(' ')}
                   >
@@ -655,10 +655,10 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
                       <div className="min-w-0">
                         <div className="mb-2 flex flex-wrap items-center gap-2">
                           <StatusBadge status={seq.status} />
-                          <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)]">
+                          <span className="rounded-full border border-[var(--color-card-border)] px-2 py-1 text-[10px] text-on-surface-variant">
                             {seq.steps.length} step{seq.steps.length === 1 ? '' : 's'}
                           </span>
-                          <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)]">
+                          <span className="rounded-full border border-[var(--color-card-border)] px-2 py-1 text-[10px] text-on-surface-variant">
                             {cadenceLabel(seq)}
                           </span>
                           <span className={score >= 80 ? 'rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[10px] text-emerald-300' : 'rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-1 text-[10px] text-amber-300'}>
@@ -667,11 +667,11 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
                         </div>
                         <h2 className="truncate text-base font-semibold">{displayName}</h2>
                         {seq.description ? (
-                          <p className="mt-1 line-clamp-2 text-xs text-[var(--color-pib-text-muted)]">{seq.description}</p>
+                          <p className="mt-1 line-clamp-2 text-xs text-on-surface-variant">{seq.description}</p>
                         ) : (
                           <p className="mt-1 text-xs text-amber-300">Purpose missing</p>
                         )}
-                        <div className="mt-4 rounded-lg border border-[var(--color-pib-line)] bg-black/10 px-3 py-3">
+                        <div className="mt-4 rounded-md border border-[var(--color-card-border)] bg-black/10 px-3 py-3">
                           <p className="eyebrow !text-[10px]">First touch</p>
                           <p className="mt-2 truncate text-sm">{firstStepPreview(seq)}</p>
                         </div>
@@ -681,15 +681,15 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
                         <p className="eyebrow !text-[10px] mb-2">Journey path</p>
                         <div className="space-y-2">
                           {seq.steps.slice(0, 4).map((step, index) => (
-                            <div key={`${seq.id}-${index}`} className="flex items-center gap-3 rounded-lg border border-[var(--color-pib-line)] px-3 py-2">
-                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[var(--color-pib-line)] text-[10px]">
+                            <div key={`${seq.id}-${index}`} className="flex items-center gap-3 rounded-md border border-[var(--color-card-border)] px-3 py-2">
+                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[var(--color-card-border)] text-[10px]">
                                 {index + 1}
                               </span>
                               <div className="min-w-0 flex-1">
                                 <p className="truncate text-xs font-medium">
                                   {stepChannel(step) === 'sms' ? step.smsBody || 'SMS body missing' : step.subject || 'Subject missing'}
                                 </p>
-                                <p className="text-[10px] text-[var(--color-pib-text-muted)]">
+                                <p className="text-[10px] text-on-surface-variant">
                                   {stepChannel(step).toUpperCase()} · day {Math.max(0, Number(step.delayDays) || 0)}
                                 </p>
                               </div>
@@ -698,10 +698,10 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
                           ))}
                         </div>
                         {seq.steps.length > 4 && (
-                          <p className="mt-2 text-[11px] text-[var(--color-pib-text-muted)]">+{seq.steps.length - 4} more steps</p>
+                          <p className="mt-2 text-[11px] text-on-surface-variant">+{seq.steps.length - 4} more steps</p>
                         )}
                         <div className="mt-3 flex flex-wrap gap-1.5">
-                          <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)]">
+                          <span className="rounded-full border border-[var(--color-card-border)] px-2 py-1 text-[10px] text-on-surface-variant">
                             {channel === 'mixed' ? 'Email + SMS' : channel.toUpperCase()}
                           </span>
                           {seq.goals?.length ? (
@@ -709,7 +709,7 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
                               {seq.goals.length} goal{seq.goals.length === 1 ? '' : 's'}
                             </span>
                           ) : (
-                            <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)]">
+                            <span className="rounded-full border border-[var(--color-card-border)] px-2 py-1 text-[10px] text-on-surface-variant">
                               No exit goal
                             </span>
                           )}
@@ -737,7 +737,7 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
                               ? 'border-amber-400/30 text-amber-300 hover:bg-amber-400/10'
                               : seq.status === 'paused'
                                 ? 'border-emerald-400/30 text-emerald-300 hover:bg-emerald-400/10'
-                                : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)]',
+                                : 'border-[var(--color-card-border)] text-on-surface-variant',
                           ].join(' ')}
                         >
                           {isToggling ? '...' : seq.status === 'active' ? 'Pause' : seq.status === 'paused' ? 'Activate' : 'Draft'}
@@ -748,7 +748,7 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
                             href={sequenceHref(sequenceEditPath(surface, seq.id))}
                             title="Edit sequence"
                             aria-label={`Edit sequence ${displayName}`}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]"
+                            className="flex h-8 w-8 items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-white/[0.06] hover:text-on-surface"
                           >
                             <span className="material-symbols-outlined text-[17px]">edit</span>
                           </Link>
@@ -761,7 +761,7 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
                             disabled={isDeleting}
                             aria-label={`Delete sequence ${displayName}`}
                             title="Delete sequence"
-                            className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-red-400/[0.08] hover:text-red-400"
+                            className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-red-400/[0.08] hover:text-red-400"
                           >
                             {isDeleting ? (
                               <span className="material-symbols-outlined text-[17px] animate-spin">progress_activity</span>

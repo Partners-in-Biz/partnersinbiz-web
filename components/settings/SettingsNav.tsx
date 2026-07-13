@@ -16,6 +16,7 @@ const ACCOUNT_LINKS = [
   { href: '/portal/settings/account', label: 'Account settings', icon: 'manage_accounts' },
   { href: '/portal/settings/security', label: 'Security & 2FA', icon: 'security' },
   { href: '/portal/settings/sessions', label: 'Sessions', icon: 'devices' },
+  { href: '/portal/settings/linked-computers', label: 'Linked Computers', icon: 'computer' },
   { href: '/portal/settings/notifications', label: 'Notifications', icon: 'notifications' },
   { href: '/portal/settings/workspaces', label: 'My workspaces', icon: 'workspaces' },
   { href: '/portal/personal/marketing', label: 'Personal marketing', icon: 'person' },

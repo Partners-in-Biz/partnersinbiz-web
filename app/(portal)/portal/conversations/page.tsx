@@ -165,6 +165,7 @@ export default function ConversationsPage() {
         orgId={org.id}
         currentUserUid={user.uid}
         currentUserDisplayName={user.name}
+        userRole={user.role}
         orgName={org.name}
         initialConvId={initialConvId}
         allowAgentParticipants={capabilities.canUseAgentHandoff}

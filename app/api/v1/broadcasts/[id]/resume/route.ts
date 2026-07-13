@@ -14,6 +14,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { lastActorFrom } from '@/lib/api/actor'
 import type { Broadcast } from '@/lib/broadcasts/types'
 import type { ApiUser } from '@/lib/api/types'
+import { assertEmailMarketingAgentActionWithTask, assertEmailMarketingDispatchApproval } from '@/lib/email-marketing/agent-governance'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,6 +32,23 @@ export const POST = withAuth('client', async (_req: NextRequest, user: ApiUser, 
   if (current.status === 'scheduled') return apiSuccess({ id, status: 'scheduled' })
   if (current.status !== 'paused') {
     return apiError(`Cannot resume a broadcast with status=${current.status}`, 422)
+  }
+
+  try {
+    await assertEmailMarketingAgentActionWithTask(
+      user, 'email_marketing_send', current.approvalState,
+      { orgId: scope.orgId, resourceType: 'email_broadcast', resourceId: id },
+      current as unknown as Record<string, unknown>,
+    )
+  } catch (error) {
+    return apiError(error instanceof Error ? error.message : 'Broadcast resume is not authorised', 403)
+  }
+  try {
+    await assertEmailMarketingDispatchApproval(current as unknown as Record<string, unknown>, {
+      orgId: scope.orgId, resourceType: 'email_broadcast', resourceId: id,
+    })
+  } catch (error) {
+    return apiError(error instanceof Error ? error.message : 'Broadcast approval is required by organisation policy', 403)
   }
 
   await ref.update({

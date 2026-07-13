@@ -5,6 +5,7 @@ import { verifyUnsubscribeToken } from '@/lib/email/unsubscribeToken'
 import { syncUnsubscribeToIntegrations } from '@/lib/crm/integrations/syncOptOut'
 import { addSuppression } from '@/lib/email/suppressions'
 import { enforcePublicRateLimit, publicRequestIp, publicRateLimitHash } from '@/lib/api/public-rate-limit'
+import { appendConsentEvent } from '@/lib/consent-ledger/store'
 
 type UnsubResult =
   | { ok: false; status: 400 | 404; heading: string; message: string }
@@ -97,6 +98,19 @@ async function performUnsubscribe(token: string | null): Promise<UnsubResult> {
   // 4. Propagate opt-out to CRM integrations (non-blocking)
   const orgId = (data.orgId as string | undefined) ?? ''
   if (orgId) {
+    appendConsentEvent({
+      orgId,
+      contactId,
+      channel: 'email',
+      topicId: 'all',
+      state: 'revoked',
+      legalBasis: 'consent',
+      source: 'one-click-unsubscribe',
+      sourceEventId: `unsubscribe:${contactId}:${tokenCampaignId || 'global'}`,
+      sourceId: tokenCampaignId || undefined,
+      occurredAt: new Date().toISOString(),
+      proofRef: `contacts/${contactId}`,
+    }).catch((err) => console.error('[unsubscribe] consent ledger append failed', err))
     syncUnsubscribeToIntegrations(contactId, orgId).catch((err) =>
       console.error('[unsubscribe] opt-out sync failed', err)
     )

@@ -97,19 +97,19 @@ function Field({
   }
 }) {
   return (
-    <div className="rounded-md border border-[var(--color-pib-line)] bg-white/[0.025] p-3">
-      <div className="flex items-start gap-3">
-        <span className="material-symbols-outlined mt-0.5 text-[18px] text-[var(--color-pib-accent)]">{icon}</span>
+    <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+      <div className="flex items-start gap-2">
+        <span className="material-symbols-outlined mt-0.5 text-[16px] text-primary">{icon}</span>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">{label}</p>
-          <p className="mt-1 break-words text-sm font-medium text-[var(--color-pib-text)]">{value}</p>
-          {meta ? <p className="mt-1 break-words text-[11px] text-[var(--color-pib-text-muted)]">{meta}</p> : null}
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-on-surface-variant">{label}</p>
+          <p className="mt-0.5 break-words text-sm font-medium text-on-surface">{value}</p>
+          {meta ? <p className="mt-0.5 break-words text-[11px] leading-4 text-on-surface-variant">{meta}</p> : null}
           {action ? (
             <button
               type="button"
               aria-label={action.ariaLabel}
               onClick={action.onClick}
-              className="mt-3 inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-accent)] transition-colors hover:border-[var(--color-pib-accent)] hover:text-[var(--color-pib-text)]"
+              className="mt-2 inline-flex h-7 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 text-[11px] font-medium text-primary transition hover:bg-white/[0.05] hover:text-on-surface"
             >
               <span className="material-symbols-outlined text-[13px]" aria-hidden="true">{action.icon}</span>
               {action.label}
@@ -131,20 +131,20 @@ function MissingOwnerPanel({
   }
 }) {
   return (
-    <div className="rounded-md border border-[var(--color-pib-line)] bg-white/[0.025] p-4">
-      <div className="flex items-start gap-3">
+    <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2.5 py-2.5">
+      <div className="flex items-start gap-2.5">
         <span
           aria-hidden="true"
-          className="material-symbols-outlined flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-white/[0.04] text-[18px] text-[var(--color-pib-accent)]"
+          className="material-symbols-outlined grid h-7 w-7 shrink-0 place-items-center rounded-md bg-primary/10 text-[16px] text-primary"
         >
           person_alert
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">
             Owner accountability missing
           </p>
-          <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Assign a relationship owner</h3>
-          <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+          <h3 className="mt-0.5 text-sm font-semibold text-on-surface">Assign a relationship owner</h3>
+          <p className="mt-0.5 text-xs leading-5 text-on-surface-variant">
             No team member owns this contact yet. Assign an owner so follow-ups, handoffs, and pipeline accountability are visible before the relationship goes cold.
           </p>
           {action ? (
@@ -152,7 +152,7 @@ function MissingOwnerPanel({
               type="button"
               aria-label={action.ariaLabel}
               onClick={action.onClick}
-              className="btn-pib-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
+              className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
             >
               <span aria-hidden="true" className="material-symbols-outlined text-[14px]">person_add</span>
               {action.label}
@@ -174,20 +174,20 @@ function WeakSourcePanel({
   }
 }) {
   return (
-    <div className="rounded-md border border-[var(--color-pib-line)] bg-white/[0.025] p-4">
-      <div className="flex items-start gap-3">
+    <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2.5 py-2.5">
+      <div className="flex items-start gap-2.5">
         <span
           aria-hidden="true"
-          className="material-symbols-outlined flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-white/[0.04] text-[18px] text-[var(--color-pib-accent)]"
+          className="material-symbols-outlined grid h-7 w-7 shrink-0 place-items-center rounded-md bg-primary/10 text-[16px] text-primary"
         >
           conversion_path
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">
             Source provenance weak
           </p>
-          <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Confirm how this contact entered CRM</h3>
-          <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+          <h3 className="mt-0.5 text-sm font-semibold text-on-surface">Confirm how this contact entered CRM</h3>
+          <p className="mt-0.5 text-xs leading-5 text-on-surface-variant">
             This relationship is marked as manual or legacy without a capture source. Review the source so attribution, segment reporting, and follow-up ownership stay trustworthy.
           </p>
           {action ? (
@@ -195,7 +195,7 @@ function WeakSourcePanel({
               type="button"
               aria-label={action.ariaLabel}
               onClick={action.onClick}
-              className="btn-pib-secondary mt-3 inline-flex items-center gap-1.5 text-xs"
+              className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
             >
               <span aria-hidden="true" className="material-symbols-outlined text-[14px]">edit</span>
               {action.label}
@@ -235,49 +235,51 @@ export function ContactOwnershipPanel({
   const updater = auditActorLabel(profile.updatedByRef, 'Updater not captured')
 
   return (
-    <section className="bento-card !p-5 space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="eyebrow !text-[10px]">Relationship ownership</p>
-          <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
-            Team accountability, source provenance, and last governance snapshot.
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="font-display text-3xl leading-none text-[var(--color-pib-text)]">{health}%</p>
-          <p className="mt-1 text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">governed</p>
-        </div>
+    <section className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+      <div className="flex h-9 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black/[0.08] px-3">
+        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Relationship ownership</p>
+        <p className="text-xs text-on-surface-variant">
+          <span className="text-sm font-semibold text-on-surface">{health}%</span>
+          {' '}
+          <span className="text-[10px] uppercase tracking-[0.18em]">governed</span>
+        </p>
       </div>
 
-      <div className="h-2 overflow-hidden rounded-full bg-[var(--color-pib-line-strong)]">
-        <div
-          className="h-full rounded-full bg-[var(--color-pib-accent)] transition-all duration-500"
-          style={{ width: `${health}%` }}
-        />
-      </div>
+      <div className="space-y-2 p-3">
+        <p className="text-xs leading-5 text-on-surface-variant">
+          Team accountability, source provenance, and last governance snapshot.
+        </p>
 
-      <div className="space-y-2">
-        {needsOwner ? (
-          <MissingOwnerPanel action={actions?.assignOwner} />
-        ) : (
-          <Field
-            icon="supervisor_account"
-            label="Owner"
-            value={owner}
-            meta={memberMeta(profile.assignedToRef)}
+        <div className="h-1 overflow-hidden rounded-full bg-white/10">
+          <div
+            className="h-full rounded-full bg-primary transition-all duration-500"
+            style={{ width: `${health}%` }}
           />
-        )}
-        {weakSource ? (
-          <WeakSourcePanel action={actions?.reviewSource} />
-        ) : (
+        </div>
+
+        <div className="space-y-2">
+          {needsOwner ? (
+            <MissingOwnerPanel action={actions?.assignOwner} />
+          ) : (
+            <Field
+              icon="supervisor_account"
+              label="Owner"
+              value={owner}
+              meta={memberMeta(profile.assignedToRef)}
+            />
+          )}
+          {weakSource ? (
+            <WeakSourcePanel action={actions?.reviewSource} />
+          ) : (
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Field icon="conversion_path" label="Source" value={source} />
+              <Field icon="fingerprint" label="Capture source" value={captureSource} />
+            </div>
+          )}
           <div className="grid gap-2 sm:grid-cols-2">
-            <Field icon="conversion_path" label="Source" value={source} />
-            <Field icon="fingerprint" label="Capture source" value={captureSource} />
+            <Field icon="person_add" label="Created by" value={creator} meta={memberMeta(profile.createdByRef)} />
+            <Field icon="manage_accounts" label="Updated by" value={updater} meta={memberMeta(profile.updatedByRef)} />
           </div>
-        )}
-        <div className="grid gap-2 sm:grid-cols-2">
-          <Field icon="person_add" label="Created by" value={creator} meta={memberMeta(profile.createdByRef)} />
-          <Field icon="manage_accounts" label="Updated by" value={updater} meta={memberMeta(profile.updatedByRef)} />
         </div>
       </div>
     </section>

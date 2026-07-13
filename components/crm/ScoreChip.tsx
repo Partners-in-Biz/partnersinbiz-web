@@ -18,12 +18,12 @@ export function ScoreChip({ score, label, size = 'md', kind }: ScoreChipProps) {
 
   const sizeClasses =
     size === 'sm'
-      ? 'text-xs px-1.5 py-0.5'
-      : 'text-sm px-2 py-0.5'
+      ? 'px-1.5 py-0.5 text-xs'
+      : 'px-2 py-0.5 text-sm'
 
   const colorCls = isScored
     ? colorClasses(score!)
-    : 'bg-surface-container text-on-surface-variant'
+    : 'border border-[var(--color-card-border)] bg-transparent text-on-surface-variant'
 
   const tooltip = isScored
     ? [kind, label].filter(Boolean).join(' — ')
@@ -33,7 +33,7 @@ export function ScoreChip({ score, label, size = 'md', kind }: ScoreChipProps) {
 
   return (
     <span
-      className={`inline-flex items-center rounded-full font-label font-medium uppercase tracking-wide ${sizeClasses} ${colorCls}`}
+      className={`inline-flex items-center rounded-full font-label font-medium uppercase tracking-[0.16em] ${sizeClasses} ${colorCls}`}
       title={tooltip}
     >
       {isScored ? score : 'Not scored'}

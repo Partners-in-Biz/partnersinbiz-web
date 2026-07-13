@@ -71,6 +71,8 @@ export interface Broadcast {
 
   // Sender — resolved through lib/email/resolveFrom.ts (email channel only;
   // SMS uses the org's Twilio messaging service / default number).
+  /** Canonical V2 sender policy. Send-time resolution fails closed when configured but unavailable. */
+  senderPolicyId?: string
   fromDomainId: string
   fromName: string
   fromLocal: string
@@ -81,6 +83,7 @@ export interface Broadcast {
 
   // Schedule
   scheduledFor: Timestamp | null
+  approvalRequestedSchedule?: string | null
   sendStartedAt: Timestamp | null
   sendCompletedAt: Timestamp | null
 
@@ -105,6 +108,16 @@ export interface Broadcast {
   updatedAt: Timestamp | null
   createdBy: string
   createdByType: 'user' | 'agent' | 'system'
+  approvalState?: {
+    status: 'pending' | 'approved' | 'rejected' | 'revoked'
+    approvedBy?: string | null
+    approvedByType?: 'user' | 'agent' | 'system' | null
+    approvedAt?: Timestamp | null
+    approvalTaskId?: string | null
+    approvedSnapshotHash?: string | null
+    invalidatedAt?: Timestamp | null
+    invalidatedReason?: string | null
+  }
   deleted?: boolean
 }
 

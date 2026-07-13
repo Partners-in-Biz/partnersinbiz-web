@@ -13,6 +13,7 @@
 // runs the steps as it does today.
 
 import type { Timestamp } from 'firebase-admin/firestore'
+import type { EmailDocument } from '@/lib/email-builder/types'
 
 export type CampaignStatus = 'draft' | 'scheduled' | 'active' | 'paused' | 'completed'
 
@@ -46,11 +47,26 @@ export interface CampaignTriggers {
 export interface Campaign {
   id: string
   orgId: string
+  /** Present on new writes; absent means this is a legacy record requiring an adapter. */
+  recordType?: 'email_campaign' | 'email_program'
+  schemaVersion?: number
   name: string
   description: string
   status: CampaignStatus
 
+  // Email-builder fields already persisted by the campaign routes.
+  subject?: string
+  previewText?: string
+  preheader?: string
+  emailDocument?: EmailDocument | null
+  tagId?: string
+  tagIds?: string[]
+  exclusionContactIds?: string[]
+  excludeTagIds?: string[]
+
   // Sender
+  senderPolicyId?: string
+  replyPolicyId?: string
   fromDomainId: string   // "" = use shared PIB domain fallback
   fromName: string       // display name; "" = use orgName at send time
   fromLocal: string      // local part (e.g. "campaigns" or "noreply")
@@ -76,6 +92,15 @@ export interface Campaign {
   createdAt: Timestamp | null
   updatedAt: Timestamp | null
   createdBy: string
+  createdByType?: 'user' | 'agent' | 'system'
+  approvalState?: {
+    status: 'not_required' | 'pending' | 'approved' | 'rejected' | 'revoked'
+    approvedBy?: string | null
+    approvedByType?: 'user' | 'agent' | 'system' | null
+    approvedAt?: Timestamp | null
+    approvalTaskId?: string | null
+    approvedSnapshotHash?: string | null
+  }
   deleted?: boolean
 }
 

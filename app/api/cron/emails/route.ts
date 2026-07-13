@@ -20,6 +20,8 @@ import { interpolate, varsFromContact } from '@/lib/email/template'
 import { isSuppressed } from '@/lib/email/suppressions'
 import { shouldSendToContact } from '@/lib/preferences/store'
 import { isWithinFrequencyCap, logFrequencySkip } from '@/lib/email/frequency'
+import { resolveCanonicalEmailConsent } from '@/lib/consent-ledger/decision'
+import { assertEmailMarketingDispatchApproval } from '@/lib/email-marketing/agent-governance'
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const authHeader = req.headers.get('authorization') ?? ''
@@ -79,6 +81,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
       // If campaign-linked, use campaign sender fields
       type CampaignLite = {
+        orgId?: string
+        createdByType?: string
+        approvalState?: Record<string, unknown>
         fromDomainId?: string
         fromName?: string
         fromLocal?: string
@@ -89,6 +94,17 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         const campSnap = await adminDb.collection('campaigns').doc(campaignId).get()
         if (campSnap.exists) {
           campaign = (campSnap.data() ?? null) as CampaignLite | null
+        }
+      }
+
+      if (campaign && orgId) {
+        try {
+          await assertEmailMarketingDispatchApproval(campaign as Record<string, unknown>, {
+            orgId, resourceType: 'email_campaign', resourceId: campaignId,
+          })
+        } catch (error) {
+          await markSkipped(error instanceof Error ? error.message : 'approval invalid')
+          continue
         }
       }
 
@@ -151,6 +167,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       const subject = interpolate(email.subject ?? '', vars)
       const bodyHtml = interpolate(email.bodyHtml ?? '', vars)
       const bodyText = interpolate(email.bodyText ?? '', vars)
+
+      const consent = await resolveCanonicalEmailConsent({
+        orgId, contactId, email: email.to ?? '', topicId,
+        transactional: topicId === 'transactional',
+      })
+      if (!consent.allowed) {
+        await markSkipped(consent.reason ?? 'blocked by consent ledger')
+        continue
+      }
 
       const sendResult = await sendCampaignEmail({
         from: resolved.from,

@@ -192,12 +192,12 @@ export function CaptureSourceImportWorkspace({ orgId, orgName }: CaptureSourceIm
   const previewRows = rows.slice(0, 5)
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <div>
+    <div className="mx-auto flex h-full min-h-0 max-w-5xl flex-col overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+      <div className="border-b border-[var(--color-card-border)] px-3 py-2">
         <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
           {orgName || 'Workspace'}
         </p>
-        <h1 className="text-2xl font-semibold text-on-surface">Import contacts from CSV</h1>
+        <h1 className="text-base font-semibold text-on-surface">Import contacts from CSV</h1>
         <p className="text-sm text-on-surface-variant mt-1 max-w-2xl">
           Bulk-import contacts into this organisation. Existing contacts (matched by
           email) get their tags merged — names and other fields are not overwritten.
@@ -206,7 +206,7 @@ export function CaptureSourceImportWorkspace({ orgId, orgName }: CaptureSourceIm
       </div>
 
 
-      <>          <div className="rounded-xl bg-surface-container border border-outline-variant p-4 space-y-4">
+      <>          <div className="space-y-3 border-b border-[var(--color-card-border)] p-3">
             <div>
               <label className="block text-sm font-medium text-on-surface mb-1">
                 CSV file
@@ -274,7 +274,7 @@ export function CaptureSourceImportWorkspace({ orgId, orgName }: CaptureSourceIm
           </div>
 
           {headers.length > 0 && (
-            <div className="rounded-xl bg-surface-container border border-outline-variant p-4 space-y-3">
+            <div className="space-y-3 border-b border-[var(--color-card-border)] p-3">
               <div>
                 <h2 className="text-sm font-medium text-on-surface">Map columns</h2>
                 <p className="mt-1 text-xs text-on-surface-variant">
@@ -329,7 +329,7 @@ export function CaptureSourceImportWorkspace({ orgId, orgName }: CaptureSourceIm
           )}
 
           {previewRows.length > 0 && (
-            <div className="rounded-xl bg-surface-container border border-outline-variant p-4">
+            <div className="border-b border-[var(--color-card-border)] p-3">
               <h2 className="text-sm font-medium text-on-surface mb-2">
                 Preview (first {previewRows.length} of {rows.length})
               </h2>
@@ -391,7 +391,7 @@ export function CaptureSourceImportWorkspace({ orgId, orgName }: CaptureSourceIm
           )}
 
           {submitError && (
-            <div className="rounded-xl bg-surface-container border border-outline-variant p-4 text-sm text-red-600">
+            <div className="border-b border-[var(--color-card-border)] p-3 text-xs text-red-300">
               {submitError}
             </div>
           )}
@@ -460,7 +460,7 @@ function Stat({ label, value }: { label: string; value: number }) {
       <p className="text-[10px] uppercase tracking-widest text-on-surface-variant">
         {label}
       </p>
-      <p className="text-2xl font-semibold text-on-surface">{value}</p>
+      <p className="text-lg font-semibold text-on-surface">{value}</p>
     </div>
   )
 }

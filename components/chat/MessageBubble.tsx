@@ -36,6 +36,7 @@ export interface ConversationMessage {
   authorId: string
   authorDisplayName: string
   dispatchAgentId?: string
+  acceptedDevice?: { machineLabel: string; runtimeVersion: string; acceptedAt: string }
   createdAt?: { seconds?: number; _seconds?: number } | string
 }
 
@@ -1020,6 +1021,49 @@ function ApprovalCard({
   )
 }
 
+function ProjectTaskProposal({ part }: { part: RichMessagePart }) {
+  const tasks = Array.isArray(part.tasks)
+    ? part.tasks.map(richRecord).filter((task): task is Record<string, unknown> => Boolean(task))
+    : []
+  const title = part.title ?? 'Proposed project tasks'
+  return (
+    <article aria-label={title} className="my-2 overflow-hidden rounded-lg border border-primary/25 bg-black/15">
+      <header className="flex items-center justify-between gap-3 border-b border-white/10 px-3 py-2.5">
+        <div className="min-w-0">
+          <p className="text-[10px] font-label uppercase tracking-[0.18em] text-primary">Project task proposal</p>
+          <p className="mt-0.5 truncate text-sm font-semibold text-on-surface">{title}</p>
+        </div>
+        <span className="shrink-0 text-[11px] text-on-surface-variant">{tasks.length} task{tasks.length === 1 ? '' : 's'}</span>
+      </header>
+      <ol className="divide-y divide-white/[0.07]">
+        {tasks.map((task, index) => {
+          const taskTitle = typeof task.title === 'string' && task.title.trim() ? task.title.trim() : `Task ${index + 1}`
+          const agentId = typeof task.assigneeAgentId === 'string' ? task.assigneeAgentId : 'Unassigned'
+          const reviewer = typeof task.reviewerAgentId === 'string' ? task.reviewerAgentId : ''
+          const modelPolicy = typeof task.modelPolicy === 'string' ? task.modelPolicy : 'Auto'
+          const dependencySequence = Array.isArray(task.dependencySequence)
+            ? task.dependencySequence.filter((value): value is number => Number.isInteger(value))
+            : []
+          return (
+            <li key={`${taskTitle}-${index}`} className="grid gap-2 px-3 py-2.5 text-xs sm:grid-cols-[1.5rem_minmax(0,1fr)_auto] sm:items-center">
+              <span className="font-mono text-on-surface-variant">{index + 1}</span>
+              <div className="min-w-0">
+                <p className="truncate font-medium text-on-surface">{taskTitle}</p>
+                <p className="mt-0.5 flex flex-wrap gap-x-2 text-[11px] text-on-surface-variant">
+                  <span>Agent: {agentId}</span>
+                  {dependencySequence.length > 0 && <span>After task {dependencySequence.map((value) => value + 1).join(', ')}</span>}
+                  {reviewer && <span>Review: {reviewer}</span>}
+                </p>
+              </div>
+              <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">{modelPolicy}</span>
+            </li>
+          )
+        })}
+      </ol>
+    </article>
+  )
+}
+
 function RichMessagePartView({
   part,
   onQuoteSelection,
@@ -1158,6 +1202,9 @@ function RichMessagePartView({
   }
   if (type === 'approval_card') {
     return <ApprovalCard part={part} onQuoteSelection={onQuoteSelection} />
+  }
+  if (type === 'project_task_proposal') {
+    return <ProjectTaskProposal part={part} />
   }
   return partContent(part) ? <ChatMessageContent content={partContent(part)} /> : null
 }

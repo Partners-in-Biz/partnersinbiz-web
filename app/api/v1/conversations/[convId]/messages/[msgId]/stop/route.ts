@@ -1,7 +1,7 @@
 /**
  * POST /api/v1/conversations/[convId]/messages/[msgId]/stop
  *
- * Admin-only kill switch for an in-flight unified chat agent run.
+ * Kill switch for explicit conversation participants and scoped administrators.
  */
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
@@ -13,18 +13,18 @@ import {
 import { callAgentPath } from '@/lib/agents/team'
 import { AGENT_IDS, type AgentId } from '@/lib/agents/types'
 import type { ApiUser } from '@/lib/api/types'
-import { canAccessConversation } from '@/lib/conversations/access'
+import { canStopConversationRun } from '@/lib/conversations/access'
 
 export const dynamic = 'force-dynamic'
 
 type Ctx = { params: Promise<{ convId: string; msgId: string }> }
 
 
-export const POST = withAuth('admin', async (_req: NextRequest, user: ApiUser, ctx?: unknown) => {
+export const POST = withAuth('client', async (_req: NextRequest, user: ApiUser, ctx?: unknown) => {
   const { convId, msgId } = await (ctx as Ctx).params
   const conversation = await getConversation(convId)
   if (!conversation) return apiError('Conversation not found', 404)
-  if (!canAccessConversation(user, conversation)) return apiError('Forbidden', 403)
+  if (!canStopConversationRun(user, conversation)) return apiError('Forbidden', 403)
 
   const msgRef = messagesCollection(convId).doc(msgId)
   const msgDoc = await msgRef.get()
@@ -55,7 +55,7 @@ export const POST = withAuth('admin', async (_req: NextRequest, user: ApiUser, c
     status: 'failed',
     error: upstream.response.status === 404
       ? 'The agent gateway no longer has this run.'
-      : 'Agent run stopped by admin',
+      : 'Agent run stopped by an authorised conversation actor',
     runId,
   })
 

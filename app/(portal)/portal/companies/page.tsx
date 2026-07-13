@@ -61,13 +61,13 @@ function AccountMetric({
   icon: string
 }) {
   return (
-    <div className="pib-card min-w-[150px] flex-1 px-4 py-3">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</p>
-        <span className="material-symbols-outlined text-[17px] text-[var(--color-pib-text-muted)]">{icon}</span>
+    <div className="min-w-[130px] flex-1 rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">{label}</p>
+        <span className="material-symbols-outlined text-[15px] text-on-surface-variant">{icon}</span>
       </div>
-      <p className="mt-2 text-2xl font-display leading-none text-[var(--color-pib-text)]">{value}</p>
-      <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">{sub}</p>
+      <p className="mt-1 text-lg font-semibold leading-none text-on-surface">{value}</p>
+      <p className="mt-1 text-[11px] leading-4 text-on-surface-variant">{sub}</p>
     </div>
   )
 }
@@ -325,30 +325,32 @@ export default function CompaniesPage() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:gap-6 sm:p-6">
+    <div className="mx-auto flex max-w-7xl flex-col gap-2 sm:p-4">
       {/* ── Page header ── */}
-      <div className="flex items-end justify-between gap-4 flex-wrap">
-        <div className="max-w-3xl">
-          <p className="eyebrow">CRM accounts</p>
-          <h1 className="pib-page-title mt-2">Companies</h1>
-          <p className="pib-page-sub mt-2">
+      <div className="flex min-h-11 flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 px-3 py-1.5">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="material-symbols-outlined grid h-6 w-6 place-items-center rounded-md bg-primary/10 text-[16px] text-primary" aria-hidden="true">domain</span>
+          <div className="min-w-0">
+            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">CRM accounts</p>
+            <h1 className="truncate text-sm font-semibold text-on-surface">Companies</h1>
+          </div>
+          <p className="ml-2 hidden max-w-xl truncate text-xs text-on-surface-variant lg:block">
             Account context, health, ownership, billing readiness, client-org links, and setup gaps for this workspace.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5">
           {/* Migrate from contacts — only visible to admins; route handled by W2-E */}
           <Link
             href={companyPortalPath('/portal/companies/migrate')}
-            className="cursor-pointer text-xs px-3 py-1.5 rounded-lg border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:border-[var(--color-pib-text-muted)] transition-colors"
+            className="flex h-8 cursor-pointer items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
           >
             Migrate from contacts
           </Link>
 
           <Link
             href={companyPortalPath('/portal/companies/new')}
-            className="cursor-pointer flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-            style={{ background: 'var(--color-accent-v2)', color: '#fff' }}
+            className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition hover:opacity-90"
             aria-label="New company"
           >
             <span className="material-symbols-outlined text-[16px]">add</span>
@@ -358,7 +360,7 @@ export default function CompaniesPage() {
       </div>
 
       {!loading && !error && (
-        <section className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
+        <section className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           <AccountMetric icon="domain" label="Accounts" value={String(companies.length)} sub={hasActiveFilters ? 'Matching current view' : 'Visible in workspace'} />
           <AccountMetric icon="handshake" label="Customers" value={String(metrics.customers)} sub={`${metrics.prospects} leads/prospects`} />
           <AccountMetric icon="hub" label="Client links" value={String(metrics.linkedOrgs)} sub="Linked portal organisations" />
@@ -374,62 +376,66 @@ export default function CompaniesPage() {
       )}
 
       {!loading && !error && (
-        <section className="grid gap-3 md:grid-cols-[1fr_1fr]">
+        <section className="grid gap-2 md:grid-cols-[1fr_1fr]">
           <button
             type="button"
             onClick={() => setManagerLens(managerLens === 'unmanaged' ? 'all' : 'unmanaged')}
             className={[
-              'rounded-[var(--radius-card)] border p-3 text-left transition-colors sm:p-4',
+              'flex items-start gap-2.5 rounded-xl border p-2.5 text-left transition-colors',
               managerLens === 'unmanaged'
                 ? 'border-amber-400/40 bg-amber-400/10'
-                : 'border-[var(--color-pib-line)] bg-white/[0.03] hover:bg-white/[0.05]',
+                : 'border-[var(--color-card-border)] bg-[var(--color-card)]/45 hover:bg-white/[0.05]',
             ].join(' ')}
             aria-label={managerLens === 'unmanaged' ? 'Exit unmanaged company lens' : 'Show unmanaged companies needing an account manager'}
           >
-            <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">manage_accounts</span>
-            <p className="mt-3 text-sm font-semibold text-[var(--color-pib-text)]">
-              {managerLens === 'unmanaged' ? 'Showing unmanaged accounts' : 'Review unmanaged accounts'}
-            </p>
-            <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
-              {metrics.unmanaged > 0
-                ? `${metrics.unmanaged} companies need an account manager before revenue, service, or billing ownership slips.`
-                : 'Every visible company has an account manager.'}
-            </p>
+            <span className="material-symbols-outlined mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-[16px] text-primary">manage_accounts</span>
+            <span className="min-w-0">
+              <p className="text-xs font-semibold text-on-surface">
+                {managerLens === 'unmanaged' ? 'Showing unmanaged accounts' : 'Review unmanaged accounts'}
+              </p>
+              <p className="mt-0.5 text-[11px] leading-4 text-on-surface-variant">
+                {metrics.unmanaged > 0
+                  ? `${metrics.unmanaged} companies need an account manager before revenue, service, or billing ownership slips.`
+                  : 'Every visible company has an account manager.'}
+              </p>
+            </span>
           </button>
-          <div className="rounded-[var(--radius-card)] border border-[var(--color-pib-line)] bg-white/[0.03] p-3 sm:p-4">
-            <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">assignment_ind</span>
-            <p className="mt-3 text-sm font-semibold text-[var(--color-pib-text)]">Account responsibility</p>
-            <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
-              Use the visible lens with bulk updates to assign account managers and keep each company owned by a person.
-            </p>
+          <div className="flex items-start gap-2.5 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-2.5">
+            <span className="material-symbols-outlined mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-[16px] text-primary">assignment_ind</span>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-on-surface">Account responsibility</p>
+              <p className="mt-0.5 text-[11px] leading-4 text-on-surface-variant">
+                Use the visible lens with bulk updates to assign account managers and keep each company owned by a person.
+              </p>
+            </div>
           </div>
         </section>
       )}
 
       {/* ── Filters bar ── */}
-      <div className="pib-card p-3 sm:p-4">
+      <div className="shrink-0 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/65 px-2 py-1.5">
         <CompanyFiltersBar value={filters} onChange={updateFilters} />
       </div>
 
       {/* ── Error state ── */}
       {error && (
-        <section className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-5">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div className="flex gap-3">
-              <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">warning</span>
+        <section className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div className="flex gap-2.5">
+              <span className="material-symbols-outlined mt-0.5 text-[18px] text-amber-200" aria-hidden="true">warning</span>
               <div>
-                <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
-                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Companies could not load</h2>
-                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{error}</p>
+                <p className="text-[10px] font-label uppercase tracking-[0.22em] text-amber-200">Source health</p>
+                <h2 className="mt-1 text-sm font-semibold text-on-surface">Companies could not load</h2>
+                <p className="mt-1 text-xs leading-5 text-on-surface-variant">{error}</p>
               </div>
             </div>
             <button
               type="button"
               onClick={retryCompaniesLoad}
-              className="btn-pib-secondary inline-flex shrink-0 items-center gap-1.5 text-sm"
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
               aria-label="Retry loading companies"
             >
-              <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
               Retry
             </button>
           </div>
@@ -437,7 +443,7 @@ export default function CompaniesPage() {
       )}
 
       {notice && (
-        <div className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">
+        <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/55 px-3 py-2 text-xs text-on-surface-variant">
           {notice}
         </div>
       )}

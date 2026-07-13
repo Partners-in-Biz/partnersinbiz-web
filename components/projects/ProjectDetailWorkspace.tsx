@@ -810,6 +810,7 @@ export function ProjectDetailWorkspace({
               orgId={project.orgId}
               currentUserUid={currentUser.uid}
               currentUserDisplayName={currentUser.displayName}
+              userRole={isAdmin ? 'admin' : 'client'}
               orgName={project.name}
               projectId={projectId}
               scope="project"

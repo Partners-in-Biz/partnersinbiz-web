@@ -4,6 +4,7 @@ import { apiError, apiSuccess } from '@/lib/api/response'
 import { adminDb } from '@/lib/firebase/admin'
 import { callHermesJson, HERMES_RUNS_COLLECTION, requireHermesProfileAccess } from '@/lib/hermes/server'
 import { getConversation, messagesCollection, touchConversation, updateMessage } from '@/lib/hermes/conversations'
+import { classifyWorkspaceDispatchFailure, isSafeHermesLifecycleStatus } from '@/lib/workspaces/dispatch-errors'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,13 +59,21 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
       })
       return apiSuccess({ status: 'interrupted', output: lostRunMessage, error: lostRunMessage })
     }
-    return apiError('Failed to fetch Hermes run', response.status || 502, { hermes: data })
+    const failure = classifyWorkspaceDispatchFailure(data, response.status)
+    return apiError(failure.message, response.status || 502, { dispatchError: failure })
   }
 
   const payload = data && typeof data === 'object' ? (data as Record<string, unknown>) : {}
-  const status = String(payload.status ?? 'unknown')
+  const rawStatus = typeof payload.status === 'string' ? payload.status : 'unknown'
+  const status = isSafeHermesLifecycleStatus(rawStatus) ? rawStatus : 'unknown'
   const output = typeof payload.output === 'string' ? payload.output : ''
-  const error = typeof payload.error === 'string' ? payload.error : undefined
+  const error = status === 'failed'
+    ? 'The agent run failed before completion.'
+    : ['cancelled', 'canceled', 'stopped'].includes(status)
+      ? 'The agent run was stopped before completion.'
+      : status === 'interrupted'
+        ? 'The agent run was interrupted before completion.'
+        : undefined
 
   if (status === 'completed') {
     await updateMessage(convId, msgId, {

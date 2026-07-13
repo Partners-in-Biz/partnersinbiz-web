@@ -33,12 +33,22 @@ import type { Variant } from '@/lib/ab-testing/types'
 import { shouldSendToContact } from '@/lib/preferences/store'
 import { isWithinFrequencyCap, logFrequencySkip } from '@/lib/email/frequency'
 import { sendSmsToContact } from '@/lib/sms/send'
+import { getSenderPolicy } from '@/lib/email-marketing/sender-store'
+import { resolveSenderForRecipient } from '@/lib/email-marketing/sender-resolution'
+import type {
+  EmailSenderPolicy,
+  SenderResolution,
+} from '@/lib/email-marketing/sender-types'
+import { buildSenderRecipientContext } from '@/lib/email-marketing/sender-context'
+import { resolveCanonicalEmailConsent } from '@/lib/consent-ledger/decision'
 
 export interface BroadcastSendContext {
   broadcast: Broadcast
   orgName: string
   resolvedSender: ResolvedSender
   templateDoc: EmailDocument | null   // null when broadcast uses inline content
+  senderPolicy: EmailSenderPolicy | null
+  senderPolicyRequired: boolean
 }
 
 export interface ContactSendOutcome {
@@ -84,6 +94,10 @@ export async function buildSendContext(broadcast: Broadcast): Promise<BroadcastS
     fromLocal: broadcast.fromLocal,
     orgName,
   })
+  const senderPolicyId = broadcast.senderPolicyId?.trim() ?? ''
+  const senderPolicy = senderPolicyId
+    ? await getSenderPolicy(broadcast.orgId, senderPolicyId)
+    : null
 
   let templateDoc: EmailDocument | null = null
   if (broadcast.content?.templateId) {
@@ -100,7 +114,29 @@ export async function buildSendContext(broadcast: Broadcast): Promise<BroadcastS
     }
   }
 
-  return { broadcast, orgName, resolvedSender, templateDoc }
+  return {
+    broadcast,
+    orgName,
+    resolvedSender,
+    templateDoc,
+    senderPolicy,
+    senderPolicyRequired: !!senderPolicyId,
+  }
+}
+
+async function resolveBroadcastSender(
+  ctx: BroadcastSendContext,
+  contact: Contact,
+): Promise<SenderResolution | null> {
+  if (!ctx.senderPolicy) return null
+  return resolveSenderForRecipient({
+    orgId: ctx.broadcast.orgId,
+    actorUid: ctx.broadcast.createdBy,
+    campaignCreatorUid: ctx.broadcast.createdBy,
+    policy: ctx.senderPolicy,
+    recipient: await buildSenderRecipientContext(ctx.broadcast.orgId, contact, ctx.senderPolicy),
+    batchSize: Math.max(1, ctx.broadcast.stats?.audienceSize ?? 1),
+  })
 }
 
 /**
@@ -240,6 +276,13 @@ export async function sendBroadcastToContact(
 
   // ── Email path (default). ──────────────────────────────────────────────
 
+  if (ctx.senderPolicyRequired && !ctx.senderPolicy) {
+    return { contactId, status: 'failed', error: 'sender-policy-unavailable' }
+  }
+  if (ctx.senderPolicy && ctx.senderPolicy.purpose !== 'marketing_bulk') {
+    return { contactId, status: 'failed', error: 'sender-policy-purpose-not-allowed' }
+  }
+
   // Per-contact idempotency check.
   if (alreadySent && alreadySent.has(contactId)) {
     return { contactId, status: 'skipped' }
@@ -368,8 +411,23 @@ export async function sendBroadcastToContact(
   subject = effective.subject
   html = effective.bodyHtml
   text = effective.bodyText
-  const effectiveSender =
-    effective.fromName.trim() && effective.fromName.trim() !== (broadcast.fromName ?? '').trim()
+  const senderResolution = await resolveBroadcastSender(ctx, contact)
+  if (senderResolution && senderResolution.status !== 'resolved') {
+    return {
+      contactId,
+      status: senderResolution.status === 'excluded' ? 'skipped' : 'failed',
+      error: senderResolution.reason ?? 'sender-resolution-failed',
+    }
+  }
+  const policyIdentity = senderResolution?.identity
+  const effectiveSender: ResolvedSender = policyIdentity
+    ? {
+        from: `${policyIdentity.displayName} <${policyIdentity.emailAddress}>`,
+        fromDomainId: policyIdentity.domainId ?? '',
+        fromDomain: policyIdentity.emailAddress.split('@')[1] ?? '',
+        isFallback: senderResolution?.resolutionSource === 'fallback',
+      }
+    : effective.fromName.trim() && effective.fromName.trim() !== (broadcast.fromName ?? '').trim()
       ? await resolveFrom({
           fromDomainId: broadcast.fromDomainId,
           fromName: effective.fromName,
@@ -383,11 +441,16 @@ export async function sendBroadcastToContact(
   let sendProvider: 'resend' | 'ses' | '' = ''
   let sendOk = true
   let sendError: string | undefined
+  const consent = await resolveCanonicalEmailConsent({
+    orgId: broadcast.orgId, contactId, email: contact.email, topicId,
+    transactional: topicId === 'transactional',
+  })
+  if (!consent.allowed) return { contactId, status: 'skipped' }
   if (RESEND_KEY_SET) {
     const result = await sendCampaignEmail({
       from: effectiveSender.from,
       to: contact.email,
-      replyTo: broadcast.replyTo || undefined,
+      replyTo: policyIdentity?.replyTo || broadcast.replyTo || undefined,
       subject,
       html,
       text,
@@ -414,6 +477,11 @@ export async function sendBroadcastToContact(
     campaignId: '',
     broadcastId: broadcast.id,
     fromDomainId: effectiveSender.fromDomainId,
+    senderPolicyId: senderResolution?.policyId ?? '',
+    senderIdentityId: policyIdentity?.id ?? '',
+    senderOwnerUid: senderResolution?.ownerUid ?? null,
+    senderResolutionSource: senderResolution?.resolutionSource ?? 'legacy',
+    replyTo: policyIdentity?.replyTo || broadcast.replyTo || '',
     direction: 'outbound',
     contactId,
     resendId,

@@ -1,8 +1,9 @@
 // lib/sequences/enrollment.ts
 import { adminDb } from '@/lib/firebase/admin'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
-import type { SequenceEnrollment } from './types'
+import type { SequenceEnrollment, SequenceReentryPolicy } from './types'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
+import { evaluateSequenceReentry } from '@/lib/email-marketing/automation-policy'
 
 const ENROLLMENTS = 'sequence_enrollments'
 
@@ -78,11 +79,27 @@ export async function enrollContact(
   contactId: string,
   actor: MemberRef,
   firstStepDelayDays: number,
+  options?: { reentryPolicy?: SequenceReentryPolicy; maxActiveEnrollments?: number },
 ): Promise<SequenceEnrollment> {
   await assertContactInOrg(orgId, contactId)
 
-  const existing = await getActiveEnrollment(orgId, sequenceId, contactId)
-  if (existing) return existing
+  if (options) {
+    const history = await listEnrollments(orgId, { sequenceId, contactId })
+    const decision = evaluateSequenceReentry(history, options.reentryPolicy)
+    if (decision.existingEnrollmentId) {
+      const existing = history.find((item) => item.id === decision.existingEnrollmentId)
+      if (existing) return existing
+    }
+    if (!decision.allowed) throw new SequenceEnrollmentError(decision.reason, 409)
+    const maxActive = Math.max(0, Math.floor(options.maxActiveEnrollments ?? 0))
+    if (maxActive > 0) {
+      const active = await listEnrollments(orgId, { sequenceId, status: 'active' })
+      if (active.length >= maxActive) throw new SequenceEnrollmentError('sequence_capacity_reached', 409)
+    }
+  } else {
+    const existing = await getActiveEnrollment(orgId, sequenceId, contactId)
+    if (existing) return existing
+  }
 
   const ref = await adminDb.collection(ENROLLMENTS).add({
     orgId,

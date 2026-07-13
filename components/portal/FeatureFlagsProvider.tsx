@@ -7,6 +7,7 @@ export interface FeatureFlags {
   show_creative_canvas: boolean
   enable_social_listening: boolean
   show_whatsapp: boolean
+  emailMarketingStudioV2: boolean
 }
 
 export type FeatureFlagKey = keyof FeatureFlags
@@ -16,6 +17,7 @@ const DEFAULT_FLAGS: FeatureFlags = {
   show_creative_canvas: true,
   enable_social_listening: false,
   show_whatsapp: false,
+  emailMarketingStudioV2: false,
 }
 
 interface FeatureFlagsContextValue {
@@ -47,6 +49,7 @@ export function FeatureFlagsProvider({
 
   useEffect(() => {
     let cancelled = false
+    setFlags(DEFAULT_FLAGS)
     setLoading(true)
     const url = orgId
       ? `/api/v1/org/feature-flags?orgId=${encodeURIComponent(orgId)}`
@@ -62,6 +65,7 @@ export function FeatureFlagsProvider({
             show_creative_canvas: coerce(raw.show_creative_canvas, DEFAULT_FLAGS.show_creative_canvas),
             enable_social_listening: coerce(raw.enable_social_listening, DEFAULT_FLAGS.enable_social_listening),
             show_whatsapp: coerce(raw.show_whatsapp, DEFAULT_FLAGS.show_whatsapp),
+            emailMarketingStudioV2: coerce(raw.emailMarketingStudioV2, DEFAULT_FLAGS.emailMarketingStudioV2),
           })
         }
       })

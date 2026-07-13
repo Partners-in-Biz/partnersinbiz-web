@@ -8,8 +8,41 @@ import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { ORG_WORKSPACES_COLLECTION, type OrgWorkspaceRecord } from '@/lib/client-provisioning/workspace-context'
 import { publicRuntimeTargetPresence } from '@/lib/agents/runtime-targets'
+import { discoverAuthorizedRuntimeTargets } from '@/lib/linked-computers/runtime-targets'
 
 export const dynamic = 'force-dynamic'
+
+export interface PublicWorkspaceSummary {
+  id: string
+  workspaceId: string
+  orgId: string
+  orgSlug: string
+  orgName: string
+  agentDomain: string
+  sourceOfTruth: OrgWorkspaceRecord['sourceOfTruth']
+  syncMode: OrgWorkspaceRecord['syncMode']
+  defaultRuntimeTarget: OrgWorkspaceRecord['defaultRuntimeTarget']
+  folderVersion: number
+  companyId: string | null
+  contactIds: string[]
+}
+
+function toPublicWorkspaceSummary(workspace: OrgWorkspaceRecord): PublicWorkspaceSummary {
+  return {
+    id: workspace.id,
+    workspaceId: workspace.workspaceId,
+    orgId: workspace.orgId,
+    orgSlug: workspace.orgSlug,
+    orgName: workspace.orgName,
+    agentDomain: workspace.agentDomain,
+    sourceOfTruth: workspace.sourceOfTruth,
+    syncMode: workspace.syncMode,
+    defaultRuntimeTarget: workspace.defaultRuntimeTarget,
+    folderVersion: workspace.folderVersion,
+    companyId: workspace.companyId ?? null,
+    contactIds: workspace.contactIds ?? [],
+  }
+}
 
 export const GET = withAuth('client', async (req: NextRequest, user) => {
   const { searchParams } = new URL(req.url)
@@ -31,26 +64,17 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
   const workspaces = snap.docs
     .map((doc) => ({ id: doc.id, ...doc.data() }) as OrgWorkspaceRecord)
     .sort((a, b) => a.orgName.localeCompare(b.orgName))
-    .map((workspace) => ({
-      id: workspace.id,
-      workspaceId: workspace.workspaceId,
-      orgId: workspace.orgId,
-      orgSlug: workspace.orgSlug,
-      orgName: workspace.orgName,
-      agentDomain: workspace.agentDomain,
-      vpsPath: workspace.vpsPath,
-      localPath: workspace.localPath,
-      agentDomainPath: workspace.agentDomainPath,
-      localAgentDomainPath: workspace.localAgentDomainPath,
-      sourceOfTruth: workspace.sourceOfTruth,
-      syncMode: workspace.syncMode,
-      defaultRuntimeTarget: workspace.defaultRuntimeTarget,
-      folderVersion: workspace.folderVersion,
-      companyId: workspace.companyId ?? null,
-      contactIds: workspace.contactIds ?? [],
-    }))
+    .map(toPublicWorkspaceSummary)
 
-  const runtimeTargets = publicRuntimeTargetPresence(runtimeDoc.data()?.runtimeTargets)
+  const compatibilityRuntimeTargets = publicRuntimeTargetPresence(runtimeDoc.data()?.runtimeTargets)
+  const runtimeTargetsByWorkspace = Object.fromEntries(await Promise.all(workspaces.map(async (workspace) => {
+    const linked = await discoverAuthorizedRuntimeTargets({ userId: user.uid, orgId: orgScope.orgId, workspaceId: workspace.workspaceId }).catch(() => [])
+    const deduped = new Map([...compatibilityRuntimeTargets, ...linked].map((target) => [target.id, target]))
+    return [workspace.workspaceId, Array.from(deduped.values())]
+  })))
+  // Compatibility-only legacy field. Linked targets are never exposed outside
+  // their exact Workspace bucket.
+  const runtimeTargets = compatibilityRuntimeTargets
   const projectsById = new Map<string, { id: string; name: string }>()
   for (const projectSnap of [ownProjects, clientProjects, targetProjects, recipientProjects]) {
     for (const projectDoc of projectSnap.docs) {
@@ -62,5 +86,5 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
   }
   const projects = Array.from(projectsById.values()).sort((a, b) => a.name.localeCompare(b.name))
 
-  return apiSuccess({ workspaces, runtimeTargets, projects })
+  return apiSuccess({ workspaces, runtimeTargets, runtimeTargetsByWorkspace, projects })
 })

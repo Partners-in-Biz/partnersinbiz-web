@@ -59,48 +59,53 @@ export default function NewCompanyPage() {
   return (
     <>
       {/* Setup context visible behind the drawer */}
-      <div className="mx-auto flex max-w-7xl flex-col gap-6 p-6 lg:pr-[min(34rem,45vw)]">
-        <Link
-          href={companyPortalPath('/portal/companies')}
-          className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors"
-        >
-          <span aria-hidden="true" className="material-symbols-outlined text-sm">arrow_back</span>
-          Companies
-        </Link>
-
-        <section className="max-w-3xl">
-          <p className="eyebrow">CRM account setup</p>
-          <h1 className="pib-page-title mt-2">Create a company command center</h1>
-          <p className="pib-page-sub mt-2">
+      <div className="mx-auto flex max-w-7xl flex-col gap-2 p-4 lg:pr-[min(34rem,45vw)]">
+        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55">
+          <div className="flex min-h-11 flex-wrap items-center gap-2 border-b border-[var(--color-card-border)] px-3 py-1.5">
+            <Link
+              href={companyPortalPath('/portal/companies')}
+              className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
+            >
+              <span aria-hidden="true" className="material-symbols-outlined text-[16px]">arrow_back</span>
+              Companies
+            </Link>
+            <div className="min-w-0">
+              <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">CRM account setup</p>
+              <h1 className="truncate text-sm font-semibold text-on-surface">Create a company command center</h1>
+            </div>
+          </div>
+          <p className="px-3 py-2 text-xs leading-5 text-on-surface-variant">
             Capture the business profile once, then connect contacts, deals, proposals, invoices, projects, service workspaces, and activity around the account.
           </p>
-        </section>
+        </div>
 
-        <section className="grid max-w-5xl gap-3 md:grid-cols-3">
+        <section className="grid gap-2 md:grid-cols-3">
           {[
             { icon: 'domain', title: 'Identity', copy: 'Name, domain, industry, tier, lifecycle, and brand signal.' },
             { icon: 'receipt_long', title: 'Billing readiness', copy: 'Legal details, VAT, accounts contact, signatory, PO rules, and invoice notes.' },
             { icon: 'hub', title: 'Relationship graph', copy: 'Owner, parent account, client org link, contacts, deals, and delivery history.' },
           ].map((item) => (
-            <div key={item.title} className="pib-card p-4">
-              <span className="material-symbols-outlined text-[22px] text-[var(--color-pib-text-muted)]">{item.icon}</span>
-              <h2 className="mt-3 text-sm font-semibold text-[var(--color-pib-text)]">{item.title}</h2>
-              <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{item.copy}</p>
+            <div key={item.title} className="flex items-start gap-2.5 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-2.5">
+              <span className="material-symbols-outlined mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-[16px] text-primary">{item.icon}</span>
+              <div className="min-w-0">
+                <h2 className="text-xs font-semibold text-on-surface">{item.title}</h2>
+                <p className="mt-0.5 text-[11px] leading-4 text-on-surface-variant">{item.copy}</p>
+              </div>
             </div>
           ))}
         </section>
 
-        <section className="max-w-5xl rounded-xl border border-[var(--color-pib-line)] bg-white/[0.02] p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="eyebrow !text-[10px]">After save</p>
-              <p className="mt-1 text-sm text-[var(--color-pib-text)]">You will land on the company detail workspace to add contacts, deals, documents, analytics, and activity.</p>
+        <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">After save</p>
+              <p className="mt-0.5 text-xs text-on-surface">You will land on the company detail workspace to add contacts, deals, documents, analytics, and activity.</p>
             </div>
-            <div className="flex flex-wrap gap-2 text-xs text-[var(--color-pib-text-muted)]">
-              <span className="rounded-full bg-white/5 px-2.5 py-1">Create</span>
-              <span className="rounded-full bg-white/5 px-2.5 py-1">Edit</span>
-              <span className="rounded-full bg-white/5 px-2.5 py-1">Archive</span>
-              <span className="rounded-full bg-white/5 px-2.5 py-1">Analyze</span>
+            <div className="flex flex-wrap gap-1.5 text-[11px] text-on-surface-variant">
+              <span className="flex h-7 items-center rounded-full border border-[var(--color-card-border)] px-2.5">Create</span>
+              <span className="flex h-7 items-center rounded-full border border-[var(--color-card-border)] px-2.5">Edit</span>
+              <span className="flex h-7 items-center rounded-full border border-[var(--color-card-border)] px-2.5">Archive</span>
+              <span className="flex h-7 items-center rounded-full border border-[var(--color-card-border)] px-2.5">Analyze</span>
             </div>
           </div>
         </section>

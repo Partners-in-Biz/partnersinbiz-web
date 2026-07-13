@@ -13,10 +13,39 @@ import {
 import { filterProjectItemsForAccess } from '@/lib/projects/collaboration'
 import { resolveContextReferences } from '@/lib/context-references/registry'
 import { sanitizeContextReferenceSeeds, type ContextReference } from '@/lib/context-references/types'
+import { getConversation } from '@/lib/conversations/conversations'
 
 export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ projectId: string }> }
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+async function validateChatOrigin(input: {
+  projectId: string
+  orgId?: string
+  chatOrigin: unknown
+}) {
+  if (!isRecord(input.chatOrigin)) return { ok: true as const, duplicateTaskId: null }
+  const conversationId = String(input.chatOrigin.conversationId ?? '')
+  const bundleId = String(input.chatOrigin.bundleId ?? '')
+  const sequence = Number(input.chatOrigin.sequence)
+  const conversation = await getConversation(conversationId)
+  const projectIsAttached = conversation?.scope === 'project' && conversation.scopeRefId === input.projectId
+    || conversation?.contextRefs?.some((ref) => ref.type === 'project' && ref.id === input.projectId) === true
+  if (!conversation || conversation.orgId !== input.orgId || !projectIsAttached) {
+    return { ok: false as const, error: 'chatOrigin must reference a conversation in the same organisation with this project attached' }
+  }
+
+  const duplicates = await adminDb.collection('projects').doc(input.projectId).collection('tasks')
+    .where('chatOrigin.bundleId', '==', bundleId)
+    .where('chatOrigin.sequence', '==', sequence)
+    .limit(1)
+    .get()
+  return { ok: true as const, duplicateTaskId: duplicates.empty ? null : duplicates.docs[0]?.id ?? null }
+}
 
 function attachContextRefsToAgentInput(value: Record<string, unknown>, contextRefs: ContextReference[]) {
   if (contextRefs.length === 0) return
@@ -63,6 +92,15 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   const taskData = buildProjectTaskCreateData(body, projectId, typeof project.orgId === 'string' ? project.orgId : undefined)
   if (!taskData.ok) return apiError(taskData.error, taskData.status ?? 400)
   const orgId = typeof taskData.value.orgId === 'string' ? taskData.value.orgId : typeof project.orgId === 'string' ? project.orgId : undefined
+  const chatOriginValidation = await validateChatOrigin({
+    projectId,
+    orgId,
+    chatOrigin: taskData.value.chatOrigin,
+  })
+  if (!chatOriginValidation.ok) return apiError(chatOriginValidation.error, 400)
+  if (chatOriginValidation.duplicateTaskId) {
+    return apiSuccess({ id: chatOriginValidation.duplicateTaskId, deduplicated: true })
+  }
   const contextRefs = await resolveContextReferences(
     sanitizeContextReferenceSeeds(body.contextRefs),
     user,

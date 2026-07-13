@@ -1,0 +1,19 @@
+Stage 1 Workspace browser-safe local API smoke
+Date: 2026-07-12 Africa/Johannesburg
+
+Server:
+  npm run dev -- --port 3012
+  Result: Next.js 16.2.9 development server ready on loopback.
+
+Probe:
+  GET http://127.0.0.1:3012/api/v1/workspaces (no browser session)
+  HTTP status: 401
+  Content-Type: application/json
+  Body: {"success":false,"error":"Unauthorized"}
+  Forbidden response matches: none for /Users/, /var/lib/, apiKey, baseUrl,
+  vpsPath, localPath, agentDomainPath, or localAgentDomainPath.
+
+Scope note:
+  This proves the unauthenticated browser boundary is safe. It does not prove
+  the authenticated public Workspace DTO because no repository smoke script or
+  reusable browser-session credential was available for this task.

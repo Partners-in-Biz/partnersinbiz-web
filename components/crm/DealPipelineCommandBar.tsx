@@ -105,77 +105,74 @@ export function DealPipelineCommandBar({
   ]
 
   return (
-    <section className="pib-card-section overflow-hidden">
-      <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)] lg:items-start">
-        <div className="min-w-0 space-y-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="eyebrow !text-[10px]">Deal command runway</p>
-              <h2 className="mt-1 text-xl font-headline font-semibold text-on-surface">Pipeline lens and revenue risk</h2>
-            </div>
-            <div className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.03] px-4 py-3 text-right">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Weighted open value</p>
-              <p className="mt-1 text-lg font-semibold text-on-surface">
-                {openPipeline.priced > 0
-                  ? formatMoney(openPipeline.weightedValue, primaryCurrency)
-                  : openDeals.length > 0
-                    ? 'Forecast value needed'
-                    : 'No open deals'}
-              </p>
-              <p className="mt-1 text-[11px] text-on-surface-variant">
+    <section className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 px-2 py-1.5">
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+        <div className="flex min-w-0 items-center gap-2 pr-1">
+          <div className="min-w-0">
+            <p className="truncate text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Deal command runway</p>
+            <h2 className="truncate text-xs font-semibold leading-tight text-on-surface">Pipeline lens and revenue risk</h2>
+          </div>
+        </div>
+
+        {focusButtons.map((button) => {
+          const active = focusMode === button.mode
+          return (
+            <button
+              key={button.mode}
+              type="button"
+              onClick={() => onFocusModeChange(button.mode)}
+              aria-label={button.ariaLabel}
+              aria-pressed={active}
+              className={[
+                'flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-[11px] transition',
+                active
+                  ? 'border-primary/30 bg-primary/10 text-primary'
+                  : 'border-[var(--color-card-border)] text-on-surface-variant hover:text-on-surface',
+              ].join(' ')}
+            >
+              <span className="material-symbols-outlined text-[13px]" aria-hidden="true">{button.icon}</span>
+              <span className="font-label uppercase tracking-wide text-[10px]">{button.label}</span>
+              <span>{button.value}</span>
+            </button>
+          )
+        })}
+
+        <div className="ml-auto flex min-w-0 flex-wrap items-center gap-1.5">
+          <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-1 text-right">
+            <p className="text-[9px] font-label uppercase tracking-[0.18em] text-on-surface-variant">Weighted open value</p>
+            <p className="text-xs font-semibold leading-4 text-on-surface">
+              {openPipeline.priced > 0
+                ? formatMoney(openPipeline.weightedValue, primaryCurrency)
+                : openDeals.length > 0
+                  ? 'Forecast value needed'
+                  : 'No open deals'}
+              <span className="ml-1.5 font-normal text-[10px] text-on-surface-variant">
                 {openPipeline.unpriced > 0
                   ? `${openPipeline.unpriced} unpriced open ${openPipeline.unpriced === 1 ? 'deal' : 'deals'}`
                   : openDeals.length > 0
                     ? 'prob-adjusted forecast'
                     : 'pipeline is clear'}
-              </p>
+              </span>
+            </p>
+          </div>
+
+          <label className="block min-w-[200px]">
+            <span className="sr-only">Search deals</span>
+            <div className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-transparent px-2">
+              <span className="material-symbols-outlined text-[15px] text-on-surface-variant">search</span>
+              <input
+                value={search}
+                onChange={(event) => onSearchChange(event.target.value)}
+                aria-label="Search deals"
+                placeholder="Search title, company, contact, or id"
+                className="min-w-0 flex-1 bg-transparent text-xs text-on-surface outline-none placeholder:text-on-surface-variant"
+              />
             </div>
-          </div>
-
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            {focusButtons.map((button) => {
-              const active = focusMode === button.mode
-              return (
-                <button
-                  key={button.mode}
-                  type="button"
-                  onClick={() => onFocusModeChange(button.mode)}
-                  aria-label={button.ariaLabel}
-                  aria-pressed={active}
-                  className={[
-                    'min-h-[72px] rounded-lg border px-3 py-2 text-left transition-colors',
-                    active
-                      ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-accent)]/10'
-                      : 'border-[var(--color-pib-line)] bg-white/[0.02] hover:bg-white/[0.05]',
-                  ].join(' ')}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{button.label}</span>
-                    <span className="material-symbols-outlined text-[17px] text-on-surface-variant">{button.icon}</span>
-                  </div>
-                  <p className="mt-2 text-sm font-semibold text-on-surface">{button.value}</p>
-                </button>
-              )
-            })}
-          </div>
+          </label>
         </div>
-
-        <label className="block">
-          <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Search deals</span>
-          <div className="mt-2 flex items-center gap-2 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-3 py-2">
-            <span className="material-symbols-outlined text-[17px] text-on-surface-variant">search</span>
-            <input
-              value={search}
-              onChange={(event) => onSearchChange(event.target.value)}
-              aria-label="Search deals"
-              placeholder="Search title, company, contact, or id"
-              className="min-w-0 flex-1 bg-transparent text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
-            />
-          </div>
-          <p className="mt-2 text-xs leading-5 text-on-surface-variant">
-            Use this lens before editing stages, forecast probability, or opening a deal record.
-          </p>
-        </label>
+        <p className="px-1 text-[11px] leading-4 text-on-surface-variant">
+          Use this lens before editing stages, forecast probability, or opening a deal record.
+        </p>
       </div>
     </section>
   )
