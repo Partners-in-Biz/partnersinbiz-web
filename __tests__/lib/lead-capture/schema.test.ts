@@ -137,6 +137,23 @@ describe('lead capture schema', () => {
     })
   })
 
+  it('fails closed when a published validation pattern is invalid', () => {
+    const fields = sanitizeCaptureFields([
+      {
+        key: 'reference',
+        label: 'Reference',
+        type: 'text',
+        required: false,
+        validation: { pattern: '[' },
+      },
+    ])
+
+    expect(resolveCaptureFields(fields, { reference: 'PIB-123' }, { observed: {}, trusted: {} })).toMatchObject({
+      ok: false,
+      errors: ['Field "Reference" has an invalid validation pattern'],
+    })
+  })
+
   it('produces the same immutable fingerprint for semantically identical schemas', () => {
     const a = sanitizeCaptureFields([
       { key: 'email', label: 'Email', type: 'email', required: true },

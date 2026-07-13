@@ -247,7 +247,9 @@ function resolveFieldValue(field: CaptureField, raw: unknown):
   if (field.validation?.pattern) {
     try {
       if (!new RegExp(field.validation.pattern).test(value)) return { ok: false, error: `Field "${field.label}" format is invalid` }
-    } catch { /* invalid stored patterns do not block submissions */ }
+    } catch {
+      return { ok: false, error: `Field "${field.label}" has an invalid validation pattern` }
+    }
   }
   return { ok: true, value: value.slice(0, 5000) }
 }
