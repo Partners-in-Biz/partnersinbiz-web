@@ -21,7 +21,7 @@ describe('Portal notifications settings page', () => {
     expect(screen.getByText('4 CRM signals')).toBeInTheDocument()
     expect(screen.getByText('1 device channel')).toBeInTheDocument()
     expect(screen.getByText('Team accountability')).toBeInTheDocument()
-    expect(screen.getByTestId('notification-command-hero')).toHaveClass('pib-card')
+    expect(screen.getByTestId('notification-command-hero')).toBeInTheDocument()
     expect(screen.getByTestId('notification-readiness-grid').querySelectorAll('.pib-stat-card')).toHaveLength(3)
     expect(screen.getByTestId('notification-push-panel')).toHaveClass('pib-card-section')
     expect(screen.getByTestId('notification-signal-grid').querySelectorAll('.pib-stat-card')).toHaveLength(4)

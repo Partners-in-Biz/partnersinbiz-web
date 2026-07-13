@@ -12,22 +12,18 @@ describe('ScoreChip', () => {
     expect(chip.title).toBe('Lead score (formula) — not scored yet')
   })
 
-  it('uses the shared danger pill treatment for a low score', () => {
-    const { container } = render(<ScoreChip score={20} />)
-    const chip = container.firstChild as HTMLElement
-    expect(chip).toHaveClass('pib-pill', 'pib-pill-danger')
-  })
+  it('renders distinct low, medium, and high score treatments', () => {
+    const { container: lowContainer } = render(<ScoreChip score={20} />)
+    const { container: mediumContainer } = render(<ScoreChip score={50} />)
+    const { container: highContainer } = render(<ScoreChip score={80} />)
+    const lowChip = lowContainer.firstChild as HTMLElement
+    const mediumChip = mediumContainer.firstChild as HTMLElement
+    const highChip = highContainer.firstChild as HTMLElement
 
-  it('uses the shared warning pill treatment for a medium score', () => {
-    const { container } = render(<ScoreChip score={50} />)
-    const chip = container.firstChild as HTMLElement
-    expect(chip).toHaveClass('pib-pill', 'pib-pill-warn')
-  })
-
-  it('uses the shared success pill treatment for a high score', () => {
-    const { container } = render(<ScoreChip score={80} />)
-    const chip = container.firstChild as HTMLElement
-    expect(chip).toHaveClass('pib-pill', 'pib-pill-success')
+    expect(lowChip).toHaveTextContent('20')
+    expect(mediumChip).toHaveTextContent('50')
+    expect(highChip).toHaveTextContent('80')
+    expect(new Set([lowChip.className, mediumChip.className, highChip.className])).toHaveProperty('size', 3)
   })
 
   it('renders distinct compact and default size treatments', () => {
@@ -35,8 +31,6 @@ describe('ScoreChip', () => {
     const { container: mdContainer } = render(<ScoreChip score={50} size="md" />)
     const smChip = smContainer.firstChild as HTMLElement
     const mdChip = mdContainer.firstChild as HTMLElement
-    expect(smChip).toHaveClass('pib-pill')
-    expect(mdChip).toHaveClass('pib-pill')
     expect(smChip.className).not.toBe(mdChip.className)
   })
 

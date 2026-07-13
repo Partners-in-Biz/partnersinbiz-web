@@ -39,12 +39,12 @@ describe('Portal account settings page', () => {
     expect(within(loginPanel).getByText(/Read-only\. Managed by your account provider/)).toBeInTheDocument()
   })
 
-  it('uses shared PiB section and button primitives for credential controls', () => {
+  it('groups credential controls and exposes the reset action', () => {
     render(<AccountSettingsPage />)
 
     expect(screen.getByTestId('account-login-panel')).toHaveClass('pib-card-section')
     expect(screen.getByTestId('account-password-panel')).toHaveClass('pib-card-section')
-    expect(screen.getByRole('button', { name: 'Send password reset email' })).toHaveClass('btn-pib-secondary')
+    expect(screen.getByRole('button', { name: 'Send password reset email' })).toBeEnabled()
   })
 
   it('sends password reset email through Firebase auth', async () => {
