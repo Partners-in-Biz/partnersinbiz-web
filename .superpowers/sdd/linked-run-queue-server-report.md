@@ -127,3 +127,5 @@ Cleanup runs now use unpredictable lease tokens plus worker IDs. Initial route k
 Every cleanup-run checkpoint, cumulative count, phase transition, completion, retry state and error marker now executes through a conditional Firestore transaction that re-reads the run and requires `running` status, exact worker ID, exact unpredictable lease token, and an unexpired lease. A stale worker receives the typed `linked_device_cleanup_lease_lost` result. Success, catch, and retry paths explicitly preserve a replacement worker's lease and state.
 
 Source-item changes remain idempotent; the authoritative cleanup-run checkpoint can advance only under the active lease.
+
+Deterministic A/B race coverage now proves worker A acquires and expires, worker B reclaims with a different token, stale A success and retry/error mutations both receive the typed lease-lost error with byte-for-byte unchanged run state, and B retains ownership through checkpoint and successful completion.

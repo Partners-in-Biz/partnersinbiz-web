@@ -407,7 +407,7 @@ export async function removeOwnedDevice(input: { deviceId: string; actorUserId: 
 
 export class DeviceCleanupLeaseLostError extends Error { readonly code = 'linked_device_cleanup_lease_lost'; constructor() { super('linked computers: cleanup lease lost') } }
 
-async function mutateCleanupRunWithLease(db: any, deviceId: string, workerId: string, leaseToken: string, patch: Record<string, unknown>, nowMs = Date.now()) {
+export async function mutateCleanupRunWithLease(db: any, deviceId: string, workerId: string, leaseToken: string, patch: Record<string, unknown>, nowMs = Date.now()) {
   const ref = db.collection('linked_device_cleanup_runs').doc(deviceId)
   return db.runTransaction(async (tx: any) => {
     const snap = await tx.get(ref); const row = snap.data() ?? {}; const expiry = row.leaseExpiresAt?.toMillis?.() ?? Date.parse(String(row.leaseExpiresAt ?? ''))
@@ -449,7 +449,7 @@ export async function processDeviceCleanupBatch(deviceId: string, options: { db?
   return { done: true, processed: 0, phase }
 }
 
-async function claimDeviceCleanupLease(deviceId: string, db: any, workerId: string, nowMs: number) {
+export async function claimDeviceCleanupLease(deviceId: string, db: any, workerId: string, nowMs: number) {
   const ref = db.collection('linked_device_cleanup_runs').doc(deviceId); const leaseToken = randomBytes(24).toString('base64url')
   const won = await db.runTransaction(async (tx: any) => { const snap = await tx.get(ref); const row = snap.data() ?? {}; const expiry = row.leaseExpiresAt?.toMillis?.() ?? Date.parse(String(row.leaseExpiresAt ?? '')); if (!snap.exists || row.status === 'completed' || (row.status === 'running' && Number.isFinite(expiry) && expiry > nowMs)) return false; tx.set(ref, { status: 'running', leaseOwner: workerId, leaseToken, leaseExpiresAt: Timestamp.fromMillis(nowMs + 60_000), attempts: Number(row.attempts ?? 0) + 1, updatedAt: FieldValue.serverTimestamp() }, { merge: true }); return true })
   return won ? leaseToken : null
