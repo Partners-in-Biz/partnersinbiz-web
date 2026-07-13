@@ -647,7 +647,7 @@ async function resolveStudioArtifact(input: ResolverInput): Promise<ContextRefer
   const data = record.data() ?? {}
   const orgId = docOrgId(data)
   const lifecycle = clean(data.lifecycleStatus || data.status).toLowerCase()
-  if (!orgId || (marketingIdentity?.orgId && marketingIdentity.orgId !== orgId) || isDeleted(data) || lifecycle === 'archived' || lifecycle === 'deleted') return null
+  if (!orgId || (marketingIdentity?.orgId && marketingIdentity.orgId !== orgId) || isDeleted(data) || lifecycle === 'deleted' || (lifecycle === 'archived' && studioKind !== 'video_editor')) return null
   const orgData = await loadStudioOrg(input, orgId, definition)
   if (!orgData) return null
   const canonicalRoute = input.user.role === 'client' ? definition.route : definition.adminRoute?.(orgData) ?? definition.route

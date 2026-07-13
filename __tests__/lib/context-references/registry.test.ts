@@ -235,7 +235,11 @@ beforeEach(() => {
         doc('canvas:colon', { orgId: 'org-1', title: 'Colon canvas', deleted: false }),
       ])
     }
-    if (name === 'video_editor_projects') return queryFor([doc('video-1', { orgId: 'org-1', title: 'Launch edit' })])
+    if (name === 'video_editor_projects') return queryFor([
+      doc('video-1', { orgId: 'org-1', title: 'Launch edit' }),
+      doc('video-archived', { orgId: 'org-1', title: 'Archived edit', status: 'archived', deleted: false }),
+      doc('video-deleted', { orgId: 'org-1', title: 'Deleted edit', status: 'archived', deleted: true }),
+    ])
     if (name === 'book_studio_projects') return queryFor([doc('book-1', { orgId: 'org-1', title: 'Growth Playbook' })])
     if (name === 'youtube_video_projects') return queryFor([doc('yt-1', { orgId: 'org-1', title: 'Launch episode' })])
     if (name === 'mobile_apps') return queryFor([doc('app-1', { orgId: 'org-1', name: 'Client App' })])
@@ -510,6 +514,21 @@ describe('context reference registry', () => {
     await expect(resolveContextReferences([
       { type: 'studio', id: 'marketing_studio:org-2', orgId: 'org-2' },
     ], admin, 'org-1')).resolves.toEqual([])
+  })
+
+  it('resolves archived Video Editor projects directly but still rejects deleted projects', async () => {
+    const { resolveContextReferences } = await import('@/lib/context-references/registry')
+    const admin = { uid: 'admin-1', role: 'admin' as const, authKind: 'session' as const }
+
+    await expect(resolveContextReferences([
+      { type: 'studio_artifact', id: 'video_editor:project:video-archived', orgId: 'org-1' },
+      { type: 'studio_artifact', id: 'video_editor:project:video-deleted', orgId: 'org-1' },
+    ], admin, 'org-1')).resolves.toEqual([
+      expect.objectContaining({
+        type: 'studio_artifact', id: 'video_editor:project:video-archived', orgId: 'org-1', label: 'Archived edit',
+        href: '/portal/video-editor?projectId=video-archived',
+      }),
+    ])
   })
 
   it('searches authoritative Studio workspaces and artifacts', async () => {

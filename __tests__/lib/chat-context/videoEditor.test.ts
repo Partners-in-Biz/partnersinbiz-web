@@ -47,7 +47,7 @@ describe('Video Editor chat context mapping', () => {
     ]))
   })
 
-  it('surfaces render and transcript failures without exposing a made-up retry API', () => {
+  it('surfaces failures without leaking provider details to clients or exposing a made-up retry API', () => {
     const failed = job('failed', { error: { code: 'runtime', message: 'Renderer unavailable' } })
     const transcript = { id: 'transcript-1', orgId: 'org-1', projectId: 'project-1', source: 'media', status: 'failed', language: 'en',
       segments: [], text: '', provider: 'gateway', alignment: 'provider', credits: { estimated: 1, charged: 1, refunded: 1 },
@@ -56,10 +56,19 @@ describe('Video Editor chat context mapping', () => {
     const model = buildVideoEditorProjectModel({ project, jobs: [failed], transcripts: [transcript], role: 'client' })
 
     expect(model.attention).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: 'render-failure:job-failed', state: 'blocked', detail: 'Renderer unavailable', actions: [expect.objectContaining({ id: 'retry-render', method: 'POST', href: '/api/v1/video-editor/projects/project-1/render' })] }),
-      expect.objectContaining({ id: 'transcript-failure:transcript-1', state: 'blocked', detail: 'Audio could not be processed' }),
+      expect.objectContaining({ id: 'render-failure:job-failed', state: 'blocked', detail: 'The render could not be completed. Try again later.', actions: [expect.objectContaining({ id: 'retry-render', method: 'POST', href: '/api/v1/video-editor/projects/project-1/render' })] }),
+      expect.objectContaining({ id: 'transcript-failure:transcript-1', state: 'blocked', detail: 'Captions could not be processed. Review the source media and try again.' }),
     ]))
     expect(model.attention.find((item) => item.id === 'transcript-failure:transcript-1')?.actions?.some((action) => action.id === 'retry')).toBe(false)
+  })
+
+  it('never exposes raw persisted runtime failure details for any role', () => {
+    const failed = job('failed', { error: { code: 'provider_auth', message: 'Secret provider host rejected key sk-live-sensitive' } })
+    for (const role of ['client', 'admin', 'ai'] as const) {
+      const model = buildVideoEditorProjectModel({ project, jobs: [failed], transcripts: [], role })
+      expect(JSON.stringify(model)).not.toContain('sk-live-sensitive')
+      expect(model.attention[0]?.detail).toBe('The render could not be completed. Try again later.')
+    }
   })
 
   it('uses the latest timestamped job as the pulse render and ignores deleted inputs', () => {
@@ -69,5 +78,19 @@ describe('Video Editor chat context mapping', () => {
     const model = buildVideoEditorProjectModel({ project, jobs: [older, deleted, latest], transcripts: [], role: 'admin' })
     expect(model.pulse.headline).toBe('Latest render: Rendering')
     expect(model.artifacts.some((item) => item.resourceId === 'deleted')).toBe(false)
+  })
+
+  it('keeps archived projects readable while suppressing every mutation action', () => {
+    const archivedProject = { ...project, status: 'archived' as const }
+    const failed = job('failed', { error: { code: 'runtime', message: 'Renderer unavailable' } })
+    const model = buildVideoEditorProjectModel({ project: archivedProject, jobs: [failed], transcripts: [], role: 'client' })
+
+    expect(model.context.href).toBe('/portal/video-editor?projectId=project-1&orgId=org-1')
+    expect(model.artifacts.find((item) => item.resourceType === 'project')).toEqual(expect.objectContaining({
+      state: 'archived', statusLabel: 'Archived',
+    }))
+    expect(model.artifacts.flatMap((item) => item.actions).every((action) => !action.method)).toBe(true)
+    expect(model.attention.flatMap((item) => item.actions ?? []).every((action) => !action.method)).toBe(true)
+    expect(model.capabilities).toEqual(['view', 'review_output'])
   })
 })
