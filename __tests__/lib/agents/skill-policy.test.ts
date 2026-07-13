@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   AGENT_SKILL_POLICY,
@@ -54,12 +54,63 @@ describe('agent skill policy manifest', () => {
       'seo-sprint-manager',
       'social-media-manager',
       'social-recovery-gather',
+      'studio-artifact-orchestrate',
+      'studio-artifact-review',
+      'studio-context-gather',
+      'studio-release-handoff',
       'support-manager',
     ])
 
     for (const skill of AGENT_SKILL_POLICY.repoPibSkills) {
       expect(existsSync(join(process.cwd(), '.claude/skills', skill, 'SKILL.md'))).toBe(true)
     }
+  })
+
+  it('assigns the governed Studio workflow to the operators and specialists that use it', () => {
+    expect(AGENT_SKILL_POLICY.agents.pip.runtimeSkills).toEqual(expect.arrayContaining([
+      'studio-context-gather',
+      'studio-artifact-orchestrate',
+    ]))
+    expect(AGENT_SKILL_POLICY.agents['qa-release'].runtimeSkills).toEqual(expect.arrayContaining([
+      'studio-context-gather',
+      'studio-artifact-review',
+      'studio-release-handoff',
+    ]))
+    expect(AGENT_SKILL_POLICY.agents.maya.runtimeSkills).toEqual(expect.arrayContaining([
+      'studio-context-gather',
+      'studio-artifact-orchestrate',
+      'studio-artifact-review',
+    ]))
+    expect(AGENT_SKILL_POLICY.agents.theo.runtimeSkills).toContain('studio-release-handoff')
+
+    expect(AGENT_SKILL_POLICY.skillCatalog['studio-context-gather']).toEqual(expect.objectContaining({
+      ownerAgentId: 'pip',
+      riskLevel: 'low',
+    }))
+    expect(AGENT_SKILL_POLICY.skillCatalog['studio-release-handoff']).toEqual(expect.objectContaining({
+      ownerAgentId: 'qa-release',
+      riskLevel: 'critical',
+    }))
+  })
+
+  it('documents complete gather evidence and replay-safe orchestration envelopes', () => {
+    const gatherScript = readFileSync(join(
+      process.cwd(),
+      '.claude/skills/studio-context-gather/scripts/gather-studio-context.mjs',
+    ), 'utf8')
+    expect(gatherScript).toContain('canonicalLink')
+    expect(gatherScript).toContain('checkedEndpoint')
+    expect(gatherScript).toContain('checkedFields')
+    expect(gatherScript).toContain('correlationKey')
+    expect(gatherScript).toContain('missing_lineage')
+
+    const orchestrateSkill = readFileSync(join(
+      process.cwd(),
+      '.claude/skills/studio-artifact-orchestrate/SKILL.md',
+    ), 'utf8')
+    expect(orchestrateSkill).toContain('studio_artifact_proposal')
+    expect(orchestrateSkill).toContain('studio_artifact_result')
+    expect(orchestrateSkill).toContain('studio_artifact_existing_result')
   })
 
   it('catalogs every repo skill folder with an owner and runtime policy', () => {
@@ -226,6 +277,10 @@ describe('agent skill policy manifest', () => {
       'partnersinbiz/properties',
       'partnersinbiz/research-intelligence',
       'partnersinbiz/research/open-notebook',
+      'partnersinbiz/studio-artifact-orchestrate',
+      'partnersinbiz/studio-artifact-review',
+      'partnersinbiz/studio-context-gather',
+      'partnersinbiz/studio-release-handoff',
       'higgsfield-generate',
       'higgsfield-marketplace-cards',
       'higgsfield-product-photoshoot',
