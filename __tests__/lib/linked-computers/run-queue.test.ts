@@ -54,6 +54,8 @@ describe('linked run queue security transitions', () => {
     expect(sanitizeLinkedResult('{"nested":{"password":"value with spaces and \\\"escapes\\\" trailing"}}')).not.toMatch(/value with|escapes|trailing/)
     expect(sanitizeLinkedResult(`safe prefix -----BEGIN PRIVATE KEY-----\n${'A'.repeat(200)}`)).not.toContain('AAAA')
     expect(sanitizeLinkedResult(`unlabelled ${'z9K_'.repeat(20)} tail`)).not.toContain('z9K_')
+    const connections = 'DB_PASS="space secret" DATABASE_URL=postgres://user:p%40ss@db.internal:5432/app mysql://root:pw@host/db AUTH_TOKEN=abc123 CREDENTIAL_KEY="quoted escaped \\\"value\\\""'
+    expect(sanitizeLinkedResult(connections)).not.toMatch(/space secret|postgres|user:|p%40ss|mysql|root:pw|abc123|quoted escaped|value/)
   })
 
   it('denies cross-device, stale credential and out-of-order completion while making duplicate completion idempotent', () => {

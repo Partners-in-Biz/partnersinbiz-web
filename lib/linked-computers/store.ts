@@ -14,6 +14,7 @@ import type {
   WorkspaceMappingStatus,
 } from './types'
 import { decryptLinkedSecret, encryptLinkedSecret } from './secret-envelope'
+import { cancelLinkedRun } from './run-queue-store'
 
 const DEVICES = 'linked_devices'
 const CHALLENGES = 'linked_device_pairing_challenges'
@@ -270,6 +271,7 @@ export async function transitionDeviceStatus(input: {
     if (input.status === 'revoked' || input.status === 'removed') {
       if (credentialSnap.exists) tx.update(credentialRef, { revokedAt: at, previousCredentialHash: null, previousCredentialVersion: null, previousCredentialExpiresAt: null })
       if (deliverySnap.exists) tx.update(deliveryRef, { encryptedCredential: null, terminalState: input.status, terminalAt: at, cleanupAt: Timestamp.fromMillis((options.nowMs?.() ?? Date.now()) + CREDENTIAL_ROTATION_OVERLAP_MS) })
+      tx.set(db.collection('linked_device_cleanup_runs').doc(input.deviceId), { deviceId: input.deviceId, status: 'pending', phase: 'mappings', processed: 0, createdAt: at, updatedAt: at }, { merge: true })
     }
     tx.create(auditRef(db), {
       eventId: randomUUID(), action: 'device.status_changed', actorUserId: input.actorUserId,
@@ -368,8 +370,10 @@ export async function revokeDeviceCredential(input: {
     const device = deviceSnap.data() as unknown as LinkedDevice
     if (device.ownerUserId !== input.actorUserId) throw new Error('linked computers: device owner required')
     const at = timestamp(options)
+    tx.update(deviceRef, { status: 'revoked', revokedAt: at, updatedAt: at })
     tx.update(credentialRef, { revokedAt: at, previousCredentialHash: null, previousCredentialVersion: null, previousCredentialExpiresAt: null })
     if (deliverySnap.exists) tx.update(deliveryRef, { encryptedCredential: null, revokedAt: at, terminalState: 'revoked', cleanupAt: Timestamp.fromMillis((options.nowMs?.() ?? Date.now()) + CREDENTIAL_ROTATION_OVERLAP_MS) })
+    tx.set(db.collection('linked_device_cleanup_runs').doc(input.deviceId), { deviceId: input.deviceId, status: 'pending', phase: 'mappings', processed: 0, createdAt: at, updatedAt: at }, { merge: true })
     tx.create(auditRef(db), { eventId: randomUUID(), action: 'credential.revoked', actorUserId: input.actorUserId, deviceId: input.deviceId, createdAt: at })
   })
 }
@@ -380,12 +384,10 @@ export async function removeOwnedDevice(input: { deviceId: string; actorUserId: 
     const deviceRef = db.collection(DEVICES).doc(input.deviceId)
     const credentialRef = db.collection('linked_device_credentials').doc(input.deviceId)
     const deliveryRef = db.collection(ROTATION_DELIVERIES).doc(input.deviceId)
-    const [deviceSnap, credentialSnap, deliverySnap, mappings, grants, jobs] = await Promise.all([
+    const cleanupRef = db.collection('linked_device_cleanup_runs').doc(input.deviceId)
+    const [deviceSnap, credentialSnap, deliverySnap] = await Promise.all([
       tx.get(deviceRef), tx.get(credentialRef),
       tx.get(deliveryRef),
-      tx.get(db.collection(MAPPINGS).where('deviceId', '==', input.deviceId)),
-      tx.get(db.collection(GRANTS).where('deviceId', '==', input.deviceId)),
-      tx.get(db.collection('linked_device_run_jobs').where('deviceId', '==', input.deviceId)),
     ])
     if (!deviceSnap.exists) throw new Error('linked computers: device not found')
     const device = deviceSnap.data() as LinkedDevice
@@ -398,21 +400,42 @@ export async function removeOwnedDevice(input: { deviceId: string; actorUserId: 
       tx.create(auditRef(db), { eventId: randomUUID(), action: 'credential.revoked', actorUserId: input.actorUserId, deviceId: input.deviceId, createdAt: at })
     }
     if (deliverySnap.exists) tx.update(deliveryRef, { encryptedCredential: null, removedAt: at, terminalState: 'removed', cleanupAt: Timestamp.fromMillis((options.nowMs?.() ?? Date.now()) + CREDENTIAL_ROTATION_OVERLAP_MS) })
-    for (const doc of mappings.docs) {
-      const mapping = doc.data()
-      if (mapping.status === 'removed') continue
-      tx.update(doc.ref, { status: 'removed', removedAt: at, updatedAt: at })
-      tx.create(auditRef(db), { eventId: randomUUID(), action: 'mapping.changed', actorUserId: input.actorUserId, deviceId: input.deviceId, orgId: mapping.orgId, mappingId: mapping.mappingId ?? doc.id, fromStatus: mapping.status, toStatus: 'removed', createdAt: at })
-    }
-    for (const doc of grants.docs) {
-      const grant = doc.data()
-      if (grant.status === 'revoked') continue
-      tx.update(doc.ref, { status: 'revoked', revokedAt: at, updatedAt: at })
-      tx.create(auditRef(db), { eventId: randomUUID(), action: 'grant.changed', actorUserId: input.actorUserId, deviceId: input.deviceId, orgId: grant.orgId, fromStatus: grant.status, toStatus: 'revoked', createdAt: at })
-    }
-    for(const doc of jobs.docs){const job=doc.data();if(!['completed','failed','cancelled','expired'].includes(job.status))tx.update(doc.ref,{status:'cancelled',encryptedPayload:null,error:'Linked computer revoked',completedAt:at,updatedAt:at})}
+    tx.set(cleanupRef, { deviceId: input.deviceId, status: 'pending', phase: 'mappings', processed: 0, createdAt: at, updatedAt: at }, { merge: true })
     tx.create(auditRef(db), { eventId: randomUUID(), action: 'device.status_changed', actorUserId: input.actorUserId, deviceId: input.deviceId, fromStatus: device.status, toStatus: 'removed', createdAt: at })
   })
+}
+
+export async function processDeviceCleanupBatch(deviceId: string, options: { db?: any; limit?: number } = {}): Promise<{ done: boolean; processed: number; phase: string }> {
+  const db = options.db ?? adminDb
+  const limit = Math.min(Math.max(1, options.limit ?? 75), 100)
+  const cleanupRef = db.collection('linked_device_cleanup_runs').doc(deviceId)
+  const cleanupSnap = await cleanupRef.get()
+  if (!cleanupSnap.exists) throw new Error('linked computers: cleanup run not found')
+  const phase = String(cleanupSnap.data()?.phase ?? 'mappings')
+  if (phase === 'mappings' || phase === 'grants') {
+    const collection = phase === 'mappings' ? MAPPINGS : GRANTS
+    const terminal = phase === 'mappings' ? 'removed' : 'revoked'
+    const snap = await db.collection(collection).where('deviceId', '==', deviceId).where('status', '!=', terminal).limit(limit).get()
+    const docs = snap.docs
+    if (docs.length) {
+      const batch = db.batch()
+      for (const doc of docs) batch.set(doc.ref, { status: terminal, [`${terminal}At`]: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+      batch.set(cleanupRef, { processed: FieldValue.increment(docs.length), updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+      await batch.commit()
+      return { done: false, processed: docs.length, phase }
+    }
+    await cleanupRef.set({ phase: phase === 'mappings' ? 'grants' : 'jobs', updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+    return { done: false, processed: 0, phase }
+  }
+  if (phase === 'jobs') {
+    const snap = await db.collection('linked_device_run_jobs').where('deviceId', '==', deviceId).where('status', 'in', ['queued', 'claimed', 'running']).limit(Math.min(limit, 50)).get()
+    const docs = snap.docs
+    for (const doc of docs) await cancelLinkedRun(doc.id, 'Linked computer access revoked')
+    if (docs.length) { await cleanupRef.set({ processed: FieldValue.increment(docs.length), updatedAt: FieldValue.serverTimestamp() }, { merge: true }); return { done: false, processed: docs.length, phase } }
+    await cleanupRef.set({ phase: 'complete', status: 'completed', completedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+    return { done: true, processed: 0, phase: 'complete' }
+  }
+  return { done: true, processed: 0, phase }
 }
 
 export async function putDeviceGrant(input: {
@@ -507,5 +530,35 @@ export async function putWorkspaceMapping(input: {
       deviceId: input.deviceId, orgId: input.orgId, mappingId: input.mappingId,
       fromStatus: fromStatus ?? null, toStatus: input.status, createdAt: at,
     })
+  })
+}
+
+export async function confirmDeviceMappingPresence(input: { deviceId: string; mappingId: string; ownerUserId: string; authenticatedCredentialVersion: number; present: boolean }, options: StoreOptions = {}): Promise<{ mappingId: string; status: 'active' | 'paused' }> {
+  const db = options.db ?? (adminDb as unknown as DbLike)
+  return db.runTransaction(async (tx) => {
+    const deviceRef = db.collection(DEVICES).doc(input.deviceId)
+    const mappingRef = db.collection(MAPPINGS).doc(input.mappingId)
+    const credentialRef = db.collection('linked_device_credentials').doc(input.deviceId)
+    const [deviceSnap, mappingSnap, credentialSnap] = await Promise.all([tx.get(deviceRef), tx.get(mappingRef), tx.get(credentialRef)])
+    if (!deviceSnap.exists || !mappingSnap.exists || !credentialSnap.exists) throw new Error('linked computers: mapping not found')
+    const device = deviceSnap.data() ?? {}; const mapping = mappingSnap.data() ?? {}; const credential = credentialSnap.data() ?? {}
+    const [grantSnap, memberSnap] = await Promise.all([
+      tx.get(db.collection(GRANTS).doc(`${mapping.orgId}_${input.deviceId}`)),
+      tx.get(db.collection(MEMBERS).doc(`${mapping.orgId}_${input.ownerUserId}`)),
+    ])
+    const grant = grantSnap.data() ?? {}; const member = memberSnap.data() ?? {}
+    if (device.deviceId !== input.deviceId || device.ownerUserId !== input.ownerUserId || device.status !== 'active'
+      || Number(device.credentialVersion) !== input.authenticatedCredentialVersion || Number(credential.credentialVersion) !== input.authenticatedCredentialVersion || credential.revokedAt
+      || mapping.deviceId !== input.deviceId || !mapping.workspaceId || !mapping.orgId || !grantSnap.exists || grant.status !== 'active'
+      || !Array.isArray(grant.capabilities) || !grant.capabilities.includes('workspace.execute') || !memberSnap.exists || member.status !== 'active') throw new Error('linked computers: mapping confirmation denied')
+    if (mapping.status === 'removed') throw new Error('linked computers: mapping removed')
+    const next = input.present ? 'active' : 'paused'
+    if (!(input.present ? ['pending', 'paused', 'active'] : ['pending', 'active', 'paused']).includes(String(mapping.status))) throw new Error('linked computers: invalid mapping transition')
+    if (mapping.status !== next) {
+      const at = timestamp(options)
+      tx.update(mappingRef, { status: next, updatedAt: at })
+      tx.create(auditRef(db), { eventId: randomUUID(), action: 'mapping.changed', actorUserId: `device:${input.deviceId}`, deviceId: input.deviceId, orgId: mapping.orgId, mappingId: input.mappingId, fromStatus: mapping.status, toStatus: next, createdAt: at })
+    }
+    return { mappingId: input.mappingId, status: next }
   })
 }

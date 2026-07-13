@@ -1,5 +1,17 @@
-import {NextRequest,NextResponse}from'next/server';import{adminDb}from'@/lib/firebase/admin';import{authenticateSignedDeviceRequest,lifecycleError,noStoreHeaders}from'@/lib/linked-computers/http';import{FieldValue}from'firebase-admin/firestore'
-type Context={params:Promise<{deviceId:string;mappingId:string}>}
-async function confirm(deviceId:string,mappingId:string,present:boolean){const ref=adminDb.collection('linked_device_workspace_mappings').doc(mappingId);await adminDb.runTransaction(async tx=>{const snap=await tx.get(ref),row=snap.data();if(!snap.exists||row?.deviceId!==deviceId)throw new Error('linked computers: mapping not found');if(row.status==='removed')throw new Error('linked computers: mapping removed');tx.update(ref,{status:present?'active':'paused',updatedAt:FieldValue.serverTimestamp()})})}
-export async function handleMappingConfirmation(req:NextRequest,deviceId:string,mappingId:string,auth=authenticateSignedDeviceRequest,update=confirm):Promise<Response>{try{const raw=await req.text();await auth(req,deviceId,raw);const body=JSON.parse(raw);if(typeof body.present!=='boolean'||!/^[A-Za-z0-9-]{8,128}$/.test(mappingId))throw new Error('linked computers: invalid mapping confirmation');await update(deviceId,mappingId,body.present);return NextResponse.json({success:true,data:{mappingId,status:body.present?'active':'paused'}},{headers:noStoreHeaders})}catch(error){return lifecycleError(error)}}
-export async function POST(req:NextRequest,context:Context){const p=await context.params;return handleMappingConfirmation(req,p.deviceId,p.mappingId)}
+import { NextRequest, NextResponse } from 'next/server'
+import { authenticateSignedDeviceRequest, lifecycleError, noStoreHeaders } from '@/lib/linked-computers/http'
+import { confirmDeviceMappingPresence } from '@/lib/linked-computers/store'
+
+type Context = { params: Promise<{ deviceId: string; mappingId: string }> }
+export async function handleMappingConfirmation(req: NextRequest, deviceId: string, mappingId: string, auth = authenticateSignedDeviceRequest, update = confirmDeviceMappingPresence): Promise<Response> {
+  try {
+    const rawBody = await req.text()
+    const identity = await auth(req, deviceId, rawBody)
+    if (identity.deviceId !== deviceId) throw new Error('linked computers: tenant scope mismatch')
+    const body = JSON.parse(rawBody) as { present?: unknown }
+    if (typeof body.present !== 'boolean' || !/^[A-Za-z0-9-]{8,128}$/.test(mappingId)) throw new Error('linked computers: invalid mapping confirmation')
+    const result = await update({ deviceId, mappingId, ownerUserId: identity.ownerUserId, authenticatedCredentialVersion: identity.credentialVersion, present: body.present })
+    return NextResponse.json({ success: true, data: result }, { headers: noStoreHeaders })
+  } catch (error) { return lifecycleError(error) }
+}
+export async function POST(req: NextRequest, context: Context) { const p = await context.params; return handleMappingConfirmation(req, p.deviceId, p.mappingId) }

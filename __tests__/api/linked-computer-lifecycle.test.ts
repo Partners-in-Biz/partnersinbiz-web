@@ -164,8 +164,7 @@ describe('linked computer lifecycle HTTP boundaries', () => {
     expect(remove).toHaveBeenCalledWith({ deviceId: 'device-a', actorUserId: 'owner-a' })
     expect(rows.get('linked_devices/device-a')).toMatchObject({ status: 'removed' })
     expect(rows.get('linked_device_credentials/device-a')).toMatchObject({ revokedAt: 'server-time' })
-    expect(rows.get('linked_device_grants/org-a_device-a')).toMatchObject({ status: 'revoked' })
-    expect(rows.get('linked_device_workspace_mappings/map-a')).toMatchObject({ status: 'removed' })
+    expect(rows.get('linked_device_cleanup_runs/device-a')).toMatchObject({ status: 'pending', phase: 'mappings' })
   })
 
   it('authenticates heartbeat against the exact raw body and denies cross-device identity', async () => {

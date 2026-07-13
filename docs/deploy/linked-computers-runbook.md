@@ -98,6 +98,8 @@ The server source is ready for staged acceptance only when `LINKED_RUNTIME_MIN_V
 Accepted device identity comes from the verified stored acceptance receipt, not the requested target label. Result persistence uses the safe result contract and redaction boundary. Signed hashes and byte lengths remain the integrity record when display output must be replaced with `[redacted output]`.
 
 This wording does not claim installer signing/notarisation, production deployment, real-device acceptance, or rollback drills have passed. Those remain release gates.
+
+Any security or lifecycle change invalidates earlier Task 7 readiness evidence. Task 7 may be marked passed only after a fresh final integrated verification run on the resulting source commit; earlier green evidence is historical, not current release proof.
 - Callback: check request nonce, credential version, receipt signature/body digests, registered machine/version and job/request/mapping/attempt/lease binding.
 - Filesystem: use the runtime `status` command and safe mapping labels. Physical paths remain local and must not enter browser/API evidence.
 

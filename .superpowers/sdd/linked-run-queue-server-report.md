@@ -97,3 +97,13 @@ Cleanup verification: 37 lifecycle/pairing tests passed; full typecheck, targete
 - Linked runtime versions use strict semantic-version parsing and a central minimum. Invalid/old runtimes are update-required and cannot dispatch; production fails closed when the minimum is absent.
 - Accepted-device UI data is derived only from the verified stored acceptance receipt snapshot.
 - Output is redacted before truncation, including unterminated PEM material, high-entropy tokens, paths, URLs, and credentials; uncertain remnants collapse to `[redacted output]` while signed hashes/lengths preserve integrity evidence.
+
+## Final lifecycle cleanup pass
+
+Emergency revoke/remove now performs only the bounded authority-kill transaction: terminal device state, revoked current/overlap credential, cleared rotation delivery, and a durable cleanup-run checkpoint. Mappings, grants, and jobs are processed later through resumable batches. Job cleanup uses the queue cancellation transaction so the queue ID, ciphertext, assistant message, and run ledger finalize together.
+
+Signed mapping confirmation now delegates to the central transactional policy with exact device/mapping/workspace/organisation binding, active owner membership/grant/current credential checks, constrained transitions, terminal removal, and audit history.
+
+Privacy redaction now covers database/auth assignment variants, arbitrary connection URIs with userinfo, quoted/escaped values, and percent-encoded credentials.
+
+Prior Task 7 readiness evidence is invalidated by these lifecycle changes. Readiness can pass only after a fresh final integrated verification on the final source commit.
