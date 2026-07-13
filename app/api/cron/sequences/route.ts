@@ -516,6 +516,27 @@ export async function GET(req: NextRequest) {
           variantId: variantPick.variant?.id ?? '',
         })
 
+        if (outcome.status !== 'sent') {
+          const failure = deliveryFailureState({
+            attemptsBefore: Number(enrollment.deliveryAttempts ?? 0),
+            error: outcome.reason ?? `SMS dispatch ${outcome.status}`,
+            stepNumber: enrollment.currentStep,
+            channel: 'sms',
+            nowMs: nowDate.getTime(),
+          })
+          await enrollDoc.ref.update(deliveryFailureUpdate(failure))
+          continue
+        }
+
+        if (enrollment.deliveryAttempts || enrollment.lastDeliveryError || enrollment.deadLetter) {
+          await enrollDoc.ref.update({
+            deliveryAttempts: 0,
+            lastDeliveryError: FieldValue.delete(),
+            deadLetter: FieldValue.delete(),
+            updatedAt: FieldValue.serverTimestamp(),
+          })
+        }
+
         // Variant-level sent-stat increment (best-effort).
         if (outcome.status === 'sent' && variantPick.variant?.id) {
           try {
@@ -539,12 +560,6 @@ export async function GET(req: NextRequest) {
           })
         }
 
-        // Skipped outcomes (no phone, suppressed, prefs gate) leave the
-        // enrollment in place and the cron will retry next tick. Note: we
-        // still advance because the step has been attempted; otherwise a
-        // contact with no phone would loop on the same SMS step forever.
-        // The activity log / failure reason already lives on the sms doc.
-        void outcome
         // Fall through to the shared post-send progression block below.
       } else {
         // ── Email path ───────────────────────────────────────────────────
@@ -684,25 +699,7 @@ export async function GET(req: NextRequest) {
             channel: 'email',
             nowMs: nowDate.getTime(),
           })
-          await enrollDoc.ref.update({
-            status: failure.status,
-            exitReason: failure.exitReason ?? FieldValue.delete(),
-            deliveryAttempts: failure.deliveryAttempts,
-            lastDeliveryError: failure.lastDeliveryError,
-            lastDeliveryAttemptAt: Timestamp.fromMillis(failure.lastDeliveryAttemptAtMs),
-            nextSendAt: failure.retryAtMs === null ? null : Timestamp.fromMillis(failure.retryAtMs),
-            deadLetter: failure.deadLetter
-              ? {
-                  stepNumber: failure.deadLetter.stepNumber,
-                  attempts: failure.deadLetter.attempts,
-                  reason: failure.deadLetter.reason,
-                  channel: failure.deadLetter.channel,
-                  replayable: failure.deadLetter.replayable,
-                  failedAt: Timestamp.fromMillis(failure.deadLetter.failedAtMs),
-                }
-              : FieldValue.delete(),
-            updatedAt: FieldValue.serverTimestamp(),
-          })
+          await enrollDoc.ref.update(deliveryFailureUpdate(failure))
           continue
         }
 
@@ -986,4 +983,26 @@ function appendPath(
 ): EnrollmentPathEntry[] {
   const prev = Array.isArray(existing) ? existing : []
   return [...prev, entry]
+}
+
+function deliveryFailureUpdate(failure: ReturnType<typeof deliveryFailureState>): Record<string, unknown> {
+  return {
+    status: failure.status,
+    exitReason: failure.exitReason ?? FieldValue.delete(),
+    deliveryAttempts: failure.deliveryAttempts,
+    lastDeliveryError: failure.lastDeliveryError,
+    lastDeliveryAttemptAt: Timestamp.fromMillis(failure.lastDeliveryAttemptAtMs),
+    nextSendAt: failure.retryAtMs === null ? null : Timestamp.fromMillis(failure.retryAtMs),
+    deadLetter: failure.deadLetter
+      ? {
+          stepNumber: failure.deadLetter.stepNumber,
+          attempts: failure.deadLetter.attempts,
+          reason: failure.deadLetter.reason,
+          channel: failure.deadLetter.channel,
+          replayable: failure.deadLetter.replayable,
+          failedAt: Timestamp.fromMillis(failure.deadLetter.failedAtMs),
+        }
+      : FieldValue.delete(),
+    updatedAt: FieldValue.serverTimestamp(),
+  }
 }

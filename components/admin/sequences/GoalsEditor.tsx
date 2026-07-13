@@ -2,8 +2,8 @@
 
 // components/admin/sequences/GoalsEditor.tsx
 //
-// Sequence-level exit goals. Goals fire before every step. When matched, the
-// enrollment exits with status='exited' and exitReason='goal-hit'.
+// Sequence-level journey goals. A goal may complete the journey successfully
+// or exit it early, and is evaluated before every step.
 
 import type { SequenceGoal, BranchCondition } from '@/lib/sequences/types'
 import ConditionPicker from './ConditionPicker'
@@ -45,8 +45,8 @@ export default function GoalsEditor({ goals, onChange }: Props) {
     <div className="space-y-2">
       {list.length === 0 && (
         <div className="text-xs text-on-surface-variant italic">
-          No exit goals. Add one to auto-exit enrollments when a contact converts,
-          replies, books a demo, etc.
+          No journey goals. Add one to complete or exit a journey when a contact
+          converts, replies, books a demo, etc.
         </div>
       )}
       {list.map((goal, i) => (
@@ -96,7 +96,7 @@ export default function GoalsEditor({ goals, onChange }: Props) {
         onClick={addGoal}
         className="w-full py-2 rounded-lg border border-dashed border-outline-variant text-sm text-on-surface-variant"
       >
-        + Add exit goal
+        + Add journey goal
       </button>
     </div>
   )

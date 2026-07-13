@@ -11,6 +11,7 @@ import type { SequenceQuietHours, SequenceStep, SequenceStatus } from '@/lib/seq
 import SequenceStepBuilder from './SequenceStepBuilder'
 import EnrollmentPreview from './EnrollmentPreview'
 import TriggerConfigPanel, { type SequenceTrigger } from './TriggerConfigPanel'
+import SequenceDeadLetterControl from './SequenceDeadLetterControl'
 
 type Tab = 'steps' | 'trigger' | 'preview'
 
@@ -234,7 +235,12 @@ export default function SequenceBuilder({ sequenceId, orgScope, onDone }: Props)
 
       {tab === 'steps' && <SequenceStepBuilder steps={steps} onChange={setSteps} />}
       {tab === 'trigger' && <TriggerConfigPanel value={trigger} onChange={setTrigger} endpoint={endpoint} />}
-      {tab === 'preview' && <EnrollmentPreview steps={stepsForSave} />}
+      {tab === 'preview' && (
+        <>
+          <EnrollmentPreview steps={stepsForSave} />
+          {sequenceId && <SequenceDeadLetterControl sequenceId={sequenceId} endpoint={endpoint} />}
+        </>
+      )}
 
       {/* Save bar */}
       {saveError && (

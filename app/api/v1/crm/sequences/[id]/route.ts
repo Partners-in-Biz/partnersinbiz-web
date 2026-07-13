@@ -9,6 +9,7 @@ import { getSequence, updateSequence, deleteSequence } from '@/lib/sequences/sto
 import type { SequenceInput } from '@/lib/sequences/types'
 import { mergeSequenceForActivationValidation, validateSequenceActivation } from '@/lib/sequences/validation'
 import { assertEmailMarketingAgentActionWithTask } from '@/lib/email-marketing/agent-governance'
+import { sanitizeSequenceQuietHours } from '@/lib/sequences/quiet-hours'
 
 export const dynamic = 'force-dynamic'
 
@@ -61,7 +62,13 @@ export const PUT = withCrmAuth<RouteCtx>('admin', async (req, ctx, routeCtx) => 
   if (rest.steps !== undefined) patch.steps = rest.steps as SequenceInput['steps']
   if (rest.topicId !== undefined) patch.topicId = rest.topicId as string
   if (rest.goals !== undefined) patch.goals = rest.goals as SequenceInput['goals']
-  if (rest.quietHours !== undefined) patch.quietHours = rest.quietHours as SequenceInput['quietHours']
+  if (rest.quietHours !== undefined) {
+    try {
+      patch.quietHours = sanitizeSequenceQuietHours(rest.quietHours)
+    } catch (error) {
+      return apiError(error instanceof Error ? error.message : 'Invalid quiet hours', 400)
+    }
+  }
   if (rest.deleted !== undefined) patch.deleted = rest.deleted as boolean
 
   try {

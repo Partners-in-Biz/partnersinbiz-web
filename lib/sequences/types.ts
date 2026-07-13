@@ -1,6 +1,7 @@
 // lib/sequences/types.ts
 import type { Timestamp } from 'firebase-admin/firestore'
 import type { AbConfig } from '@/lib/ab-testing/types'
+import type { MemberRef } from '@/lib/orgMembers/memberRef'
 
 // ── Branching / Goal / Wait-Until ───────────────────────────────────────────
 //
@@ -244,6 +245,14 @@ export interface SequenceEnrollment {
     replayable: boolean
     failedAt: Timestamp | null
   }
+  deadLetterHistory?: Array<NonNullable<SequenceEnrollment['deadLetter']> & {
+    replayKey: string
+    replayedAt: Timestamp | null
+    replayedByRef: MemberRef
+  }>
+  replayKey?: string
+  replayedAt?: Timestamp | null
+  replayedByRef?: MemberRef
   lastScheduleDecision?: {
     reason: 'quiet-hours'
     timezone: string

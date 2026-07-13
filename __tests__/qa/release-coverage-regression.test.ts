@@ -61,8 +61,8 @@ describe('cross-surface QA release coverage contracts', () => {
     expect(cron).toContain('const completion = goalCompletionState(goal)')
     expect(cron).toContain('metadata: { goalId: goal.id')
 
-    expect(editor).toContain('+ Add exit goal')
-    expect(editor).toContain('No exit goals')
+    expect(editor).toContain('+ Add journey goal')
+    expect(editor).toContain('No journey goals')
     expect(editor).toContain('Exit reason label')
   })
 

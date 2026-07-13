@@ -205,6 +205,18 @@ describe('PUT /api/v1/crm/sequences/:id', () => {
     expect(body.error).toMatch(/body/i)
     expect(sequenceStore.updateSequence).not.toHaveBeenCalled()
   })
+
+  it('returns 400 instead of persisting invalid quiet hours', async () => {
+    const member = seedOrgMember('org-1', uidFor('admin-invalid-quiet'), { role: 'admin' })
+    stageAuth(member)
+    const req = callAsMember(member, 'PUT', '/api/v1/crm/sequences/seq-1', {
+      quietHours: { enabled: true, startMinuteLocal: -1, endMinuteLocal: 480, timezoneMode: 'recipient' },
+    })
+    const res = await routeModule.PUT(req, routeCtx)
+
+    expect(res.status).toBe(400)
+    expect(sequenceStore.updateSequence).not.toHaveBeenCalled()
+  })
 })
 
 // ── DELETE ────────────────────────────────────────────────────────────────────

@@ -16,6 +16,7 @@ const mockSendCampaignEmail = jest.fn()
 const mockResolveFrom = jest.fn()
 const mockResolveCanonicalEmailConsent = jest.fn()
 const mockAssertEmailMarketingDispatchApproval = jest.fn()
+const mockSendSmsToContact = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: {
@@ -60,6 +61,9 @@ jest.mock('@/lib/consent-ledger/decision', () => ({
 jest.mock('@/lib/email-marketing/agent-governance', () => ({
   assertEmailMarketingDispatchApproval: (...args: unknown[]) => mockAssertEmailMarketingDispatchApproval(...args),
 }))
+jest.mock('@/lib/sms/send', () => ({
+  sendSmsToContact: (...args: unknown[]) => mockSendSmsToContact(...args),
+}))
 
 process.env.CRON_SECRET = 'cron-secret'
 
@@ -88,6 +92,7 @@ beforeEach(() => {
   })
   mockSendCampaignEmail.mockResolvedValue({ ok: true, resendId: 'resend-1' })
   mockResolveCanonicalEmailConsent.mockResolvedValue({ allowed: true, precedence: 'default-allow' })
+  mockSendSmsToContact.mockResolvedValue({ status: 'sent', smsId: 'sms-1' })
 })
 
 describe('GET /api/cron/sequences', () => {
@@ -314,6 +319,62 @@ describe('GET /api/cron/sequences', () => {
     expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
       status: 'dead_letter', exitReason: 'delivery-failed', deliveryAttempts: 5, nextSendAt: null,
       deadLetter: expect.objectContaining({ attempts: 5, reason: 'provider rejected', stepNumber: 0, replayable: true }),
+    }))
+  })
+
+  it.each([
+    ['failed', 'Twilio unavailable'],
+    ['skipped', 'contact has no phone'],
+  ] as const)('does not advance an SMS step when dispatch is %s', async (status, reason) => {
+    jest.resetModules()
+    const dueEnrollment = {
+      id: `e-sms-${status}`, ref: { update: mockUpdate }, data: () => ({
+        sequenceId: 'seq1', contactId: 'c1', orgId: 'org1', campaignId: '', currentStep: 0,
+        status: 'active', deliveryAttempts: 0, nextSendAt: { toDate: () => new Date(Date.now() - 1000) },
+      }),
+    }
+    mockGet
+      .mockResolvedValueOnce({ docs: [dueEnrollment] })
+      .mockResolvedValueOnce({ exists: true, data: () => ({
+        orgId: 'org1', name: 'SMS journey',
+        steps: [
+          { stepNumber: 0, delayDays: 0, channel: 'sms', smsBody: 'Hello', subject: '', bodyHtml: '', bodyText: '' },
+          { stepNumber: 1, delayDays: 1, subject: 'Next', bodyHtml: '<p>Next</p>', bodyText: 'Next' },
+        ],
+      }) })
+      .mockResolvedValueOnce({ exists: true, data: () => ({ orgId: 'org1', name: 'Alice', email: 'alice@example.com' }) })
+      .mockResolvedValueOnce({ exists: true, data: () => ({ name: 'Test Org' }) })
+    mockSendSmsToContact.mockResolvedValueOnce({ status, reason })
+
+    const { GET } = await import('@/app/api/cron/sequences/route')
+    await GET(new NextRequest('http://localhost/api/cron/sequences', { headers: { Authorization: 'Bearer cron-secret' } }))
+
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'active', deliveryAttempts: 1, lastDeliveryError: reason,
+    }))
+    expect(mockUpdate).not.toHaveBeenCalledWith(expect.objectContaining({ currentStep: 1 }))
+  })
+
+  it('dead-letters an SMS after its final failed attempt', async () => {
+    jest.resetModules()
+    const dueEnrollment = {
+      id: 'e-sms-dead', ref: { update: mockUpdate }, data: () => ({
+        sequenceId: 'seq1', contactId: 'c1', orgId: 'org1', campaignId: '', currentStep: 0,
+        status: 'active', deliveryAttempts: 4, nextSendAt: { toDate: () => new Date(Date.now() - 1000) },
+      }),
+    }
+    mockGet
+      .mockResolvedValueOnce({ docs: [dueEnrollment] })
+      .mockResolvedValueOnce({ exists: true, data: () => ({ orgId: 'org1', steps: [{ stepNumber: 0, delayDays: 0, channel: 'sms', smsBody: 'Hello' }] }) })
+      .mockResolvedValueOnce({ exists: true, data: () => ({ orgId: 'org1', name: 'Alice', email: 'alice@example.com' }) })
+      .mockResolvedValueOnce({ exists: true, data: () => ({ name: 'Test Org' }) })
+    mockSendSmsToContact.mockResolvedValueOnce({ status: 'failed', reason: 'Twilio unavailable' })
+
+    const { GET } = await import('@/app/api/cron/sequences/route')
+    await GET(new NextRequest('http://localhost/api/cron/sequences', { headers: { Authorization: 'Bearer cron-secret' } }))
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'dead_letter', nextSendAt: null,
+      deadLetter: expect.objectContaining({ channel: 'sms', attempts: 5, replayable: true }),
     }))
   })
 })
