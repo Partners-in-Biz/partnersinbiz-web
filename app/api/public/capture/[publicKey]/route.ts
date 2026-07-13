@@ -50,9 +50,12 @@ import { assertEmailMarketingDispatchApproval } from '@/lib/email-marketing/agen
 import type { Sequence, SequenceEnrollment } from '@/lib/sequences/types'
 import { evaluateSequenceReentry } from '@/lib/email-marketing/automation-policy'
 import { appendConsentEvent } from '@/lib/consent-ledger/store'
-import { normalizeCaptureProvenance } from '@/lib/email-marketing/capture-attribution'
 import { isDisposableEmail } from '@/lib/lead-capture/disposable-domains'
 import { LEAD_CAPTURE_SUBMISSIONS } from '@/lib/lead-capture/types'
+import { buildCaptureAttributionContext } from '@/lib/lead-capture/attribution-context'
+import { publishCaptureSchemaVersion } from '@/lib/lead-capture/schema-store'
+import { LEGACY_PUBLIC_CAPTURE_FIELDS } from '@/lib/lead-capture/schema-presets'
+import { resolveCaptureFields } from '@/lib/lead-capture/schema'
 
 type Params = { params: Promise<{ publicKey: string }> }
 
@@ -137,6 +140,9 @@ export async function POST(req: NextRequest, context: Params) {
   if (source.consentRequired && body.consent !== true) {
     return jsonError('Consent is required for this form', 422)
   }
+  const forbidden = ['campaignId', 'programId', 'sourceId', 'gclid', 'fbclid', 'msclkid', 'ttclid']
+    .filter((key) => body[key] !== undefined)
+  if (forbidden.length) return jsonError(`Server-controlled fields are not accepted: ${forbidden.join(', ')}`, 400)
 
   // Compose contact fields
   const firstName = typeof body.firstName === 'string' ? body.firstName.trim() : ''
@@ -162,25 +168,23 @@ export async function POST(req: NextRequest, context: Params) {
     metaSummary ? `Submitted: ${metaSummary}` : '',
   ].filter(Boolean).join('\n\n')
   const consentGiven = body.consent === true
-  const search = new URL(req.url).searchParams
-  const meta = body.meta && typeof body.meta === 'object'
-    ? body.meta as Record<string, unknown>
-    : {}
-  const attributionInput: Record<string, unknown> = {
-    ...meta,
-    ...body,
-    sourceId: source.id,
-    sourceName: source.name,
-    sourceType: source.type,
-    referrer: typeof body.referrer === 'string' ? body.referrer : req.headers.get('referer') ?? '',
-    landingPage: typeof body.landingPage === 'string'
-      ? body.landingPage
-      : req.headers.get('referer') ?? '',
-  }
-  for (const key of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'fbclid', 'msclkid', 'ttclid']) {
-    if (!attributionInput[key]) attributionInput[key] = search.get(key) ?? ''
-  }
-  const attribution = normalizeCaptureProvenance(attributionInput)
+  const { context: attributionContext, provenance: attribution, lineage } = buildCaptureAttributionContext({
+    requestUrl: req.url,
+    refererHeader: req.headers.get('referer') ?? '',
+    body: body as Record<string, unknown>,
+    source: { ...(source as unknown as Record<string, unknown>), id: source.id, name: source.name, type: source.type },
+  })
+  const schemaInput = Object.fromEntries(
+    ['name', 'firstName', 'lastName', 'phone', 'company', 'notes']
+      .filter((key) => body[key] !== undefined)
+      .map((key) => [key, body[key]]),
+  )
+  const resolvedLegacy = resolveCaptureFields(
+    LEGACY_PUBLIC_CAPTURE_FIELDS,
+    schemaInput,
+    attributionContext,
+  )
+  if (!resolvedLegacy.ok) return jsonError(resolvedLegacy.errors.join('; '), 400)
   const consentMetadata = {
     consentRequired: !!source.consentRequired,
     consentGiven,
@@ -268,12 +272,17 @@ export async function POST(req: NextRequest, context: Params) {
     })
   }
 
+  const schemaVersion = await publishCaptureSchemaVersion(
+    adminDb as never,
+    sourceDoc.ref as never,
+    { orgId: source.orgId, sourceId: source.id, fields: LEGACY_PUBLIC_CAPTURE_FIELDS },
+  )
   await adminDb.collection(LEAD_CAPTURE_SUBMISSIONS).add({
     orgId: source.orgId,
     captureSourceId: source.id,
     captureSourceSystem: 'legacy',
     email,
-    data: body.meta && typeof body.meta === 'object' ? body.meta : {},
+    data: { ...resolvedLegacy.data, ...(body.meta && typeof body.meta === 'object' ? { meta: body.meta } : {}) },
     contactId,
     confirmedAt: consentGiven || !source.consentRequired ? FieldValue.serverTimestamp() : null,
     confirmationToken: '',
@@ -281,7 +290,8 @@ export async function POST(req: NextRequest, context: Params) {
     userAgent: req.headers.get('user-agent') ?? '',
     referer: attribution.referrer,
     attribution,
-    schemaVersionId: `legacy_${source.id}`,
+    attributionLineage: lineage,
+    schemaVersionId: schemaVersion.id,
     createdAt: FieldValue.serverTimestamp(),
   })
 

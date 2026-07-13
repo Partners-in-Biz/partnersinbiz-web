@@ -24,7 +24,9 @@ import { getResendClient, FROM_ADDRESS } from '@/lib/email/resend'
 import type { Form } from '@/lib/forms/types'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { formSubmissionRef } from '@/lib/orgMembers/memberRef'
-import { normalizeCaptureProvenance } from '@/lib/email-marketing/capture-attribution'
+import { buildCaptureAttributionContext } from '@/lib/lead-capture/attribution-context'
+import { publishCaptureSchemaVersion } from '@/lib/lead-capture/schema-store'
+import { formCaptureSchemaFields } from '@/lib/lead-capture/schema-presets'
 
 export const dynamic = 'force-dynamic'
 
@@ -207,20 +209,21 @@ export async function POST(
 
   const normalized = result.normalized
   const submitterRef = formSubmissionRef(form.id, form.name)
-  const attributionInput: Record<string, unknown> = {
-    ...body,
-    sourceId: form.id,
-    sourceName: form.name,
-    sourceType: 'form',
-    referrer: req.headers.get('referer') ?? '',
-    landingPage: typeof body.landingPage === 'string'
-      ? body.landingPage
-      : req.headers.get('referer') ?? '',
-  }
-  for (const key of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'fbclid', 'msclkid', 'ttclid']) {
-    if (!attributionInput[key]) attributionInput[key] = searchParams.get(key) ?? ''
-  }
-  const attribution = normalizeCaptureProvenance(attributionInput)
+  const forbidden = ['campaignId', 'programId', 'sourceId', 'gclid', 'fbclid', 'msclkid', 'ttclid']
+    .filter((key) => body[key] !== undefined)
+  if (forbidden.length) return apiError(`Server-controlled fields are not accepted: ${forbidden.join(', ')}`, 400)
+  const { provenance: attribution, lineage } = buildCaptureAttributionContext({
+    requestUrl: req.url,
+    refererHeader: req.headers.get('referer') ?? '',
+    body,
+    source: { id: form.id, name: form.name, type: 'form' },
+  })
+  const schemaFields = formCaptureSchemaFields(form.fields)
+  const schemaVersion = await publishCaptureSchemaVersion(
+    adminDb as never,
+    formDoc.ref as never,
+    { orgId, sourceId: form.id, fields: schemaFields },
+  )
 
   // Persist submission.
   const submissionRef = await adminDb.collection('form_submissions').add({
@@ -234,9 +237,8 @@ export async function POST(
     contactId: null,
     source: 'form',
     attribution,
-    schemaVersionId: typeof (form as unknown as Record<string, unknown>).activeSchemaVersionId === 'string'
-      ? (form as unknown as Record<string, unknown>).activeSchemaVersionId
-      : 'legacy-unversioned',
+    attributionLineage: lineage,
+    schemaVersionId: schemaVersion.id,
     createdBy: submitterRef.uid,
     createdByRef: submitterRef,
   })

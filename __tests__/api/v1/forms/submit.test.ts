@@ -24,11 +24,12 @@ const mockContactsGet = jest.fn()
 const mockActivitiesAdd = jest.fn()
 const mockFormsGet = jest.fn()
 const mockCollection = jest.fn()
+const mockRunTransaction = jest.fn()
 const mockWhere = jest.fn()
 const mockLimit = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
-  adminDb: { collection: mockCollection },
+  adminDb: { collection: mockCollection, runTransaction: mockRunTransaction },
 }))
 
 jest.mock('@/lib/forms/ratelimit', () => ({
@@ -114,6 +115,7 @@ function stageDb(
 ) {
   const formDoc = {
     id: form.id,
+    ref: { update: jest.fn() },
     data: () => {
       const { id: _id, ...rest } = form
       return rest
@@ -173,6 +175,7 @@ function stageDb(
         add: mockContactsAdd,
       }
     if (name === 'activities') return { add: mockActivitiesAdd }
+    if (name === 'lead_capture_schema_versions') return { doc: jest.fn(() => ({ id: 'schema-doc' })) }
     return {}
   })
 }
@@ -187,6 +190,11 @@ beforeEach(() => {
   ;(checkFormRateLimit as jest.Mock).mockResolvedValue(true)
   ;(verifyTurnstileToken as jest.Mock).mockResolvedValue({ success: true })
   mockDispatchWebhook.mockResolvedValue(undefined)
+  mockRunTransaction.mockImplementation(async (callback) => callback({
+    get: jest.fn().mockResolvedValue({ exists: false, data: () => undefined }),
+    create: jest.fn(),
+    update: jest.fn(),
+  }))
 })
 
 describe('POST /api/v1/forms/[id]/submit — attribution', () => {
@@ -204,7 +212,7 @@ describe('POST /api/v1/forms/[id]/submit — attribution', () => {
           'x-forwarded-for': '127.0.0.1',
           referer: 'https://example.com/form?utm_campaign=growth',
         }),
-        body: JSON.stringify({ email: 'bob@example.com', campaignId: 'campaign-1' }),
+        body: JSON.stringify({ email: 'bob@example.com' }),
       },
     )
     await POST(req, { params: Promise.resolve({ id: 'contact-us' }) })
@@ -212,11 +220,22 @@ describe('POST /api/v1/forms/[id]/submit — attribution', () => {
     expect(mockFormSubmissionsAdd).toHaveBeenCalledWith(expect.objectContaining({
       attribution: expect.objectContaining({
         sourceId: 'form-abc',
-        campaignId: 'campaign-1',
+        campaignId: '',
         referrer: expect.stringContaining('example.com/form'),
         utm: expect.objectContaining({ source: 'linkedin' }),
       }),
     }))
+  })
+
+  it('rejects body-supplied campaign and click lineage', async () => {
+    const form = makeForm()
+    stageDb(form, { existingContact: null })
+    const { POST } = await import('@/app/api/v1/forms/[id]/submit/route')
+    const res = await POST(submitReq('contact-us', 'org-1', {
+      email: 'bob@example.com', campaignId: 'spoofed', gclid: 'spoofed-click',
+    }), { params: Promise.resolve({ id: 'contact-us' }) })
+    expect(res.status).toBe(400)
+    expect(mockFormSubmissionsAdd).not.toHaveBeenCalled()
   })
 
   it('writes formSubmissionRef on FormSubmission record', async () => {

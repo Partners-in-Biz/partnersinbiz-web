@@ -68,6 +68,8 @@ const enabledSource = {
   autoSequenceIds: [],
   consentRequired: false,
   redirectUrl: '',
+  campaignId: '',
+  programId: '',
 }
 
 function mockSourceLookup(source: typeof enabledSource | null) {
@@ -138,7 +140,7 @@ describe('POST /api/public/capture/[publicKey]', () => {
   })
 
   it('returns 429 when rate limit exceeded', async () => {
-    mockSourceLookup(enabledSource)
+    mockSourceLookup({ ...enabledSource, campaignId: 'campaign-1' })
     ;(checkFormRateLimit as jest.Mock).mockResolvedValueOnce(false)
     const res = await POST(makeReq({ email: 'x@y.com' }), params)
     expect(res.status).toBe(429)
@@ -211,7 +213,7 @@ describe('POST /api/public/capture/[publicKey]', () => {
   })
 
   it('persists a real attributed submission for legacy public captures', async () => {
-    mockSourceLookup(enabledSource)
+    mockSourceLookup({ ...enabledSource, campaignId: 'campaign-1' })
     mockExistingContactLookup(null)
     mockAdd.mockResolvedValueOnce({ id: 'contact-new' })
 
@@ -222,7 +224,7 @@ describe('POST /api/public/capture/[publicKey]', () => {
         'x-forwarded-for': '1.2.3.4',
         referer: 'https://example.com/landing?utm_campaign=growth',
       },
-      body: JSON.stringify({ email: 'jane@x.com', campaignId: 'campaign-1' }),
+      body: JSON.stringify({ email: 'jane@x.com' }),
     })
     const res = await POST(req, params)
 
@@ -239,6 +241,15 @@ describe('POST /api/public/capture/[publicKey]', () => {
         utm: expect.objectContaining({ source: 'linkedin' }),
       }),
     }))
+  })
+
+  it('rejects body-supplied campaign and click lineage', async () => {
+    mockSourceLookup(enabledSource)
+    const res = await POST(makeReq({
+      email: 'jane@x.com', campaignId: 'spoofed', gclid: 'spoofed-click',
+    }), params)
+    expect(res.status).toBe(400)
+    expect(mockAdd).not.toHaveBeenCalled()
   })
 
   it('reuses an existing contact and merges tags', async () => {

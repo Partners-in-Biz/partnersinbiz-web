@@ -1,13 +1,26 @@
 import {
   buildCaptureSchemaVersion,
   captureSchemaFingerprint,
+  parseCaptureFields,
   resolveCaptureFields,
   sanitizeCaptureFields,
 } from '@/lib/lead-capture/schema'
 
 describe('lead capture schema', () => {
+  it('rejects missing, forward and hidden conditional dependencies', () => {
+    expect(parseCaptureFields([
+      { key: 'company', label: 'Company', type: 'text', required: false, showWhen: { fieldKey: 'role', operator: 'equals', value: 'owner' } },
+      { key: 'role', label: 'Role', type: 'select', required: false },
+    ])).toMatchObject({ ok: false, errors: [expect.stringContaining('prior visible field')] })
+    expect(parseCaptureFields([
+      { key: 'campaign', label: 'Campaign', type: 'hidden', required: false, attributionKey: 'campaignId' },
+      { key: 'company', label: 'Company', type: 'text', required: false, showWhen: { fieldKey: 'campaign', operator: 'is_set' } },
+    ])).toMatchObject({ ok: false, errors: [expect.stringContaining('prior visible field')] })
+  })
+
   it('sanitizes versionable hidden, progressive and conditional fields', () => {
     expect(sanitizeCaptureFields([
+      { key: 'role', label: 'Role', type: 'select', required: false },
       {
         key: 'company',
         label: 'Company',
@@ -24,6 +37,7 @@ describe('lead capture schema', () => {
         attributionKey: 'utm_source',
       },
     ])).toEqual([
+      { key: 'role', label: 'Role', type: 'select', required: false },
       {
         key: 'company',
         label: 'Company',
@@ -62,16 +76,31 @@ describe('lead capture schema', () => {
       { key: 'campaign', label: 'Campaign', type: 'hidden', required: false, attributionKey: 'campaignId' },
     ])
 
-    expect(resolveCaptureFields(fields, {
-      utm_source: 'spoofed',
-      campaign: 'spoofed-campaign',
-    }, {
-      utm_source: 'newsletter',
-      campaignId: 'campaign-1',
+    expect(resolveCaptureFields(fields, {}, {
+      observed: { utm_source: 'newsletter' },
+      trusted: { campaignId: 'campaign-1' },
     })).toEqual({
       ok: true,
       data: { utm_source: 'newsletter', campaign: 'campaign-1' },
       visibleFieldKeys: [],
+    })
+  })
+
+  it('rejects arbitrary, hidden and future-step keys', () => {
+    const fields = sanitizeCaptureFields([
+      { key: 'firstName', label: 'First name', type: 'text', required: false, progressiveStep: 1 },
+      { key: 'company', label: 'Company', type: 'text', required: false, progressiveStep: 2 },
+      { key: 'campaign', label: 'Campaign', type: 'hidden', required: false, attributionKey: 'campaignId' },
+    ])
+    expect(resolveCaptureFields(fields, {
+      firstName: 'Ari', company: 'spoof', campaign: 'spoof', isAdmin: 'true',
+    }, { observed: {}, trusted: { campaignId: 'campaign-1' } }, { progressiveStep: 1 })).toMatchObject({
+      ok: false,
+      errors: expect.arrayContaining([
+        'Field "company" is not accepted on this step',
+        'Field "campaign" is server-controlled',
+        'Field "isAdmin" is not in the published schema',
+      ]),
     })
   })
 
@@ -84,12 +113,12 @@ describe('lead capture schema', () => {
       },
     ])
 
-    expect(resolveCaptureFields(fields, { role: 'staff' }, {})).toMatchObject({
+    expect(resolveCaptureFields(fields, { role: 'staff' }, { observed: {}, trusted: {} })).toMatchObject({
       ok: true,
       data: { role: 'staff' },
       visibleFieldKeys: ['role'],
     })
-    expect(resolveCaptureFields(fields, { role: 'owner' }, {})).toMatchObject({
+    expect(resolveCaptureFields(fields, { role: 'owner' }, { observed: {}, trusted: {} })).toMatchObject({
       ok: false,
       errors: ['Field "Company" is required'],
       visibleFieldKeys: ['role', 'company'],
@@ -102,7 +131,7 @@ describe('lead capture schema', () => {
       { key: 'company', label: 'Company', type: 'text', required: true, progressiveStep: 2 },
     ])
 
-    expect(resolveCaptureFields(fields, { firstName: 'Ari' }, {}, { progressiveStep: 1 })).toMatchObject({
+    expect(resolveCaptureFields(fields, { firstName: 'Ari' }, { observed: {}, trusted: {} }, { progressiveStep: 1 })).toMatchObject({
       ok: true,
       data: { firstName: 'Ari' },
     })

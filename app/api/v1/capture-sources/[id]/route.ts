@@ -11,10 +11,8 @@ import {
   CaptureSource,
   DEFAULT_WIDGET_THEME,
   DEFAULT_RATE_LIMIT,
-  LEAD_CAPTURE_SCHEMA_VERSIONS,
   LEAD_CAPTURE_SOURCES,
   VALID_CAPTURE_TYPES,
-  VALID_FIELD_TYPES,
   type CaptureField,
   type CaptureSourceRateLimit,
   type CaptureWidgetTheme,
@@ -24,10 +22,8 @@ import {
   type WidgetDisplayStep,
   type WidgetPosition,
 } from '@/lib/lead-capture/types'
-import {
-  buildCaptureSchemaVersion,
-  sanitizeCaptureFields,
-} from '@/lib/lead-capture/schema'
+import { parseCaptureFields } from '@/lib/lead-capture/schema'
+import { publishCaptureSchemaVersion } from '@/lib/lead-capture/schema-store'
 
 const VALID_DISPLAY_MODES: WidgetDisplayMode[] = [
   'inline',
@@ -120,10 +116,6 @@ function sanitizeRateLimit(input: unknown): CaptureSourceRateLimit {
 export const dynamic = 'force-dynamic'
 
 type Params = { params: Promise<{ id: string }> }
-
-function sanitizeFields(input: unknown): CaptureField[] {
-  return sanitizeCaptureFields(input)
-}
 
 function sanitizeTheme(input: unknown): CaptureWidgetTheme {
   if (!input || typeof input !== 'object') return { ...DEFAULT_WIDGET_THEME }
@@ -220,12 +212,11 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
   if (typeof body.confirmationBodyHtml === 'string') patch.confirmationBodyHtml = body.confirmationBodyHtml
   if (typeof body.successMessage === 'string') patch.successMessage = body.successMessage
   if (typeof body.successRedirectUrl === 'string') patch.successRedirectUrl = body.successRedirectUrl
-  let schemaVersion: ReturnType<typeof buildCaptureSchemaVersion> | null = null
+  let schemaFields: CaptureField[] | null = null
   if (body.fields !== undefined) {
-    const fields = sanitizeFields(body.fields)
-    schemaVersion = buildCaptureSchemaVersion({ orgId: existing.orgId, sourceId: id, fields })
-    patch.fields = fields
-    patch.activeSchemaVersionId = schemaVersion.id
+    const parsed = parseCaptureFields(body.fields)
+    if (!parsed.ok) return apiError(parsed.errors.join('; '), 400)
+    schemaFields = parsed.fields
   }
   if (body.tagsToApply !== undefined) patch.tagsToApply = strArray(body.tagsToApply)
   if (body.campaignIdsToEnroll !== undefined) patch.campaignIdsToEnroll = strArray(body.campaignIdsToEnroll)
@@ -259,12 +250,18 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
     ...patch,
     ...lastActorFrom(user),
   })
-  if (schemaVersion) {
-    await adminDb.collection(LEAD_CAPTURE_SCHEMA_VERSIONS).doc(`${id}_${schemaVersion.id}`).set({
-      ...schemaVersion,
-      createdAt: FieldValue.serverTimestamp(),
-      createdBy: user.uid,
-    }, { merge: false })
+  if (schemaFields) {
+    await publishCaptureSchemaVersion(
+      adminDb as never,
+      adminDb.collection(LEAD_CAPTURE_SOURCES).doc(id) as never,
+      {
+        orgId: existing.orgId,
+        sourceId: id,
+        fields: schemaFields,
+        createdBy: user.uid,
+        sourcePatch: { fields: schemaFields },
+      },
+    )
   }
 
   const updated = await adminDb.collection(LEAD_CAPTURE_SOURCES).doc(id).get()

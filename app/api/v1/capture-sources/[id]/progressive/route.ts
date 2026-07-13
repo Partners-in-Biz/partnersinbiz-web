@@ -33,6 +33,9 @@ import { signConfirmToken } from '@/lib/lead-capture/token'
 import { performAutoEnroll } from '@/lib/lead-capture/autoEnroll'
 import { isDisposableEmail } from '@/lib/lead-capture/disposable-domains'
 import { verifyTurnstileToken } from '@/lib/forms/turnstile'
+import { resolveCaptureFields } from '@/lib/lead-capture/schema'
+import { buildCaptureAttributionContext } from '@/lib/lead-capture/attribution-context'
+import { publishCaptureSchemaVersion } from '@/lib/lead-capture/schema-store'
 import {
   type CaptureSource,
   type CaptureSubmission,
@@ -240,6 +243,11 @@ export async function POST(req: NextRequest, context: Params) {
 
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
   if (!isEmail(email)) return jsonError('A valid email is required', 400)
+  const forbiddenLineage = ['campaignId', 'programId', 'sourceId', 'gclid', 'fbclid', 'msclkid', 'ttclid']
+    .filter((key) => body[key] !== undefined)
+  if (forbiddenLineage.length) {
+    return jsonError(`Server-controlled fields are not accepted: ${forbiddenLineage.join(', ')}`, 400)
+  }
 
   const stepIndex = typeof body.step === 'number' ? Math.floor(body.step) : 0
   if (stepIndex < 0 || stepIndex >= totalSteps) {
@@ -254,9 +262,15 @@ export async function POST(req: NextRequest, context: Params) {
   const ip = clientIp(req)
   const userAgent = req.headers.get('user-agent') ?? ''
   const referer =
-    (typeof body.referer === 'string' && body.referer) ||
     req.headers.get('referer') ||
     ''
+  const { context: attributionContext, provenance, lineage } = buildCaptureAttributionContext({
+    requestUrl: req.url,
+    refererHeader: referer,
+    body: body as Record<string, unknown>,
+    source: { ...(source as unknown as Record<string, unknown>), id: source.id, name: source.name, type: source.type },
+  })
+  const allowedFieldKeys = steps[stepIndex]?.fields ?? []
 
   // Honeypot — only checked on step 0 (no point gating later steps which
   // require an existing submissionId from a real client).
@@ -347,24 +361,17 @@ export async function POST(req: NextRequest, context: Params) {
     }
   }
 
-  // Sanitise incoming step data — strip honeypot, drop empty strings.
-  const stepData: Record<string, string> = {}
-  Object.entries(rawData).forEach(([k, raw]) => {
-    if (k === '_hp') return
-    if (typeof raw !== 'string') return
-    const val = raw.trim()
-    if (!val) return
-    stepData[k] = val
-  })
-  // Top-level common keys
-  for (const k of ['firstName', 'lastName', 'name', 'phone', 'company']) {
-    if (!(k in stepData) && typeof rawData[k] === 'string' && (rawData[k] as string).trim()) {
-      stepData[k] = (rawData[k] as string).trim()
-    }
-  }
+  const submittedStepData = Object.fromEntries(Object.entries(rawData).filter(([key]) => key !== '_hp'))
+  let stepData: Record<string, string> = {}
 
   // ─── Branch: step 1 (no submissionId yet) ────────────────────────────────
   if (!providedSubmissionId) {
+    const resolved = resolveCaptureFields(source.fields ?? [], submittedStepData, attributionContext, {
+      progressiveStep: stepIndex + 1,
+      allowedFieldKeys,
+    })
+    if (!resolved.ok) return jsonError(resolved.errors.join('; '), 400)
+    stepData = resolved.data
     // Find or create the contact (same logic as /submit)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const existingSnap = await (adminDb.collection('contacts') as any)
@@ -429,6 +436,11 @@ export async function POST(req: NextRequest, context: Params) {
     const submissionRef = adminDb.collection(LEAD_CAPTURE_SUBMISSIONS).doc()
     const submissionId = submissionRef.id
     const confirmationToken = signConfirmToken(submissionId)
+    const schemaVersion = await publishCaptureSchemaVersion(
+      adminDb as never,
+      adminDb.collection(LEAD_CAPTURE_SOURCES).doc(source.id) as never,
+      { orgId: source.orgId, sourceId: source.id, fields: source.fields ?? [] },
+    )
 
     await submissionRef.set({
       orgId: source.orgId,
@@ -443,7 +455,9 @@ export async function POST(req: NextRequest, context: Params) {
       ipAddress: ip,
       userAgent,
       referer,
-      schemaVersionId: source.activeSchemaVersionId ?? 'legacy-unversioned',
+      attribution: provenance,
+      attributionLineage: lineage,
+      schemaVersionId: schemaVersion.id,
       currentStep: stepIndex,
       completedSteps: false,
       createdAt: FieldValue.serverTimestamp(),
@@ -482,6 +496,14 @@ export async function POST(req: NextRequest, context: Params) {
       contactId: existing.contactId,
     })
   }
+
+  const resolved = resolveCaptureFields(source.fields ?? [], submittedStepData, attributionContext, {
+    progressiveStep: stepIndex + 1,
+    allowedFieldKeys,
+    priorData: existing.data ?? {},
+  })
+  if (!resolved.ok) return jsonError(resolved.errors.join('; '), 400)
+  stepData = resolved.data
 
   // Merge in this step's data (overwrite on key collision — last step wins).
   const mergedData: Record<string, string> = { ...(existing.data || {}), ...stepData }

@@ -23,10 +23,7 @@ import {
   DEFAULT_BLOCK_STATS,
   DEFAULT_DISPLAY_CONFIG,
   LEAD_CAPTURE_SOURCES,
-  LEAD_CAPTURE_SCHEMA_VERSIONS,
   VALID_CAPTURE_TYPES,
-  VALID_FIELD_TYPES,
-  type CaptureField,
   type CaptureSourceRateLimit,
   type CaptureSourceType,
   type CaptureWidgetTheme,
@@ -36,10 +33,8 @@ import {
   type WidgetDisplayStep,
   type WidgetPosition,
 } from '@/lib/lead-capture/types'
-import {
-  buildCaptureSchemaVersion,
-  sanitizeCaptureFields,
-} from '@/lib/lead-capture/schema'
+import { parseCaptureFields } from '@/lib/lead-capture/schema'
+import { publishCaptureSchemaVersion } from '@/lib/lead-capture/schema-store'
 
 const VALID_DISPLAY_MODES: WidgetDisplayMode[] = [
   'inline',
@@ -127,10 +122,6 @@ function sanitizeRateLimit(input: unknown): CaptureSourceRateLimit {
 }
 
 export const dynamic = 'force-dynamic'
-
-function sanitizeFields(input: unknown): CaptureField[] {
-  return sanitizeCaptureFields(input)
-}
 
 function sanitizeTheme(input: unknown): CaptureWidgetTheme {
   if (!input || typeof input !== 'object') return { ...DEFAULT_WIDGET_THEME }
@@ -221,7 +212,9 @@ export const POST = withAuth(
 
     const doubleOptIn: DoubleOptInMode = body.doubleOptIn === 'on' ? 'on' : 'off'
 
-    const fields = sanitizeFields(body.fields)
+    const parsedFields = parseCaptureFields(body.fields ?? [])
+    if (!parsedFields.ok) return apiError(parsedFields.errors.join('; '), 400)
+    const fields = parsedFields.fields
     const docData = {
       orgId,
       name,
@@ -261,13 +254,9 @@ export const POST = withAuth(
     }
 
     const ref = await adminDb.collection(LEAD_CAPTURE_SOURCES).add(docData)
-    const version = buildCaptureSchemaVersion({ orgId, sourceId: ref.id, fields })
-    await adminDb.collection(LEAD_CAPTURE_SCHEMA_VERSIONS).doc(`${ref.id}_${version.id}`).set({
-      ...version,
-      createdAt: FieldValue.serverTimestamp(),
-      createdBy: user.uid,
+    await publishCaptureSchemaVersion(adminDb as never, ref as never, {
+      orgId, sourceId: ref.id, fields, createdBy: user.uid,
     })
-    await ref.update({ activeSchemaVersionId: version.id })
     const created = await ref.get()
     return apiSuccess({ id: ref.id, ...created.data() }, 201)
   }),
