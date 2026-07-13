@@ -39,14 +39,14 @@ function Field({ label, value, action }: { label: string; value?: string; action
 
   return (
     <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
-      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-on-surface-variant">{label}</p>
-      <p className="mt-0.5 text-sm text-on-surface">{displayValue}</p>
+      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">{label}</p>
+      <p className="mt-0.5 text-sm text-[var(--color-pib-text)]">{displayValue}</p>
       {!value && action && (
         <button
           type="button"
           aria-label={action.ariaLabel}
           onClick={action.onClick}
-          className="mt-1.5 inline-flex h-7 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 text-[11px] font-medium text-primary transition hover:bg-white/[0.05] hover:text-on-surface"
+          className="mt-1.5 inline-flex h-7 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 text-[11px] font-medium text-primary transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
         >
           <span className="material-symbols-outlined text-[13px]" aria-hidden="true">edit</span>
           {action.label}
@@ -73,11 +73,11 @@ function MissingIdentityPanel({ fieldActions }: { fieldActions?: ContactIdentity
           badge
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">
+          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">
             Personalization context missing
           </p>
-          <h3 className="mt-0.5 text-sm font-semibold text-on-surface">Capture role, department, and timezone</h3>
-          <p className="mt-0.5 text-xs leading-5 text-on-surface-variant">
+          <h3 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">Capture role, department, and timezone</h3>
+          <p className="mt-0.5 text-xs leading-5 text-[var(--color-pib-text-muted)]">
             Add these fields so every employee can tailor outreach, meeting times, and handoffs around who this contact is and how they work.
           </p>
           {actions.length > 0 ? (
@@ -88,7 +88,7 @@ function MissingIdentityPanel({ fieldActions }: { fieldActions?: ContactIdentity
                   type="button"
                   aria-label={action.ariaLabel}
                   onClick={action.onClick}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                 >
                   <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit</span>
                   {action.label}
@@ -109,7 +109,7 @@ function Signal({ icon, label, healthy }: { icon: string; label: string; healthy
         'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-[11px]',
         healthy
           ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-100'
-          : 'border-[var(--color-card-border)] bg-white/[0.03] text-on-surface-variant',
+          : 'border-[var(--color-card-border)] bg-white/[0.03] text-[var(--color-pib-text-muted)]',
       ].join(' ')}
     >
       <span className="material-symbols-outlined text-[13px]">{icon}</span>
@@ -153,16 +153,16 @@ export function ContactIdentityPanel({
   return (
     <section className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
       <div className="flex h-9 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black/[0.08] px-3">
-        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Identity intelligence</p>
-        <p className="text-xs text-on-surface-variant">
-          <span className="text-sm font-semibold text-on-surface">{health}%</span>
+        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Identity intelligence</p>
+        <p className="text-xs text-[var(--color-pib-text-muted)]">
+          <span className="text-sm font-semibold text-[var(--color-pib-text)]">{health}%</span>
           {' '}
           <span className="text-[10px] uppercase tracking-[0.18em]">complete</span>
         </p>
       </div>
 
       <div className="space-y-2 p-3">
-        <p className="text-xs leading-5 text-on-surface-variant">
+        <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">
           Role, timezone, and channel signals for personal follow-up.
         </p>
 

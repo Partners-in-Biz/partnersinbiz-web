@@ -1,0 +1,64 @@
+import type { ChatContextKind } from '@/lib/chat-context/types'
+import {
+  isChatContextKind,
+  unavailableContextResult,
+  type ChatContextAdapter,
+  type ChatContextResolveInput,
+  type ChatContextResolveResult,
+} from '@/lib/chat-context/access'
+import { projectChatContextAdapter } from '@/lib/chat-context/adapters/project'
+import { marketingStudioChatContextAdapter } from '@/lib/chat-context/adapters/marketingStudio'
+import { marketingStudioArtifactChatContextAdapter } from '@/lib/chat-context/adapters/marketingStudioArtifact'
+import { videoEditorChatContextAdapter } from '@/lib/chat-context/adapters/videoEditor'
+import { mobileAppsChatContextAdapter } from '@/lib/chat-context/adapters/mobileApps'
+import { bookStudioChatContextAdapter } from '@/lib/chat-context/adapters/bookStudio'
+import { youtubeStudioChatContextAdapter } from '@/lib/chat-context/adapters/youtubeStudio'
+import { nonMarketingStudioRootChatContextAdapter } from '@/lib/chat-context/adapters/studioRoot'
+import type { StudioKind } from '@/lib/chat-context/types'
+
+export type ChatContextAdapters = Partial<Record<ChatContextKind, ChatContextAdapter>>
+type StudioRootAdapters = Record<StudioKind, ChatContextAdapter>
+
+export function createStudioRootNamespaceAdapter(adapters: StudioRootAdapters): ChatContextAdapter {
+  return {
+    resolve(input) {
+      const namespace = input.id.slice(0, input.id.indexOf(':')) as StudioKind
+      const adapter = adapters[namespace]
+      return adapter ? adapter.resolve(input) : Promise.resolve({ ok: false, reason: 'not_found' as const, status: 404 as const, error: 'Context unavailable' })
+    },
+  }
+}
+
+export function createChatContextRegistry(adapters: ChatContextAdapters) {
+  return {
+    async resolve(input: ChatContextResolveInput): Promise<ChatContextResolveResult> {
+      if (!isChatContextKind(input.kind)) {
+        return { ok: false, reason: 'unsupported', status: 400, error: 'Unsupported context kind' }
+      }
+      const adapter = adapters[input.kind]
+      if (!adapter) return unavailableContextResult()
+      return adapter.resolve(input)
+    },
+  }
+}
+
+export const chatContextRegistry = createChatContextRegistry({
+  project: projectChatContextAdapter,
+  studio: createStudioRootNamespaceAdapter({
+    marketing_studio: marketingStudioChatContextAdapter,
+    video_editor: nonMarketingStudioRootChatContextAdapter,
+    book_studio: nonMarketingStudioRootChatContextAdapter,
+    youtube_studio: nonMarketingStudioRootChatContextAdapter,
+    mobile_apps: nonMarketingStudioRootChatContextAdapter,
+  }),
+  studio_artifact: {
+    resolve(input) {
+      if (input.id.startsWith('marketing_studio:')) return marketingStudioArtifactChatContextAdapter.resolve(input)
+      if (input.id.startsWith('video_editor:')) return videoEditorChatContextAdapter.resolve(input)
+      if (input.id.startsWith('mobile_apps:')) return mobileAppsChatContextAdapter.resolve(input)
+      if (input.id.startsWith('book_studio:')) return bookStudioChatContextAdapter.resolve(input)
+      if (input.id.startsWith('youtube_studio:')) return youtubeStudioChatContextAdapter.resolve(input)
+      return Promise.resolve({ ok: false, reason: 'not_found' as const, status: 404, error: 'Context unavailable' })
+    },
+  },
+})

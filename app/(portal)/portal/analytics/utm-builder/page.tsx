@@ -97,14 +97,20 @@ export default function UtmBuilderPage() {
   }))
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
+    <div className="max-w-6xl mx-auto p-6 space-y-8">
       <AnalyticsNav active="utm-builder" propertyId={propertyId} />
-      <h1 className="text-xl font-headline font-bold text-on-surface">UTM Builder</h1>
+      <header>
+        <p className="eyebrow">Analytics · Campaigns</p>
+        <h1 className="pib-page-title mt-2">UTM Builder</h1>
+      </header>
 
-      <div className="pib-card p-4 space-y-4">
-        <h2 className="text-sm font-label font-semibold text-on-surface">Build a tagged URL</h2>
+      <div className="pib-card space-y-4">
+        <div className="flex items-center gap-3">
+          <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">link</span></span>
+          <h2 className="pib-label mb-0">Build a tagged URL</h2>
+        </div>
         <div>
-          <label className="text-[10px] uppercase tracking-wide text-on-surface-variant font-label block">Destination URL</label>
+          <label className="pib-label">Destination URL</label>
           <input
             type="text"
             value={destination}
@@ -116,7 +122,7 @@ export default function UtmBuilderPage() {
         <div className="grid md:grid-cols-2 gap-3">
           {UTM_FIELDS.map(f => (
             <div key={f.key}>
-              <label className="text-[10px] uppercase tracking-wide text-on-surface-variant font-label block">{f.label}</label>
+              <label className="pib-label">{f.label}</label>
               <input
                 type="text"
                 value={utm[f.key]}
@@ -129,7 +135,7 @@ export default function UtmBuilderPage() {
         </div>
 
         <div>
-          <label className="text-[10px] uppercase tracking-wide text-on-surface-variant font-label block mb-1">Generated URL</label>
+          <label className="pib-label mb-1">Generated URL</label>
           <div className="flex items-start gap-2">
             <textarea
               readOnly
@@ -143,19 +149,23 @@ export default function UtmBuilderPage() {
         </div>
       </div>
 
-      <div className="pib-card p-4 space-y-3">
-        <h2 className="text-sm font-label font-semibold text-on-surface">Campaign performance</h2>
+      <div className="pib-card space-y-4">
+        <div className="flex items-center gap-3">
+          <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">campaign</span></span>
+          <h2 className="pib-label mb-0">Campaign performance</h2>
+        </div>
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
         {propertyId && <DateRangePicker value={range} onChange={setRange} />}
       </div>
 
       {!propertyId && (
-        <div className="pib-card p-8 text-center text-on-surface-variant text-sm">
-          Select a client and property to see campaign performance.
+        <div className="pib-empty-state">
+          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">campaign</span>
+          <p className="pib-empty-state-description">Select a client and property to see campaign performance.</p>
         </div>
       )}
 
-      {propertyId && loading && <div className="pib-skeleton h-24 rounded-lg" />}
+      {propertyId && loading && <div className="pib-skeleton h-24" />}
 
       {propertyId && !loading && (
         <SimpleTable

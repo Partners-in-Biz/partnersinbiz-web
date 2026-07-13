@@ -141,8 +141,8 @@ function AdminTwoFactorInner() {
       <section className="pib-card p-6 space-y-5">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Current state</p>
-            <h2 className="mt-2 text-lg font-semibold text-on-surface">Authenticator app (TOTP)</h2>
+            <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Current state</p>
+            <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Authenticator app (TOTP)</h2>
           </div>
           <span className={`pib-pill ${phase === 'enabled' ? 'pib-pill-success' : phase === 'loading' ? '' : 'pib-pill-warn'}`}>
             {phase === 'enabled' ? 'Enabled' : phase === 'loading' ? 'Loading' : phase === 'challenge' ? 'Verification required' : 'Required'}
@@ -153,16 +153,16 @@ function AdminTwoFactorInner() {
           <div className="rounded-lg border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
             {error}
             {remainingAttempts != null && remainingAttempts > 0 ? (
-              <span className="ml-1 text-on-surface-variant">{remainingAttempts} attempt{remainingAttempts === 1 ? '' : 's'} left before lockout.</span>
+              <span className="ml-1 text-[var(--color-pib-text-muted)]">{remainingAttempts} attempt{remainingAttempts === 1 ? '' : 's'} left before lockout.</span>
             ) : null}
           </div>
         ) : null}
 
-        {phase === 'loading' ? <p className="text-sm text-on-surface-variant">Checking your 2FA status...</p> : null}
+        {phase === 'loading' ? <p className="text-sm text-[var(--color-pib-text-muted)]">Checking your 2FA status...</p> : null}
 
         {phase === 'challenge' ? (
           <form onSubmit={submitChallenge} className="space-y-4">
-            <p className="text-sm text-on-surface-variant">
+            <p className="text-sm text-[var(--color-pib-text-muted)]">
               {useBackup
                 ? 'Enter one of your single-use backup codes.'
                 : 'Enter the 6-digit code from your authenticator app.'}
@@ -218,7 +218,7 @@ function AdminTwoFactorInner() {
 
         {phase === 'disabled' ? (
           <div className="space-y-4">
-            <p className="text-sm text-on-surface-variant">
+            <p className="text-sm text-[var(--color-pib-text-muted)]">
               Enable two-factor authentication before using the operator control plane from a fresh browser session.
             </p>
             <button type="button" onClick={beginSetup} disabled={busy} className="pib-btn-primary disabled:opacity-60">
@@ -257,12 +257,12 @@ function AdminTwoFactorInner() {
 
         {phase === 'backup' ? (
           <div className="space-y-4">
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-on-surface">
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-[var(--color-pib-text)]">
               Save these backup codes now. They are returned once when Two-factor authentication is first enabled.
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
               {backupCodes.map((code) => (
-                <code key={code} className="rounded-lg bg-black/20 px-3 py-2 text-center font-mono text-sm text-on-surface">
+                <code key={code} className="rounded-lg bg-black/20 px-3 py-2 text-center font-mono text-sm text-[var(--color-pib-text)]">
                   {code}
                 </code>
               ))}
@@ -275,8 +275,8 @@ function AdminTwoFactorInner() {
 
         {phase === 'enabled' ? (
           <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-4">
-            <p className="text-sm font-semibold text-on-surface">Two-factor authentication is enabled.</p>
-            <p className="mt-1 text-sm text-on-surface-variant">
+            <p className="text-sm font-semibold text-[var(--color-pib-text)]">Two-factor authentication is enabled.</p>
+            <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
               The admin challenge gate will prompt for a code in new browser sessions when the session flag is not yet satisfied.
             </p>
           </div>
@@ -284,7 +284,7 @@ function AdminTwoFactorInner() {
       </section>
 
       {phase !== 'challenge' ? (
-        <div className="pib-card p-5 text-sm text-on-surface-variant">
+        <div className="pib-card p-5 text-sm text-[var(--color-pib-text-muted)]">
           After setup, continue back to <Link href="/admin/dashboard" className="text-[var(--color-pib-accent)] hover:underline">/admin/dashboard</Link>.
         </div>
       ) : null}
@@ -294,7 +294,7 @@ function AdminTwoFactorInner() {
 
 export default function AdminTwoFactorPage() {
   return (
-    <Suspense fallback={<div className="mx-auto max-w-3xl p-6 text-sm text-on-surface-variant">Loading…</div>}>
+    <Suspense fallback={<div className="mx-auto max-w-3xl p-6 text-sm text-[var(--color-pib-text-muted)]">Loading…</div>}>
       <AdminTwoFactorInner />
     </Suspense>
   )

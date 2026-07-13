@@ -8,9 +8,9 @@ export interface ScoreChipProps {
 }
 
 function colorClasses(score: number): string {
-  if (score <= 30) return 'bg-red-500/15 text-red-300'
-  if (score <= 65) return 'bg-amber-500/15 text-amber-300'
-  return 'bg-emerald-500/15 text-emerald-300'
+  if (score <= 30) return 'pib-pill-danger'
+  if (score <= 65) return 'pib-pill-warn'
+  return 'pib-pill-success'
 }
 
 export function ScoreChip({ score, label, size = 'md', kind }: ScoreChipProps) {
@@ -18,12 +18,10 @@ export function ScoreChip({ score, label, size = 'md', kind }: ScoreChipProps) {
 
   const sizeClasses =
     size === 'sm'
-      ? 'px-1.5 py-0.5 text-xs'
-      : 'px-2 py-0.5 text-sm'
+      ? 'px-1.5 py-0.5 text-[10px]'
+      : 'px-2 py-0.5 text-xs'
 
-  const colorCls = isScored
-    ? colorClasses(score!)
-    : 'border border-[var(--color-card-border)] bg-transparent text-on-surface-variant'
+  const colorCls = isScored ? colorClasses(score!) : ''
 
   const tooltip = isScored
     ? [kind, label].filter(Boolean).join(' — ')
@@ -33,7 +31,7 @@ export function ScoreChip({ score, label, size = 'md', kind }: ScoreChipProps) {
 
   return (
     <span
-      className={`inline-flex items-center rounded-full font-label font-medium uppercase tracking-[0.16em] ${sizeClasses} ${colorCls}`}
+      className={`pib-pill ${sizeClasses} ${colorCls}`}
       title={tooltip}
     >
       {isScored ? score : 'Not scored'}

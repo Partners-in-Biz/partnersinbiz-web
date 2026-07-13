@@ -203,14 +203,14 @@ export function SuppressionList({ apiPath }: SuppressionListProps) {
   }
 
   return (
-    <div className="flex min-h-0 flex-col gap-2">
+    <div className="flex min-h-0 flex-col gap-4">
       {/* Add + import */}
-      <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
-        <form onSubmit={addOne} className="space-y-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
-          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Add email</p>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <form onSubmit={addOne} className="pib-card space-y-3">
+          <p className="pib-label">Add email</p>
           <div className="flex flex-col gap-2">
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">
+              <label className="pib-label">
                 Email address
               </label>
               <input
@@ -218,40 +218,40 @@ export function SuppressionList({ apiPath }: SuppressionListProps) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="someone@example.com"
-                className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface outline-none transition focus:border-[var(--color-accent-v2)]"
+                className="pib-input h-8 w-full text-xs"
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">
+              <label className="pib-label">
                 Reason
               </label>
               <select
                 value={reason}
                 onChange={(e) => setReason(e.target.value as Reason)}
-                className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface outline-none transition focus:border-[var(--color-accent-v2)]"
+                className="pib-select h-8 w-full text-xs"
               >
                 {REASONS.map((r) => (
-                  <option key={r} value={r} className="bg-black">
+                  <option key={r} value={r}>
                     {r}
                   </option>
                 ))}
               </select>
             </div>
-            <button type="submit" disabled={adding} className="flex h-8 items-center gap-1.5 self-start rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition disabled:opacity-40">
+            <button type="submit" disabled={adding} className="btn-pib-primary h-8 gap-1.5 self-start px-3 text-xs">
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">block</span>
               {adding ? 'Adding…' : 'Suppress email'}
             </button>
           </div>
           {addError && (
-            <p className="text-[11px] text-red-300">
+            <p className="text-[11px] text-[var(--color-error)]">
               {addError}
             </p>
           )}
         </form>
 
-        <div className="space-y-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
-          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Import CSV</p>
-          <p className="text-[11px] leading-4 text-on-surface-variant">
+        <div className="pib-card space-y-3">
+          <p className="pib-label">Import CSV</p>
+          <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
             One email per line. An optional second column sets the reason (defaults to
             <span className="font-mono"> list-cleanup</span>). A header row is detected and skipped.
           </p>
@@ -261,23 +261,23 @@ export function SuppressionList({ apiPath }: SuppressionListProps) {
             accept=".csv,text/csv,text/plain"
             onChange={handleImportFile}
             disabled={importing}
-            className="block w-full text-xs text-on-surface-variant file:mr-3 file:rounded-md file:border file:border-[var(--color-card-border)] file:bg-transparent file:px-2.5 file:py-1.5 file:text-xs file:text-on-surface hover:file:bg-white/[0.05]"
+            className="block w-full text-xs text-[var(--color-pib-text-muted)] file:mr-3 file:rounded-full file:border file:border-[var(--color-pib-line)] file:bg-transparent file:px-2.5 file:py-1.5 file:text-xs file:text-[var(--color-pib-text)] hover:file:bg-[var(--color-row-hover)]"
           />
-          {importing && <p className="text-[11px] text-on-surface-variant">Importing…</p>}
+          {importing && <p className="text-[11px] text-[var(--color-pib-text-muted)]">Importing…</p>}
           {importResult && (
-            <p className="text-[11px] text-on-surface">{importResult}</p>
+            <p className="text-[11px] text-[var(--color-pib-text)]">{importResult}</p>
           )}
         </div>
       </div>
 
       {/* Count + errors */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-xs text-on-surface-variant">
-          <span className="text-lg font-semibold text-on-surface">{total}</span>{' '}
+        <p className="text-xs text-[var(--color-pib-text-muted)]">
+          <span className="text-lg font-semibold text-[var(--color-pib-text)]">{total}</span>{' '}
           suppressed address{total === 1 ? '' : 'es'}
         </p>
         {rowError && (
-          <p className="text-[11px] text-red-300">
+          <p className="text-[11px] text-[var(--color-error)]">
             {rowError}
           </p>
         )}
@@ -291,51 +291,51 @@ export function SuppressionList({ apiPath }: SuppressionListProps) {
           ))}
         </div>
       ) : loadError ? (
-        <section className="rounded-xl border border-amber-400/40 bg-amber-400/10 p-3">
+        <section className="pib-card border-[var(--color-pib-accent)] p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="flex gap-2.5">
-              <span className="material-symbols-outlined mt-0.5 text-[18px] text-amber-200" aria-hidden="true">warning</span>
+              <span className="material-symbols-outlined mt-0.5 text-[18px] text-[var(--color-pib-accent)]" aria-hidden="true">warning</span>
               <div>
-                <h2 className="text-sm font-semibold text-on-surface">Suppressions could not load</h2>
-                <p className="mt-1 text-xs leading-5 text-on-surface-variant">{loadError}</p>
+                <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Suppressions could not load</h2>
+                <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{loadError}</p>
               </div>
             </div>
-            <button type="button" onClick={() => fetchRows(1)} className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface shrink-0">
+            <button type="button" onClick={() => fetchRows(1)} className="btn-pib-secondary h-8 shrink-0 gap-1.5 px-3 text-xs">
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
               Retry
             </button>
           </div>
         </section>
       ) : rows.length === 0 ? (
-        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center">
-          <span className="material-symbols-outlined text-[19px] text-primary" aria-hidden="true">do_not_disturb_on</span>
-          <h2 className="mt-2 text-sm font-semibold text-on-surface">No suppressed addresses.</h2>
-          <p className="mt-1 text-xs text-on-surface-variant">
+        <div className="pib-empty-state">
+          <span className="material-symbols-outlined pib-empty-state-icon" aria-hidden="true">do_not_disturb_on</span>
+          <h2 className="pib-empty-state-title">No suppressed addresses.</h2>
+          <p className="pib-empty-state-description">
             Bounces, complaints and manual unsubscribes will appear here.
           </p>
         </div>
       ) : (
         <>
-          <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+          <div className="pib-surface pib-surface-table overflow-hidden">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-[var(--color-card-border)] text-left">
-                  <th className="px-3 py-2 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Email</th>
-                  <th className="px-3 py-2 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Reason</th>
-                  <th className="px-3 py-2 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Added</th>
-                  <th className="px-3 py-2 text-right text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Actions</th>
+                <tr className="border-b border-[var(--color-pib-line)] text-left">
+                  <th className="pib-label px-3 py-2 text-left">Email</th>
+                  <th className="pib-label px-3 py-2 text-left">Reason</th>
+                  <th className="pib-label px-3 py-2 text-left">Added</th>
+                  <th className="pib-label px-3 py-2 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id} className="border-b border-[var(--color-card-border)] transition hover:bg-white/[0.04] last:border-0">
-                    <td className="break-all px-3 py-2 align-middle text-on-surface">{row.email}</td>
+                  <tr key={row.id} className="border-b border-[var(--color-pib-line)] transition hover:bg-[var(--color-row-hover)] last:border-0">
+                    <td className="break-all px-3 py-2 align-middle text-[var(--color-pib-text)]">{row.email}</td>
                     <td className="px-3 py-2 align-middle">
-                      <span className="rounded-full border border-[var(--color-card-border)] px-2 py-0.5 text-[11px] text-on-surface-variant">
+                      <span className="pib-pill px-2 py-0.5 text-[11px]">
                         {row.reason}
                       </span>
                     </td>
-                    <td className="px-3 py-2 align-middle text-on-surface-variant">
+                    <td className="px-3 py-2 align-middle text-[var(--color-pib-text-muted)]">
                       {formatDate(row.createdAt)}
                     </td>
                     <td className="px-3 py-2 align-middle text-right">
@@ -343,7 +343,7 @@ export function SuppressionList({ apiPath }: SuppressionListProps) {
                         type="button"
                         onClick={() => removeRow(row.id)}
                         disabled={removingId === row.id}
-                        className="ml-auto flex h-8 items-center gap-1 rounded-md px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-red-300 disabled:opacity-40"
+                        className="btn-pib-ghost ml-auto h-8 gap-1 px-2 text-xs hover:text-[var(--color-error)]"
                         aria-label={`Remove ${row.email} from suppression list`}
                       >
                         <span className="material-symbols-outlined text-[16px]" aria-hidden="true">delete</span>
@@ -362,18 +362,18 @@ export function SuppressionList({ apiPath }: SuppressionListProps) {
                 type="button"
                 onClick={() => fetchRows(page - 1)}
                 disabled={page <= 1 || loading}
-                className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface disabled:opacity-40"
+                className="btn-pib-secondary h-8 gap-1.5 px-3 text-xs"
               >
                 Previous
               </button>
-              <span className="text-[11px] text-on-surface-variant">
+              <span className="text-[11px] text-[var(--color-pib-text-muted)]">
                 Page {page} of {totalPages}
               </span>
               <button
                 type="button"
                 onClick={() => fetchRows(page + 1)}
                 disabled={page >= totalPages || loading}
-                className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface disabled:opacity-40"
+                className="btn-pib-secondary h-8 gap-1.5 px-3 text-xs"
               >
                 Next
               </button>

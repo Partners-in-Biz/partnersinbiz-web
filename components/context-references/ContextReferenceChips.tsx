@@ -33,18 +33,18 @@ export function ContextReferenceChips({
         <span
           key={contextReferenceKey(ref)}
           className={[
-            'inline-flex max-w-full items-center gap-1 rounded-md border border-[var(--color-card-border)] bg-[var(--color-surface-container)] text-on-surface',
+            'inline-flex max-w-full items-center gap-1 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] text-[var(--color-pib-text)]',
             compact ? 'px-2 py-1 text-[10px]' : 'px-2.5 py-1.5 text-xs',
           ].join(' ')}
         >
-          <span className="shrink-0 font-label uppercase tracking-wide text-on-surface-variant">{ref.type}</span>
+          <span className="shrink-0 font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">{ref.type}</span>
           <span className="min-w-0 truncate">{contextReferenceDisplay(ref)}</span>
           {onRemove && (
             <button
               type="button"
               aria-label={`Remove ${contextReferenceDisplay(ref)}`}
               onClick={() => onRemove(ref)}
-              className="grid h-4 w-4 shrink-0 place-items-center rounded text-on-surface-variant hover:bg-black/10 hover:text-on-surface"
+              className="grid h-4 w-4 shrink-0 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-black/10 hover:text-[var(--color-pib-text)]"
             >
               <span className="material-symbols-outlined text-[12px]">close</span>
             </button>

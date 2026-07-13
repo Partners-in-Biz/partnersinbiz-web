@@ -37,8 +37,8 @@ export function AudioMixerPanel({
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="font-headline text-lg font-semibold text-on-surface">Mixer</h2>
-        <span className="text-xs text-on-surface-variant">{tracks.length} tracks</span>
+        <h2 className="font-headline text-lg font-semibold text-[var(--color-pib-text)]">Mixer</h2>
+        <span className="text-xs text-[var(--color-pib-text-muted)]">{tracks.length} tracks</span>
       </div>
       <div className="flex gap-3 overflow-x-auto pb-1">
         {tracks.map((track) => {
@@ -48,13 +48,13 @@ export function AudioMixerPanel({
             <div key={track.id} className="w-44 shrink-0 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-on-surface">{track.label ?? track.id}</p>
-                  <p className="text-[10px] uppercase text-on-surface-variant">{track.kind}</p>
+                  <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{track.label ?? track.id}</p>
+                  <p className="text-[10px] uppercase text-[var(--color-pib-text-muted)]">{track.kind}</p>
                 </div>
-                {track.solo ? <span className="rounded border border-[var(--color-pib-line)] px-1.5 py-0.5 text-[10px] font-semibold text-on-surface">Solo</span> : null}
+                {track.solo ? <span className="rounded border border-[var(--color-pib-line)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--color-pib-text)]">Solo</span> : null}
               </div>
 
-              <label className="mt-3 block text-xs text-on-surface-variant">
+              <label className="mt-3 block text-xs text-[var(--color-pib-text-muted)]">
                 Gain (dB)
                 <input
                   aria-label={`Gain (dB) ${track.label ?? track.id}`}
@@ -69,7 +69,7 @@ export function AudioMixerPanel({
                 <span className="text-[10px]">{gainDb} dB</span>
               </label>
 
-              <label className="mt-2 block text-xs text-on-surface-variant">
+              <label className="mt-2 block text-xs text-[var(--color-pib-text-muted)]">
                 Pan
                 <input
                   aria-label={`Pan ${track.label ?? track.id}`}
@@ -84,7 +84,7 @@ export function AudioMixerPanel({
                 <span className="text-[10px]">{pan.toFixed(2)}</span>
               </label>
 
-              <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-on-surface-variant">
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-[var(--color-pib-text-muted)]">
                 <label className="flex items-center gap-1">
                   <input
                     aria-label={`Mute ${track.label ?? track.id}`}
@@ -117,7 +117,7 @@ export function AudioMixerPanel({
               </div>
 
               {track.kind === 'audio' ? (
-                <label className="mt-3 block text-xs text-on-surface-variant">
+                <label className="mt-3 block text-xs text-[var(--color-pib-text-muted)]">
                   Role
                   <select
                     aria-label={`Role ${track.label ?? track.id}`}
@@ -130,7 +130,7 @@ export function AudioMixerPanel({
                   </select>
                 </label>
               ) : (
-                <p className="mt-3 rounded border border-[var(--color-pib-line)] px-2 py-1 text-[10px] text-on-surface-variant">Video audio is treated as voice.</p>
+                <p className="mt-3 rounded border border-[var(--color-pib-line)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)]">Video audio is treated as voice.</p>
               )}
             </div>
           )

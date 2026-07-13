@@ -13,6 +13,9 @@ import {
 import type { ContextReference } from '@/lib/context-references/types'
 import type { SlashCommandPayload } from '@/lib/chat/slash-commands'
 import { copyToClipboard } from '@/lib/utils/clipboard'
+import { normalizeStudioArtifactPart } from '@/lib/chat-context/artifactPayload'
+import type { ChatArtifactSummary } from '@/lib/chat-context/types'
+import { ContextArtifactBundle } from './context/ContextArtifactBundle'
 
 // Matches Phase 1 ConversationMessage shape
 export interface ConversationMessage {
@@ -324,7 +327,7 @@ function VideoOpenLink({ url, label, suffix }: { url: string; label: string; suf
       href={url}
       target="_blank"
       rel="noreferrer"
-      className="inline-flex max-w-full items-center gap-1.5 truncate rounded-md border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-xs font-medium text-on-surface transition hover:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/50"
+      className="inline-flex max-w-full items-center gap-1.5 truncate rounded-md border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-xs font-medium text-[var(--color-pib-text)] transition hover:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/50"
       aria-label={`Open ${label}${suffix ?? ''}`}
     >
       <span aria-hidden="true" className="material-symbols-outlined text-[14px]">open_in_new</span>
@@ -336,12 +339,12 @@ function VideoOpenLink({ url, label, suffix }: { url: string; label: string; suf
 function NonEmbeddableVideoFallback({ url, name, caption }: { url: string; name?: string; caption?: string }) {
   const label = videoLabel(name, caption)
   return (
-    <div className="my-2 rounded-xl border border-amber-400/25 bg-amber-500/10 p-3 text-on-surface">
+    <div className="my-2 rounded-xl border border-amber-400/25 bg-amber-500/10 p-3 text-[var(--color-pib-text)]">
       <div className="mb-1.5 flex items-center gap-2 text-xs font-semibold text-amber-100">
         <span aria-hidden="true" className="material-symbols-outlined text-[16px]">movie_info</span>
         <span>{label}</span>
       </div>
-      <p className="mb-2 text-xs leading-relaxed text-on-surface-variant">
+      <p className="mb-2 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
         This generated video link cannot be previewed safely inline. Open it in a browser to view or download it.
       </p>
       <VideoOpenLink url={url} label={label} suffix=" in browser" />
@@ -354,7 +357,7 @@ function InlineVideoPreview({ url, name, caption }: { url: string; name?: string
   return (
     <figure className="my-2 overflow-hidden rounded-xl border border-white/10 bg-black/20">
       <video controls playsInline preload="metadata" src={url} aria-label={label} className="max-h-80 w-full bg-black" />
-      <figcaption className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 px-3 py-2 text-xs text-on-surface-variant">
+      <figcaption className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
         <span className="min-w-0 truncate">{caption ?? name ?? 'Video preview'}</span>
         <VideoOpenLink url={url} label={label} />
       </figcaption>
@@ -473,7 +476,7 @@ function BareUrlPreviews({ content }: { content: string }) {
           className="group block overflow-hidden rounded-xl border border-white/15 bg-black/20 transition hover:border-primary/70 focus:outline-none focus:ring-2 focus:ring-primary/60"
         >
           <img src={url} alt={url} className="max-h-52 w-full min-w-[220px] object-cover" />
-          <span className="block truncate border-t border-white/10 px-3 py-2 text-xs text-on-surface-variant group-hover:text-on-surface">
+          <span className="block truncate border-t border-white/10 px-3 py-2 text-xs text-[var(--color-pib-text-muted)] group-hover:text-[var(--color-pib-text)]">
             {url}
           </span>
         </a>
@@ -571,7 +574,7 @@ function CopyAuthValueButton({ label, value }: { label: string; value: string })
       type="button"
       aria-label={label}
       onClick={() => { void copyToClipboard(value) }}
-      className="inline-flex items-center justify-center gap-1.5 rounded-md border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-xs font-medium text-on-surface transition hover:border-primary/50 hover:bg-white/[0.09] focus:outline-none focus:ring-2 focus:ring-primary/50"
+      className="inline-flex items-center justify-center gap-1.5 rounded-md border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-xs font-medium text-[var(--color-pib-text)] transition hover:border-primary/50 hover:bg-white/[0.09] focus:outline-none focus:ring-2 focus:ring-primary/50"
     >
       <span aria-hidden="true" className="material-symbols-outlined text-[14px]">content_copy</span>
       Copy
@@ -581,26 +584,26 @@ function CopyAuthValueButton({ label, value }: { label: string; value: string })
 
 function DeviceAuthCard({ instruction }: { instruction: DeviceAuthInstruction }) {
   return (
-    <section aria-label="Device login instructions" className="my-2 max-w-full overflow-hidden rounded-xl border border-primary/25 bg-primary/5 p-3 text-on-surface shadow-sm">
+    <section aria-label="Device login instructions" className="my-2 max-w-full overflow-hidden rounded-xl border border-primary/25 bg-primary/5 p-3 text-[var(--color-pib-text)] shadow-sm">
       <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
         <span aria-hidden="true" className="material-symbols-outlined text-[17px] text-primary">phonelink_lock</span>
         <span>{instruction.providerLabel}</span>
       </div>
       <dl className="space-y-2 text-xs">
         <div className="grid gap-1 rounded-lg bg-black/20 p-2 sm:grid-cols-[4.5rem_minmax(0,1fr)_auto] sm:items-center">
-          <dt className="font-label uppercase tracking-wide text-on-surface-variant">URL</dt>
+          <dt className="font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">URL</dt>
           <dd className="min-w-0 break-words font-mono text-primary [overflow-wrap:anywhere]">{instruction.url}</dd>
           <dd><CopyAuthValueButton label="Copy auth URL" value={instruction.url} /></dd>
         </div>
         <div className="grid gap-1 rounded-lg bg-black/20 p-2 sm:grid-cols-[4.5rem_minmax(0,1fr)_auto] sm:items-center">
-          <dt className="font-label uppercase tracking-wide text-on-surface-variant">Code</dt>
-          <dd className="min-w-0 break-words font-mono text-base font-semibold tracking-wide text-on-surface [overflow-wrap:anywhere]">{instruction.code}</dd>
+          <dt className="font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Code</dt>
+          <dd className="min-w-0 break-words font-mono text-base font-semibold tracking-wide text-[var(--color-pib-text)] [overflow-wrap:anywhere]">{instruction.code}</dd>
           <dd><CopyAuthValueButton label="Copy auth code" value={instruction.code} /></dd>
         </div>
         {instruction.expiryOrStatus && (
           <div className="grid gap-1 rounded-lg bg-black/20 p-2 sm:grid-cols-[4.5rem_minmax(0,1fr)] sm:items-center">
-            <dt className="font-label uppercase tracking-wide text-on-surface-variant">Status</dt>
-            <dd className="min-w-0 break-words text-on-surface-variant [overflow-wrap:anywhere]">{instruction.expiryOrStatus}</dd>
+            <dt className="font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Status</dt>
+            <dd className="min-w-0 break-words text-[var(--color-pib-text-muted)] [overflow-wrap:anywhere]">{instruction.expiryOrStatus}</dd>
           </div>
         )}
       </dl>
@@ -628,7 +631,7 @@ function inlineMarkdown(text: string): ReactNode[] {
   while ((match = tokenPattern.exec(text)) !== null) {
     if (match.index > lastIndex) nodes.push(...linkifyBareUrls(text.slice(lastIndex, match.index), `plain-${match.index}`))
     if (match[2]) {
-      nodes.push(<strong key={`strong-${match.index}`} className="font-semibold text-on-surface">{match[2]}</strong>)
+      nodes.push(<strong key={`strong-${match.index}`} className="font-semibold text-[var(--color-pib-text)]">{match[2]}</strong>)
     } else if (match[3]) {
       nodes.push(<code key={`code-${match.index}`} className="rounded bg-black/30 px-1 py-0.5 font-mono text-[0.9em] text-primary">{match[3]}</code>)
     } else if (match[4] && match[5]) {
@@ -681,7 +684,7 @@ function MermaidPreview({ source }: { source: string }) {
         Diagram
       </div>
       {parsed.labels.length > 0 ? (
-        <div className="flex flex-col items-center gap-1.5 text-center text-xs text-on-surface">
+        <div className="flex flex-col items-center gap-1.5 text-center text-xs text-[var(--color-pib-text)]">
           {parsed.labels.map((label, index) => (
             <div key={`${label}-${index}`} className="flex flex-col items-center gap-1.5">
               <div className="rounded-lg border border-white/15 bg-white/[0.06] px-3 py-2 shadow-sm">
@@ -692,7 +695,7 @@ function MermaidPreview({ source }: { source: string }) {
           ))}
         </div>
       ) : (
-        <pre className="overflow-auto whitespace-pre-wrap rounded-lg bg-black/35 p-2 font-mono text-[11px] text-on-surface-variant">{source}</pre>
+        <pre className="overflow-auto whitespace-pre-wrap rounded-lg bg-black/35 p-2 font-mono text-[11px] text-[var(--color-pib-text-muted)]">{source}</pre>
       )}
     </div>
   )
@@ -701,7 +704,7 @@ function MermaidPreview({ source }: { source: string }) {
 function SvgPreview({ source }: { source: string }) {
   const safeSvg = sanitizeInlineSvg(source)
   if (!safeSvg) {
-    return <pre className="my-2 overflow-auto whitespace-pre-wrap rounded-xl border border-white/10 bg-black/30 p-3 font-mono text-xs text-on-surface-variant">{source}</pre>
+    return <pre className="my-2 overflow-auto whitespace-pre-wrap rounded-xl border border-white/10 bg-black/30 p-3 font-mono text-xs text-[var(--color-pib-text-muted)]">{source}</pre>
   }
   return (
     <div className="my-2 overflow-auto rounded-xl border border-primary/20 bg-white p-3 text-slate-950" dangerouslySetInnerHTML={{ __html: safeSvg }} />
@@ -717,7 +720,7 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
     return <SvgPreview source={code} />
   }
   return (
-    <pre className="my-2 max-h-96 overflow-auto rounded-xl border border-white/10 bg-black/35 p-3 font-mono text-xs leading-relaxed text-on-surface-variant">
+    <pre className="my-2 max-h-96 overflow-auto rounded-xl border border-white/10 bg-black/35 p-3 font-mono text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
       <code>{code}</code>
     </pre>
   )
@@ -765,7 +768,7 @@ function renderMarkdownBlocks(content: string): ReactNode[] {
       } else if (heading) {
         flushParagraph()
         const Tag = (`h${Math.min(heading[1].length + 2, 6)}`) as 'h3' | 'h4' | 'h5' | 'h6'
-        nodes.push(<Tag key={`${baseKey}-h-${nodes.length}`} className="mt-3 mb-1 text-sm font-semibold text-on-surface">{inlineMarkdown(heading[2])}</Tag>)
+        nodes.push(<Tag key={`${baseKey}-h-${nodes.length}`} className="mt-3 mb-1 text-sm font-semibold text-[var(--color-pib-text)]">{inlineMarkdown(heading[2])}</Tag>)
       } else if (listItem) {
         flushParagraph()
         const items: string[] = [listItem[1]]
@@ -829,7 +832,7 @@ function RichChoices({ choices }: { choices?: RichMessagePart['choices'] }) {
   return (
     <div className="mt-2 flex flex-wrap gap-1.5">
       {choices.map((choice, index) => (
-        <span key={`${choiceLabel(choice)}-${index}`} className="rounded-md border border-white/10 bg-white/[0.06] px-2 py-1 text-[11px] text-on-surface-variant">
+        <span key={`${choiceLabel(choice)}-${index}`} className="rounded-md border border-white/10 bg-white/[0.06] px-2 py-1 text-[11px] text-[var(--color-pib-text-muted)]">
           {choiceLabel(choice)}
         </span>
       ))}
@@ -875,8 +878,8 @@ function partString(part: RichMessagePart, key: string): string {
 function ApprovalCardSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="min-w-0">
-      <p className="text-[11px] font-label uppercase tracking-wide text-on-surface-variant">{title}</p>
-      <div className="mt-1 text-xs leading-relaxed text-on-surface">{children}</div>
+      <p className="text-[11px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">{title}</p>
+      <div className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text)]">{children}</div>
     </section>
   )
 }
@@ -909,14 +912,14 @@ function ApprovalCard({
       <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-[11px] font-label uppercase tracking-wide text-primary">Approval card</p>
-          <p className="mt-0.5 break-words text-sm font-semibold leading-snug text-on-surface [overflow-wrap:anywhere]">{title}</p>
+          <p className="mt-0.5 break-words text-sm font-semibold leading-snug text-[var(--color-pib-text)] [overflow-wrap:anywhere]">{title}</p>
         </div>
         <span className="shrink-0 rounded-md border border-primary/30 bg-black/20 px-2 py-1 text-[11px] text-primary">
           {statusLabel}
         </span>
       </div>
 
-      {body && <div className="mt-2 text-xs leading-relaxed text-on-surface-variant"><ChatMessageContent content={body} /></div>}
+      {body && <div className="mt-2 text-xs leading-relaxed text-[var(--color-pib-text-muted)]"><ChatMessageContent content={body} /></div>}
 
       <div className="mt-3 grid gap-3">
         {evidence.length > 0 && (
@@ -935,8 +938,8 @@ function ApprovalCard({
         {(dataSkill || analysisQuestion) && (
           <ApprovalCardSection title="Data first">
             <div className="space-y-1">
-              {dataSkill && <p><span className="text-on-surface-variant">Gather skill:</span> {dataSkill}</p>}
-              {analysisQuestion && <p className="break-words [overflow-wrap:anywhere]"><span className="text-on-surface-variant">Question:</span> {analysisQuestion}</p>}
+              {dataSkill && <p><span className="text-[var(--color-pib-text-muted)]">Gather skill:</span> {dataSkill}</p>}
+              {analysisQuestion && <p className="break-words [overflow-wrap:anywhere]"><span className="text-[var(--color-pib-text-muted)]">Question:</span> {analysisQuestion}</p>}
             </div>
           </ApprovalCardSection>
         )}
@@ -967,7 +970,7 @@ function ApprovalCard({
                   onClick={() => {
                     if (selectedDecision) onQuoteSelection(selectedDecision.value)
                   }}
-                  className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.06] px-2 py-1 text-[11px] font-medium text-on-surface transition hover:border-primary/50 hover:bg-white/[0.09] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.06] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-text)] transition hover:border-primary/50 hover:bg-white/[0.09] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <span aria-hidden="true" className="material-symbols-outlined text-[14px]">add_comment</span>
                   Add selected decision to chat
@@ -986,7 +989,7 @@ function ApprovalCard({
         {replyTemplate && (
           <ApprovalCardSection title="Copy into chat">
             <div className="rounded-md border border-white/10 bg-black/20 p-2">
-              <p className="whitespace-pre-wrap break-words text-on-surface-variant [overflow-wrap:anywhere]">{replyTemplate}</p>
+              <p className="whitespace-pre-wrap break-words text-[var(--color-pib-text-muted)] [overflow-wrap:anywhere]">{replyTemplate}</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {onQuoteSelection && (
                   <button
@@ -1001,7 +1004,7 @@ function ApprovalCard({
                 <button
                   type="button"
                   onClick={() => { void copyToClipboard(replyTemplate) }}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.06] px-2 py-1 text-[11px] font-medium text-on-surface transition hover:border-primary/50 hover:bg-white/[0.09]"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.06] px-2 py-1 text-[11px] font-medium text-[var(--color-pib-text)] transition hover:border-primary/50 hover:bg-white/[0.09]"
                 >
                   <span aria-hidden="true" className="material-symbols-outlined text-[14px]">content_copy</span>
                   Copy to clipboard
@@ -1031,9 +1034,9 @@ function ProjectTaskProposal({ part }: { part: RichMessagePart }) {
       <header className="flex items-center justify-between gap-3 border-b border-white/10 px-3 py-2.5">
         <div className="min-w-0">
           <p className="text-[10px] font-label uppercase tracking-[0.18em] text-primary">Project task proposal</p>
-          <p className="mt-0.5 truncate text-sm font-semibold text-on-surface">{title}</p>
+          <p className="mt-0.5 truncate text-sm font-semibold text-[var(--color-pib-text)]">{title}</p>
         </div>
-        <span className="shrink-0 text-[11px] text-on-surface-variant">{tasks.length} task{tasks.length === 1 ? '' : 's'}</span>
+        <span className="shrink-0 text-[11px] text-[var(--color-pib-text-muted)]">{tasks.length} task{tasks.length === 1 ? '' : 's'}</span>
       </header>
       <ol className="divide-y divide-white/[0.07]">
         {tasks.map((task, index) => {
@@ -1046,16 +1049,16 @@ function ProjectTaskProposal({ part }: { part: RichMessagePart }) {
             : []
           return (
             <li key={`${taskTitle}-${index}`} className="grid gap-2 px-3 py-2.5 text-xs sm:grid-cols-[1.5rem_minmax(0,1fr)_auto] sm:items-center">
-              <span className="font-mono text-on-surface-variant">{index + 1}</span>
+              <span className="font-mono text-[var(--color-pib-text-muted)]">{index + 1}</span>
               <div className="min-w-0">
-                <p className="truncate font-medium text-on-surface">{taskTitle}</p>
-                <p className="mt-0.5 flex flex-wrap gap-x-2 text-[11px] text-on-surface-variant">
+                <p className="truncate font-medium text-[var(--color-pib-text)]">{taskTitle}</p>
+                <p className="mt-0.5 flex flex-wrap gap-x-2 text-[11px] text-[var(--color-pib-text-muted)]">
                   <span>Agent: {agentId}</span>
                   {dependencySequence.length > 0 && <span>After task {dependencySequence.map((value) => value + 1).join(', ')}</span>}
                   {reviewer && <span>Review: {reviewer}</span>}
                 </p>
               </div>
-              <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">{modelPolicy}</span>
+              <span className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">{modelPolicy}</span>
             </li>
           )
         })}
@@ -1072,6 +1075,9 @@ function RichMessagePartView({
   onQuoteSelection?: (text: string) => void
 }) {
   const type = String(part.type).toLowerCase()
+  if (type === 'studio_artifact' || type === 'studio_artifact_bundle') {
+    return <RehydratedStudioArtifacts part={part} />
+  }
   if (type === 'markdown') {
     return <ChatMessageContent content={partContent(part)} />
   }
@@ -1093,11 +1099,11 @@ function RichMessagePartView({
     }
     return (
       <div className="my-2 overflow-hidden rounded-xl border border-white/10 bg-black/20">
-        {part.caption && <div className="border-b border-white/10 px-3 py-2 text-xs font-semibold text-on-surface">{part.caption}</div>}
+        {part.caption && <div className="border-b border-white/10 px-3 py-2 text-xs font-semibold text-[var(--color-pib-text)]">{part.caption}</div>}
         <div className="overflow-x-auto">
           <table className="min-w-full border-collapse text-left text-xs">
             {columns.length > 0 && (
-              <thead className="bg-white/[0.06] text-on-surface">
+              <thead className="bg-white/[0.06] text-[var(--color-pib-text)]">
                 <tr>
                   {columns.map((column) => (
                     <th key={column} scope="col" className="border-b border-white/10 px-3 py-2 font-semibold">
@@ -1107,7 +1113,7 @@ function RichMessagePartView({
                 </tr>
               </thead>
             )}
-            <tbody className="text-on-surface-variant">
+            <tbody className="text-[var(--color-pib-text-muted)]">
               {rows.map((row, rowIndex) => (
                 <tr key={rowIndex} className="border-b border-white/5 last:border-b-0">
                   {cellsForRow(row).map((cell, cellIndex) => (
@@ -1127,7 +1133,7 @@ function RichMessagePartView({
     return (
       <figure className="my-2 overflow-hidden rounded-xl border border-white/10 bg-black/20">
         <img src={part.url} alt={part.alt ?? part.caption ?? part.name ?? 'Rich image'} className="max-h-72 w-full object-cover" />
-        {part.caption && <figcaption className="px-3 py-2 text-xs text-on-surface-variant">{part.caption}</figcaption>}
+        {part.caption && <figcaption className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">{part.caption}</figcaption>}
       </figure>
     )
   }
@@ -1137,7 +1143,7 @@ function RichMessagePartView({
         {part.images.map((image, index) => (
           <figure key={`${image.url}-${index}`} className="overflow-hidden rounded-xl border border-white/10 bg-black/20">
             <img src={image.url} alt={image.alt ?? image.caption ?? `Gallery image ${index + 1}`} className="h-36 w-full object-cover" />
-            {image.caption && <figcaption className="px-2 py-1.5 text-[11px] text-on-surface-variant">{image.caption}</figcaption>}
+            {image.caption && <figcaption className="px-2 py-1.5 text-[11px] text-[var(--color-pib-text-muted)]">{image.caption}</figcaption>}
           </figure>
         ))}
       </div>
@@ -1147,7 +1153,7 @@ function RichMessagePartView({
     if (type === 'audio') {
       return (
         <div className="my-2 rounded-xl border border-white/10 bg-black/20 p-3">
-          {part.name && <p className="mb-2 text-xs font-medium text-on-surface">{part.name}</p>}
+          {part.name && <p className="mb-2 text-xs font-medium text-[var(--color-pib-text)]">{part.name}</p>}
           <audio controls src={part.url} className="w-full" />
         </div>
       )
@@ -1172,7 +1178,7 @@ function RichMessagePartView({
         <div className="border-b border-white/10 px-3 py-2 text-[11px] font-label uppercase tracking-wide text-primary">
           {part.tool ?? part.title ?? 'Tool output'}
         </div>
-        {text && <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words p-3 font-mono text-xs text-on-surface-variant [overflow-wrap:anywhere]">{text}</pre>}
+        {text && <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words p-3 font-mono text-xs text-[var(--color-pib-text-muted)] [overflow-wrap:anywhere]">{text}</pre>}
       </div>
     )
   }
@@ -1184,12 +1190,12 @@ function RichMessagePartView({
         : part.title ?? part.status ?? 'Status'
     return (
       <div className="my-2 rounded-xl border border-white/10 bg-white/[0.045] px-3 py-2">
-        {title && <p className="text-sm font-semibold text-on-surface">{title}</p>}
-        {part.body && <p className="mt-1 text-xs leading-relaxed text-on-surface-variant">{part.body}</p>}
+        {title && <p className="text-sm font-semibold text-[var(--color-pib-text)]">{title}</p>}
+        {part.body && <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">{part.body}</p>}
         {type === 'model_picker' && part.models?.length ? (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {part.models.map((model) => (
-              <span key={model.id} className="rounded-md border border-white/10 bg-black/20 px-2 py-1 text-[11px] text-on-surface-variant">
+              <span key={model.id} className="rounded-md border border-white/10 bg-black/20 px-2 py-1 text-[11px] text-[var(--color-pib-text-muted)]">
                 {model.label ?? model.id}
               </span>
             ))}
@@ -1207,6 +1213,24 @@ function RichMessagePartView({
     return <ProjectTaskProposal part={part} />
   }
   return partContent(part) ? <ChatMessageContent content={partContent(part)} /> : null
+}
+
+function RehydratedStudioArtifacts({ part }: { part: RichMessagePart }) {
+  const normalized = normalizeStudioArtifactPart(part)
+  const [artifacts, setArtifacts] = useState<ChatArtifactSummary[]>([])
+  useEffect(() => {
+    if (!normalized) return
+    let active = true
+    Promise.all(normalized.artifacts.map(async ({ id, contextId }) => {
+      const selector = id === contextId ? '' : `?artifactId=${encodeURIComponent(id)}`
+      const response = await fetch(`/api/v1/chat-context/studio_artifact/${encodeURIComponent(contextId)}${selector}`)
+      if (!response.ok) return []
+      const payload = await response.json().catch(() => null) as { data?: { artifacts?: ChatArtifactSummary[] } } | null
+      return Array.isArray(payload?.data?.artifacts) ? payload.data.artifacts.filter((artifact) => artifact.id === id) : []
+    })).then((groups) => { if (active) setArtifacts(groups.flat()) }).catch(() => undefined)
+    return () => { active = false }
+  }, [normalized?.artifacts.map(({ id, contextId }) => `${contextId}\u0001${id}`).join('\u0000')])
+  return <ContextArtifactBundle artifacts={artifacts} />
 }
 
 function RichMessageParts({
@@ -1234,7 +1258,7 @@ function actionClasses(action: ChatUiAction): string {
   if (type === 'approve' || action.variant === 'primary') {
     return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20'
   }
-  return 'border-white/10 bg-white/[0.06] text-on-surface hover:border-primary/50 hover:bg-white/[0.09]'
+  return 'border-white/10 bg-white/[0.06] text-[var(--color-pib-text)] hover:border-primary/50 hover:bg-white/[0.09]'
 }
 
 function RichActionBar({
@@ -1453,7 +1477,7 @@ export default function MessageBubble({
       <button
         type="button"
         onClick={copyMessage}
-        className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-1 text-[11px] text-on-surface-variant shadow-sm backdrop-blur hover:border-primary/50 hover:text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
+        className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-1 text-[11px] text-[var(--color-pib-text-muted)] shadow-sm backdrop-blur hover:border-primary/50 hover:text-[var(--color-pib-text)] focus:outline-none focus:ring-2 focus:ring-primary/50"
         aria-label="Copy message"
         title="Copy message"
       >
@@ -1466,7 +1490,7 @@ export default function MessageBubble({
         <button
           type="button"
           onClick={readMessageAloud}
-          className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-1 text-[11px] text-on-surface-variant shadow-sm backdrop-blur hover:border-primary/50 hover:text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-1 text-[11px] text-[var(--color-pib-text-muted)] shadow-sm backdrop-blur hover:border-primary/50 hover:text-[var(--color-pib-text)] focus:outline-none focus:ring-2 focus:ring-primary/50"
           aria-label={speaking ? 'Stop read aloud' : 'Read aloud'}
           title={speaking ? 'Stop read aloud' : 'Read aloud'}
         >
@@ -1499,7 +1523,7 @@ export default function MessageBubble({
   if (isTool) {
     return (
       <div className="flex justify-center">
-        <div className="max-w-[90%] flex items-center gap-2 rounded-full bg-white/5 border border-white/10 px-3 py-1 text-xs text-on-surface-variant font-mono">
+        <div className="max-w-[90%] flex items-center gap-2 rounded-full bg-white/5 border border-white/10 px-3 py-1 text-xs text-[var(--color-pib-text-muted)] font-mono">
           <span className="material-symbols-outlined text-[14px] text-primary">build</span>
           <span>{m.toolName ?? 'tool'}</span>
           {m.content && <span className="opacity-60 truncate max-w-[240px]">{m.content}</span>}
@@ -1605,7 +1629,7 @@ export default function MessageBubble({
               {selectionPopover}
               <div
                 onMouseUp={handleTextSelection}
-                className="max-w-full overflow-hidden rounded-2xl rounded-br-md px-4 py-2.5 text-[15px] lg:text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere] bg-[var(--color-card-active,rgba(255,255,255,0.08))] lg:bg-primary lg:text-on-primary text-on-surface"
+                className="max-w-full overflow-hidden rounded-2xl rounded-br-md px-4 py-2.5 text-[15px] lg:text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere] bg-[var(--color-card-active,rgba(255,255,255,0.08))] lg:bg-primary lg:text-on-primary text-[var(--color-pib-text)]"
               >
               <ChatMessageContent content={renderedMessage.content} />
               <RichMessageParts parts={renderedMessage.richParts} onQuoteSelection={onQuoteSelection} />
@@ -1626,14 +1650,14 @@ export default function MessageBubble({
   const eventSummary = displayEvents.length > 0 ? summarizeEvents(displayEvents) : ''
   const consoleRows = commandConsoleRows(displayEvents)
   const commandConsole = consoleRows.length > 0 ? (
-    <details open className="my-2 overflow-hidden rounded-xl border border-primary/20 bg-black/35 text-on-surface-variant shadow-inner group/console">
-      <summary className="flex cursor-pointer select-none list-none items-center gap-2 border-b border-white/10 px-3 py-2 text-[11px] font-label uppercase tracking-wide text-on-surface [&::-webkit-details-marker]:hidden">
+    <details open className="my-2 overflow-hidden rounded-xl border border-primary/20 bg-black/35 text-[var(--color-pib-text-muted)] shadow-inner group/console">
+      <summary className="flex cursor-pointer select-none list-none items-center gap-2 border-b border-white/10 px-3 py-2 text-[11px] font-label uppercase tracking-wide text-[var(--color-pib-text)] [&::-webkit-details-marker]:hidden">
         <span className="material-symbols-outlined text-[15px] text-primary">terminal</span>
         <span className="min-w-0 flex-1 truncate">Inline command console</span>
-        <span className="rounded-full bg-white/8 px-1.5 py-0.5 font-mono text-[10px] text-on-surface-variant">
+        <span className="rounded-full bg-white/8 px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-pib-text-muted)]">
           {consoleRows.length}
         </span>
-        <span className="material-symbols-outlined text-[14px] text-on-surface-variant transition-transform group-open/console:rotate-180">expand_more</span>
+        <span className="material-symbols-outlined text-[14px] text-[var(--color-pib-text-muted)] transition-transform group-open/console:rotate-180">expand_more</span>
       </summary>
       <div className="max-h-80 overflow-y-auto p-2 font-mono text-[11px] leading-relaxed">
         {consoleRows.map((row) => (
@@ -1644,10 +1668,10 @@ export default function MessageBubble({
                 row.status === 'failed' ? 'bg-red-400' : row.status === 'running' ? 'bg-primary animate-pulse' : row.status === 'done' ? 'bg-emerald-400' : 'bg-white/40',
               ].join(' ')} />
               <span className="min-w-0 flex-1 truncate text-primary">{row.label}</span>
-              <span className="shrink-0 text-on-surface-variant/70">{row.meta}</span>
+              <span className="shrink-0 text-[var(--color-pib-text-muted)]/70">{row.meta}</span>
             </div>
             {row.body && (
-              <pre className="max-h-44 overflow-auto whitespace-pre-wrap break-words px-2 py-1.5 text-[11px] text-on-surface-variant [overflow-wrap:anywhere]">
+              <pre className="max-h-44 overflow-auto whitespace-pre-wrap break-words px-2 py-1.5 text-[11px] text-[var(--color-pib-text-muted)] [overflow-wrap:anywhere]">
                 {row.body}
               </pre>
             )}
@@ -1668,7 +1692,7 @@ export default function MessageBubble({
             </span>
           </div>
         ) : (
-          <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white/10 text-xs font-bold text-on-surface">
+          <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white/10 text-xs font-bold text-[var(--color-pib-text)]">
             {initials(m.authorDisplayName)}
           </div>
         )}
@@ -1677,7 +1701,7 @@ export default function MessageBubble({
       {/* Bubble content */}
       <div className="group/message max-w-full lg:max-w-[78%] flex-1 min-w-0">
         {/* Author label — hidden on mobile */}
-        <p className={`hidden lg:block text-[10px] font-medium mb-1 ${isAgent ? color.text : 'text-on-surface-variant'}`}>
+        <p className={`hidden lg:block text-[10px] font-medium mb-1 ${isAgent ? color.text : 'text-[var(--color-pib-text-muted)]'}`}>
           {m.authorDisplayName}
         </p>
 
@@ -1687,7 +1711,7 @@ export default function MessageBubble({
               <div className="min-w-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2 text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
+                  <div className="flex items-center gap-2 text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                     <span className="inline-flex gap-0.5 text-primary">
                       <span className="animate-bounce [animation-delay:0ms]">·</span>
                       <span className="animate-bounce [animation-delay:150ms]">·</span>
@@ -1695,17 +1719,17 @@ export default function MessageBubble({
                     </span>
                     Current activity
                   </div>
-                  <p className="mt-1 truncate text-xs font-medium text-on-surface">
+                  <p className="mt-1 truncate text-xs font-medium text-[var(--color-pib-text)]">
                     {activity.label}
                   </p>
                   {activity.detail && (
-                    <p className="mt-0.5 truncate text-[11px] text-on-surface-variant">
+                    <p className="mt-0.5 truncate text-[11px] text-[var(--color-pib-text-muted)]">
                       {activity.detail}
                     </p>
                   )}
                 </div>
                 {elapsed > 0 && (
-                  <span className="shrink-0 rounded bg-black/20 px-1.5 py-0.5 font-mono text-[10px] text-on-surface-variant">
+                  <span className="shrink-0 rounded bg-black/20 px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-pib-text-muted)]">
                     {elapsed}s
                   </span>
                 )}
@@ -1717,10 +1741,10 @@ export default function MessageBubble({
                     const done = /done|completed|complete/i.test(task.status)
                     const active = /progress|doing|active|running/i.test(task.status)
                     return (
-                      <div key={task.key} className="flex items-center gap-2 text-[11px] text-on-surface-variant">
+                      <div key={task.key} className="flex items-center gap-2 text-[11px] text-[var(--color-pib-text-muted)]">
                         <span className={[
                           'material-symbols-outlined text-[13px]',
-                          done ? 'text-emerald-300' : active ? 'text-primary' : 'text-on-surface-variant/60',
+                          done ? 'text-emerald-300' : active ? 'text-primary' : 'text-[var(--color-pib-text-muted)]/60',
                         ].join(' ')}>
                           {done ? 'check_circle' : active ? 'radio_button_checked' : 'radio_button_unchecked'}
                         </span>
@@ -1732,15 +1756,15 @@ export default function MessageBubble({
               )}
 
               {safeReasoning && (
-                <details className="mt-2 border-t border-white/10 pt-2 text-[11px] text-on-surface-variant">
-                  <summary className="cursor-pointer select-none text-on-surface">Reasoning summary</summary>
+                <details className="mt-2 border-t border-white/10 pt-2 text-[11px] text-[var(--color-pib-text-muted)]">
+                  <summary className="cursor-pointer select-none text-[var(--color-pib-text)]">Reasoning summary</summary>
                   <p className="mt-1 whitespace-pre-wrap leading-relaxed">{safeReasoning}</p>
                 </details>
               )}
             </div>
             {commandConsole}
             {displayEvents.length > 0 && (
-              <details className="text-on-surface-variant group/details">
+              <details className="text-[var(--color-pib-text-muted)] group/details">
                 <summary className="cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 text-[11px] hover:bg-white/[0.04]">
                   <span className="material-symbols-outlined text-[13px] opacity-70 transition-transform group-open/details:rotate-90">chevron_right</span>
                   <span>Tool activity</span>
@@ -1752,7 +1776,7 @@ export default function MessageBubble({
                   {displayEvents.slice(-8).map((ev, i) => (
                     <div
                       key={i}
-                      className="flex items-baseline gap-2 rounded-md bg-[var(--color-card,rgba(255,255,255,0.03))] px-2 py-1 text-xs text-on-surface-variant"
+                      className="flex items-baseline gap-2 rounded-md bg-[var(--color-card,rgba(255,255,255,0.03))] px-2 py-1 text-xs text-[var(--color-pib-text-muted)]"
                     >
                       <span className="material-symbols-outlined text-[12px] text-primary/70 shrink-0">
                         {ev.event === 'assistant.text_delta' ? 'edit_note' : ev.event === 'heartbeat' ? 'sync' : 'build'}
@@ -1781,7 +1805,7 @@ export default function MessageBubble({
         {/* Completed tool-call timeline (collapsible) */}
         {!isPending && !isWaiting && commandConsole}
         {displayEvents.length > 0 && !isPending && !isWaiting && (
-          <details className="my-2 text-on-surface-variant group/details">
+          <details className="my-2 text-[var(--color-pib-text-muted)] group/details">
             <summary className="cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden flex items-center gap-1.5 py-1 -mx-1 px-1 rounded hover:bg-[var(--color-card,rgba(255,255,255,0.03))] text-[13px] lg:text-xs">
               <span className="opacity-60 group-open/details:rotate-90 transition-transform text-[14px] leading-none">›</span>
               <span className="opacity-80">{eventSummary}</span>
@@ -1816,7 +1840,7 @@ export default function MessageBubble({
                 ? 'max-w-full overflow-hidden rounded-2xl rounded-tl-md px-4 py-2.5 text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere] bg-red-500/15 text-red-200 border border-red-500/40'
                 : [
                     // Mobile: plain prose, no background, larger readable text
-                    'max-w-full overflow-hidden text-[15px] leading-relaxed text-on-surface whitespace-pre-wrap break-words [overflow-wrap:anywhere]',
+                    'max-w-full overflow-hidden text-[15px] leading-relaxed text-[var(--color-pib-text)] whitespace-pre-wrap break-words [overflow-wrap:anywhere]',
                     // Desktop: keep the bubble look
                     'lg:rounded-2xl lg:rounded-tl-md lg:px-4 lg:py-2.5 lg:text-sm lg:bg-[var(--color-card-active,rgba(255,255,255,0.06))]',
                   ].join(' ')

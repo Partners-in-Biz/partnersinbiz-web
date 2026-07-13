@@ -3,9 +3,9 @@
 
 import type { EngagementScoreRule } from '@/lib/crm/segments'
 
-const FIELD_LABEL_CLS = 'text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant'
+const FIELD_LABEL_CLS = 'text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]'
 const INPUT_CLS =
-  'h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface outline-none transition focus:border-[var(--color-accent-v2)]'
+  'h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-[var(--color-pib-text)] outline-none transition focus:border-[var(--color-accent-v2)]'
 
 interface EngagementRuleEditorProps {
   rule: EngagementScoreRule | null
@@ -42,11 +42,11 @@ export function EngagementRuleEditor({ rule, onChange }: EngagementRuleEditorPro
       <div className="flex items-center justify-between">
         <div>
           <p className={FIELD_LABEL_CLS}>Engagement score</p>
-          <p className="mt-1 text-[11px] leading-4 text-on-surface-variant">
+          <p className="mt-1 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
             Score = opens × 5 + clicks × 15 − bounces × 30 − days-since-engaged × 0.5 (capped 0-100).
           </p>
         </div>
-        <label className="flex items-center gap-2 text-[11px] text-on-surface-variant">
+        <label className="flex items-center gap-2 text-[11px] text-[var(--color-pib-text-muted)]">
           <input
             type="checkbox"
             checked={enabled}

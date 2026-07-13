@@ -46,29 +46,29 @@ const STATUS_COLORS: Record<string, string> = {
   'awaiting-input': 'border-orange-500/40 bg-orange-500/5',
   done: 'border-emerald-500/40 bg-emerald-500/5',
   blocked: 'border-rose-500/40 bg-rose-500/5',
-  unstarted: 'border-white/10 bg-white/[0.02]',
+  unstarted: 'border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]',
 }
 
 const AGENT_COLORS: Record<string, string> = {
-  pip: 'bg-amber-400/15 text-amber-200 border border-amber-400/30',
+  pip: 'bg-amber-400/15 text-[var(--color-pib-amber)] border border-amber-400/30',
   theo: 'bg-sky-400/15 text-sky-200 border border-sky-400/30',
   maya: 'bg-fuchsia-400/15 text-fuchsia-200 border border-fuchsia-400/30',
-  sage: 'bg-emerald-400/15 text-emerald-200 border border-emerald-400/30',
+  sage: 'bg-emerald-400/15 text-[var(--color-pib-green)] border border-emerald-400/30',
   nora: 'bg-slate-300/15 text-slate-200 border border-slate-300/30',
-  ads: 'bg-amber-400/15 text-amber-200 border border-amber-400/30',
-  'qa-release': 'bg-emerald-400/15 text-emerald-200 border border-emerald-400/30',
+  ads: 'bg-amber-400/15 text-[var(--color-pib-amber)] border border-amber-400/30',
+  'qa-release': 'bg-emerald-400/15 text-[var(--color-pib-green)] border border-emerald-400/30',
   support: 'bg-sky-400/15 text-sky-200 border border-sky-400/30',
   data: 'bg-violet-400/15 text-violet-200 border border-violet-400/30',
   docs: 'bg-rose-400/15 text-rose-200 border border-rose-400/30',
-  seo: 'bg-emerald-400/15 text-emerald-200 border border-emerald-400/30',
+  seo: 'bg-emerald-400/15 text-[var(--color-pib-green)] border border-emerald-400/30',
 }
 
 const BADGE_TONE_CLASSES: Record<AgentBoardBadgeTone, string> = {
-  agent: 'bg-white/10 text-on-surface border-white/15 capitalize',
+  agent: 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)] border-[var(--color-pib-line)] capitalize',
   danger: 'bg-rose-500/15 text-rose-200 border-rose-400/30',
   warning: 'bg-orange-500/15 text-orange-200 border-orange-400/30',
   info: 'bg-sky-500/15 text-sky-200 border-sky-400/30',
-  purple: 'bg-purple-500/15 text-purple-200 border-purple-400/30',
+  purple: 'bg-purple-500/15 text-[var(--color-pib-violet)] border-purple-400/30',
   neutral: 'bg-slate-400/15 text-slate-200 border-slate-300/30',
 }
 
@@ -162,18 +162,19 @@ export default function AgentBoardPage() {
     <div className="flex flex-col gap-4 p-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-medium text-on-surface">Agent task-bus board</h1>
-          <p className="text-sm text-on-surface-variant mt-1">
+          <p className="eyebrow">Admin · Agent board</p>
+          <h1 className="pib-page-title mt-2">Agent task-bus board</h1>
+          <p className="pib-page-sub">
             Operator-only view of every task across <span className="font-medium">{data?.orgName ?? slug}</span> that has an agent assigned —
             both project-nested and standalone. Grouped by agent status.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.02] p-1">
+          <div className="flex items-center gap-1 rounded-full border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-1">
             <button
               onClick={() => setAgentFilter('all')}
               className={`text-xs px-3 py-1 rounded-full transition ${
-                agentFilter === 'all' ? 'bg-white/15 text-on-surface' : 'text-on-surface-variant hover:text-on-surface'
+                agentFilter === 'all' ? 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
               }`}
             >
               All agents
@@ -183,7 +184,7 @@ export default function AgentBoardPage() {
                 key={a}
                 onClick={() => setAgentFilter(a)}
                 className={`text-xs px-3 py-1 rounded-full capitalize transition ${
-                  agentFilter === a ? AGENT_COLORS[a] : 'text-on-surface-variant hover:text-on-surface'
+                  agentFilter === a ? AGENT_COLORS[a] : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
                 }`}
               >
                 {a}
@@ -193,11 +194,11 @@ export default function AgentBoardPage() {
           <button
             onClick={() => void load()}
             disabled={loading}
-            className="text-xs px-3 py-1.5 rounded-md border border-white/10 bg-white/[0.04] text-on-surface-variant hover:text-on-surface hover:bg-white/[0.08] disabled:opacity-50"
+            className="text-xs px-3 py-1.5 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-2)] disabled:opacity-50"
           >
             {loading ? 'Loading…' : 'Refresh'}
           </button>
-          <span className="text-[10px] text-on-surface-variant/60">auto-refresh 15s</span>
+          <span className="text-[10px] text-[var(--color-pib-text-faint)]">auto-refresh 15s</span>
         </div>
       </header>
 
@@ -209,17 +210,17 @@ export default function AgentBoardPage() {
 
       {data && (
         <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-2 text-xs text-on-surface-variant">
-            <span className="text-on-surface font-medium">{filteredCards.length}</span>
+          <div className="flex items-center gap-2 text-xs text-[var(--color-pib-text-muted)]">
+            <span className="text-[var(--color-pib-text)] font-medium">{filteredCards.length}</span>
             shown
             <span className="opacity-50">/</span>
-            <span className="text-on-surface font-medium">{data.total}</span> agent-touched tasks
+            <span className="text-[var(--color-pib-text)] font-medium">{data.total}</span> agent-touched tasks
             <span className="opacity-50">·</span>
             {Object.entries(data.byStatus)
               .filter(([, n]) => n > 0)
               .map(([k, n]) => (
                 <span key={k}>
-                  {STATUS_LABELS[k] ?? k} <span className="font-medium text-on-surface">{n}</span>
+                  {STATUS_LABELS[k] ?? k} <span className="font-medium text-[var(--color-pib-text)]">{n}</span>
                 </span>
               ))
               .reduce<React.ReactNode[]>(
@@ -229,8 +230,8 @@ export default function AgentBoardPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] uppercase tracking-wider text-on-surface-variant/70">Operational view</span>
-            <div className="flex flex-wrap items-center gap-1 rounded-lg border border-white/10 bg-white/[0.02] p-1">
+            <span className="text-[11px] uppercase tracking-wider text-[var(--color-pib-text-faint)]">Operational view</span>
+            <div className="flex flex-wrap items-center gap-1 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-1">
               {AGENT_BOARD_OPERATIONAL_VIEWS.map((view) => {
                 const active = viewFilter === view.id
                 return (
@@ -239,7 +240,7 @@ export default function AgentBoardPage() {
                     type="button"
                     onClick={() => setViewFilter(view.id)}
                     className={`text-xs px-2.5 py-1 rounded-md transition ${
-                      active ? 'bg-white/15 text-on-surface' : 'text-on-surface-variant hover:text-on-surface hover:bg-white/[0.06]'
+                      active ? 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-2)]'
                     }`}
                     title={view.label}
                   >
@@ -259,15 +260,15 @@ export default function AgentBoardPage() {
             key={col.status}
             className={`flex flex-col rounded-lg border ${STATUS_COLORS[col.status] ?? STATUS_COLORS.unstarted}`}
           >
-            <header className="flex items-center justify-between px-3 py-2 border-b border-white/5">
-              <h2 className="text-xs font-medium uppercase tracking-wider text-on-surface-variant">
+            <header className="flex items-center justify-between px-3 py-2 border-b border-[var(--color-pib-line)]">
+              <h2 className="text-xs font-medium uppercase tracking-wider text-[var(--color-pib-text-muted)]">
                 {col.label}
               </h2>
-              <span className="text-xs text-on-surface-variant">{col.cards.length}</span>
+              <span className="text-xs text-[var(--color-pib-text-muted)]">{col.cards.length}</span>
             </header>
             <div className="flex-1 flex flex-col gap-2 p-2 min-h-[80px]">
               {col.cards.length === 0 && (
-                <div className="text-center text-xs text-on-surface-variant/60 py-6">No cards</div>
+                <div className="text-center text-xs text-[var(--color-pib-text-faint)] py-6">No cards</div>
               )}
               {col.cards.map((card) => {
                 const badges = getAgentBoardBadges(card)
@@ -275,7 +276,7 @@ export default function AgentBoardPage() {
                 const cardInner = (
                   <>
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className="text-sm font-medium text-on-surface leading-snug">{card.title}</h3>
+                      <h3 className="text-sm font-medium text-[var(--color-pib-text)] leading-snug">{card.title}</h3>
                     </div>
 
                     {badges.length > 0 && (
@@ -293,35 +294,35 @@ export default function AgentBoardPage() {
                     )}
 
                     {card.agentInputSpec && (
-                      <p className="mt-1.5 text-xs text-on-surface-variant line-clamp-2">{card.agentInputSpec}</p>
+                      <p className="mt-1.5 text-xs text-[var(--color-pib-text-muted)] line-clamp-2">{card.agentInputSpec}</p>
                     )}
 
                     {card.agentOutputSummary && (
-                      <p className="mt-1.5 text-xs text-emerald-200/80 line-clamp-2">
+                      <p className="mt-1.5 text-xs text-[var(--color-pib-green)]/80 line-clamp-2">
                         <span className="opacity-70">Output: </span>
                         {card.agentOutputSummary}
                       </p>
                     )}
 
-                    <div className="mt-2 flex items-center gap-2 flex-wrap text-[10px] text-on-surface-variant">
+                    <div className="mt-2 flex items-center gap-2 flex-wrap text-[10px] text-[var(--color-pib-text-muted)]">
                       {card.projectName ? (
-                        <span className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10">
+                        <span className="px-1.5 py-0.5 rounded bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)]">
                           <span className="opacity-60">project · </span>
                           {card.projectName}
                         </span>
                       ) : (
-                        <span className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 opacity-70">
+                        <span className="px-1.5 py-0.5 rounded bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] opacity-70">
                           standalone
                         </span>
                       )}
                       {orgName && card.orgId !== currentOrgId && (
-                        <span className="px-1.5 py-0.5 rounded bg-purple-500/10 border border-purple-400/20 text-purple-100">
+                        <span className="px-1.5 py-0.5 rounded bg-purple-500/10 border border-purple-400/20 text-[var(--color-pib-violet)]">
                           <span className="opacity-60">org · </span>
                           {orgName}
                         </span>
                       )}
                       {card.priority && card.priority !== 'normal' && card.priority !== 'medium' && (
-                        <span className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 capitalize">
+                        <span className="px-1.5 py-0.5 rounded bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] capitalize">
                           {card.priority}
                         </span>
                       )}
@@ -336,7 +337,7 @@ export default function AgentBoardPage() {
                 return (
                   <article
                     key={card.id}
-                    className="rounded-md border border-white/10 bg-surface-container-low p-3 hover:bg-surface-container transition cursor-pointer"
+                    className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3 hover:bg-[var(--color-pib-surface-2)] transition cursor-pointer"
                   >
                     {card.source === 'project' ? (
                       <Link href={card.href} className="block focus:outline-none">

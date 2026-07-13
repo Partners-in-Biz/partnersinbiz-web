@@ -62,9 +62,9 @@ function shortDate(iso: string): string {
 
 function statusBadgeClass(status: string): string {
   const s = status.toLowerCase()
-  if (s === 'published' || s === 'live') return 'bg-green-500/10 text-green-400'
-  if (s === 'draft') return 'bg-amber-500/10 text-amber-400'
-  return 'bg-on-surface/10 text-on-surface-variant'
+  if (s === 'published' || s === 'live') return 'bg-[var(--color-pib-green-soft)] text-[var(--color-pib-green)]'
+  if (s === 'draft') return 'bg-[var(--color-pib-amber-soft)] text-[var(--color-pib-amber)]'
+  return 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]'
 }
 
 function csvCell(value: string | number | null | undefined): string {
@@ -184,20 +184,18 @@ export default function ContentAnalyticsPage() {
   const series = data?.series ?? []
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
-            Content / Analytics
-          </p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Content Analytics</h1>
-          <p className="text-sm text-on-surface-variant mt-0.5 max-w-2xl">
+    <div className="space-y-8 max-w-6xl mx-auto">
+      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="min-w-0">
+          <p className="eyebrow">Content · Analytics</p>
+          <h1 className="pib-page-title mt-2">Content Analytics</h1>
+          <p className="pib-page-sub max-w-2xl">
             Traffic, engagement, and keyword performance for your published articles over the last 30 days.
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-2 self-start md:self-auto">
           <label className="block">
-            <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
+            <span className="pib-label">
               Property ID
             </span>
             <input
@@ -215,24 +213,24 @@ export default function ContentAnalyticsPage() {
           <button
             onClick={exportCsv}
             disabled={articles.length === 0}
-            className="pib-btn-secondary text-sm font-label"
+            className="btn-pib-secondary"
           >
             Export CSV
           </button>
-          <Link href="/admin/content/seo" className="pib-btn-ghost text-sm font-label">
+          <Link href="/admin/content/seo" className="btn-pib-ghost">
             Articles
           </Link>
         </div>
-      </div>
+      </header>
 
       {error && (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+        <div className="pib-card px-4 py-3 text-sm text-[var(--color-error)]">
           {error}
         </div>
       )}
 
       {!loading && data && !data.hasProperty && (
-        <div className="pib-card flex items-center gap-2 px-4 py-3 text-sm text-on-surface-variant">
+        <div className="pib-card flex items-center gap-2 px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">
           <span className="material-symbols-outlined text-base">info</span>
           <span>
             No analytics property connected — metrics show zero. Enter a propertyId to join live traffic.
@@ -254,65 +252,65 @@ export default function ContentAnalyticsPage() {
       ) : (
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="pib-card p-4">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+            <div className="pib-stat-card">
+              <p className="pib-label">
                 Total views
               </p>
-              <p className="text-2xl font-headline font-bold text-on-surface mt-1">
+              <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">
                 {(data?.totals.views ?? 0).toLocaleString()}
               </p>
             </div>
-            <div className="pib-card p-4">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+            <div className="pib-stat-card">
+              <p className="pib-label">
                 Total sessions
               </p>
-              <p className="text-2xl font-headline font-bold text-on-surface mt-1">
+              <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">
                 {(data?.totals.sessions ?? 0).toLocaleString()}
               </p>
             </div>
-            <div className="pib-card p-4">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+            <div className="pib-stat-card">
+              <p className="pib-label">
                 Tracked articles
               </p>
-              <p className="text-2xl font-headline font-bold text-on-surface mt-1">{articles.length}</p>
+              <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{articles.length}</p>
             </div>
-            <div className="pib-card p-4">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+            <div className="pib-stat-card">
+              <p className="pib-label">
                 Avg bounce rate
               </p>
-              <p className="text-2xl font-headline font-bold text-on-surface mt-1">{avgBounce}%</p>
+              <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{avgBounce}%</p>
             </div>
           </div>
 
           <div className="pib-card p-5">
-            <p className="text-sm font-headline font-bold text-on-surface mb-3">Traffic — last 30 days</p>
+            <p className="text-sm font-headline font-bold text-[var(--color-pib-text)] mb-3">Traffic — last 30 days</p>
             <div className="h-72 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={series} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="trafficFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--color-accent-v2)" stopOpacity={0.35} />
-                      <stop offset="100%" stopColor="var(--color-accent-v2)" stopOpacity={0.02} />
+                      <stop offset="0%" stopColor="var(--color-pib-violet)" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="var(--color-pib-violet)" stopOpacity={0.02} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-card-border)" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-pib-line)" vertical={false} />
                   <XAxis
                     dataKey="date"
                     tickFormatter={shortDate}
-                    tick={{ fontSize: 11, fill: 'var(--color-on-surface-variant)' }}
-                    stroke="var(--color-card-border)"
+                    tick={{ fontSize: 11, fill: 'var(--color-pib-text-muted)' }}
+                    stroke="var(--color-pib-line)"
                   />
                   <YAxis
                     allowDecimals={false}
                     width={40}
-                    tick={{ fontSize: 11, fill: 'var(--color-on-surface-variant)' }}
-                    stroke="var(--color-card-border)"
+                    tick={{ fontSize: 11, fill: 'var(--color-pib-text-muted)' }}
+                    stroke="var(--color-pib-line)"
                   />
                   <Tooltip
                     labelFormatter={(label) => shortDate(String(label))}
                     contentStyle={{
-                      background: 'var(--color-surface)',
-                      border: '1px solid var(--color-card-border)',
+                      background: "var(--color-pib-surface)",
+                      border: '1px solid var(--color-pib-line)',
                       borderRadius: 8,
                       fontSize: 12,
                     }}
@@ -320,7 +318,7 @@ export default function ContentAnalyticsPage() {
                   <Area
                     type="monotone"
                     dataKey="views"
-                    stroke="var(--color-accent-v2)"
+                    stroke="var(--color-pib-violet)"
                     strokeWidth={2}
                     fill="url(#trafficFill)"
                   />
@@ -331,8 +329,8 @@ export default function ContentAnalyticsPage() {
 
           {articles.length === 0 ? (
             <div className="pib-card p-8 text-center">
-              <p className="text-sm text-on-surface-variant">No article analytics yet.</p>
-              <p className="text-xs text-on-surface-variant/60 mt-1">
+              <p className="text-sm text-[var(--color-pib-text-muted)]">No article analytics yet.</p>
+              <p className="text-xs text-[var(--color-pib-text-faint)] mt-1">
                 Publish articles and connect an analytics property to start tracking traffic and engagement.
               </p>
             </div>
@@ -340,20 +338,20 @@ export default function ContentAnalyticsPage() {
             <div className="pib-card overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-[var(--color-card-border)] text-left">
-                    <th className="px-4 py-3 font-label text-[10px] uppercase tracking-wide text-on-surface-variant">
+                  <tr className="border-b border-[var(--color-pib-line)] text-left">
+                    <th className="px-4 py-3 font-label text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                       Title
                     </th>
-                    <th className="px-4 py-3 font-label text-[10px] uppercase tracking-wide text-on-surface-variant">
+                    <th className="px-4 py-3 font-label text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                       Status
                     </th>
-                    <th className="px-4 py-3 font-label text-[10px] uppercase tracking-wide text-on-surface-variant">
+                    <th className="px-4 py-3 font-label text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                       Keyword
                     </th>
                     <th className="px-4 py-3 text-right">
                       <button
                         onClick={() => toggleSort('views')}
-                        className="font-label text-[10px] uppercase tracking-wide text-on-surface-variant hover:text-on-surface"
+                        className="font-label text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
                       >
                         Views{sortArrow('views')}
                       </button>
@@ -361,7 +359,7 @@ export default function ContentAnalyticsPage() {
                     <th className="px-4 py-3 text-right">
                       <button
                         onClick={() => toggleSort('sessions')}
-                        className="font-label text-[10px] uppercase tracking-wide text-on-surface-variant hover:text-on-surface"
+                        className="font-label text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
                       >
                         Sessions{sortArrow('sessions')}
                       </button>
@@ -369,15 +367,15 @@ export default function ContentAnalyticsPage() {
                     <th className="px-4 py-3 text-right">
                       <button
                         onClick={() => toggleSort('bounce')}
-                        className="font-label text-[10px] uppercase tracking-wide text-on-surface-variant hover:text-on-surface"
+                        className="font-label text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
                       >
                         Bounce %{sortArrow('bounce')}
                       </button>
                     </th>
-                    <th className="px-4 py-3 text-right font-label text-[10px] uppercase tracking-wide text-on-surface-variant">
+                    <th className="px-4 py-3 text-right font-label text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                       Shares
                     </th>
-                    <th className="px-4 py-3 font-label text-[10px] uppercase tracking-wide text-on-surface-variant">
+                    <th className="px-4 py-3 font-label text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                       Top referrer
                     </th>
                   </tr>
@@ -386,11 +384,11 @@ export default function ContentAnalyticsPage() {
                   {sortedArticles.map((a) => (
                     <tr
                       key={a.id}
-                      className="border-b border-[var(--color-card-border)] last:border-0 hover:bg-on-surface/5"
+                      className="border-b border-[var(--color-pib-line)] last:border-0 hover:bg-[var(--color-row-hover)]"
                     >
                       <td className="px-4 py-3 max-w-xs">
-                        <p className="font-medium text-on-surface truncate">{a.title}</p>
-                        <p className="text-[11px] text-on-surface-variant font-mono truncate">/{a.slug}</p>
+                        <p className="font-medium text-[var(--color-pib-text)] truncate">{a.title}</p>
+                        <p className="text-[11px] text-[var(--color-pib-text-muted)] font-mono truncate">/{a.slug}</p>
                       </td>
                       <td className="px-4 py-3">
                         <span
@@ -401,12 +399,12 @@ export default function ContentAnalyticsPage() {
                           {a.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-on-surface-variant">
+                      <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">
                         {a.keyword ? (
                           <span>
                             {a.keyword}
                             {a.keywordPosition !== null && (
-                              <span className="text-[11px] text-on-surface-variant/70">
+                              <span className="text-[11px] text-[var(--color-pib-text-faint)]">
                                 {' '}
                                 #{a.keywordPosition}
                               </span>
@@ -416,19 +414,19 @@ export default function ContentAnalyticsPage() {
                           '—'
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right text-on-surface tabular-nums">
+                      <td className="px-4 py-3 text-right text-[var(--color-pib-text)] tabular-nums">
                         {a.views.toLocaleString()}
                       </td>
-                      <td className="px-4 py-3 text-right text-on-surface tabular-nums">
+                      <td className="px-4 py-3 text-right text-[var(--color-pib-text)] tabular-nums">
                         {a.sessions.toLocaleString()}
                       </td>
-                      <td className="px-4 py-3 text-right text-on-surface tabular-nums">
+                      <td className="px-4 py-3 text-right text-[var(--color-pib-text)] tabular-nums">
                         {a.bounceRate}%
                       </td>
-                      <td className="px-4 py-3 text-right text-on-surface tabular-nums">
+                      <td className="px-4 py-3 text-right text-[var(--color-pib-text)] tabular-nums">
                         {a.socialShares.toLocaleString()}
                       </td>
-                      <td className="px-4 py-3 text-on-surface-variant">
+                      <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">
                         {a.topReferrers[0]?.label ?? '—'}
                       </td>
                     </tr>

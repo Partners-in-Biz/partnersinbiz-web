@@ -29,7 +29,7 @@ export function CommentList({ comments, onScrollToAnchor }: Props) {
   if (comments.length === 0) {
     return (
       <div className="pib-card p-5 text-center">
-        <p className="text-xs text-on-surface-variant">
+        <p className="text-xs text-[var(--color-pib-text-muted)]">
           No comments yet. Highlight text or click an image to leave one.
         </p>
       </div>
@@ -52,7 +52,7 @@ export function CommentList({ comments, onScrollToAnchor }: Props) {
             }
           >
             <div className="flex items-center gap-2 text-xs">
-              <span className="font-medium text-on-surface">{c.userName}</span>
+              <span className="font-medium text-[var(--color-pib-text)]">{c.userName}</span>
               <span
                 className="text-[10px] px-1.5 py-0.5 rounded uppercase tracking-wide"
                 style={{
@@ -72,13 +72,13 @@ export function CommentList({ comments, onScrollToAnchor }: Props) {
                   agent ✓
                 </span>
               )}
-              <span className="ml-auto text-on-surface-variant">{formatTs(c.createdAt)}</span>
+              <span className="ml-auto text-[var(--color-pib-text-muted)]">{formatTs(c.createdAt)}</span>
             </div>
             {c.anchor?.type === 'text' && (
               <button
                 type="button"
                 onClick={() => onScrollToAnchor?.(c)}
-                className="text-xs italic text-left text-on-surface-variant hover:text-on-surface bg-[var(--color-surface)] rounded px-2 py-1.5 -ml-1 max-w-full truncate block"
+                className="text-xs italic text-left text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] bg-[var(--color-surface)] rounded px-2 py-1.5 -ml-1 max-w-full truncate block"
                 title="Jump to selection"
               >
                 Re: &ldquo;{c.anchor.text.slice(0, 100)}
@@ -89,7 +89,7 @@ export function CommentList({ comments, onScrollToAnchor }: Props) {
               <button
                 type="button"
                 onClick={() => onScrollToAnchor?.(c)}
-                className="flex items-center gap-2 text-xs text-on-surface-variant hover:text-on-surface"
+                className="flex items-center gap-2 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
                 title="Jump to image"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -27,11 +27,11 @@ import { performAutoEnroll } from '@/lib/lead-capture/autoEnroll'
 import { deliverCaptureWebhook } from '@/lib/lead-capture/webhook'
 import { isDisposableEmail } from '@/lib/lead-capture/disposable-domains'
 import { verifyTurnstileToken } from '@/lib/forms/turnstile'
-import {
-  captureAttributionId,
-  normalizeCaptureProvenance,
-} from '@/lib/email-marketing/capture-attribution'
+import { captureAttributionId } from '@/lib/email-marketing/capture-attribution'
 import { appendConsentEvent } from '@/lib/consent-ledger/store'
+import { resolveCaptureFields } from '@/lib/lead-capture/schema'
+import { buildCaptureAttributionContext } from '@/lib/lead-capture/attribution-context'
+import { publishCaptureSchemaVersion } from '@/lib/lead-capture/schema-store'
 import {
   type CaptureSource,
   type CaptureSubmission,
@@ -150,31 +150,6 @@ function isEmail(s: string): boolean {
   return true
 }
 
-// US-097: pull UTM params from the request body (top-level or under `utm`/`data`)
-// and the query string. Returns a map keyed by the canonical utm_* names; empty
-// values are dropped.
-const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'] as const
-
-function extractUtm(req: NextRequest, body: Record<string, unknown>): Record<string, string> {
-  const out: Record<string, string> = {}
-  const search = new URL(req.url).searchParams
-  const data = (body.data && typeof body.data === 'object' ? body.data : {}) as Record<string, unknown>
-  const utmObj = (body.utm && typeof body.utm === 'object' ? body.utm : {}) as Record<string, unknown>
-
-  for (const key of UTM_KEYS) {
-    // Precedence: explicit body utm object → top-level body → data object → query string
-    const candidate =
-      (typeof utmObj[key] === 'string' && utmObj[key]) ||
-      (typeof body[key] === 'string' && (body[key] as string)) ||
-      (typeof data[key] === 'string' && (data[key] as string)) ||
-      search.get(key) ||
-      ''
-    const val = typeof candidate === 'string' ? candidate.trim() : ''
-    if (val) out[key] = val.slice(0, 500)
-  }
-  return out
-}
-
 // Map a utm_* key to the camelCase contact field name (utm_source → utmSource).
 function utmContactFields(utm: Record<string, string>): Record<string, string> {
   const map: Record<string, string> = {
@@ -291,6 +266,11 @@ export async function POST(req: NextRequest, context: Params) {
 
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
   if (!isEmail(email)) return jsonError('A valid email is required', 400)
+  const forbiddenLineage = ['campaignId', 'programId', 'sourceId', 'gclid', 'fbclid', 'msclkid', 'ttclid']
+    .filter((key) => body[key] !== undefined)
+  if (forbiddenLineage.length) {
+    return jsonError(`Server-controlled fields are not accepted: ${forbiddenLineage.join(', ')}`, 400)
+  }
 
   // ---- Spam protection gates ----
   const ip = clientIp(req)
@@ -388,48 +368,37 @@ export async function POST(req: NextRequest, context: Params) {
     }
   }
 
-  // Build the submitted data record from declared fields + any extras
+  // Build the submitted data record from the published schema. Hidden fields
+  // are resolved later from trusted request attribution, never from raw input.
   const rawData = (body.data && typeof body.data === 'object' ? body.data : {}) as Record<string, unknown>
-  const data: Record<string, string> = {}
-
-  for (const field of source.fields ?? []) {
-    const raw = rawData[field.key]
-    const val = typeof raw === 'string' ? raw.trim() : ''
-    if (field.required && !val) {
-      return jsonError(`Field "${field.label}" is required`, 400)
-    }
-    if (val) data[field.key] = val
-  }
-  // Also accept top-level firstName/lastName/name/phone/company if not in fields
-  for (const k of ['firstName', 'lastName', 'name', 'phone', 'company']) {
-    if (!(k in data) && typeof rawData[k] === 'string' && (rawData[k] as string).trim()) {
-      data[k] = (rawData[k] as string).trim()
-    }
-  }
 
   // US-097: capture UTM attribution from body/query for the created contact.
-  const utm = extractUtm(req, body as Record<string, unknown>)
-  const utmFields = utmContactFields(utm)
   const bodyRecord = body as Record<string, unknown>
   const sourceRecord = source as unknown as Record<string, unknown>
-  const requestReferer =
-    (typeof bodyRecord.referer === 'string' && bodyRecord.referer) ||
-    req.headers.get('referer') ||
-    ''
-  const provenance = normalizeCaptureProvenance({
-    sourceId: source.id,
-    sourceName: source.name,
-    sourceType: sourceRecord.type ?? 'capture-source',
-    campaignId: bodyRecord.campaignId ?? sourceRecord.campaignId,
-    programId: bodyRecord.programId ?? sourceRecord.programId,
-    referrer: requestReferer,
-    landingPage: bodyRecord.landingPage ?? bodyRecord.pageUrl ?? requestReferer,
-    ...utm,
-    gclid: bodyRecord.gclid,
-    fbclid: bodyRecord.fbclid,
-    msclkid: bodyRecord.msclkid,
-    ttclid: bodyRecord.ttclid,
+  const requestReferer = req.headers.get('referer') || ''
+  const { context: attributionContext, provenance, lineage } = buildCaptureAttributionContext({
+    requestUrl: req.url,
+    refererHeader: requestReferer,
+    body: bodyRecord,
+    source: { id: source.id, name: source.name, type: source.type, ...sourceRecord },
   })
+  const utmFields = utmContactFields({
+    utm_source: provenance.utm.source ?? '',
+    utm_medium: provenance.utm.medium ?? '',
+    utm_campaign: provenance.utm.campaign ?? '',
+    utm_term: provenance.utm.term ?? '',
+    utm_content: provenance.utm.content ?? '',
+  })
+  const webhookUtm = {
+    utm_source: provenance.utm.source ?? '',
+    utm_medium: provenance.utm.medium ?? '',
+    utm_campaign: provenance.utm.campaign ?? '',
+    utm_term: provenance.utm.term ?? '',
+    utm_content: provenance.utm.content ?? '',
+  }
+  const resolvedFields = resolveCaptureFields(source.fields ?? [], rawData, attributionContext)
+  if (!resolvedFields.ok) return jsonError(resolvedFields.errors.join('; '), 400)
+  const data = resolvedFields.data as Record<string, string>
 
   // 3. Find or create contact
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -513,6 +482,11 @@ export async function POST(req: NextRequest, context: Params) {
   const submissionId = submissionRef.id
   const confirmationToken = signConfirmToken(submissionId)
   const doiOn = source.doubleOptIn === 'on'
+  const schemaVersion = await publishCaptureSchemaVersion(
+    adminDb as never,
+    adminDb.collection(LEAD_CAPTURE_SOURCES).doc(source.id) as never,
+    { orgId: source.orgId, sourceId: source.id, fields: source.fields ?? [], display: source.display },
+  )
 
   await submissionRef.set({
     orgId: source.orgId,
@@ -526,6 +500,8 @@ export async function POST(req: NextRequest, context: Params) {
     userAgent,
     referer,
     attribution: provenance,
+    attributionLineage: lineage,
+    schemaVersionId: schemaVersion.id,
     createdAt: FieldValue.serverTimestamp(),
   })
 
@@ -610,7 +586,7 @@ export async function POST(req: NextRequest, context: Params) {
     sendAdminNotifications({ source, submission, orgName }).catch(() => {})
 
     // US-091: fire outbound webhook async — never block the submit response.
-    deliverCaptureWebhook({ source, submission, utm, requiresConfirmation: true }).catch(() => {})
+    deliverCaptureWebhook({ source, submission, utm: webhookUtm, requiresConfirmation: true }).catch(() => {})
 
     return jsonSuccess({
       ok: true,
@@ -632,7 +608,7 @@ export async function POST(req: NextRequest, context: Params) {
   sendAdminNotifications({ source, submission, orgName }).catch(() => {})
 
   // US-091: fire outbound webhook async — never block the submit response.
-  deliverCaptureWebhook({ source, submission, utm, requiresConfirmation: false }).catch(() => {})
+  deliverCaptureWebhook({ source, submission, utm: webhookUtm, requiresConfirmation: false }).catch(() => {})
 
   return jsonSuccess({
     ok: true,

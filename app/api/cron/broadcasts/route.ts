@@ -85,6 +85,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   for (const d of abTestingSnap.docs) {
     const ab = d.data()?.ab as AbConfig | undefined
     if (!ab) continue
+    try {
+      await assertEmailMarketingDispatchApproval({ id: d.id, ...d.data() }, {
+        orgId: String(d.data()?.orgId ?? ''), resourceType: 'email_broadcast', resourceId: d.id,
+      })
+    } catch {
+      continue
+    }
     const newStatus = await maybeFinalizeWinner({
       targetCollection: 'broadcasts',
       targetId: d.id,
@@ -99,6 +106,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   for (const d of abPendingSnap.docs) {
     const ab = d.data()?.ab as AbConfig | undefined
     if (!ab) continue
+    try {
+      await assertEmailMarketingDispatchApproval({ id: d.id, ...d.data() }, {
+        orgId: String(d.data()?.orgId ?? ''), resourceType: 'email_broadcast', resourceId: d.id,
+      })
+    } catch {
+      continue
+    }
     const result = await dispatchWinnerToRemaining({ broadcastId: d.id, ab })
     abDispatched += result.queued
   }

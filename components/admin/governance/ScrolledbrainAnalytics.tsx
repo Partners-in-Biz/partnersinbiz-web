@@ -60,7 +60,7 @@ interface Result {
 }
 
 function Delta({ pct }: { pct: number | null }) {
-  if (pct === null) return <span className="text-[11px] text-on-surface-variant">new</span>
+  if (pct === null) return <span className="text-[11px] text-[var(--color-pib-text-muted)]">new</span>
   const up = pct >= 0
   return (
     <span className={`text-[11px] ${up ? 'text-green-300' : 'text-red-300'}`}>
@@ -127,9 +127,9 @@ export function ScrolledbrainAnalytics() {
     <div className="space-y-6 max-w-6xl mx-auto">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">Analytics</p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Scrolledbrain Analytics</h1>
-          <p className="text-sm text-on-surface-variant mt-1">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">Analytics</p>
+          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Scrolledbrain Analytics</h1>
+          <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
             Dedicated ingest + usage view for the Scrolledbrain property, with period comparison, an ingestion error
             log, and env-sync controls.
           </p>
@@ -141,7 +141,7 @@ export function ScrolledbrainAnalytics() {
               type="button"
               onClick={() => setPeriod(p)}
               className={`rounded-md px-3 py-1.5 text-xs transition-colors ${
-                period === p ? 'bg-[var(--color-accent-v2)] text-black' : 'text-on-surface-variant hover:text-on-surface'
+                period === p ? 'bg-[var(--color-accent-v2)] text-black' : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
               }`}
             >
               {p}
@@ -166,9 +166,9 @@ export function ScrolledbrainAnalytics() {
       )}
 
       {loading ? (
-        <div className="pib-card text-sm text-on-surface-variant">Loading…</div>
+        <div className="pib-card text-sm text-[var(--color-pib-text-muted)]">Loading…</div>
       ) : !data?.found || !data.property ? (
-        <div className="pib-card text-sm text-on-surface-variant">
+        <div className="pib-card text-sm text-[var(--color-pib-text-muted)]">
           No property with a scrolledbrain domain is available in this admin scope.
         </div>
       ) : (
@@ -176,45 +176,45 @@ export function ScrolledbrainAnalytics() {
           {/* Period-compare metrics */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="pib-card">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Events ({period})</p>
-              <p className="text-2xl font-headline font-bold text-on-surface mt-1">{data.current.events}</p>
+              <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Events ({period})</p>
+              <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{data.current.events}</p>
               <div className="mt-0.5 flex items-center gap-1.5">
                 <Delta pct={data.comparison.eventsDeltaPct} />
-                <span className="text-[11px] text-on-surface-variant">vs prev {data.previous.events}</span>
+                <span className="text-[11px] text-[var(--color-pib-text-muted)]">vs prev {data.previous.events}</span>
               </div>
             </div>
             <div className="pib-card">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Sessions ({period})</p>
-              <p className="text-2xl font-headline font-bold text-on-surface mt-1">{data.current.sessions}</p>
+              <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Sessions ({period})</p>
+              <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{data.current.sessions}</p>
               <div className="mt-0.5 flex items-center gap-1.5">
                 <Delta pct={data.comparison.sessionsDeltaPct} />
-                <span className="text-[11px] text-on-surface-variant">vs prev {data.previous.sessions}</span>
+                <span className="text-[11px] text-[var(--color-pib-text-muted)]">vs prev {data.previous.sessions}</span>
               </div>
             </div>
             <div className="pib-card">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Status</p>
-              <p className="text-lg font-headline font-bold text-on-surface mt-1">{data.property.status}</p>
-              <p className="text-[11px] text-on-surface-variant mt-0.5 font-mono break-all">{data.property.id}</p>
+              <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Status</p>
+              <p className="text-lg font-headline font-bold text-[var(--color-pib-text)] mt-1">{data.property.status}</p>
+              <p className="text-[11px] text-[var(--color-pib-text-muted)] mt-0.5 font-mono break-all">{data.property.id}</p>
             </div>
             <div className="pib-card">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Ingest errors</p>
-              <p className="text-2xl font-headline font-bold text-on-surface mt-1">{data.errors.length}</p>
-              <p className="text-[11px] text-on-surface-variant mt-0.5">dead-letter records</p>
+              <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Ingest errors</p>
+              <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{data.errors.length}</p>
+              <p className="text-[11px] text-[var(--color-pib-text-muted)] mt-0.5">dead-letter records</p>
             </div>
           </div>
 
-          <p className="text-[11px] text-on-surface-variant">
+          <p className="text-[11px] text-[var(--color-pib-text-muted)]">
             Current window {data.comparison.currentWindow.fromIso} → {data.comparison.currentWindow.toIso} · Previous{' '}
             {data.comparison.previousWindow.fromIso} → {data.comparison.previousWindow.toIso}
           </p>
 
           {/* Top pages compare */}
           <div className="overflow-x-auto rounded-xl border border-[var(--color-card-border)]">
-            <table className="w-full text-left text-sm text-on-surface">
+            <table className="w-full text-left text-sm text-[var(--color-pib-text)]">
               <thead>
-                <tr className="border-b border-[var(--color-card-border)] bg-[var(--color-surface-container)]">
+                <tr className="border-b border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)]">
                   {['Page', 'Views (current)', 'Views (previous)'].map((c) => (
-                    <th key={c} className="px-3 py-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                    <th key={c} className="px-3 py-2 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                       {c}
                     </th>
                   ))}
@@ -223,7 +223,7 @@ export function ScrolledbrainAnalytics() {
               <tbody>
                 {data.current.topPages.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="px-3 py-6 text-center text-on-surface-variant">
+                    <td colSpan={3} className="px-3 py-6 text-center text-[var(--color-pib-text-muted)]">
                       No stored page events for this window.
                     </td>
                   </tr>
@@ -233,8 +233,8 @@ export function ScrolledbrainAnalytics() {
                     return (
                       <tr key={row.page} className="border-b border-[var(--color-card-border)] last:border-b-0">
                         <td className="px-3 py-2 font-mono text-xs break-all">{row.page}</td>
-                        <td className="px-3 py-2 text-on-surface-variant">{row.views}</td>
-                        <td className="px-3 py-2 text-on-surface-variant">{prev}</td>
+                        <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{row.views}</td>
+                        <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{prev}</td>
                       </tr>
                     )
                   })
@@ -245,16 +245,16 @@ export function ScrolledbrainAnalytics() {
 
           {/* Error log */}
           <div className="pib-card space-y-3">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Ingestion error log</p>
+            <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Ingestion error log</p>
             {data.errors.length === 0 ? (
-              <p className="text-sm text-on-surface-variant">No ingestion errors recorded for this property.</p>
+              <p className="text-sm text-[var(--color-pib-text-muted)]">No ingestion errors recorded for this property.</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm text-on-surface">
+                <table className="w-full text-left text-sm text-[var(--color-pib-text)]">
                   <thead>
                     <tr className="border-b border-[var(--color-card-border)]">
                       {['Event', 'Reason', 'Error', 'Failed at'].map((c) => (
-                        <th key={c} className="px-2 py-1.5 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                        <th key={c} className="px-2 py-1.5 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                           {c}
                         </th>
                       ))}
@@ -265,8 +265,8 @@ export function ScrolledbrainAnalytics() {
                       <tr key={e.id} className="border-b border-[var(--color-card-border)] last:border-b-0">
                         <td className="px-2 py-1.5 text-xs">{e.event}</td>
                         <td className="px-2 py-1.5 text-xs text-amber-300/80">{e.reason || '—'}</td>
-                        <td className="px-2 py-1.5 text-xs text-on-surface-variant max-w-[280px] break-words">{e.error || '—'}</td>
-                        <td className="px-2 py-1.5 text-xs text-on-surface-variant whitespace-nowrap">{e.failedAt || '—'}</td>
+                        <td className="px-2 py-1.5 text-xs text-[var(--color-pib-text-muted)] max-w-[280px] break-words">{e.error || '—'}</td>
+                        <td className="px-2 py-1.5 text-xs text-[var(--color-pib-text-muted)] whitespace-nowrap">{e.failedAt || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -279,12 +279,12 @@ export function ScrolledbrainAnalytics() {
           {data.envSync && (
             <div className="pib-card space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Env sync</p>
+                <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Env sync</p>
                 <button
                   type="button"
                   disabled={rotating}
                   onClick={rotateKey}
-                  className="rounded-lg border border-[var(--color-card-border)] px-3 py-1.5 text-xs text-on-surface hover:bg-[var(--color-row-hover)] disabled:opacity-50 transition-colors"
+                  className="rounded-lg border border-[var(--color-card-border)] px-3 py-1.5 text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-row-hover)] disabled:opacity-50 transition-colors"
                 >
                   {rotating ? 'Rotating…' : 'Rotate ingest key'}
                 </button>
@@ -293,7 +293,7 @@ export function ScrolledbrainAnalytics() {
               {revealedKey && (
                 <div className="rounded-lg border border-green-500/20 bg-green-500/10 px-3 py-2">
                   <p className="text-[11px] text-green-300 mb-1">New ingest key (shown once):</p>
-                  <code className="block text-xs font-mono text-on-surface break-all">{revealedKey}</code>
+                  <code className="block text-xs font-mono text-[var(--color-pib-text)] break-all">{revealedKey}</code>
                 </div>
               )}
 
@@ -305,18 +305,18 @@ export function ScrolledbrainAnalytics() {
                   >
                     <span className={`mt-0.5 text-sm ${c.ok ? 'text-green-300' : 'text-amber-300'}`}>{c.ok ? '✓' : '!'}</span>
                     <div>
-                      <p className="text-xs font-medium text-on-surface">{c.label}</p>
-                      <p className="text-[11px] text-on-surface-variant">{c.detail}</p>
+                      <p className="text-xs font-medium text-[var(--color-pib-text)]">{c.label}</p>
+                      <p className="text-[11px] text-[var(--color-pib-text-muted)]">{c.detail}</p>
                     </div>
                   </div>
                 ))}
               </div>
 
-              <div className="space-y-1 text-[11px] text-on-surface-variant">
+              <div className="space-y-1 text-[11px] text-[var(--color-pib-text-muted)]">
                 <p>
-                  Ingest endpoint: <span className="font-mono text-on-surface">{data.envSync.ingestEndpoint}</span>
+                  Ingest endpoint: <span className="font-mono text-[var(--color-pib-text)]">{data.envSync.ingestEndpoint}</span>
                 </p>
-                <pre className="mt-1 overflow-x-auto rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] p-3 text-[11px] text-on-surface font-mono whitespace-pre-wrap">
+                <pre className="mt-1 overflow-x-auto rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)] p-3 text-[11px] text-[var(--color-pib-text)] font-mono whitespace-pre-wrap">
                   {data.envSync.sdkSnippet}
                 </pre>
               </div>

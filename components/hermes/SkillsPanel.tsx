@@ -91,7 +91,7 @@ export default function SkillsPanel({ orgId, profileEnabled }: Props) {
 
   if (!profileEnabled) {
     return (
-      <div className="pib-card text-sm text-on-surface-variant">
+      <div className="pib-card text-sm text-[var(--color-pib-text-muted)]">
         Enable a Hermes profile link to manage skills.
       </div>
     )
@@ -101,8 +101,8 @@ export default function SkillsPanel({ orgId, profileEnabled }: Props) {
     <section className="pib-card space-y-4">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-on-surface">Skills</h2>
-          <p className="text-xs text-on-surface-variant mt-1">
+          <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Skills</h2>
+          <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">
             {skills.length} installed on VPS. Drop a .zip to install a new skill.
           </p>
         </div>
@@ -124,14 +124,14 @@ export default function SkillsPanel({ orgId, profileEnabled }: Props) {
         className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 cursor-pointer transition-colors ${
           dragOver
             ? 'border-primary bg-primary/5'
-            : 'border-[var(--color-card-border)] hover:border-primary/50'
+            : 'border-[var(--color-pib-line)] hover:border-primary/50'
         }`}
       >
-        <span className="material-symbols-outlined text-3xl text-on-surface-variant">cloud_upload</span>
-        <div className="text-sm text-on-surface text-center">
+        <span className="material-symbols-outlined text-3xl text-[var(--color-pib-text-muted)]">cloud_upload</span>
+        <div className="text-sm text-[var(--color-pib-text)] text-center">
           {uploading ? 'Uploading…' : 'Drop a skill .zip here, or click to choose'}
         </div>
-        <div className="text-xs text-on-surface-variant">Max 50 MB. Gateway auto-restarts after install.</div>
+        <div className="text-xs text-[var(--color-pib-text-muted)]">Max 50 MB. Gateway auto-restarts after install.</div>
         <input
           ref={inputRef}
           type="file"
@@ -150,15 +150,15 @@ export default function SkillsPanel({ orgId, profileEnabled }: Props) {
 
       <div className="grid gap-2 sm:grid-cols-2">
         {skills.length === 0 && !loading && (
-          <div className="sm:col-span-2 text-sm text-on-surface-variant py-4 text-center">No skills installed.</div>
+          <div className="sm:col-span-2 text-sm text-[var(--color-pib-text-muted)] py-4 text-center">No skills installed.</div>
         )}
         {skills.map((s) => (
-          <div key={s.name} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3">
+          <div key={s.name} className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)] p-3">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium text-on-surface truncate">{s.name}</div>
-                {s.description && <div className="text-xs text-on-surface-variant mt-0.5 line-clamp-2">{s.description}</div>}
-                <div className="text-xs text-on-surface-variant mt-1">{s.fileCount} files · {formatBytes(s.sizeBytes)}</div>
+                <div className="text-sm font-medium text-[var(--color-pib-text)] truncate">{s.name}</div>
+                {s.description && <div className="text-xs text-[var(--color-pib-text-muted)] mt-0.5 line-clamp-2">{s.description}</div>}
+                <div className="text-xs text-[var(--color-pib-text-muted)] mt-1">{s.fileCount} files · {formatBytes(s.sizeBytes)}</div>
               </div>
               <button
                 type="button"

@@ -90,7 +90,7 @@ export function BlogEditor({ initialMarkdown, busy, onSave, onCancel }: Props) {
         'h-8 px-2 rounded text-sm font-medium transition-colors',
         active
           ? 'bg-[var(--org-accent,var(--color-pib-accent))] text-black'
-          : 'text-on-surface hover:bg-[var(--color-surface)]',
+          : 'text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface)]',
       ].join(' ')}
     >
       {children}
@@ -110,7 +110,7 @@ export function BlogEditor({ initialMarkdown, busy, onSave, onCancel }: Props) {
   return (
     <div className="pib-card overflow-hidden">
       {/* Toolbar */}
-      <div className="sticky top-0 z-10 flex flex-wrap items-center gap-1 px-3 py-2 border-b border-[var(--org-border,var(--color-pib-line))] bg-[var(--color-surface)]">
+      <div className="sticky top-0 z-10 flex flex-wrap items-center gap-1 px-3 py-2 border-b border-[var(--org-border,var(--color-pib-line))] bg-[var(--color-pib-surface)]">
         <Btn
           onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
           active={editor.isActive('heading', { level: 2 })}
@@ -203,7 +203,7 @@ export function BlogEditor({ initialMarkdown, busy, onSave, onCancel }: Props) {
           type="button"
           onClick={onCancel}
           disabled={busy}
-          className="h-8 px-3 rounded text-xs text-on-surface-variant hover:text-on-surface disabled:opacity-50"
+          className="h-8 px-3 rounded text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] disabled:opacity-50"
         >
           Cancel
         </button>

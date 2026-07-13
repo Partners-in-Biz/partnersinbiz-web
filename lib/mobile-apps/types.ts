@@ -3,6 +3,7 @@ export type MobileAppStatus = 'planned' | 'live' | 'paused' | 'deprecated'
 export type MobileAppAccessStatus = 'unknown' | 'no_access' | 'invited' | 'active' | 'blocked'
 export type MobileAppProfileLinkType = 'developer_account' | 'store_account' | 'analytics' | 'support' | 'other'
 export type MobileAppProfileLinkStatus = 'linked' | 'pending' | 'needs_review' | 'blocked'
+export type MobileAppSubmissionStatus = 'not_started' | 'preparing' | 'ready_for_submission' | 'submitted' | 'in_review' | 'approved' | 'rejected' | 'released' | 'blocked'
 
 export interface MobileAppProfileLink {
   id?: string
@@ -51,7 +52,7 @@ export interface MobileAppReleaseManagement {
   buildNumber?: string
   upcomingVersion?: string
   releaseNotes?: string
-  submissionStatus?: string
+  submissionStatus?: MobileAppSubmissionStatus
   launchDate?: string
   knownIssues?: string
 }

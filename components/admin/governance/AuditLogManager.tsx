@@ -61,7 +61,7 @@ const EMPTY: AuditLogResult = {
 }
 
 const inputClass =
-  'mt-1 w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2 text-sm text-on-surface'
+  'mt-1 w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)] px-3 py-2 text-sm text-[var(--color-pib-text)]'
 
 export function AuditLogManager() {
   const [filters, setFilters] = useState<Filters>({ actor: '', action: '', from: '', to: '' })
@@ -120,18 +120,18 @@ export function AuditLogManager() {
     <div className="space-y-6 max-w-6xl mx-auto">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Governance
           </p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Audit Log</h1>
-          <p className="text-sm text-on-surface-variant mt-1">
+          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Audit Log</h1>
+          <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
             Immutable record of platform activity across {data.scope === 'restricted' ? 'your assigned' : 'all'} organisations,
             with suspicious-activity alerting and old → new change tracking.
           </p>
         </div>
         <a
           href={exportHref}
-          className="shrink-0 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-4 py-2 text-sm font-medium text-on-surface hover:bg-[var(--color-row-hover)] transition-colors"
+          className="shrink-0 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)] px-4 py-2 text-sm font-medium text-[var(--color-pib-text)] hover:bg-[var(--color-row-hover)] transition-colors"
         >
           Export CSV
         </a>
@@ -163,10 +163,10 @@ export function AuditLogManager() {
                   >
                     {alert.severity}
                   </span>
-                  <span className="text-sm font-medium text-on-surface">{alert.message}</span>
+                  <span className="text-sm font-medium text-[var(--color-pib-text)]">{alert.message}</span>
                 </div>
                 {alert.sampleActions.length > 0 && (
-                  <p className="text-xs text-on-surface-variant mt-1">
+                  <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">
                     Actions: {alert.sampleActions.join(', ')}
                   </p>
                 )}
@@ -178,10 +178,10 @@ export function AuditLogManager() {
 
       {/* Filters */}
       <div className="pib-card space-y-4">
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Filters</p>
+        <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Filters</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
-            <label className="text-xs text-on-surface-variant">Admin (actor)</label>
+            <label className="text-xs text-[var(--color-pib-text-muted)]">Admin (actor)</label>
             <input
               className={inputClass}
               list="audit-actor-list"
@@ -196,7 +196,7 @@ export function AuditLogManager() {
             </datalist>
           </div>
           <div>
-            <label className="text-xs text-on-surface-variant">Action (type)</label>
+            <label className="text-xs text-[var(--color-pib-text-muted)]">Action (type)</label>
             <input
               className={inputClass}
               list="audit-action-list"
@@ -211,7 +211,7 @@ export function AuditLogManager() {
             </datalist>
           </div>
           <div>
-            <label className="text-xs text-on-surface-variant">From</label>
+            <label className="text-xs text-[var(--color-pib-text-muted)]">From</label>
             <input
               type="date"
               className={inputClass}
@@ -220,7 +220,7 @@ export function AuditLogManager() {
             />
           </div>
           <div>
-            <label className="text-xs text-on-surface-variant">To</label>
+            <label className="text-xs text-[var(--color-pib-text-muted)]">To</label>
             <input
               type="date"
               className={inputClass}
@@ -240,11 +240,11 @@ export function AuditLogManager() {
           <button
             type="button"
             onClick={resetFilters}
-            className="rounded-lg border border-[var(--color-card-border)] px-4 py-2 text-sm text-on-surface-variant hover:text-on-surface transition-colors"
+            className="rounded-lg border border-[var(--color-card-border)] px-4 py-2 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
           >
             Reset
           </button>
-          <span className="text-xs text-on-surface-variant ml-auto">
+          <span className="text-xs text-[var(--color-pib-text-muted)] ml-auto">
             {loading ? 'Loading…' : `${data.total} match${data.total === 1 ? '' : 'es'} · scanned ${data.scanned}`}
           </span>
         </div>
@@ -258,13 +258,13 @@ export function AuditLogManager() {
 
       {/* Table */}
       <div className="overflow-x-auto rounded-xl border border-[var(--color-card-border)]">
-        <table className="w-full text-left text-sm text-on-surface">
+        <table className="w-full text-left text-sm text-[var(--color-pib-text)]">
           <thead>
-            <tr className="border-b border-[var(--color-card-border)] bg-[var(--color-surface-container)]">
+            <tr className="border-b border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)]">
               {['When', 'Actor', 'Action', 'Organization', 'Entity', 'Old → New', 'IP', 'Summary'].map((col) => (
                 <th
                   key={col}
-                  className="px-3 py-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant whitespace-nowrap"
+                  className="px-3 py-2 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] whitespace-nowrap"
                 >
                   {col}
                 </th>
@@ -274,13 +274,13 @@ export function AuditLogManager() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={8} className="px-3 py-6 text-center text-on-surface-variant">
+                <td colSpan={8} className="px-3 py-6 text-center text-[var(--color-pib-text-muted)]">
                   Loading audit activity…
                 </td>
               </tr>
             ) : data.rows.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-3 py-6 text-center text-on-surface-variant">
+                <td colSpan={8} className="px-3 py-6 text-center text-[var(--color-pib-text-muted)]">
                   No audit activity matches the current filters.
                 </td>
               </tr>
@@ -292,13 +292,13 @@ export function AuditLogManager() {
                     row.sensitive ? 'bg-amber-500/5' : ''
                   }`}
                 >
-                  <td className="px-3 py-2 whitespace-nowrap text-xs text-on-surface-variant align-top">
+                  <td className="px-3 py-2 whitespace-nowrap text-xs text-[var(--color-pib-text-muted)] align-top">
                     {row.createdAt || '—'}
                   </td>
                   <td className="px-3 py-2 align-top">
-                    <p className="font-medium text-on-surface whitespace-nowrap">{row.actorName || '—'}</p>
+                    <p className="font-medium text-[var(--color-pib-text)] whitespace-nowrap">{row.actorName || '—'}</p>
                     {row.actorRole && (
-                      <p className="text-[11px] text-on-surface-variant">{row.actorRole}</p>
+                      <p className="text-[11px] text-[var(--color-pib-text-muted)]">{row.actorRole}</p>
                     )}
                   </td>
                   <td className="px-3 py-2 align-top">
@@ -306,14 +306,14 @@ export function AuditLogManager() {
                       className={`inline-block rounded px-1.5 py-0.5 text-xs whitespace-nowrap ${
                         row.sensitive
                           ? 'bg-amber-500/15 text-amber-300'
-                          : 'bg-[var(--color-surface-container)] text-on-surface-variant'
+                          : 'bg-[var(--color-pib-surface-soft)] text-[var(--color-pib-text-muted)]'
                       }`}
                     >
                       {row.type}
                     </span>
                   </td>
-                  <td className="px-3 py-2 align-top text-on-surface-variant whitespace-nowrap">{row.orgName}</td>
-                  <td className="px-3 py-2 align-top text-on-surface-variant">
+                  <td className="px-3 py-2 align-top text-[var(--color-pib-text-muted)] whitespace-nowrap">{row.orgName}</td>
+                  <td className="px-3 py-2 align-top text-[var(--color-pib-text-muted)]">
                     {row.entityType || row.entityId ? (
                       <>
                         <span className="text-xs">{row.entityType || 'entity'}</span>
@@ -334,20 +334,20 @@ export function AuditLogManager() {
                           <span className="text-red-300/80 break-words">{row.oldValue}</span>
                         )}
                         {row.oldValue && row.newValue && (
-                          <span className="text-on-surface-variant"> → </span>
+                          <span className="text-[var(--color-pib-text-muted)]"> → </span>
                         )}
                         {row.newValue && (
                           <span className="text-green-300/80 break-words">{row.newValue}</span>
                         )}
                       </div>
                     ) : (
-                      <span className="text-on-surface-variant">—</span>
+                      <span className="text-[var(--color-pib-text-muted)]">—</span>
                     )}
                   </td>
-                  <td className="px-3 py-2 align-top text-xs font-mono text-on-surface-variant whitespace-nowrap">
+                  <td className="px-3 py-2 align-top text-xs font-mono text-[var(--color-pib-text-muted)] whitespace-nowrap">
                     {row.ip || '—'}
                   </td>
-                  <td className="px-3 py-2 align-top text-xs text-on-surface-variant max-w-[260px]">
+                  <td className="px-3 py-2 align-top text-xs text-[var(--color-pib-text-muted)] max-w-[260px]">
                     <span className="break-words">{row.description || '—'}</span>
                   </td>
                 </tr>

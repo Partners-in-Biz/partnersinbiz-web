@@ -53,7 +53,7 @@ interface ChurnData {
 }
 
 const REASON_COLORS = [
-  'var(--color-accent-v2)',
+  'var(--color-pib-accent)',
   '#2563eb',
   '#f59e0b',
   '#ef4444',
@@ -126,11 +126,11 @@ export default function ChurnPage() {
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       <div>
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+        <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
           Billing / Retention
         </p>
-        <h1 className="text-2xl font-headline font-bold text-on-surface">Churn &amp; Win-back</h1>
-        <p className="text-sm text-on-surface-variant mt-0.5">
+        <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Churn &amp; Win-back</h1>
+        <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5">
           Track churned revenue, why customers leave, who is at risk, and cohort retention over time.
         </p>
       </div>
@@ -157,26 +157,26 @@ export default function ChurnPage() {
       ) : data ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="pib-card p-4">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+            <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
               Churned customers
             </p>
-            <p className="text-2xl font-headline font-bold text-on-surface mt-1">
+            <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">
               {data.summary.churnedCount}
             </p>
           </div>
           <div className="pib-card p-4">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+            <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
               MRR lost
             </p>
-            <p className="text-2xl font-headline font-bold text-on-surface mt-1">
+            <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">
               {formatZar(data.summary.mrrLostZar)}
             </p>
           </div>
           <div className="pib-card p-4">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+            <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
               Churn rate
             </p>
-            <p className="text-2xl font-headline font-bold text-on-surface mt-1">
+            <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">
               {formatPct(data.summary.churnRate)}
             </p>
           </div>
@@ -185,13 +185,13 @@ export default function ChurnPage() {
 
       {/* Churn reasons */}
       <section className="pib-card p-5">
-        <h2 className="text-sm font-label uppercase tracking-wide text-on-surface mb-4">
+        <h2 className="text-sm font-label uppercase tracking-wide text-[var(--color-pib-text)] mb-4">
           Why customers churn
         </h2>
         {loading ? (
           <Skeleton className="h-64 rounded-xl" />
         ) : !data || data.reasons.length === 0 ? (
-          <p className="text-sm text-on-surface-variant py-8 text-center">
+          <p className="text-sm text-[var(--color-pib-text-muted)] py-8 text-center">
             No churn events recorded yet.
           </p>
         ) : (
@@ -199,10 +199,10 @@ export default function ChurnPage() {
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={data.reasons} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-on-surface)" opacity={0.08} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-pib-text)" opacity={0.08} />
                   <XAxis
                     dataKey="label"
-                    tick={{ fontSize: 11, fill: 'var(--color-on-surface-variant)' }}
+                    tick={{ fontSize: 11, fill: 'var(--color-pib-text-muted)' }}
                     interval={0}
                     angle={-15}
                     textAnchor="end"
@@ -210,7 +210,7 @@ export default function ChurnPage() {
                   />
                   <YAxis
                     allowDecimals={false}
-                    tick={{ fontSize: 11, fill: 'var(--color-on-surface-variant)' }}
+                    tick={{ fontSize: 11, fill: 'var(--color-pib-text-muted)' }}
                   />
                   <Tooltip
                     contentStyle={{
@@ -235,14 +235,14 @@ export default function ChurnPage() {
             <ul className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
               {data.reasons.map((r, i) => (
                 <li key={r.reason} className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-2 text-on-surface-variant">
+                  <span className="flex items-center gap-2 text-[var(--color-pib-text-muted)]">
                     <span
                       className="inline-block w-2.5 h-2.5 rounded-full"
                       style={{ background: REASON_COLORS[i % REASON_COLORS.length] }}
                     />
                     {r.label}
                   </span>
-                  <span className="text-on-surface">
+                  <span className="text-[var(--color-pib-text)]">
                     {r.count} · {formatZar(r.mrrLostZar)}
                   </span>
                 </li>
@@ -254,7 +254,7 @@ export default function ChurnPage() {
 
       {/* At-risk list */}
       <section className="pib-card p-5">
-        <h2 className="text-sm font-label uppercase tracking-wide text-on-surface mb-4">
+        <h2 className="text-sm font-label uppercase tracking-wide text-[var(--color-pib-text)] mb-4">
           At-risk accounts
         </h2>
         {loading ? (
@@ -264,14 +264,14 @@ export default function ChurnPage() {
             <Skeleton className="h-12 rounded-lg" />
           </div>
         ) : !data || data.atRisk.length === 0 ? (
-          <p className="text-sm text-on-surface-variant py-8 text-center">
+          <p className="text-sm text-[var(--color-pib-text-muted)] py-8 text-center">
             No accounts are currently past due or paused.
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-[10px] font-label uppercase tracking-widest text-on-surface-variant border-b border-on-surface/10">
+                <tr className="text-left text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] border-b border-[var(--color-pib-text)]/10">
                   <th className="py-2 pr-4">Account</th>
                   <th className="py-2 pr-4">Status</th>
                   <th className="py-2 pr-4 text-right">MRR at risk</th>
@@ -283,8 +283,8 @@ export default function ChurnPage() {
                   const isTriggered = triggered[row.orgId]
                   const busy = busyOrgId === row.orgId
                   return (
-                    <tr key={row.orgId} className="border-b border-on-surface/5 last:border-0">
-                      <td className="py-3 pr-4 text-on-surface font-medium">{row.name}</td>
+                    <tr key={row.orgId} className="border-b border-[var(--color-pib-text)]/5 last:border-0">
+                      <td className="py-3 pr-4 text-[var(--color-pib-text)] font-medium">{row.name}</td>
                       <td className="py-3 pr-4">
                         <span
                           className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full"
@@ -297,7 +297,7 @@ export default function ChurnPage() {
                           {reasonBadge(row.reason)}
                         </span>
                       </td>
-                      <td className="py-3 pr-4 text-right text-on-surface">
+                      <td className="py-3 pr-4 text-right text-[var(--color-pib-text)]">
                         {formatZar(row.mrrZar)}
                       </td>
                       <td className="py-3 text-right">
@@ -324,13 +324,13 @@ export default function ChurnPage() {
 
       {/* Cohort retention */}
       <section className="pib-card p-5">
-        <h2 className="text-sm font-label uppercase tracking-wide text-on-surface mb-4">
+        <h2 className="text-sm font-label uppercase tracking-wide text-[var(--color-pib-text)] mb-4">
           Cohort retention
         </h2>
         {loading ? (
           <Skeleton className="h-64 rounded-xl" />
         ) : !data || data.cohorts.length === 0 ? (
-          <p className="text-sm text-on-surface-variant py-8 text-center">
+          <p className="text-sm text-[var(--color-pib-text-muted)] py-8 text-center">
             No cohorts to display yet.
           </p>
         ) : (
@@ -341,15 +341,15 @@ export default function ChurnPage() {
                   data={data.cohorts.map((c) => ({ ...c, label: formatMonthLabel(c.cohortMonth) }))}
                   margin={{ top: 8, right: 8, bottom: 8, left: 8 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-on-surface)" opacity={0.08} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-pib-text)" opacity={0.08} />
                   <XAxis
                     dataKey="label"
-                    tick={{ fontSize: 11, fill: 'var(--color-on-surface-variant)' }}
+                    tick={{ fontSize: 11, fill: 'var(--color-pib-text-muted)' }}
                   />
                   <YAxis
                     domain={[0, 100]}
                     tickFormatter={(v) => `${v}%`}
-                    tick={{ fontSize: 11, fill: 'var(--color-on-surface-variant)' }}
+                    tick={{ fontSize: 11, fill: 'var(--color-pib-text-muted)' }}
                   />
                   <Tooltip
                     contentStyle={{
@@ -363,7 +363,7 @@ export default function ChurnPage() {
                   <Line
                     type="monotone"
                     dataKey="retentionPct"
-                    stroke="var(--color-accent-v2)"
+                    stroke="var(--color-pib-accent)"
                     strokeWidth={2}
                     dot={{ r: 3 }}
                   />
@@ -373,7 +373,7 @@ export default function ChurnPage() {
             <div className="overflow-x-auto mt-4">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-[10px] font-label uppercase tracking-widest text-on-surface-variant border-b border-on-surface/10">
+                  <tr className="text-left text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] border-b border-[var(--color-pib-text)]/10">
                     <th className="py-2 pr-4">Cohort</th>
                     <th className="py-2 pr-4 text-right">Started</th>
                     <th className="py-2 pr-4 text-right">Retained</th>
@@ -382,11 +382,11 @@ export default function ChurnPage() {
                 </thead>
                 <tbody>
                   {data.cohorts.map((c) => (
-                    <tr key={c.cohortMonth} className="border-b border-on-surface/5 last:border-0">
-                      <td className="py-2 pr-4 text-on-surface">{formatMonthLabel(c.cohortMonth)}</td>
-                      <td className="py-2 pr-4 text-right text-on-surface-variant">{c.startCount}</td>
-                      <td className="py-2 pr-4 text-right text-on-surface-variant">{c.retainedCount}</td>
-                      <td className="py-2 text-right text-on-surface font-medium">{c.retentionPct}%</td>
+                    <tr key={c.cohortMonth} className="border-b border-[var(--color-pib-text)]/5 last:border-0">
+                      <td className="py-2 pr-4 text-[var(--color-pib-text)]">{formatMonthLabel(c.cohortMonth)}</td>
+                      <td className="py-2 pr-4 text-right text-[var(--color-pib-text-muted)]">{c.startCount}</td>
+                      <td className="py-2 pr-4 text-right text-[var(--color-pib-text-muted)]">{c.retainedCount}</td>
+                      <td className="py-2 text-right text-[var(--color-pib-text)] font-medium">{c.retentionPct}%</td>
                     </tr>
                   ))}
                 </tbody>

@@ -115,7 +115,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 const WORK_LANES = [
   { id: 'attention', title: 'Needs attention', icon: 'priority_high', color: '#f59e0b' },
-  { id: 'active', title: 'In progress', icon: 'autorenew', color: 'var(--color-accent-v2)' },
+  { id: 'active', title: 'In progress', icon: 'autorenew', color: 'var(--color-pib-accent)' },
   { id: 'approval', title: 'Approvals', icon: 'rate_review', color: '#c084fc' },
 ] as const
 
@@ -188,7 +188,7 @@ function formatRelativeMs(ms?: number | null) {
 
 function healthTone(health: Health | null, error: string | null) {
   if (error) return 'border-red-400/30 bg-red-500/10 text-red-200'
-  if (!health) return 'border-slate-500/30 bg-slate-500/10 text-on-surface-variant'
+  if (!health) return 'border-slate-500/30 bg-slate-500/10 text-[var(--color-pib-text-muted)]'
   return health.ok === false ? 'border-amber-400/30 bg-amber-500/10 text-amber-100' : 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100'
 }
 
@@ -206,9 +206,9 @@ function Skeleton({ className = '' }: { className?: string }) {
 
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-[var(--color-card-border)] bg-[var(--color-surface-container)]/40 px-5 py-8 text-center">
-      <p className="text-sm font-label text-on-surface">{title}</p>
-      <p className="mt-1 text-xs text-on-surface-variant">{body}</p>
+    <div className="rounded-2xl border border-dashed border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]/40 px-5 py-8 text-center">
+      <p className="text-sm font-label text-[var(--color-pib-text)]">{title}</p>
+      <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{body}</p>
     </div>
   )
 }
@@ -217,8 +217,8 @@ function SectionHeader({ title, eyebrow, action }: { title: string; eyebrow?: st
   return (
     <div className="flex items-start justify-between gap-3">
       <div>
-        {eyebrow && <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{eyebrow}</p>}
-        <h2 className="mt-1 text-lg font-headline font-bold text-on-surface">{title}</h2>
+        {eyebrow && <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{eyebrow}</p>}
+        <h2 className="mt-1 text-lg font-headline font-bold text-[var(--color-pib-text)]">{title}</h2>
       </div>
       {action}
     </div>
@@ -272,9 +272,9 @@ function completedTasks(tasks: AgentTask[]) {
 
 function InsightEmptyState({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-lg border border-dashed border-[var(--color-card-border)] bg-[var(--color-surface-container)]/35 p-4 text-sm">
-      <p className="font-label uppercase tracking-wide text-on-surface">{title}</p>
-      <p className="mt-1 text-xs leading-5 text-on-surface-variant">{body}</p>
+    <div className="rounded-lg border border-dashed border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]/35 p-4 text-sm">
+      <p className="font-label uppercase tracking-wide text-[var(--color-pib-text)]">{title}</p>
+      <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{body}</p>
     </div>
   )
 }
@@ -298,13 +298,13 @@ function InsightCard({
     <Surface className="p-4 sm:p-5">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{eyebrow}</p>
-          <h3 className="mt-1 text-base font-headline font-bold text-on-surface">{title}</h3>
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{eyebrow}</p>
+          <h3 className="mt-1 text-base font-headline font-bold text-[var(--color-pib-text)]">{title}</h3>
         </div>
         <span className="shrink-0 rounded-full border border-[var(--color-pib-accent)]/20 bg-[var(--color-pib-accent-soft)] px-3 py-1 text-sm font-semibold text-[var(--color-pib-accent)]">{value}</span>
       </div>
-      <p className="mt-3 text-sm leading-6 text-on-surface">{detail}</p>
-      <p className="mt-2 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)]/35 p-3 text-xs leading-5 text-on-surface-variant">
+      <p className="mt-3 text-sm leading-6 text-[var(--color-pib-text)]">{detail}</p>
+      <p className="mt-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]/35 p-3 text-xs leading-5 text-[var(--color-pib-text-muted)]">
         Explainability: {explanation}
       </p>
       {children ? <div className="mt-4 space-y-2">{children}</div> : null}
@@ -315,7 +315,7 @@ function InsightCard({
 function MiniProgress({ value, label }: { value: number; label: string }) {
   return (
     <div>
-      <div className="mb-1 flex items-center justify-between gap-3 text-[11px] text-on-surface-variant">
+      <div className="mb-1 flex items-center justify-between gap-3 text-[11px] text-[var(--color-pib-text-muted)]">
         <span>{label}</span>
         <span>{value}%</span>
       </div>
@@ -331,14 +331,14 @@ function EvidenceList({ items, emptyTitle, emptyBody }: { items: Array<{ id: str
   return (
     <div className="space-y-2">
       {items.slice(0, 4).map(item => item.href ? (
-        <Link key={item.id} href={item.href} className="block rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 p-3 text-sm font-medium text-on-surface transition-colors hover:border-[var(--color-pib-accent)]/50">
+        <Link key={item.id} href={item.href} className="block rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)]/70 p-3 text-sm font-medium text-[var(--color-pib-text)] transition-colors hover:border-[var(--color-pib-accent)]/50">
           {item.title}
-          {item.meta ? <span className="mt-1 block text-xs font-normal text-on-surface-variant">{item.meta}</span> : null}
+          {item.meta ? <span className="mt-1 block text-xs font-normal text-[var(--color-pib-text-muted)]">{item.meta}</span> : null}
         </Link>
       ) : (
-        <div key={item.id} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 p-3 text-sm font-medium text-on-surface">
+        <div key={item.id} className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)]/70 p-3 text-sm font-medium text-[var(--color-pib-text)]">
           {item.title}
-          {item.meta ? <span className="mt-1 block text-xs font-normal text-on-surface-variant">{item.meta}</span> : null}
+          {item.meta ? <span className="mt-1 block text-xs font-normal text-[var(--color-pib-text-muted)]">{item.meta}</span> : null}
         </div>
       ))}
     </div>
@@ -418,7 +418,7 @@ function OperatorInsightDashboards({
           explanation="This is a derived label, not a sentiment model: pressure equals blocked plus approval items; active and completed counts decide whether the day is building, settled, quiet, or strained."
         >
           <div className="grid grid-cols-2 gap-2">
-            {moodTrend.map(row => <div key={row.label} className="rounded-lg bg-[var(--color-surface-container)]/45 p-3"><p className="text-lg font-bold text-on-surface">{row.value}</p><p className="text-[10px] uppercase tracking-wide text-on-surface-variant">{row.label}</p></div>)}
+            {moodTrend.map(row => <div key={row.label} className="rounded-lg bg-[var(--color-pib-surface-2)]/45 p-3"><p className="text-lg font-bold text-[var(--color-pib-text)]">{row.value}</p><p className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">{row.label}</p></div>)}
           </div>
         </InsightCard>
 
@@ -490,14 +490,14 @@ function KpiCard({
     <Surface className="p-4">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{label}</p>
-          <p className="mt-3 truncate text-2xl font-headline font-bold leading-none text-on-surface">{value}</p>
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</p>
+          <p className="mt-3 truncate text-2xl font-headline font-bold leading-none text-[var(--color-pib-text)]">{value}</p>
         </div>
         <span className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border ${toneClass}`}>
           <span className="material-symbols-outlined text-[21px]">{icon}</span>
         </span>
       </div>
-      <p className="mt-4 text-xs leading-5 text-on-surface-variant">{detail}</p>
+      <p className="mt-4 text-xs leading-5 text-[var(--color-pib-text-muted)]">{detail}</p>
     </Surface>
   )
 }
@@ -538,7 +538,7 @@ function RevenueOpsSection({ admin, error }: { admin: AdminDashboard | null; err
         title="Revenue & operations"
         eyebrow="Platform finance"
         action={(
-          <Link href="/admin/organizations" className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-wide text-[var(--color-accent-v2)]">
+          <Link href="/admin/organizations" className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-wide text-[var(--color-pib-accent)]">
             Manage billing <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
           </Link>
         )}
@@ -591,7 +591,7 @@ function RevenueOpsSection({ admin, error }: { admin: AdminDashboard | null; err
           title="Recent signups"
           eyebrow="Newest client organisations"
           action={(
-            <Link href="/admin/organizations" className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-wide text-[var(--color-accent-v2)]">
+            <Link href="/admin/organizations" className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-wide text-[var(--color-pib-accent)]">
               All organisations <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
             </Link>
           )}
@@ -604,23 +604,23 @@ function RevenueOpsSection({ admin, error }: { admin: AdminDashboard | null; err
             const inner = (
               <>
                 <div className="flex min-w-0 items-center gap-3">
-                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[var(--color-card-border)] bg-[var(--color-surface-container)]/45 text-[var(--color-pib-accent)]">
+                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]/45 text-[var(--color-pib-accent)]">
                     <span className="material-symbols-outlined text-[18px]">corporate_fare</span>
                   </span>
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-on-surface">{signup.name}</p>
-                    <p className="truncate text-xs text-on-surface-variant">{formatRelativeMs(signup.createdAt)}</p>
+                    <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{signup.name}</p>
+                    <p className="truncate text-xs text-[var(--color-pib-text-muted)]">{formatRelativeMs(signup.createdAt)}</p>
                   </div>
                 </div>
                 <StatusPill tone={signupTone(signup.status)} dot>{signup.status}</StatusPill>
               </>
             )
             return href ? (
-              <Link key={signup.id} href={href} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 px-3 py-2.5 transition-colors hover:border-[var(--color-pib-accent)]/50">
+              <Link key={signup.id} href={href} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)]/70 px-3 py-2.5 transition-colors hover:border-[var(--color-pib-accent)]/50">
                 {inner}
               </Link>
             ) : (
-              <div key={signup.id} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 px-3 py-2.5">
+              <div key={signup.id} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)]/70 px-3 py-2.5">
                 {inner}
               </div>
             )
@@ -655,14 +655,14 @@ function MetricCard({
     <Surface className="p-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{label}</p>
-          <p className="mt-3 text-3xl font-headline font-bold leading-none text-on-surface">{value}</p>
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</p>
+          <p className="mt-3 text-3xl font-headline font-bold leading-none text-[var(--color-pib-text)]">{value}</p>
         </div>
         <span className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border ${toneClass}`}>
           <span className="material-symbols-outlined text-[21px]">{icon}</span>
         </span>
       </div>
-      <p className="mt-4 text-xs leading-5 text-on-surface-variant">{detail}</p>
+      <p className="mt-4 text-xs leading-5 text-[var(--color-pib-text-muted)]">{detail}</p>
     </Surface>
   )
 }
@@ -671,7 +671,7 @@ function DashboardQuickLink({ href, icon, label }: { href: string; icon: string;
   return (
     <Link
       href={href}
-      className="inline-flex items-center gap-2 rounded-[var(--radius-btn)] border border-[var(--color-card-border)] px-3 py-2 text-xs font-label uppercase tracking-wide text-on-surface-variant transition-colors hover:border-[var(--color-pib-accent)]/50 hover:text-on-surface"
+      className="inline-flex items-center gap-2 rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] px-3 py-2 text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)] transition-colors hover:border-[var(--color-pib-accent)]/50 hover:text-[var(--color-pib-text)]"
     >
       <span className="material-symbols-outlined text-[16px]">{icon}</span>
       {label}
@@ -697,7 +697,7 @@ function WorkItemCard({
   return (
     <Link
       href={href}
-      className="pib-card group block p-3 transition-all duration-150 hover:border-[var(--color-accent-v2)]"
+      className="pib-card group block p-3 transition-all duration-150 hover:border-[var(--color-pib-accent)]"
       style={{ borderLeft: `3px solid ${color}` }}
     >
       <div className="flex items-start gap-3">
@@ -708,13 +708,13 @@ function WorkItemCard({
           <span className="material-symbols-outlined text-[16px]">{icon}</span>
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block line-clamp-2 text-sm font-medium leading-snug text-on-surface group-hover:text-[var(--color-pib-accent-hover)]">{title}</span>
-          <span className="mt-1 block text-xs leading-5 text-on-surface-variant">{meta}</span>
+          <span className="block line-clamp-2 text-sm font-medium leading-snug text-[var(--color-pib-text)] group-hover:text-[var(--color-pib-accent-hover)]">{title}</span>
+          <span className="mt-1 block text-xs leading-5 text-[var(--color-pib-text-muted)]">{meta}</span>
         </span>
       </div>
       {priority ? (
         <div className="mt-3 flex justify-end">
-          <span className="rounded-full bg-[var(--color-surface-container)] px-2 py-1 text-[9px] font-label uppercase tracking-wide text-on-surface-variant">{priority}</span>
+          <span className="rounded-full bg-[var(--color-pib-surface-2)] px-2 py-1 text-[9px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">{priority}</span>
         </div>
       ) : null}
     </Link>
@@ -731,13 +731,13 @@ function WorkLane({
   count: number
 }) {
   return (
-    <div className="flex min-h-[360px] min-w-0 flex-col rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/55 p-3">
+    <div className="flex min-h-[360px] min-w-0 flex-col rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)]/55 p-3">
       <div className="mb-3 flex items-center justify-between gap-2 px-1">
         <div className="flex min-w-0 items-center gap-2">
           <span className="h-2 w-2 rounded-full" style={{ background: lane.color }} />
-          <span className="truncate text-xs font-label uppercase tracking-widest text-on-surface-variant">{lane.title}</span>
+          <span className="truncate text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{lane.title}</span>
         </div>
-        <span className="rounded-full bg-[var(--color-surface-container)] px-2 py-0.5 text-[10px] font-label text-on-surface-variant">{count}</span>
+        <span className="rounded-full bg-[var(--color-pib-surface-2)] px-2 py-0.5 text-[10px] font-label text-[var(--color-pib-text-muted)]">{count}</span>
       </div>
       <div className="flex flex-1 flex-col gap-2">{children}</div>
     </div>
@@ -812,17 +812,17 @@ function OrganisationCard({ org, tasks, approvals }: { org: OrgSummary; tasks: A
   const score = Math.max(35, Math.min(100, 95 - riskyTasks * 20 - approvals.length * 8))
   const href = orgDashboardHref(org)
   const needsAttention = riskyTasks > 0 || approvals.length > 0
-  const rail = needsAttention ? '#f59e0b' : activeTasks > 0 ? 'var(--color-accent-v2)' : '#4ade80'
+  const rail = needsAttention ? '#f59e0b' : activeTasks > 0 ? 'var(--color-pib-accent)' : '#4ade80'
   const statusLabel = needsAttention ? 'Attention' : activeTasks > 0 ? 'Active' : 'Steady'
 
   return (
-    <Link href={href} className="group/card relative flex min-h-[174px] overflow-hidden rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--color-pib-accent)]/60 hover:shadow-[0_18px_40px_rgba(0,0,0,0.24)]">
+    <Link href={href} className="group/card relative flex min-h-[174px] overflow-hidden rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--color-pib-accent)]/60 hover:shadow-[0_18px_40px_rgba(0,0,0,0.24)]">
       <span className="absolute inset-y-0 left-0 w-1.5" style={{ background: rail }} />
       <div className="flex min-w-0 flex-1 flex-col p-5 pl-6">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h3 className="truncate text-base font-headline font-semibold leading-snug text-on-surface group-hover/card:text-[var(--color-pib-accent-hover)]">{org.name}</h3>
-            <p className="mt-1 text-xs text-on-surface-variant">{org.type ?? 'organisation'} · {org.status ?? 'active'}</p>
+            <h3 className="truncate text-base font-headline font-semibold leading-snug text-[var(--color-pib-text)] group-hover/card:text-[var(--color-pib-accent-hover)]">{org.name}</h3>
+            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{org.type ?? 'organisation'} · {org.status ?? 'active'}</p>
           </div>
           <StatusPill tone={needsAttention ? 'warn' : activeTasks > 0 ? 'accent' : 'success'} dot>
             {statusLabel}
@@ -831,8 +831,8 @@ function OrganisationCard({ org, tasks, approvals }: { org: OrgSummary; tasks: A
 
         <div className="mt-5">
           <div className="mb-2 flex items-center justify-between gap-3">
-            <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Workspace health</span>
-            <span className="font-mono text-[11px] text-on-surface-variant">{score}%</span>
+            <span className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Workspace health</span>
+            <span className="font-mono text-[11px] text-[var(--color-pib-text-muted)]">{score}%</span>
           </div>
           <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
             <div className="h-full rounded-full transition-all duration-300" style={{ width: `${score}%`, background: rail }} />
@@ -841,16 +841,16 @@ function OrganisationCard({ org, tasks, approvals }: { org: OrgSummary; tasks: A
 
         <div className="mt-auto grid grid-cols-3 gap-2 pt-5 text-xs">
           <div>
-            <p className="font-mono text-lg font-semibold text-on-surface">{activeTasks}</p>
-            <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Tasks</p>
+            <p className="font-mono text-lg font-semibold text-[var(--color-pib-text)]">{activeTasks}</p>
+            <p className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Tasks</p>
           </div>
           <div>
-            <p className="font-mono text-lg font-semibold text-on-surface">{approvals.length}</p>
-            <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Approvals</p>
+            <p className="font-mono text-lg font-semibold text-[var(--color-pib-text)]">{approvals.length}</p>
+            <p className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Approvals</p>
           </div>
           <div>
-            <p className="font-mono text-lg font-semibold text-on-surface">{org.memberCount ?? 0}</p>
-            <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Team</p>
+            <p className="font-mono text-lg font-semibold text-[var(--color-pib-text)]">{org.memberCount ?? 0}</p>
+            <p className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Team</p>
           </div>
         </div>
       </div>
@@ -867,9 +867,9 @@ function TimelineItem({ item }: { item: Activity | AgentTask }) {
   const when = isTask ? formatRelative(item.updatedAt ?? item.createdAt) : formatRelative(item.createdAt)
   return (
     <div className="relative pl-6">
-      <span className="absolute left-0 top-1.5 h-3 w-3 rounded-full border-2 border-[var(--color-accent-v2)] bg-[var(--color-card)]" />
-      <p className="text-sm text-on-surface">{title}</p>
-      <p className="mt-1 text-xs text-on-surface-variant">{meta} · {when}</p>
+      <span className="absolute left-0 top-1.5 h-3 w-3 rounded-full border-2 border-[var(--color-pib-accent)] bg-[var(--color-pib-card)]" />
+      <p className="text-sm text-[var(--color-pib-text)]">{title}</p>
+      <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{meta} · {when}</p>
     </div>
   )
 }
@@ -1005,7 +1005,7 @@ export default function MissionControlDashboard() {
       {dashboardView === 'overview' ? (
         <>
           <section className="space-y-4">
-            <SectionHeader title="Client workspaces" eyebrow="Portfolio" action={<Link href="/admin/organizations" className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-wide text-[var(--color-accent-v2)]">Manage organisations <span className="material-symbols-outlined text-[15px]">arrow_forward</span></Link>} />
+            <SectionHeader title="Client workspaces" eyebrow="Portfolio" action={<Link href="/admin/organizations" className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-wide text-[var(--color-pib-accent)]">Manage organisations <span className="material-symbols-outlined text-[15px]">arrow_forward</span></Link>} />
             {loading ? (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"><Skeleton className="h-48 rounded-lg" /><Skeleton className="h-48 rounded-lg" /><Skeleton className="h-48 rounded-lg" /></div>
             ) : visibleOrgs.length === 0 ? (
@@ -1036,9 +1036,9 @@ export default function MissionControlDashboard() {
               ) : (
                 <div className="grid gap-3 sm:grid-cols-3">
                   {serviceEntries.map(([name, status]) => (
-                    <div key={name} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)]/35 p-4">
-                      <p className="text-xs uppercase tracking-wide text-on-surface-variant">{name}</p>
-                      <p className="mt-2 text-lg font-bold text-on-surface">{status}</p>
+                    <div key={name} className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]/35 p-4">
+                      <p className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">{name}</p>
+                      <p className="mt-2 text-lg font-bold text-[var(--color-pib-text)]">{status}</p>
                     </div>
                   ))}
                 </div>
@@ -1047,7 +1047,7 @@ export default function MissionControlDashboard() {
 
             <Surface className="p-4 sm:p-5">
               <SectionHeader title="Today timeline" eyebrow="Latest movement" />
-              <div className="relative mt-5 space-y-5 before:absolute before:left-[5px] before:top-2 before:h-[calc(100%-1rem)] before:w-px before:bg-[var(--color-card-border)]">
+              <div className="relative mt-5 space-y-5 before:absolute before:left-[5px] before:top-2 before:h-[calc(100%-1rem)] before:w-px before:bg-[var(--color-pib-line)]">
                 {loading ? (
                   <><Skeleton className="h-12 rounded-lg" /><Skeleton className="h-12 rounded-lg" /><Skeleton className="h-12 rounded-lg" /></>
                 ) : timeline.length === 0 ? (
@@ -1061,17 +1061,17 @@ export default function MissionControlDashboard() {
         <section className="space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <SectionHeader title="Work board" eyebrow="Kanban signal" />
-            <Link href={agentBoardHref} className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-wide text-[var(--color-accent-v2)]">Open full board <span className="material-symbols-outlined text-[15px]">arrow_forward</span></Link>
+            <Link href={agentBoardHref} className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-wide text-[var(--color-pib-accent)]">Open full board <span className="material-symbols-outlined text-[15px]">arrow_forward</span></Link>
           </div>
           {loading ? (
             <div className="grid gap-4 lg:grid-cols-3"><Skeleton className="h-80 rounded-lg" /><Skeleton className="h-80 rounded-lg" /><Skeleton className="h-80 rounded-lg" /></div>
           ) : (
             <>
-              <div className="space-y-3 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/40 p-4">
+              <div className="space-y-3 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)]/40 p-4">
                 <SectionHeader
                   title="Software build queue"
                   eyebrow="Theo / parent PiB workspace"
-                  action={<span className="rounded-full bg-[var(--color-surface-container)] px-2 py-1 text-[10px] font-label uppercase tracking-wide text-on-surface-variant">{activeSoftwareBuildTasks.length} active / {softwareBuildTasks.length} total</span>}
+                  action={<span className="rounded-full bg-[var(--color-pib-surface-2)] px-2 py-1 text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">{activeSoftwareBuildTasks.length} active / {softwareBuildTasks.length} total</span>}
                 />
                 <SoftwareBuildEmptyIndicator activeCount={activeSoftwareBuildTasks.length} specHref={platformDocumentsNewHref} projectsHref={platformProjectsHref} />
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
@@ -1149,7 +1149,7 @@ export default function MissionControlDashboard() {
       )}
 
       {loading && <p className="sr-only" aria-live="polite">Dashboard data is loading</p>}
-      {loading && <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)]/40 px-4 py-3 text-sm text-on-surface-variant">Loading dashboard signal...</div>}
+      {loading && <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]/40 px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">Loading dashboard signal...</div>}
     </div>
   )
 }

@@ -44,7 +44,7 @@ const CATEGORIES = ['work', 'personal', 'ai', 'sport', 'sa', 'other']
 
 function PlatformBadge({ platform }: { platform: string }) {
   const cfg = PLATFORMS.find(p => p.id === platform)
-  if (!cfg) return <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-surface-container-high text-on-surface-variant uppercase">{platform}</span>
+  if (!cfg) return <span className="pib-pill uppercase">{platform}</span>
   return <span className={`${cfg.color} text-white text-[10px] px-1.5 py-0.5 rounded font-bold`}>{cfg.short}</span>
 }
 
@@ -175,27 +175,28 @@ export default function BulkComposePage() {
   const minDateTime = new Date().toISOString().slice(0, 16)
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-on-surface">Bulk Compose</h1>
-        <p className="text-sm text-on-surface-variant mt-1">Create multiple social posts at once or import from CSV</p>
-      </div>
+    <div className="p-6 max-w-5xl mx-auto space-y-8">
+      <header>
+        <p className="eyebrow">Social · Bulk</p>
+        <h1 className="pib-page-title mt-2">Bulk Compose</h1>
+        <p className="pib-page-sub">Create multiple social posts at once or import from CSV</p>
+      </header>
 
       {error && (
-        <div className="px-4 py-3 rounded-xl bg-red-900/30 text-red-400 text-sm">{error}</div>
+        <div className="pib-card border-[var(--color-error)]/40 text-sm text-[var(--color-error)]">{error}</div>
       )}
 
       {results && (
-        <div className="rounded-xl bg-surface-container p-4 space-y-2">
-          <div className="flex gap-4">
-            <span className="text-sm text-on-surface">{results.total} total</span>
-            <span className="text-sm text-green-400">{results.succeeded} created</span>
-            {results.failed > 0 && <span className="text-sm text-red-400">{results.failed} failed</span>}
+        <div className="pib-card space-y-2">
+          <div className="flex flex-wrap gap-2">
+            <span className="pib-pill">{results.total} total</span>
+            <span className="pib-pill pib-pill-success">{results.succeeded} created</span>
+            {results.failed > 0 && <span className="pib-pill pib-pill-danger">{results.failed} failed</span>}
           </div>
           {results.results.filter(r => !r.success).length > 0 && (
             <div className="space-y-1">
               {results.results.filter(r => !r.success).map(r => (
-                <p key={r.index} className="text-xs text-red-400">Row {r.index + 1}: {r.error}</p>
+                <p key={r.index} className="text-xs text-[var(--color-error)]">Row {r.index + 1}: {r.error}</p>
               ))}
             </div>
           )}
@@ -203,40 +204,45 @@ export default function BulkComposePage() {
       )}
 
       {/* CSV Import */}
-      <div className="rounded-xl bg-surface-container p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-on-surface">Import from CSV</h2>
-        <p className="text-xs text-on-surface-variant">
-          Required column: <code className="text-on-surface">content</code>. Optional: <code className="text-on-surface">platforms</code> (semicolon-separated), <code className="text-on-surface">scheduled_at</code>, <code className="text-on-surface">category</code>, <code className="text-on-surface">hashtags</code>, <code className="text-on-surface">tags</code>
+      <div className="pib-card space-y-4">
+        <div className="flex items-center gap-3">
+          <span className="pib-icon-tint-rose">
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px]">upload_file</span>
+          </span>
+          <h2 className="pib-label">Import from CSV</h2>
+        </div>
+        <p className="text-xs text-[var(--color-pib-text-muted)]">
+          Required column: <code className="text-[var(--color-pib-text)]">content</code>. Optional: <code className="text-[var(--color-pib-text)]">platforms</code> (semicolon-separated), <code className="text-[var(--color-pib-text)]">scheduled_at</code>, <code className="text-[var(--color-pib-text)]">category</code>, <code className="text-[var(--color-pib-text)]">hashtags</code>, <code className="text-[var(--color-pib-text)]">tags</code>
         </p>
         <input
           ref={fileRef}
           type="file"
           accept=".csv,text/csv"
           onChange={handleCsvUpload}
-          className="block text-sm text-on-surface-variant file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-surface-container-high file:text-on-surface file:text-xs file:font-medium file:cursor-pointer hover:file:bg-surface-container"
+          className="block text-sm text-[var(--color-pib-text-muted)] file:mr-3 file:px-3 file:py-1.5 file:rounded-full file:border-0 file:bg-[var(--color-pib-surface)] file:text-[var(--color-pib-text)] file:text-xs file:font-medium file:cursor-pointer"
         />
 
         {csvPreview && (
           <div className="space-y-2">
-            <p className="text-xs text-on-surface-variant">{csvPreview.length} rows found</p>
-            <div className="max-h-48 overflow-y-auto rounded-lg bg-surface p-2 space-y-1">
+            <p className="text-xs text-[var(--color-pib-text-muted)]">{csvPreview.length} rows found</p>
+            <div className="max-h-48 overflow-y-auto rounded-lg border border-[var(--color-pib-line)] p-2 space-y-1">
               {csvPreview.slice(0, 10).map((row, i) => (
                 <div key={i} className="flex items-start gap-2 text-xs">
-                  <span className="text-on-surface-variant shrink-0 w-6">{i + 1}.</span>
-                  <span className="text-on-surface truncate flex-1">{row.content.slice(0, 80)}</span>
+                  <span className="text-[var(--color-pib-text-muted)] shrink-0 w-6">{i + 1}.</span>
+                  <span className="text-[var(--color-pib-text)] truncate flex-1">{row.content.slice(0, 80)}</span>
                   <div className="flex gap-1 shrink-0">
                     {row.platforms.map(p => <PlatformBadge key={p} platform={p} />)}
                   </div>
                 </div>
               ))}
               {csvPreview.length > 10 && (
-                <p className="text-[10px] text-on-surface-variant pl-6">...and {csvPreview.length - 10} more</p>
+                <p className="text-[10px] text-[var(--color-pib-text-muted)] pl-6">...and {csvPreview.length - 10} more</p>
               )}
             </div>
             <button
               onClick={() => handleSubmit('csv')}
               disabled={submitting}
-              className="px-4 py-2 rounded-lg bg-white text-black font-label text-sm font-medium hover:bg-white/90 transition-colors disabled:opacity-50"
+              className="btn-pib-primary disabled:opacity-50"
             >
               {submitting ? 'Importing…' : `Import ${csvPreview.length} Posts`}
             </button>
@@ -247,23 +253,23 @@ export default function BulkComposePage() {
       {/* Manual bulk compose */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-on-surface">Manual Bulk Compose</h2>
+          <h2 className="pib-label">Manual Bulk Compose</h2>
           <button
             onClick={addRow}
-            className="px-3 py-1.5 rounded-lg bg-surface-container text-on-surface font-label text-xs font-medium hover:bg-surface-container-high transition-colors"
+            className="btn-pib-secondary text-xs"
           >
             + Add Post
           </button>
         </div>
 
         {rows.map((row, i) => (
-          <div key={i} className="rounded-xl bg-surface-container p-4 space-y-3">
+          <div key={i} className="pib-card space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-on-surface-variant">Post {i + 1}</span>
+              <span className="pib-label">Post {i + 1}</span>
               {rows.length > 1 && (
                 <button
                   onClick={() => removeRow(i)}
-                  className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                  className="text-xs text-[var(--color-error)] hover:opacity-80 transition-opacity"
                 >
                   Remove
                 </button>
@@ -275,7 +281,7 @@ export default function BulkComposePage() {
               value={row.content}
               onChange={(e) => updateRow(i, { content: e.target.value })}
               placeholder="Write your post content..."
-              className="w-full bg-surface rounded-lg px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/50 resize-none outline-none"
+              className="pib-textarea w-full resize-none"
             />
 
             <div className="flex flex-wrap gap-1.5">
@@ -283,10 +289,10 @@ export default function BulkComposePage() {
                 <button
                   key={p.id}
                   onClick={() => togglePlatform(i, p.id)}
-                  className={`px-2 py-1 rounded text-[10px] font-bold transition-colors ${
+                  className={`px-2 py-1 rounded-full text-[10px] font-bold transition-colors ${
                     row.platforms.includes(p.id)
                       ? `${p.color} text-white`
-                      : 'bg-surface text-on-surface-variant hover:bg-surface-container-high'
+                      : 'border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)]'
                   }`}
                 >
                   {p.short}
@@ -300,12 +306,12 @@ export default function BulkComposePage() {
                 value={row.scheduledAt}
                 min={minDateTime}
                 onChange={(e) => updateRow(i, { scheduledAt: e.target.value })}
-                className="rounded-lg bg-surface px-3 py-1.5 text-xs text-on-surface outline-none"
+                className="pib-input text-xs"
               />
               <select
                 value={row.category}
                 onChange={(e) => updateRow(i, { category: e.target.value })}
-                className="rounded-lg bg-surface px-2 py-1.5 text-xs text-on-surface outline-none capitalize"
+                className="pib-select text-xs capitalize"
               >
                 {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
@@ -316,7 +322,7 @@ export default function BulkComposePage() {
         <button
           onClick={() => handleSubmit('manual')}
           disabled={submitting}
-          className="px-4 py-2 rounded-lg bg-white text-black font-label text-sm font-medium hover:bg-white/90 transition-colors disabled:opacity-50"
+          className="btn-pib-primary disabled:opacity-50"
         >
           {submitting ? 'Creating…' : `Create ${rows.filter(r => r.content.trim()).length} Posts`}
         </button>

@@ -237,11 +237,11 @@ export default function ReferralsPage() {
     <div className="space-y-6 max-w-6xl mx-auto">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Billing / Referrals
           </p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Referral Credits</h1>
-          <p className="text-sm text-on-surface-variant mt-0.5">
+          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Referral Credits</h1>
+          <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5">
             Track referral credits between orgs. Payouts are settled offline via EFT / PayPal —
             mark them paid here once the transfer is done. No Stripe.
           </p>
@@ -283,31 +283,31 @@ export default function ReferralsPage() {
       ) : summary ? (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="pib-card p-4">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+            <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
               Pending
             </p>
-            <p className="text-2xl font-headline font-bold text-on-surface mt-1">
+            <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">
               {formatZar(summary.pendingCreditZar)}
             </p>
-            <p className="text-xs text-on-surface-variant mt-0.5">{summary.pendingCount} awaiting</p>
+            <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">{summary.pendingCount} awaiting</p>
           </div>
           <div className="pib-card p-4">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+            <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
               Approved (unpaid)
             </p>
-            <p className="text-2xl font-headline font-bold text-on-surface mt-1">
+            <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">
               {formatZar(summary.approvedCreditZar)}
             </p>
-            <p className="text-xs text-on-surface-variant mt-0.5">{summary.approvedCount} to pay out</p>
+            <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">{summary.approvedCount} to pay out</p>
           </div>
           <div className="pib-card p-4">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+            <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
               Paid out
             </p>
-            <p className="text-2xl font-headline font-bold text-on-surface mt-1">
+            <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">
               {formatZar(summary.paidCreditZar)}
             </p>
-            <p className="text-xs text-on-surface-variant mt-0.5">total settled</p>
+            <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">total settled</p>
           </div>
         </div>
       ) : null}
@@ -317,7 +317,7 @@ export default function ReferralsPage() {
         <form onSubmit={handleCreate} className="pib-card p-5 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <label className="block">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+              <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 Referrer org
               </span>
               <select
@@ -335,7 +335,7 @@ export default function ReferralsPage() {
               </select>
             </label>
             <label className="block">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+              <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 Referred org
               </span>
               <select
@@ -353,7 +353,7 @@ export default function ReferralsPage() {
               </select>
             </label>
             <label className="block">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+              <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 Credit (ZAR)
               </span>
               <input
@@ -387,8 +387,8 @@ export default function ReferralsPage() {
               onClick={() => setFilter(tab.key)}
               className="text-xs font-label px-3 py-1.5 rounded-full border transition-colors"
               style={{
-                borderColor: active ? 'var(--color-accent-v2)' : 'rgba(255,255,255,0.12)',
-                background: active ? 'var(--color-accent-v2)' : 'transparent',
+                borderColor: active ? 'var(--color-pib-accent)' : 'rgba(255,255,255,0.12)',
+                background: active ? 'var(--color-pib-accent)' : 'transparent',
                 color: active ? '#fff' : undefined,
               }}
             >
@@ -406,7 +406,7 @@ export default function ReferralsPage() {
           <Skeleton className="h-14 rounded-xl" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="pib-card p-6 text-center text-sm text-on-surface-variant">
+        <div className="pib-card p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
           {referrals.length === 0
             ? 'No referrals yet. Create one above.'
             : `No ${filter} referrals.`}
@@ -416,12 +416,12 @@ export default function ReferralsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-on-surface/10 text-left">
-                  <th className="px-4 py-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Referrer</th>
-                  <th className="px-4 py-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Referred</th>
-                  <th className="px-4 py-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Credit</th>
-                  <th className="px-4 py-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Status</th>
-                  <th className="px-4 py-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Created</th>
+                <tr className="border-b border-[var(--color-pib-text)]/10 text-left">
+                  <th className="px-4 py-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Referrer</th>
+                  <th className="px-4 py-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Referred</th>
+                  <th className="px-4 py-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Credit</th>
+                  <th className="px-4 py-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Status</th>
+                  <th className="px-4 py-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Created</th>
                 </tr>
               </thead>
               <tbody>
@@ -429,17 +429,17 @@ export default function ReferralsPage() {
                   <tr
                     key={r.id}
                     onClick={() => openDetail(r)}
-                    className={`border-b border-on-surface/5 last:border-0 cursor-pointer hover:bg-on-surface/[0.03] ${
-                      selectedId === r.id ? 'bg-on-surface/[0.05]' : ''
+                    className={`border-b border-[var(--color-pib-text)]/5 last:border-0 cursor-pointer hover:bg-[var(--color-pib-text)]/[0.03] ${
+                      selectedId === r.id ? 'bg-[var(--color-pib-text)]/[0.05]' : ''
                     }`}
                   >
-                    <td className="px-4 py-3 text-on-surface">{r.referrerName ?? r.referrerOrgId}</td>
-                    <td className="px-4 py-3 text-on-surface-variant">{r.referredName ?? r.referredOrgId}</td>
-                    <td className="px-4 py-3 text-on-surface">{formatZar(r.creditZar)}</td>
+                    <td className="px-4 py-3 text-[var(--color-pib-text)]">{r.referrerName ?? r.referrerOrgId}</td>
+                    <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">{r.referredName ?? r.referredOrgId}</td>
+                    <td className="px-4 py-3 text-[var(--color-pib-text)]">{formatZar(r.creditZar)}</td>
                     <td className="px-4 py-3">
                       <StatusBadge status={r.status} />
                     </td>
-                    <td className="px-4 py-3 text-on-surface-variant">
+                    <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">
                       {formatDate(tsToMillis(r.createdAt))}
                     </td>
                   </tr>
@@ -455,12 +455,12 @@ export default function ReferralsPage() {
         <div className="pib-card p-5 space-y-4">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+              <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
                 Referral detail
               </p>
-              <h2 className="text-lg font-headline font-bold text-on-surface">
+              <h2 className="text-lg font-headline font-bold text-[var(--color-pib-text)]">
                 {selected.referrerName ?? selected.referrerOrgId}
-                <span className="text-on-surface-variant"> → </span>
+                <span className="text-[var(--color-pib-text-muted)]"> → </span>
                 {selected.referredName ?? selected.referredOrgId}
               </h2>
             </div>
@@ -474,20 +474,20 @@ export default function ReferralsPage() {
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
             <div>
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Credit</p>
-              <p className="text-on-surface mt-0.5">{formatZar(selected.creditZar)}</p>
+              <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Credit</p>
+              <p className="text-[var(--color-pib-text)] mt-0.5">{formatZar(selected.creditZar)}</p>
             </div>
             <div>
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Status</p>
+              <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Status</p>
               <div className="mt-1"><StatusBadge status={selected.status} /></div>
             </div>
             <div>
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Approved</p>
-              <p className="text-on-surface-variant mt-0.5">{formatDate(tsToMillis(selected.approvedAt))}</p>
+              <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Approved</p>
+              <p className="text-[var(--color-pib-text-muted)] mt-0.5">{formatDate(tsToMillis(selected.approvedAt))}</p>
             </div>
             <div>
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Paid</p>
-              <p className="text-on-surface-variant mt-0.5">{formatDate(tsToMillis(selected.paidAt))}</p>
+              <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Paid</p>
+              <p className="text-[var(--color-pib-text-muted)] mt-0.5">{formatDate(tsToMillis(selected.paidAt))}</p>
             </div>
           </div>
 
@@ -500,7 +500,7 @@ export default function ReferralsPage() {
           {/* Dispute reason input — shown when disputing is possible */}
           {selected.status !== 'paid' && (
             <label className="block">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+              <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 Dispute reason (required to dispute)
               </span>
               <textarea
@@ -547,17 +547,17 @@ export default function ReferralsPage() {
 
       {/* Settings panel */}
       <div className="pib-card p-5">
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+        <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
           Programme settings
         </p>
-        <h2 className="text-lg font-headline font-bold text-on-surface mb-4">Referral Settings</h2>
+        <h2 className="text-lg font-headline font-bold text-[var(--color-pib-text)] mb-4">Referral Settings</h2>
         {loading || !settingsForm ? (
           <Skeleton className="h-40 rounded-xl" />
         ) : (
           <form onSubmit={saveSettings} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <label className="block">
-                <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+                <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                   Referrer credit (ZAR)
                 </span>
                 <input
@@ -570,7 +570,7 @@ export default function ReferralsPage() {
                 />
               </label>
               <label className="block">
-                <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+                <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                   Referred credit (ZAR)
                 </span>
                 <input
@@ -583,7 +583,7 @@ export default function ReferralsPage() {
                 />
               </label>
               <label className="block">
-                <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+                <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                   Min paid invoices to qualify
                 </span>
                 <input
@@ -597,7 +597,7 @@ export default function ReferralsPage() {
               </label>
             </div>
             <div className="flex flex-wrap gap-6">
-              <label className="flex items-center gap-2 text-sm text-on-surface">
+              <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text)]">
                 <input
                   type="checkbox"
                   checked={settingsForm.requireApproval}
@@ -605,7 +605,7 @@ export default function ReferralsPage() {
                 />
                 Require manual approval for new referrals
               </label>
-              <label className="flex items-center gap-2 text-sm text-on-surface">
+              <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text)]">
                 <input
                   type="checkbox"
                   checked={settingsForm.active}

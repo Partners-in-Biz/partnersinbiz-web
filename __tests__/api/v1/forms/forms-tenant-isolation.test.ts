@@ -19,7 +19,7 @@ import { NextRequest } from 'next/server'
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminAuth: { verifySessionCookie: jest.fn() },
-  adminDb: { collection: jest.fn() },
+  adminDb: { collection: jest.fn(), runTransaction: jest.fn() },
 }))
 
 jest.mock('@/lib/webhooks/dispatch', () => ({ dispatchWebhook: jest.fn().mockResolvedValue(undefined) }))
@@ -147,6 +147,7 @@ function setupIsolationFixtures() {
     subUpdates:     [] as Array<Record<string, unknown>>,
     contactAdds:    [] as Array<Record<string, unknown>>,
     activityAdds:   [] as Array<Record<string, unknown>>,
+    schemaCreates:  [] as Array<Record<string, unknown>>,
   }
 
   ;(adminAuth.verifySessionCookie as jest.Mock).mockImplementation((cookie: string) => {
@@ -155,6 +156,17 @@ function setupIsolationFixtures() {
     if (cookie.endsWith(memberB.uid)) return Promise.resolve({ uid: memberB.uid })
     return Promise.reject(new Error('invalid'))
   })
+
+  ;(adminDb.runTransaction as jest.Mock).mockImplementation(async (callback) => callback({
+    get: jest.fn((ref: { get: () => Promise<unknown> }) => ref.get()),
+    create: jest.fn((_ref: unknown, data: Record<string, unknown>) => {
+      captured.schemaCreates.push(data)
+    }),
+    update: jest.fn((
+      ref: { update: (data: Record<string, unknown>) => unknown },
+      data: Record<string, unknown>,
+    ) => ref.update(data)),
+  }))
 
   ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
 
@@ -177,8 +189,26 @@ function setupIsolationFixtures() {
         offset: jest.fn().mockReturnThis(),
         get: () => Promise.resolve({
           docs: [
-            { id: 'f-a', data: () => formA },
-            { id: 'f-b', data: () => formB },
+            {
+              id: 'f-a',
+              data: () => formA,
+              ref: {
+                update: (data: Record<string, unknown>) => {
+                  captured.formUpdates.push(data)
+                  return Promise.resolve()
+                },
+              },
+            },
+            {
+              id: 'f-b',
+              data: () => formB,
+              ref: {
+                update: (data: Record<string, unknown>) => {
+                  captured.formUpdates.push(data)
+                  return Promise.resolve()
+                },
+              },
+            },
           ].filter(d => {
             const data = d.data() as any
             if (whereOrgFilter !== undefined && data.orgId !== whereOrgFilter) return false
@@ -313,6 +343,15 @@ function setupIsolationFixtures() {
           captured.activityAdds.push(data)
           return Promise.resolve({ id: 'auto-act' })
         }),
+      }
+    }
+
+    if (name === 'lead_capture_schema_versions') {
+      return {
+        doc: jest.fn((id: string) => ({
+          id,
+          get: jest.fn().mockResolvedValue({ exists: false, data: () => undefined }),
+        })),
       }
     }
 
@@ -455,6 +494,14 @@ describe('cross-tenant isolation: forms routes', () => {
     // formSubmissionRef pattern: uid = system:form-submission:{formId}
     expect((written?.createdByRef as any)?.uid).toBe('system:form-submission:f-a')
     expect((written?.createdByRef as any)?.kind).toBe('system')
+    expect(captured.schemaCreates).toContainEqual(expect.objectContaining({
+      orgId: 'org-a',
+      captureSourceId: 'f-a',
+      id: expect.stringMatching(/^schema_[a-f0-9]{24}$/),
+    }))
+    expect(captured.formUpdates).toContainEqual(expect.objectContaining({
+      activeSchemaVersionId: expect.stringMatching(/^schema_[a-f0-9]{24}$/),
+    }))
   })
 
   it('public submit auto-creates Contact with formSubmissionRef attribution', async () => {

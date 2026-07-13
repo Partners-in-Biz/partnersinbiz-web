@@ -17,6 +17,7 @@ import {
   videoEditorRuntimeConfigFromEnv,
 } from '@/lib/video-editor/dispatch'
 import { sanitizeEditorTimeline, sanitizeVideoEditorSettingsInput, validateEditorTimeline } from '@/lib/video-editor/sanitize'
+import { authorizeMarketingStudioMutation } from '@/lib/chat-context/marketingMutationAccess'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,6 +30,8 @@ export const POST = withAuth('client', async (_req: NextRequest, user, context) 
   const orgId = String(loaded.data.orgId ?? '')
   const denied = await ensureOrgAccess(user, orgId)
   if (denied) return denied
+  const policyAccess = await authorizeMarketingStudioMutation(user, orgId, 'create')
+  if (!policyAccess.ok) return apiError(policyAccess.error, policyAccess.status)
 
   const timeline = sanitizeEditorTimeline(loaded.data.timeline)
   const settings = sanitizeVideoEditorSettingsInput(loaded.data.settings)

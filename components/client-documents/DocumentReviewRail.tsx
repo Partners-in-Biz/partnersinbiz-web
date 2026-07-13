@@ -48,7 +48,7 @@ function AlsoLinkToDocumentOption({
   if (!hasCrmRefs(refs)) return null
 
   return (
-    <label className="flex items-start gap-2 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-[11px] text-on-surface-variant">
+    <label className="flex items-start gap-2 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-[11px] text-[var(--color-pib-text-muted)]">
       <input
         type="checkbox"
         checked={checked}
@@ -67,11 +67,11 @@ function AlsoLinkToDocumentOption({
 function CommentReply({ reply }: { reply: DocumentCommentReply }) {
   return (
     <div className="border-l-2 border-[var(--color-pib-line)] pl-3 py-1">
-      <div className="flex items-center justify-between gap-2 text-[11px] text-on-surface-variant">
-        <span className="font-medium text-on-surface">{reply.userName}</span>
+      <div className="flex items-center justify-between gap-2 text-[11px] text-[var(--color-pib-text-muted)]">
+        <span className="font-medium text-[var(--color-pib-text)]">{reply.userName}</span>
         <span>{fmtTs(reply.createdAt)}</span>
       </div>
-      <p className="text-xs text-on-surface mt-0.5 whitespace-pre-wrap">{reply.text}</p>
+      <p className="text-xs text-[var(--color-pib-text)] mt-0.5 whitespace-pre-wrap">{reply.text}</p>
       <ContextReferenceChips refs={reply.contextRefs ?? []} compact />
     </div>
   )
@@ -135,16 +135,16 @@ function CommentItem({ comment, isActive, onScroll, onResolve, onReply, register
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-xs font-medium truncate">{comment.userName}</span>
-          <span className="text-[10px] uppercase tracking-wider text-on-surface-variant">{comment.userRole}</span>
+          <span className="text-[10px] uppercase tracking-wider text-[var(--color-pib-text-muted)]">{comment.userRole}</span>
         </div>
-        <span className="text-[10px] text-on-surface-variant shrink-0">{fmtTs(comment.createdAt)}</span>
+        <span className="text-[10px] text-[var(--color-pib-text-muted)] shrink-0">{fmtTs(comment.createdAt)}</span>
       </div>
 
       {preview && (
         <button
           type="button"
           onClick={onScroll}
-          className="block w-full text-left text-[11px] text-on-surface-variant italic hover:text-[var(--color-pib-accent)] truncate"
+          className="block w-full text-left text-[11px] text-[var(--color-pib-text-muted)] italic hover:text-[var(--color-pib-accent)] truncate"
           title="Jump to anchor"
         >
           {preview}
@@ -185,7 +185,7 @@ function CommentItem({ comment, isActive, onScroll, onResolve, onReply, register
             onChange={(e) => setReplyText(e.target.value)}
             rows={2}
             placeholder="Write a reply…"
-            className="w-full rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:ring-1 focus:ring-[var(--color-pib-accent)] resize-none"
+            className="w-full rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--color-pib-accent)] resize-none"
           />
           {orgId ? (
             <ContextReferencePicker
@@ -266,7 +266,7 @@ export function DocumentReviewRail({
   return (
     <aside className="space-y-4">
       <div className="pib-card p-4">
-        <p className="text-xs uppercase tracking-[0.18em] text-on-surface-variant">Status</p>
+        <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">Status</p>
         <p className="mt-2 text-lg font-medium capitalize">{document.status.replaceAll('_', ' ')}</p>
         {blockers.length > 0 && (
           <p className="mt-3 text-xs text-amber-300">
@@ -291,7 +291,7 @@ export function DocumentReviewRail({
 
       <div className="pib-card p-3 space-y-3">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-xs uppercase tracking-[0.18em] text-on-surface-variant">Comments</p>
+          <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">Comments</p>
           <PageTabs
             ariaLabel="Document comment filters"
             value={filter}
@@ -304,7 +304,7 @@ export function DocumentReviewRail({
         </div>
 
         {visible.length === 0 ? (
-          <p className="text-xs text-on-surface-variant">
+          <p className="text-xs text-[var(--color-pib-text-muted)]">
             {filter === 'open' ? 'No open comments. Highlight text or click an image to add one.' : 'No comments yet.'}
           </p>
         ) : (

@@ -262,11 +262,11 @@ export default function AdminPartnersPage() {
     <div className="space-y-6 max-w-6xl mx-auto">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Billing / Partner programme
           </p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Partners</h1>
-          <p className="text-sm text-on-surface-variant mt-0.5">
+          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Partners</h1>
+          <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5">
             Review partner applications, set commission rates, and track referral payouts. Payouts
             settle offline via EFT / PayPal.
           </p>
@@ -307,7 +307,7 @@ export default function AdminPartnersPage() {
               { key: 'expectedVolume', label: 'Expected volume', placeholder: 'e.g. 5–10 referrals / month' },
             ].map((f) => (
               <label key={f.key} className="block">
-                <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+                <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                   {f.label}
                 </span>
                 <input
@@ -321,7 +321,7 @@ export default function AdminPartnersPage() {
               </label>
             ))}
             <label className="block md:col-span-2">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+              <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 Pitch
               </span>
               <textarea
@@ -354,20 +354,20 @@ export default function AdminPartnersPage() {
         ) : (
           <>
             <div className="pib-card p-4">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Pending</p>
-              <p className="text-2xl font-headline font-bold text-on-surface mt-1">{summary.pendingCount}</p>
+              <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Pending</p>
+              <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{summary.pendingCount}</p>
             </div>
             <div className="pib-card p-4">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Active partners</p>
-              <p className="text-2xl font-headline font-bold text-on-surface mt-1">{summary.approvedCount}</p>
+              <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Active partners</p>
+              <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{summary.approvedCount}</p>
             </div>
             <div className="pib-card p-4">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Total commission</p>
-              <p className="text-2xl font-headline font-bold text-on-surface mt-1">{formatZar(summary.totalCommissionZar)}</p>
+              <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Total commission</p>
+              <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{formatZar(summary.totalCommissionZar)}</p>
             </div>
             <div className="pib-card p-4">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Avg commission</p>
-              <p className="text-2xl font-headline font-bold text-on-surface mt-1">{summary.avgCommissionPercent}%</p>
+              <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Avg commission</p>
+              <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{summary.avgCommissionPercent}%</p>
             </div>
           </>
         )}
@@ -382,10 +382,10 @@ export default function AdminPartnersPage() {
               onClick={() => setFilter(f.key)}
               className={`text-xs font-label px-3 py-1.5 rounded-full transition-colors ${
                 filter === f.key
-                  ? 'text-on-surface'
-                  : 'text-on-surface-variant hover:text-on-surface'
+                  ? 'text-[var(--color-pib-text)]'
+                  : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
               }`}
-              style={filter === f.key ? { background: 'var(--color-accent-v2)' } : { background: 'rgba(255,255,255,0.06)' }}
+              style={filter === f.key ? { background: 'var(--color-pib-accent)' } : { background: 'rgba(255,255,255,0.06)' }}
             >
               {f.label}
             </button>
@@ -408,7 +408,7 @@ export default function AdminPartnersPage() {
           <Skeleton className="h-20 rounded-xl" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="pib-card p-6 text-center text-sm text-on-surface-variant">
+        <div className="pib-card p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
           {applications.length === 0 ? 'No partner applications yet.' : 'No matches for this filter.'}
         </div>
       ) : (
@@ -424,23 +424,23 @@ export default function AdminPartnersPage() {
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-semibold text-on-surface truncate">{a.companyName}</p>
+                        <p className="text-sm font-semibold text-[var(--color-pib-text)] truncate">{a.companyName}</p>
                         <StatusBadge status={a.status} />
                       </div>
-                      <p className="text-xs text-on-surface-variant truncate">
+                      <p className="text-xs text-[var(--color-pib-text-muted)] truncate">
                         {a.contactName} · {a.email}
                       </p>
                       {a.expectedVolume && (
-                        <p className="text-[11px] text-on-surface-variant/60 mt-0.5">
+                        <p className="text-[11px] text-[var(--color-pib-text-muted)]/60 mt-0.5">
                           Expected volume: {a.expectedVolume}
                         </p>
                       )}
                     </div>
                     <div className="text-right shrink-0">
                       {a.status === 'approved' && (
-                        <p className="text-xs text-on-surface-variant">{a.commissionPercent}% commission</p>
+                        <p className="text-xs text-[var(--color-pib-text-muted)]">{a.commissionPercent}% commission</p>
                       )}
-                      <p className="text-[11px] text-on-surface-variant/60">
+                      <p className="text-[11px] text-[var(--color-pib-text-muted)]/60">
                         Applied {formatDate(tsToMillis(a.createdAt))}
                       </p>
                     </div>
@@ -448,30 +448,30 @@ export default function AdminPartnersPage() {
                 </button>
 
                 {isSelected && selected && (
-                  <div className="mt-4 rounded-md border border-on-surface/10 bg-on-surface/5 p-4 space-y-4">
+                  <div className="mt-4 rounded-md border border-[var(--color-pib-text)]/10 bg-[var(--color-pib-text)]/5 p-4 space-y-4">
                     {/* Detail */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                       {selected.phone && (
                         <div>
-                          <span className="text-on-surface-variant/60 uppercase font-label text-[10px]">Phone</span>
-                          <p className="text-on-surface">{selected.phone}</p>
+                          <span className="text-[var(--color-pib-text-muted)]/60 uppercase font-label text-[10px]">Phone</span>
+                          <p className="text-[var(--color-pib-text)]">{selected.phone}</p>
                         </div>
                       )}
                       {selected.website && (
                         <div>
-                          <span className="text-on-surface-variant/60 uppercase font-label text-[10px]">Website</span>
-                          <p className="text-on-surface break-all">{selected.website}</p>
+                          <span className="text-[var(--color-pib-text-muted)]/60 uppercase font-label text-[10px]">Website</span>
+                          <p className="text-[var(--color-pib-text)] break-all">{selected.website}</p>
                         </div>
                       )}
                       {selected.pitch && (
                         <div className="sm:col-span-2">
-                          <span className="text-on-surface-variant/60 uppercase font-label text-[10px]">Pitch</span>
-                          <p className="text-on-surface whitespace-pre-wrap">{selected.pitch}</p>
+                          <span className="text-[var(--color-pib-text-muted)]/60 uppercase font-label text-[10px]">Pitch</span>
+                          <p className="text-[var(--color-pib-text)] whitespace-pre-wrap">{selected.pitch}</p>
                         </div>
                       )}
                       {selected.status === 'rejected' && selected.rejectionReason && (
                         <div className="sm:col-span-2">
-                          <span className="text-on-surface-variant/60 uppercase font-label text-[10px]">Rejection reason</span>
+                          <span className="text-[var(--color-pib-text-muted)]/60 uppercase font-label text-[10px]">Rejection reason</span>
                           <p className="text-red-400">{selected.rejectionReason}</p>
                         </div>
                       )}
@@ -481,10 +481,10 @@ export default function AdminPartnersPage() {
 
                     {/* Actions */}
                     {(selected.status === 'pending' || selected.status === 'suspended') && (
-                      <div className="space-y-3 border-t border-on-surface/10 pt-3">
+                      <div className="space-y-3 border-t border-[var(--color-pib-text)]/10 pt-3">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <label className="block">
-                            <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
+                            <span className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                               Commission %
                             </span>
                             <input
@@ -498,7 +498,7 @@ export default function AdminPartnersPage() {
                             />
                           </label>
                           <label className="block">
-                            <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
+                            <span className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                               Payout method
                             </span>
                             <select
@@ -524,7 +524,7 @@ export default function AdminPartnersPage() {
                     )}
 
                     {selected.status === 'approved' && (
-                      <div className="flex flex-wrap gap-2 border-t border-on-surface/10 pt-3">
+                      <div className="flex flex-wrap gap-2 border-t border-[var(--color-pib-text)]/10 pt-3">
                         <button
                           onClick={() => runAction('suspend')}
                           disabled={busy}
@@ -536,9 +536,9 @@ export default function AdminPartnersPage() {
                     )}
 
                     {selected.status !== 'rejected' && (
-                      <div className="space-y-2 border-t border-on-surface/10 pt-3">
+                      <div className="space-y-2 border-t border-[var(--color-pib-text)]/10 pt-3">
                         <label className="block">
-                          <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
+                          <span className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                             Rejection reason
                           </span>
                           <input
@@ -569,11 +569,11 @@ export default function AdminPartnersPage() {
       {/* Active partners section */}
       {!loading && activePartners.length > 0 && (
         <div className="space-y-3">
-          <h2 className="text-sm font-headline font-bold text-on-surface">Active partners</h2>
+          <h2 className="text-sm font-headline font-bold text-[var(--color-pib-text)]">Active partners</h2>
           <div className="pib-card overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-[10px] font-label uppercase tracking-wide text-on-surface-variant border-b border-on-surface/10">
+                <tr className="text-left text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)] border-b border-[var(--color-pib-text)]/10">
                   <th className="px-4 py-2">Company</th>
                   <th className="px-4 py-2">Commission</th>
                   <th className="px-4 py-2 text-right">Referrals</th>
@@ -582,11 +582,11 @@ export default function AdminPartnersPage() {
               </thead>
               <tbody>
                 {activePartners.map((a) => (
-                  <tr key={a.id} className="border-b border-on-surface/5 last:border-0">
-                    <td className="px-4 py-2 text-on-surface">{a.companyName}</td>
-                    <td className="px-4 py-2 text-on-surface-variant">{a.commissionPercent}%</td>
-                    <td className="px-4 py-2 text-right text-on-surface-variant">{a.referralsCount ?? 0}</td>
-                    <td className="px-4 py-2 text-right text-on-surface">{formatZar(a.totalCommissionZar ?? 0)}</td>
+                  <tr key={a.id} className="border-b border-[var(--color-pib-text)]/5 last:border-0">
+                    <td className="px-4 py-2 text-[var(--color-pib-text)]">{a.companyName}</td>
+                    <td className="px-4 py-2 text-[var(--color-pib-text-muted)]">{a.commissionPercent}%</td>
+                    <td className="px-4 py-2 text-right text-[var(--color-pib-text-muted)]">{a.referralsCount ?? 0}</td>
+                    <td className="px-4 py-2 text-right text-[var(--color-pib-text)]">{formatZar(a.totalCommissionZar ?? 0)}</td>
                   </tr>
                 ))}
               </tbody>

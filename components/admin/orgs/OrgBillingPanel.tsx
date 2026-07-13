@@ -40,8 +40,8 @@ const INVOICE_TONE: Record<string, 'success' | 'warn' | 'danger' | 'neutral'> = 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between py-2 text-sm">
-      <span className="text-on-surface-variant">{label}</span>
-      <span className="font-medium text-on-surface">{value}</span>
+      <span className="text-[var(--color-pib-text-muted)]">{label}</span>
+      <span className="font-medium text-[var(--color-pib-text)]">{value}</span>
     </div>
   )
 }
@@ -60,7 +60,7 @@ export function OrgBillingPanel({ slug }: { slug: string }) {
     return () => { cancelled = true }
   }, [slug])
 
-  if (loading) return <Surface className="text-on-surface-variant text-sm">Loading billing…</Surface>
+  if (loading) return <Surface className="text-[var(--color-pib-text-muted)] text-sm">Loading billing…</Surface>
   if (error) return <Surface className="text-red-400 text-sm">{error}</Surface>
   if (!data) return null
 
@@ -92,11 +92,11 @@ export function OrgBillingPanel({ slug }: { slug: string }) {
               {data.invoices.map((inv) => (
                 <div key={inv.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                   <div className="min-w-0">
-                    <p className="font-medium text-on-surface">{inv.number}</p>
-                    <p className="text-xs text-on-surface-variant">{formatDate(inv.issuedAt)}</p>
+                    <p className="font-medium text-[var(--color-pib-text)]">{inv.number}</p>
+                    <p className="text-xs text-[var(--color-pib-text-muted)]">{formatDate(inv.issuedAt)}</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-on-surface">{inv.currency} {inv.total.toLocaleString()}</span>
+                    <span className="text-[var(--color-pib-text)]">{inv.currency} {inv.total.toLocaleString()}</span>
                     <StatusPill tone={INVOICE_TONE[inv.status] ?? 'neutral'}>{inv.status}</StatusPill>
                   </div>
                 </div>

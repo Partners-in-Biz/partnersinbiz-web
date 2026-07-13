@@ -94,7 +94,9 @@ jest.mock('@/lib/firebase/admin', () => ({
       }
       if (name === 'broadcasts') {
         return {
-          where: jest.fn().mockReturnValue(emptyQuery()),
+          where: jest.fn((field: string) => field === 'ab.status'
+            ? { get: jest.fn().mockResolvedValue({ docs: [broadcastDoc], empty: false }) }
+            : emptyQuery()),
           doc: jest.fn(() => ({ get: jest.fn().mockResolvedValue(broadcastDoc) })),
         }
       }
@@ -118,6 +120,16 @@ jest.mock('@/lib/firebase/admin', () => ({
 }))
 
 describe('GET /api/cron/broadcasts', () => {
+  it('does not finalize or queue A/B winners when approval recheck fails', async () => {
+    mockAssertEmailMarketingDispatchApproval.mockRejectedValue(new Error('approval revoked'))
+    const { GET } = await import('@/app/api/cron/broadcasts/route')
+    const res = await GET(new NextRequest('http://localhost/api/cron/broadcasts', {
+      headers: { Authorization: 'Bearer cron-secret' },
+    }))
+    expect(res.status).toBe(200)
+    expect(mockMaybeFinalizeWinner).not.toHaveBeenCalled()
+    expect(mockDispatchWinnerToRemaining).not.toHaveBeenCalled()
+  })
   beforeEach(() => {
     jest.clearAllMocks()
     process.env.CRON_SECRET = 'cron-secret'

@@ -142,6 +142,9 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser) =>
   if (!subject) return apiError('subject is required')
   if (!html.trim()) return apiError('html content is required')
   if (!filter) return apiError('A valid recipientFilter is required')
+  if (filter.source === 'all_users' || filter.source === 'by_role') {
+    return apiError('Cross-organisation legacy broadcasts are disabled; create governed organisation broadcasts instead.', 403)
+  }
   if (filter.source === 'by_org' && filter.orgId && await organizationRequiresEmailApproval(filter.orgId)) {
     return apiError('This organisation requires maker-checker approval; create and approve a governed broadcast before sending.', 403)
   }

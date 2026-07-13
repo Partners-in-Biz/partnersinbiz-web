@@ -5,6 +5,7 @@ const claimEmailEventProjection = jest.fn()
 const completeEmailEventProjection = jest.fn()
 const appendConsentEvent = jest.fn()
 const applyFirestoreProjectionEffect = jest.fn()
+const addSuppression = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: {
@@ -37,7 +38,7 @@ jest.mock('@/lib/firebase/admin', () => ({
 jest.mock('@/lib/email-events/store', () => ({ appendEmailEvent: (...args: unknown[]) => appendEmailEvent(...args), claimEmailEventProjection: (...args: unknown[]) => claimEmailEventProjection(...args), completeEmailEventProjection: (...args: unknown[]) => completeEmailEventProjection(...args) }))
 jest.mock('@/lib/consent-ledger/store', () => ({ appendConsentEvent: (...args: unknown[]) => appendConsentEvent(...args) }))
 jest.mock('@/lib/email/suppressions', () => ({
-  addSuppression: jest.fn(),
+  addSuppression: (...args: unknown[]) => addSuppression(...args),
   temporaryExpiryFromNow: jest.fn(),
 }))
 jest.mock('@/lib/email/bounceTracking', () => ({
@@ -59,6 +60,7 @@ describe('Resend email event ledger integration', () => {
     claimEmailEventProjection.mockResolvedValue('lease-1')
     completeEmailEventProjection.mockResolvedValue(true)
     applyFirestoreProjectionEffect.mockResolvedValue(true)
+    addSuppression.mockResolvedValue(undefined)
   })
 
   it('does not complete projection when a required counter effect fails', async () => {
@@ -69,6 +71,18 @@ describe('Resend email event ledger integration', () => {
       method: 'POST', headers: { 'content-type': 'application/json', 'svix-id': 'svix-fail' },
       body: JSON.stringify({ type: 'email.delivered', data: { email_id: 'provider-1' } }),
     }))).rejects.toThrow('transaction failed')
+    expect(completeEmailEventProjection).not.toHaveBeenCalled()
+  })
+
+  it('keeps a complaint projection retryable when required suppression fails', async () => {
+    appendEmailEvent.mockResolvedValue({ id: 'evt-suppression-fail', created: true })
+    appendConsentEvent.mockResolvedValue({ id: 'consent-1', created: true })
+    claimEmailEventProjection.mockResolvedValue('lease-suppression')
+    addSuppression.mockRejectedValue(new Error('suppression unavailable'))
+    await expect(POST(new NextRequest('http://localhost/api/v1/email/webhook', {
+      method: 'POST', headers: { 'content-type': 'application/json', 'svix-id': 'svix-suppression' },
+      body: JSON.stringify({ type: 'email.complained', data: { email_id: 'provider-1' } }),
+    }))).rejects.toThrow('suppression unavailable')
     expect(completeEmailEventProjection).not.toHaveBeenCalled()
   })
 

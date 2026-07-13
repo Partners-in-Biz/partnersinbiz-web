@@ -17,16 +17,16 @@ function initials(name: string): string {
 }
 
 const TIER_COLOURS: Record<string, string> = {
-  enterprise: 'bg-purple-500/20 text-purple-300',
-  'mid-market': 'bg-blue-500/20 text-blue-300',
-  smb: 'bg-green-500/20 text-green-300',
+  enterprise: 'pib-pill-violet',
+  'mid-market': 'pib-pill-blue',
+  smb: 'pib-pill-success',
 }
 
 const LIFECYCLE_COLOURS: Record<string, string> = {
-  lead: 'bg-yellow-500/20 text-yellow-300',
-  prospect: 'bg-sky-500/20 text-sky-300',
-  customer: 'bg-green-500/20 text-green-300',
-  churned: 'bg-red-500/20 text-red-300',
+  lead: 'pib-pill-warn',
+  prospect: 'pib-pill-info',
+  customer: 'pib-pill-success',
+  churned: 'pib-pill-danger',
 }
 
 function profileStrength(company: Company): number {
@@ -98,17 +98,17 @@ export interface CompanyHeaderProps {
 
 export function CompanyHeader({ company, onEdit, onDelete, deleting = false, stats }: CompanyHeaderProps) {
   const tierCls = company.tier
-    ? (TIER_COLOURS[company.tier] ?? 'bg-[var(--color-surface-container)] text-on-surface-variant')
+    ? (TIER_COLOURS[company.tier] ?? '')
     : ''
   const lcCls = company.lifecycleStage
-    ? (LIFECYCLE_COLOURS[company.lifecycleStage] ?? 'bg-[var(--color-surface-container)] text-on-surface-variant')
+    ? (LIFECYCLE_COLOURS[company.lifecycleStage] ?? '')
     : ''
   const tierLabel = readableAccountLabel(company.tier)
   const lifecycleLabel = readableAccountLabel(company.lifecycleStage)
   const am = companyAccountOwnerRef(company)
   const strength = typeof company.healthScore === 'number' ? company.healthScore : profileStrength(company)
-  const strengthTone = strength >= 75 ? 'text-emerald-300' : strength >= 45 ? 'text-amber-200' : 'text-red-300'
-  const strengthBarTone = strength >= 75 ? 'bg-emerald-400' : strength >= 45 ? 'bg-amber-300' : 'bg-red-400'
+  const strengthTone = strength >= 75 ? 'text-emerald-500' : strength >= 45 ? 'text-[var(--color-pib-accent)]' : 'text-[var(--color-error)]'
+  const strengthBarTone = strength >= 75 ? 'bg-emerald-500' : strength >= 45 ? 'bg-[var(--color-pib-accent)]' : 'bg-[var(--color-error)]'
   const siteHref = websiteHref(company)
   const missingIdentity = !company.domain && !company.website && !company.legalName
   const missingIndustry = !company.industry
@@ -127,11 +127,11 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
     { label: 'Docs', value: stats?.documents ?? 0, icon: 'description' },
   ]
   const setupButtonClass =
-    'inline-flex items-center gap-1 rounded-md border border-[var(--color-card-border)] px-1.5 py-0.5 text-[10px] font-medium text-on-surface transition-colors hover:bg-white/[0.05]'
+    'inline-flex items-center gap-1 rounded-full border border-[var(--color-pib-line)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-pib-text)] transition-colors hover:bg-[var(--color-row-hover)]'
 
   return (
     <div className="flex flex-col">
-      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 border-b border-[var(--color-card-border)] px-3 py-2">
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 border-b border-[var(--color-pib-line)] px-3 py-3">
         <div className="flex min-w-0 flex-1 items-start gap-2.5">
           {/* Logo / initials */}
           {company.logoUrl ? (
@@ -144,22 +144,22 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
               className="mt-0.5 h-9 w-9 shrink-0 rounded-lg object-cover"
             />
           ) : (
-            <div className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[var(--color-surface-container)] text-xs font-label text-on-surface-variant">
+            <div className="pib-icon-tint mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full text-xs font-label">
               {initials(company.name)}
             </div>
           )}
 
           {/* Name + chips */}
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Account command center</p>
+            <p className="pib-label">Account command center</p>
             <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-              <h1 className="truncate text-base font-semibold leading-tight text-on-surface">{company.name}</h1>
+              <h1 className="truncate text-base font-semibold leading-tight text-[var(--color-pib-text)]">{company.name}</h1>
               {tierLabel && (
                 <button
                   type="button"
                   onClick={onEdit}
                   aria-label={`Edit account tier ${tierLabel} for ${company.name}`}
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-label uppercase tracking-wide transition-opacity hover:opacity-80 ${tierCls}`}
+                  className={`pib-pill px-2 py-0.5 text-[10px] transition-opacity hover:opacity-80 ${tierCls}`}
                 >
                   {tierLabel}
                 </button>
@@ -169,22 +169,22 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
                   type="button"
                   onClick={onEdit}
                   aria-label={`Edit lifecycle stage ${lifecycleLabel} for ${company.name}`}
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-label uppercase tracking-wide transition-opacity hover:opacity-80 ${lcCls}`}
+                  className={`pib-pill px-2 py-0.5 text-[10px] transition-opacity hover:opacity-80 ${lcCls}`}
                 >
                   {lifecycleLabel}
                 </button>
               )}
               {company.size && (
-                <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
+                <span className="pib-pill px-2 py-0.5 text-[10px]">
                   {company.size}
                 </span>
               )}
               {am && (
-                <div className="flex items-center gap-1.5 text-[11px] text-on-surface-variant">
+                <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-pib-text-muted)]">
                   {am.avatarUrl ? (
                     <Image src={am.avatarUrl} alt={am.displayName} width={20} height={20} unoptimized className="h-4 w-4 rounded-full object-cover" />
                   ) : (
-                    <div className="grid h-4 w-4 place-items-center rounded-full bg-[var(--color-surface-container)] text-[8px] font-label text-on-surface-variant">
+                    <div className="pib-icon-tint grid h-4 w-4 place-items-center rounded-full text-[8px] font-label">
                       {initials(am.displayName)}
                     </div>
                   )}
@@ -192,7 +192,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
                 </div>
               )}
             </div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-on-surface-variant">
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--color-pib-text-muted)]">
               <span>{company.domain || company.website || company.legalName || 'No domain captured'}</span>
               {missingIdentity && (
                 <button
@@ -229,7 +229,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`Open website for ${company.name}`}
-              className="flex h-8 items-center gap-1 rounded-md px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+              className="btn-pib-ghost h-8 gap-1 px-2 text-xs"
             >
               <span aria-hidden="true" className="material-symbols-outlined text-[16px]">open_in_new</span>
               Website
@@ -239,7 +239,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
             <a
               href={`mailto:${company.billingEmail || company.accountsContact?.email}`}
               aria-label={`Email billing contact for ${company.name}`}
-              className="flex h-8 items-center gap-1 rounded-md px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+              className="btn-pib-ghost h-8 gap-1 px-2 text-xs"
             >
               <span aria-hidden="true" className="material-symbols-outlined text-[16px]">mail</span>
               Billing
@@ -249,7 +249,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
             <a
               href={`tel:${company.phone}`}
               aria-label={`Call ${company.name}`}
-              className="flex h-8 items-center gap-1 rounded-md px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+              className="btn-pib-ghost h-8 gap-1 px-2 text-xs"
             >
               <span aria-hidden="true" className="material-symbols-outlined text-[16px]">call</span>
               Call
@@ -259,7 +259,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
             type="button"
             onClick={onEdit}
             aria-label={`Edit account profile for ${company.name}`}
-            className="flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-md border border-[var(--color-card-border)] bg-primary/10 px-2.5 text-xs font-medium text-primary transition hover:bg-primary/15"
+            className="btn-pib-primary h-8 shrink-0 gap-1 px-2.5 text-xs"
           >
             <span aria-hidden="true" className="material-symbols-outlined text-[16px]">edit</span>
             Edit
@@ -270,7 +270,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
               onClick={onDelete}
               disabled={deleting}
               aria-label={deleting ? `Archiving account ${company.name}` : `Archive account ${company.name}`}
-              className="flex h-8 shrink-0 items-center rounded-md border border-red-400/30 bg-red-500/10 px-2.5 text-xs text-red-200 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+              className="btn-pib-danger h-8 shrink-0 px-2.5 text-xs"
             >
               {deleting ? 'Archiving...' : 'Archive'}
             </button>
@@ -279,12 +279,12 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
       </div>
 
       {missingAccountManager && (
-        <div className="border-b border-amber-400/30 bg-amber-400/10 px-3 py-2">
+        <div className="border-b border-[var(--color-pib-line)] px-3 py-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <p className="text-[10px] font-label uppercase tracking-[0.22em] text-amber-200">Account owner missing</p>
-              <h2 className="mt-0.5 text-xs font-semibold text-on-surface">Assign account ownership</h2>
-              <p className="mt-0.5 max-w-3xl text-xs leading-5 text-on-surface-variant">
+              <p className="pib-label text-[var(--color-pib-accent)]">Account owner missing</p>
+              <h2 className="mt-0.5 text-xs font-semibold text-[var(--color-pib-text)]">Assign account ownership</h2>
+              <p className="mt-0.5 max-w-3xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
                 No team member owns this account yet. Assign a manager so renewals, escalations, and delivery handoffs stay visible to leadership.
               </p>
             </div>
@@ -292,7 +292,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
               type="button"
               onClick={onEdit}
               aria-label={`Assign account manager for ${company.name}`}
-              className="flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+              className="btn-pib-secondary h-8 shrink-0 gap-1.5 px-2.5 text-xs"
             >
               <span aria-hidden="true" className="material-symbols-outlined text-[16px]">person_add</span>
               Assign manager
@@ -301,16 +301,16 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
         </div>
       )}
 
-      <div className="grid gap-2 border-b border-[var(--color-card-border)] px-3 py-2 sm:grid-cols-2 lg:grid-cols-[minmax(200px,1.2fr)_repeat(4,minmax(0,1fr))]">
-        <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+      <div className="grid gap-3 border-b border-[var(--color-pib-line)] px-3 py-3 sm:grid-cols-2 lg:grid-cols-[minmax(200px,1.2fr)_repeat(4,minmax(0,1fr))]">
+        <div className="pib-stat-card">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Profile health</p>
+            <p className="pib-label">Profile health</p>
             <span className={`font-mono text-xs ${strengthTone}`}>{strength}%</span>
           </div>
-          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10">
+          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--color-pib-surface-soft)]">
             <div className={`h-full rounded-full ${strengthBarTone}`} style={{ width: `${strength}%` }} />
           </div>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] leading-4 text-on-surface-variant">
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
             <span>{formatCurrency(company.annualRevenue, company.currency)}</span>
             <span aria-hidden="true">·</span>
             <span>{company.employeeCount != null ? `${company.employeeCount.toLocaleString()} people` : 'No size data'}</span>
@@ -329,28 +329,28 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
         </div>
 
         {statTiles.map((tile) => (
-          <div key={tile.label} className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+          <div key={tile.label} className="pib-stat-card">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] leading-4 text-on-surface-variant">{tile.label}</span>
-              <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-on-surface-variant">{tile.icon}</span>
+              <span className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{tile.label}</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">{tile.icon}</span>
             </div>
-            <p className="mt-1 text-lg font-semibold leading-none text-on-surface">{tile.value}</p>
+            <p className="mt-1 text-lg font-semibold leading-none text-[var(--color-pib-text)]">{tile.value}</p>
           </div>
         ))}
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5 px-3 py-2">
         {signals.length > 0 ? signals.map((signal) => (
-          <span key={signal} className="flex h-7 shrink-0 items-center rounded-full border border-[var(--color-card-border)] px-2.5 text-[11px] text-on-surface-variant">
+          <span key={signal} className="pib-pill h-7 shrink-0 px-2.5 text-[11px]">
             {signal}
           </span>
         )) : (
-          <span className="flex h-7 shrink-0 items-center rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 text-[11px] text-amber-200">
+          <span className="pib-pill pib-pill-warn h-7 shrink-0 px-2.5 text-[11px]">
             Setup gaps: add billing, owner, legal, and relationship details.
           </span>
         )}
         {typeof stats?.activity === 'number' && (
-          <span className="flex h-7 shrink-0 items-center rounded-full border border-[var(--color-card-border)] px-2.5 text-[11px] text-on-surface-variant">
+          <span className="pib-pill h-7 shrink-0 px-2.5 text-[11px]">
             {stats.activity} recent activities
           </span>
         )}

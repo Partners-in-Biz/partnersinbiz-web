@@ -110,57 +110,57 @@ export default function QuoteDetailPage() {
   }
 
   if (loading) return <div className="space-y-4"><div className="pib-skeleton h-12 w-64" /><div className="pib-skeleton h-96" /></div>
-  if (!quote) return <div className="pib-card py-12 text-center"><p className="text-on-surface-variant">Quote not found.</p></div>
+  if (!quote) return <div className="pib-empty-state"><p className="pib-empty-state-description">Quote not found.</p></div>
 
   const status = STATUS_MAP[quote.status]
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-3xl mx-auto space-y-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <Link href="/portal/quotes" className="text-xs text-on-surface-variant hover:text-on-surface transition-colors">← Quotes</Link>
-          <h1 className="text-2xl font-headline font-bold text-on-surface mt-1">{quote.quoteNumber}</h1>
+          <Link href="/portal/quotes" className="eyebrow hover:text-[var(--color-pib-text)] transition-colors">← Quotes</Link>
+          <h1 className="pib-page-title mt-2">{quote.quoteNumber}</h1>
         </div>
-        <span className="text-[10px] font-label uppercase tracking-wide px-2 py-1 rounded-full self-start sm:self-auto" style={{ background: `${status.color}20`, color: status.color }}>
+        <span className="pib-pill self-start sm:self-auto" style={{ background: `${status.color}20`, color: status.color, borderColor: `${status.color}40` }}>
           {status.label}
         </span>
-      </div>
+      </header>
 
       {/* Quote card */}
       <div className="pib-card space-y-6">
         <div className="flex flex-col sm:flex-row sm:justify-between gap-3">
           <div>
-            <p className="text-lg font-headline font-bold text-on-surface">Partners in Biz</p>
-            <p className="text-sm text-on-surface-variant">partnersinbiz.online</p>
+            <p className="text-lg font-headline font-bold text-[var(--color-pib-text)]">Partners in Biz</p>
+            <p className="text-sm text-[var(--color-pib-text-muted)]">partnersinbiz.online</p>
           </div>
           <div className="sm:text-right">
-            <p className="text-2xl font-headline font-bold" style={{ color: 'var(--color-accent-v2)' }}>{quote.quoteNumber}</p>
-            <p className="text-xs text-on-surface-variant mt-1">Issued: {formatDate(quote.issueDate)}</p>
-            <p className="text-xs text-on-surface-variant">Valid Until: {formatDate(quote.validUntil)}</p>
+            <p className="text-2xl font-headline font-bold" style={{ color: 'var(--color-pib-accent)' }}>{quote.quoteNumber}</p>
+            <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">Issued: {formatDate(quote.issueDate)}</p>
+            <p className="text-xs text-[var(--color-pib-text-muted)]">Valid Until: {formatDate(quote.validUntil)}</p>
           </div>
         </div>
 
-        <div className="border-t border-[var(--color-card-border)] pt-4">
-          <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant mb-1">Quote For</p>
-          <p className="text-sm font-medium text-on-surface">{quote.clientDetails?.name ?? quote.orgId}</p>
+        <div className="border-t border-[var(--color-pib-line)] pt-4">
+          <p className="pib-label">Quote For</p>
+          <p className="text-sm font-medium text-[var(--color-pib-text)]">{quote.clientDetails?.name ?? quote.orgId}</p>
         </div>
 
         {/* Line items */}
         <div>
-          <div className="hidden sm:grid grid-cols-12 gap-2 pb-2 border-b border-[var(--color-card-border)]">
-            <p className="col-span-6 text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Description</p>
-            <p className="col-span-2 text-right text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Qty</p>
-            <p className="col-span-2 text-right text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Unit</p>
-            <p className="col-span-2 text-right text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Amount</p>
+          <div className="hidden sm:grid grid-cols-12 gap-2 pb-2 border-b border-[var(--color-pib-line)]">
+            <p className="col-span-6 pib-label mb-0">Description</p>
+            <p className="col-span-2 text-right pib-label mb-0">Qty</p>
+            <p className="col-span-2 text-right pib-label mb-0">Unit</p>
+            <p className="col-span-2 text-right pib-label mb-0">Amount</p>
           </div>
           {quote.lineItems.map((item, i) => (
-            <div key={i} className="py-3 border-b border-[var(--color-card-border)]/50 sm:grid sm:grid-cols-12 sm:gap-2 sm:py-2">
-              <p className="text-sm text-on-surface sm:col-span-6 mb-2 sm:mb-0">{item.description}</p>
-              <div className="flex justify-between sm:contents text-sm text-on-surface-variant">
+            <div key={i} className="py-3 border-b border-[var(--color-pib-line)]/50 sm:grid sm:grid-cols-12 sm:gap-2 sm:py-2">
+              <p className="text-sm text-[var(--color-pib-text)] sm:col-span-6 mb-2 sm:mb-0">{item.description}</p>
+              <div className="flex justify-between sm:contents text-sm text-[var(--color-pib-text-muted)]">
                 <span className="sm:col-span-2 sm:text-right"><span className="sm:hidden text-[9px] font-label uppercase tracking-widest mr-1">Qty</span>{item.quantity}</span>
                 <span className="sm:col-span-2 sm:text-right"><span className="sm:hidden text-[9px] font-label uppercase tracking-widest mr-1">Unit</span>{fmtCurrency(item.unitPrice, quote.currency)}</span>
-                <span className="sm:col-span-2 sm:text-right text-on-surface font-medium"><span className="sm:hidden text-[9px] font-label uppercase tracking-widest mr-1 text-on-surface-variant">Amount</span>{fmtCurrency(item.amount, quote.currency)}</span>
+                <span className="sm:col-span-2 sm:text-right text-[var(--color-pib-text)] font-medium"><span className="sm:hidden text-[9px] font-label uppercase tracking-widest mr-1 text-[var(--color-pib-text-muted)]">Amount</span>{fmtCurrency(item.amount, quote.currency)}</span>
               </div>
             </div>
           ))}
@@ -169,35 +169,35 @@ export default function QuoteDetailPage() {
         {/* Totals */}
         <div className="flex justify-end">
           <div className="space-y-1 min-w-48">
-            <div className="flex justify-between text-sm text-on-surface-variant">
+            <div className="flex justify-between text-sm text-[var(--color-pib-text-muted)]">
               <span>Subtotal</span><span>{fmtCurrency(quote.subtotal ?? 0, quote.currency)}</span>
             </div>
             {quote.taxRate > 0 && (
-              <div className="flex justify-between text-sm text-on-surface-variant">
+              <div className="flex justify-between text-sm text-[var(--color-pib-text-muted)]">
                 <span>Tax ({quote.taxRate}%)</span><span>{fmtCurrency(quote.taxAmount ?? 0, quote.currency)}</span>
               </div>
             )}
-            <div className="flex justify-between text-base font-bold text-on-surface pt-1 border-t border-[var(--color-card-border)]">
+            <div className="flex justify-between text-base font-bold text-[var(--color-pib-text)] pt-1 border-t border-[var(--color-pib-line)]">
               <span>Total</span>
-              <span style={{ color: 'var(--color-accent-v2)' }}>{fmtCurrency(quote.total ?? 0, quote.currency)}</span>
+              <span style={{ color: 'var(--color-pib-accent)' }}>{fmtCurrency(quote.total ?? 0, quote.currency)}</span>
             </div>
           </div>
         </div>
 
         {quote.notes && (
-          <div className="border-t border-[var(--color-card-border)] pt-4">
-            <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant mb-1">Notes</p>
-            <p className="text-sm text-on-surface-variant">{quote.notes}</p>
+          <div className="border-t border-[var(--color-pib-line)] pt-4">
+            <p className="pib-label">Notes</p>
+            <p className="text-sm text-[var(--color-pib-text-muted)]">{quote.notes}</p>
           </div>
         )}
       </div>
 
       {/* Converted banner */}
       {quote.status === 'converted' && quote.convertedInvoiceId && (
-        <div className="pib-card bg-purple-500/10 border-purple-500/20">
-          <p className="text-sm text-on-surface">
+        <div className="pib-card border-[var(--color-pib-violet)]/25 bg-[var(--color-pib-violet-soft)]">
+          <p className="text-sm text-[var(--color-pib-text)]">
             This quote was converted to an invoice.{' '}
-            <Link href={`/portal/invoicing/${quote.convertedInvoiceId}`} style={{ color: 'var(--color-accent-v2)' }}>
+            <Link href={`/portal/invoicing/${quote.convertedInvoiceId}`} style={{ color: 'var(--color-pib-accent)' }}>
               View Invoice →
             </Link>
           </p>
@@ -208,22 +208,22 @@ export default function QuoteDetailPage() {
       {!['converted', 'declined', 'expired'].includes(quote.status) && (
         <div className="flex gap-2 flex-wrap">
           {quote.status === 'draft' && (
-            <button onClick={() => updateStatus('sent')} disabled={updating} className="pib-btn-primary font-label">
+            <button onClick={() => updateStatus('sent')} disabled={updating} className="btn-pib-primary text-sm">
               Mark as Sent
             </button>
           )}
           {quote.status === 'sent' && (
             <>
-              <button onClick={() => updateStatus('accepted')} disabled={updating} className="pib-btn-primary font-label">
+              <button onClick={() => updateStatus('accepted')} disabled={updating} className="btn-pib-primary text-sm">
                 Mark as Accepted
               </button>
-              <button onClick={() => updateStatus('declined')} disabled={updating} className="pib-btn-secondary font-label text-sm">
+              <button onClick={() => updateStatus('declined')} disabled={updating} className="btn-pib-secondary text-sm">
                 Mark as Declined
               </button>
             </>
           )}
           {quote.status === 'accepted' && !quote.convertedInvoiceId && (
-            <button onClick={convertToInvoice} disabled={converting} className="pib-btn-primary font-label">
+            <button onClick={convertToInvoice} disabled={converting} className="btn-pib-primary text-sm">
               {converting ? 'Converting…' : 'Convert to Invoice'}
             </button>
           )}

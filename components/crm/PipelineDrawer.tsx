@@ -37,19 +37,19 @@ function Field({ label, htmlFor, required, error, children }: {
 }) {
   return (
     <div className="space-y-1">
-      <label htmlFor={htmlFor} className="block text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">
-        {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+      <label htmlFor={htmlFor} className="pib-label">
+        {label}{required && <span className="text-[var(--color-error)] ml-0.5">*</span>}
       </label>
       {children}
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {error && <p className="text-xs text-[var(--color-error)]">{error}</p>}
     </div>
   )
 }
 
 function SectionDivider({ title }: { title: string }) {
   return (
-    <div className="border-t border-[var(--color-card-border)] pt-3 pb-1">
-      <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">{title}</p>
+    <div className="border-t border-[var(--color-pib-line)] pt-3 pb-1">
+      <p className="pib-label">{title}</p>
     </div>
   )
 }
@@ -129,24 +129,24 @@ export function PipelineDrawer({ pipeline, mode, open, onSave, onClose }: Pipeli
   const title = mode === 'create' ? 'New pipeline' : 'Edit pipeline'
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label={title}>
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
-      <div className="relative flex h-full w-full max-w-xl flex-col overflow-hidden border-l border-[var(--color-card-border)] bg-[var(--color-card)]">
+    <div className="pib-dialog-backdrop" role="dialog" aria-modal="true" aria-label={title}>
+      <div className="absolute inset-0" onClick={onClose} aria-hidden="true" />
+      <div className="pib-dialog-drawer relative w-full max-w-xl">
         {/* Header */}
-        <div className="flex h-11 shrink-0 items-center justify-between border-b border-[var(--color-card-border)] px-3">
-          <h2 className="text-sm font-semibold text-on-surface">{title}</h2>
+        <div className="pib-dialog-header">
+          <h2 className="pib-dialog-title">{title}</h2>
           <button
             type="button"
             aria-label={`Close ${title} drawer`}
             onClick={onClose}
-            className="grid h-8 w-8 cursor-pointer place-items-center rounded-md text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+            className="pib-dialog-close cursor-pointer"
           >
             <span className="material-symbols-outlined text-[16px]">close</span>
           </button>
         </div>
 
         {/* Scrollable form body */}
-        <form onSubmit={handleSubmit} id="pipeline-form" className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3">
+        <form onSubmit={handleSubmit} id="pipeline-form" className="pib-dialog-body space-y-4">
           <Field label="Name" htmlFor="pipeline-name" required error={errors.name}>
             <input
               id="pipeline-name"
@@ -154,7 +154,7 @@ export function PipelineDrawer({ pipeline, mode, open, onSave, onClose }: Pipeli
               value={form.name}
               onChange={(e) => set('name', e.target.value)}
               placeholder="e.g. Sales, Renewals, Onboarding"
-              className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm text-on-surface placeholder:text-on-surface-variant"
+              className="pib-input h-9 w-full text-sm"
             />
           </Field>
 
@@ -165,13 +165,13 @@ export function PipelineDrawer({ pipeline, mode, open, onSave, onClose }: Pipeli
               onChange={(e) => set('description', e.target.value)}
               placeholder="Optional description"
               rows={2}
-              className="w-full resize-none rounded-md border border-[var(--color-card-border)] bg-transparent p-2 text-sm text-on-surface placeholder:text-on-surface-variant"
+              className="pib-textarea w-full resize-none text-sm"
             />
           </Field>
 
           {/* isDefault toggle — edit mode only */}
           {mode === 'edit' && (
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-on-surface">
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-[var(--color-pib-text)]">
               <input
                 type="checkbox"
                 aria-label="Set as default pipeline"
@@ -191,12 +191,12 @@ export function PipelineDrawer({ pipeline, mode, open, onSave, onClose }: Pipeli
         </form>
 
         {/* Footer */}
-        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-[var(--color-card-border)] px-3 py-2">
+        <div className="pib-dialog-footer justify-end">
           <button
             type="button"
             onClick={onClose}
             aria-label={`Cancel ${title}`}
-            className="flex h-8 cursor-pointer items-center rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+            className="btn-pib-secondary h-8 px-3 text-xs"
           >
             Cancel
           </button>
@@ -205,7 +205,7 @@ export function PipelineDrawer({ pipeline, mode, open, onSave, onClose }: Pipeli
             form="pipeline-form"
             disabled={saving}
             aria-label="Save pipeline"
-            className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition disabled:cursor-not-allowed disabled:opacity-50"
+            className="btn-pib-primary h-8 gap-1.5 px-3 text-xs"
           >
             {saving ? (
               <>

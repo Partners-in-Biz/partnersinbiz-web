@@ -7,13 +7,13 @@ import Link from 'next/link'
 import type { Broadcast, BroadcastStatus } from '@/lib/broadcasts/types'
 
 const STATUS_COLORS: Record<BroadcastStatus, string> = {
-  draft: 'bg-surface-container text-on-surface-variant',
-  scheduled: 'bg-blue-100 text-blue-800',
-  sending: 'bg-amber-100 text-amber-800',
-  sent: 'bg-green-100 text-green-800',
-  paused: 'bg-yellow-100 text-yellow-800',
-  failed: 'bg-red-100 text-red-800',
-  canceled: 'bg-surface-container text-on-surface-variant line-through',
+  draft: 'pib-pill',
+  scheduled: 'pib-pill pib-pill-blue',
+  sending: 'pib-pill pib-pill-warn',
+  sent: 'pib-pill pib-pill-success',
+  paused: 'pib-pill pib-pill-warn',
+  failed: 'pib-pill pib-pill-danger',
+  canceled: 'pib-pill line-through',
 }
 
 export default function BroadcastsPage() {
@@ -44,28 +44,29 @@ export default function BroadcastsPage() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold text-on-surface">Broadcasts</h1>
-        <button
-          onClick={() => setCreating(true)}
-          className="px-4 py-2 rounded-lg bg-primary text-on-primary text-sm font-medium"
-        >
+    <div className="space-y-8">
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="eyebrow">Email · Broadcasts</p>
+          <h1 className="pib-page-title mt-2">Broadcasts</h1>
+          <p className="pib-page-sub">One-time email blasts to your audience.</p>
+        </div>
+        <button onClick={() => setCreating(true)} className="btn-pib-primary">
           New Broadcast
         </button>
-      </div>
+      </header>
 
       {creating && (
-        <div className="mb-4 flex gap-2">
+        <div className="flex gap-2">
           <input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="Broadcast name (e.g. 'October newsletter')"
-            className="flex-1 px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+            className="pib-input flex-1"
             onKeyDown={(e) => e.key === 'Enter' && createBroadcast()}
             autoFocus
           />
-          <button onClick={createBroadcast} className="px-4 py-2 rounded-lg bg-primary text-on-primary text-sm">
+          <button onClick={createBroadcast} className="btn-pib-primary">
             Create
           </button>
           <button
@@ -73,7 +74,7 @@ export default function BroadcastsPage() {
               setCreating(false)
               setNewName('')
             }}
-            className="px-4 py-2 rounded-lg bg-surface-container text-on-surface text-sm"
+            className="btn-pib-ghost"
           >
             Cancel
           </button>
@@ -83,12 +84,14 @@ export default function BroadcastsPage() {
       {loading ? (
         <div className="space-y-3">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-16 rounded-xl bg-surface-container animate-pulse" />
+            <div key={i} className="pib-skeleton h-16" />
           ))}
         </div>
       ) : broadcasts.length === 0 ? (
-        <div className="text-center py-16 text-on-surface-variant">
-          No broadcasts yet. Create one to send a one-time email blast.
+        <div className="pib-empty-state">
+          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">campaign</span>
+          <h2 className="pib-empty-state-title">No broadcasts yet</h2>
+          <p className="pib-empty-state-description">Create one to send a one-time email blast.</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -99,21 +102,24 @@ export default function BroadcastsPage() {
               <Link
                 key={b.id}
                 href={`/portal/broadcasts/${b.id}`}
-                className="flex items-center justify-between p-4 rounded-xl bg-surface-container hover:bg-surface-container-high transition-colors"
+                className="pib-card flex items-center justify-between gap-4 transition-colors hover:bg-[var(--color-row-hover)]"
               >
-                <div className="min-w-0">
-                  <p className="font-medium text-on-surface truncate">{b.name}</p>
-                  {b.description && (
-                    <p className="text-sm text-on-surface-variant mt-0.5 truncate">{b.description}</p>
-                  )}
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="pib-icon-tint pib-icon-tint-blue" aria-hidden="true">
+                    <span className="material-symbols-outlined text-[18px]">campaign</span>
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{b.name}</p>
+                    {b.description && (
+                      <p className="mt-0.5 truncate text-sm text-[var(--color-pib-text-muted)]">{b.description}</p>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-4 shrink-0">
-                  <span className="text-xs text-on-surface-variant tabular-nums">
+                  <span className="text-xs tabular-nums text-[var(--color-pib-text-muted)]">
                     {sent}/{audienceSize} sent
                   </span>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[b.status] ?? ''}`}
-                  >
+                  <span className={STATUS_COLORS[b.status] ?? 'pib-pill'}>
                     {b.status}
                   </span>
                 </div>

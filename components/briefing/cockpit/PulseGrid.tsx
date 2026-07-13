@@ -8,10 +8,10 @@ export function PulseGrid({ counts }: { counts: CountItem[] }) {
       {counts.map((item) => (
         <div
           key={item.label}
-          className="flex flex-col items-center rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-2 text-center"
+          className="flex flex-col items-center rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)] p-2 text-center"
         >
           <span className={`text-2xl font-bold leading-none ${item.color}`}>{item.value}</span>
-          <span className="mt-1 text-[10px] uppercase tracking-wide text-on-surface-variant">{item.label}</span>
+          <span className="mt-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">{item.label}</span>
         </div>
       ))}
     </div>

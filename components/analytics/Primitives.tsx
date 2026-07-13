@@ -12,9 +12,9 @@ export function KpiCard({
 }) {
   return (
     <div className="pib-card p-4">
-      <p className="text-xs text-on-surface-variant font-label">{label}</p>
-      <p className={`text-2xl font-bold mt-1 ${accent ? 'text-amber-400' : 'text-on-surface'}`}>{value}</p>
-      {sub && <p className="text-xs text-on-surface-variant mt-0.5">{sub}</p>}
+      <p className="text-xs text-[var(--color-pib-text-muted)] font-label">{label}</p>
+      <p className={`text-2xl font-bold mt-1 ${accent ? 'text-amber-400' : 'text-[var(--color-pib-text)]'}`}>{value}</p>
+      {sub && <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">{sub}</p>}
     </div>
   )
 }
@@ -52,15 +52,15 @@ export function SimpleTable({
   empty?: string
 }) {
   if (rows.length === 0) {
-    return <div className="pib-card p-6 text-center text-on-surface-variant text-sm">{empty}</div>
+    return <div className="pib-card p-6 text-center text-[var(--color-pib-text-muted)] text-sm">{empty}</div>
   }
   return (
     <div className="pib-card overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-[var(--color-card-border)]">
+          <tr className="border-b border-[var(--color-pib-line)]">
             {columns.map(c => (
-              <th key={c.key} className={`px-3 py-2 text-xs font-label text-on-surface-variant ${c.align === 'right' ? 'text-right' : 'text-left'}`}>
+              <th key={c.key} className={`px-3 py-2 text-xs font-label text-[var(--color-pib-text-muted)] ${c.align === 'right' ? 'text-right' : 'text-left'}`}>
                 {c.label}
               </th>
             ))}
@@ -68,9 +68,9 @@ export function SimpleTable({
         </thead>
         <tbody>
           {rows.map((r, i) => (
-            <tr key={i} className="border-b border-[var(--color-card-border)] last:border-0">
+            <tr key={i} className="border-b border-[var(--color-pib-line)] last:border-0">
               {columns.map(c => (
-                <td key={c.key} className={`px-3 py-2 text-on-surface ${c.align === 'right' ? 'text-right tabular-nums' : 'text-left'}`}>
+                <td key={c.key} className={`px-3 py-2 text-[var(--color-pib-text)] ${c.align === 'right' ? 'text-right tabular-nums' : 'text-left'}`}>
                   {String(r[c.key] ?? '—')}
                 </td>
               ))}

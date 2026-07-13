@@ -71,15 +71,15 @@ export default function OrgNewDocumentPage() {
         <header className="flex items-center gap-3">
           <Link
             href={`/admin/org/${slug}/documents`}
-            className="text-xs text-on-surface-variant hover:text-on-surface"
+            className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
           >
             ← Documents
           </Link>
           {orgName && (
-            <p className="text-xs uppercase tracking-[0.18em] text-on-surface-variant">{orgName}</p>
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">{orgName}</p>
           )}
-          <h1 className="text-2xl font-semibold">New Document</h1>
-          <p className="text-sm text-on-surface-variant">
+          <h1 className="pib-page-title">New Document</h1>
+          <p className="text-sm text-[var(--color-pib-text-muted)]">
             Creates an internal draft for PiB drafting/review. It is not sent to the client, published, or shared until a separate approval/client-review gate is used.
           </p>
         </header>
@@ -125,13 +125,13 @@ export default function OrgNewDocumentPage() {
 
           {/* Template info */}
           {templateId && (
-            <p className="text-xs text-on-surface-variant">
+            <p className="text-xs text-[var(--color-pib-text-muted)]">
               Template: <span className="font-mono">{templateId}</span>
             </p>
           )}
 
           {error && (
-            <p className="rounded bg-red-900/30 px-3 py-2 text-sm text-red-400">{error}</p>
+            <p className="rounded bg-red-900/30 px-3 py-2 text-sm text-[var(--color-error)]">{error}</p>
           )}
 
           <div className="flex items-center gap-3 pt-1">
@@ -144,7 +144,7 @@ export default function OrgNewDocumentPage() {
             </button>
             <Link
               href={`/admin/org/${slug}/documents`}
-              className="text-sm text-on-surface-variant hover:text-on-surface"
+              className="text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
             >
               Cancel
             </Link>

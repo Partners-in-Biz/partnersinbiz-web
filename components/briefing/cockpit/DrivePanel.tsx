@@ -27,11 +27,11 @@ function timeAgo(iso: string): string {
 
 export function DrivePanel({ status, files, loading }: Props) {
   if (loading) {
-    return <div className="p-4 text-sm text-on-surface-variant">Loading Drive&hellip;</div>
+    return <div className="p-4 text-sm text-[var(--color-pib-text-muted)]">Loading Drive&hellip;</div>
   }
   if (status === 'needs_reconnect') {
     return (
-      <div className="p-4 text-sm text-on-surface-variant">
+      <div className="p-4 text-sm text-[var(--color-pib-text-muted)]">
         Reconnect Google to enable Drive.{' '}
         <a
           href="/api/v1/portal/email/google/authorize?scope=workspace&returnTo=/portal/briefings"
@@ -44,7 +44,7 @@ export function DrivePanel({ status, files, loading }: Props) {
   }
   if (status === 'not_connected') {
     return (
-      <div className="p-4 text-sm text-on-surface-variant">
+      <div className="p-4 text-sm text-[var(--color-pib-text-muted)]">
         No Google account connected.{' '}
         <a
           href="/api/v1/portal/email/google/authorize?scope=workspace&returnTo=/portal/briefings"
@@ -56,7 +56,7 @@ export function DrivePanel({ status, files, loading }: Props) {
     )
   }
   if (files.length === 0) {
-    return <div className="p-4 text-sm text-on-surface-variant">No recent files.</div>
+    return <div className="p-4 text-sm text-[var(--color-pib-text-muted)]">No recent files.</div>
   }
 
   return (
@@ -67,17 +67,17 @@ export function DrivePanel({ status, files, loading }: Props) {
           href={driveFileUrl(f)}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-2 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-2 transition-colors hover:bg-[var(--color-card-hover)]"
+          className="flex items-center gap-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)] p-2 transition-colors hover:bg-[var(--color-card-hover)]"
         >
           <span
-            className="material-symbols-outlined shrink-0 text-[18px] text-on-surface-variant"
+            className="material-symbols-outlined shrink-0 text-[18px] text-[var(--color-pib-text-muted)]"
             aria-hidden="true"
           >
             {mimeIcon(f.mimeType)}
           </span>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-xs font-medium text-on-surface">{f.name}</div>
-            <div className="text-[10px] text-on-surface-variant">
+            <div className="truncate text-xs font-medium text-[var(--color-pib-text)]">{f.name}</div>
+            <div className="text-[10px] text-[var(--color-pib-text-muted)]">
               {timeAgo(f.modifiedTime)}
               {f.owner ? ` · ${f.owner}` : ''}
             </div>

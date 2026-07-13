@@ -173,7 +173,7 @@ export function HermesMetrics() {
                   key={opt}
                   type="button"
                   onClick={() => setDays(opt)}
-                  className={`px-3 py-1.5 text-sm ${days === opt ? 'bg-[var(--color-pib-accent)] text-black' : 'text-on-surface-variant hover:text-on-surface'}`}
+                  className={`px-3 py-1.5 text-sm ${days === opt ? 'bg-[var(--color-pib-accent)] text-black' : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'}`}
                 >
                   {opt}d
                 </button>
@@ -185,7 +185,7 @@ export function HermesMetrics() {
           </div>
         </div>
         {payload?.generatedAt ? (
-          <p className="mt-3 text-xs text-on-surface-variant">
+          <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">
             {fmtNum(summary?.runsConsidered ?? 0)} runs in the last {payload.window.days} days · generated {relative(payload.generatedAt)}.
           </p>
         ) : null}
@@ -213,13 +213,13 @@ export function HermesMetrics() {
 
           <section className="pib-card overflow-hidden">
             <div className="border-b border-[var(--color-pib-line)] px-5 py-4">
-              <h2 className="text-lg font-semibold text-on-surface">Per-agent breakdown</h2>
-              <p className="mt-1 text-sm text-on-surface-variant">Sorted by run volume. Response time covers finished runs with timestamps.</p>
+              <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Per-agent breakdown</h2>
+              <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">Sorted by run volume. Response time covers finished runs with timestamps.</p>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full">
                 <thead>
-                  <tr className="border-b border-[var(--color-pib-line)] text-left text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                  <tr className="border-b border-[var(--color-pib-line)] text-left text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                     <th className="px-5 py-3">Agent</th>
                     <th className="px-5 py-3 text-right">Runs</th>
                     <th className="px-5 py-3 text-right">Success</th>
@@ -233,24 +233,24 @@ export function HermesMetrics() {
                 <tbody>
                   {payload.agents.map((a) => (
                     <tr key={a.agentId} className="border-b border-[var(--color-pib-line)]/60 last:border-b-0">
-                      <td className="px-5 py-3 text-sm font-medium text-on-surface">
+                      <td className="px-5 py-3 text-sm font-medium text-[var(--color-pib-text)]">
                         <div>{titleCase(a.agentId)}</div>
-                        <div className="mt-1 text-xs font-normal text-on-surface-variant">{modelSummary(a)}</div>
+                        <div className="mt-1 text-xs font-normal text-[var(--color-pib-text-muted)]">{modelSummary(a)}</div>
                       </td>
-                      <td className="px-5 py-3 text-right text-sm text-on-surface">{fmtNum(a.runVolume)}</td>
-                      <td className={`px-5 py-3 text-right text-sm ${a.successRate != null && a.successRate < 0.9 ? 'text-amber-400' : 'text-on-surface'}`}>{fmtPct(a.successRate)}</td>
-                      <td className="px-5 py-3 text-right text-sm text-on-surface">{fmtMs(a.avgResponseMs)}</td>
-                      <td className="px-5 py-3 text-right text-sm text-on-surface">{fmtMs(a.p95ResponseMs)}</td>
-                      <td className="px-5 py-3 text-right text-sm text-on-surface">{a.tokens.runsWithUsage > 0 ? fmtNum(a.tokens.total) : '—'}</td>
-                      <td className="px-5 py-3 text-right text-sm text-on-surface">
+                      <td className="px-5 py-3 text-right text-sm text-[var(--color-pib-text)]">{fmtNum(a.runVolume)}</td>
+                      <td className={`px-5 py-3 text-right text-sm ${a.successRate != null && a.successRate < 0.9 ? 'text-amber-400' : 'text-[var(--color-pib-text)]'}`}>{fmtPct(a.successRate)}</td>
+                      <td className="px-5 py-3 text-right text-sm text-[var(--color-pib-text)]">{fmtMs(a.avgResponseMs)}</td>
+                      <td className="px-5 py-3 text-right text-sm text-[var(--color-pib-text)]">{fmtMs(a.p95ResponseMs)}</td>
+                      <td className="px-5 py-3 text-right text-sm text-[var(--color-pib-text)]">{a.tokens.runsWithUsage > 0 ? fmtNum(a.tokens.total) : '—'}</td>
+                      <td className="px-5 py-3 text-right text-sm text-[var(--color-pib-text)]">
                         <div>{fmtCost(a.cost.usd)}</div>
                         {a.cost.usd == null || a.cost.source === 'mixed' ? (
                           <div className="mt-1 text-xs text-amber-300">{telemetryReason(a.cost.unavailableReason)}</div>
                         ) : (
-                          <div className="mt-1 text-xs text-on-surface-variant">Upstream · {fmtNum(a.cost.runsWithCost)} runs</div>
+                          <div className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Upstream · {fmtNum(a.cost.runsWithCost)} runs</div>
                         )}
                       </td>
-                      <td className="px-5 py-3 text-right text-sm text-on-surface-variant">{relative(a.lastRunAt)}</td>
+                      <td className="px-5 py-3 text-right text-sm text-[var(--color-pib-text-muted)]">{relative(a.lastRunAt)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -266,9 +266,9 @@ export function HermesMetrics() {
 function Metric({ label, value, helper, tone = 'default' }: { label: string; value: string; helper?: string; tone?: 'default' | 'warn' }) {
   return (
     <div className={`pib-card p-5 ${tone === 'warn' ? 'border border-amber-400/30 bg-amber-400/5' : ''}`}>
-      <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{label}</p>
-      <p className="mt-3 text-2xl font-semibold text-on-surface">{value}</p>
-      {helper ? <p className="mt-2 text-xs text-on-surface-variant">{helper}</p> : null}
+      <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</p>
+      <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">{value}</p>
+      {helper ? <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{helper}</p> : null}
     </div>
   )
 }

@@ -158,15 +158,15 @@ export function ReadableTaskText({ text, empty, className = '', compact = false 
   return (
     <div className={`${className} ${compact ? 'space-y-2' : 'space-y-3'} break-words`}>
       <section className="rounded-[var(--radius-card)] border border-[var(--color-accent-v2)]/25 bg-[var(--color-accent-v2)]/10 p-3">
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface">What this means</p>
-        <p className="mt-1 leading-6 text-on-surface">{linkify(summary)}</p>
+        <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text)]">What this means</p>
+        <p className="mt-1 leading-6 text-[var(--color-pib-text)]">{linkify(summary)}</p>
       </section>
       <section className={compact ? 'space-y-2' : 'space-y-3'}>
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Technical details</p>
+        <p className="pib-label">Technical details</p>
         {blocks.map((block, index) => (
-          <div key={`${block.label ?? 'detail'}-${index}`} className="rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-card)]/70 p-3">
-            {block.label ? <p className="mb-1 text-[10px] font-label uppercase tracking-wider text-on-surface">{block.label}</p> : null}
-            <div className="leading-6 text-on-surface-variant">{renderBody(block.body, compact)}</div>
+          <div key={`${block.label ?? 'detail'}-${index}`} className="rounded-[var(--radius-card)] border border-[var(--color-pib-line)] bg-[var(--color-card)]/70 p-3">
+            {block.label ? <p className="mb-1 text-[10px] font-label uppercase tracking-wider text-[var(--color-pib-text)]">{block.label}</p> : null}
+            <div className="leading-6 text-[var(--color-pib-text-muted)]">{renderBody(block.body, compact)}</div>
           </div>
         ))}
       </section>

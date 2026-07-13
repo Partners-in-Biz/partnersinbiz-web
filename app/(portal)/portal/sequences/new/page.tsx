@@ -50,30 +50,37 @@ export default function NewSequencePage() {
   }
 
   return (
-    <div className="max-w-6xl space-y-3">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+    <div className="max-w-6xl space-y-8">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <button
             type="button"
             onClick={handleCancel}
-            className="cursor-pointer mb-4 flex items-center gap-1 text-xs text-on-surface-variant transition-colors hover:text-on-surface"
+            className="mb-4 flex cursor-pointer items-center gap-1 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
           >
             <span className="material-symbols-outlined text-[14px]">arrow_back</span>
             Sequences
           </button>
-          <p className="eyebrow !text-[10px]">Journey builder</p>
-          <h1 className="mt-1 text-base font-semibold text-on-surface">New sequence</h1>
-          <p className="mt-1 max-w-2xl text-xs text-on-surface-variant">
+          <p className="eyebrow">Email · Journey builder</p>
+          <h1 className="pib-page-title mt-2">New sequence</h1>
+          <p className="pib-page-sub">
             Build a CRM follow-up path for this company with clear timing, channel choices, and launch readiness.
           </p>
         </div>
-        <div className="w-full max-w-sm rounded-lg border border-[var(--color-card-border)] bg-black/10 p-3">
-          <p className="text-xs font-medium">Company-scoped journey</p>
-          <p className="mt-1 text-xs text-on-surface-variant">
-            This sequence is created against the organisation selected from the company workspace.
-          </p>
+        <div className="pib-card w-full max-w-sm">
+          <div className="flex items-start gap-3">
+            <span className="pib-icon-tint pib-icon-tint-blue" aria-hidden="true">
+              <span className="material-symbols-outlined text-[18px]">route</span>
+            </span>
+            <div>
+              <p className="text-xs font-medium">Company-scoped journey</p>
+              <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+                This sequence is created against the organisation selected from the company workspace.
+              </p>
+            </div>
+          </div>
         </div>
-      </div>
+      </header>
 
       <SequenceForm
         apiScope={orgScope}

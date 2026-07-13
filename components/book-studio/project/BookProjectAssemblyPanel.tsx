@@ -2,6 +2,7 @@
 
 import { StatusPill, Surface } from '@/components/ui/AppFoundation'
 import { formatBytes, humanizeToken, type BookProjectManifest } from './types'
+import { bookOutputAnchor } from '@/lib/book-studio/output-anchor'
 
 type BookProjectAssemblyPanelProps = {
   manifest?: BookProjectManifest
@@ -18,7 +19,7 @@ function qaTone(qaStatus?: string): 'neutral' | 'success' | 'warn' {
 
 export function BookProjectAssemblyPanel({ manifest, assembling, error, missingOrders }: BookProjectAssemblyPanelProps) {
   return (
-    <Surface header={<h2 className="text-lg font-semibold">Assembly</h2>}>
+    <Surface id="assembly" header={<h2 className="text-lg font-semibold">Assembly</h2>}>
       <div className="space-y-4">
         {assembling ? (
           <p className="text-sm text-[var(--color-pib-text-muted)]" role="status">Assembling book package…</p>
@@ -45,7 +46,7 @@ export function BookProjectAssemblyPanel({ manifest, assembling, error, missingO
 
             <ul className="space-y-2" aria-label="Manifest files">
               {(manifest.files ?? []).map((file, index) => (
-                <li
+                <li id={bookOutputAnchor(file, index)}
                   key={file.href ?? index}
                   className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--color-pib-border)] p-3 text-sm"
                 >

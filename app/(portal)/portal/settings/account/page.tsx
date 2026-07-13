@@ -221,7 +221,7 @@ export default function AccountSettingsPage() {
       <section data-testid="account-profile-panel" className="pib-card-section">
         <div className="pib-card-section-header flex items-center justify-between gap-3">
           <div>
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Your profile</p>
+            <p className="pib-label">Your profile</p>
             <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Profile details</h2>
           </div>
           <span aria-live="polite">
@@ -251,7 +251,7 @@ export default function AccountSettingsPage() {
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploadingAvatar}
-                className="rounded-lg border border-[var(--color-pib-line)] px-4 py-2 text-sm font-medium text-[var(--color-pib-text)] transition-colors hover:bg-white/[0.03] disabled:opacity-60"
+                className="btn-pib-secondary"
               >
                 {uploadingAvatar ? 'Uploading…' : 'Upload profile picture'}
               </button>
@@ -275,7 +275,7 @@ export default function AccountSettingsPage() {
             </div>
             <div>
               <label className="pib-label" htmlFor="acct-timezone">Timezone</label>
-              <select id="acct-timezone" value={timezone} onChange={(e) => setTimezone(e.target.value)} className="pib-input w-full" disabled={profileLoading}>
+              <select id="acct-timezone" value={timezone} onChange={(e) => setTimezone(e.target.value)} className="pib-select w-full" disabled={profileLoading}>
                 {TIMEZONES.map((tz) => (
                   <option key={tz.value} value={tz.value}>{tz.label}</option>
                 ))}
@@ -294,10 +294,10 @@ export default function AccountSettingsPage() {
       {/* ---- Login identity (read-only) ---- */}
       <section data-testid="account-login-panel" className="pib-card-section">
         <div className="pib-card-section-header">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Login identity</p>
+          <p className="pib-label">Login identity</p>
         </div>
         <div className="pib-card-section-row items-start gap-4 max-sm:flex-col">
-          <span className="material-symbols-outlined rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-2 text-[20px] text-[var(--color-pib-accent)]" aria-hidden="true">alternate_email</span>
+          <span className="pib-icon-tint-cyan shrink-0"><span className="material-symbols-outlined text-[20px]" aria-hidden="true">alternate_email</span></span>
           <div className="min-w-0 flex-1 space-y-2">
             <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Login email</h2>
             <p className="truncate text-sm font-semibold text-[var(--color-pib-text)]" title={emailDisplay}>{emailDisplay}</p>
@@ -312,10 +312,10 @@ export default function AccountSettingsPage() {
       <div className="grid gap-5 lg:grid-cols-2">
         <section data-testid="account-2fa-panel" className="pib-card-section">
           <div className="pib-card-section-header">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Security</p>
+            <p className="pib-label">Security</p>
           </div>
           <div className="pib-card-section-row items-start gap-4 max-sm:flex-col">
-            <span className="material-symbols-outlined rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-2 text-[20px] text-[var(--color-pib-accent)]" aria-hidden="true">shield_lock</span>
+            <span className="pib-icon-tint-cyan shrink-0"><span className="material-symbols-outlined text-[20px]" aria-hidden="true">shield_lock</span></span>
             <div className="min-w-0 flex-1 space-y-3">
               <div className="flex items-center gap-3">
                 <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Two-factor authentication</h2>
@@ -337,16 +337,16 @@ export default function AccountSettingsPage() {
 
         <section data-testid="account-sessions-panel" className="pib-card-section">
           <div className="pib-card-section-header">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Sessions</p>
+            <p className="pib-label">Sessions</p>
           </div>
           <div className="pib-card-section-row items-start gap-4 max-sm:flex-col">
-            <span className="material-symbols-outlined rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-2 text-[20px] text-[var(--color-pib-accent)]" aria-hidden="true">devices</span>
+            <span className="pib-icon-tint-cyan shrink-0"><span className="material-symbols-outlined text-[20px]" aria-hidden="true">devices</span></span>
             <div className="min-w-0 flex-1 space-y-3">
               <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Active sessions</h2>
               <p className="text-sm text-[var(--color-pib-text-muted)]">
                 Review signed-in devices, revoke individual sessions, or sign out everywhere else.
               </p>
-              <a href="/portal/settings/sessions" className="rounded-lg border border-[var(--color-pib-line)] px-4 py-2 text-sm font-medium text-[var(--color-pib-text)] transition-colors hover:bg-white/[0.03] inline-flex w-fit">
+              <a href="/portal/settings/sessions" className="btn-pib-secondary inline-flex w-fit">
                 Manage sessions
               </a>
             </div>
@@ -358,7 +358,7 @@ export default function AccountSettingsPage() {
       <div className="grid gap-5 lg:grid-cols-2">
         <section data-testid="account-change-password-panel" className="pib-card-section">
           <div className="pib-card-section-header">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Change password</p>
+            <p className="pib-label">Change password</p>
           </div>
           <form onSubmit={handleChangePassword} className="space-y-4 p-5">
             <p className="text-sm text-[var(--color-pib-text-muted)]">
@@ -386,10 +386,10 @@ export default function AccountSettingsPage() {
 
         <section data-testid="account-password-panel" className="pib-card-section">
           <div className="pib-card-section-header">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Credential recovery</p>
+            <p className="pib-label">Credential recovery</p>
           </div>
           <div className="pib-card-section-row items-start gap-4 max-sm:flex-col">
-            <span className="material-symbols-outlined rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-2 text-[20px] text-[var(--color-pib-accent)]" aria-hidden="true">key</span>
+            <span className="pib-icon-tint-cyan shrink-0"><span className="material-symbols-outlined text-[20px]" aria-hidden="true">key</span></span>
             <div className="min-w-0 flex-1 space-y-4">
               <div>
                 <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Password reset email</h2>
@@ -401,7 +401,7 @@ export default function AccountSettingsPage() {
                 <p className="pib-pill pib-pill-success w-fit" role="status">Password reset email sent to {email}.</p>
               ) : (
                 <>
-                  <button type="button" onClick={handlePasswordReset} disabled={resetting || !email} className="rounded-lg border border-[var(--color-pib-line)] px-4 py-2 text-sm font-medium text-[var(--color-pib-text)] transition-colors hover:bg-white/[0.03] disabled:opacity-60">
+                  <button type="button" onClick={handlePasswordReset} disabled={resetting || !email} className="btn-pib-secondary">
                     {resetting ? 'Sending...' : 'Send password reset email'}
                   </button>
                   {resetError && <p className="text-xs text-red-400 mt-1" role="alert">{resetError}</p>}

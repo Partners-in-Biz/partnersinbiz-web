@@ -31,25 +31,21 @@ export default function EmailTemplateEditorPage({ params }: { params: Promise<{ 
   }, [params])
 
   if (loading) {
-    return (
-      <div className="p-6">
-        <div className="h-screen rounded-xl bg-surface-container animate-pulse" />
-      </div>
-    )
+    return <div className="pib-skeleton h-screen" />
   }
 
   if (error || !template) {
     return (
-      <div className="p-6 max-w-3xl mx-auto">
-        <div className="card p-8 text-center">
-          <h2 className="text-lg font-semibold mb-2">Could not load template</h2>
-          <p className="text-sm text-on-surface-variant mb-4">{error ?? 'Unknown error'}</p>
-          <button
-            onClick={() => router.push('/portal/email-templates')}
-            className="px-4 py-2 rounded-lg bg-primary text-on-primary text-sm"
-          >
-            Back to templates
-          </button>
+      <div className="mx-auto max-w-3xl">
+        <div className="pib-empty-state">
+          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">mail</span>
+          <h2 className="pib-empty-state-title">Could not load template</h2>
+          <p className="pib-empty-state-description">{error ?? 'Unknown error'}</p>
+          <div className="mt-5 flex justify-center">
+            <button onClick={() => router.push('/portal/email-templates')} className="btn-pib-secondary">
+              Back to templates
+            </button>
+          </div>
         </div>
       </div>
     )

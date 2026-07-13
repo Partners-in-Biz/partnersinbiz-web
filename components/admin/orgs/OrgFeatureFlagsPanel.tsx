@@ -71,7 +71,7 @@ export function OrgFeatureFlagsPanel({ slug }: { slug: string }) {
     persist(next)
   }
 
-  if (loading) return <Surface className="text-on-surface-variant text-sm">Loading feature flags…</Surface>
+  if (loading) return <Surface className="text-[var(--color-pib-text-muted)] text-sm">Loading feature flags…</Surface>
 
   const knownKeys = new Set(known.map((k) => k.key))
   const customKeys = Object.keys(flags).filter((k) => !knownKeys.has(k))
@@ -79,7 +79,7 @@ export function OrgFeatureFlagsPanel({ slug }: { slug: string }) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-on-surface-variant">
+        <p className="text-sm text-[var(--color-pib-text-muted)]">
           Per-org feature overrides. Defaults are off; an enabled flag is an override.
         </p>
         <StatusPill tone={overrideCount > 0 ? 'accent' : 'neutral'}>
@@ -94,9 +94,9 @@ export function OrgFeatureFlagsPanel({ slug }: { slug: string }) {
           {known.map((f) => (
             <div key={f.key} className="flex items-center justify-between gap-4 py-3">
               <div className="min-w-0">
-                <p className="text-sm font-medium text-on-surface">{f.label}</p>
-                <p className="text-xs text-on-surface-variant">{f.description}</p>
-                <code className="text-[10px] text-on-surface-variant">{f.key}</code>
+                <p className="text-sm font-medium text-[var(--color-pib-text)]">{f.label}</p>
+                <p className="text-xs text-[var(--color-pib-text-muted)]">{f.description}</p>
+                <code className="text-[10px] text-[var(--color-pib-text-muted)]">{f.key}</code>
               </div>
               <button
                 type="button"
@@ -122,7 +122,7 @@ export function OrgFeatureFlagsPanel({ slug }: { slug: string }) {
           <div className="divide-y divide-white/5">
             {customKeys.map((key) => (
               <div key={key} className="flex items-center justify-between gap-4 py-3">
-                <code className="text-sm text-on-surface">{key}</code>
+                <code className="text-sm text-[var(--color-pib-text)]">{key}</code>
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
@@ -178,7 +178,7 @@ export function OrgFeatureFlagsPanel({ slug }: { slug: string }) {
           </div>
         }
       >
-        <p className="text-sm text-on-surface-variant">
+        <p className="text-sm text-[var(--color-pib-text-muted)]">
           Removing a flag override cannot be undone from here — you would need to re-add the key. Continue?
         </p>
       </DialogDrawer>

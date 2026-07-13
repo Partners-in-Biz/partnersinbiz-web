@@ -110,27 +110,34 @@ export default function CustomEventsPage() {
   const selectedEvent = useMemo(() => events.find(ev => ev.name === selected) ?? null, [events, selected])
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
+    <div className="max-w-6xl mx-auto p-6 space-y-8">
       <AnalyticsNav active="custom-events" propertyId={propertyId} />
-      <h1 className="text-xl font-headline font-bold text-on-surface">Custom Events</h1>
+      <header>
+        <p className="eyebrow">Analytics · Custom Events</p>
+        <h1 className="pib-page-title mt-2">Custom Events</h1>
+      </header>
 
-      <div className="pib-card p-4 space-y-3">
+      <div className="pib-card space-y-4">
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
       </div>
 
       {!propertyId && (
-        <div className="pib-card p-8 text-center text-on-surface-variant text-sm">
-          Select a client and property to manage custom events.
+        <div className="pib-empty-state">
+          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">bolt</span>
+          <p className="pib-empty-state-description">Select a client and property to manage custom events.</p>
         </div>
       )}
 
       {propertyId && (
         <>
-          <form onSubmit={submit} className="pib-card p-4 space-y-3">
-            <h2 className="text-sm font-label font-semibold text-on-surface">Define an event</h2>
+          <form onSubmit={submit} className="pib-card space-y-4">
+            <div className="flex items-center gap-3">
+              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">bolt</span></span>
+              <h2 className="pib-label mb-0">Define an event</h2>
+            </div>
             <div className="grid md:grid-cols-2 gap-3">
               <div>
-                <label className="text-[10px] uppercase tracking-wide text-on-surface-variant font-label block">Name</label>
+                <label className="pib-label">Name</label>
                 <input
                   type="text"
                   value={name}
@@ -141,7 +148,7 @@ export default function CustomEventsPage() {
                 />
               </div>
               <div>
-                <label className="text-[10px] uppercase tracking-wide text-on-surface-variant font-label block">Description</label>
+                <label className="pib-label">Description</label>
                 <input
                   type="text"
                   value={description}
@@ -152,7 +159,7 @@ export default function CustomEventsPage() {
               </div>
             </div>
             <div>
-              <label className="text-[10px] uppercase tracking-wide text-on-surface-variant font-label block">Properties (comma-separated)</label>
+              <label className="pib-label">Properties (comma-separated)</label>
               <input
                 type="text"
                 value={propsInput}
@@ -161,30 +168,33 @@ export default function CustomEventsPage() {
                 className="pib-input text-sm w-full"
               />
             </div>
-            {formError && <p className="text-xs text-red-400">{formError}</p>}
-            <button type="submit" disabled={saving || !name.trim()} className="pib-btn-primary text-sm px-4 py-2">
+            {formError && <p className="text-xs text-[var(--color-error)]">{formError}</p>}
+            <button type="submit" disabled={saving || !name.trim()} className="btn-pib-primary text-sm px-4 py-2">
               {saving ? 'Saving…' : 'Define event'}
             </button>
           </form>
 
-          {loading && <div className="pib-skeleton h-24 rounded-lg" />}
+          {loading && <div className="pib-skeleton h-24" />}
 
           {!loading && (
             <div className="space-y-2">
-              <h2 className="text-sm font-label font-semibold text-on-surface">Events</h2>
+              <h2 className="pib-label mb-2">Events</h2>
               {events.length === 0 ? (
-                <div className="pib-card p-6 text-center text-on-surface-variant text-sm">No custom events defined yet.</div>
+                <div className="pib-empty-state">
+                  <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">bolt</span>
+                  <p className="pib-empty-state-description">No custom events defined yet.</p>
+                </div>
               ) : (
-                <div className="pib-card overflow-x-auto">
+                <div className="pib-surface pib-surface-table overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-[var(--color-card-border)]">
-                        <th className="px-3 py-2 text-xs font-label text-on-surface-variant text-left">Name</th>
-                        <th className="px-3 py-2 text-xs font-label text-on-surface-variant text-left">Description</th>
-                        <th className="px-3 py-2 text-xs font-label text-on-surface-variant text-right">Triggers</th>
-                        <th className="px-3 py-2 text-xs font-label text-on-surface-variant text-left">Last triggered</th>
-                        <th className="px-3 py-2 text-xs font-label text-on-surface-variant text-left">Status</th>
-                        <th className="px-3 py-2 text-xs font-label text-on-surface-variant text-right">Snippet</th>
+                      <tr className="border-b border-[var(--color-pib-line)]">
+                        <th className="px-3 py-2 text-xs font-label text-[var(--color-pib-text-muted)] text-left">Name</th>
+                        <th className="px-3 py-2 text-xs font-label text-[var(--color-pib-text-muted)] text-left">Description</th>
+                        <th className="px-3 py-2 text-xs font-label text-[var(--color-pib-text-muted)] text-right">Triggers</th>
+                        <th className="px-3 py-2 text-xs font-label text-[var(--color-pib-text-muted)] text-left">Last triggered</th>
+                        <th className="px-3 py-2 text-xs font-label text-[var(--color-pib-text-muted)] text-left">Status</th>
+                        <th className="px-3 py-2 text-xs font-label text-[var(--color-pib-text-muted)] text-right">Snippet</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -192,17 +202,17 @@ export default function CustomEventsPage() {
                         <tr
                           key={ev.id}
                           onClick={() => setSelected(ev.name)}
-                          className={`border-b border-[var(--color-card-border)] last:border-0 cursor-pointer hover:bg-[var(--color-surface-container)] ${selected === ev.name ? 'bg-amber-400/10' : ''}`}
+                          className={`border-b border-[var(--color-pib-line)] last:border-0 cursor-pointer hover:bg-[var(--color-row-hover)] ${selected === ev.name ? 'bg-[var(--color-pib-violet-soft)]' : ''}`}
                         >
-                          <td className="px-3 py-2 text-on-surface font-medium">{ev.name}</td>
-                          <td className="px-3 py-2 text-on-surface-variant">{ev.description || '—'}</td>
-                          <td className="px-3 py-2 text-on-surface text-right tabular-nums">{ev.triggerCount.toLocaleString()}</td>
-                          <td className="px-3 py-2 text-on-surface-variant">{fmtDate(ev.lastTriggered)}</td>
+                          <td className="px-3 py-2 text-[var(--color-pib-text)] font-medium">{ev.name}</td>
+                          <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{ev.description || '—'}</td>
+                          <td className="px-3 py-2 text-[var(--color-pib-text)] text-right tabular-nums">{ev.triggerCount.toLocaleString()}</td>
+                          <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{fmtDate(ev.lastTriggered)}</td>
                           <td className="px-3 py-2">
                             {ev.registered ? (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/15 text-emerald-400 font-medium">Registered</span>
+                              <span className="pib-pill pib-pill-success">Registered</span>
                             ) : (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-400 font-medium">Unregistered</span>
+                              <span className="pib-pill pib-pill-warn">Unregistered</span>
                             )}
                           </td>
                           <td className="px-3 py-2 text-right" onClick={e => e.stopPropagation()}>
@@ -218,33 +228,33 @@ export default function CustomEventsPage() {
           )}
 
           {selected && (
-            <div className="pib-card p-4 space-y-4">
+            <div className="pib-card space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-sm font-label font-semibold text-on-surface">
-                  Breakdown · <span className="text-amber-400">{selected}</span>
+                <h2 className="pib-label mb-0">
+                  Breakdown · <span className="text-[var(--color-pib-violet)]">{selected}</span>
                 </h2>
                 <DateRangePicker value={range} onChange={setRange} />
               </div>
 
-              {breakdownLoading && <div className="pib-skeleton h-24 rounded-lg" />}
+              {breakdownLoading && <div className="pib-skeleton h-24" />}
 
               {!breakdownLoading && breakdown && (
                 <>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     <KpiCard label="Total" value={breakdown.total.toLocaleString()} accent />
                     <KpiCard label="Unique Users" value={breakdown.uniqueUsers.toLocaleString()} />
                     {selectedEvent && <KpiCard label="Properties" value={selectedEvent.properties.length} />}
                   </div>
 
                   {breakdown.breakdown.length === 0 ? (
-                    <div className="pib-card p-6 text-center text-on-surface-variant text-sm">
-                      No property data in this range.
+                    <div className="pib-empty-state">
+                      <p className="pib-empty-state-description">No property data in this range.</p>
                     </div>
                   ) : (
                     <div className="grid md:grid-cols-2 gap-4">
                       {breakdown.breakdown.map(b => (
                         <div key={b.key} className="space-y-2">
-                          <h3 className="text-xs font-label font-semibold text-on-surface-variant uppercase tracking-wide">{b.key}</h3>
+                          <h3 className="pib-label">{b.key}</h3>
                           <SimpleTable
                             columns={[
                               { key: 'value', label: 'Value' },

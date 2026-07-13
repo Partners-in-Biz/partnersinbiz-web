@@ -24,13 +24,10 @@ export function BoardColumn({ column, tasks, buildProjectHref, onTaskClick }: Bo
       {/* Column header */}
       <div className="flex items-center gap-2 mb-3 px-1">
         <div className="w-2 h-2 rounded-full shrink-0" style={{ background: column.color }} />
-        <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">
+        <span className="pib-label">
           {column.name}
         </span>
-        <span
-          className="text-[9px] font-label px-1.5 py-0.5 rounded-full ml-auto"
-          style={{ background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)' }}
-        >
+        <span className="text-[9px] font-label px-1.5 py-0.5 rounded-full ml-auto bg-[var(--color-pib-surface)] text-[var(--color-pib-text-muted)]">
           {tasks.length}
         </span>
       </div>
@@ -53,11 +50,8 @@ export function BoardColumn({ column, tasks, buildProjectHref, onTaskClick }: Bo
             />
           ))}
           {tasks.length === 0 && (
-            <div
-              className="rounded-[var(--radius-card)] border border-dashed flex items-center justify-center py-8"
-              style={{ borderColor: 'var(--color-card-border)' }}
-            >
-              <p className="text-xs text-on-surface-variant">Drop here</p>
+            <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--color-pib-line)] flex items-center justify-center py-8">
+              <p className="text-xs text-[var(--color-pib-text-muted)]">Drop here</p>
             </div>
           )}
         </div>

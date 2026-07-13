@@ -118,13 +118,13 @@ export function TaskDetailModal({ task, onClose, onRefresh, slug }: Props) {
       <aside
         role="dialog"
         aria-modal="true"
-        className="fixed inset-y-0 right-0 w-full max-w-[480px] bg-surface border-l border-white/10 z-50 overflow-y-auto p-6"
+        className="fixed inset-y-0 right-0 w-full max-w-[480px] bg-[var(--color-pib-surface)] border-l border-[var(--color-pib-line)] z-50 overflow-y-auto p-6"
       >
         <div className="flex items-start justify-between gap-3">
-          <h2 className="text-xl font-medium text-on-surface leading-snug">{task.title}</h2>
+          <h2 className="text-xl font-medium text-[var(--color-pib-text)] leading-snug">{task.title}</h2>
           <button
             onClick={onClose}
-            className="shrink-0 rounded-full p-1 text-on-surface-variant hover:text-on-surface hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+            className="shrink-0 rounded-full p-1 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-amber-400/40"
             aria-label="Close"
           >
             <span className="material-symbols-outlined text-xl">close</span>
@@ -133,35 +133,35 @@ export function TaskDetailModal({ task, onClose, onRefresh, slug }: Props) {
 
         <div className="mt-4 first:mt-0 flex items-center gap-2 flex-wrap">
           {task.assigneeAgentId && (
-            <span className={`text-[11px] px-2 py-0.5 rounded-full capitalize ${AGENT_COLORS[task.assigneeAgentId] ?? 'bg-white/10 text-on-surface border border-white/15'}`}>
+            <span className={`text-[11px] px-2 py-0.5 rounded-full capitalize ${AGENT_COLORS[task.assigneeAgentId] ?? 'bg-white/10 text-[var(--color-pib-text)] border border-white/15'}`}>
               {task.assigneeAgentId}
             </span>
           )}
-          <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-on-surface-variant">
+          <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[var(--color-pib-text-muted)]">
             {statusLabel}
           </span>
         </div>
 
         <section className="mt-4">
-          <h3 className="text-xs font-medium uppercase tracking-wider text-on-surface-variant">Input spec</h3>
+          <h3 className="pib-label">Input spec</h3>
           {task.agentInputSpec ? (
-            <ReadableTaskText text={task.agentInputSpec} className="mt-1.5 text-sm text-on-surface-variant" />
+            <ReadableTaskText text={task.agentInputSpec} className="mt-1.5 text-sm text-[var(--color-pib-text-muted)]" />
           ) : (
-            <p className="mt-1.5 text-sm text-on-surface-variant/60 italic">(no input spec)</p>
+            <p className="mt-1.5 text-sm text-[var(--color-pib-text-faint)] italic">(no input spec)</p>
           )}
         </section>
 
         <section className="mt-4">
-          <h3 className="text-xs font-medium uppercase tracking-wider text-on-surface-variant">Output</h3>
+          <h3 className="pib-label">Output</h3>
           {task.agentOutputSummary ? (
-            <ReadableTaskText text={task.agentOutputSummary} className="mt-1.5 text-sm text-on-surface-variant" />
+            <ReadableTaskText text={task.agentOutputSummary} className="mt-1.5 text-sm text-[var(--color-pib-text-muted)]" />
           ) : (
-            <p className="mt-1.5 text-sm text-on-surface-variant/60 italic">(no output yet)</p>
+            <p className="mt-1.5 text-sm text-[var(--color-pib-text-faint)] italic">(no output yet)</p>
           )}
         </section>
 
         {blockerRecovery?.isBlocked && (
-          <section className="mt-4 rounded-md border border-orange-500/25 bg-orange-500/5 p-3 text-xs text-on-surface-variant">
+          <section className="mt-4 rounded-md border border-orange-500/25 bg-orange-500/5 p-3 text-xs text-[var(--color-pib-text-muted)]">
             <div className="flex items-center justify-between gap-2">
               <div>
                 <h3 className="text-[10px] font-medium uppercase tracking-wider text-orange-300">{blockerRecovery.needsPeet ? 'Needs Peet' : 'Unblock guidance'}</h3>
@@ -184,10 +184,10 @@ export function TaskDetailModal({ task, onClose, onRefresh, slug }: Props) {
               Safe continue path: do not bypass approval gates. Production deploys, client-visible sends/publishing, paid spend, finance, secrets/config, and destructive actions still require explicit approval evidence.
             </p>
             <div className="mt-2 space-y-1.5">
-              <p><span className="text-on-surface">What is wrong:</span> {blockerRecovery.whatIsWrong}</p>
-              <p><span className="text-on-surface">Who/what can unblock:</span> {blockerRecovery.whoCanUnblock}</p>
-              <p><span className="text-on-surface">Proof needed:</span> {blockerRecovery.requiredEvidence}</p>
-              <p><span className="text-on-surface">Message for agent:</span> {blockerRecovery.messageForAgent}</p>
+              <p><span className="text-[var(--color-pib-text)]">What is wrong:</span> {blockerRecovery.whatIsWrong}</p>
+              <p><span className="text-[var(--color-pib-text)]">Who/what can unblock:</span> {blockerRecovery.whoCanUnblock}</p>
+              <p><span className="text-[var(--color-pib-text)]">Proof needed:</span> {blockerRecovery.requiredEvidence}</p>
+              <p><span className="text-[var(--color-pib-text)]">Message for agent:</span> {blockerRecovery.messageForAgent}</p>
               {retryError && (
                 <p className="rounded border border-red-500/20 bg-red-500/10 p-2 text-red-300">{retryError}</p>
               )}
@@ -196,7 +196,7 @@ export function TaskDetailModal({ task, onClose, onRefresh, slug }: Props) {
         )}
 
         {task.projectId && task.projectName && (
-          <section className="mt-4 text-sm text-on-surface-variant">
+          <section className="mt-4 text-sm text-[var(--color-pib-text-muted)]">
             Admin project context:{' '}
             <Link
               href={`/admin/org/${slug}/projects/${task.projectId}`}
@@ -207,7 +207,7 @@ export function TaskDetailModal({ task, onClose, onRefresh, slug }: Props) {
           </section>
         )}
 
-        <section className="mt-4 flex items-center gap-2 flex-wrap text-[11px] text-on-surface-variant">
+        <section className="mt-4 flex items-center gap-2 flex-wrap text-[11px] text-[var(--color-pib-text-muted)]">
           {task.tags.map((t) => (
             <span key={t} className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10">
               #{t}

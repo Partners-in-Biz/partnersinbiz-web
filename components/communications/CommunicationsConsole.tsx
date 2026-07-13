@@ -86,7 +86,7 @@ const FILTER_LABELS: Array<{ id: InboxFilter; label: string }> = [
   { id: 'snoozed', label: 'Snoozed' },
 ]
 
-const FIELD_CLASS = 'w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2 text-sm text-[var(--color-pib-text)] outline-none focus:border-[var(--color-pib-accent)]'
+const FIELD_CLASS = 'w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 text-sm text-[var(--color-pib-text)] outline-none focus:border-[var(--color-pib-accent)]'
 
 export function CommunicationsConsole({
   mode,
@@ -295,10 +295,10 @@ export function CommunicationsConsole({
           ['Inbox control', `${FILTER_LABELS.length} queues`, 'Open, owned, pending, resolved, and snoozed work', 'inbox'],
           ['Human handoff', 'Approval gated', 'Drafts, Hermes suggestions, and outbound replies stay accountable', 'approval'],
         ].map(([label, value, sub, icon]) => (
-          <div key={label} className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-surface)] p-4">
+          <div key={label} className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-surface)] p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</p>
+                <p className="pib-label">{label}</p>
                 <p className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">{value}</p>
               </div>
               <span className="material-symbols-outlined text-lg text-[var(--color-pib-accent)]" aria-hidden="true">{icon}</span>
@@ -402,7 +402,7 @@ function InboxView({
             className={`rounded-lg border px-3 py-1.5 text-xs font-label uppercase tracking-widest ${
               filter === item.id
                 ? 'border-[var(--color-pib-accent)] text-[var(--color-pib-accent)] bg-[var(--color-pib-accent-soft)]'
-                : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)]'
+                : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)]'
             }`}
           >
             {item.label}
@@ -411,7 +411,7 @@ function InboxView({
         <select
           value={channel}
           onChange={(event) => setChannel(event.target.value as CommunicationChannel | 'all')}
-          className="ml-auto rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2 text-sm text-[var(--color-pib-text)]"
+          className="ml-auto rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 text-sm text-[var(--color-pib-text)]"
         >
           <option value="all">All channels</option>
           {Object.entries(CHANNEL_LABELS).map(([id, label]) => (
@@ -421,8 +421,8 @@ function InboxView({
       </div>
 
       <div className="grid min-h-[620px] gap-4 xl:grid-cols-[320px_minmax(0,1fr)_320px]">
-        <aside className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-surface)] overflow-hidden">
-          <div className="border-b border-[var(--color-card-border)] px-4 py-3">
+        <aside className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-surface)] overflow-hidden">
+          <div className="border-b border-[var(--color-pib-line)] px-4 py-3">
             <p className="text-sm font-semibold text-[var(--color-pib-text)]">Conversations</p>
             <p className="text-xs text-[var(--color-pib-text-muted)]">{loading ? 'Loading...' : `${conversations.length} visible`}</p>
           </div>
@@ -434,7 +434,7 @@ function InboxView({
                 key={conversation.id}
                 type="button"
                 onClick={() => setSelectedId(conversation.id)}
-                className={`block w-full border-b border-[var(--color-card-border)] px-4 py-3 text-left transition-colors hover:bg-white/[0.03] ${
+                className={`block w-full border-b border-[var(--color-pib-line)] px-4 py-3 text-left transition-colors hover:bg-white/[0.03] ${
                   selectedId === conversation.id ? 'bg-[var(--color-pib-accent-soft)]' : ''
                 }`}
               >
@@ -455,8 +455,8 @@ function InboxView({
           </div>
         </aside>
 
-        <main className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-surface)] overflow-hidden">
-          <div className="border-b border-[var(--color-card-border)] px-4 py-3">
+        <main className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-surface)] overflow-hidden">
+          <div className="border-b border-[var(--color-pib-line)] px-4 py-3">
             <p className="text-sm font-semibold text-[var(--color-pib-text)]">
               {bundle?.conversation.subject || bundle?.conversation.contactSnapshot?.name || 'Message thread'}
             </p>
@@ -475,7 +475,7 @@ function InboxView({
                     className={`max-w-[82%] rounded-xl border px-4 py-3 ${
                       message.direction === 'outbound'
                         ? 'ml-auto border-[var(--color-pib-accent)]/25 bg-[var(--color-pib-accent-soft)]'
-                        : 'border-[var(--color-card-border)] bg-[var(--color-surface-container)]'
+                        : 'border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]'
                     }`}
                   >
                     <p className="text-sm text-[var(--color-pib-text)] whitespace-pre-wrap">{message.body}</p>
@@ -487,13 +487,13 @@ function InboxView({
               </div>
             )}
           </div>
-          <div className="border-t border-[var(--color-card-border)] p-4">
+          <div className="border-t border-[var(--color-pib-line)] p-4">
             <textarea
               value={reply}
               onChange={(event) => setReply(event.target.value)}
               rows={4}
               placeholder="Draft a human-approved reply..."
-              className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2 text-sm text-[var(--color-pib-text)] outline-none focus:border-[var(--color-pib-accent)]"
+              className="w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 text-sm text-[var(--color-pib-text)] outline-none focus:border-[var(--color-pib-accent)]"
             />
             <div className="mt-3 flex flex-wrap justify-end gap-2">
               <button type="button" onClick={() => saveDraft({ queueApproved: false })} className="btn-pib-secondary" disabled={!bundle || !reply.trim()}>
@@ -528,7 +528,7 @@ function InboxView({
               <div className="space-y-3">
                 <p className="text-sm text-[var(--color-pib-text)]">{bundle.hermesSuggestion.summary}</p>
                 <p className="text-xs text-[var(--color-pib-text-muted)]">Owner: {bundle.hermesSuggestion.recommendedOwnerAgentId} · Priority: {bundle.hermesSuggestion.recommendedPriority}</p>
-                <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] p-3 text-sm text-[var(--color-pib-text)]">
+                <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-3 text-sm text-[var(--color-pib-text)]">
                   {bundle.hermesSuggestion.draftReply}
                 </div>
                 <p className="text-[11px] text-[var(--color-pib-text-muted)]">Internal suggestion only. Hermes cannot send customer replies directly in V1.</p>
@@ -587,7 +587,7 @@ function TemplatesView({
           {templates.length === 0 ? (
             <p className="text-sm text-[var(--color-pib-text-muted)]">No templates yet. Start with WhatsApp utility, marketing, or authentication templates, then reuse the same variable model for SMS, email, in-app, and Meta DMs.</p>
           ) : templates.map((template) => (
-            <div key={template.id} className="rounded-lg border border-[var(--color-card-border)] p-3">
+            <div key={template.id} className="rounded-lg border border-[var(--color-pib-line)] p-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-medium text-[var(--color-pib-text)]">{template.name}</p>
@@ -629,13 +629,13 @@ function CampaignsView({ mode, selectedOrgId }: { mode: 'admin' | 'portal'; sele
     <Panel title="Campaign builder" icon="campaign">
       <div className="grid gap-3 md:grid-cols-5">
         {steps.map((step, index) => (
-          <div key={step} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] p-3">
-            <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Step {index + 1}</p>
+          <div key={step} className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-3">
+            <p className="pib-label">Step {index + 1}</p>
             <p className="mt-2 text-sm text-[var(--color-pib-text)]">{step}</p>
           </div>
         ))}
       </div>
-      <div className="mt-4 rounded-lg border border-[var(--color-card-border)] p-4">
+      <div className="mt-4 rounded-lg border border-[var(--color-pib-line)] p-4">
         <p className="text-sm font-medium text-[var(--color-pib-text)]">V1 send controls</p>
         <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
           Campaigns are modelled for WhatsApp-first execution with SMS/email/in-app expansion. Messenger and Instagram remain disabled until provider readiness is confirmed.
@@ -660,7 +660,7 @@ function AutomationView({ mode }: { mode: 'admin' | 'portal' }) {
     <Panel title="Automation rules" icon="account_tree">
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {rules.map(([title, desc]) => (
-          <div key={title} className="rounded-lg border border-[var(--color-card-border)] p-4">
+          <div key={title} className="rounded-lg border border-[var(--color-pib-line)] p-4">
             <p className="text-sm font-medium text-[var(--color-pib-text)]">{title}</p>
             <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{desc}</p>
           </div>
@@ -678,7 +678,7 @@ function ChannelsView({ channels }: { channels: ChannelsResponse | null }) {
     <Panel title="Channel readiness" icon="settings_input_antenna">
       <div className="grid gap-3 lg:grid-cols-2">
         {(channels?.providers ?? []).map((provider) => (
-          <div key={provider.id} className="rounded-lg border border-[var(--color-card-border)] p-4">
+          <div key={provider.id} className="rounded-lg border border-[var(--color-pib-line)] p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-medium text-[var(--color-pib-text)]">{provider.name}</p>
@@ -718,8 +718,8 @@ function AnalyticsView({ analytics }: { analytics: Record<string, unknown> | nul
         <Metric label="Channels" value={analytics ? Object.keys((analytics.channelVolume as Record<string, unknown>) ?? {}).length : 0} />
         <Metric label="Queues" value={analytics ? Object.keys(((analytics.workload as Record<string, unknown>)?.byQueue as Record<string, unknown>) ?? {}).length : 0} />
       </div>
-      <div className="mt-4 overflow-hidden rounded-lg border border-[var(--color-card-border)]">
-        <div className="grid grid-cols-6 gap-3 border-b border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-4 py-2 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+      <div className="mt-4 overflow-hidden rounded-lg border border-[var(--color-pib-line)]">
+        <div className="grid grid-cols-6 gap-3 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-4 py-2 pib-label">
           <span className="col-span-2">Campaign</span>
           <span>Sent</span>
           <span>Read</span>
@@ -729,7 +729,7 @@ function AnalyticsView({ analytics }: { analytics: Record<string, unknown> | nul
         {campaigns.length === 0 ? (
           <div className="px-4 py-8 text-sm text-[var(--color-pib-text-muted)]">No campaign performance has been recorded yet.</div>
         ) : campaigns.map((campaign) => (
-          <div key={String(campaign.id)} className="grid grid-cols-6 gap-3 border-b border-[var(--color-card-border)] px-4 py-3 text-sm last:border-b-0">
+          <div key={String(campaign.id)} className="grid grid-cols-6 gap-3 border-b border-[var(--color-pib-line)] px-4 py-3 text-sm last:border-b-0">
             <span className="col-span-2 text-[var(--color-pib-text)]">{String(campaign.name)}</span>
             <span>{String(campaign.sent ?? 0)}</span>
             <span>{formatPercent(campaign.readRate)}</span>
@@ -744,8 +744,8 @@ function AnalyticsView({ analytics }: { analytics: Record<string, unknown> | nul
 
 function Panel({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-surface)]">
-      <div className="flex items-center gap-2 border-b border-[var(--color-card-border)] px-4 py-3">
+    <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-surface)]">
+      <div className="flex items-center gap-2 border-b border-[var(--color-pib-line)] px-4 py-3">
         <span className="material-symbols-outlined text-lg text-[var(--color-pib-accent)]">{icon}</span>
         <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">{title}</h2>
       </div>
@@ -756,8 +756,8 @@ function Panel({ title, icon, children }: { title: string; icon: string; childre
 
 function Metric({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] p-4">
-      <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</p>
+    <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-4">
+      <p className="pib-label">{label}</p>
       <p className="mt-2 text-2xl font-display text-[var(--color-pib-text)]">{value}</p>
     </div>
   )

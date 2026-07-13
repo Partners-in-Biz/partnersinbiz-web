@@ -90,7 +90,7 @@ export function SequenceAnalyticsWorkspace({
 
   if (loading) {
     return (
-      <div className={surface === 'portal' ? 'pib-skeleton h-40 rounded-xl' : 'p-6 h-40 rounded-xl bg-surface-container animate-pulse'} />
+      <div className={surface === 'portal' ? 'pib-skeleton h-40 rounded-xl' : 'p-6 h-40 rounded-xl bg-[var(--color-pib-surface-2)] animate-pulse'} />
     )
   }
 
@@ -98,7 +98,7 @@ export function SequenceAnalyticsWorkspace({
     return (
       <div className={surface === 'portal' ? 'mx-auto max-w-5xl space-y-4' : 'p-6 max-w-3xl mx-auto space-y-4'}>
         <BackLink href={backHref} surface={surface} />
-        <p className={surface === 'portal' ? 'text-sm text-on-surface-variant' : 'text-sm text-on-surface-variant'}>
+        <p className={surface === 'portal' ? 'text-sm text-[var(--color-pib-text-muted)]' : 'text-sm text-[var(--color-pib-text-muted)]'}>
           {error ?? 'Sequence analytics not found.'}
         </p>
       </div>
@@ -117,13 +117,13 @@ export function SequenceAnalyticsWorkspace({
       <BackLink href={backHref} surface={surface} />
       <header>
         {surface === 'portal' && <p className="eyebrow">Email nurture</p>}
-        <h1 className={surface === 'portal' ? 'mt-0.5 text-base font-semibold text-on-surface' : 'text-2xl font-semibold text-on-surface'}>
+        <h1 className={surface === 'portal' ? 'mt-0.5 text-base font-semibold text-[var(--color-pib-text)]' : 'text-2xl font-semibold text-[var(--color-pib-text)]'}>
           {sequenceName} performance
         </h1>
-        <p className={surface === 'portal' ? 'mt-1 text-xs leading-4 text-on-surface-variant' : 'mt-2 text-sm text-on-surface-variant'}>
+        <p className={surface === 'portal' ? 'mt-1 text-xs leading-4 text-[var(--color-pib-text-muted)]' : 'mt-2 text-sm text-[var(--color-pib-text-muted)]'}>
           {sequenceDescription}
         </p>
-        <p className={surface === 'portal' ? 'mt-2 text-xs text-on-surface-variant' : 'mt-2 text-xs text-on-surface-variant'}>
+        <p className={surface === 'portal' ? 'mt-2 text-xs text-[var(--color-pib-text-muted)]' : 'mt-2 text-xs text-[var(--color-pib-text-muted)]'}>
           {formatStatus(sequence?.status)} · {formatSteps(sequence?.stepsCount ?? stepFunnel.length)}
         </p>
       </header>
@@ -144,7 +144,7 @@ export function SequenceAnalyticsWorkspace({
 
       {insights?.nextActions?.length > 0 && (
         <Section surface={surface} title="Agent next moves">
-          <ul className={surface === 'portal' ? 'space-y-2 text-sm text-on-surface' : 'space-y-2 text-sm text-on-surface'}>
+          <ul className={surface === 'portal' ? 'space-y-2 text-sm text-[var(--color-pib-text)]' : 'space-y-2 text-sm text-[var(--color-pib-text)]'}>
             {insights.nextActions.map((action) => (
               <li key={action} className="flex gap-2">
                 <span
@@ -183,7 +183,7 @@ export function SequenceAnalyticsWorkspace({
         <Section surface={surface} title="Step performance">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[620px] text-sm">
-              <thead className={surface === 'portal' ? 'text-left text-on-surface-variant' : 'text-left text-on-surface-variant'}>
+              <thead className={surface === 'portal' ? 'text-left text-[var(--color-pib-text-muted)]' : 'text-left text-[var(--color-pib-text-muted)]'}>
                 <tr>
                   <th className="py-2">#</th>
                   <th className="py-2">Subject</th>
@@ -197,12 +197,12 @@ export function SequenceAnalyticsWorkspace({
                 {stepFunnel.map((step) => (
                   <tr
                     key={step.stepNumber}
-                    className={surface === 'portal' ? 'border-t border-[var(--color-card-border)]' : 'border-t border-outline-variant'}
+                    className={surface === 'portal' ? 'border-t border-[var(--color-card-border)]' : 'border-t border-[var(--color-pib-line)]'}
                   >
                     <td className="py-2 tabular-nums">{step.stepNumber}</td>
-                    <td className={surface === 'portal' ? 'py-2 text-on-surface' : 'py-2 text-on-surface'}>
+                    <td className={surface === 'portal' ? 'py-2 text-[var(--color-pib-text)]' : 'py-2 text-[var(--color-pib-text)]'}>
                       {step.subject || (
-                        <em className={surface === 'portal' ? 'text-on-surface-variant' : 'text-on-surface-variant'}>
+                        <em className={surface === 'portal' ? 'text-[var(--color-pib-text-muted)]' : 'text-[var(--color-pib-text-muted)]'}>
                           (no subject)
                         </em>
                       )}
@@ -246,15 +246,15 @@ function Kpi({
 }) {
   const displayValue = typeof value === 'number' ? value.toLocaleString() : value
   return (
-    <div className={surface === 'portal' ? 'rounded-md border border-[var(--color-card-border)] bg-black/10 p-2' : 'rounded-xl bg-surface-container p-4'}>
-      <div className={surface === 'portal' ? 'text-xs text-on-surface-variant' : 'text-xs text-on-surface-variant'}>
+    <div className={surface === 'portal' ? 'rounded-md border border-[var(--color-card-border)] bg-black/10 p-2' : 'rounded-xl bg-[var(--color-pib-surface-2)] p-4'}>
+      <div className={surface === 'portal' ? 'text-xs text-[var(--color-pib-text-muted)]' : 'text-xs text-[var(--color-pib-text-muted)]'}>
         {label}
       </div>
-      <div className={surface === 'portal' ? 'text-lg font-semibold text-on-surface' : 'text-2xl font-semibold text-on-surface'}>
+      <div className={surface === 'portal' ? 'text-lg font-semibold text-[var(--color-pib-text)]' : 'text-2xl font-semibold text-[var(--color-pib-text)]'}>
         {displayValue}
       </div>
       {sub && (
-        <div className={surface === 'portal' ? 'mt-1 text-xs text-on-surface-variant' : 'mt-1 text-xs text-on-surface-variant'}>
+        <div className={surface === 'portal' ? 'mt-1 text-xs text-[var(--color-pib-text-muted)]' : 'mt-1 text-xs text-[var(--color-pib-text-muted)]'}>
           {sub}
         </div>
       )}
@@ -273,10 +273,10 @@ function Section({
 }) {
   return (
     <section>
-      <h2 className={surface === 'portal' ? 'mb-2 text-sm font-medium text-on-surface-variant' : 'mb-2 text-sm font-medium text-on-surface-variant'}>
+      <h2 className={surface === 'portal' ? 'mb-2 text-sm font-medium text-[var(--color-pib-text-muted)]' : 'mb-2 text-sm font-medium text-[var(--color-pib-text-muted)]'}>
         {title}
       </h2>
-      <div className={surface === 'portal' ? 'border-t border-[var(--color-card-border)] p-3' : 'rounded-xl bg-surface-container p-4'}>
+      <div className={surface === 'portal' ? 'border-t border-[var(--color-card-border)] p-3' : 'rounded-xl bg-[var(--color-pib-surface-2)] p-4'}>
         {children}
       </div>
     </section>
@@ -285,7 +285,7 @@ function Section({
 
 function Empty({ children, surface }: { children: ReactNode; surface: 'admin' | 'portal' }) {
   return (
-    <div className={surface === 'portal' ? 'text-sm text-on-surface-variant' : 'text-sm text-on-surface-variant'}>
+    <div className={surface === 'portal' ? 'text-sm text-[var(--color-pib-text-muted)]' : 'text-sm text-[var(--color-pib-text-muted)]'}>
       {children}
     </div>
   )

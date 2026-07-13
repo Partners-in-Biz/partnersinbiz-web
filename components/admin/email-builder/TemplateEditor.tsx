@@ -333,8 +333,8 @@ export default function TemplateEditor({ template }: Props) {
   return (
     <div className="flex flex-col h-[calc(100vh-3rem)]">
       {/* Top bar */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-outline-variant bg-surface-container">
-        <button onClick={() => router.push('/portal/email-templates')} className="text-sm text-on-surface-variant hover:text-on-surface">← Back</button>
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)]">
+        <button onClick={() => router.push('/portal/email-templates')} className="text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]">← Back</button>
         <div className="flex-1 flex items-center gap-2">
           <input
             value={name}
@@ -353,7 +353,7 @@ export default function TemplateEditor({ template }: Props) {
             ))}
           </select>
         </div>
-        {statusMsg && <span className="text-xs text-on-surface-variant">{statusMsg}</span>}
+        {statusMsg && <span className="text-xs text-[var(--color-pib-text-muted)]">{statusMsg}</span>}
         <div className="flex items-center gap-2">
           <input
             value={testEmail}
@@ -364,13 +364,13 @@ export default function TemplateEditor({ template }: Props) {
           <button onClick={() => setAiOpen(true)} className="px-3 py-1.5 rounded-md bg-primary-container text-on-primary-container text-sm font-medium">
             ✨ Generate with AI
           </button>
-          <button onClick={sendTest} disabled={sendingTest} className="px-3 py-1.5 rounded-md bg-surface-container-high text-on-surface text-sm font-medium disabled:opacity-50">
+          <button onClick={sendTest} disabled={sendingTest} className="px-3 py-1.5 rounded-md bg-[var(--color-pib-surface-muted)] text-[var(--color-pib-text)] text-sm font-medium disabled:opacity-50">
             {sendingTest ? 'Sending...' : 'Send test'}
           </button>
           <button
             onClick={save}
             disabled={saving || template.isStarter}
-            className="px-4 py-1.5 rounded-md bg-primary text-on-primary text-sm font-medium disabled:opacity-50"
+            className="btn-pib-primary text-sm disabled:opacity-50"
           >
             {template.isStarter ? 'Read only' : saving ? 'Saving...' : 'Save'}
           </button>
@@ -379,7 +379,7 @@ export default function TemplateEditor({ template }: Props) {
 
       <div className="flex-1 flex overflow-hidden">
         {/* Left: block list */}
-        <aside className="w-72 flex-shrink-0 overflow-y-auto border-r border-outline-variant bg-surface p-3">
+        <aside className="w-72 flex-shrink-0 overflow-y-auto border-r border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3">
           <div className="mb-3">
             <Field label="Subject"><TextInput value={doc.subject} onChange={(v) => setDoc((d) => ({ ...d, subject: v }))} /></Field>
             <Field label="Preheader"><TextInput value={doc.preheader} onChange={(v) => setDoc((d) => ({ ...d, preheader: v }))} /></Field>
@@ -397,7 +397,7 @@ export default function TemplateEditor({ template }: Props) {
           </Field>
 
           <div className="border-t border-zinc-800 pt-3 mt-3">
-            <div className="text-xs font-semibold text-on-surface-variant uppercase tracking-wide mb-2">Blocks</div>
+            <div className="text-xs font-semibold text-[var(--color-pib-text-muted)] uppercase tracking-wide mb-2">Blocks</div>
             <ul className="space-y-1">
               {doc.blocks.map((b, i) => (
                 <li
@@ -426,8 +426,8 @@ export default function TemplateEditor({ template }: Props) {
 
         {/* Right: preview + properties */}
         <main className="flex-1 flex flex-col overflow-hidden bg-zinc-950">
-          <div className="border-b border-outline-variant bg-surface-container px-4 py-2 flex items-center gap-2">
-            <span className="text-xs text-on-surface-variant">Preview:</span>
+          <div className="border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] px-4 py-2 flex items-center gap-2">
+            <span className="text-xs text-[var(--color-pib-text-muted)]">Preview:</span>
             <button onClick={() => setPreviewMode('desktop')} className={`text-xs px-2 py-1 rounded ${previewMode === 'desktop' ? 'bg-primary text-on-primary' : 'bg-zinc-800 text-zinc-300'}`}>Desktop</button>
             <button onClick={() => setPreviewMode('mobile')} className={`text-xs px-2 py-1 rounded ${previewMode === 'mobile' ? 'bg-primary text-on-primary' : 'bg-zinc-800 text-zinc-300'}`}>Mobile</button>
           </div>
@@ -440,17 +440,17 @@ export default function TemplateEditor({ template }: Props) {
           </div>
 
           {/* Properties + vars panel */}
-          <div className="border-t border-outline-variant bg-surface p-4 max-h-[40%] overflow-y-auto grid grid-cols-2 gap-6">
+          <div className="border-t border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4 max-h-[40%] overflow-y-auto grid grid-cols-2 gap-6">
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant mb-3">
+              <div className="text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)] mb-3">
                 {selectedBlock ? `${blockLabel(selectedBlock.type)} properties` : 'Select a block'}
               </div>
               {selectedBlock && <BlockPropertyForm block={selectedBlock} onChange={(b) => updateBlock(selectedBlock.id, b)} />}
             </div>
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant mb-3">Test variables (JSON)</div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)] mb-3">Test variables (JSON)</div>
               <TextArea value={varsJson} onChange={setVarsJson} rows={10} />
-              <p className="text-xs text-on-surface-variant mt-2">These values replace <code className="text-zinc-300">&#123;&#123;variable&#125;&#125;</code> tokens in the preview.</p>
+              <p className="text-xs text-[var(--color-pib-text-muted)] mt-2">These values replace <code className="text-zinc-300">&#123;&#123;variable&#125;&#125;</code> tokens in the preview.</p>
               <Field label="Description (for the library)">
                 <TextInput value={description} onChange={setDescription} />
               </Field>
@@ -489,7 +489,7 @@ function AddBlockDropdown({ onAdd }: { onAdd: (t: BlockType) => void }) {
   const [open, setOpen] = useState(false)
   return (
     <div className="relative mt-3">
-      <button onClick={() => setOpen((v) => !v)} className="w-full px-3 py-2 rounded-md bg-primary text-on-primary text-sm font-medium">
+      <button onClick={() => setOpen((v) => !v)} className="btn-pib-primary w-full justify-center text-sm">
         + Add block
       </button>
       {open && (

@@ -110,9 +110,9 @@ function ContactSetupReviewCard({
           <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">rule_settings</span>
           <div>
             <p className="eyebrow !text-[10px] text-amber-200">Contact hygiene</p>
-            <h2 className="mt-1 font-display text-xl text-on-surface">Contact setup needs review</h2>
-            <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-              <span className="font-medium text-on-surface">{contactName}</span> looks like smoke-test contact data.
+            <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">Contact setup needs review</h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+              <span className="font-medium text-[var(--color-pib-text)]">{contactName}</span> looks like smoke-test contact data.
               Review the profile before the team treats this as a real relationship.
             </p>
           </div>
@@ -120,7 +120,7 @@ function ContactSetupReviewCard({
         <button
           type="button"
           onClick={onReviewProfile}
-          className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface shrink-0gap-1.5"
+          className="inline-flex h-8 items-center rounded-md border border-[var(--color-pib-line)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] shrink-0gap-1.5"
           aria-label={`Review contact setup for ${contactName}`}
         >
           <span className="material-symbols-outlined text-base" aria-hidden="true">edit</span>
@@ -1085,34 +1085,34 @@ export default function PortalContactDetailPage() {
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <Link
             href={contactListHref}
-            className="text-xs text-on-surface-variant hover:text-on-surface items-center gap-1 transition-colors"
+            className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] items-center gap-1 transition-colors"
           >
             <span className="material-symbols-outlined text-sm" aria-hidden="true">arrow_back</span>
             Contacts
           </Link>
-          <div className="flex items-center gap-2 text-xs text-on-surface-variant">
+          <div className="flex items-center gap-2 text-xs text-[var(--color-pib-text-muted)]">
             <span className="material-symbols-outlined text-[16px] text-primary" aria-hidden="true">sync</span>
             Loading CRM relationship
           </div>
         </div>
 
-        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
+        <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-3">
           <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
             <div className="flex items-start gap-4">
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-[var(--color-card-border)] bg-white/[0.03]">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)]">
                 <div className="pib-skeleton h-8 w-8 rounded-md" />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="eyebrow">Contact command center</p>
-                <h1 className="mt-1 text-base font-semibold tracking-tight text-on-surface">
+                <h1 className="mt-1 text-base font-semibold tracking-tight text-[var(--color-pib-text)]">
                   Preparing contact command center
                 </h1>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-on-surface-variant">
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
                   Loading relationship profile, owner coverage, activity, deals, and nurture context.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {['Profile', 'Owner', 'Activity', 'Deals'].map((label) => (
-                    <span key={label} className="pill">
+                    <span key={label} className="pib-pill">
                       {label}
                     </span>
                   ))}
@@ -1120,12 +1120,12 @@ export default function PortalContactDetailPage() {
               </div>
             </div>
 
-            <div className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.03] p-4">
+            <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-4">
               <p className="eyebrow !text-[10px]">Relationship readiness</p>
               <div className="mt-4 space-y-3">
                 {['Profile strength', 'Last touch', 'Email thread', 'Activity'].map((label) => (
                   <div key={label} className="flex items-center justify-between gap-3">
-                    <span className="text-xs text-on-surface-variant">{label}</span>
+                    <span className="text-xs text-[var(--color-pib-text-muted)]">{label}</span>
                     <span className="pib-skeleton h-3 w-16 rounded-full" />
                   </div>
                 ))}
@@ -1140,12 +1140,12 @@ export default function PortalContactDetailPage() {
             ['Activity timeline', 'Recent notes, calls, messages, and the next relationship move.'],
             ['Pipeline context', 'Deals, forecast value, sequence enrollment, and follow-up cadence.'],
           ].map(([title, body]) => (
-            <div key={title} className="border-t border-[var(--color-card-border)] p-3 md:border-l md:border-t-0">
-              <div className="mb-4 h-2 overflow-hidden rounded-full bg-white/10">
+            <div key={title} className="border-t border-[var(--color-pib-line)] p-3 md:border-l md:border-t-0">
+              <div className="mb-4 h-2 overflow-hidden rounded-full bg-[var(--color-pib-surface-soft)]">
                 <div className="h-full w-2/3 rounded-full bg-[var(--color-accent-v2)]" />
               </div>
-              <h2 className="font-display text-lg text-on-surface">{title}</h2>
-              <p className="mt-2 text-xs leading-5 text-on-surface-variant">{body}</p>
+              <h2 className="font-display text-lg text-[var(--color-pib-text)]">{title}</h2>
+              <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">{body}</p>
               <div className="mt-4 space-y-2">
                 <div className="pib-skeleton h-3 w-full rounded-full" />
                 <div className="pib-skeleton h-3 w-2/3 rounded-full" />
@@ -1168,11 +1168,11 @@ export default function PortalContactDetailPage() {
               </span>
               <div>
                 <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
-                <h2 className="mt-1 font-display text-xl text-on-surface">
+                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
                   Contact details could not load
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-on-surface-variant">{contactFetchError}</p>
-                <p className="mt-3 text-xs leading-5 text-on-surface-variant">
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{contactFetchError}</p>
+                <p className="mt-3 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                   Relationship profile, activity, scoring, and follow-up controls stay hidden until the contact source responds, so leaders do not mistake a data outage for a missing CRM relationship.
                 </p>
               </div>
@@ -1182,12 +1182,12 @@ export default function PortalContactDetailPage() {
                 type="button"
                 onClick={() => loadContact()}
                 aria-label="Retry loading contact details"
-                className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-pib-line)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]"
               >
                 <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
                 Retry
               </button>
-              <Link href={contactListHref} className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface">
+              <Link href={contactListHref} className="inline-flex h-8 items-center rounded-md border border-[var(--color-pib-line)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]">
                 <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
                 Back to contacts
               </Link>
@@ -1198,9 +1198,9 @@ export default function PortalContactDetailPage() {
     }
 
     return (
-      <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center">
+      <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-4 text-center">
         <h2 className="font-display text-2xl">Contact not found.</h2>
-        <Link href={contactListHref} className="mt-4 inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface">
+        <Link href={contactListHref} className="mt-4 inline-flex h-8 items-center rounded-md border border-[var(--color-pib-line)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]">
           <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
           Back to contacts
         </Link>
@@ -1499,7 +1499,7 @@ export default function PortalContactDetailPage() {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <Link
           href={contactListHref}
-          className="text-xs text-on-surface-variant hover:text-on-surface items-center gap-1 transition-colors"
+          className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] items-center gap-1 transition-colors"
         >
           <span className="material-symbols-outlined text-sm" aria-hidden="true">arrow_back</span>
           Contacts
@@ -1510,7 +1510,7 @@ export default function PortalContactDetailPage() {
               type="button"
               aria-label={`Email ${contactName} from contact command center`}
               onClick={openFirstEmailComposer}
-              className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface gap-1.5"
+              className="inline-flex h-8 items-center rounded-md border border-[var(--color-pib-line)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] gap-1.5"
             >
               <span className="material-symbols-outlined text-[14px]" aria-hidden="true">mail</span>
               Email
@@ -1521,7 +1521,7 @@ export default function PortalContactDetailPage() {
               type="button"
               aria-label={`Log call with ${contactName} from contact command center`}
               onClick={openFirstCallComposer}
-              className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface gap-1.5"
+              className="inline-flex h-8 items-center rounded-md border border-[var(--color-pib-line)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] gap-1.5"
             >
               <span className="material-symbols-outlined text-[14px]" aria-hidden="true">call</span>
               Call
@@ -1532,7 +1532,7 @@ export default function PortalContactDetailPage() {
             onClick={openArchiveConfirmation}
             disabled={archiving}
             aria-label={`Archive ${contactName}`}
-            className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface gap-1.5 disabled:opacity-50"
+            className="inline-flex h-8 items-center rounded-md border border-[var(--color-pib-line)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] gap-1.5 disabled:opacity-50"
           >
             <span className="material-symbols-outlined text-[14px]" aria-hidden="true">archive</span>
             {archiving ? 'Archiving…' : 'Archive'}
@@ -1557,8 +1557,8 @@ export default function PortalContactDetailPage() {
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div className="max-w-2xl">
               <p className="eyebrow !text-[10px] text-red-300">Archive contact</p>
-              <h2 id="portal-contact-archive-title" className="mt-2 font-display text-xl text-on-surface">Archive {contactName}?</h2>
-              <p id="portal-contact-archive-description" className="mt-2 text-sm leading-6 text-on-surface-variant">
+              <h2 id="portal-contact-archive-title" className="mt-2 font-display text-xl text-[var(--color-pib-text)]">Archive {contactName}?</h2>
+              <p id="portal-contact-archive-description" className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
                 This contact will leave the active CRM list, but relationship history stays available for reporting and audit context.
               </p>
             </div>
@@ -1567,7 +1567,7 @@ export default function PortalContactDetailPage() {
                 type="button"
                 onClick={() => setArchiveConfirmOpen(false)}
                 disabled={archiving}
-                className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface disabled:opacity-50"
+                className="inline-flex h-8 items-center rounded-md border border-[var(--color-pib-line)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] disabled:opacity-50"
                 aria-label={`Cancel archive for ${contactName}`}
               >
                 Cancel
@@ -1587,11 +1587,11 @@ export default function PortalContactDetailPage() {
         </section>
       )}
 
-      <header className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+      <header className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)]">
         <div className="grid lg:grid-cols-[minmax(0,1fr)_280px]">
-          <div className="space-y-3 p-3 lg:border-r lg:border-[var(--color-card-border)]">
+          <div className="space-y-3 p-3 lg:border-r lg:border-[var(--color-pib-line)]">
             <div className="flex items-start gap-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[var(--color-card-border)] bg-primary/10 text-sm font-semibold text-primary">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-primary/10 text-sm font-semibold text-primary">
                 {contactName.slice(0, 1).toUpperCase()}
               </div>
               <div className="min-w-0 flex-1">
@@ -1601,18 +1601,18 @@ export default function PortalContactDetailPage() {
                   aria-label={`Rename ${contactName} from contact header`}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="mt-1 w-full border-0 bg-transparent p-0 text-lg font-semibold tracking-tight text-on-surface outline-none"
+                  className="mt-1 w-full border-0 bg-transparent p-0 text-lg font-semibold tracking-tight text-[var(--color-pib-text)] outline-none"
                   placeholder="Contact name"
                 />
                 {!hasContactName && (
                   <p className="mt-1 text-sm font-medium text-primary">Unnamed contact</p>
                 )}
-                <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-on-surface-variant">
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
                   {hasLinkedCompany ? (
                     <Link
                       href={linkedCompanyHref}
                       aria-label={`Open linked company ${companyLabel} from contact header`}
-                      className="inline-flex items-center gap-1 text-primary transition-colors hover:text-on-surface"
+                      className="inline-flex items-center gap-1 text-primary transition-colors hover:text-[var(--color-pib-text)]"
                     >
                       <span className="material-symbols-outlined text-[16px]" aria-hidden="true">business</span>
                       {companyLabel}
@@ -1627,7 +1627,7 @@ export default function PortalContactDetailPage() {
                     <a
                       href={`tel:${phone.trim()}`}
                       aria-label={`Call ${phone.trim()} from contact header`}
-                      className="inline-flex items-center gap-1 text-primary transition-colors hover:text-on-surface"
+                      className="inline-flex items-center gap-1 text-primary transition-colors hover:text-[var(--color-pib-text)]"
                     >
                       <span className="material-symbols-outlined text-[16px]" aria-hidden="true">call</span>
                       {phone.trim()}
@@ -1638,7 +1638,7 @@ export default function PortalContactDetailPage() {
                       type="button"
                       aria-label={`Link company for ${contactName}`}
                       onClick={focusCompanyPicker}
-                      className="inline-flex items-center gap-1 rounded-md border border-[var(--color-card-border)] bg-white/[0.03] px-2 py-1 text-xs font-medium text-primary transition-colors hover:border-primary/40 hover:text-on-surface"
+                      className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] px-2 py-1 text-xs font-medium text-primary transition-colors hover:border-primary/40 hover:text-[var(--color-pib-text)]"
                     >
                       <span className="material-symbols-outlined text-[14px]">add_business</span>
                       Link company
@@ -1648,7 +1648,7 @@ export default function PortalContactDetailPage() {
                     <a
                       href={`mailto:${email.trim()}`}
                       aria-label={`Email ${email.trim()} from contact header`}
-                      className="inline-flex items-center gap-1 text-primary transition-colors hover:text-on-surface"
+                      className="inline-flex items-center gap-1 text-primary transition-colors hover:text-[var(--color-pib-text)]"
                     >
                       <span className="material-symbols-outlined text-[16px]" aria-hidden="true">alternate_email</span>
                       {email.trim()}
@@ -1663,7 +1663,7 @@ export default function PortalContactDetailPage() {
                 type="button"
                 aria-label={`Edit lifecycle stage ${stageLabel} for ${contactName}`}
                 onClick={() => focusProfileField(stageFieldRef)}
-                className="pill cursor-pointer transition-colors hover:border-primary/40 hover:text-on-surface"
+                className="pill cursor-pointer transition-colors hover:border-primary/40 hover:text-[var(--color-pib-text)]"
               >
                 {stageLabel}
               </button>
@@ -1671,7 +1671,7 @@ export default function PortalContactDetailPage() {
                 type="button"
                 aria-label={`Edit contact type ${typeLabel} for ${contactName}`}
                 onClick={() => focusProfileField(typeFieldRef)}
-                className="pill cursor-pointer transition-colors hover:border-primary/40 hover:text-on-surface"
+                className="pill cursor-pointer transition-colors hover:border-primary/40 hover:text-[var(--color-pib-text)]"
               >
                 {typeLabel}
               </button>
@@ -1679,7 +1679,7 @@ export default function PortalContactDetailPage() {
                 type="button"
                 aria-label={`Log activity from relationship signal ${relationshipSignal} for ${contactName}`}
                 onClick={openFirstNoteComposer}
-                className="pill cursor-pointer transition-colors hover:border-primary/40 hover:text-on-surface"
+                className="pill cursor-pointer transition-colors hover:border-primary/40 hover:text-[var(--color-pib-text)]"
               >
                 {relationshipSignal}
               </button>
@@ -1689,7 +1689,7 @@ export default function PortalContactDetailPage() {
                   type="button"
                   aria-label={`Edit tag ${t} for ${contactName}`}
                   onClick={() => focusProfileField(tagsFieldRef)}
-                  className="pill cursor-pointer transition-colors hover:border-primary/40 hover:text-on-surface"
+                  className="pill cursor-pointer transition-colors hover:border-primary/40 hover:text-[var(--color-pib-text)]"
                 >
                   {t}
                 </button>
@@ -1701,17 +1701,17 @@ export default function PortalContactDetailPage() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="eyebrow !text-[10px]">Profile strength</p>
-                <p className="mt-1 text-lg font-semibold text-on-surface">{fmtPercent(profileStrength)}</p>
+                <p className="mt-1 text-lg font-semibold text-[var(--color-pib-text)]">{fmtPercent(profileStrength)}</p>
               </div>
               <span className="material-symbols-outlined text-[18px] text-primary">account_circle</span>
             </div>
-            <div className="h-2 overflow-hidden rounded-full bg-white/10">
+            <div className="h-2 overflow-hidden rounded-full bg-[var(--color-pib-surface-soft)]">
               <div
                 className="h-full rounded-full bg-[var(--color-accent-v2)] transition-all duration-500"
                 style={{ width: fmtPercent(profileStrength) }}
               />
             </div>
-            <p className="text-xs leading-relaxed text-on-surface-variant">
+            <p className="text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
               {missingFields.length === 0
                 ? 'The core contact profile is complete enough for segmentation, scoring, and follow-up.'
                 : `Missing ${missingFields.slice(0, 3).join(', ')}${missingFields.length > 3 ? ' and more' : ''}.`}
@@ -1721,7 +1721,7 @@ export default function PortalContactDetailPage() {
                 type="button"
                 aria-label={profileGapAction.ariaLabel}
                 onClick={() => focusProfileField(profileGapAction.fieldRef)}
-                className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface w-full justify-centergap-1.5"
+                className="inline-flex h-8 items-center rounded-md border border-[var(--color-pib-line)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] w-full justify-centergap-1.5"
               >
                 <span className="material-symbols-outlined text-[14px]">{profileGapAction.icon}</span>
                 {profileGapAction.label}
@@ -1730,20 +1730,20 @@ export default function PortalContactDetailPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 border-t border-[var(--color-card-border)] p-3 md:grid-cols-4">
-          <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 p-2">
+        <div className="grid grid-cols-2 gap-2 border-t border-[var(--color-pib-line)] p-3 md:grid-cols-4">
+          <div className="rounded-md border border-[var(--color-pib-line)] bg-black/10 p-2">
             <p className="eyebrow !text-[10px]">Best score</p>
-            <p className="mt-1 text-lg font-semibold text-on-surface">
+            <p className="mt-1 text-lg font-semibold text-[var(--color-pib-text)]">
               {bestScoreLabel}
             </p>
-            <p className="mt-2 text-xs text-on-surface-variant">Lead, ICP, or AI signal</p>
+            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">Lead, ICP, or AI signal</p>
             {shouldPromptScoreRecompute && (
               <button
                 type="button"
                 aria-label={`Recompute score for ${contactName} from best score insight`}
                 onClick={handleRecomputeScore}
                 disabled={scoreSaving}
-                className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 py-1.5 text-xs font-medium text-primary transition-colors hover:border-primary/40 hover:text-on-surface disabled:opacity-50"
+                className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-pib-line)] px-2 py-1.5 text-xs font-medium text-primary transition-colors hover:border-primary/40 hover:text-[var(--color-pib-text)] disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-[14px]" aria-hidden="true">speed</span>
                 {scoreSaving ? 'Scoring…' : 'Recompute score'}
@@ -1751,50 +1751,50 @@ export default function PortalContactDetailPage() {
             )}
             {scoreError && <p className="mt-2 text-xs text-red-400">{scoreError}</p>}
           </div>
-          <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 p-2">
+          <div className="rounded-md border border-[var(--color-pib-line)] bg-black/10 p-2">
             <p className="eyebrow !text-[10px]">Last touch</p>
-            <p className="mt-1 text-lg font-semibold text-on-surface">
+            <p className="mt-1 text-lg font-semibold text-[var(--color-pib-text)]">
               {lastTouchLabel}
             </p>
-            <p className="mt-2 text-xs text-on-surface-variant">{relationshipSignal}</p>
+            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{relationshipSignal}</p>
             {shouldPromptTouchLog && (
               <button
                 type="button"
                 aria-label={`Log touch for ${contactName} from last touch insight`}
                 onClick={openFirstNoteComposer}
-                className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 py-1.5 text-xs font-medium text-primary transition-colors hover:border-primary/40 hover:text-on-surface"
+                className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-pib-line)] px-2 py-1.5 text-xs font-medium text-primary transition-colors hover:border-primary/40 hover:text-[var(--color-pib-text)]"
               >
                 <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit_note</span>
                 Log touch
               </button>
             )}
           </div>
-          <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 p-2">
+          <div className="rounded-md border border-[var(--color-pib-line)] bg-black/10 p-2">
             <p className="eyebrow !text-[10px]">Email thread</p>
-            <p className="mt-1 text-lg font-semibold text-on-surface">{emails.length}</p>
-            <p className="mt-2 text-xs text-on-surface-variant">{sentEmailCount} sent / {receivedEmailCount} received</p>
+            <p className="mt-1 text-lg font-semibold text-[var(--color-pib-text)]">{emails.length}</p>
+            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{sentEmailCount} sent / {receivedEmailCount} received</p>
             {shouldPromptFirstEmail && (
               <button
                 type="button"
                 aria-label={`Send email to ${contactName} from email thread insight`}
                 onClick={openFirstEmailComposer}
-                className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 py-1.5 text-xs font-medium text-primary transition-colors hover:border-primary/40 hover:text-on-surface"
+                className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-pib-line)] px-2 py-1.5 text-xs font-medium text-primary transition-colors hover:border-primary/40 hover:text-[var(--color-pib-text)]"
               >
                 <span className="material-symbols-outlined text-[14px]" aria-hidden="true">mail</span>
                 Send email
               </button>
             )}
           </div>
-          <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 p-2">
+          <div className="rounded-md border border-[var(--color-pib-line)] bg-black/10 p-2">
             <p className="eyebrow !text-[10px]">Activity</p>
-            <p className="mt-1 text-lg font-semibold text-on-surface">{recentActivityCount}</p>
-            <p className="mt-2 text-xs text-on-surface-variant">{activityMetricCaption(recentActivityCount)}</p>
+            <p className="mt-1 text-lg font-semibold text-[var(--color-pib-text)]">{recentActivityCount}</p>
+            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{activityMetricCaption(recentActivityCount)}</p>
             {shouldPromptActivityLog && (
               <button
                 type="button"
                 aria-label={`Log activity for ${contactName} from activity insight`}
                 onClick={openFirstNoteComposer}
-                className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 py-1.5 text-xs font-medium text-primary transition-colors hover:border-primary/40 hover:text-on-surface"
+                className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-pib-line)] px-2 py-1.5 text-xs font-medium text-primary transition-colors hover:border-primary/40 hover:text-[var(--color-pib-text)]"
               >
                 <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit_note</span>
                 Log activity
@@ -1804,30 +1804,30 @@ export default function PortalContactDetailPage() {
         </div>
 
         {relationshipRiskItems.length > 0 && (
-          <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
+          <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-3">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
                 <p className="eyebrow !text-[10px]">Leadership brief</p>
-                <h2 className="mt-2 font-display text-xl text-on-surface">Relationship risk brief</h2>
-                <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+                <h2 className="mt-2 font-display text-xl text-[var(--color-pib-text)]">Relationship risk brief</h2>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
                   {relationshipRiskItems.length} open {relationshipRiskItems.length === 1 ? 'risk needs' : 'risks need'} attention before this relationship is leadership-ready.
                 </p>
               </div>
               <span
                 aria-hidden="true"
-                className="material-symbols-outlined flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[var(--color-card-border)] bg-white/[0.04] text-[20px] text-primary"
+                className="material-symbols-outlined flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] text-[20px] text-primary"
               >
                 crisis_alert
               </span>
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {relationshipRiskItems.map((item) => (
-                <div key={item.title} className="rounded-md border border-[var(--color-card-border)] bg-white/[0.03] p-3">
+                <div key={item.title} className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-3">
                   <div className="flex items-start gap-2">
                     <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-primary">{item.icon}</span>
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-on-surface">{item.title}</p>
-                      <p className="mt-1 text-xs leading-5 text-on-surface-variant">{item.body}</p>
+                      <p className="text-sm font-semibold text-[var(--color-pib-text)]">{item.title}</p>
+                      <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{item.body}</p>
                     </div>
                   </div>
                   <button
@@ -1835,7 +1835,7 @@ export default function PortalContactDetailPage() {
                     aria-label={item.actionAriaLabel}
                     onClick={item.onAction}
                     disabled={item.disabled}
-                    className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 py-1.5 text-xs font-medium text-primary transition-colors hover:border-primary/40 hover:text-on-surface disabled:opacity-50"
+                    className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-[var(--color-pib-line)] px-2 py-1.5 text-xs font-medium text-primary transition-colors hover:border-primary/40 hover:text-[var(--color-pib-text)] disabled:opacity-50"
                   >
                     {item.actionLabel}
                   </button>
@@ -1848,7 +1848,7 @@ export default function PortalContactDetailPage() {
         {(contact.leadScore !== undefined || contact.icpScore !== undefined || contact.aiLeadScore !== undefined || nextSuggestion) && (
           <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
             {(contact.leadScore !== undefined || contact.icpScore !== undefined || contact.aiLeadScore !== undefined) && (
-              <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
+              <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-3">
                 <p className="eyebrow !text-[10px] mb-3">Scoring</p>
                 <div className="flex flex-wrap items-center gap-2">
                   <ScoreChip score={contact.leadScore} kind="lead" label="Lead score (formula)" size="sm" />
@@ -1860,18 +1860,18 @@ export default function PortalContactDetailPage() {
               </div>
             )}
             {nextSuggestion && (
-              <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
+              <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-3">
                 <p className="eyebrow !text-[10px] mb-3">Next best action</p>
                 <div className="flex items-start gap-3">
                   <span className="material-symbols-outlined text-[20px] text-primary">tips_and_updates</span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-on-surface">{suggestionActionLabel(nextSuggestion)}</p>
-                    <p className="mt-1 text-xs text-on-surface-variant">{suggestionReasonLabel(nextSuggestion)}</p>
+                    <p className="text-sm font-semibold text-[var(--color-pib-text)]">{suggestionActionLabel(nextSuggestion)}</p>
+                    <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{suggestionReasonLabel(nextSuggestion)}</p>
                     <button
                       type="button"
                       onClick={() => startSuggestion(nextSuggestion)}
                       aria-label={`Act on top recommendation: ${suggestionActionLabel(nextSuggestion)} for ${contactName}`}
-                      className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface mt-3gap-1.5"
+                      className="inline-flex h-8 items-center rounded-md border border-[var(--color-pib-line)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] mt-3gap-1.5"
                     >
                       <span className="material-symbols-outlined text-[14px]" aria-hidden="true">play_arrow</span>
                       Start action
@@ -1901,7 +1901,7 @@ export default function PortalContactDetailPage() {
         {/* Left: Info */}
         <section className="lg:col-span-1 space-y-4">
           {/* Company panel — shows linked company card (or fallback) */}
-          <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3 space-y-3">
+          <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-3 space-y-3">
             <p className="eyebrow !text-[10px]">Company</p>
             <CompanyPanel
               companyId={linkedCompanyId}
@@ -1917,11 +1917,11 @@ export default function PortalContactDetailPage() {
             />
           </div>
 
-          <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3 space-y-3 text-sm">
+          <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-3 space-y-3 text-sm">
             <p className="eyebrow !text-[10px]">Details</p>
             {detailRows.map((row) => (
-              <div key={row.label} className="rounded-md border border-[var(--color-card-border)] bg-white/[0.015] p-3">
-                <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-mono">
+              <div key={row.label} className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-3">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
                   {row.label}
                 </p>
                 {row.value ? (
@@ -1931,20 +1931,20 @@ export default function PortalContactDetailPage() {
                         href={row.href}
                         target={row.external ? '_blank' : undefined}
                         rel={row.external ? 'noreferrer' : undefined}
-                        className="inline-flex max-w-full items-center gap-1 break-all text-primary transition-colors hover:text-on-surface"
+                        className="inline-flex max-w-full items-center gap-1 break-all text-primary transition-colors hover:text-[var(--color-pib-text)]"
                       >
                         {row.value}
                         {row.external && <span className="material-symbols-outlined text-[13px]" aria-hidden="true">open_in_new</span>}
                       </a>
                     ) : (
-                      <p className="text-on-surface break-words">{row.value}</p>
+                      <p className="text-[var(--color-pib-text)] break-words">{row.value}</p>
                     )}
                     {row.needsActionWhenValued && row.onAction && (
                       <button
                         type="button"
                         aria-label={row.actionAriaLabel}
                         onClick={row.onAction}
-                        className="inline-flex items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 py-1 text-[11px] font-medium text-primary transition-colors hover:border-primary/40 hover:text-on-surface"
+                        className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-primary transition-colors hover:border-primary/40 hover:text-[var(--color-pib-text)]"
                       >
                         <span className="material-symbols-outlined text-[13px]">add</span>
                         {row.actionLabel}
@@ -1953,13 +1953,13 @@ export default function PortalContactDetailPage() {
                   </div>
                 ) : (
                   <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-on-surface-variant">{row.empty}</p>
+                    <p className="text-[var(--color-pib-text-muted)]">{row.empty}</p>
                     {row.onAction && (
                       <button
                         type="button"
                         aria-label={row.actionAriaLabel}
                         onClick={row.onAction}
-                        className="inline-flex items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 py-1 text-[11px] font-medium text-primary transition-colors hover:border-primary/40 hover:text-on-surface"
+                        className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-primary transition-colors hover:border-primary/40 hover:text-[var(--color-pib-text)]"
                       >
                         <span className="material-symbols-outlined text-[13px]">add</span>
                         {row.actionLabel}
@@ -1970,19 +1970,19 @@ export default function PortalContactDetailPage() {
               </div>
             ))}
             {contact.lastContactedAt ? (
-              <div className="rounded-md border border-[var(--color-card-border)] bg-white/[0.015] p-3">
-                <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-mono">
+              <div className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-3">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
                   Last contacted
                 </p>
                 <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-on-surface-variant text-xs font-mono">
+                  <p className="text-[var(--color-pib-text-muted)] text-xs font-mono">
                     {fmtTimestamp(contact.lastContactedAt)}
                   </p>
                   <button
                     type="button"
                     aria-label={`Log follow-up for ${contactName} from last contacted detail`}
                     onClick={openFirstNoteComposer}
-                    className="inline-flex items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 py-1 text-[11px] font-medium text-primary transition-colors hover:border-primary/40 hover:text-on-surface"
+                    className="inline-flex items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-primary transition-colors hover:border-primary/40 hover:text-[var(--color-pib-text)]"
                   >
                     <span className="material-symbols-outlined text-[13px]" aria-hidden="true">edit_note</span>
                     Log follow-up
@@ -2046,7 +2046,7 @@ export default function PortalContactDetailPage() {
           />
 
           {customFieldDefs.length > 0 && (
-            <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3 space-y-3 text-sm">
+            <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-3 space-y-3 text-sm">
               <p className="eyebrow !text-[10px]">Custom fields</p>
               <CustomFieldsSection
                 definitions={customFieldDefs}
@@ -2066,28 +2066,28 @@ export default function PortalContactDetailPage() {
             </div>
           )}
 
-          <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3 space-y-2">
+          <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-3 space-y-2">
             <div className="flex items-center justify-between gap-3">
               <p className="eyebrow !text-[10px]">Edit profile</p>
               {dirty && <span className="text-[11px] text-primary">Unsaved changes</span>}
             </div>
 
             <div className="space-y-1 pt-1">
-              <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-mono">
+              <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
                 Name
               </p>
               <input
                 aria-label={`Contact name for ${contactName}`}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm"
+                className="h-9 w-full rounded-md border border-[var(--color-pib-line)] bg-transparent px-2 text-sm"
                 placeholder="Contact name"
               />
             </div>
 
             <div className="grid grid-cols-1 gap-3 pt-1">
               <div className="space-y-1">
-                <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-mono">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
                   Email
                 </p>
                 <input
@@ -2095,12 +2095,12 @@ export default function PortalContactDetailPage() {
                   aria-label={`Email address for ${contactName}`}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm"
+                  className="h-9 w-full rounded-md border border-[var(--color-pib-line)] bg-transparent px-2 text-sm"
                   placeholder="name@example.com"
                 />
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-mono">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
                   Phone
                 </p>
                 <input
@@ -2108,12 +2108,12 @@ export default function PortalContactDetailPage() {
                   aria-label={`Phone number for ${contactName}`}
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm"
+                  className="h-9 w-full rounded-md border border-[var(--color-pib-line)] bg-transparent px-2 text-sm"
                   placeholder="+27..."
                 />
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-mono">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
                   Job title
                 </p>
                 <input
@@ -2121,12 +2121,12 @@ export default function PortalContactDetailPage() {
                   aria-label={`Job title for ${contactName}`}
                   value={jobTitle}
                   onChange={(e) => setJobTitle(e.target.value)}
-                  className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm"
+                  className="h-9 w-full rounded-md border border-[var(--color-pib-line)] bg-transparent px-2 text-sm"
                   placeholder="Decision maker, Finance Director..."
                 />
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-mono">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
                   Department
                 </p>
                 <input
@@ -2134,12 +2134,12 @@ export default function PortalContactDetailPage() {
                   aria-label={`Department for ${contactName}`}
                   value={department}
                   onChange={(e) => setDepartment(e.target.value)}
-                  className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm"
+                  className="h-9 w-full rounded-md border border-[var(--color-pib-line)] bg-transparent px-2 text-sm"
                   placeholder="Finance, Operations..."
                 />
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-mono">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
                   Timezone
                 </p>
                 <input
@@ -2147,12 +2147,12 @@ export default function PortalContactDetailPage() {
                   aria-label={`Timezone for ${contactName}`}
                   value={timezone}
                   onChange={(e) => setTimezone(e.target.value)}
-                  className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm"
+                  className="h-9 w-full rounded-md border border-[var(--color-pib-line)] bg-transparent px-2 text-sm"
                   placeholder="Africa/Johannesburg"
                 />
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-mono">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
                   Website
                 </p>
                 <input
@@ -2160,7 +2160,7 @@ export default function PortalContactDetailPage() {
                   aria-label={`Website for ${contactName}`}
                   value={website}
                   onChange={(e) => setWebsite(e.target.value)}
-                  className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm"
+                  className="h-9 w-full rounded-md border border-[var(--color-pib-line)] bg-transparent px-2 text-sm"
                   placeholder="https://..."
                 />
               </div>
@@ -2168,30 +2168,30 @@ export default function PortalContactDetailPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
               <div className="space-y-1">
-                <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-mono">Source</p>
-                <select ref={sourceFieldRef} aria-label={`Contact source for ${contactName}`} value={source} onChange={(e) => setSource(e.target.value)} className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Source</p>
+                <select ref={sourceFieldRef} aria-label={`Contact source for ${contactName}`} value={source} onChange={(e) => setSource(e.target.value)} className="h-9 w-full rounded-md border border-[var(--color-pib-line)] bg-transparent px-2 text-sm">
                   {SOURCE_OPTIONS.map((option) => <option key={option} value={option} className="bg-black">{displayLabel(option, SOURCE_LABELS)}</option>)}
                 </select>
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-mono">Type</p>
-                <select ref={typeFieldRef} aria-label={`Contact type for ${contactName}`} value={type} onChange={(e) => setType(e.target.value)} className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Type</p>
+                <select ref={typeFieldRef} aria-label={`Contact type for ${contactName}`} value={type} onChange={(e) => setType(e.target.value)} className="h-9 w-full rounded-md border border-[var(--color-pib-line)] bg-transparent px-2 text-sm">
                   {TYPE_OPTIONS.map((option) => <option key={option} value={option} className="bg-black">{displayLabel(option, TYPE_LABELS)}</option>)}
                 </select>
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-mono">Stage</p>
-                <select ref={stageFieldRef} aria-label={`Lifecycle stage for ${contactName}`} value={stage} onChange={(e) => setStage(e.target.value)} className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Stage</p>
+                <select ref={stageFieldRef} aria-label={`Lifecycle stage for ${contactName}`} value={stage} onChange={(e) => setStage(e.target.value)} className="h-9 w-full rounded-md border border-[var(--color-pib-line)] bg-transparent px-2 text-sm">
                   {STAGE_OPTIONS.map((option) => <option key={option} value={option} className="bg-black">{displayLabel(option, STAGE_LABELS)}</option>)}
                 </select>
               </div>
             </div>
 
             <div className="space-y-1 pt-1">
-              <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-mono">
+              <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
                 Owner
               </p>
-              <select ref={ownerFieldRef} aria-label={`Relationship owner for ${contactName}`} value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm">
+              <select ref={ownerFieldRef} aria-label={`Relationship owner for ${contactName}`} value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} className="h-9 w-full rounded-md border border-[var(--color-pib-line)] bg-transparent px-2 text-sm">
                 <option value="" className="bg-black">Unassigned</option>
                 {teamMembers.map((member) => {
                   const label = teamMemberDisplayLabel(member)
@@ -2205,7 +2205,7 @@ export default function PortalContactDetailPage() {
             </div>
 
             <div className="space-y-1 pt-1">
-              <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-mono">
+              <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
                 Tags
               </p>
               <input
@@ -2213,14 +2213,14 @@ export default function PortalContactDetailPage() {
                 aria-label={`Tags for ${contactName}`}
                 value={tagsInput}
                 onChange={(e) => setTagsInput(e.target.value)}
-                className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm"
+                className="h-9 w-full rounded-md border border-[var(--color-pib-line)] bg-transparent px-2 text-sm"
                 placeholder="priority, referral, decision maker"
               />
             </div>
 
             {/* Company picker — above legacy company string field */}
             <div ref={companyPickerRef} className="space-y-1">
-              <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-mono">
+              <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
                 Linked company
               </p>
               <CompanyPicker
@@ -2236,7 +2236,7 @@ export default function PortalContactDetailPage() {
             </div>
 
             <div className="space-y-1 pt-1">
-              <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-mono">
+              <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
                 Notes
               </p>
               <textarea
@@ -2246,13 +2246,13 @@ export default function PortalContactDetailPage() {
                 onChange={(e) => setNotes(e.target.value)}
                 rows={5}
                 placeholder="Add a note about this contact…"
-                className="w-full resize-none rounded-md border border-[var(--color-card-border)] bg-transparent p-2 text-sm"
+                className="w-full resize-none rounded-md border border-[var(--color-pib-line)] bg-transparent p-2 text-sm"
               />
             </div>
 
             {customFieldDefs.length > 0 && (
               <div ref={customFieldsEditRef} className="space-y-1 pt-1">
-                <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-mono">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
                   Custom fields
                 </p>
                 <CustomFieldsSection
@@ -2276,7 +2276,7 @@ export default function PortalContactDetailPage() {
                   onClick={resetProfileEdits}
                   disabled={saving}
                   aria-label={`Discard unsaved profile edits for ${contactName}`}
-                  className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface disabled:opacity-40"
+                  className="inline-flex h-8 items-center rounded-md border border-[var(--color-pib-line)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] disabled:opacity-40"
                 >
                   Discard changes
                 </button>
@@ -2294,10 +2294,10 @@ export default function PortalContactDetailPage() {
           </div>
 
           {/* GDPR data export */}
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-3">
             <div className="min-w-0">
               <p className="eyebrow !text-[10px]">Data &amp; privacy</p>
-              <p className="mt-1 text-xs text-on-surface-variant leading-5">
+              <p className="mt-1 text-xs text-[var(--color-pib-text-muted)] leading-5">
                 Download all data held for this contact as a JSON file.
               </p>
             </div>
@@ -2306,7 +2306,7 @@ export default function PortalContactDetailPage() {
               onClick={downloadGdprExport}
               disabled={gdprDownloading}
               aria-label={`Download GDPR data export for ${contactName}`}
-              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-pib-line)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <span className="material-symbols-outlined text-[14px]" aria-hidden="true">download</span>
               {gdprDownloading ? 'Exporting…' : 'Download GDPR data'}
@@ -2332,10 +2332,10 @@ export default function PortalContactDetailPage() {
             }}
           />
 
-          <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
-            <div className="px-5 py-3.5 border-b border-[var(--color-card-border)] bg-white/[0.02] flex items-center justify-between">
+          <div className="overflow-hidden rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)]">
+            <div className="px-5 py-3.5 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] flex items-center justify-between">
               <p className="eyebrow !text-[10px]">Recent emails</p>
-              <span className="text-[11px] text-on-surface-variant font-mono">
+              <span className="text-[11px] text-[var(--color-pib-text-muted)] font-mono">
                 {emailsLoading ? '…' : `${emails.length} record${emails.length === 1 ? '' : 's'}`}
               </span>
             </div>
@@ -2347,14 +2347,14 @@ export default function PortalContactDetailPage() {
               </div>
             ) : emails.length === 0 ? (
               <div className="p-4 text-center">
-                <span className="material-symbols-outlined inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--color-card-border)] bg-white/[0.04] text-[20px] text-primary">
+                <span className="material-symbols-outlined inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] text-[20px] text-primary">
                   mail
                 </span>
-                <p className="mt-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                <p className="mt-3 pib-label">
                   Email trail missing
                 </p>
-                <h3 className="mt-1 text-base font-semibold text-on-surface">Start the first outreach thread</h3>
-                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-on-surface-variant">
+                <h3 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">Start the first outreach thread</h3>
+                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--color-pib-text-muted)]">
                   Send the first message so future replies, campaign touches, and account history are visible to every team member working this relationship.
                 </p>
                 {contact.email ? (
@@ -2368,24 +2368,24 @@ export default function PortalContactDetailPage() {
                     Send first email
                   </button>
                 ) : (
-                  <p className="mx-auto mt-3 max-w-sm text-xs text-on-surface-variant">
+                  <p className="mx-auto mt-3 max-w-sm text-xs text-[var(--color-pib-text-muted)]">
                     Add an email address in the profile panel before starting outreach.
                   </p>
                 )}
               </div>
             ) : (
-              <div className="divide-y divide-[var(--color-card-border)]">
+              <div className="divide-y divide-[var(--color-pib-line)]">
                 {emails.map((e) => (
                   <div key={e.id} className="px-5 py-3 flex items-center gap-4">
                     <span
-                      className="material-symbols-outlined text-[18px] text-on-surface-variant shrink-0"
+                      className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)] shrink-0"
                       title={emailDirectionLabel(e)}
                     >
                       {emailDirectionKind(e) === 'received' ? 'inbox' : 'send'}
                     </span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm truncate">{emailSubjectLabel(e)}</p>
-                      <p className="text-[11px] text-on-surface-variant font-mono mt-0.5">
+                      <p className="text-[11px] text-[var(--color-pib-text-muted)] font-mono mt-0.5">
                         {emailStatusLabel(e)} · {' '}
                         {emailTimeLabel(e)}
                       </p>
@@ -2394,7 +2394,7 @@ export default function PortalContactDetailPage() {
                       type="button"
                       onClick={() => openEmailFollowUp(e)}
                       aria-label={`Follow up on ${emailSubjectLabel(e)} with ${contactName}`}
-                      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 py-1 text-[11px] font-medium text-primary transition-colors hover:border-primary/40 hover:text-on-surface"
+                      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-medium text-primary transition-colors hover:border-primary/40 hover:text-[var(--color-pib-text)]"
                     >
                       <span className="material-symbols-outlined text-[13px]" aria-hidden="true">reply</span>
                       Follow up
@@ -2407,7 +2407,7 @@ export default function PortalContactDetailPage() {
 
           {/* C1: Smart next-action suggestions */}
           {suggestions.length > 0 && (
-            <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 p-3">
+            <div className="rounded-md border border-[var(--color-pib-line)] bg-black/10 p-3">
               <p className="eyebrow !text-[10px] mb-3 flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-[14px]">tips_and_updates</span>
                 Suggested actions
@@ -2418,16 +2418,16 @@ export default function PortalContactDetailPage() {
                     <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
                       s.urgency === 'high' ? 'bg-red-500/20 text-red-400' :
                       s.urgency === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
-                      'bg-white/[0.03] text-on-surface-variant'
+                      'bg-[var(--color-pib-surface-soft)] text-[var(--color-pib-text-muted)]'
                     }`}>{s.urgency}</span>
                     <div>
                       <p className="text-sm font-medium">{suggestionActionLabel(s)}</p>
-                      <p className="text-xs text-on-surface-variant">{suggestionReasonLabel(s)}</p>
+                      <p className="text-xs text-[var(--color-pib-text-muted)]">{suggestionReasonLabel(s)}</p>
                       <button
                         type="button"
                         onClick={() => startSuggestion(s)}
                         aria-label={`Start suggested action: ${suggestionActionLabel(s)} for ${contactName}`}
-                        className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface mt-2gap-1.5"
+                        className="inline-flex h-8 items-center rounded-md border border-[var(--color-pib-line)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] mt-2gap-1.5"
                       >
                         <span className="material-symbols-outlined text-[14px]" aria-hidden="true">play_arrow</span>
                         Start action
@@ -2439,10 +2439,10 @@ export default function PortalContactDetailPage() {
             </div>
           )}
 
-          <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
-            <div className="px-5 py-3.5 border-b border-[var(--color-card-border)] bg-white/[0.02] flex items-center justify-between">
+          <div className="overflow-hidden rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)]">
+            <div className="px-5 py-3.5 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] flex items-center justify-between">
               <p className="eyebrow !text-[10px]">Activity</p>
-              <span className="text-[11px] text-on-surface-variant font-mono">
+              <span className="text-[11px] text-[var(--color-pib-text-muted)] font-mono">
                 {activitiesLoading ? '…' : `${activities.length} record${activities.length === 1 ? '' : 's'}`}
               </span>
             </div>
@@ -2473,7 +2473,7 @@ export default function PortalContactDetailPage() {
                       }
                       setLogType(type)
                     }}
-                    className={`flex h-8 items-center gap-1 rounded-md border px-2.5 text-xs transition ${logType === type ? 'border-primary/30 bg-primary/10 text-primary' : 'border-[var(--color-card-border)] text-on-surface-variant hover:bg-white/[0.05] hover:text-on-surface'}`}
+                    className={`flex h-8 items-center gap-1 rounded-md border px-2.5 text-xs transition ${logType === type ? 'border-primary/30 bg-primary/10 text-primary' : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]'}`}
                   >
                     <span className="material-symbols-outlined text-[14px]" aria-hidden="true">{icon}</span>
                     {label}
@@ -2484,7 +2484,7 @@ export default function PortalContactDetailPage() {
                   aria-label={`Draft email with AI for ${contactName}`}
                   aria-pressed={showAiComposer}
                   onClick={() => setShowAiComposer((v) => !v)}
-                  className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface gap-1"
+                  className="inline-flex h-8 items-center rounded-md border border-[var(--color-pib-line)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] gap-1"
                 >
                   <span className="material-symbols-outlined text-[14px]" aria-hidden="true">auto_awesome</span>
                   AI draft
@@ -2492,7 +2492,7 @@ export default function PortalContactDetailPage() {
               </div>
 
               {logType && (
-                <div ref={activityComposerRef} className="mb-3 space-y-3 rounded-md border border-[var(--color-card-border)] bg-black/10 p-3">
+                <div ref={activityComposerRef} className="mb-3 space-y-3 rounded-md border border-[var(--color-pib-line)] bg-black/10 p-3">
                   {logType === 'email_sent' ? (
                     email.trim() ? (
                       <>
@@ -2501,7 +2501,7 @@ export default function PortalContactDetailPage() {
                           placeholder="Subject…"
                           value={logEmailSubject}
                           onChange={(e) => setLogEmailSubject(e.target.value)}
-                          className="w-full text-sm border border-[var(--color-card-border)] rounded-lg p-2 bg-transparent"
+                          className="w-full text-sm border border-[var(--color-pib-line)] rounded-lg p-2 bg-transparent"
                         />
                         <textarea
                           aria-label={`Email message for ${contactName}`}
@@ -2509,11 +2509,11 @@ export default function PortalContactDetailPage() {
                           placeholder="Message…"
                           value={logSummary}
                           onChange={(e) => setLogSummary(e.target.value)}
-                          className="w-full text-sm bg-transparent border border-[var(--color-card-border)] rounded-lg p-2 resize-none"
+                          className="w-full text-sm bg-transparent border border-[var(--color-pib-line)] rounded-lg p-2 resize-none"
                         />
                       </>
                     ) : (
-                      <div className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.02] p-4">
+                      <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-4">
                         <div className="flex gap-3">
                           <span
                             className="material-symbols-outlined mt-0.5 text-[20px] text-primary"
@@ -2522,19 +2522,19 @@ export default function PortalContactDetailPage() {
                             alternate_email
                           </span>
                           <div>
-                            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                            <p className="pib-label">
                               Email readiness
                             </p>
-                            <h3 className="mt-1 text-sm font-semibold text-on-surface">
+                            <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">
                               Add an email address before outreach
                             </h3>
-                            <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+                            <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
                               Capture {contactName}&apos;s email address before the team sends outreach from CRM.
                             </p>
                             <button
                               type="button"
                               onClick={() => focusProfileField(emailFieldRef)}
-                              className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface mt-3gap-1.5"
+                              className="inline-flex h-8 items-center rounded-md border border-[var(--color-pib-line)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] mt-3gap-1.5"
                               aria-label={`Add email before sending outreach to ${contactName}`}
                             >
                               <span className="material-symbols-outlined text-[14px]" aria-hidden="true">mail</span>
@@ -2552,10 +2552,10 @@ export default function PortalContactDetailPage() {
                         placeholder="SMS message…"
                         value={logSummary}
                         onChange={(e) => setLogSummary(e.target.value)}
-                        className="w-full text-sm bg-transparent border border-[var(--color-card-border)] rounded-lg p-2 resize-none"
+                        className="w-full text-sm bg-transparent border border-[var(--color-pib-line)] rounded-lg p-2 resize-none"
                       />
                     ) : (
-                      <div className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.02] p-4">
+                      <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-4">
                         <div className="flex gap-3">
                           <span
                             className="material-symbols-outlined mt-0.5 text-[20px] text-primary"
@@ -2564,19 +2564,19 @@ export default function PortalContactDetailPage() {
                             add_call
                           </span>
                           <div>
-                            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                            <p className="pib-label">
                               SMS readiness
                             </p>
-                            <h3 className="mt-1 text-sm font-semibold text-on-surface">
+                            <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">
                               Add a phone number before SMS
                             </h3>
-                            <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+                            <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
                               Capture {contactName}&apos;s phone number before the team tries to send a text message from CRM.
                             </p>
                             <button
                               type="button"
                               onClick={() => focusProfileField(phoneFieldRef)}
-                              className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface mt-3gap-1.5"
+                              className="inline-flex h-8 items-center rounded-md border border-[var(--color-pib-line)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] mt-3gap-1.5"
                               aria-label={`Add phone before sending SMS to ${contactName}`}
                             >
                               <span className="material-symbols-outlined text-[14px]" aria-hidden="true">call</span>
@@ -2594,10 +2594,10 @@ export default function PortalContactDetailPage() {
                         placeholder={activityNotesPlaceholder(logType)}
                         value={logSummary}
                         onChange={(e) => setLogSummary(e.target.value)}
-                        className="w-full text-sm bg-transparent border border-[var(--color-card-border)] rounded-lg p-2 resize-none"
+                        className="w-full text-sm bg-transparent border border-[var(--color-pib-line)] rounded-lg p-2 resize-none"
                       />
                     ) : (
-                      <div className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.02] p-4">
+                      <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-4">
                         <div className="flex gap-3">
                           <span
                             className="material-symbols-outlined mt-0.5 text-[20px] text-primary"
@@ -2606,19 +2606,19 @@ export default function PortalContactDetailPage() {
                             add_call
                           </span>
                           <div>
-                            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                            <p className="pib-label">
                               Call readiness
                             </p>
-                            <h3 className="mt-1 text-sm font-semibold text-on-surface">
+                            <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">
                               Add a phone number before calling
                             </h3>
-                            <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+                            <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
                               Capture {contactName}&apos;s phone number before the team logs a call from CRM.
                             </p>
                             <button
                               type="button"
                               onClick={() => focusProfileField(phoneFieldRef)}
-                              className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface mt-3gap-1.5"
+                              className="inline-flex h-8 items-center rounded-md border border-[var(--color-pib-line)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] mt-3gap-1.5"
                               aria-label={`Add phone before logging a call with ${contactName}`}
                             >
                               <span className="material-symbols-outlined text-[14px]" aria-hidden="true">call</span>
@@ -2635,27 +2635,27 @@ export default function PortalContactDetailPage() {
                         placeholder="Meeting title…"
                         value={meetingTitle}
                         onChange={(e) => setMeetingTitle(e.target.value)}
-                        className="w-full text-sm border border-[var(--color-card-border)] rounded-lg p-2 bg-transparent"
+                        className="w-full text-sm border border-[var(--color-pib-line)] rounded-lg p-2 bg-transparent"
                       />
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <label className="space-y-1">
-                          <span className="block text-[10px] uppercase tracking-widest text-on-surface-variant font-mono">Starts</span>
+                          <span className="block text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Starts</span>
                           <input
                             aria-label={`Meeting start time for ${contactName}`}
                             type="datetime-local"
                             value={meetingStartAt}
                             onChange={(e) => setMeetingStartAt(e.target.value)}
-                            className="w-full text-sm border border-[var(--color-card-border)] rounded-lg p-2 bg-transparent"
+                            className="w-full text-sm border border-[var(--color-pib-line)] rounded-lg p-2 bg-transparent"
                           />
                         </label>
                         <label className="space-y-1">
-                          <span className="block text-[10px] uppercase tracking-widest text-on-surface-variant font-mono">Ends</span>
+                          <span className="block text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">Ends</span>
                           <input
                             aria-label={`Meeting end time for ${contactName}`}
                             type="datetime-local"
                             value={meetingEndAt}
                             onChange={(e) => setMeetingEndAt(e.target.value)}
-                            className="w-full text-sm border border-[var(--color-card-border)] rounded-lg p-2 bg-transparent"
+                            className="w-full text-sm border border-[var(--color-pib-line)] rounded-lg p-2 bg-transparent"
                           />
                         </label>
                       </div>
@@ -2664,7 +2664,7 @@ export default function PortalContactDetailPage() {
                         placeholder="Meeting link (optional)…"
                         value={meetingUrl}
                         onChange={(e) => setMeetingUrl(e.target.value)}
-                        className="w-full text-sm border border-[var(--color-card-border)] rounded-lg p-2 bg-transparent"
+                        className="w-full text-sm border border-[var(--color-pib-line)] rounded-lg p-2 bg-transparent"
                       />
                       {meetingTimingError && (
                         <p role="alert" className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
@@ -2677,7 +2677,7 @@ export default function PortalContactDetailPage() {
                         placeholder="Agenda or notes…"
                         value={logSummary}
                         onChange={(e) => setLogSummary(e.target.value)}
-                        className="w-full text-sm bg-transparent border border-[var(--color-card-border)] rounded-lg p-2 resize-none"
+                        className="w-full text-sm bg-transparent border border-[var(--color-pib-line)] rounded-lg p-2 resize-none"
                       />
                     </>
                   ) : (
@@ -2687,7 +2687,7 @@ export default function PortalContactDetailPage() {
                       placeholder={activityNotesPlaceholder(logType)}
                       value={logSummary}
                       onChange={(e) => setLogSummary(e.target.value)}
-                      className="w-full text-sm bg-transparent border border-[var(--color-card-border)] rounded-lg p-2 resize-none"
+                      className="w-full text-sm bg-transparent border border-[var(--color-pib-line)] rounded-lg p-2 resize-none"
                     />
                   )}
                   <div className="flex items-center gap-3">
@@ -2723,7 +2723,7 @@ export default function PortalContactDetailPage() {
                       type="button"
                       onClick={() => { setLogType(null); setLogSummary(''); setLogEmailSubject(''); setMeetingTitle(''); setMeetingStartAt(''); setMeetingEndAt(''); setMeetingUrl(''); setLogError(null) }}
                       aria-label={activityComposerCancelName(logType, contactName)}
-                      className="text-xs text-on-surface-variant"
+                      className="text-xs text-[var(--color-pib-text-muted)]"
                     >
                       Cancel
                     </button>
@@ -2734,20 +2734,20 @@ export default function PortalContactDetailPage() {
 
               {/* C2: AI email composer */}
               {showAiComposer && (
-                <div className="mb-3 space-y-3 rounded-md border border-[var(--color-card-border)] bg-black/10 p-3">
+                <div className="mb-3 space-y-3 rounded-md border border-[var(--color-pib-line)] bg-black/10 p-3">
                   <p className="text-xs font-medium">AI email composer</p>
                   <input
                     aria-label={`AI email purpose for ${contactName}`}
                     placeholder="Purpose (e.g. Follow up after demo)"
                     value={aiPurpose}
                     onChange={(e) => setAiPurpose(e.target.value)}
-                    className="w-full text-sm border border-[var(--color-card-border)] rounded-lg p-2 bg-transparent"
+                    className="w-full text-sm border border-[var(--color-pib-line)] rounded-lg p-2 bg-transparent"
                   />
                   <select
                     aria-label={`AI email tone for ${contactName}`}
                     value={aiTone}
                     onChange={(e) => setAiTone(e.target.value as 'professional' | 'friendly' | 'bold')}
-                    className="text-sm border border-[var(--color-card-border)] rounded p-1 bg-transparent"
+                    className="text-sm border border-[var(--color-pib-line)] rounded p-1 bg-transparent"
                   >
                     <option value="professional">Professional</option>
                     <option value="friendly">Friendly</option>
@@ -2764,9 +2764,9 @@ export default function PortalContactDetailPage() {
                   {aiError && <p className="text-xs text-red-400">{aiError}</p>}
                   {aiDraft && (
                     <div className="space-y-2 mt-2">
-                      <p className="text-xs font-medium text-on-surface-variant">Subject:</p>
+                      <p className="text-xs font-medium text-[var(--color-pib-text-muted)]">Subject:</p>
                       <p className="text-sm font-medium">{aiDraft.subject}</p>
-                      <p className="text-xs font-medium text-on-surface-variant">Body:</p>
+                      <p className="text-xs font-medium text-[var(--color-pib-text-muted)]">Body:</p>
                       <p className="text-sm whitespace-pre-wrap">{aiDraft.bodyText}</p>
                       <button
                         type="button"
@@ -2774,7 +2774,7 @@ export default function PortalContactDetailPage() {
                         onClick={() => {
                           void navigator.clipboard.writeText(`Subject: ${aiDraft!.subject}\n\n${aiDraft!.bodyText}`)
                         }}
-                        className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface gap-1"
+                        className="inline-flex h-8 items-center rounded-md border border-[var(--color-pib-line)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] gap-1"
                       >
                         <span className="material-symbols-outlined text-[14px]" aria-hidden="true">content_copy</span>
                         Copy to clipboard
@@ -2834,14 +2834,14 @@ export default function PortalContactDetailPage() {
           />
 
           {/* C3: Sequence enrollment panel */}
-          <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
+          <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-3">
             <div className="flex items-center justify-between mb-4">
               <p className="eyebrow !text-[10px]">Sequences</p>
               <button
                 type="button"
                 onClick={handleOpenEnrollModal}
                 aria-label={`Open nurture enrollment for ${contactName}`}
-                className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface gap-1"
+                className="inline-flex h-8 items-center rounded-md border border-[var(--color-pib-line)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] gap-1"
               >
                 <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add</span>
                 Enroll
@@ -2852,9 +2852,9 @@ export default function PortalContactDetailPage() {
                 role="status"
                 aria-live="polite"
                 aria-label={`Loading nurture workflow enrollment for ${contactName}`}
-                className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.02] p-4"
+                className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-4"
               >
-                <div className="flex items-center gap-2 text-sm text-on-surface-variant">
+                <div className="flex items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
                   <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">
                     progress_activity
                   </span>
@@ -2862,24 +2862,24 @@ export default function PortalContactDetailPage() {
                 </div>
               </div>
             ) : enrollments.length === 0 ? (
-              <div className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.02] p-4">
+              <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-4">
                 <div className="flex items-start gap-3">
                   <span className="material-symbols-outlined mt-0.5 text-[20px] text-primary" aria-hidden="true">
                     automation
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                    <p className="pib-label">
                       Nurture gap
                     </p>
-                    <h3 className="mt-1 text-sm font-semibold text-on-surface">No nurture workflow enrolled</h3>
-                    <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+                    <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">No nurture workflow enrolled</h3>
+                    <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
                       Enroll {contactName} into a sequence when outreach should happen on a repeatable cadence instead of relying on one-off reminders.
                     </p>
                     <button
                       type="button"
                       aria-label={`Choose nurture sequence for ${contactName}`}
                       onClick={handleOpenEnrollModal}
-                      className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface mt-3gap-1.5"
+                      className="inline-flex h-8 items-center rounded-md border border-[var(--color-pib-line)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] mt-3gap-1.5"
                     >
                       <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add</span>
                       Choose sequence
@@ -2893,11 +2893,11 @@ export default function PortalContactDetailPage() {
                   || (e.sequenceId?.trim() ? 'Sequence identity missing' : 'Sequence enrollment missing')
                 const enrollmentStatus = readableStatusLabel(e.status)
                 return (
-                  <div key={e.id} className="py-2 border-b border-[var(--color-card-border)] last:border-0">
+                  <div key={e.id} className="py-2 border-b border-[var(--color-pib-line)] last:border-0">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-medium">{sequenceName}</p>
-                        <p className="text-xs text-on-surface-variant">Step {(e.currentStep ?? 0) + 1} · {enrollmentStatus}</p>
+                        <p className="text-xs text-[var(--color-pib-text-muted)]">Step {(e.currentStep ?? 0) + 1} · {enrollmentStatus}</p>
                       </div>
                       <button
                         type="button"
@@ -2906,7 +2906,7 @@ export default function PortalContactDetailPage() {
                           setUnenrollError('')
                         }}
                         aria-label={`Review unenrollment for ${contactName} from ${sequenceName}`}
-                        className="text-xs text-on-surface-variant hover:text-red-400"
+                        className="text-xs text-[var(--color-pib-text-muted)] hover:text-red-400"
                       >
                         Unenroll
                       </button>
@@ -2914,8 +2914,8 @@ export default function PortalContactDetailPage() {
                     {pendingUnenrollId === e.id && (
                       <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 p-3">
                         <p className="text-[10px] font-label uppercase tracking-widest text-red-300">Sequence control</p>
-                        <h3 className="mt-1 text-sm font-semibold text-on-surface">Pause this nurture workflow?</h3>
-                        <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+                        <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Pause this nurture workflow?</h3>
+                        <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
                           Removing {sequenceName} stops the current sequence steps for {contactName}. The team can re-enroll them later if the follow-up cadence still applies.
                         </p>
                         {unenrollError && (
@@ -2938,7 +2938,7 @@ export default function PortalContactDetailPage() {
                               setPendingUnenrollId(null)
                               setUnenrollError('')
                             }}
-                            className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                            className="inline-flex h-8 items-center rounded-md border border-[var(--color-pib-line)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]"
                           >
                             Keep enrolled
                           </button>
@@ -2961,34 +2961,34 @@ export default function PortalContactDetailPage() {
             aria-modal="true"
             aria-labelledby="portal-contact-enroll-title"
             aria-describedby="portal-contact-enroll-description"
-            className="w-full max-w-sm space-y-3 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)] p-3"
+            className="w-full max-w-sm space-y-3 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3"
           >
             <div>
               <p className="eyebrow !text-[10px]">Nurture workflow</p>
-              <h2 id="portal-contact-enroll-title" className="mt-1 text-lg font-semibold text-on-surface">
+              <h2 id="portal-contact-enroll-title" className="mt-1 text-lg font-semibold text-[var(--color-pib-text)]">
                 Enroll {contactName} in a nurture sequence
               </h2>
-              <p id="portal-contact-enroll-description" className="mt-2 text-sm leading-6 text-on-surface-variant">
+              <p id="portal-contact-enroll-description" className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
                 Choose an approved sequence so outreach steps, accountability, and follow-up timing are visible to the team from this contact record.
               </p>
             </div>
             {sequences.length === 0 && (
-              <div className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.02] p-4">
+              <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-4">
                 <div className="flex items-start gap-3">
                   <span className="material-symbols-outlined mt-0.5 text-[20px] text-primary" aria-hidden="true">
                     route
                   </span>
                   <div className="min-w-0">
-                    <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                    <p className="pib-label">
                       Sequence setup
                     </p>
-                    <h3 className="mt-1 text-sm font-semibold text-on-surface">Create a sequence before enrolling</h3>
-                    <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+                    <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Create a sequence before enrolling</h3>
+                    <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
                       This workspace needs at least one nurture sequence before {contactName} can be enrolled from the contact record.
                     </p>
                     <Link
                       href={sequenceSetupHref}
-                      className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface mt-3gap-1.5"
+                      className="inline-flex h-8 items-center rounded-md border border-[var(--color-pib-line)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)] mt-3gap-1.5"
                     >
                       <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add</span>
                       Build first sequence
@@ -3004,7 +3004,7 @@ export default function PortalContactDetailPage() {
                 setEnrollError('')
               }}
               aria-label={`Nurture sequence for ${contactName}`}
-              className="w-full text-sm border border-[var(--color-card-border)] rounded p-2 bg-transparent"
+              className="w-full text-sm border border-[var(--color-pib-line)] rounded p-2 bg-transparent"
             >
               <option value="">Choose a sequence…</option>
               {sequences.map((s) => (
@@ -3030,7 +3030,7 @@ export default function PortalContactDetailPage() {
                 type="button"
                 onClick={() => setShowEnrollModal(false)}
                 aria-label={`Cancel sequence enrollment for ${contactName}`}
-                className="inline-flex h-8 items-center rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                className="inline-flex h-8 items-center rounded-md border border-[var(--color-pib-line)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]"
               >
                 Cancel
               </button>

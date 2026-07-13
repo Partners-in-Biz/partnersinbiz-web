@@ -106,17 +106,17 @@ export default function AbTestingPanel({ value, onChange, disabled, onDeclareWin
   }
 
   return (
-    <div className="rounded-xl border border-white/10 bg-black/40 p-4 space-y-4 text-on-surface">
+    <div className="rounded-xl border border-white/10 bg-black/40 p-4 space-y-4 text-[var(--color-pib-text)]">
       {/* Header ── enable toggle ──────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold text-amber-300">A/B Testing</h3>
-          <p className="text-xs text-on-surface-variant">
+          <p className="text-xs text-[var(--color-pib-text-muted)]">
             Test variants of subject, body, from-name, or send time.
           </p>
         </div>
         <label className="inline-flex items-center gap-2 cursor-pointer">
-          <span className="text-xs uppercase tracking-wide text-on-surface-variant">
+          <span className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">
             {ab.enabled ? 'On' : 'Off'}
           </span>
           <input
@@ -134,7 +134,7 @@ export default function AbTestingPanel({ value, onChange, disabled, onDeclareWin
           {/* Mode ──────────────────────────────────────────────────────── */}
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="block text-xs text-on-surface-variant mb-1">Mode</span>
+              <span className="block text-xs text-[var(--color-pib-text-muted)] mb-1">Mode</span>
               <select
                 value={ab.mode}
                 disabled={isLocked}
@@ -147,7 +147,7 @@ export default function AbTestingPanel({ value, onChange, disabled, onDeclareWin
             </label>
 
             <label className="block">
-              <span className="block text-xs text-on-surface-variant mb-1">Winner Metric</span>
+              <span className="block text-xs text-[var(--color-pib-text-muted)] mb-1">Winner Metric</span>
               <select
                 value={ab.winnerMetric}
                 disabled={isLocked}
@@ -166,7 +166,7 @@ export default function AbTestingPanel({ value, onChange, disabled, onDeclareWin
           {ab.mode === 'winner-only' && (
             <div className="grid grid-cols-3 gap-3 rounded-lg bg-white/5 p-3">
               <label className="block">
-                <span className="block text-xs text-on-surface-variant mb-1">
+                <span className="block text-xs text-[var(--color-pib-text-muted)] mb-1">
                   Test cohort {ab.testCohortPercent}%
                 </span>
                 <input
@@ -180,7 +180,7 @@ export default function AbTestingPanel({ value, onChange, disabled, onDeclareWin
                 />
               </label>
               <label className="block">
-                <span className="block text-xs text-on-surface-variant mb-1">
+                <span className="block text-xs text-[var(--color-pib-text-muted)] mb-1">
                   Test duration (minutes)
                 </span>
                 <input
@@ -232,7 +232,7 @@ export default function AbTestingPanel({ value, onChange, disabled, onDeclareWin
             </div>
 
             {ab.variants.length === 0 && (
-              <p className="text-xs text-on-surface-variant italic">
+              <p className="text-xs text-[var(--color-pib-text-muted)] italic">
                 Add at least 2 variants to start testing.
               </p>
             )}
@@ -383,7 +383,7 @@ function VariantRow(props: VariantRowProps) {
       </div>
 
       {/* Stats ─────────────────────────────────────────────────────────── */}
-      <div className="ml-11 mt-2 grid grid-cols-6 gap-2 text-xs text-on-surface-variant">
+      <div className="ml-11 mt-2 grid grid-cols-6 gap-2 text-xs text-[var(--color-pib-text-muted)]">
         <Stat label="Sent" value={variant.sent} />
         <Stat label="Delivered" value={variant.delivered} />
         <Stat label="Opened" value={variant.opened} sub={openRate} />
@@ -410,7 +410,7 @@ function VariantRow(props: VariantRowProps) {
 function Stat({ label, value, sub }: { label: string; value: number; sub?: string }) {
   return (
     <div className="rounded bg-black/30 px-2 py-1">
-      <div className="text-[10px] uppercase tracking-wide text-on-surface-variant">{label}</div>
+      <div className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">{label}</div>
       <div className="text-sm font-mono">{value}</div>
       {sub && <div className="text-[10px] text-amber-300">{sub}</div>}
     </div>

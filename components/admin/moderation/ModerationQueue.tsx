@@ -172,8 +172,8 @@ export function ModerationQueue() {
           { label: 'Suspended orgs', value: metrics.suspended },
         ].map((m) => (
           <div key={m.label} className="pib-card p-5">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{m.label}</p>
-            <p className="mt-3 text-2xl font-semibold text-on-surface">{m.value}</p>
+            <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{m.label}</p>
+            <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">{m.value}</p>
           </div>
         ))}
       </section>
@@ -192,16 +192,16 @@ export function ModerationQueue() {
               <div key={`${item.contentType}-${item.contentId}`} className="flex flex-col gap-3 py-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-medium text-on-surface">{item.orgName}</span>
+                    <span className="text-sm font-medium text-[var(--color-pib-text)]">{item.orgName}</span>
                     <StatusPill tone="info">{item.contentType === 'campaign' ? 'Campaign' : 'Social post'}</StatusPill>
                     <StatusPill tone="neutral">{item.status}</StatusPill>
                     <StatusPill tone="neutral">{item.platform}</StatusPill>
                     <StatusPill tone={confidenceTone(item.confidence)}>{confidenceLabel(item.confidence)}</StatusPill>
                   </div>
-                  <p className="mt-2 text-sm text-on-surface-variant">
+                  <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
                     {item.preview || <span className="italic opacity-70">No content preview available.</span>}
                   </p>
-                  <p className="mt-1 text-xs text-on-surface-variant">Updated {formatDateTime(item.updatedAt)}</p>
+                  <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Updated {formatDateTime(item.updatedAt)}</p>
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-2">
                   <button
@@ -239,13 +239,13 @@ export function ModerationQueue() {
       {/* Strikes */}
       <Surface header={<span className="font-label">Strike &amp; warning log</span>}>
         {strikes.length === 0 ? (
-          <p className="py-4 text-sm text-on-surface-variant">No strikes recorded against any org.</p>
+          <p className="py-4 text-sm text-[var(--color-pib-text-muted)]">No strikes recorded against any org.</p>
         ) : (
           <div className="divide-y divide-white/5">
             {strikes.map((s) => (
               <div key={s.orgId} className="py-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-sm font-medium text-on-surface">{s.orgName}</span>
+                  <span className="text-sm font-medium text-[var(--color-pib-text)]">{s.orgName}</span>
                   <div className="flex items-center gap-2">
                     <StatusPill tone={s.strikes >= 3 ? 'danger' : s.strikes >= 1 ? 'warn' : 'neutral'}>
                       {s.strikes} / 3 strikes
@@ -260,7 +260,7 @@ export function ModerationQueue() {
                 {s.warnings.length > 0 && (
                   <ul className="mt-2 space-y-1">
                     {s.warnings.map((w, i) => (
-                      <li key={`${s.orgId}-${i}`} className="text-xs text-on-surface-variant">
+                      <li key={`${s.orgId}-${i}`} className="text-xs text-[var(--color-pib-text-muted)]">
                         <span className="opacity-70">{formatDateTime(w.at)}</span> — {w.reason || 'No reason recorded'}
                       </li>
                     ))}
@@ -275,7 +275,7 @@ export function ModerationQueue() {
       {/* Decisions audit */}
       <Surface header={<span className="font-label">Recent decisions</span>}>
         {decisions.length === 0 ? (
-          <p className="py-4 text-sm text-on-surface-variant">No moderation decisions recorded yet.</p>
+          <p className="py-4 text-sm text-[var(--color-pib-text-muted)]">No moderation decisions recorded yet.</p>
         ) : (
           <div className="divide-y divide-white/5">
             {decisions.map((d) => (
@@ -283,12 +283,12 @@ export function ModerationQueue() {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <StatusPill tone={decisionTone(d.decision)}>{d.decision}</StatusPill>
-                    <span className="text-sm text-on-surface">{d.orgName}</span>
-                    <span className="text-xs text-on-surface-variant">{d.contentType}</span>
+                    <span className="text-sm text-[var(--color-pib-text)]">{d.orgName}</span>
+                    <span className="text-xs text-[var(--color-pib-text-muted)]">{d.contentType}</span>
                   </div>
-                  {d.reason && <p className="mt-1 text-xs text-on-surface-variant">{d.reason}</p>}
+                  {d.reason && <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{d.reason}</p>}
                 </div>
-                <div className="text-right text-xs text-on-surface-variant">
+                <div className="text-right text-xs text-[var(--color-pib-text-muted)]">
                   <p>{formatDateTime(d.decidedAt)}</p>
                   <p className="opacity-70">{d.decidedBy || 'system'}</p>
                 </div>
@@ -326,12 +326,12 @@ export function ModerationQueue() {
       >
         <div className="space-y-3">
           {dialog && (
-            <p className="text-xs text-on-surface-variant">
+            <p className="text-xs text-[var(--color-pib-text-muted)]">
               {dialog.item.orgName} · {dialog.item.contentType === 'campaign' ? 'Campaign' : 'Social post'} ·{' '}
               {dialog.item.preview.slice(0, 80) || 'No preview'}
             </p>
           )}
-          <label className="block text-sm text-on-surface">
+          <label className="block text-sm text-[var(--color-pib-text)]">
             Reason <span className="text-red-400">*</span>
             <textarea
               value={reason}

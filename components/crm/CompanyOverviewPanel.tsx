@@ -232,7 +232,7 @@ function sumRows(rows: OverviewRow[], fieldNames: string[]): number {
 
 function statusTone(value: unknown): { label: string; className: string } {
   const status = stringValue(value).toLowerCase()
-  if (!status) return { label: 'Linked', className: 'border-white/10 bg-white/5 text-on-surface-variant' }
+  if (!status) return { label: 'Linked', className: 'border-white/10 bg-white/5 text-[var(--color-pib-text-muted)]' }
   const label = readableStatusLabel(status)
   if (['active', 'approved', 'paid', 'fulfilled', 'live', 'completed', 'won'].includes(status)) {
     return { label, className: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200' }
@@ -243,7 +243,7 @@ function statusTone(value: unknown): { label: string; className: string } {
   if (['blocked', 'overdue', 'failed', 'cancelled', 'lost', 'out_of_stock', 'low_stock'].includes(status)) {
     return { label, className: 'border-red-400/30 bg-red-400/10 text-red-200' }
   }
-  return { label, className: 'border-white/10 bg-white/5 text-on-surface-variant' }
+  return { label, className: 'border-white/10 bg-white/5 text-[var(--color-pib-text-muted)]' }
 }
 
 function readableStatusLabel(value: string): string {
@@ -361,11 +361,11 @@ function Field({
 }) {
   if (!value && value !== 0) return null
   const displayValue = (
-    <span className="min-w-0 break-words text-sm text-on-surface">{value}</span>
+    <span className="min-w-0 break-words text-sm text-[var(--color-pib-text)]">{value}</span>
   )
   return (
     <div className="flex items-baseline gap-3 py-1">
-      <span className="w-28 shrink-0 text-[11px] text-on-surface-variant">{label}</span>
+      <span className="w-28 shrink-0 text-[11px] text-[var(--color-pib-text-muted)]">{label}</span>
       {href ? (
         <a
           href={href}
@@ -410,20 +410,20 @@ function ProfileCaptureAction({
       <div className="flex items-start gap-2.5">
         <span aria-hidden="true" className="material-symbols-outlined mt-0.5 text-[16px] text-[var(--color-accent-v2)]">{icon}</span>
         <div className="min-w-0">
-          <h3 className="text-xs font-semibold text-on-surface">{title}</h3>
-          <p className="mt-1 text-xs leading-5 text-on-surface-variant">{body}</p>
+          <h3 className="text-xs font-semibold text-[var(--color-pib-text)]">{title}</h3>
+          <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{body}</p>
           {onEditCompany ? (
             <button
               type="button"
               onClick={onEditCompany}
               aria-label={actionLabel}
-              className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+              className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
             >
               <span aria-hidden="true" className="material-symbols-outlined text-[14px]">edit</span>
               Open profile editor
             </button>
           ) : (
-            <p className="mt-3 text-xs text-on-surface-variant">Open profile editing to capture this next.</p>
+            <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">Open profile editing to capture this next.</p>
           )}
         </div>
       </div>
@@ -451,13 +451,13 @@ function WidgetCard({
   const content = (
     <>
       <div className="flex items-start justify-between gap-2">
-        <p className="text-[11px] leading-4 text-on-surface-variant">{label}</p>
+        <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{label}</p>
         <span aria-hidden="true" className="material-symbols-outlined text-[16px]" style={{ color }}>
           {icon}
         </span>
       </div>
-      <p className="mt-1 text-lg font-semibold leading-none text-on-surface">{value}</p>
-      {hint ? <p className="mt-1 truncate text-[11px] leading-4 text-on-surface-variant">{hint}</p> : null}
+      <p className="mt-1 text-lg font-semibold leading-none text-[var(--color-pib-text)]">{value}</p>
+      {hint ? <p className="mt-1 truncate text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{hint}</p> : null}
     </>
   )
 
@@ -484,7 +484,7 @@ function MiniStatus({
   icon: string
 }) {
   const toneClasses = {
-    neutral: 'border-white/10 bg-white/[0.03] text-on-surface-variant',
+    neutral: 'border-white/10 bg-white/[0.03] text-[var(--color-pib-text-muted)]',
     good: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200',
     warn: 'border-amber-400/30 bg-amber-400/10 text-amber-200',
     danger: 'border-red-400/30 bg-red-400/10 text-red-200',
@@ -533,8 +533,8 @@ function AccountRiskBrief({
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
           <p className="eyebrow !text-[10px]">Leadership brief</p>
-          <h2 className="mt-0.5 text-sm font-semibold text-on-surface">Account risk brief</h2>
-          <p className="mt-0.5 max-w-2xl text-xs leading-5 text-on-surface-variant">
+          <h2 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">Account risk brief</h2>
+          <p className="mt-0.5 max-w-2xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
             {items.length} account {items.length === 1 ? 'risk needs' : 'risks need'} leadership attention before {companyName} is board-ready.
           </p>
         </div>
@@ -850,10 +850,10 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="eyebrow !text-[10px]">Business pulse</p>
-                <h2 className="mt-1 text-base font-semibold tracking-tight text-on-surface">
+                <h2 className="mt-1 text-base font-semibold tracking-tight text-[var(--color-pib-text)]">
                   {company.name}
                 </h2>
-                <p className="mt-2 max-w-2xl text-sm text-on-surface-variant">
+                <p className="mt-2 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
                   {accountContext || 'Command center'}
                 </p>
               </div>
@@ -911,8 +911,8 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
             ) : (
               <div className="mt-4 rounded-lg border border-emerald-400/20 bg-emerald-400/10 p-3">
                 <p className="eyebrow !text-[10px] text-emerald-200">Risk watch clear</p>
-                <h3 className="mt-1 text-sm font-semibold text-on-surface">Keep pulse risk reviewable</h3>
-                <p className="mt-1 text-xs leading-5 text-on-surface-variant">
+                <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Keep pulse risk reviewable</h3>
+                <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                   No active risk signals are flagged in the account pulse. Review invoices so finance, delivery, and operations stay checked before leadership sees surprises.
                 </p>
                 {onSelectTab ? (
@@ -920,13 +920,13 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
                     type="button"
                     onClick={() => onSelectTab('invoices')}
                     aria-label={`Review operational risk for ${company.name}`}
-                    className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                    className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                   >
                     <span aria-hidden="true" className="material-symbols-outlined text-[14px]">receipt_long</span>
                     Review invoices
                   </button>
                 ) : (
-                  <p className="mt-2 text-xs text-on-surface-variant">Open Invoices to keep the account pulse reviewed.</p>
+                  <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">Open Invoices to keep the account pulse reviewed.</p>
                 )}
               </div>
             )}
@@ -939,7 +939,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
       <section>
         <div className="mb-3 flex items-baseline justify-between gap-3">
           <h2 className="eyebrow">Command widgets</h2>
-          <span className="text-xs text-on-surface-variant">{totalLinkedRecords} linked records</span>
+          <span className="text-xs text-[var(--color-pib-text-muted)]">{totalLinkedRecords} linked records</span>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {WIDGETS.map((item) => (
@@ -965,8 +965,8 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
             <div className="flex min-h-24 items-center justify-center rounded-md border border-dashed border-[var(--color-card-border)] bg-white/[0.02] p-3 text-center">
               <div className="max-w-md">
                 <p className="eyebrow !text-[10px] text-amber-200">Revenue model missing</p>
-                <h3 className="mt-1 text-sm font-semibold text-on-surface">Build the first commercial signal</h3>
-                <p className="mt-1 text-xs leading-5 text-on-surface-variant">
+                <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Build the first commercial signal</h3>
+                <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                   No deals, quotes, invoices, or orders are linked to this account yet. Review deals so pipeline value, quote readiness, and revenue history become visible to leadership.
                 </p>
                 {onSelectTab ? (
@@ -974,13 +974,13 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
                     type="button"
                     onClick={() => onSelectTab('deals')}
                     aria-label={`Review commercial records for ${company.name}`}
-                    className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                    className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                   >
                     <span aria-hidden="true" className="material-symbols-outlined text-[14px]">monetization_on</span>
                     Review deals
                   </button>
                 ) : (
-                  <p className="mt-3 text-xs text-on-surface-variant">Open Deals to capture the first commercial record.</p>
+                  <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">Open Deals to capture the first commercial record.</p>
                 )}
               </div>
             </div>
@@ -994,8 +994,8 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
             <div className="flex min-h-24 items-center justify-center rounded-md border border-dashed border-[var(--color-card-border)] bg-white/[0.02] p-3 text-center">
               <div className="max-w-md">
                 <p className="eyebrow !text-[10px] text-amber-200">Operating footprint missing</p>
-                <h3 className="mt-1 text-sm font-semibold text-on-surface">Link the first account record</h3>
-                <p className="mt-1 text-xs leading-5 text-on-surface-variant">
+                <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Link the first account record</h3>
+                <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                   No contacts, deals, delivery work, documents, finance, or commerce records are linked yet. Start with contacts so every team can see who owns the relationship.
                 </p>
                 {onSelectTab ? (
@@ -1003,13 +1003,13 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
                     type="button"
                     onClick={() => onSelectTab('contacts')}
                     aria-label={`Review linked contacts for ${company.name}`}
-                    className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                    className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                   >
                     <span aria-hidden="true" className="material-symbols-outlined text-[14px]">groups</span>
                     Review contacts
                   </button>
                 ) : (
-                  <p className="mt-3 text-xs text-on-surface-variant">Open Contacts to link the first relationship record.</p>
+                  <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">Open Contacts to link the first relationship record.</p>
                 )}
               </div>
             </div>
@@ -1025,8 +1025,8 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
             <div className="flex min-h-24 items-center justify-center rounded-md border border-dashed border-[var(--color-card-border)] bg-white/[0.02] p-3 text-center">
               <div className="max-w-md">
                 <p className="eyebrow !text-[10px] text-emerald-200">Risk coverage clear</p>
-                <h3 className="mt-1 text-sm font-semibold text-on-surface">Keep account risk monitored</h3>
-                <p className="mt-1 text-xs leading-5 text-on-surface-variant">
+                <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Keep account risk monitored</h3>
+                <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                   No overdue invoices, low stock, open orders, projects, or service risks are active right now. Review invoices so finance risk stays visible before it surprises leadership.
                 </p>
                 {onSelectTab ? (
@@ -1034,13 +1034,13 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
                     type="button"
                     onClick={() => onSelectTab('invoices')}
                     aria-label={`Review risk records for ${company.name}`}
-                    className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                    className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                   >
                     <span aria-hidden="true" className="material-symbols-outlined text-[14px]">receipt_long</span>
                     Review invoices
                   </button>
                 ) : (
-                  <p className="mt-3 text-xs text-on-surface-variant">Open Invoices to keep finance risk visible.</p>
+                  <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">Open Invoices to keep finance risk visible.</p>
                 )}
               </div>
             </div>
@@ -1055,12 +1055,12 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
                 return (
                   <div key={item.id} className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0">
                     <div className="flex min-w-0 items-start gap-3">
-                      <span aria-hidden="true" className="material-symbols-outlined mt-0.5 text-[18px] text-on-surface-variant">
+                      <span aria-hidden="true" className="material-symbols-outlined mt-0.5 text-[18px] text-[var(--color-pib-text-muted)]">
                         {item.icon}
                       </span>
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-on-surface">{item.title}</p>
-                        <p className="mt-1 text-xs text-on-surface-variant">{item.meta} · {formatDate(item.dateValue)}</p>
+                        <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{item.title}</p>
+                        <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{item.meta} · {formatDate(item.dateValue)}</p>
                       </div>
                     </div>
                     <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-label uppercase tracking-wide ${tone.className}`}>
@@ -1074,8 +1074,8 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
             <div className="flex min-h-24 items-center justify-center rounded-md border border-dashed border-[var(--color-card-border)] bg-white/[0.02] p-3 text-center">
               <div className="max-w-md">
                 <p className="eyebrow !text-[10px] text-amber-200">Account history quiet</p>
-                <h3 className="mt-1 text-sm font-semibold text-on-surface">Start the next account signal</h3>
-                <p className="mt-1 text-xs leading-5 text-on-surface-variant">
+                <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Start the next account signal</h3>
+                <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                   No recent activity, deal movement, document, project, or order is visible yet. Review activity so leadership can see the next account touchpoint.
                 </p>
                 {onSelectTab ? (
@@ -1083,13 +1083,13 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
                     type="button"
                     onClick={() => onSelectTab('activity')}
                     aria-label={`Review activity for ${company.name}`}
-                    className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                    className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                   >
                     <span aria-hidden="true" className="material-symbols-outlined text-[14px]">history</span>
                     Review activity
                   </button>
                 ) : (
-                  <p className="mt-3 text-xs text-on-surface-variant">Open Activity to capture the next touchpoint.</p>
+                  <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">Open Activity to capture the next touchpoint.</p>
                 )}
               </div>
             </div>
@@ -1101,14 +1101,14 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
         <section>
           <div className="mb-3 flex items-baseline justify-between gap-3">
             <h2 className="eyebrow">Setup focus</h2>
-            <span className="text-xs text-on-surface-variant">{completedChecks.length}/{PROFILE_CHECKS.length} complete</span>
+            <span className="text-xs text-[var(--color-pib-text-muted)]">{completedChecks.length}/{PROFILE_CHECKS.length} complete</span>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {setupFocus.map((item) => (
               <div key={item.label} className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.03] p-4">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-on-surface">{item.label}</p>
-                  <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-on-surface-variant">add_circle</span>
+                  <p className="text-sm font-medium text-[var(--color-pib-text)]">{item.label}</p>
+                  <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">add_circle</span>
                 </div>
                 {onEditCompany ? (
                   <button
@@ -1121,7 +1121,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
                     Capture now
                   </button>
                 ) : (
-                  <p className="mt-2 text-xs text-on-surface-variant">Worth capturing next.</p>
+                  <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">Worth capturing next.</p>
                 )}
               </div>
             ))}

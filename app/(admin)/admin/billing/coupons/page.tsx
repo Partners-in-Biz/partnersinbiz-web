@@ -270,11 +270,11 @@ export default function CouponsPage() {
     <div className="space-y-6 max-w-6xl mx-auto">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Billing / Coupons
           </p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Discount Coupons</h1>
-          <p className="text-sm text-on-surface-variant mt-0.5">
+          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Discount Coupons</h1>
+          <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5">
             Manual EFT / PayPal discount codes applied to platform invoices. No Stripe — discounts
             are applied when an operator or agent raises an invoice for an org.
           </p>
@@ -311,7 +311,7 @@ export default function CouponsPage() {
         <form onSubmit={handleCreate} className="pib-card p-5 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label className="block">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+              <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 Code
               </span>
               <input
@@ -324,7 +324,7 @@ export default function CouponsPage() {
               />
             </label>
             <label className="block">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+              <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 Type
               </span>
               <select
@@ -337,7 +337,7 @@ export default function CouponsPage() {
               </select>
             </label>
             <label className="block">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+              <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 {form.type === 'percent' ? 'Value (% off, 1–100)' : 'Value (ZAR off)'}
               </span>
               <input
@@ -352,7 +352,7 @@ export default function CouponsPage() {
               />
             </label>
             <label className="block">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+              <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 Duration
               </span>
               <select
@@ -367,7 +367,7 @@ export default function CouponsPage() {
             </label>
             {form.duration === 'repeating' && (
               <label className="block">
-                <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+                <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                   Duration (billing periods)
                 </span>
                 <input
@@ -382,7 +382,7 @@ export default function CouponsPage() {
               </label>
             )}
             <label className="block">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+              <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 Max redemptions (optional)
               </span>
               <input
@@ -396,7 +396,7 @@ export default function CouponsPage() {
               />
             </label>
             <label className="block">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+              <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 Expires at (optional)
               </span>
               <input
@@ -407,11 +407,11 @@ export default function CouponsPage() {
               />
             </label>
             <div className="block md:col-span-2">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+              <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 Applies to plans
               </span>
               {plans.length === 0 ? (
-                <p className="text-xs text-on-surface-variant/60 mt-1">
+                <p className="text-xs text-[var(--color-pib-text-muted)]/60 mt-1">
                   No plans loaded — coupon will apply to all plans.
                 </p>
               ) : (
@@ -425,8 +425,8 @@ export default function CouponsPage() {
                         onClick={() => togglePlanKey(plan.key)}
                         className="text-xs font-label px-3 py-1 rounded-full border transition-colors"
                         style={{
-                          borderColor: selected ? 'var(--color-accent-v2)' : 'rgba(255,255,255,0.12)',
-                          background: selected ? 'var(--color-accent-v2)' : 'transparent',
+                          borderColor: selected ? 'var(--color-pib-accent)' : 'rgba(255,255,255,0.12)',
+                          background: selected ? 'var(--color-pib-accent)' : 'transparent',
                           color: selected ? '#fff' : undefined,
                         }}
                       >
@@ -436,12 +436,12 @@ export default function CouponsPage() {
                   })}
                 </div>
               )}
-              <p className="text-[11px] text-on-surface-variant/60 mt-1">
+              <p className="text-[11px] text-[var(--color-pib-text-muted)]/60 mt-1">
                 Leave empty to apply to all plans.
               </p>
             </div>
             <label className="block md:col-span-2">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+              <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 Notes (optional)
               </span>
               <textarea
@@ -469,7 +469,7 @@ export default function CouponsPage() {
           <Skeleton className="h-14 rounded-xl" />
         </div>
       ) : coupons.length === 0 ? (
-        <div className="pib-card p-6 text-center text-sm text-on-surface-variant">
+        <div className="pib-card p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
           No coupons yet. Create your first discount code above.
         </div>
       ) : (
@@ -477,14 +477,14 @@ export default function CouponsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-on-surface/10 text-left">
-                  <th className="px-4 py-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Code</th>
-                  <th className="px-4 py-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Value</th>
-                  <th className="px-4 py-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Duration</th>
-                  <th className="px-4 py-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Redemptions</th>
-                  <th className="px-4 py-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Expires</th>
-                  <th className="px-4 py-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Plans</th>
-                  <th className="px-4 py-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant text-right">Actions</th>
+                <tr className="border-b border-[var(--color-pib-text)]/10 text-left">
+                  <th className="px-4 py-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Code</th>
+                  <th className="px-4 py-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Value</th>
+                  <th className="px-4 py-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Duration</th>
+                  <th className="px-4 py-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Redemptions</th>
+                  <th className="px-4 py-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Expires</th>
+                  <th className="px-4 py-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Plans</th>
+                  <th className="px-4 py-3 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -497,23 +497,23 @@ export default function CouponsPage() {
                       : DURATION_LABELS[coupon.duration]
                   return (
                     <Fragment key={coupon.id}>
-                      <tr className="border-b border-on-surface/5 last:border-0">
+                      <tr className="border-b border-[var(--color-pib-text)]/5 last:border-0">
                         <td className="px-4 py-3">
-                          <span className="font-mono font-semibold text-on-surface">{coupon.code}</span>
+                          <span className="font-mono font-semibold text-[var(--color-pib-text)]">{coupon.code}</span>
                           {coupon.notes ? (
-                            <p className="text-[11px] text-on-surface-variant/60 truncate max-w-[200px]">{coupon.notes}</p>
+                            <p className="text-[11px] text-[var(--color-pib-text-muted)]/60 truncate max-w-[200px]">{coupon.notes}</p>
                           ) : null}
                         </td>
-                        <td className="px-4 py-3 text-on-surface">{couponValueLabel(coupon)}</td>
-                        <td className="px-4 py-3 text-on-surface-variant">{durationLabel}</td>
-                        <td className="px-4 py-3 text-on-surface-variant">
+                        <td className="px-4 py-3 text-[var(--color-pib-text)]">{couponValueLabel(coupon)}</td>
+                        <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">{durationLabel}</td>
+                        <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">
                           {coupon.redemptions ?? 0}
                           {coupon.maxRedemptions ? ` / ${coupon.maxRedemptions}` : ''}
                         </td>
-                        <td className="px-4 py-3 text-on-surface-variant">
+                        <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">
                           {formatDate(tsToMillis(coupon.expiresAt))}
                         </td>
-                        <td className="px-4 py-3 text-on-surface-variant max-w-[160px] truncate" title={planScopeLabel(coupon)}>
+                        <td className="px-4 py-3 text-[var(--color-pib-text-muted)] max-w-[160px] truncate" title={planScopeLabel(coupon)}>
                           {planScopeLabel(coupon)}
                         </td>
                         <td className="px-4 py-3">
@@ -549,7 +549,7 @@ export default function CouponsPage() {
                       </tr>
                       {expanded && (
                         <tr>
-                          <td colSpan={7} className="px-4 py-3 bg-on-surface/[0.03]">
+                          <td colSpan={7} className="px-4 py-3 bg-[var(--color-pib-text)]/[0.03]">
                             {usageLoading ? (
                               <div className="space-y-2">
                                 <Skeleton className="h-8 rounded-lg" />
@@ -558,11 +558,11 @@ export default function CouponsPage() {
                             ) : usageError ? (
                               <p className="text-xs text-red-400">{usageError}</p>
                             ) : usageRows.length === 0 ? (
-                              <p className="text-xs text-on-surface-variant">No redemptions yet for this coupon.</p>
+                              <p className="text-xs text-[var(--color-pib-text-muted)]">No redemptions yet for this coupon.</p>
                             ) : (
                               <table className="w-full text-xs">
                                 <thead>
-                                  <tr className="text-left text-on-surface-variant/70">
+                                  <tr className="text-left text-[var(--color-pib-text-muted)]/70">
                                     <th className="py-1.5 pr-4 font-label uppercase tracking-wide">Org</th>
                                     <th className="py-1.5 pr-4 font-label uppercase tracking-wide">Invoice</th>
                                     <th className="py-1.5 pr-4 font-label uppercase tracking-wide">Discount</th>
@@ -572,12 +572,12 @@ export default function CouponsPage() {
                                 </thead>
                                 <tbody>
                                   {usageRows.map((row) => (
-                                    <tr key={row.id} className="border-t border-on-surface/5">
-                                      <td className="py-1.5 pr-4 text-on-surface">{row.orgName}</td>
-                                      <td className="py-1.5 pr-4 text-on-surface-variant font-mono">{row.invoiceId ?? '—'}</td>
-                                      <td className="py-1.5 pr-4 text-on-surface">{formatZar(row.discountZar)}</td>
-                                      <td className="py-1.5 pr-4 text-on-surface-variant">{row.redeemedBy || '—'}</td>
-                                      <td className="py-1.5 pr-4 text-on-surface-variant">{formatDate(row.createdAt)}</td>
+                                    <tr key={row.id} className="border-t border-[var(--color-pib-text)]/5">
+                                      <td className="py-1.5 pr-4 text-[var(--color-pib-text)]">{row.orgName}</td>
+                                      <td className="py-1.5 pr-4 text-[var(--color-pib-text-muted)] font-mono">{row.invoiceId ?? '—'}</td>
+                                      <td className="py-1.5 pr-4 text-[var(--color-pib-text)]">{formatZar(row.discountZar)}</td>
+                                      <td className="py-1.5 pr-4 text-[var(--color-pib-text-muted)]">{row.redeemedBy || '—'}</td>
+                                      <td className="py-1.5 pr-4 text-[var(--color-pib-text-muted)]">{formatDate(row.createdAt)}</td>
                                     </tr>
                                   ))}
                                 </tbody>

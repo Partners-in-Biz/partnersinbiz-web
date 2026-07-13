@@ -14,10 +14,10 @@ export interface ProjectDoc {
 }
 
 const TYPE_COLORS: Record<string, string> = {
-  brief: 'border-[var(--color-accent-v2)] bg-[var(--color-surface-container)] text-on-surface',
-  requirements: 'border-[var(--color-accent-v2)] bg-[var(--color-surface-container)] text-on-surface',
-  notes: 'border-[var(--color-card-border)] bg-[var(--color-card)] text-on-surface-variant',
-  reference: 'border-[var(--color-card-border)] bg-[var(--color-card)] text-on-surface-variant',
+  brief: 'border-[var(--color-accent-v2)] bg-[var(--color-pib-surface)] text-[var(--color-pib-text)]',
+  requirements: 'border-[var(--color-accent-v2)] bg-[var(--color-pib-surface)] text-[var(--color-pib-text)]',
+  notes: 'border-[var(--color-pib-line)] bg-[var(--color-card)] text-[var(--color-pib-text-muted)]',
+  reference: 'border-[var(--color-pib-line)] bg-[var(--color-card)] text-[var(--color-pib-text-muted)]',
 }
 
 export function projectDocContent(content: unknown): string {
@@ -99,12 +99,12 @@ export function ProjectDocsPanel({
 
   return (
     <div className="flex-1 overflow-auto space-y-6 pb-6">
-      <div className="rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-5 shadow-sm">
+      <div className="pib-card p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Project docs</p>
-            <h2 className="mt-1 text-2xl font-headline font-bold text-on-surface">Brief and knowledge base</h2>
-            <p className="mt-2 max-w-2xl text-sm text-on-surface-variant">Keep project context close to the board. Open any document to preview it before editing.</p>
+            <p className="pib-label">Project docs</p>
+            <h2 className="mt-1 text-2xl font-headline font-bold text-[var(--color-pib-text)]">Brief and knowledge base</h2>
+            <p className="mt-2 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">Keep project context close to the board. Open any document to preview it before editing.</p>
           </div>
           <button
             type="button"
@@ -117,11 +117,11 @@ export function ProjectDocsPanel({
         </div>
       </div>
 
-      <div className="rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-5 shadow-sm">
+      <div className="pib-card p-5">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Source of truth</p>
-            <h2 className="mt-1 text-lg font-headline font-bold text-on-surface">Project Brief</h2>
+            <p className="pib-label">Source of truth</p>
+            <h2 className="mt-1 text-lg font-headline font-bold text-[var(--color-pib-text)]">Project Brief</h2>
           </div>
           {!editingBrief && (
             <button onClick={onEditBrief} className="pib-btn-secondary text-sm font-label">Edit brief</button>
@@ -133,7 +133,7 @@ export function ProjectDocsPanel({
               value={briefValue}
               onChange={e => onBriefChange(e.target.value)}
               placeholder="Add a project brief... What's this project about? Goals, constraints, key stakeholders."
-              className="w-full rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-background)] px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-[var(--color-accent-v2)]"
+              className="pib-textarea w-full"
               rows={4}
             />
             <div className="flex gap-2">
@@ -144,34 +144,34 @@ export function ProjectDocsPanel({
             </div>
           </div>
         ) : (
-          <p className={`min-h-[96px] whitespace-pre-wrap rounded-[var(--radius-card)] border border-[var(--color-card-border)] px-4 py-3 text-sm leading-6 ${briefValue ? 'bg-[var(--color-background)] text-on-surface' : 'bg-[var(--color-background)] text-on-surface-variant italic'}`}>
+          <p className={`min-h-[96px] whitespace-pre-wrap rounded-[var(--radius-card)] border border-[var(--color-pib-line)] px-4 py-3 text-sm leading-6 ${briefValue ? 'bg-[var(--color-background)] text-[var(--color-pib-text)]' : 'bg-[var(--color-background)] text-[var(--color-pib-text-muted)] italic'}`}>
             {briefValue || 'No brief yet'}
           </p>
         )}
       </div>
 
-      <div className="rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-5 shadow-sm">
+      <div className="pib-card p-5">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Library</p>
-            <h2 className="mt-1 text-lg font-headline font-bold text-on-surface">Documents</h2>
+            <p className="pib-label">Library</p>
+            <h2 className="mt-1 text-lg font-headline font-bold text-[var(--color-pib-text)]">Documents</h2>
           </div>
-          <span className="rounded-full border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-1 text-xs text-on-surface-variant">{docs.length} docs</span>
+          <span className="rounded-full border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-1 text-xs text-[var(--color-pib-text-muted)]">{docs.length} docs</span>
         </div>
 
         {editingDoc ? (
-          <div className="mb-4 rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-background)] p-4 space-y-3">
+          <div className="mb-4 pib-surface p-4 space-y-3">
             <input
               type="text"
               placeholder="Document title..."
               value={editingDoc.title}
               onChange={e => onEditingDocChange({ ...editingDoc, title: e.target.value })}
-              className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
+              className="pib-input w-full"
             />
             <select
               value={editingDoc.type}
               onChange={e => onEditingDocChange({ ...editingDoc, type: e.target.value as ProjectDoc['type'] })}
-              className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)]"
+              className="pib-select w-full"
             >
               <option value="brief">Brief</option>
               <option value="requirements">Requirements</option>
@@ -182,7 +182,7 @@ export function ProjectDocsPanel({
               placeholder="Content (markdown)..."
               value={projectDocContent(editingDoc.content)}
               onChange={e => onEditingDocChange({ ...editingDoc, content: e.target.value })}
-              className="w-full rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-[var(--color-accent-v2)]"
+              className="pib-textarea w-full"
               rows={10}
             />
             <div className="flex gap-2">
@@ -198,23 +198,23 @@ export function ProjectDocsPanel({
               <div className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(360px,1.05fr)]">
                 <div className="space-y-3">
                   {docs.map(doc => (
-                    <div key={doc.id} className={`rounded-[var(--radius-card)] border bg-[var(--color-background)] p-1 transition-colors ${selectedDoc?.id === doc.id ? 'border-[var(--color-accent-v2)]' : 'border-[var(--color-card-border)] hover:border-[var(--color-outline)]'}`}>
+                    <div key={doc.id} className={`rounded-[var(--radius-card)] border bg-[var(--color-background)] p-1 transition-colors ${selectedDoc?.id === doc.id ? 'border-[var(--color-accent-v2)]' : 'border-[var(--color-pib-line)] hover:border-[var(--color-pib-line-strong)]'}`}>
                       <button
                         type="button"
                         onClick={() => onSelectDoc(doc)}
                         className="flex w-full items-start gap-3 rounded-[var(--radius-btn)] px-3 py-3 text-left"
                         aria-label={`Preview ${doc.title}`}
                       >
-                        <span className="material-symbols-outlined mt-0.5 text-[22px] text-on-surface-variant">description</span>
+                        <span className="material-symbols-outlined mt-0.5 text-[22px] text-[var(--color-pib-text-muted)]">description</span>
                         <span className="min-w-0 flex-1">
-                          <span className="block text-sm font-semibold text-on-surface">{doc.title}</span>
-                          <span className="mt-2 block text-xs leading-5 text-on-surface-variant">{docPreview(doc.content)}</span>
+                          <span className="block text-sm font-semibold text-[var(--color-pib-text)]">{doc.title}</span>
+                          <span className="mt-2 block text-xs leading-5 text-[var(--color-pib-text-muted)]">{docPreview(doc.content)}</span>
                           <span className={`mt-3 inline-block rounded-full border px-2.5 py-1 text-[10px] font-label uppercase tracking-widest ${TYPE_COLORS[doc.type] || TYPE_COLORS.notes}`}>
                             {doc.type}
                           </span>
                         </span>
                       </button>
-                      <div className="flex items-center justify-end gap-2 border-t border-[var(--color-card-border)] px-3 py-2">
+                      <div className="flex items-center justify-end gap-2 border-t border-[var(--color-pib-line)] px-3 py-2">
                         <button onClick={() => onEditDoc(doc)} className="pib-btn-secondary text-xs font-label">Edit</button>
                         <button
                           type="button"
@@ -234,10 +234,10 @@ export function ProjectDocsPanel({
                       aria-label={`Delete project document "${deleteCandidate.title}"?`}
                       className="rounded-[var(--radius-card)] border border-red-500/30 bg-red-500/10 p-4 shadow-sm"
                     >
-                      <p className="text-sm font-label text-on-surface">
+                      <p className="text-sm font-label text-[var(--color-pib-text)]">
                         Delete project document &quot;{deleteCandidate.title}&quot;?
                       </p>
-                      <p className="mt-2 text-xs leading-5 text-on-surface-variant">
+                      <p className="mt-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                         This removes the document from the project workspace. Tasks, comments, and project history stay intact.
                       </p>
                       <div className="mt-4 flex flex-wrap gap-2">
@@ -259,35 +259,35 @@ export function ProjectDocsPanel({
                     </div>
                   )}
                 </div>
-                <div className="min-h-[320px] rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-[var(--color-background)] p-5">
+                <div className="pib-surface min-h-[320px] p-5">
                   {selectedDoc ? (
                     <div className="space-y-4">
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <span className={`inline-block rounded-full border px-2.5 py-1 text-[10px] font-label uppercase tracking-widest ${TYPE_COLORS[selectedDoc.type] || TYPE_COLORS.notes}`}>{selectedDoc.type}</span>
-                          <h3 className="mt-3 text-xl font-headline font-bold text-on-surface">{selectedDoc.title}</h3>
-                          <p className="mt-1 text-xs text-on-surface-variant">Updated {formatDate(selectedDoc.updatedAt ?? selectedDoc.createdAt)}</p>
+                          <h3 className="mt-3 text-xl font-headline font-bold text-[var(--color-pib-text)]">{selectedDoc.title}</h3>
+                          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Updated {formatDate(selectedDoc.updatedAt ?? selectedDoc.createdAt)}</p>
                         </div>
                         <button onClick={() => onEditDoc(selectedDoc)} className="pib-btn-secondary text-xs font-label">Edit</button>
                       </div>
-                      <div className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-[var(--radius-btn)] border border-[var(--color-card-border)] bg-[var(--color-card)] p-4 text-sm leading-6 text-on-surface">
+                      <div className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] bg-[var(--color-card)] p-4 text-sm leading-6 text-[var(--color-pib-text)]">
                         {projectDocContent(selectedDoc.content) || 'This document is empty.'}
                       </div>
                     </div>
                   ) : (
                     <div className="flex h-full min-h-[280px] flex-col items-center justify-center text-center">
-                      <span className="material-symbols-outlined text-[40px] text-on-surface-variant">preview</span>
-                      <h3 className="mt-3 text-base font-headline font-bold text-on-surface">Select a document</h3>
-                      <p className="mt-2 max-w-xs text-sm text-on-surface-variant">Click a document on the left to open its preview here.</p>
+                      <span className="material-symbols-outlined text-[40px] text-[var(--color-pib-text-muted)]">preview</span>
+                      <h3 className="mt-3 text-base font-headline font-bold text-[var(--color-pib-text)]">Select a document</h3>
+                      <p className="mt-2 max-w-xs text-sm text-[var(--color-pib-text-muted)]">Click a document on the left to open its preview here.</p>
                     </div>
                   )}
                 </div>
               </div>
             ) : (
-              <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--color-card-border)] bg-[var(--color-background)] p-8 text-center">
-                <span className="material-symbols-outlined text-[40px] text-on-surface-variant">draft</span>
-                <h3 className="mt-3 text-base font-headline font-bold text-on-surface">No documents yet</h3>
-                <p className="mt-2 text-sm text-on-surface-variant">Create the first project note, brief, requirement, or reference doc.</p>
+              <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--color-pib-line)] bg-[var(--color-background)] p-8 text-center">
+                <span className="material-symbols-outlined text-[40px] text-[var(--color-pib-text-muted)]">draft</span>
+                <h3 className="mt-3 text-base font-headline font-bold text-[var(--color-pib-text)]">No documents yet</h3>
+                <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Create the first project note, brief, requirement, or reference doc.</p>
                 <button onClick={() => onEditDoc(blankDoc())} className="pib-btn-secondary mt-4 text-sm font-label">
                   New Document
                 </button>

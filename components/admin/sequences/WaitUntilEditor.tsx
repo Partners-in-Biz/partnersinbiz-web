@@ -27,19 +27,19 @@ export default function WaitUntilEditor({ value, onChange }: Props) {
 
   return (
     <div className="space-y-2">
-      <label className="flex items-center gap-2 text-xs font-medium text-on-surface-variant">
+      <label className="flex items-center gap-2 text-xs font-medium text-[var(--color-pib-text-muted)]">
         <input type="checkbox" checked={enabled} onChange={toggle} />
         Wait until condition before sending this step
       </label>
       {enabled && (
-        <div className="space-y-3 p-3 rounded-lg bg-surface-container border border-outline-variant">
+        <div className="space-y-3 p-3 rounded-lg bg-[var(--color-pib-surface-soft)] border border-[var(--color-pib-line)]">
           <ConditionPicker
             mode="wait"
             value={eff.condition}
             onChange={(c) => onChange({ ...eff, condition: c as WaitCondition })}
           />
           <div className="grid grid-cols-2 gap-2">
-            <label className="text-xs text-on-surface-variant">
+            <label className="text-xs text-[var(--color-pib-text-muted)]">
               Max wait (days)
               <input
                 type="number"
@@ -51,17 +51,17 @@ export default function WaitUntilEditor({ value, onChange }: Props) {
                     maxWaitDays: Math.max(0, parseInt(e.target.value) || 0),
                   })
                 }
-                className="mt-1 w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+                className="mt-1 w-full pib-input"
               />
             </label>
-            <label className="text-xs text-on-surface-variant">
+            <label className="text-xs text-[var(--color-pib-text-muted)]">
               On timeout
               <select
                 value={eff.onTimeout}
                 onChange={(e) =>
                   onChange({ ...eff, onTimeout: e.target.value as 'send' | 'exit' })
                 }
-                className="mt-1 w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+                className="mt-1 w-full pib-input"
               >
                 <option value="send">Send anyway</option>
                 <option value="exit">Exit sequence</option>

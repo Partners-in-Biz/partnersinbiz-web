@@ -238,8 +238,8 @@ export function MobileAppsAdminWorkspace({ orgId, orgName }: MobileAppsAdminWork
 
         <form onSubmit={save} className="pib-card-section p-5 space-y-4 h-fit lg:sticky lg:top-6">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="font-headline font-bold text-on-surface">{form.id ? 'Edit app' : 'Add app'}</h2>
-            {form.id && <button type="button" onClick={() => setForm(emptyForm)} className="text-xs text-on-surface-variant">New</button>}
+            <h2 className="font-headline font-bold text-[var(--color-pib-text)]">{form.id ? 'Edit app' : 'Add app'}</h2>
+            {form.id && <button type="button" onClick={() => setForm(emptyForm)} className="text-xs text-[var(--color-pib-text-muted)]">New</button>}
           </div>
           <Field label="App name" value={form.name} onChange={v => update('name', v)} required />
           <div className="grid grid-cols-2 gap-3">
@@ -266,7 +266,7 @@ export function MobileAppsAdminWorkspace({ orgId, orgName }: MobileAppsAdminWork
           <TextArea label="Internal access notes" value={form.accessNotes} onChange={v => update('accessNotes', v)} rows={3} />
           <TextArea label="Internal notes" value={form.internalNotes} onChange={v => update('internalNotes', v)} rows={3} />
           <TextArea label="Client-visible notes" value={form.clientNotes} onChange={v => update('clientNotes', v)} rows={3} />
-          <label className="flex items-start gap-2 text-sm text-on-surface-variant">
+          <label className="flex items-start gap-2 text-sm text-[var(--color-pib-text-muted)]">
             <input
               type="checkbox"
               checked={form.showInClientPortal}
@@ -284,13 +284,13 @@ export function MobileAppsAdminWorkspace({ orgId, orgName }: MobileAppsAdminWork
 }
 
 function Field({ label, value, onChange, required }: { label: string; value: string; onChange: (value: string) => void; required?: boolean }) {
-  return <label className="block text-sm"><span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">{label}</span><input required={required} value={value} onChange={e => onChange(e.target.value)} className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm" /></label>
+  return <label className="block text-sm"><span className="pib-label">{label}</span><input required={required} value={value} onChange={e => onChange(e.target.value)} className="pib-input mt-1" /></label>
 }
 
 function TextArea({ label, value, onChange, rows = 2, placeholder }: { label: string; value: string; onChange: (value: string) => void; rows?: number; placeholder?: string }) {
-  return <label className="block text-sm"><span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">{label}</span><textarea rows={rows} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm" /></label>
+  return <label className="block text-sm"><span className="pib-label">{label}</span><textarea rows={rows} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className="pib-textarea mt-1" /></label>
 }
 
 function Select({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: string[] }) {
-  return <label className="block text-sm"><span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">{label}</span><select value={value} onChange={e => onChange(e.target.value)} className="mt-1 w-full rounded-lg border border-[var(--color-outline-variant)] bg-[var(--color-surface)] px-3 py-2 text-sm">{options.map(option => <option key={option} value={option}>{option.replace(/_/g, ' ')}</option>)}</select></label>
+  return <label className="block text-sm"><span className="pib-label">{label}</span><select value={value} onChange={e => onChange(e.target.value)} className="pib-select mt-1">{options.map(option => <option key={option} value={option}>{option.replace(/_/g, ' ')}</option>)}</select></label>
 }

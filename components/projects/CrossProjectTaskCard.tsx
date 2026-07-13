@@ -42,19 +42,19 @@ export function CrossProjectTaskCard({ task, projectId, projectName, projectHref
         style={{ padding: '10px', borderLeft: `3px solid ${priorityColor}` }}
         onClick={onClick}
       >
-        <p className="text-sm font-medium text-on-surface mb-2 leading-snug">{task.title}</p>
+        <p className="text-sm font-medium text-[var(--color-pib-text)] mb-2 leading-snug">{task.title}</p>
         {(startDateTimeLabel || endDateTimeLabel) && (
-          <div className="mb-2 grid gap-1 text-[10px] text-on-surface-variant">
+          <div className="mb-2 grid gap-1 text-[10px] text-[var(--color-pib-text-muted)]">
             {startDateTimeLabel && (
               <div className="flex items-center justify-between gap-2">
-                <span className="font-label uppercase tracking-wide">Start</span>
-                <span className="text-right text-on-surface">{startDateTimeLabel}</span>
+                <span className="pib-label">Start</span>
+                <span className="text-right text-[var(--color-pib-text)]">{startDateTimeLabel}</span>
               </div>
             )}
             {endDateTimeLabel && (
               <div className="flex items-center justify-between gap-2">
-                <span className="font-label uppercase tracking-wide">End</span>
-                <span className="text-right text-on-surface">{endDateTimeLabel}</span>
+                <span className="pib-label">End</span>
+                <span className="text-right text-[var(--color-pib-text)]">{endDateTimeLabel}</span>
               </div>
             )}
           </div>

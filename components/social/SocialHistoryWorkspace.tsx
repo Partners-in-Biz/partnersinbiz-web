@@ -56,8 +56,8 @@ const STATUS_STYLES: Record<string, string> = {
   published: 'border-green-400/40 text-green-300',
   failed: 'border-red-400/40 text-red-300',
   scheduled: 'border-blue-400/40 text-blue-300',
-  draft: 'border-[var(--color-outline-variant)] text-[var(--color-on-surface-variant)]',
-  cancelled: 'border-[var(--color-outline-variant)] text-[var(--color-on-surface-variant)] line-through',
+  draft: 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)]',
+  cancelled: 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] line-through',
 }
 
 const DEFAULT_STATUS_OPTIONS = ['all', 'published', 'scheduled', 'draft', 'failed', 'cancelled']
@@ -121,7 +121,7 @@ function PlatformPill({ platform }: { platform: string }) {
 
 function StatusPill({ status }: { status: string }) {
   return (
-    <span className={`border px-2 py-0.5 text-[10px] font-label uppercase tracking-widest ${STATUS_STYLES[status] ?? 'border-[var(--color-outline-variant)] text-[var(--color-on-surface-variant)]'}`}>
+    <span className={`border px-2 py-0.5 text-[10px] font-label uppercase tracking-widest ${STATUS_STYLES[status] ?? 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)]'}`}>
       {statusLabel(status)}
     </span>
   )
@@ -192,8 +192,8 @@ export default function SocialHistoryWorkspace({
   return (
     <div className="w-full max-w-7xl mx-auto px-4 py-6 space-y-6">
       <div>
-        <h1 className="font-headline text-2xl font-bold tracking-tighter text-[var(--color-on-surface)]">{title}</h1>
-        <p className="mt-1 text-sm text-[var(--color-on-surface-variant)]">{description}</p>
+        <h1 className="font-headline text-2xl font-bold tracking-tighter text-[var(--color-pib-text)]">{title}</h1>
+        <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{description}</p>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -236,7 +236,7 @@ export default function SocialHistoryWorkspace({
         </div>
       ) : filteredPosts.length === 0 ? (
         <div className="pib-card p-8 text-center">
-          <p className="text-sm text-[var(--color-on-surface-variant)]">{emptyMessage}</p>
+          <p className="text-sm text-[var(--color-pib-text-muted)]">{emptyMessage}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -253,16 +253,16 @@ export default function SocialHistoryWorkspace({
                     {platforms.length > 0 ? (
                       platforms.map(platform => <PlatformPill key={platform} platform={platform} />)
                     ) : (
-                      <span className="text-xs text-[var(--color-on-surface-variant)]">No platform</span>
+                      <span className="text-xs text-[var(--color-pib-text-muted)]">No platform</span>
                     )}
                   </div>
-                  <p className="min-w-0 flex-1 text-sm text-[var(--color-on-surface)]">
+                  <p className="min-w-0 flex-1 text-sm text-[var(--color-pib-text)]">
                     {text ? `${text.slice(0, 160)}${text.length > 160 ? '...' : ''}` : 'No post content'}
                   </p>
                   <StatusPill status={post.status} />
                 </div>
 
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-[var(--color-on-surface-variant)]">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-[var(--color-pib-text-muted)]">
                   <PostTimeline post={post} />
                   {post.category && <span className="capitalize">Category: {post.category}</span>}
                   {Object.values(platformResults).map(result => (
@@ -272,7 +272,7 @@ export default function SocialHistoryWorkspace({
                         href={result.platformPostUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="underline hover:text-[var(--color-on-surface)]"
+                        className="underline hover:text-[var(--color-pib-text)]"
                       >
                         View on {result.platform ?? 'platform'}
                       </a>
@@ -283,7 +283,7 @@ export default function SocialHistoryWorkspace({
                       href={legacyUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="underline hover:text-[var(--color-on-surface)]"
+                      className="underline hover:text-[var(--color-pib-text)]"
                     >
                       View post
                     </a>

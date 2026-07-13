@@ -73,16 +73,16 @@ export function IcpProfileEditor({ value, onChange, disabled }: Props) {
   // ── Render ───────────────────────────────────────────────────────────────────
 
   const inputCls =
-    'w-full px-3 py-2 rounded-md border border-[var(--color-card-border)] bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-50'
+    'pib-input w-full text-sm disabled:opacity-50'
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
 
       {/* Industries */}
       <div>
         <label className="block text-sm font-medium mb-1">
           Target industries
-          <span className="ml-1 text-xs text-on-surface-variant font-normal">(comma-separated)</span>
+          <span className="ml-1 text-xs text-[var(--color-pib-text-muted)] font-normal">(comma-separated)</span>
         </label>
         <input
           type="text"
@@ -110,8 +110,8 @@ export function IcpProfileEditor({ value, onChange, disabled }: Props) {
                 className={[
                   'px-3 py-1 rounded-full text-sm border cursor-pointer transition-colors disabled:opacity-50',
                   active
-                    ? 'bg-primary/10 border-primary/30 text-primary font-medium'
-                    : 'border-[var(--color-card-border)] text-on-surface-variant hover:border-primary/30 hover:text-on-surface',
+                    ? 'bg-[var(--color-pib-accent-soft)] border-[var(--color-pib-accent)] text-[var(--color-pib-accent)] font-medium'
+                    : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:border-[var(--color-pib-line-strong)] hover:text-[var(--color-pib-text)]',
                 ].join(' ')}
               >
                 {size}
@@ -137,8 +137,8 @@ export function IcpProfileEditor({ value, onChange, disabled }: Props) {
                 className={[
                   'px-3 py-1 rounded-full text-sm border cursor-pointer transition-colors disabled:opacity-50 capitalize',
                   active
-                    ? 'bg-primary/10 border-primary/30 text-primary font-medium'
-                    : 'border-[var(--color-card-border)] text-on-surface-variant hover:border-primary/30 hover:text-on-surface',
+                    ? 'bg-[var(--color-pib-accent-soft)] border-[var(--color-pib-accent)] text-[var(--color-pib-accent)] font-medium'
+                    : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:border-[var(--color-pib-line-strong)] hover:text-[var(--color-pib-text)]',
                 ].join(' ')}
               >
                 {tier}
@@ -156,7 +156,7 @@ export function IcpProfileEditor({ value, onChange, disabled }: Props) {
             <button
               type="button"
               onClick={addRegion}
-              className="cursor-pointer text-xs text-primary hover:underline flex items-center gap-1"
+              className="cursor-pointer text-xs text-[var(--color-pib-accent)] hover:underline flex items-center gap-1"
             >
               <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add</span>
               Add region
@@ -164,7 +164,7 @@ export function IcpProfileEditor({ value, onChange, disabled }: Props) {
           )}
         </div>
         {(value.regions ?? []).length === 0 ? (
-          <p className="text-xs text-on-surface-variant">No regions set — scores all countries equally.</p>
+          <p className="text-xs text-[var(--color-pib-text-muted)]">No regions set — scores all countries equally.</p>
         ) : (
           <div className="space-y-2">
             {(value.regions ?? []).map((region, idx) => (
@@ -180,7 +180,7 @@ export function IcpProfileEditor({ value, onChange, disabled }: Props) {
                   maxLength={3}
                   disabled={disabled}
                   aria-label="Country code"
-                  className="w-20 px-2 py-1.5 rounded-md border border-[var(--color-card-border)] bg-transparent text-sm text-center font-mono focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-50"
+                  className="pib-input w-20 text-sm text-center font-mono disabled:opacity-50"
                 />
                 <input
                   type="text"
@@ -189,14 +189,14 @@ export function IcpProfileEditor({ value, onChange, disabled }: Props) {
                   placeholder="State / province (optional)"
                   disabled={disabled}
                   aria-label="State"
-                  className="flex-1 px-3 py-1.5 rounded-md border border-[var(--color-card-border)] bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-50"
+                  className="pib-input flex-1 text-sm disabled:opacity-50"
                 />
                 {!disabled && (
                   <button
                     type="button"
                     onClick={() => removeRegion(idx)}
                     aria-label="Remove region"
-                    className="cursor-pointer text-on-surface-variant hover:text-red-400 transition-colors"
+                    className="cursor-pointer text-[var(--color-pib-text-muted)] hover:text-[var(--color-error)] transition-colors"
                   >
                     <span className="material-symbols-outlined text-[18px]" aria-hidden="true">close</span>
                   </button>
@@ -219,9 +219,9 @@ export function IcpProfileEditor({ value, onChange, disabled }: Props) {
             min={0}
             disabled={disabled}
             aria-label="Min employee count"
-            className="w-32 px-3 py-2 rounded-md border border-[var(--color-card-border)] bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-50"
+            className="pib-input w-32 text-sm disabled:opacity-50"
           />
-          <span className="text-sm text-on-surface-variant">–</span>
+          <span className="text-sm text-[var(--color-pib-text-muted)]">–</span>
           <input
             type="number"
             value={value.maxEmployeeCount ?? ''}
@@ -230,7 +230,7 @@ export function IcpProfileEditor({ value, onChange, disabled }: Props) {
             min={0}
             disabled={disabled}
             aria-label="Max employee count"
-            className="w-32 px-3 py-2 rounded-md border border-[var(--color-card-border)] bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-50"
+            className="pib-input w-32 text-sm disabled:opacity-50"
           />
         </div>
       </div>
@@ -247,9 +247,9 @@ export function IcpProfileEditor({ value, onChange, disabled }: Props) {
             min={0}
             disabled={disabled}
             aria-label="Min annual revenue"
-            className="w-36 px-3 py-2 rounded-md border border-[var(--color-card-border)] bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-50"
+            className="pib-input w-36 text-sm disabled:opacity-50"
           />
-          <span className="text-sm text-on-surface-variant">–</span>
+          <span className="text-sm text-[var(--color-pib-text-muted)]">–</span>
           <input
             type="number"
             value={value.maxAnnualRevenue ?? ''}
@@ -258,7 +258,7 @@ export function IcpProfileEditor({ value, onChange, disabled }: Props) {
             min={0}
             disabled={disabled}
             aria-label="Max annual revenue"
-            className="w-36 px-3 py-2 rounded-md border border-[var(--color-card-border)] bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-50"
+            className="pib-input w-36 text-sm disabled:opacity-50"
           />
         </div>
       </div>

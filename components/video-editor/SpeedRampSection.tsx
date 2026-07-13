@@ -15,7 +15,7 @@ export function SpeedRampSection({ clip, onPatch }: { clip: EditorClip; onPatch:
 
   return (
     <div className="space-y-2">
-      <h3 className="text-sm font-semibold text-on-surface">Speed ramp</h3>
+      <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Speed ramp</h3>
       <div className="flex flex-wrap gap-1">
         {SPEED_RAMP_PRESET_IDS.map((id) => (
           <button
@@ -32,7 +32,7 @@ export function SpeedRampSection({ clip, onPatch }: { clip: EditorClip; onPatch:
           Clear ramp
         </button>
       </div>
-      <p className="text-xs text-on-surface-variant">
+      <p className="text-xs text-[var(--color-pib-text-muted)]">
         Presets write <code>speed</code> keyframes — fine-tune them (including custom bezier curves) in the Keyframes panel above. Audio pitch is preserved on render.
       </p>
     </div>

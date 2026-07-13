@@ -47,7 +47,7 @@ export function KeyframeEditor({
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-on-surface">Keyframes</h3>
+      <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Keyframes</h3>
       {LANES.map((lane) => {
         const laneFrames = keyframes
           .filter((k) => k.property === lane.property)
@@ -55,7 +55,7 @@ export function KeyframeEditor({
         return (
           <div key={lane.property} className="rounded-lg border border-[var(--color-pib-line)] p-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium uppercase text-on-surface-variant">{lane.label}</span>
+              <span className="text-xs font-medium uppercase text-[var(--color-pib-text-muted)]">{lane.label}</span>
               <button
                 type="button"
                 className="pib-btn-ghost text-xs"
@@ -67,7 +67,7 @@ export function KeyframeEditor({
             </div>
             {laneFrames.map((keyframe, index) => (
               <div key={`${keyframe.atSeconds}-${index}`} className="mt-2 space-y-1 border-t border-[var(--color-pib-line)] pt-2">
-                <div className="grid grid-cols-[1fr_1fr_1fr_auto] items-end gap-1 text-xs text-on-surface-variant">
+                <div className="grid grid-cols-[1fr_1fr_1fr_auto] items-end gap-1 text-xs text-[var(--color-pib-text-muted)]">
                   <label className="block">
                     at (s)
                     <input aria-label={`${lane.label} keyframe ${index + 1} time`} className="mt-0.5 w-full rounded border border-[var(--color-pib-line)] bg-transparent px-1 py-0.5" type="number" step="0.1" min="0" max={clip.duration} value={keyframe.atSeconds}

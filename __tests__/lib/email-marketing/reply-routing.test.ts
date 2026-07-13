@@ -50,7 +50,12 @@ describe('reply-to-sales routing', () => {
       campaignId: 'campaign-1',
       sequenceId: 'sequence-1',
       salespersonUid: 'sales-1',
+      slaDueAt: expect.objectContaining({ toMillis: expect.any(Function) }),
+      escalationState: 'not_due',
+      escalationPath: ['user:sales-1', 'organisation_fallback'],
     }))
+    const persisted = (d.persist as jest.Mock).mock.calls[0][0]
+    expect(persisted.slaDueAt.toMillis()).toBe(new Date('2026-07-12T13:00:00Z').getTime())
   })
 
   it('uses the explicit same-org fallback when the snapshotted salesperson is inactive', async () => {

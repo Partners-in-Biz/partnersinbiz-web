@@ -262,8 +262,8 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
   if (loadError || !article) {
     return (
       <div className="max-w-3xl mx-auto pib-card p-8 text-center space-y-3">
-        <p className="text-sm text-red-400">{loadError ?? 'Article not found'}</p>
-        <Link href="/admin/content/seo" className="pib-btn-ghost text-sm font-label inline-block">
+        <p className="text-sm text-[var(--color-error)]">{loadError ?? 'Article not found'}</p>
+        <Link href="/admin/content/seo" className="btn-pib-ghost text-sm font-label inline-block">
           Back to articles
         </Link>
       </div>
@@ -277,23 +277,23 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
     <div className="max-w-7xl mx-auto space-y-5">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3 min-w-0">
-          <Link href="/admin/content/seo" className="pib-btn-ghost text-xs font-label shrink-0">
+          <Link href="/admin/content/seo" className="btn-pib-ghost text-xs font-label shrink-0">
             ← Articles
           </Link>
           <span
             className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full ${
               article.status === 'published'
-                ? 'bg-green-500/10 text-green-400'
+                ? 'bg-[var(--color-pib-green-soft)] text-[var(--color-pib-green)]'
                 : article.status === 'scheduled'
-                  ? 'bg-amber-500/10 text-amber-400'
-                  : 'bg-on-surface/10 text-on-surface-variant'
+                  ? 'bg-[var(--color-pib-amber-soft)] text-[var(--color-pib-amber)]'
+                  : 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]'
             }`}
           >
             {article.status}
           </span>
           {saveLabel && (
             <span
-              className={`text-xs ${saveState === 'error' ? 'text-red-400' : 'text-on-surface-variant'} inline-flex items-center gap-1`}
+              className={`text-xs ${saveState === 'error' ? 'text-[var(--color-error)]' : 'text-[var(--color-pib-text-muted)]'} inline-flex items-center gap-1`}
             >
               <span className="material-symbols-outlined text-sm">
                 {saveState === 'saving' ? 'sync' : saveState === 'error' ? 'error' : 'cloud_done'}
@@ -304,15 +304,15 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
         </div>
         <div className="flex flex-wrap gap-2">
           {article.status === 'published' ? (
-            <button onClick={unpublish} disabled={busy} className="pib-btn-ghost text-sm font-label">
+            <button onClick={unpublish} disabled={busy} className="btn-pib-ghost text-sm font-label">
               Unpublish
             </button>
           ) : (
-            <button onClick={publish} disabled={busy} className="pib-btn-primary text-sm font-label">
+            <button onClick={publish} disabled={busy} className="btn-pib-primary text-sm font-label">
               {busy ? 'Working…' : 'Publish now'}
             </button>
           )}
-          <button onClick={remove} disabled={busy} className="pib-btn-ghost text-sm font-label text-red-400">
+          <button onClick={remove} disabled={busy} className="btn-pib-ghost text-sm font-label text-[var(--color-error)]">
             Delete
           </button>
         </div>
@@ -323,7 +323,7 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
         <div className="space-y-4">
           <div className="pib-card p-5 space-y-4">
             <label className="block">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">Title</span>
+              <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Title</span>
               <input
                 value={article.title}
                 onChange={(e) => patchLocal({ title: e.target.value })}
@@ -333,7 +333,7 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <label className="block">
-                <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+                <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                   Focus keyword
                 </span>
                 <input
@@ -344,7 +344,7 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
                 />
               </label>
               <label className="block">
-                <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">Slug</span>
+                <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Slug</span>
                 <input
                   value={article.slug}
                   onChange={(e) => patchLocal({ slug: e.target.value })}
@@ -355,7 +355,7 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
               </label>
             </div>
             <label className="block">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+              <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 Meta title ({(article.metaTitle || '').length}/60)
               </span>
               <input
@@ -366,7 +366,7 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
               />
             </label>
             <label className="block">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+              <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 Meta description ({(article.metaDescription || '').length}/160)
               </span>
               <textarea
@@ -384,7 +384,7 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
             {article.body.map((block, i) => (
               <div key={block.id} className="pib-card p-4 group">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                  <span className="pib-label">
                     {block.type}
                     {block.type === 'heading' ? ` H${block.level ?? 2}` : ''}
                   </span>
@@ -402,7 +402,7 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
                     <button
                       onClick={() => moveBlock(block.id, -1)}
                       disabled={i === 0}
-                      className="pib-btn-ghost text-xs px-2 py-1 disabled:opacity-30"
+                      className="btn-pib-ghost text-xs px-2 py-1 disabled:opacity-30"
                       title="Move up"
                     >
                       <span className="material-symbols-outlined text-sm">arrow_upward</span>
@@ -410,14 +410,14 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
                     <button
                       onClick={() => moveBlock(block.id, 1)}
                       disabled={i === article.body.length - 1}
-                      className="pib-btn-ghost text-xs px-2 py-1 disabled:opacity-30"
+                      className="btn-pib-ghost text-xs px-2 py-1 disabled:opacity-30"
                       title="Move down"
                     >
                       <span className="material-symbols-outlined text-sm">arrow_downward</span>
                     </button>
                     <button
                       onClick={() => removeBlock(block.id)}
-                      className="pib-btn-ghost text-xs px-2 py-1 text-red-400"
+                      className="btn-pib-ghost text-xs px-2 py-1 text-[var(--color-error)]"
                       title="Remove"
                     >
                       <span className="material-symbols-outlined text-sm">delete</span>
@@ -456,7 +456,7 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
 
                 {block.type === 'list' && (
                   <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-xs text-on-surface-variant">
+                    <label className="flex items-center gap-2 text-xs text-[var(--color-pib-text-muted)]">
                       <input
                         type="checkbox"
                         checked={Boolean(block.ordered)}
@@ -482,7 +482,7 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
                             const items = (block.items ?? []).filter((_, j) => j !== idx)
                             updateBlock(block.id, { items: items.length ? items : [''] })
                           }}
-                          className="pib-btn-ghost text-xs px-2 py-1 text-red-400 shrink-0"
+                          className="btn-pib-ghost text-xs px-2 py-1 text-[var(--color-error)] shrink-0"
                         >
                           <span className="material-symbols-outlined text-sm">close</span>
                         </button>
@@ -490,7 +490,7 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
                     ))}
                     <button
                       onClick={() => updateBlock(block.id, { items: [...(block.items ?? []), ''] })}
-                      className="pib-btn-ghost text-xs font-label"
+                      className="btn-pib-ghost text-xs font-label"
                     >
                       + Add item
                     </button>
@@ -501,9 +501,9 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
           </div>
 
           <div className="pib-card p-3 flex flex-wrap gap-2">
-            <span className="text-xs text-on-surface-variant self-center mr-1">Add block:</span>
+            <span className="text-xs text-[var(--color-pib-text-muted)] self-center mr-1">Add block:</span>
             {(['heading', 'paragraph', 'image', 'quote', 'list'] as SeoBlockType[]).map((t) => (
-              <button key={t} onClick={() => addBlock(t)} className="pib-btn-secondary text-xs font-label capitalize">
+              <button key={t} onClick={() => addBlock(t)} className="btn-pib-secondary text-xs font-label capitalize">
                 + {t}
               </button>
             ))}
@@ -513,28 +513,28 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
         {/* Sidebar: score, checklist, readability, schedule, preview */}
         <div className="space-y-4">
           <div className="pib-card p-4">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">SEO score</p>
+            <p className="pib-label">SEO score</p>
             <div className="flex items-baseline gap-2 mt-1">
               <span
                 className="text-3xl font-headline font-bold"
-                style={{ color: score >= 80 ? '#34d399' : score >= 50 ? '#fbbf24' : '#f87171' }}
+                style={{ color: score >= 80 ? 'var(--color-pib-green)' : score >= 50 ? 'var(--color-pib-amber)' : 'var(--color-error)' }}
               >
                 {score}
               </span>
-              <span className="text-sm text-on-surface-variant">/ 100</span>
+              <span className="text-sm text-[var(--color-pib-text-muted)]">/ 100</span>
             </div>
             <div className="mt-3 space-y-2">
               {checklist.map((c) => (
                 <div key={c.id} className="flex items-start gap-2 text-sm">
                   <span
                     className="material-symbols-outlined text-base mt-0.5"
-                    style={{ color: c.pass ? '#34d399' : '#f87171' }}
+                    style={{ color: c.pass ? 'var(--color-pib-green)' : 'var(--color-error)' }}
                   >
                     {c.pass ? 'check_circle' : 'cancel'}
                   </span>
                   <span className="min-w-0">
-                    <span className="text-on-surface block leading-tight">{c.label}</span>
-                    <span className="text-xs text-on-surface-variant">{c.detail}</span>
+                    <span className="text-[var(--color-pib-text)] block leading-tight">{c.label}</span>
+                    <span className="text-xs text-[var(--color-pib-text-muted)]">{c.detail}</span>
                   </span>
                 </div>
               ))}
@@ -542,16 +542,16 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
           </div>
 
           <div className="pib-card p-4">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Readability</p>
+            <p className="pib-label">Readability</p>
             <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-headline font-bold text-on-surface">{readability}</span>
-              <span className="text-sm text-on-surface-variant">{readabilityGrade(readability)}</span>
+              <span className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">{readability}</span>
+              <span className="text-sm text-[var(--color-pib-text-muted)]">{readabilityGrade(readability)}</span>
             </div>
-            <p className="text-xs text-on-surface-variant mt-1">Flesch reading-ease (higher is easier to read).</p>
+            <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">Flesch reading-ease (higher is easier to read).</p>
           </div>
 
           <div className="pib-card p-4 space-y-2">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Schedule</p>
+            <p className="pib-label">Schedule</p>
             <input
               type="datetime-local"
               value={scheduleAt}
@@ -561,12 +561,12 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
             <button
               onClick={schedule}
               disabled={busy || !scheduleAt}
-              className="pib-btn-secondary text-sm font-label w-full"
+              className="btn-pib-secondary text-sm font-label w-full"
             >
               {article.status === 'scheduled' ? 'Reschedule' : 'Schedule publish'}
             </button>
             {article.status === 'scheduled' && article.scheduledFor && (
-              <p className="text-xs text-amber-400">
+              <p className="text-xs text-[var(--color-pib-amber)]">
                 Scheduled for {new Date(article.scheduledFor).toLocaleString()}
               </p>
             )}
@@ -576,25 +576,25 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
 
       {/* Preview panel */}
       <div className="pib-card p-6">
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-3">Preview</p>
+        <p className="pib-label mb-3">Preview</p>
         <article className="prose-content max-w-2xl">
-          <h1 className="text-2xl font-headline font-bold text-on-surface mb-1">{article.title || 'Untitled'}</h1>
-          <p className="text-xs text-on-surface-variant font-mono mb-4">/{article.slug}</p>
+          <h1 className="pib-page-title mb-1">{article.title || "Untitled"}</h1>
+          <p className="text-xs text-[var(--color-pib-text-muted)] font-mono mb-4">/{article.slug}</p>
           {article.body.map((b) => {
             if (b.type === 'heading') {
               return b.level === 3 ? (
-                <h3 key={b.id} className="text-base font-semibold text-on-surface mt-4 mb-1">
+                <h3 key={b.id} className="text-base font-semibold text-[var(--color-pib-text)] mt-4 mb-1">
                   {b.text}
                 </h3>
               ) : (
-                <h2 key={b.id} className="text-lg font-headline font-bold text-on-surface mt-5 mb-2">
+                <h2 key={b.id} className="text-lg font-headline font-bold text-[var(--color-pib-text)] mt-5 mb-2">
                   {b.text}
                 </h2>
               )
             }
             if (b.type === 'paragraph')
               return (
-                <p key={b.id} className="text-sm text-on-surface-variant leading-relaxed mb-3">
+                <p key={b.id} className="text-sm text-[var(--color-pib-text-muted)] leading-relaxed mb-3">
                   {b.text}
                 </p>
               )
@@ -602,7 +602,7 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
               return (
                 <blockquote
                   key={b.id}
-                  className="border-l-2 pl-4 my-3 italic text-on-surface-variant"
+                  className="border-l-2 pl-4 my-3 italic text-[var(--color-pib-text-muted)]"
                   style={{ borderColor: 'var(--color-accent-v2)' }}
                 >
                   {b.text}
@@ -615,7 +615,7 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
               ) : (
                 <div
                   key={b.id}
-                  className="my-3 rounded-lg border border-dashed border-[var(--color-card-border)] p-6 text-center text-xs text-on-surface-variant"
+                  className="my-3 rounded-lg border border-dashed border-[var(--color-pib-line)] p-6 text-center text-xs text-[var(--color-pib-text-muted)]"
                 >
                   Image placeholder — add a URL
                 </div>
@@ -623,13 +623,13 @@ export default function SeoEditorPage({ params }: { params: Promise<{ articleId:
             if (b.type === 'list') {
               const items = (b.items ?? []).filter(Boolean)
               return b.ordered ? (
-                <ol key={b.id} className="list-decimal pl-5 text-sm text-on-surface-variant mb-3 space-y-1">
+                <ol key={b.id} className="list-decimal pl-5 text-sm text-[var(--color-pib-text-muted)] mb-3 space-y-1">
                   {items.map((it, i) => (
                     <li key={i}>{it}</li>
                   ))}
                 </ol>
               ) : (
-                <ul key={b.id} className="list-disc pl-5 text-sm text-on-surface-variant mb-3 space-y-1">
+                <ul key={b.id} className="list-disc pl-5 text-sm text-[var(--color-pib-text-muted)] mb-3 space-y-1">
                   {items.map((it, i) => (
                     <li key={i}>{it}</li>
                   ))}

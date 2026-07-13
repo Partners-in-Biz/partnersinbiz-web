@@ -161,14 +161,17 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto p-6 space-y-6">
+    <div className="max-w-5xl mx-auto p-6 space-y-8">
       <AnalyticsNav active="reports" propertyId={propertyId} />
-      <h1 className="text-xl font-headline font-bold text-on-surface">Scheduled Reports</h1>
+      <header>
+        <p className="eyebrow">Analytics · Reports</p>
+        <h1 className="pib-page-title mt-2">Scheduled Reports</h1>
+      </header>
 
-      <div className="pib-card p-4 space-y-3">
+      <div className="pib-card space-y-4">
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
         <div className="flex justify-end">
-          <button onClick={fetchReports} disabled={!propertyId || loading} className="pib-btn-primary text-sm font-label">
+          <button onClick={fetchReports} disabled={!propertyId || loading} className="btn-pib-primary text-sm">
             {loading ? 'Loading…' : 'Load Reports'}
           </button>
         </div>
@@ -176,24 +179,27 @@ export default function ReportsPage() {
 
       {/* Create report form */}
       {propertyId && (
-        <div className="pib-card p-4 space-y-4">
-          <h2 className="text-sm font-label font-semibold text-on-surface">Create Report</h2>
+        <div className="pib-card space-y-4">
+          <div className="flex items-center gap-3">
+            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">lab_profile</span></span>
+            <h2 className="pib-label mb-0">Create Report</h2>
+          </div>
           <div>
-            <label className="text-xs text-on-surface-variant font-label block mb-1">Name</label>
+            <label className="pib-label mb-1">Name</label>
             <input type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="Weekly Summary" className="pib-input text-sm w-72" />
           </div>
           <div>
-            <label className="text-xs text-on-surface-variant font-label block mb-1">Frequency</label>
-            <select value={newFrequency} onChange={e => setNewFrequency(e.target.value as 'weekly' | 'monthly')} className="pib-input text-sm w-40">
+            <label className="pib-label mb-1">Frequency</label>
+            <select value={newFrequency} onChange={e => setNewFrequency(e.target.value as 'weekly' | 'monthly')} className="pib-select text-sm w-40">
               <option value="weekly">Weekly</option>
               <option value="monthly">Monthly</option>
             </select>
           </div>
           <div>
-            <label className="text-xs text-on-surface-variant font-label block mb-2">Metrics</label>
+            <label className="pib-label mb-2">Metrics</label>
             <div className="flex flex-wrap gap-3">
               {METRIC_OPTIONS.map(m => (
-                <label key={m} className="flex items-center gap-1.5 text-sm text-on-surface cursor-pointer">
+                <label key={m} className="flex items-center gap-1.5 text-sm text-[var(--color-pib-text)] cursor-pointer">
                   <input type="checkbox" checked={newMetrics.includes(m)} onChange={() => toggleMetric(m)} />
                   {m}
                 </label>
@@ -201,11 +207,11 @@ export default function ReportsPage() {
             </div>
           </div>
           <div>
-            <label className="text-xs text-on-surface-variant font-label block mb-1">Recipients (comma-separated emails)</label>
+            <label className="pib-label mb-1">Recipients (comma-separated emails)</label>
             <input type="text" value={newRecipients} onChange={e => setNewRecipients(e.target.value)} placeholder="a@x.com, b@y.com" className="pib-input text-sm w-96 max-w-full" />
           </div>
-          {error && <p className="text-xs text-red-400">{error}</p>}
-          <button onClick={createReport} disabled={creating || !newName.trim()} className="pib-btn-primary text-sm font-label">
+          {error && <p className="text-xs text-[var(--color-error)]">{error}</p>}
+          <button onClick={createReport} disabled={creating || !newName.trim()} className="btn-pib-primary text-sm">
             {creating ? 'Creating…' : 'Create Report'}
           </button>
         </div>
@@ -215,48 +221,51 @@ export default function ReportsPage() {
       {reports.length > 0 && (
         <div className="space-y-4">
           {reports.map(r => (
-            <div key={r.id} className="pib-card p-4 space-y-3">
+            <div key={r.id} className="pib-card space-y-3">
               <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <h3 className="text-sm font-label font-semibold text-on-surface flex items-center gap-2">
-                    {r.name}
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${r.active ? 'bg-green-400/20 text-green-400' : 'bg-[var(--color-surface-container)] text-on-surface-variant'}`}>
-                      {r.active ? 'Active' : 'Paused'}
-                    </span>
-                  </h3>
-                  <p className="text-xs text-on-surface-variant mt-0.5">
-                    {r.frequency} · {r.metrics.join(', ')} · {r.recipients.join(', ')}
-                  </p>
-                  {r.lastRunAt && <p className="text-xs text-on-surface-variant">Last run: {new Date(r.lastRunAt).toLocaleString()}</p>}
+                <div className="flex min-w-0 items-start gap-3">
+                  <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">lab_profile</span></span>
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-medium text-[var(--color-pib-text)] flex items-center gap-2">
+                      {r.name}
+                      <span className={`pib-pill ${r.active ? 'pib-pill-success' : ''}`}>
+                        {r.active ? 'Active' : 'Paused'}
+                      </span>
+                    </h3>
+                    <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">
+                      {r.frequency} · {r.metrics.join(', ')} · {r.recipients.join(', ')}
+                    </p>
+                    {r.lastRunAt && <p className="text-xs text-[var(--color-pib-text-muted)]">Last run: {new Date(r.lastRunAt).toLocaleString()}</p>}
+                  </div>
                 </div>
                 <div className="flex gap-2 flex-wrap justify-end">
-                  <button onClick={() => runNow(r.id)} disabled={running === r.id} className="pib-btn-secondary text-xs px-3 py-1.5">
+                  <button onClick={() => runNow(r.id)} disabled={running === r.id} className="btn-pib-secondary text-xs px-3 py-1.5">
                     {running === r.id ? 'Running…' : 'Run now'}
                   </button>
-                  <a href={`/api/v1/analytics/reports/${r.id}/pdf`} download className="pib-btn-secondary text-xs px-3 py-1.5">
+                  <a href={`/api/v1/analytics/reports/${r.id}/pdf`} download className="btn-pib-secondary text-xs px-3 py-1.5">
                     PDF
                   </a>
-                  <button onClick={() => toggleActive(r)} className="pib-btn-secondary text-xs px-3 py-1.5">
+                  <button onClick={() => toggleActive(r)} className="btn-pib-secondary text-xs px-3 py-1.5">
                     {r.active ? 'Pause' : 'Activate'}
                   </button>
-                  <button onClick={() => toggleExpand(r.id)} className="pib-btn-secondary text-xs px-3 py-1.5">
+                  <button onClick={() => toggleExpand(r.id)} className="btn-pib-secondary text-xs px-3 py-1.5">
                     {expanded === r.id ? 'Hide history' : 'History'}
                   </button>
-                  <button onClick={() => deleteReport(r.id)} className="pib-btn-secondary text-xs px-3 py-1.5 text-red-400">
+                  <button onClick={() => deleteReport(r.id)} className="btn-pib-ghost text-xs px-3 py-1.5 text-[var(--color-error)]">
                     Delete
                   </button>
                 </div>
               </div>
 
               {runResult[r.id] && (
-                <p className={`text-xs ${runResult[r.id].status === 'error' ? 'text-red-400' : 'text-green-400'}`}>
+                <p className={`text-xs ${runResult[r.id].status === 'error' ? 'text-[var(--color-error)]' : 'text-[var(--color-pib-success)]'}`}>
                   Run {runResult[r.id].status}{runResult[r.id].error ? `: ${runResult[r.id].error}` : ''}
                 </p>
               )}
 
               {expanded === r.id && (
-                <div className="border-t border-[var(--color-card-border)] pt-3">
-                  {historyLoading === r.id && <div className="pib-skeleton h-12 rounded-lg" />}
+                <div className="border-t border-[var(--color-pib-line)] pt-3">
+                  {historyLoading === r.id && <div className="pib-skeleton h-12" />}
                   {historyLoading !== r.id && (
                     <SimpleTable
                       columns={[
@@ -282,8 +291,9 @@ export default function ReportsPage() {
       )}
 
       {!loading && reports.length === 0 && propertyId && (
-        <div className="pib-card p-8 text-center text-on-surface-variant text-sm">
-          No reports yet — create one above.
+        <div className="pib-empty-state">
+          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">lab_profile</span>
+          <p className="pib-empty-state-description">No reports yet — create one above.</p>
         </div>
       )}
     </div>

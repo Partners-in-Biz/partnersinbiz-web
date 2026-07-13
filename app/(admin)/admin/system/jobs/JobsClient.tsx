@@ -60,7 +60,7 @@ const STATUS_TINT: Record<string, string> = {
   completed: 'text-emerald-400',
   sent: 'text-emerald-400',
   failed: 'text-red-400',
-  cancelled: 'text-on-surface-variant',
+  cancelled: 'text-[var(--color-pib-text-muted)]',
 }
 
 export default function JobsClient() {
@@ -125,9 +125,9 @@ export default function JobsClient() {
     <div className="space-y-6 max-w-6xl mx-auto">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">System / Ops</p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Jobs &amp; Queues</h1>
-          <p className="text-sm text-on-surface-variant mt-1">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">System / Ops</p>
+          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Jobs &amp; Queues</h1>
+          <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
             Live queue depths across the platform&apos;s real Firestore-backed queues, hourly throughput, recent
             jobs, and the dead-letter list. Retry or cancel individual items.
           </p>
@@ -151,34 +151,34 @@ export default function JobsClient() {
           {data.queues.map((q) => (
             <div key={q.collection + q.name} className={`pib-card p-4 ${q.instrumented ? '' : 'opacity-70'}`}>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-label text-on-surface">{q.name}</span>
-                <span className="material-symbols-outlined text-[16px] text-on-surface-variant/70">
+                <span className="text-sm font-label text-[var(--color-pib-text)]">{q.name}</span>
+                <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]/70">
                   {q.instrumented ? 'queue' : 'do_not_disturb_on'}
                 </span>
               </div>
-              <p className="text-[10px] font-mono text-on-surface-variant mt-0.5">{q.collection}</p>
+              <p className="text-[10px] font-mono text-[var(--color-pib-text-muted)] mt-0.5">{q.collection}</p>
               {q.instrumented ? (
                 <>
                   <div className="mt-3 grid grid-cols-3 gap-2 text-center">
                     <div>
                       <div className="text-lg font-semibold text-amber-400">{q.pending}</div>
-                      <div className="text-[9px] uppercase tracking-wide text-on-surface-variant">Pending</div>
+                      <div className="text-[9px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Pending</div>
                     </div>
                     <div>
                       <div className="text-lg font-semibold text-blue-400">{q.processing}</div>
-                      <div className="text-[9px] uppercase tracking-wide text-on-surface-variant">Active</div>
+                      <div className="text-[9px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Active</div>
                     </div>
                     <div>
                       <div className="text-lg font-semibold text-red-400">{q.failed}</div>
-                      <div className="text-[9px] uppercase tracking-wide text-on-surface-variant">Failed</div>
+                      <div className="text-[9px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Failed</div>
                     </div>
                   </div>
                   <p className="mt-2 text-[11px] text-emerald-400">{q.deliveredLast24h} delivered / 24h</p>
                 </>
               ) : (
-                <p className="mt-3 text-[11px] text-on-surface-variant">Not instrumented as a queue.</p>
+                <p className="mt-3 text-[11px] text-[var(--color-pib-text-muted)]">Not instrumented as a queue.</p>
               )}
-              {q.note && <p className="mt-2 text-[10px] text-on-surface-variant/80 leading-snug">{q.note}</p>}
+              {q.note && <p className="mt-2 text-[10px] text-[var(--color-pib-text-muted)]/80 leading-snug">{q.note}</p>}
             </div>
           ))}
         </section>
@@ -187,8 +187,8 @@ export default function JobsClient() {
       {/* Throughput chart */}
       <section className="pib-card p-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-label uppercase tracking-wide text-on-surface-variant">Webhook throughput (last 24h)</h2>
-          <span className="text-xs text-on-surface-variant">source: webhook_queue.deliveredAt</span>
+          <h2 className="text-sm font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Webhook throughput (last 24h)</h2>
+          <span className="text-xs text-[var(--color-pib-text-muted)]">source: webhook_queue.deliveredAt</span>
         </div>
         {loading && !throughput ? (
           <Skeleton className="h-32 mt-3 rounded" />
@@ -212,7 +212,7 @@ export default function JobsClient() {
             <line x1="0" y1="120" x2="600" y2="120" className="stroke-current text-white/10" strokeWidth="1" />
           </svg>
         ) : (
-          <p className="mt-3 text-xs text-on-surface-variant">No deliveries in the last 24h.</p>
+          <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">No deliveries in the last 24h.</p>
         )}
         <div className="mt-2 flex gap-4 text-[11px]">
           <span className="text-emerald-400">● delivered</span>
@@ -223,17 +223,17 @@ export default function JobsClient() {
       {/* Recent jobs table */}
       <section className="pib-card overflow-hidden">
         <div className="px-4 py-3 border-b border-white/10">
-          <h2 className="text-sm font-label uppercase tracking-wide text-on-surface-variant">Recent jobs</h2>
+          <h2 className="text-sm font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Recent jobs</h2>
         </div>
         {loading && !data ? (
           <div className="p-4 space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-9 rounded" />)}</div>
         ) : !data || data.recentJobs.length === 0 ? (
-          <div className="p-10 text-center text-sm text-on-surface-variant">No queue items found.</div>
+          <div className="p-10 text-center text-sm text-[var(--color-pib-text-muted)]">No queue items found.</div>
         ) : (
           <div className="overflow-x-auto max-h-[500px]">
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-[var(--color-pib-bg)]">
-                <tr className="text-left text-on-surface-variant border-b border-white/10">
+                <tr className="text-left text-[var(--color-pib-text-muted)] border-b border-white/10">
                   <th className="px-3 py-2 font-label">Queue</th>
                   <th className="px-3 py-2 font-label">Item</th>
                   <th className="px-3 py-2 font-label">Status</th>
@@ -246,12 +246,12 @@ export default function JobsClient() {
               <tbody>
                 {data.recentJobs.map((j) => (
                   <tr key={j.queue + j.id} className="border-b border-white/5 hover:bg-white/5">
-                    <td className="px-3 py-2 font-mono text-on-surface-variant">{j.queue}</td>
-                    <td className="px-3 py-2 text-on-surface truncate max-w-[160px]" title={j.label}>{j.label}</td>
-                    <td className={`px-3 py-2 font-mono ${STATUS_TINT[j.status] ?? 'text-on-surface'}`}>{j.status}</td>
-                    <td className="px-3 py-2 text-on-surface-variant">{j.attempts ?? '—'}</td>
-                    <td className="px-3 py-2 text-on-surface-variant whitespace-nowrap">{fmtTime(j.createdAtMs)}</td>
-                    <td className="px-3 py-2 text-on-surface-variant whitespace-nowrap">{fmtTime(j.nextAttemptMs)}</td>
+                    <td className="px-3 py-2 font-mono text-[var(--color-pib-text-muted)]">{j.queue}</td>
+                    <td className="px-3 py-2 text-[var(--color-pib-text)] truncate max-w-[160px]" title={j.label}>{j.label}</td>
+                    <td className={`px-3 py-2 font-mono ${STATUS_TINT[j.status] ?? 'text-[var(--color-pib-text)]'}`}>{j.status}</td>
+                    <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{j.attempts ?? '—'}</td>
+                    <td className="px-3 py-2 text-[var(--color-pib-text-muted)] whitespace-nowrap">{fmtTime(j.createdAtMs)}</td>
+                    <td className="px-3 py-2 text-[var(--color-pib-text-muted)] whitespace-nowrap">{fmtTime(j.nextAttemptMs)}</td>
                     <td className="px-3 py-2 text-right whitespace-nowrap">
                       {isSuperAdmin && j.status !== 'cancelled' && (
                         <div className="flex gap-1 justify-end">
@@ -279,18 +279,18 @@ export default function JobsClient() {
       {/* Dead-letter list */}
       <section className="pib-card overflow-hidden">
         <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
-          <h2 className="text-sm font-label uppercase tracking-wide text-on-surface-variant">Dead-letter (failed items)</h2>
+          <h2 className="text-sm font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Dead-letter (failed items)</h2>
           {data && <span className="text-xs text-red-400">{data.deadLetter.length}</span>}
         </div>
         {!data || data.deadLetter.length === 0 ? (
-          <div className="p-8 text-center text-sm text-on-surface-variant">No failed jobs. Clean queues.</div>
+          <div className="p-8 text-center text-sm text-[var(--color-pib-text-muted)]">No failed jobs. Clean queues.</div>
         ) : (
           <div className="divide-y divide-white/5">
             {data.deadLetter.map((j) => (
               <div key={j.queue + j.id} className="flex items-center gap-3 px-4 py-2.5 text-xs">
-                <span className="font-mono text-on-surface-variant w-28 shrink-0">{j.queue}</span>
-                <span className="text-on-surface flex-1 truncate" title={j.label}>{j.label}</span>
-                <span className="text-on-surface-variant whitespace-nowrap">{fmtTime(j.createdAtMs)}</span>
+                <span className="font-mono text-[var(--color-pib-text-muted)] w-28 shrink-0">{j.queue}</span>
+                <span className="text-[var(--color-pib-text)] flex-1 truncate" title={j.label}>{j.label}</span>
+                <span className="text-[var(--color-pib-text-muted)] whitespace-nowrap">{fmtTime(j.createdAtMs)}</span>
                 {isSuperAdmin && (
                   <button onClick={() => act(j, 'retry')} disabled={busy === `retry:${j.id}`} className="pib-btn-ghost text-[11px] font-label disabled:opacity-50">
                     {busy === `retry:${j.id}` ? '...' : 'Retry'}

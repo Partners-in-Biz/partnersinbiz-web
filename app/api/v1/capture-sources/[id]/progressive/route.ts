@@ -25,7 +25,7 @@
 // confirmed, if DOI is on).
 
 import { NextRequest, NextResponse } from 'next/server'
-import { FieldValue, Timestamp } from 'firebase-admin/firestore'
+import { FieldValue, Timestamp, type DocumentReference } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { sendCampaignEmail, htmlToPlainText } from '@/lib/email/resend'
 import { resolveFrom } from '@/lib/email/resolveFrom'
@@ -33,6 +33,9 @@ import { signConfirmToken } from '@/lib/lead-capture/token'
 import { performAutoEnroll } from '@/lib/lead-capture/autoEnroll'
 import { isDisposableEmail } from '@/lib/lead-capture/disposable-domains'
 import { verifyTurnstileToken } from '@/lib/forms/turnstile'
+import { resolveCaptureFields } from '@/lib/lead-capture/schema'
+import { buildCaptureAttributionContext } from '@/lib/lead-capture/attribution-context'
+import { loadCaptureSchemaVersion, publishCaptureSchemaVersion } from '@/lib/lead-capture/schema-store'
 import {
   type CaptureSource,
   type CaptureSubmission,
@@ -228,35 +231,81 @@ export async function POST(req: NextRequest, context: Params) {
   if (source.deleted) return jsonError('Capture source has been removed', 404)
   if (!source.active) return jsonError('Capture source is not active', 403)
 
-  const steps = source.display?.steps ?? []
-  const totalSteps = steps.length
-  if (!source.display || source.display.mode !== 'multi-step' || totalSteps === 0) {
-    return jsonError('This source is not configured for progressive submission', 400)
-  }
-
   // 2. Parse body
   const body = await req.json().catch(() => null)
   if (!body || typeof body !== 'object') return jsonError('Invalid JSON body', 400)
 
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
   if (!isEmail(email)) return jsonError('A valid email is required', 400)
-
-  const stepIndex = typeof body.step === 'number' ? Math.floor(body.step) : 0
-  if (stepIndex < 0 || stepIndex >= totalSteps) {
-    return jsonError(`step must be between 0 and ${totalSteps - 1}`, 400)
+  const forbiddenLineage = ['campaignId', 'programId', 'sourceId', 'gclid', 'fbclid', 'msclkid', 'ttclid']
+    .filter((key) => body[key] !== undefined)
+  if (forbiddenLineage.length) {
+    return jsonError(`Server-controlled fields are not accepted: ${forbiddenLineage.join(', ')}`, 400)
   }
-  const isLastStep = stepIndex >= totalSteps - 1
+
   const providedSubmissionId =
     typeof body.submissionId === 'string' && body.submissionId.trim()
       ? body.submissionId.trim()
       : ''
+  let existing: CaptureSubmission | undefined
+  let subRef: DocumentReference | null = null
+  let pinnedFields = source.fields ?? []
+  let pinnedDisplay = source.display
+  if (providedSubmissionId) {
+    subRef = adminDb.collection(LEAD_CAPTURE_SUBMISSIONS).doc(providedSubmissionId)
+    const subSnap = await subRef.get()
+    if (!subSnap.exists) return jsonError('Submission not found', 404)
+    existing = subSnap.data() as CaptureSubmission | undefined
+    if (!existing) return jsonError('Submission not found', 404)
+    if (existing.captureSourceId !== source.id) return jsonError('Submission does not belong to this source', 400)
+    if (existing.email !== email) return jsonError('Email mismatch on progressive step', 400)
+    if (!existing.schemaVersionId) return jsonError('Submission has no pinned schema version', 409)
+    try {
+      const pinned = await loadCaptureSchemaVersion(adminDb as never, source.id, existing.schemaVersionId)
+      pinnedFields = pinned.fields
+      pinnedDisplay = pinned.display
+    } catch {
+      return jsonError('Pinned capture schema version is unavailable or invalid', 409)
+    }
+  }
+  const steps = pinnedDisplay?.steps ?? []
+  const totalSteps = steps.length
+  if (!pinnedDisplay || pinnedDisplay.mode !== 'multi-step' || totalSteps === 0) {
+    return jsonError('This source is not configured for progressive submission', 400)
+  }
+  const stepIndex = typeof body.step === 'number' ? Math.floor(body.step) : 0
+  if (stepIndex < 0 || stepIndex >= totalSteps) return jsonError(`step must be between 0 and ${totalSteps - 1}`, 400)
+  const isLastStep = stepIndex >= totalSteps - 1
 
   const ip = clientIp(req)
   const userAgent = req.headers.get('user-agent') ?? ''
   const referer =
-    (typeof body.referer === 'string' && body.referer) ||
     req.headers.get('referer') ||
     ''
+  const builtAttribution = buildCaptureAttributionContext({
+    requestUrl: req.url,
+    refererHeader: referer,
+    body: body as Record<string, unknown>,
+    source: { ...(source as unknown as Record<string, unknown>), id: source.id, name: source.name, type: source.type },
+  })
+  let attributionContext = builtAttribution.context
+  const provenance = builtAttribution.provenance
+  const lineage = builtAttribution.lineage
+  if (existing?.attribution && typeof existing.attribution === 'object') {
+    const pinned = existing.attribution as Record<string, unknown>
+    const utm = pinned.utm && typeof pinned.utm === 'object' ? pinned.utm as Record<string, unknown> : {}
+    const clickIds = pinned.clickIds && typeof pinned.clickIds === 'object' ? pinned.clickIds as Record<string, unknown> : {}
+    attributionContext = {
+      observed: {
+        utm_source: utm.source, utm_medium: utm.medium, utm_campaign: utm.campaign,
+        utm_term: utm.term, utm_content: utm.content,
+        referrer: pinned.referrer, landingPage: pinned.landingPage,
+        gclid: clickIds.gclid, fbclid: clickIds.fbclid, msclkid: clickIds.msclkid, ttclid: clickIds.ttclid,
+      },
+      trusted: { campaignId: pinned.campaignId, programId: pinned.programId },
+    }
+  }
+  const allowedFieldKeys = steps[stepIndex]?.fields ?? []
 
   // Honeypot — only checked on step 0 (no point gating later steps which
   // require an existing submissionId from a real client).
@@ -347,24 +396,17 @@ export async function POST(req: NextRequest, context: Params) {
     }
   }
 
-  // Sanitise incoming step data — strip honeypot, drop empty strings.
-  const stepData: Record<string, string> = {}
-  Object.entries(rawData).forEach(([k, raw]) => {
-    if (k === '_hp') return
-    if (typeof raw !== 'string') return
-    const val = raw.trim()
-    if (!val) return
-    stepData[k] = val
-  })
-  // Top-level common keys
-  for (const k of ['firstName', 'lastName', 'name', 'phone', 'company']) {
-    if (!(k in stepData) && typeof rawData[k] === 'string' && (rawData[k] as string).trim()) {
-      stepData[k] = (rawData[k] as string).trim()
-    }
-  }
+  const submittedStepData = Object.fromEntries(Object.entries(rawData).filter(([key]) => key !== '_hp'))
+  let stepData: Record<string, string> = {}
 
   // ─── Branch: step 1 (no submissionId yet) ────────────────────────────────
   if (!providedSubmissionId) {
+    const resolved = resolveCaptureFields(pinnedFields, submittedStepData, attributionContext, {
+      progressiveStep: stepIndex + 1,
+      allowedFieldKeys,
+    })
+    if (!resolved.ok) return jsonError(resolved.errors.join('; '), 400)
+    stepData = resolved.data as Record<string, string>
     // Find or create the contact (same logic as /submit)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const existingSnap = await (adminDb.collection('contacts') as any)
@@ -429,6 +471,11 @@ export async function POST(req: NextRequest, context: Params) {
     const submissionRef = adminDb.collection(LEAD_CAPTURE_SUBMISSIONS).doc()
     const submissionId = submissionRef.id
     const confirmationToken = signConfirmToken(submissionId)
+    const schemaVersion = await publishCaptureSchemaVersion(
+      adminDb as never,
+      adminDb.collection(LEAD_CAPTURE_SOURCES).doc(source.id) as never,
+      { orgId: source.orgId, sourceId: source.id, fields: pinnedFields, display: pinnedDisplay },
+    )
 
     await submissionRef.set({
       orgId: source.orgId,
@@ -443,6 +490,9 @@ export async function POST(req: NextRequest, context: Params) {
       ipAddress: ip,
       userAgent,
       referer,
+      attribution: provenance,
+      attributionLineage: lineage,
+      schemaVersionId: schemaVersion.id,
       currentStep: stepIndex,
       completedSteps: false,
       createdAt: FieldValue.serverTimestamp(),
@@ -457,17 +507,7 @@ export async function POST(req: NextRequest, context: Params) {
   }
 
   // ─── Branch: subsequent step (existing submissionId) ─────────────────────
-  const subRef = adminDb.collection(LEAD_CAPTURE_SUBMISSIONS).doc(providedSubmissionId)
-  const subSnap = await subRef.get()
-  if (!subSnap.exists) return jsonError('Submission not found', 404)
-  const existing = subSnap.data() as CaptureSubmission | undefined
-  if (!existing) return jsonError('Submission not found', 404)
-  if (existing.captureSourceId !== source.id) {
-    return jsonError('Submission does not belong to this source', 400)
-  }
-  if (existing.email !== email) {
-    return jsonError('Email mismatch on progressive step', 400)
-  }
+  if (!existing || !subRef) return jsonError('Submission not found', 404)
   if (existing.completedSteps) {
     // Already finalized — return success idempotently
     return jsonSuccess({
@@ -481,6 +521,14 @@ export async function POST(req: NextRequest, context: Params) {
       contactId: existing.contactId,
     })
   }
+
+  const resolved = resolveCaptureFields(pinnedFields, submittedStepData, attributionContext, {
+    progressiveStep: stepIndex + 1,
+    allowedFieldKeys,
+    priorData: existing.data ?? {},
+  })
+  if (!resolved.ok) return jsonError(resolved.errors.join('; '), 400)
+  stepData = resolved.data as Record<string, string>
 
   // Merge in this step's data (overwrite on key collision — last step wins).
   const mergedData: Record<string, string> = { ...(existing.data || {}), ...stepData }

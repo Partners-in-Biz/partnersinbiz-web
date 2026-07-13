@@ -298,20 +298,20 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
         role="dialog"
         aria-modal="true"
         aria-labelledby="task-composer-title"
-        className="relative flex max-h-[calc(100dvh-1rem)] w-full min-w-0 max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-lg border border-[var(--color-card-border)] bg-[var(--color-sidebar)] shadow-2xl sm:max-h-[92dvh] md:max-w-4xl"
+        className="relative flex max-h-[calc(100dvh-1rem)] w-full min-w-0 max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-sidebar)] shadow-2xl sm:max-h-[92dvh] md:max-w-4xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="flex items-center justify-between gap-4 border-b border-[var(--color-card-border)] px-4 py-3 sm:px-5 sm:py-4">
+        <header className="flex items-center justify-between gap-4 border-b border-[var(--color-pib-line)] px-4 py-3 sm:px-5 sm:py-4">
           <div className="min-w-0">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+            <p className="pib-label">
               {column.name}
             </p>
-            <h2 id="task-composer-title" className="truncate text-lg font-headline font-bold text-on-surface">{dialogTitle}</h2>
+            <h2 id="task-composer-title" className="truncate text-lg font-headline font-bold text-[var(--color-pib-text)]">{dialogTitle}</h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="grid h-8 w-8 place-items-center rounded-md text-on-surface-variant hover:bg-[var(--color-surface-container)] hover:text-on-surface"
+            className="grid h-8 w-8 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]"
             title="Close"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
@@ -324,16 +324,16 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               placeholder={isAdminSurface ? 'Operator task title' : 'Task title'}
-              className="w-full min-w-0 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-4 py-3 text-lg font-headline font-bold text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
+              className="w-full min-w-0 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] px-4 py-3 text-lg font-headline font-bold text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-[var(--color-accent-v2)] focus:outline-none"
               autoFocus
             />
             <div className="space-y-2">
               <div className="flex min-w-0 items-center justify-between gap-3">
-                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{isAdminSurface ? 'Operator brief' : 'Description'}</p>
+                <p className="pib-label">{isAdminSurface ? 'Operator brief' : 'Description'}</p>
                 <VoiceInputButton
                   disabled={saving}
                   onTranscript={addVoiceTranscriptToDescription}
-                  className="border border-[var(--color-card-border)] bg-[var(--color-card)]"
+                  className="border border-[var(--color-pib-line)] bg-[var(--color-card)]"
                 />
               </div>
               <textarea
@@ -341,23 +341,23 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                 onChange={(event) => setDescription(event.target.value)}
                 placeholder={isAdminSurface ? 'Internal admin note, goals, acceptance criteria, blockers...' : 'Description, goals, acceptance criteria, blockers...'}
                 rows={7}
-                className="w-full min-w-0 resize-y rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-4 py-3 text-sm leading-relaxed text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
+                className="w-full min-w-0 resize-y rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] px-4 py-3 text-sm leading-relaxed text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-[var(--color-accent-v2)] focus:outline-none"
               />
             </div>
 
             <div>
-              <p className="mb-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Checklist</p>
+              <p className="mb-2 pib-label">Checklist</p>
               <textarea
                 value={checklistText}
                 onChange={(event) => setChecklistText(event.target.value)}
                 placeholder="One item per line"
                 rows={4}
-                className="w-full min-w-0 resize-y rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
+                className="w-full min-w-0 resize-y rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] px-4 py-3 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-[var(--color-accent-v2)] focus:outline-none"
               />
             </div>
 
             <div>
-              <p className="mb-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Attachments</p>
+              <p className="mb-2 pib-label">Attachments</p>
               <label
                 onDragEnter={(event) => { event.preventDefault(); setDragging(true) }}
                 onDragOver={(event) => event.preventDefault()}
@@ -369,13 +369,13 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                 }}
                 className="flex min-h-32 min-w-0 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed px-4 py-6 text-center transition-colors"
                 style={{
-                  borderColor: dragging ? 'var(--color-accent-v2)' : 'var(--color-card-border)',
+                  borderColor: dragging ? 'var(--color-accent-v2)' : 'var(--color-pib-line)',
                   background: dragging ? 'color-mix(in oklab, var(--color-accent-v2) 8%, transparent)' : 'var(--color-card)',
                 }}
               >
-                <span className="material-symbols-outlined text-[28px] text-on-surface-variant">cloud_upload</span>
-                <span className="mt-2 max-w-full break-words text-sm text-on-surface">Upload images, videos, documents</span>
-                <span className="mt-1 text-xs text-on-surface-variant">Firebase Storage</span>
+                <span className="material-symbols-outlined text-[28px] text-[var(--color-pib-text-muted)]">cloud_upload</span>
+                <span className="mt-2 max-w-full break-words text-sm text-[var(--color-pib-text)]">Upload images, videos, documents</span>
+                <span className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Firebase Storage</span>
                 <input
                   type="file"
                   multiple
@@ -390,18 +390,18 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
               {files.length > 0 && (
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   {files.map((file, index) => (
-                    <div key={`${file.name}-${index}`} className="flex min-w-0 items-center gap-2 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-2">
-                      <span className="material-symbols-outlined text-[18px] text-on-surface-variant">
+                    <div key={`${file.name}-${index}`} className="flex min-w-0 items-center gap-2 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] p-2">
+                      <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">
                         {fileKind(file) === 'image' ? 'image' : fileKind(file) === 'video' ? 'movie' : 'attach_file'}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-medium text-on-surface">{file.name}</p>
-                        <p className="text-[10px] text-on-surface-variant">{formatSize(file.size)}</p>
+                        <p className="truncate text-xs font-medium text-[var(--color-pib-text)]">{file.name}</p>
+                        <p className="text-[10px] text-[var(--color-pib-text-muted)]">{formatSize(file.size)}</p>
                       </div>
                       <button
                         type="button"
                         onClick={() => setFiles((current) => current.filter((_, i) => i !== index))}
-                        className="grid h-7 w-7 place-items-center rounded text-on-surface-variant hover:bg-[var(--color-surface-container)] hover:text-on-surface"
+                        className="grid h-7 w-7 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]"
                         title="Remove file"
                       >
                         <span className="material-symbols-outlined text-[16px]">close</span>
@@ -413,9 +413,9 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
             </div>
           </div>
 
-          <aside className="min-w-0 space-y-5 border-t border-[var(--color-card-border)] p-4 sm:p-5 lg:border-l lg:border-t-0">
+          <aside className="min-w-0 space-y-5 border-t border-[var(--color-pib-line)] p-4 sm:p-5 lg:border-l lg:border-t-0">
             <div>
-              <p className="mb-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Priority</p>
+              <p className="mb-2 pib-label">Priority</p>
               <div className="grid min-w-0 grid-cols-2 gap-2">
                 {PRIORITIES.map((item) => (
                   <button
@@ -425,7 +425,7 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                     className={`min-w-0 rounded-md border px-3 py-2 text-xs font-label capitalize transition-colors ${
                       priority === item
                         ? 'border-[var(--color-accent-v2)] bg-[var(--color-accent-v2)] text-black'
-                        : 'border-[var(--color-card-border)] text-on-surface-variant hover:text-on-surface'
+                        : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
                     }`}
                   >
                     {item}
@@ -436,27 +436,27 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="min-w-0 space-y-1">
-                <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Start</span>
+                <span className="pib-label">Start</span>
                 <input
                   type="date"
                   value={startDate}
                   onChange={(event) => setStartDate(event.target.value)}
-                  className="w-full min-w-0 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface focus:border-[var(--color-accent-v2)] focus:outline-none"
+                  className="w-full min-w-0 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-pib-text)] focus:border-[var(--color-accent-v2)] focus:outline-none"
                 />
               </label>
               <label className="min-w-0 space-y-1">
-                <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Due</span>
+                <span className="pib-label">Due</span>
                 <input
                   type="date"
                   value={dueDate}
                   onChange={(event) => setDueDate(event.target.value)}
-                  className="w-full min-w-0 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface focus:border-[var(--color-accent-v2)] focus:outline-none"
+                  className="w-full min-w-0 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-pib-text)] focus:border-[var(--color-accent-v2)] focus:outline-none"
                 />
               </label>
             </div>
 
             <label className="block space-y-1">
-              <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Estimate</span>
+              <span className="pib-label">Estimate</span>
               <input
                 type="number"
                 min="0"
@@ -464,22 +464,22 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                 value={estimateHours}
                 onChange={(event) => setEstimateHours(event.target.value)}
                 placeholder="Hours"
-                className="w-full min-w-0 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
+                className="w-full min-w-0 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-[var(--color-accent-v2)] focus:outline-none"
               />
             </label>
 
             <label className="block space-y-1">
-              <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Tags</span>
+              <span className="pib-label">Tags</span>
               <input
                 value={labels}
                 onChange={(event) => setLabels(event.target.value)}
                 placeholder="design, blocked, client"
-                className="w-full min-w-0 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
+                className="w-full min-w-0 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-[var(--color-accent-v2)] focus:outline-none"
               />
             </label>
 
             <div>
-              <p className="mb-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{isAdminSurface ? 'Admin context' : 'Context'}</p>
+              <p className="mb-2 pib-label">{isAdminSurface ? 'Admin context' : 'Context'}</p>
               <ContextReferencePicker
                 orgId={orgId}
                 projectId={projectId}
@@ -491,9 +491,9 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
             </div>
 
             <div>
-              <p className="mb-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{isAdminSurface ? 'Operator assignment' : 'Assignment'}</p>
+              <p className="mb-2 pib-label">{isAdminSurface ? 'Operator assignment' : 'Assignment'}</p>
               {!hideAgentSection && (
-                <div className="mb-2 grid grid-cols-1 gap-1 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 sm:grid-cols-3">
+                <div className="mb-2 grid grid-cols-1 gap-1 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] p-1 sm:grid-cols-3">
                   {(['people', 'agent', 'orchestration'] as const).map((mode) => (
                     <button
                       key={mode}
@@ -511,7 +511,7 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                       className={`rounded px-2 py-1.5 text-[11px] font-label capitalize transition-colors ${
                         assignmentMode === mode
                           ? 'bg-[var(--color-accent-v2)] text-black'
-                          : 'text-on-surface-variant hover:bg-[var(--color-surface-container)] hover:text-on-surface'
+                          : 'text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]'
                       }`}
                     >
                       {mode}
@@ -520,40 +520,40 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                 </div>
               )}
               {assignmentMode === 'people' || hideAgentSection ? (
-              <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-2">
+              <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] p-2">
                 {members.length === 0 ? (
-                  <p className="px-2 py-3 text-xs text-on-surface-variant">No team members found.</p>
+                  <p className="px-2 py-3 text-xs text-[var(--color-pib-text-muted)]">No team members found.</p>
                 ) : (
                   members.map((member) => (
-                    <label key={member.userId} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-[var(--color-surface-container)]">
+                    <label key={member.userId} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-[var(--color-row-hover)]">
                       <input
                         type="checkbox"
                         checked={assigneeIds.includes(member.userId)}
                         onChange={() => setAssigneeIds((current) => toggleValue(current, member.userId))}
                         className="accent-[var(--color-accent-v2)]"
                       />
-                      <span className="min-w-0 flex-1 truncate text-sm text-on-surface">{memberLabel(member)}</span>
+                      <span className="min-w-0 flex-1 truncate text-sm text-[var(--color-pib-text)]">{memberLabel(member)}</span>
                     </label>
                   ))
                 )}
               </div>
               ) : assignmentMode === 'agent' ? (
-                <div className="space-y-1 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-2">
+                <div className="space-y-1 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] p-2">
                   {activeAgents(agents).length === 0 ? (
-                    <p className="px-2 py-2 text-xs text-on-surface-variant">No agents available.</p>
+                    <p className="px-2 py-2 text-xs text-[var(--color-pib-text-muted)]">No agents available.</p>
                   ) : (
                     activeAgents(agents).map((agent) => (
-                      <label key={agent.agentId} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-[var(--color-surface-container)]">
+                      <label key={agent.agentId} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-[var(--color-row-hover)]">
                         <input
                           type="radio"
                           checked={assigneeAgentId === agent.agentId}
                           onChange={() => setAssigneeAgentId(agent.agentId)}
                           className="accent-[var(--color-accent-v2)]"
                         />
-                        <span className="material-symbols-outlined text-[16px] text-on-surface-variant">
+                        <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">
                           {agent.iconKey ?? 'smart_toy'}
                         </span>
-                        <span className="min-w-0 flex-1 truncate text-sm text-on-surface">{agentLabel(agent)}</span>
+                        <span className="min-w-0 flex-1 truncate text-sm text-[var(--color-pib-text)]">{agentLabel(agent)}</span>
                         {agent.lastHealthStatus && (
                           <span className={`h-1.5 w-1.5 rounded-full ${
                             agent.lastHealthStatus === 'ok' ? 'bg-emerald-400' : agent.lastHealthStatus === 'degraded' ? 'bg-amber-400' : 'bg-red-400'
@@ -564,7 +564,7 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                   )}
                 </div>
               ) : (
-                <div className="rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-2">
+                <div className="rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] p-2">
                   <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5">
                     <input
                       type="radio"
@@ -572,19 +572,19 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                       readOnly
                       className="accent-[var(--color-accent-v2)]"
                     />
-                    <span className="material-symbols-outlined text-[16px] text-on-surface-variant">hub</span>
-                    <span className="min-w-0 flex-1 truncate text-sm text-on-surface">Pip orchestration</span>
+                    <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">hub</span>
+                    <span className="min-w-0 flex-1 truncate text-sm text-[var(--color-pib-text)]">Pip orchestration</span>
                   </label>
                 </div>
               )}
               {!hideAgentSection && assigneeAgentId && assignmentMode !== 'people' && (
-                <div className="mt-3 grid gap-2 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 sm:grid-cols-2">
+                <div className="mt-3 grid gap-2 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] p-3 sm:grid-cols-2">
                   <label className="space-y-1">
-                    <span className="block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Effort</span>
+                    <span className="block pib-label">Effort</span>
                     <select
                       value={agentEffort}
                       onChange={(event) => setAgentEffort(event.target.value as AgentEffort | '')}
-                      className="w-full min-w-0 rounded-md border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-2 py-2 text-xs text-on-surface focus:border-[var(--color-accent-v2)] focus:outline-none"
+                      className="w-full min-w-0 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-2 py-2 text-xs text-[var(--color-pib-text)] focus:border-[var(--color-accent-v2)] focus:outline-none"
                     >
                       <option value="">Auto</option>
                       {AGENT_EFFORT_OPTIONS.map((option) => (
@@ -593,11 +593,11 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                     </select>
                   </label>
                   <label className="space-y-1">
-                    <span className="block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Model</span>
+                    <span className="block pib-label">Model</span>
                     <select
                       value={agentModel}
                       onChange={(event) => setAgentModel(event.target.value as AgentModel | '')}
-                      className="w-full min-w-0 rounded-md border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-2 py-2 text-xs text-on-surface focus:border-[var(--color-accent-v2)] focus:outline-none"
+                      className="w-full min-w-0 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-2 py-2 text-xs text-[var(--color-pib-text)] focus:border-[var(--color-accent-v2)] focus:outline-none"
                     >
                       <option value="">Auto</option>
                       {AGENT_MODEL_OPTIONS.map((option) => (
@@ -617,7 +617,7 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                       className={`rounded-full px-2 py-1 text-[10px] ${
                         mentionIds.includes(member.userId)
                           ? 'bg-[var(--color-accent-v2)] text-black'
-                          : 'bg-[var(--color-surface-container)] text-on-surface-variant'
+                          : 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]'
                       }`}
                     >
                       @{memberLabel(member)}
@@ -628,40 +628,40 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
             </div>
 
             <div>
-              <p className="mb-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Dependencies</p>
-              <div className="max-h-32 space-y-1 overflow-y-auto rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-2">
+              <p className="mb-2 pib-label">Dependencies</p>
+              <div className="max-h-32 space-y-1 overflow-y-auto rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] p-2">
                 {existingTasks.filter((item) => item.id).length === 0 ? (
-                  <p className="px-2 py-2 text-xs text-on-surface-variant">No existing tasks to depend on.</p>
+                  <p className="px-2 py-2 text-xs text-[var(--color-pib-text-muted)]">No existing tasks to depend on.</p>
                 ) : existingTasks.filter((item) => item.id).map((item) => (
-                  <label key={item.id} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-[var(--color-surface-container)]">
+                  <label key={item.id} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-[var(--color-row-hover)]">
                     <input
                       type="checkbox"
                       checked={dependsOn.includes(item.id)}
                       onChange={() => setDependsOn((current) => toggleValue(current, item.id))}
                       className="accent-[var(--color-accent-v2)]"
                     />
-                    <span className="min-w-0 flex-1 truncate text-sm text-on-surface">{item.title}</span>
+                    <span className="min-w-0 flex-1 truncate text-sm text-[var(--color-pib-text)]">{item.title}</span>
                   </label>
                 ))}
               </div>
             </div>
 
             <div>
-              <p className="mb-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Review by</p>
-              <div className="max-h-32 space-y-1 overflow-y-auto rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] p-2">
+              <p className="mb-2 pib-label">Review by</p>
+              <div className="max-h-32 space-y-1 overflow-y-auto rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] p-2">
                 {members.map((member) => (
-                  <label key={member.userId} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-[var(--color-surface-container)]">
+                  <label key={member.userId} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-[var(--color-row-hover)]">
                     <input
                       type="checkbox"
                       checked={reviewerIds.includes(member.userId)}
                       onChange={() => setReviewerIds((current) => toggleValue(current, member.userId))}
                       className="accent-[var(--color-accent-v2)]"
                     />
-                    <span className="min-w-0 flex-1 truncate text-sm text-on-surface">{memberLabel(member)}</span>
+                    <span className="min-w-0 flex-1 truncate text-sm text-[var(--color-pib-text)]">{memberLabel(member)}</span>
                   </label>
                 ))}
                 {!hideAgentSection && activeAgents(agents).map((agent) => (
-                  <label key={agent.agentId} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-[var(--color-surface-container)]">
+                  <label key={agent.agentId} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-[var(--color-row-hover)]">
                     <input
                       type="radio"
                       name="reviewerAgent"
@@ -669,55 +669,55 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                       onChange={() => setReviewerAgentId(reviewerAgentId === agent.agentId ? '' : agent.agentId)}
                       className="accent-[var(--color-accent-v2)]"
                     />
-                    <span className="material-symbols-outlined text-[16px] text-on-surface-variant">{agent.iconKey ?? 'rate_review'}</span>
-                    <span className="min-w-0 flex-1 truncate text-sm text-on-surface">{agentLabel(agent)}</span>
+                    <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">{agent.iconKey ?? 'rate_review'}</span>
+                    <span className="min-w-0 flex-1 truncate text-sm text-[var(--color-pib-text)]">{agentLabel(agent)}</span>
                   </label>
                 ))}
               </div>
             </div>
             <div className="space-y-3 rounded-md border border-purple-400/20 bg-purple-500/5 p-3">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Review model</p>
+              <p className="pib-label">Review model</p>
               <label className="block space-y-1">
-                <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Required capability</span>
+                <span className="pib-label">Required capability</span>
                 <input
                   value={requiredCapability}
                   onChange={(event) => setRequiredCapability(event.target.value)}
                   placeholder="platform-engineering"
-                  className="w-full min-w-0 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none"
+                  className="w-full min-w-0 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-[var(--color-accent-v2)] focus:outline-none"
                 />
               </label>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <label className="space-y-1">
-                  <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Risk</span>
-                  <select value={riskLevel} onChange={(event) => setRiskLevel(event.target.value as (typeof RISK_LEVELS)[number] | '')} className="w-full rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-2 py-2 text-xs text-on-surface focus:border-[var(--color-accent-v2)] focus:outline-none">
+                  <span className="pib-label">Risk</span>
+                  <select value={riskLevel} onChange={(event) => setRiskLevel(event.target.value as (typeof RISK_LEVELS)[number] | '')} className="w-full rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] px-2 py-2 text-xs text-[var(--color-pib-text)] focus:border-[var(--color-accent-v2)] focus:outline-none">
                     <option value="">Unset</option>
                     {RISK_LEVELS.map((item) => <option key={item} value={item}>{item}</option>)}
                   </select>
                 </label>
                 <label className="space-y-1">
-                  <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Approval gate</span>
-                  <select value={approvalGate} onChange={(event) => setApprovalGate(event.target.value as (typeof APPROVAL_GATES)[number] | '')} className="w-full rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-2 py-2 text-xs text-on-surface focus:border-[var(--color-accent-v2)] focus:outline-none">
+                  <span className="pib-label">Approval gate</span>
+                  <select value={approvalGate} onChange={(event) => setApprovalGate(event.target.value as (typeof APPROVAL_GATES)[number] | '')} className="w-full rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] px-2 py-2 text-xs text-[var(--color-pib-text)] focus:border-[var(--color-accent-v2)] focus:outline-none">
                     <option value="">Unset</option>
                     {APPROVAL_GATES.map((item) => <option key={item} value={item}>{item}</option>)}
                   </select>
                 </label>
               </div>
               <label className="block space-y-1">
-                <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Expected artifacts</span>
-                <textarea value={expectedArtifactsText} onChange={(event) => setExpectedArtifactsText(event.target.value)} placeholder="One artifact per line" rows={3} className="w-full resize-y rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-xs text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none" />
+                <span className="pib-label">Expected artifacts</span>
+                <textarea value={expectedArtifactsText} onChange={(event) => setExpectedArtifactsText(event.target.value)} placeholder="One artifact per line" rows={3} className="w-full resize-y rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] px-3 py-2 text-xs text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-[var(--color-accent-v2)] focus:outline-none" />
               </label>
               <label className="block space-y-1">
-                <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Verifier checklist</span>
-                <textarea value={verifierChecklistText} onChange={(event) => setVerifierChecklistText(event.target.value)} placeholder="One verification check per line" rows={3} className="w-full resize-y rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-xs text-on-surface placeholder:text-on-surface-variant focus:border-[var(--color-accent-v2)] focus:outline-none" />
+                <span className="pib-label">Verifier checklist</span>
+                <textarea value={verifierChecklistText} onChange={(event) => setVerifierChecklistText(event.target.value)} placeholder="One verification check per line" rows={3} className="w-full resize-y rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] px-3 py-2 text-xs text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-[var(--color-accent-v2)] focus:outline-none" />
               </label>
-              <p className="text-[10px] leading-snug text-on-surface-variant">Review status is quality control. Approval gate is business authority and still requires explicit approval before gated actions.</p>
+              <p className="text-[10px] leading-snug text-[var(--color-pib-text-muted)]">Review status is quality control. Approval gate is business authority and still requires explicit approval before gated actions.</p>
             </div>
           </aside>
         </div>
 
-        {error && <p className="border-t border-[var(--color-card-border)] px-5 py-3 text-xs text-[#ef4444]">{error}</p>}
+        {error && <p className="border-t border-[var(--color-pib-line)] px-5 py-3 text-xs text-[#ef4444]">{error}</p>}
 
-        <footer data-testid="task-composer-footer" className="flex flex-col-reverse items-stretch justify-end gap-2 border-t border-[var(--color-card-border)] px-5 py-4 sm:flex-row sm:items-center">
+        <footer data-testid="task-composer-footer" className="flex flex-col-reverse items-stretch justify-end gap-2 border-t border-[var(--color-pib-line)] px-5 py-4 sm:flex-row sm:items-center">
           <button type="button" onClick={() => { reset(); onClose() }} disabled={saving} className="pib-btn-secondary w-full text-sm font-label sm:w-auto">
             Cancel
           </button>

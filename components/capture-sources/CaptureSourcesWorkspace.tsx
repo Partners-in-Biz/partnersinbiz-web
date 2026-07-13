@@ -32,7 +32,7 @@ const TYPE_STYLES: Record<CaptureSourceType, string> = {
   api: 'bg-purple-500/15 text-purple-300 border border-purple-500/25',
   csv: 'bg-amber-500/15 text-amber-300 border border-amber-500/25',
   integration: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/25',
-  manual: 'bg-white/10 text-on-surface-variant border border-[var(--color-card-border)]',
+  manual: 'bg-white/10 text-[var(--color-pib-text-muted)] border border-[var(--color-card-border)]',
 }
 
 const TYPE_LABELS: Record<CaptureSourceType, string> = {
@@ -89,19 +89,19 @@ function MetricCard({
     <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 p-2">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">
+          <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-pib-text-muted)]">
             {label}
           </p>
-          <p className="mt-1 text-lg font-semibold text-on-surface">{value}</p>
+          <p className="mt-1 text-lg font-semibold text-[var(--color-pib-text)]">{value}</p>
         </div>
         <span
-          className="material-symbols-outlined rounded-lg border border-[var(--color-card-border)] bg-white/[0.04] p-2 text-[18px] text-on-surface-variant"
+          className="material-symbols-outlined rounded-lg border border-[var(--color-card-border)] bg-white/[0.04] p-2 text-[18px] text-[var(--color-pib-text-muted)]"
           aria-hidden="true"
         >
           {icon}
         </span>
       </div>
-      <p className="mt-1 text-[11px] leading-4 text-on-surface-variant">{detail}</p>
+      <p className="mt-1 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{detail}</p>
     </div>
   )
 }
@@ -119,7 +119,7 @@ function CopyButton({ value, label = 'Copy' }: { value: string; label?: string }
           // ignore
         }
       }}
-      className="px-2.5 py-1 rounded-md text-xs bg-white/[0.04] hover:bg-white/[0.08] text-on-surface border border-[var(--color-card-border)] transition-colors"
+      className="px-2.5 py-1 rounded-md text-xs bg-white/[0.04] hover:bg-white/[0.08] text-[var(--color-pib-text)] border border-[var(--color-card-border)] transition-colors"
       type="button"
     >
       {copied ? 'Copied' : label}
@@ -310,7 +310,7 @@ function SourceCard({
       <div className="p-4 flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <span
-            className="material-symbols-outlined rounded-lg border border-[var(--color-card-border)] bg-white/[0.04] p-2 text-on-surface-variant text-[20px]"
+            className="material-symbols-outlined rounded-lg border border-[var(--color-card-border)] bg-white/[0.04] p-2 text-[var(--color-pib-text-muted)] text-[20px]"
             aria-hidden="true"
           >
             inventory_2
@@ -329,19 +329,19 @@ function SourceCard({
                   }
                 }}
                 autoFocus
-                className="h-8 w-full max-w-xs rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs font-medium text-on-surface"
+                className="h-8 w-full max-w-xs rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs font-medium text-[var(--color-pib-text)]"
               />
             ) : (
               <button
                 onClick={() => setEditingName(true)}
-                className="font-medium text-on-surface hover:underline text-left truncate"
+                className="font-medium text-[var(--color-pib-text)] hover:underline text-left truncate"
                 type="button"
                 title="Click to rename"
               >
                 {displayName}
               </button>
             )}
-            <p className="text-xs text-on-surface-variant mt-0.5">
+            <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">
               {captured} captured
               {lastAt ? <span> · last {lastAt}</span> : null}
             </p>
@@ -349,7 +349,7 @@ function SourceCard({
               {readinessItems.map((item) => (
                 <span
                   key={item}
-                  className="rounded-full border border-[var(--color-card-border)] bg-white/[0.03] px-2 py-0.5 text-[11px] text-on-surface-variant"
+                  className="rounded-full border border-[var(--color-card-border)] bg-white/[0.03] px-2 py-0.5 text-[11px] text-[var(--color-pib-text-muted)]"
                 >
                   {item}
                 </span>
@@ -360,7 +360,7 @@ function SourceCard({
           <StatusBadge source={source} />
         </div>
         <div className="flex items-center gap-2">
-          <label className="flex items-center gap-2 text-xs text-on-surface-variant cursor-pointer select-none">
+          <label className="flex items-center gap-2 text-xs text-[var(--color-pib-text-muted)] cursor-pointer select-none">
             <input
               type="checkbox"
               checked={source.enabled}
@@ -372,7 +372,7 @@ function SourceCard({
           </label>
           <button
             onClick={() => setExpanded((v) => !v)}
-            className="px-3 py-1.5 rounded-lg bg-white/[0.04] text-on-surface text-sm border border-[var(--color-card-border)] hover:bg-white/[0.08] transition-colors"
+            className="px-3 py-1.5 rounded-lg bg-white/[0.04] text-[var(--color-pib-text)] text-sm border border-[var(--color-card-border)] hover:bg-white/[0.08] transition-colors"
             type="button"
             aria-label={`${expanded ? 'Hide details' : 'Details'} for ${displayName}`}
           >
@@ -387,18 +387,18 @@ function SourceCard({
         <div className="space-y-3 border-t border-[var(--color-card-border)] p-3">
           {/* Public key */}
           <div>
-            <label className="block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant mb-1.5">
+            <label className="block text-[10px] font-medium uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1.5">
               Public ingest key
             </label>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-mono text-xs px-2 py-1 rounded-md bg-[var(--color-surface-container)] border border-[var(--color-card-border)] break-all text-on-surface">
+              <span className="font-mono text-xs px-2 py-1 rounded-md bg-[var(--color-pib-surface-soft)] border border-[var(--color-card-border)] break-all text-[var(--color-pib-text)]">
                 {source.publicKey}
               </span>
               <CopyButton value={source.publicKey} />
               <button
                 onClick={() => setRotateConfirmOpen(true)}
                 disabled={busy}
-                className="px-2.5 py-1 rounded-md text-xs bg-white/[0.04] hover:bg-white/[0.08] text-on-surface border border-[var(--color-card-border)] transition-colors disabled:opacity-50"
+                className="px-2.5 py-1 rounded-md text-xs bg-white/[0.04] hover:bg-white/[0.08] text-[var(--color-pib-text)] border border-[var(--color-card-border)] transition-colors disabled:opacity-50"
                 type="button"
                 aria-label={`Rotate public key for ${displayName}`}
               >
@@ -419,7 +419,7 @@ function SourceCard({
                     </span>
                     <div className="min-w-0">
                       <p className="eyebrow !text-[10px] text-amber-100">Public key rotation confirmation</p>
-                      <h3 id={`capture-source-rotate-title-${source.id}`} className="mt-1 font-display text-lg text-on-surface">
+                      <h3 id={`capture-source-rotate-title-${source.id}`} className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
                         Rotate public key for &quot;{displayName}&quot;?
                       </h3>
                       <p id={`capture-source-rotate-description-${source.id}`} className="mt-2 text-sm text-amber-50/90">
@@ -431,7 +431,7 @@ function SourceCard({
                     <button
                       type="button"
                       onClick={() => setRotateConfirmOpen(false)}
-                      className="h-8 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant hover:bg-white/[0.05] hover:text-on-surface"
+                      className="h-8 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                       disabled={busy}
                       aria-label={`Cancel key rotation for capture source ${displayName}`}
                     >
@@ -458,10 +458,10 @@ function SourceCard({
           {/* Snippet (form only) */}
           {source.type === 'form' && (
             <div>
-              <label className="block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant mb-1.5">
+              <label className="block text-[10px] font-medium uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1.5">
                 Embed snippet
               </label>
-              <div className="rounded-md bg-[var(--color-surface-container)] border border-[var(--color-card-border)] p-3 font-mono text-xs text-on-surface whitespace-pre-wrap break-all">
+              <div className="rounded-md bg-[var(--color-pib-surface-soft)] border border-[var(--color-card-border)] p-3 font-mono text-xs text-[var(--color-pib-text)] whitespace-pre-wrap break-all">
                 {buildSnippet(source.publicKey)}
               </div>
               <div className="mt-2">
@@ -473,10 +473,10 @@ function SourceCard({
           {/* curl (api only) */}
           {source.type === 'api' && (
             <div>
-              <label className="block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant mb-1.5">
+              <label className="block text-[10px] font-medium uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1.5">
                 API endpoint
               </label>
-              <div className="rounded-md bg-[var(--color-surface-container)] border border-[var(--color-card-border)] p-3 font-mono text-xs text-on-surface whitespace-pre-wrap break-all">
+              <div className="rounded-md bg-[var(--color-pib-surface-soft)] border border-[var(--color-card-border)] p-3 font-mono text-xs text-[var(--color-pib-text)] whitespace-pre-wrap break-all">
                 {buildCurl(source.publicKey)}
               </div>
               <div className="mt-2">
@@ -487,7 +487,7 @@ function SourceCard({
 
           {/* Auto-tags */}
           <div>
-            <label className="block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant mb-1.5">
+            <label className="block text-[10px] font-medium uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1.5">
               Auto-tags
             </label>
             <input
@@ -495,20 +495,20 @@ function SourceCard({
               onChange={(e) => setTagsDraft(e.target.value)}
               onBlur={handleTagsBlur}
               placeholder="lead, website, newsletter"
-              className="w-full px-3 py-2 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] text-on-surface text-sm"
+              className="w-full px-3 py-2 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)] text-[var(--color-pib-text)] text-sm"
             />
-            <p className="text-xs text-on-surface-variant mt-1">
+            <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">
               Comma-separated. Applied to every captured contact.
             </p>
           </div>
 
           {/* Auto-enroll campaigns */}
           <div>
-            <label className="block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant mb-1.5">
+            <label className="block text-[10px] font-medium uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1.5">
               Auto-enroll campaigns
             </label>
             {campaigns.length === 0 ? (
-              <p className="text-sm text-on-surface-variant">
+              <p className="text-sm text-[var(--color-pib-text-muted)]">
                 No active campaigns to choose from.
               </p>
             ) : (
@@ -518,7 +518,7 @@ function SourceCard({
                   return (
                     <label
                       key={c.id}
-                      className="flex items-center gap-2 text-sm text-on-surface cursor-pointer select-none"
+                      className="flex items-center gap-2 text-sm text-[var(--color-pib-text)] cursor-pointer select-none"
                     >
                       <input
                         type="checkbox"
@@ -537,11 +537,11 @@ function SourceCard({
 
           {/* Auto-enroll direct sequences */}
           <div>
-            <label className="block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant mb-1.5">
+            <label className="block text-[10px] font-medium uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1.5">
               Auto-enroll sequences
             </label>
             {sequences.length === 0 ? (
-              <p className="text-sm text-on-surface-variant">
+              <p className="text-sm text-[var(--color-pib-text-muted)]">
                 No active sequences to choose from.{' '}
                 <Link href={sequenceNewHref} className="text-primary hover:underline">
                   Create a sequence
@@ -554,7 +554,7 @@ function SourceCard({
                   return (
                     <label
                       key={sequence.id}
-                      className="flex items-center gap-2 text-sm text-on-surface cursor-pointer select-none"
+                      className="flex items-center gap-2 text-sm text-[var(--color-pib-text)] cursor-pointer select-none"
                     >
                       <input
                         type="checkbox"
@@ -575,7 +575,7 @@ function SourceCard({
           {source.type === 'form' && (
             <>
               <div>
-                <label className="block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant mb-1.5">
+                <label className="block text-[10px] font-medium uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1.5">
                   Redirect URL
                 </label>
                 <input
@@ -584,14 +584,14 @@ function SourceCard({
                   onBlur={handleRedirectBlur}
                   placeholder="https://example.com/thanks"
                   type="url"
-                  className="w-full px-3 py-2 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] text-on-surface text-sm"
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)] text-[var(--color-pib-text)] text-sm"
                 />
-                <p className="text-xs text-on-surface-variant mt-1">
+                <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">
                   Where the form sends visitors after a successful submit. Leave empty to show a thank-you message in place.
                 </p>
               </div>
 
-              <label className="flex items-center gap-2 text-sm text-on-surface cursor-pointer select-none">
+              <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text)] cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={source.consentRequired}
@@ -620,7 +620,7 @@ function SourceCard({
                     </span>
                     <div className="min-w-0">
                       <p className="eyebrow !text-[10px] text-red-200">Capture source delete confirmation</p>
-                      <h3 id={`capture-source-delete-title-${source.id}`} className="mt-1 font-display text-lg text-on-surface">
+                      <h3 id={`capture-source-delete-title-${source.id}`} className="mt-1 font-display text-lg text-[var(--color-pib-text)]">
                         Delete capture source &quot;{displayName}&quot;?
                       </h3>
                       <p id={`capture-source-delete-description-${source.id}`} className="mt-2 text-sm text-red-100/90">
@@ -632,7 +632,7 @@ function SourceCard({
                     <button
                       type="button"
                       onClick={() => setDeleteConfirmOpen(false)}
-                      className="h-8 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant hover:bg-white/[0.05] hover:text-on-surface"
+                      className="h-8 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                       disabled={busy}
                       aria-label={`Cancel delete for capture source ${displayName}`}
                     >
@@ -852,8 +852,8 @@ export function CaptureSourcesWorkspace({
       <header className="flex min-h-11 items-center justify-between gap-3 border-b border-[var(--color-card-border)] px-3 py-2">
         <div>
           <p className="eyebrow">{orgName || 'CRM'}</p>
-          <h1 className="mt-0.5 text-base font-semibold text-on-surface">Capture command center</h1>
-          <p className="max-w-2xl text-xs leading-4 text-on-surface-variant">
+          <h1 className="mt-0.5 text-base font-semibold text-[var(--color-pib-text)]">Capture command center</h1>
+          <p className="max-w-2xl text-xs leading-4 text-[var(--color-pib-text-muted)]">
             {surface === 'admin-org'
               ? 'Internal operator surface for this client: manage every path that feeds contacts into the CRM while every read and write carries explicit organisation scope.'
               : 'Manage every path that feeds contacts into the CRM, from embedded forms to partner APIs and CSV imports. Keep each channel measurable, tagged, and ready for follow-up.'}
@@ -861,7 +861,7 @@ export function CaptureSourcesWorkspace({
         </div>
         <Link
           href={importHref}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
         >
           <span className="material-symbols-outlined text-base" aria-hidden="true">
             upload_file
@@ -901,8 +901,8 @@ export function CaptureSourcesWorkspace({
         <div className="p-3 xl:border-r xl:border-[var(--color-card-border)]">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-sm font-medium text-on-surface">Create an intake channel</h2>
-              <p className="mt-1 text-xs text-on-surface-variant">
+              <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Create an intake channel</h2>
+              <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
                 Start with the channel type, then add tags, nurture routing, consent, and embed/API instructions from the source card.
               </p>
             </div>
@@ -913,14 +913,14 @@ export function CaptureSourcesWorkspace({
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Source name (e.g. Homepage form)"
-              className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface"
+              className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-[var(--color-pib-text)]"
               disabled={submitting}
               autoComplete="off"
             />
             <select
               value={newType}
               onChange={(e) => setNewType(e.target.value as CaptureSourceType)}
-              className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface"
+              className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-[var(--color-pib-text)]"
               disabled={submitting}
               aria-label="Capture source type"
             >
@@ -940,13 +940,13 @@ export function CaptureSourcesWorkspace({
         </div>
 
         <div className="p-3">
-          <h2 className="text-sm font-medium text-on-surface">Channel mix</h2>
-          <p className="mt-1 text-xs text-on-surface-variant">
+          <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Channel mix</h2>
+          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
             Balance high-intent forms with imports and partner APIs so CRM growth is not trapped in one channel.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             {sourceMix.length === 0 ? (
-              <span className="text-sm text-on-surface-variant">No channels yet</span>
+              <span className="text-sm text-[var(--color-pib-text-muted)]">No channels yet</span>
             ) : (
               sourceMix.map((type) => <TypeBadge key={type} type={type} />)
             )}
@@ -967,16 +967,16 @@ export function CaptureSourcesWorkspace({
               <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">warning</span>
               <div>
                 <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
-                <h2 className="mt-1 font-display text-xl text-on-surface">
+                <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
                   Capture sources could not load
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-on-surface-variant">{loadError}</p>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{loadError}</p>
               </div>
             </div>
             <button
               type="button"
               onClick={loadSources}
-              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant hover:bg-white/[0.05] hover:text-on-surface"
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
               aria-label="Retry loading capture sources"
             >
               <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
@@ -994,10 +994,10 @@ export function CaptureSourcesWorkspace({
                 </span>
               </span>
               <p className="eyebrow !text-[10px]">Intake launch</p>
-              <h2 className="mt-3 text-xl font-semibold text-on-surface">
+              <h2 className="mt-3 text-xl font-semibold text-[var(--color-pib-text)]">
                 No tracked intake channels yet.
               </h2>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-on-surface-variant">
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
                 Create the first capture source so contacts arrive with source attribution, consent context, tags, and a visible follow-up path for the team.
               </p>
               <div className="mt-5 flex flex-wrap items-center gap-2">
@@ -1013,7 +1013,7 @@ export function CaptureSourcesWorkspace({
                 </button>
                 <Link
                   href={importHref}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant hover:bg-white/[0.05] hover:text-on-surface"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                 >
                   <span className="material-symbols-outlined text-[16px]" aria-hidden>
                     upload_file
@@ -1023,7 +1023,7 @@ export function CaptureSourcesWorkspace({
               </div>
             </div>
             <div className="border-t border-[var(--color-card-border)] bg-black/10 p-4 lg:border-l lg:border-t-0">
-              <p className="text-xs font-medium uppercase tracking-widest text-on-surface-variant">
+              <p className="text-xs font-medium uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                 First-channel checklist
               </p>
               <div className="mt-4 space-y-3">
@@ -1033,8 +1033,8 @@ export function CaptureSourcesWorkspace({
                   ['Routing', 'Add tags or campaigns before the channel receives traffic.'],
                 ].map(([label, copy]) => (
                   <div key={label} className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.03] p-3">
-                    <p className="text-sm font-medium text-on-surface">{label}</p>
-                    <p className="mt-1 text-xs leading-5 text-on-surface-variant">{copy}</p>
+                    <p className="text-sm font-medium text-[var(--color-pib-text)]">{label}</p>
+                    <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{copy}</p>
                   </div>
                 ))}
               </div>

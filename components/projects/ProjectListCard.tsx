@@ -123,7 +123,7 @@ function StatusBadge({ status }: { status: string }) {
   const s = STATUS_META[status] ?? { label: status.replace(/_/g, ' '), color: 'var(--color-outline)' }
   return (
     <span
-      className="inline-flex items-center rounded-full px-2 py-1 text-[10px] font-label uppercase tracking-wide"
+      className="pib-label inline-flex items-center rounded-full px-2 py-1"
       style={{ background: `${s.color}18`, color: s.color, border: `1px solid ${s.color}33` }}
     >
       {s.label}
@@ -139,7 +139,7 @@ export function ProjectListCard({ project, href }: { project: ProjectListCardPro
   return (
     <Link
       href={href}
-      className="group/card relative flex min-h-[178px] overflow-hidden rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--color-pib-accent)]/60 hover:shadow-[0_18px_40px_rgba(0,0,0,0.24)]"
+      className="pib-card group/card relative flex min-h-[178px] overflow-hidden !p-0 transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--color-pib-accent)]/60"
     >
       <span className="absolute inset-y-0 left-0 w-1.5" style={{ background: meta.color }} />
       <div className="flex min-w-0 flex-1 flex-col p-5 pl-6">
@@ -152,10 +152,10 @@ export function ProjectListCard({ project, href }: { project: ProjectListCardPro
               <span className="material-symbols-outlined block text-[20px] leading-none">{meta.icon}</span>
             </span>
             <div className="min-w-0">
-              <h3 className="line-clamp-2 text-base font-headline font-semibold leading-snug text-on-surface group-hover/card:text-[var(--color-pib-accent-hover)]">
+              <h3 className="line-clamp-2 text-base font-headline font-semibold leading-snug text-[var(--color-pib-text)] group-hover/card:text-[var(--color-pib-accent-hover)]">
                 {project.name}
               </h3>
-              <p className="mt-1 text-xs text-on-surface-variant">{updated}</p>
+              <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{updated}</p>
             </div>
           </div>
           <div className="shrink-0 pr-8">
@@ -163,12 +163,12 @@ export function ProjectListCard({ project, href }: { project: ProjectListCardPro
           </div>
         </div>
 
-        <p className="mt-4 line-clamp-2 text-sm leading-6 text-on-surface-variant">{description}</p>
+        <p className="mt-4 line-clamp-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{description}</p>
 
         <div className="mt-auto pt-5">
           <div className="mb-2 flex items-center justify-between gap-3">
-            <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Delivery progress</span>
-            <span className="font-mono text-[11px] text-on-surface-variant">{meta.progress}%</span>
+            <span className="pib-label">Delivery progress</span>
+            <span className="font-mono text-[11px] text-[var(--color-pib-text-muted)]">{meta.progress}%</span>
           </div>
           <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
             <div
@@ -177,7 +177,7 @@ export function ProjectListCard({ project, href }: { project: ProjectListCardPro
             />
           </div>
           <div className="mt-4 flex items-center justify-between text-xs">
-            <span className="inline-flex items-center gap-1.5 text-on-surface-variant">
+            <span className="inline-flex items-center gap-1.5 text-[var(--color-pib-text-muted)]">
               <span className="material-symbols-outlined text-[15px]">view_kanban</span>
               Board workspace
             </span>

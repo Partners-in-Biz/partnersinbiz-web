@@ -5,6 +5,7 @@ import type { ApiUser } from '@/lib/api/types'
 import { updateCreativeCanvasNodeReview } from '@/lib/creative-canvas/collaboration'
 import { getCreativeCanvas, updateCreativeCanvasGraph } from '@/lib/creative-canvas/store'
 import type { CreativeCanvasActor, CreativeCanvasNode } from '@/lib/creative-canvas/types'
+import { authorizeMarketingStudioMutation } from '@/lib/chat-context/marketingMutationAccess'
 
 export const dynamic = 'force-dynamic'
 
@@ -41,6 +42,8 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
   const { id, nodeId } = await (context as RouteContext).params
   const orgId = resolveOrgId(req, user)
   if (!orgId) return apiError('orgId is required', 400)
+  const policyAccess = await authorizeMarketingStudioMutation(user, orgId, 'approvePublish')
+  if (!policyAccess.ok) return apiError(policyAccess.error, policyAccess.status)
   const body = await req.json().catch(() => null)
   if (!body || typeof body !== 'object') return apiError('Malformed JSON body', 400)
   const payload = body as Record<string, unknown>

@@ -4,6 +4,7 @@ import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { retryCreativeCanvasProviderRun } from '@/lib/creative-canvas/runs'
 import type { CreativeCanvasActor } from '@/lib/creative-canvas/types'
+import { authorizeMarketingStudioMutation } from '@/lib/chat-context/marketingMutationAccess'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,6 +26,8 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
   const { runId } = await (context as RouteContext).params
   const orgId = resolveOrgId(req, user)
   if (!orgId) return apiError('orgId is required', 400)
+  const policyAccess = await authorizeMarketingStudioMutation(user, orgId, 'create')
+  if (!policyAccess.ok) return apiError(policyAccess.error, policyAccess.status)
 
   try {
     const run = await retryCreativeCanvasProviderRun(runId, orgId, actorFromUser(user))

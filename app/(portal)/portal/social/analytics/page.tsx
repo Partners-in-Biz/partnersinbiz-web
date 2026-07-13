@@ -117,27 +117,27 @@ function fmtNum(n: number): string {
 
 function PlatformBadge({ platform }: { platform: string }) {
   const cfg = PLATFORM_COLORS[platform.toLowerCase()]
-  if (!cfg) return <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-surface-container-high text-on-surface-variant uppercase">{platform}</span>
+  if (!cfg) return <span className="pib-pill uppercase">{platform}</span>
   return <span className={`${cfg.bg} text-white text-[10px] px-2 py-0.5 rounded font-bold`}>{cfg.label}</span>
 }
 
 function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
     <div className="pib-stat-card">
-      <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-2">{label}</p>
-      <p className="text-3xl font-headline font-bold text-on-surface">{value}</p>
-      {sub && <p className="text-xs text-on-surface-variant mt-1">{sub}</p>}
+      <p className="pib-label mb-2">{label}</p>
+      <p className="text-3xl font-headline font-bold text-[var(--color-pib-text)]">{value}</p>
+      {sub && <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">{sub}</p>}
     </div>
   )
 }
 
 function HeatCell({ value, max }: { value: number; max: number }) {
-  const intensity = max > 0 ? Math.round((value / max) * 255) : 0
-  const bg = value > 0 ? `rgba(255, 255, 255, ${intensity / 255 * 0.7})` : 'transparent'
+  const intensity = max > 0 ? Math.round((value / max) * 100) : 0
+  const bg = value > 0 ? `color-mix(in srgb, var(--color-pib-rose) ${Math.round(intensity * 0.7)}%, transparent)` : 'transparent'
   return (
     <div
-      className="w-8 h-8 rounded flex items-center justify-center text-[9px] font-medium"
-      style={{ backgroundColor: bg, color: intensity > 128 ? '#000' : '#999' }}
+      className="w-8 h-8 rounded flex items-center justify-center text-[9px] font-medium text-[var(--color-pib-text-muted)]"
+      style={{ backgroundColor: bg }}
       title={`Score: ${value}`}
     >
       {value > 0 ? value : ''}
@@ -287,22 +287,22 @@ export default function AnalyticsPage() {
   }, [analytics, filtered])
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-8">
       <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">Social</p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Analytics</h1>
-          <p className="text-sm text-on-surface-variant mt-0.5">Engagement data and performance insights</p>
-        </div>
+        <header>
+          <p className="eyebrow">Social</p>
+          <h1 className="pib-page-title mt-2">Analytics</h1>
+          <p className="pib-page-sub">Engagement data and performance insights</p>
+        </header>
         <div className="flex flex-col items-end gap-1">
           <button
             onClick={handleGeneratePdf}
             disabled={generating}
-            className="px-4 py-2 rounded-lg font-label text-xs font-medium bg-white text-black hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+            className="btn-pib-primary whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {generating ? 'Generating…' : 'Generate PDF'}
           </button>
-          {pdfError && <p className="text-[10px] text-red-400 max-w-[200px] text-right">{pdfError}</p>}
+          {pdfError && <p className="text-[10px] text-[var(--color-error)] max-w-[200px] text-right">{pdfError}</p>}
         </div>
       </div>
 
@@ -319,7 +319,7 @@ export default function AnalyticsPage() {
       />
 
       {/* Date range filter */}
-      <div className="flex gap-1">
+      <div className="pib-tabs pib-tabs-segmented w-fit">
         {([
           { key: '7d' as DateRange, label: 'Last 7 days' },
           { key: '30d' as DateRange, label: 'Last 30 days' },
@@ -328,9 +328,7 @@ export default function AnalyticsPage() {
           <button
             key={opt.key}
             onClick={() => setRange(opt.key)}
-            className={`px-3 py-1.5 rounded-lg font-label text-xs font-medium transition-colors ${
-              range === opt.key ? 'bg-white text-black' : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high'
-            }`}
+            className={`pib-tab ${range === opt.key ? 'pib-tab-active' : ''}`}
           >
             {opt.label}
           </button>
@@ -340,7 +338,7 @@ export default function AnalyticsPage() {
       {loading ? (
         <div className="space-y-2">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-12 rounded-xl bg-surface-container animate-pulse" />
+            <div key={i} className="pib-skeleton h-12" />
           ))}
         </div>
       ) : (
@@ -358,15 +356,15 @@ export default function AnalyticsPage() {
 
               {/* Engagement Breakdown — Horizontal Bar Chart */}
               <div className="pib-card space-y-3">
-                <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                <p className="pib-label">
                   Engagement Breakdown
                 </p>
                 <HorizontalBarChart
                   data={[
-                    { label: 'Likes', value: stats.totalLikes, color: '#4ade80' },
-                    { label: 'Comments', value: stats.totalComments, color: '#60a5fa' },
-                    { label: 'Shares', value: stats.totalShares, color: '#f472b6' },
-                    { label: 'Clicks', value: stats.totalClicks, color: '#fbbf24' },
+                    { label: 'Likes', value: stats.totalLikes, color: 'var(--color-pib-green)' },
+                    { label: 'Comments', value: stats.totalComments, color: 'var(--color-pib-blue)' },
+                    { label: 'Shares', value: stats.totalShares, color: 'var(--color-pib-rose)' },
+                    { label: 'Clicks', value: stats.totalClicks, color: 'var(--color-pib-amber)' },
                   ]}
                   valueFormatter={fmtNum}
                 />
@@ -377,7 +375,7 @@ export default function AnalyticsPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Donut */}
                   <div className="pib-card space-y-3">
-                    <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                    <p className="pib-label">
                       By Platform
                     </p>
                     <DonutChart
@@ -392,14 +390,14 @@ export default function AnalyticsPage() {
 
                   {/* Platform Detail Cards */}
                   <div className="pib-card space-y-3">
-                    <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                    <p className="pib-label">
                       Platform Performance
                     </p>
                     <div className="space-y-2">
                       {Object.entries(platformBreakdown).map(([platform, data]) => (
-                        <div key={platform} className="flex items-center gap-3 p-3 rounded-lg bg-[var(--color-surface-container)]">
+                        <div key={platform} className="flex items-center gap-3 rounded-lg border border-[var(--color-pib-line)] p-3">
                           <PlatformBadge platform={platform} />
-                          <span className="text-xs text-on-surface-variant flex-1">{data.posts} posts</span>
+                          <span className="text-xs text-[var(--color-pib-text-muted)] flex-1">{data.posts} posts</span>
                           <div className="flex gap-4 text-right">
                             {[
                               { label: 'Impr.', val: data.impressions },
@@ -407,8 +405,8 @@ export default function AnalyticsPage() {
                               { label: 'Shares', val: data.shares },
                             ].map(m => (
                               <div key={m.label}>
-                                <p className="text-[10px] text-on-surface-variant">{m.label}</p>
-                                <p className="text-xs font-medium text-on-surface">{fmtNum(m.val)}</p>
+                                <p className="text-[10px] text-[var(--color-pib-text-muted)]">{m.label}</p>
+                                <p className="text-xs font-medium text-[var(--color-pib-text)]">{fmtNum(m.val)}</p>
                               </div>
                             ))}
                           </div>
@@ -420,9 +418,9 @@ export default function AnalyticsPage() {
               )}
 
               {analytics.length === 0 && (
-                <div className="pib-card text-xs text-on-surface-variant">
+                <div className="pib-card text-xs text-[var(--color-pib-text-muted)]">
                   No analytics data collected yet. Analytics are gathered automatically at 1h, 24h, 7d, and 30d after publishing.{' '}
-                  <span className="font-medium text-on-surface">Published posts will start showing data after the first collection cycle.</span>
+                  <span className="font-medium text-[var(--color-pib-text)]">Published posts will start showing data after the first collection cycle.</span>
                 </div>
               )}
             </div>
@@ -432,12 +430,15 @@ export default function AnalyticsPage() {
           {tab === 'posts' && (
             <div className="space-y-4">
               {filtered.length === 0 ? (
-                <div className="pib-card py-16 text-center text-on-surface-variant text-sm">No published posts found.</div>
+                <div className="pib-empty-state">
+                  <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">query_stats</span>
+                  <h2 className="pib-empty-state-title">No published posts found.</h2>
+                </div>
               ) : (
-                <div className="pib-card !p-0 overflow-hidden">
-                  <div className="grid grid-cols-[90px_1fr_80px_80px_80px_80px_80px] gap-3 px-4 py-2.5 border-b border-outline-variant">
+                <div className="pib-surface pib-surface-table overflow-hidden">
+                  <div className="grid grid-cols-[90px_1fr_80px_80px_80px_80px_80px] gap-3 px-4 py-2.5 border-b border-[var(--color-pib-line)]">
                     {['Platform', 'Content', 'Impr.', 'Likes', 'Comments', 'Shares', 'Clicks'].map((h) => (
-                      <span key={h} className="text-[10px] font-medium text-on-surface-variant uppercase tracking-wide">{h}</span>
+                      <span key={h} className="pib-label">{h}</span>
                     ))}
                   </div>
 
@@ -461,20 +462,20 @@ export default function AnalyticsPage() {
                     return (
                       <div
                         key={post.id ?? i}
-                        className={`grid grid-cols-[90px_1fr_80px_80px_80px_80px_80px] gap-3 px-4 py-3 items-start ${i > 0 ? 'border-t border-outline-variant' : ''}`}
+                        className={`grid grid-cols-[90px_1fr_80px_80px_80px_80px_80px] gap-3 px-4 py-3 items-start hover:bg-[var(--color-row-hover)] ${i > 0 ? 'border-t border-[var(--color-pib-line)]' : ''}`}
                       >
                         <div className="flex flex-wrap gap-1 pt-0.5">
                           {platforms.map((p) => <PlatformBadge key={p} platform={p} />)}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm text-on-surface truncate">{text.slice(0, 80)}{text.length > 80 ? '…' : ''}</p>
-                          <p className="text-[10px] text-on-surface-variant mt-0.5">{fmtDate(post.publishedAt ?? post.scheduledFor)}</p>
+                          <p className="text-sm text-[var(--color-pib-text)] truncate">{text.slice(0, 80)}{text.length > 80 ? '…' : ''}</p>
+                          <p className="text-[10px] text-[var(--color-pib-text-muted)] mt-0.5">{fmtDate(post.publishedAt ?? post.scheduledFor)}</p>
                         </div>
-                        <span className={`text-xs pt-0.5 ${hasData ? 'text-on-surface' : 'text-on-surface-variant/40'}`}>{fmtNum(totals.impressions)}</span>
-                        <span className={`text-xs pt-0.5 ${hasData ? 'text-on-surface' : 'text-on-surface-variant/40'}`}>{fmtNum(totals.likes)}</span>
-                        <span className={`text-xs pt-0.5 ${hasData ? 'text-on-surface' : 'text-on-surface-variant/40'}`}>{fmtNum(totals.comments)}</span>
-                        <span className={`text-xs pt-0.5 ${hasData ? 'text-on-surface' : 'text-on-surface-variant/40'}`}>{fmtNum(totals.shares)}</span>
-                        <span className={`text-xs pt-0.5 ${hasData ? 'text-on-surface' : 'text-on-surface-variant/40'}`}>{fmtNum(totals.clicks)}</span>
+                        <span className={`text-xs pt-0.5 ${hasData ? 'text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)]/40'}`}>{fmtNum(totals.impressions)}</span>
+                        <span className={`text-xs pt-0.5 ${hasData ? 'text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)]/40'}`}>{fmtNum(totals.likes)}</span>
+                        <span className={`text-xs pt-0.5 ${hasData ? 'text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)]/40'}`}>{fmtNum(totals.comments)}</span>
+                        <span className={`text-xs pt-0.5 ${hasData ? 'text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)]/40'}`}>{fmtNum(totals.shares)}</span>
+                        <span className={`text-xs pt-0.5 ${hasData ? 'text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)]/40'}`}>{fmtNum(totals.clicks)}</span>
                       </div>
                     )
                   })}
@@ -487,41 +488,43 @@ export default function AnalyticsPage() {
           {tab === 'best-times' && (
             <div className="space-y-4">
               {bestTimes.length === 0 ? (
-                <div className="pib-card py-8 text-center text-on-surface-variant text-sm">
-                  Not enough data to calculate best posting times. Keep publishing and analytics will be collected automatically.
+                <div className="pib-empty-state">
+                  <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">schedule</span>
+                  <h2 className="pib-empty-state-title">Not enough data to calculate best posting times</h2>
+                  <p className="pib-empty-state-description">Keep publishing and analytics will be collected automatically.</p>
                 </div>
               ) : (
                 <>
                   <div className="pib-card space-y-3">
-                    <h3 className="text-sm font-semibold text-on-surface">Top Posting Times</h3>
+                    <h3 className="pib-label">Top Posting Times</h3>
                     <div className="space-y-2">
                       {bestTimes.slice(0, 5).map((slot, i) => (
                         <div key={i} className="flex items-center gap-3">
-                          <span className="text-xs font-bold text-on-surface w-5">{i + 1}.</span>
-                          <span className="text-sm text-on-surface w-24">{DAY_NAMES[slot.dayOfWeek]} {slot.hour.toString().padStart(2, '0')}:00</span>
-                          <div className="flex-1 h-5 bg-surface rounded-full overflow-hidden">
-                            <div className="h-full rounded-full bg-white/60 transition-all" style={{ width: `${(slot.avgScore / (bestTimes[0]?.avgScore || 1)) * 100}%` }} />
+                          <span className="text-xs font-bold text-[var(--color-pib-text)] w-5">{i + 1}.</span>
+                          <span className="text-sm text-[var(--color-pib-text)] w-24">{DAY_NAMES[slot.dayOfWeek]} {slot.hour.toString().padStart(2, '0')}:00</span>
+                          <div className="flex-1 h-5 rounded-full border border-[var(--color-pib-line)] overflow-hidden">
+                            <div className="h-full rounded-full bg-[var(--color-pib-rose)]/60 transition-all" style={{ width: `${(slot.avgScore / (bestTimes[0]?.avgScore || 1)) * 100}%` }} />
                           </div>
-                          <span className="text-xs text-on-surface-variant w-20 text-right">Score: {slot.avgScore} ({slot.postCount})</span>
+                          <span className="text-xs text-[var(--color-pib-text-muted)] w-20 text-right">Score: {slot.avgScore} ({slot.postCount})</span>
                         </div>
                       ))}
                     </div>
                   </div>
 
                   <div className="pib-card space-y-3">
-                    <h3 className="text-sm font-semibold text-on-surface">Engagement Heatmap</h3>
+                    <h3 className="pib-label">Engagement Heatmap</h3>
                     <div className="overflow-x-auto">
                       <div className="min-w-[600px]">
                         <div className="flex gap-1 ml-12 mb-1">
                           {Array.from({ length: 24 }, (_, h) => (
-                            <div key={h} className="w-8 text-center text-[9px] text-on-surface-variant">{h.toString().padStart(2, '0')}</div>
+                            <div key={h} className="w-8 text-center text-[9px] text-[var(--color-pib-text-muted)]">{h.toString().padStart(2, '0')}</div>
                           ))}
                         </div>
                         {DAY_NAMES.map((day, dayIdx) => {
                           const maxScore = Math.max(...bestTimes.map(s => s.avgScore), 1)
                           return (
                             <div key={day} className="flex items-center gap-1 mb-1">
-                              <span className="text-xs text-on-surface-variant w-10 text-right">{day}</span>
+                              <span className="text-xs text-[var(--color-pib-text-muted)] w-10 text-right">{day}</span>
                               {Array.from({ length: 24 }, (_, h) => {
                                 const slot = bestTimes.find(s => s.dayOfWeek === dayIdx && s.hour === h)
                                 return <HeatCell key={h} value={slot?.avgScore ?? 0} max={maxScore} />
@@ -542,22 +545,27 @@ export default function AnalyticsPage() {
       {/* ── Reports history ── */}
       {reports.length > 0 && (
         <div className="pib-card space-y-3">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+          <p className="pib-label">
             Reports History
           </p>
           <div className="space-y-2">
             {reports.map((r) => (
               <div
                 key={r.id}
-                className="flex items-center justify-between gap-3 p-3 rounded-lg bg-[var(--color-surface-container)]"
+                className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-pib-line)] p-3"
               >
-                <div className="min-w-0">
-                  <p className="text-sm text-on-surface truncate">{r.title}</p>
-                  <p className="text-[10px] text-on-surface-variant mt-0.5">
-                    {r.dateRange?.label ?? 'All time'} · Generated {fmtDate(r.createdAt)}
-                  </p>
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="pib-icon-tint-rose shrink-0">
+                    <span aria-hidden="true" className="material-symbols-outlined text-[18px]">description</span>
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm text-[var(--color-pib-text)] truncate">{r.title}</p>
+                    <p className="text-[10px] text-[var(--color-pib-text-muted)] mt-0.5">
+                      {r.dateRange?.label ?? 'All time'} · Generated {fmtDate(r.createdAt)}
+                    </p>
+                  </div>
                 </div>
-                <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-surface-container-high text-on-surface-variant uppercase shrink-0">
+                <span className="pib-pill uppercase shrink-0">
                   PDF
                 </span>
               </div>

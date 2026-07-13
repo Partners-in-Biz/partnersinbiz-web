@@ -213,6 +213,36 @@ beforeEach(() => {
         }),
       ])
     }
+    if (name === 'organizations') {
+      return queryFor([
+        doc('org-1', { name: 'Elemental', slug: 'elemental', settings: { portalModules: { bookStudio: true } } }),
+        doc('org-2', { name: 'Blocked Org', settings: {} }),
+        doc('org-3', { name: 'Portal Disabled', slug: 'portal-disabled', settings: { portalModules: { bookStudio: false } } }),
+      ])
+    }
+    if (name === 'creative_canvases') {
+      return queryFor([
+        ...Array.from({ length: 9 }, (_, index) => doc(`archived-${index}`, { orgId: 'org-1', title: `Launch archived ${index}`, archived: true })),
+        doc('canvas-1', {
+          orgId: 'org-1',
+          title: 'Launch campaign canvas',
+          status: 'ready',
+          secretPrompt: 'never expose this',
+          deleted: false,
+        }),
+        doc('canvas-archived', { orgId: 'org-1', title: 'Old canvas', archived: true }),
+        doc('canvas-cross-org', { orgId: 'org-2', title: 'Blocked canvas', deleted: false }),
+        doc('canvas:colon', { orgId: 'org-1', title: 'Colon canvas', deleted: false }),
+      ])
+    }
+    if (name === 'video_editor_projects') return queryFor([
+      doc('video-1', { orgId: 'org-1', title: 'Launch edit' }),
+      doc('video-archived', { orgId: 'org-1', title: 'Archived edit', status: 'archived', deleted: false }),
+      doc('video-deleted', { orgId: 'org-1', title: 'Deleted edit', status: 'archived', deleted: true }),
+    ])
+    if (name === 'book_studio_projects') return queryFor([doc('book-1', { orgId: 'org-1', title: 'Growth Playbook' })])
+    if (name === 'youtube_video_projects') return queryFor([doc('yt-1', { orgId: 'org-1', title: 'Launch episode' })])
+    if (name === 'mobile_apps') return queryFor([doc('app-1', { orgId: 'org-1', name: 'Client App' })])
     if (name === 'workspace_connections') {
       return queryFor([
         doc('connection-1', {
@@ -445,5 +475,184 @@ describe('context reference registry', () => {
       expect.objectContaining({ type: 'workspace_broker_job', label: 'create_doc' }),
     ]))
     expect(buildAttachedContextBlock(refs)).toContain('workspace_broker_job: create_doc')
+  })
+
+  it('resolves trusted Studio workspaces and exact artifacts from authoritative records', async () => {
+    const { resolveContextReferences } = await import('@/lib/context-references/registry')
+    const user = { uid: 'admin-1', role: 'admin' as const, authKind: 'session' as const }
+
+    await expect(resolveContextReferences([
+      { type: 'studio', id: 'marketing_studio:org-1', orgId: 'org-1', label: 'Spoofed', href: 'https://evil.test' },
+      { type: 'studio_artifact', id: 'marketing_studio:canvas:canvas-1', orgId: 'org-1', label: 'Spoofed', href: 'https://evil.test', metadata: { secretPrompt: 'steal me' } },
+    ], user, 'org-1')).resolves.toEqual([
+      expect.objectContaining({
+        type: 'studio', id: 'marketing_studio:org-1', orgId: 'org-1', label: 'Marketing Studio', href: '/admin/creative-canvas',
+      }),
+      expect.objectContaining({
+        type: 'studio_artifact', id: 'marketing_studio:org:b3JnLTE:canvas:Y2FudmFzLTE', orgId: 'org-1', label: 'Launch campaign canvas', href: '/admin/creative-canvas?canvasId=canvas-1&orgId=org-1',
+      }),
+    ])
+  })
+
+  it('rejects malformed, cross-organisation, archived, and module-denied Studio references', async () => {
+    const { resolveContextReferences } = await import('@/lib/context-references/registry')
+    const admin = { uid: 'admin-1', role: 'admin' as const, authKind: 'session' as const }
+
+    await expect(resolveContextReferences([
+      { type: 'studio', id: 'unknown_studio:org-1', orgId: 'org-1' },
+      { type: 'studio_artifact', id: 'marketing_studio:canvas:canvas-cross-org', orgId: 'org-1' },
+      { type: 'studio_artifact', id: 'marketing_studio:canvas:canvas-archived', orgId: 'org-1' },
+    ], admin, 'org-1')).resolves.toEqual([])
+
+    await expect(resolveContextReferences([
+      { type: 'studio', id: 'marketing_studio:org-1', orgId: 'org-1' },
+    ], {
+      uid: 'client-1', role: 'client', orgId: 'org-1', orgIds: ['org-1'], authKind: 'session',
+      memberAccessPolicy: { preset: 'custom', modules: {}, recordScopes: {} },
+    } as never, 'org-1')).resolves.toEqual([])
+
+    await expect(resolveContextReferences([
+      { type: 'studio', id: 'marketing_studio:org-2', orgId: 'org-2' },
+    ], admin, 'org-1')).resolves.toEqual([])
+  })
+
+  it('resolves archived Video Editor projects directly but still rejects deleted projects', async () => {
+    const { resolveContextReferences } = await import('@/lib/context-references/registry')
+    const admin = { uid: 'admin-1', role: 'admin' as const, authKind: 'session' as const }
+
+    await expect(resolveContextReferences([
+      { type: 'studio_artifact', id: 'video_editor:project:video-archived', orgId: 'org-1' },
+      { type: 'studio_artifact', id: 'video_editor:project:video-deleted', orgId: 'org-1' },
+    ], admin, 'org-1')).resolves.toEqual([
+      expect.objectContaining({
+        type: 'studio_artifact', id: 'video_editor:project:video-archived', orgId: 'org-1', label: 'Archived edit',
+        href: '/portal/video-editor?projectId=video-archived',
+      }),
+    ])
+  })
+
+  it('searches authoritative Studio workspaces and artifacts', async () => {
+    const { searchContextReferences } = await import('@/lib/context-references/registry')
+    const user = { uid: 'admin-1', role: 'admin' as const, authKind: 'session' as const }
+    await expect(searchContextReferences({ type: 'studio', query: 'marketing', orgId: 'org-1', user })).resolves.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: 'marketing_studio:org-1' })]),
+    )
+    mockCollection.mockClear()
+    await expect(searchContextReferences({ type: 'studio_artifact', query: 'launch', orgId: 'org-1', user })).resolves.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: 'marketing_studio:org:b3JnLTE:canvas:Y2FudmFzLTE' })]),
+    )
+    const exactLimits = mockCollection.mock.results
+      .map((result) => result.value as MockQuery)
+      .filter((query) => query?.limit?.mock.calls.length > 0)
+      .flatMap((query) => query.limit.mock.calls.map(([value]) => value))
+    expect(exactLimits).toEqual([24, 24, 24, 24, 24])
+    expect(mockCollection.mock.calls.filter(([name]) => name === 'organizations')).toHaveLength(1)
+
+    mockCollection.mockClear()
+    await expect(searchContextReferences({ type: 'studio_artifact', query: 'x', orgId: 'org-1', user })).resolves.toEqual([])
+    expect(mockCollection).not.toHaveBeenCalled()
+  })
+
+  it('uses only proven navigable artifact links and portal links for clients', async () => {
+    const { resolveContextReferences } = await import('@/lib/context-references/registry')
+    const admin = { uid: 'admin-1', role: 'admin' as const, authKind: 'session' as const }
+    const refs = await resolveContextReferences([
+      { type: 'studio_artifact', id: 'marketing_studio:canvas:canvas-1' },
+      { type: 'studio_artifact', id: 'video_editor:project:video-1' },
+      { type: 'studio_artifact', id: 'book_studio:project:book-1' },
+      { type: 'studio_artifact', id: 'youtube_studio:video_project:yt-1' },
+      { type: 'studio_artifact', id: 'mobile_apps:app:app-1' },
+    ], admin, 'org-1')
+    expect(refs.map((ref) => ref.href)).toEqual([
+      '/admin/creative-canvas?canvasId=canvas-1&orgId=org-1',
+      '/portal/video-editor?projectId=video-1',
+      '/admin/org/elemental/book-studio/book-1',
+      '/admin/org/elemental/youtube-studio/editor/yt-1',
+      '/admin/org/elemental/mobile-apps?appId=app-1',
+    ])
+
+    await expect(resolveContextReferences([
+      { type: 'studio_artifact', id: 'book_studio:chapter:chapter-1' },
+      { type: 'studio_artifact', id: 'youtube_studio:channel:channel-1' },
+    ], admin, 'org-1')).resolves.toEqual([])
+
+    await expect(resolveContextReferences([
+      { type: 'studio', id: 'marketing_studio:org-1' },
+      { type: 'studio', id: 'video_editor:org-1' },
+      { type: 'studio', id: 'book_studio:org-1' },
+      { type: 'studio', id: 'youtube_studio:org-1' },
+      { type: 'studio', id: 'mobile_apps:org-1' },
+    ], admin, 'org-1')).resolves.toHaveLength(5)
+
+    const modules = { crm: true, projects: true, documents: true, marketing: true, messages: true, email: true, reports: true, research: true, properties: true, billing: true, mobileApps: true, youtubeStudio: true, bookStudio: true }
+    await expect(resolveContextReferences([{ type: 'studio', id: 'marketing_studio:org-1' }], {
+      uid: 'client-1', role: 'client', orgId: 'org-1', orgIds: ['org-1'], authKind: 'session',
+      memberAccessPolicy: { preset: 'full', modules, recordScopes: { crm: 'all', projects: 'all' } },
+    }, 'org-1')).resolves.toEqual([expect.objectContaining({ href: '/portal/creative-canvas' })])
+
+    await expect(resolveContextReferences([{ type: 'studio', id: 'book_studio:org-3' }], {
+      uid: 'client-3', role: 'client', orgId: 'org-3', orgIds: ['org-3'], authKind: 'session',
+      memberAccessPolicy: { preset: 'full', modules, recordScopes: { crm: 'all', projects: 'all' } },
+    }, 'org-3')).resolves.toEqual([])
+  })
+
+  it('uses the shared canonical identity for Mobile App resolve and search results', async () => {
+    const { resolveContextReferences, searchContextReferences } = await import('@/lib/context-references/registry')
+    const user = { uid: 'admin-1', role: 'admin' as const, authKind: 'session' as const }
+    await expect(resolveContextReferences([
+      { type: 'studio_artifact', id: 'mobile_apps:app:app-1' },
+    ], user, 'org-1')).resolves.toEqual([
+      expect.objectContaining({ id: 'mobile_apps:org:b3JnLTE:app:YXBwLTE', orgId: 'org-1' }),
+    ])
+    await expect(searchContextReferences({ type: 'studio_artifact', query: 'client', orgId: 'org-1', user })).resolves.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: 'mobile_apps:org:b3JnLTE:app:YXBwLTE' })]),
+    )
+  })
+
+  it('retains legacy context ids for Video, Book, and YouTube resolve and search results', async () => {
+    const { resolveContextReferences, searchContextReferences } = await import('@/lib/context-references/registry')
+    const user = { uid: 'admin-1', role: 'admin' as const, authKind: 'session' as const }
+    await expect(resolveContextReferences([
+      { type: 'studio_artifact', id: 'video_editor:project:video-1' },
+      { type: 'studio_artifact', id: 'book_studio:project:book-1' },
+      { type: 'studio_artifact', id: 'youtube_studio:video_project:yt-1' },
+    ], user, 'org-1')).resolves.toEqual([
+      expect.objectContaining({ id: 'video_editor:project:video-1' }),
+      expect.objectContaining({ id: 'book_studio:project:book-1' }),
+      expect.objectContaining({ id: 'youtube_studio:video_project:yt-1' }),
+    ])
+    await expect(searchContextReferences({ type: 'studio_artifact', query: 'launch', orgId: 'org-1', user })).resolves.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: 'video_editor:project:video-1' })]),
+    )
+  })
+
+  it('rejects a module-disabled canonical Mobile App reference before reading the app', async () => {
+    const { resolveContextReferences } = await import('@/lib/context-references/registry')
+    mockCollection.mockClear()
+    await expect(resolveContextReferences([
+      { type: 'studio_artifact', id: 'mobile_apps:org:b3JnLTE:app:YXBwLTE', orgId: 'org-1' },
+    ], {
+      uid: 'client-1', role: 'client', orgId: 'org-1', orgIds: ['org-1'], authKind: 'session',
+      memberAccessPolicy: { preset: 'custom', modules: { mobileApps: false }, recordScopes: {} },
+    } as never, 'org-1')).resolves.toEqual([])
+    expect(mockCollection.mock.calls.filter(([name]) => name === 'mobile_apps')).toHaveLength(0)
+  })
+
+  it('round-trips colon-containing Firestore ids through one encoded opaque segment', async () => {
+    const { resolveContextReferences } = await import('@/lib/context-references/registry')
+    await expect(resolveContextReferences([
+      { type: 'studio_artifact', id: 'marketing_studio:canvas:canvas%3Acolon' },
+    ], { uid: 'admin-1', role: 'admin', authKind: 'session' }, 'org-1')).resolves.toEqual([
+      expect.objectContaining({ id: 'marketing_studio:org:b3JnLTE:canvas:Y2FudmFzOmNvbG9u', href: '/admin/creative-canvas?canvasId=canvas%3Acolon&orgId=org-1' }),
+    ])
+  })
+
+  it('migrates a superadmin legacy canvas reference using the authoritative record organisation', async () => {
+    const { resolveContextReferences } = await import('@/lib/context-references/registry')
+    await expect(resolveContextReferences([
+      { type: 'studio_artifact', id: 'marketing_studio:canvas:canvas-1' },
+    ], { uid: 'admin-1', role: 'admin', authKind: 'session' })).resolves.toEqual([
+      expect.objectContaining({ id: 'marketing_studio:org:b3JnLTE:canvas:Y2FudmFzLTE', orgId: 'org-1' }),
+    ])
   })
 })

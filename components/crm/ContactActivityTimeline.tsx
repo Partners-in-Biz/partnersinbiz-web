@@ -181,18 +181,18 @@ export function ContactActivityTimeline({
         <div className="mx-auto flex max-w-lg flex-col items-center gap-2 text-center">
           <span
             aria-hidden="true"
-            className="material-symbols-outlined grid h-8 w-8 place-items-center rounded-md bg-primary/10 text-[17px] text-primary"
+            className="material-symbols-outlined pib-icon-tint grid h-8 w-8 place-items-center rounded-full text-[17px]"
           >
             history
           </span>
           <div>
-            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">
+            <p className="pib-label">
               Relationship activity missing
             </p>
-            <h3 className="mt-1 text-sm font-semibold text-on-surface">
+            <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">
               {`Start ${contactLabel}'s activity trail`}
             </h3>
-            <p className="mt-1 text-xs leading-5 text-on-surface-variant">
+            <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
               Log the first note, call, email, or meeting so the whole team can see what happened, who followed up, and what should happen next.
             </p>
           </div>
@@ -201,7 +201,7 @@ export function ContactActivityTimeline({
               type="button"
               onClick={onAddNote}
               aria-label={`Log first activity note for ${contactLabel}`}
-              className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition hover:opacity-90"
+              className="btn-pib-primary mt-2 h-8 gap-1.5 px-3 text-xs"
             >
               <span className="material-symbols-outlined text-[14px]" aria-hidden="true">edit_note</span>
               Start activity trail
@@ -215,8 +215,8 @@ export function ContactActivityTimeline({
   return (
     <div className="px-3 pb-2">
       {filterOptions.length > 1 && (
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--color-card-border)] py-2">
-          <label htmlFor="activity-type-filter" className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--color-pib-line)] py-2">
+          <label htmlFor="activity-type-filter" className="pib-label">
             Filter by event type
           </label>
           <select
@@ -224,7 +224,7 @@ export function ContactActivityTimeline({
             value={effectiveFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
             aria-label={`Filter ${contactLabel}'s activity by event type`}
-            className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface"
+            className="pib-select h-8 w-auto text-xs"
           >
             <option value={ALL_FILTER}>All events ({activities.length})</option>
             {filterOptions.map((option) => (
@@ -237,7 +237,7 @@ export function ContactActivityTimeline({
       )}
 
       {effectiveFilter !== ALL_FILTER && visibleActivities.length === 0 && (
-        <p className="py-3 text-center text-xs text-on-surface-variant">
+        <p className="py-3 text-center text-xs text-[var(--color-pib-text-muted)]">
           No {readableActivityType(effectiveFilter).toLowerCase()} events for {contactLabel}.
         </p>
       )}
@@ -245,18 +245,18 @@ export function ContactActivityTimeline({
       {visibleActivities.map((activity) => {
         const summary = activitySummary(activity)
         return (
-          <div key={activity.id} className="flex gap-2.5 border-b border-[var(--color-card-border)] py-2 last:border-0">
-            <div className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-[var(--color-card-border)] bg-white/[0.03]">
-              <span className="material-symbols-outlined text-[14px] text-on-surface-variant">
+          <div key={activity.id} className="flex gap-2.5 border-b border-[var(--color-pib-line)] py-2 transition hover:bg-[var(--color-row-hover)] last:border-0">
+            <div className="pib-icon-tint grid h-7 w-7 shrink-0 place-items-center rounded-full">
+              <span className="material-symbols-outlined text-[14px]">
                 {ACTIVITY_ICONS[String(activity.type ?? '')] ?? 'circle'}
               </span>
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-label uppercase tracking-[0.18em] text-on-surface-variant">
+              <p className="pib-label">
                 {readableActivityType(activity.type)}
               </p>
-              <p className="mt-0.5 text-sm leading-5 text-on-surface">{summary}</p>
-              <p className="mt-0.5 text-[11px] text-on-surface-variant">
+              <p className="mt-0.5 text-sm leading-5 text-[var(--color-pib-text)]">{summary}</p>
+              <p className="mt-0.5 text-[11px] text-[var(--color-pib-text-muted)]">
                 {activityActor(activity)} · {formatActivityDate(activity.createdAt)}
               </p>
             </div>
@@ -265,7 +265,7 @@ export function ContactActivityTimeline({
                 type="button"
                 onClick={() => onContinueActivity(activity)}
                 aria-label={`Continue from activity ${summary} with ${contactLabel}`}
-                className="inline-flex h-7 shrink-0 items-center gap-1 self-start rounded-md border border-[var(--color-card-border)] px-2 text-[11px] font-medium text-primary transition hover:bg-white/[0.05] hover:text-on-surface"
+                className="btn-pib-secondary h-7 shrink-0 gap-1 self-start px-2 text-[11px]"
               >
                 <span className="material-symbols-outlined text-[13px]" aria-hidden="true">edit_note</span>
                 Continue
@@ -279,7 +279,7 @@ export function ContactActivityTimeline({
           type="button"
           onClick={onLoadMore}
           aria-label={`Load more activity for ${contactLabel}`}
-          className="w-full py-2 text-xs text-on-surface-variant transition hover:text-on-surface"
+          className="w-full py-2 text-xs text-[var(--color-pib-text-muted)] transition hover:text-[var(--color-pib-text)]"
         >
           Load more
         </button>

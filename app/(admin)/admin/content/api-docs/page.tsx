@@ -36,11 +36,11 @@ function endpointKey(method: string, path: string): string {
 
 function methodChipStyle(method: string): React.CSSProperties {
   const m = method.toUpperCase()
-  if (m === 'GET') return { background: 'rgba(34,197,94,0.15)', color: '#4ade80' }
-  if (m === 'POST') return { background: 'rgba(59,130,246,0.15)', color: '#60a5fa' }
-  if (m === 'PATCH' || m === 'PUT') return { background: 'rgba(245,158,11,0.15)', color: '#fbbf24' }
-  if (m === 'DELETE') return { background: 'rgba(239,68,68,0.15)', color: '#f87171' }
-  return { background: 'rgba(148,163,184,0.15)', color: '#cbd5e1' }
+  if (m === 'GET') return { background: 'var(--color-pib-green-soft)', color: 'var(--color-pib-green)' }
+  if (m === 'POST') return { background: 'var(--color-pib-blue-soft)', color: 'var(--color-pib-blue)' }
+  if (m === 'PATCH' || m === 'PUT') return { background: 'var(--color-pib-amber-soft)', color: 'var(--color-pib-amber)' }
+  if (m === 'DELETE') return { background: 'var(--color-pib-rose-soft)', color: 'var(--color-pib-rose)' }
+  return { background: 'var(--color-pib-surface-2)', color: 'var(--color-pib-text-muted)' }
 }
 
 function methodHasBody(method: string): boolean {
@@ -235,52 +235,47 @@ export default function ApiDocsPage() {
   const tryHasBody = tryEndpoint ? methodHasBody(tryEndpoint.method) : false
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
-            Content / API
-          </p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">API Documentation</h1>
-          <p className="text-sm text-on-surface-variant mt-0.5 max-w-2xl">
+    <div className="space-y-8 max-w-6xl mx-auto">
+      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="min-w-0">
+          <p className="eyebrow">Content · API</p>
+          <h1 className="pib-page-title mt-2">API Documentation</h1>
+          <p className="pib-page-sub max-w-2xl">
             Reference for every public platform endpoint. Edit descriptions and notes inline, and run
             real requests against the live API with the try-it console.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
           {payload && (
-            <span
-              className="text-[11px] font-label uppercase tracking-wide px-3 py-1 rounded-full font-mono"
-              style={{ background: 'var(--color-accent-v2)20', color: 'var(--color-accent-v2)' }}
-            >
+            <span className="pib-pill pib-pill-cyan font-mono">
               API {payload.apiVersion} · build {payload.version}
             </span>
           )}
           {payload && (
-            <span className="text-[11px] font-label uppercase tracking-wide px-3 py-1 rounded-full bg-on-surface/10 text-on-surface-variant">
+            <span className="pib-pill">
               {payload.totalEndpoints} endpoints
             </span>
           )}
         </div>
-      </div>
+      </header>
 
       {topError && (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">
+        <div className="pib-card px-4 py-3 text-sm text-[var(--color-error)]">
           {topError}
         </div>
       )}
 
       {/* Try-it console */}
       {tryEndpoint && (
-        <div className="pib-card p-5 space-y-4 border-[var(--color-card-border)] bg-[var(--color-surface-container)]">
+        <div className="pib-card p-5 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-headline font-bold text-on-surface inline-flex items-center gap-2">
-              <span className="material-icons text-base" style={{ color: 'var(--color-accent-v2)' }}>
+            <h2 className="text-lg font-headline font-bold text-[var(--color-pib-text)] inline-flex items-center gap-2">
+              <span className="material-icons text-base" style={{ color: "var(--color-pib-cyan)" }}>
                 terminal
               </span>
               Try it
             </h2>
-            <button type="button" onClick={closeTry} className="pib-btn-ghost text-xs font-label">
+            <button type="button" onClick={closeTry} className="btn-pib-ghost text-xs font-label">
               Close
             </button>
           </div>
@@ -304,7 +299,7 @@ export default function ApiDocsPage() {
 
           {tryHasBody && (
             <label className="block">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+              <span className="pib-label">
                 Request body (JSON)
               </span>
               <textarea
@@ -323,31 +318,31 @@ export default function ApiDocsPage() {
               type="button"
               onClick={sendTry}
               disabled={sending}
-              className="pib-btn-primary text-sm font-label"
+              className="btn-pib-primary text-sm font-label"
             >
               {sending ? 'Sending…' : 'Send'}
             </button>
           </div>
 
-          {respError && <p className="text-xs text-red-400">{respError}</p>}
+          {respError && <p className="text-xs text-[var(--color-error)]">{respError}</p>}
 
           {respStatus !== null && (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
+                <span className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                   Status
                 </span>
                 <span
                   className="text-sm font-mono font-semibold"
                   style={{
-                    color: respStatus >= 200 && respStatus < 300 ? '#4ade80' : '#f87171',
+                    color: respStatus >= 200 && respStatus < 300 ? "var(--color-pib-green)" : "var(--color-error)",
                   }}
                 >
                   {respStatus}
                 </span>
               </div>
               {respText !== null && (
-                <pre className="text-xs font-mono text-on-surface bg-on-surface/5 rounded-md p-3 overflow-auto max-h-80 border border-[var(--color-card-border)]">
+                <pre className="text-xs font-mono text-[var(--color-pib-text)] bg-[var(--color-pib-surface)] rounded-md p-3 overflow-auto max-h-80 border border-[var(--color-pib-line)]">
                   {respText}
                 </pre>
               )}
@@ -358,7 +353,7 @@ export default function ApiDocsPage() {
 
       {/* Search */}
       <div className="relative">
-        <span className="material-icons absolute left-3 top-1/2 -translate-y-1/2 text-base text-on-surface-variant pointer-events-none">
+        <span className="material-icons absolute left-3 top-1/2 -translate-y-1/2 text-base text-[var(--color-pib-text-muted)] pointer-events-none">
           search
         </span>
         <input
@@ -378,23 +373,23 @@ export default function ApiDocsPage() {
         </div>
       ) : !payload ? (
         <div className="pib-card p-8 text-center">
-          <p className="text-sm text-on-surface-variant">No API documentation available.</p>
+          <p className="text-sm text-[var(--color-pib-text-muted)]">No API documentation available.</p>
         </div>
       ) : filteredGroups.length === 0 ? (
         <div className="pib-card p-8 text-center">
-          <p className="text-sm text-on-surface-variant">No endpoints match “{search}”.</p>
+          <p className="text-sm text-[var(--color-pib-text-muted)]">No endpoints match “{search}”.</p>
         </div>
       ) : (
         <div className="space-y-4">
           {filteredGroups.map((group) => (
             <section key={group.group} className="pib-card p-5">
-              <h2 className="text-base font-headline font-bold text-on-surface mb-3">
+              <h2 className="text-base font-headline font-bold text-[var(--color-pib-text)] mb-3">
                 {group.group}
-                <span className="ml-2 text-xs font-normal text-on-surface-variant">
+                <span className="ml-2 text-xs font-normal text-[var(--color-pib-text-muted)]">
                   {group.endpoints.length}
                 </span>
               </h2>
-              <ul className="divide-y divide-[var(--color-card-border)]">
+              <ul className="divide-y divide-[var(--color-pib-line)]">
                 {group.endpoints.map((ep) => {
                   const key = endpointKey(ep.method, ep.path)
                   const isEditing = editingKey === key
@@ -410,12 +405,12 @@ export default function ApiDocsPage() {
                             {ep.method.toUpperCase()}
                           </span>
                           <div className="min-w-0">
-                            <p className="font-mono text-sm text-on-surface break-all">{ep.path}</p>
+                            <p className="font-mono text-sm text-[var(--color-pib-text)] break-all">{ep.path}</p>
                             {ep.description && (
-                              <p className="text-xs text-on-surface-variant mt-0.5">{ep.description}</p>
+                              <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">{ep.description}</p>
                             )}
                             {wasSaved && (
-                              <span className="inline-flex items-center gap-1 text-[11px] text-green-400 mt-1">
+                              <span className="inline-flex items-center gap-1 text-[11px] text-[var(--color-pib-green)] mt-1">
                                 <span className="material-icons text-xs">check_circle</span>
                                 Saved
                               </span>
@@ -426,14 +421,14 @@ export default function ApiDocsPage() {
                           <button
                             type="button"
                             onClick={() => openEdit(ep)}
-                            className="pib-btn-secondary text-xs font-label"
+                            className="btn-pib-secondary text-xs font-label"
                           >
                             Edit
                           </button>
                           <button
                             type="button"
                             onClick={() => openTry(ep)}
-                            className="pib-btn-ghost text-xs font-label"
+                            className="btn-pib-ghost text-xs font-label"
                           >
                             Try
                           </button>
@@ -441,9 +436,9 @@ export default function ApiDocsPage() {
                       </div>
 
                       {isEditing && (
-                        <div className="mt-3 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] p-4 space-y-3">
+                        <div className="mt-3 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-4 space-y-3">
                           <label className="block">
-                            <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+                            <span className="pib-label">
                               Description
                             </span>
                             <input
@@ -455,7 +450,7 @@ export default function ApiDocsPage() {
                             />
                           </label>
                           <label className="block">
-                            <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+                            <span className="pib-label">
                               Notes
                             </span>
                             <textarea
@@ -466,12 +461,12 @@ export default function ApiDocsPage() {
                               placeholder="Implementation notes, gotchas, required scopes…"
                             />
                           </label>
-                          {saveError && <p className="text-xs text-red-400">{saveError}</p>}
+                          {saveError && <p className="text-xs text-[var(--color-error)]">{saveError}</p>}
                           <div className="flex justify-end gap-2">
                             <button
                               type="button"
                               onClick={cancelEdit}
-                              className="pib-btn-ghost text-xs font-label"
+                              className="btn-pib-ghost text-xs font-label"
                             >
                               Cancel
                             </button>
@@ -479,7 +474,7 @@ export default function ApiDocsPage() {
                               type="button"
                               onClick={() => saveEdit(ep)}
                               disabled={saving}
-                              className="pib-btn-primary text-xs font-label"
+                              className="btn-pib-primary text-xs font-label"
                             >
                               {saving ? 'Saving…' : 'Save'}
                             </button>

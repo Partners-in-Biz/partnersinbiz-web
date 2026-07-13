@@ -91,7 +91,11 @@ function pluck(source: CaptureSource): EditableSource {
   }
 }
 
-const FIELD_TYPES: CaptureFieldType[] = ['text', 'email', 'tel', 'textarea', 'select']
+const FIELD_TYPES: CaptureFieldType[] = ['text', 'email', 'tel', 'textarea', 'select', 'hidden']
+const ATTRIBUTION_KEYS = [
+  'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+  'referrer', 'landingPage', 'campaignId', 'programId', 'gclid', 'fbclid', 'msclkid', 'ttclid',
+] as const
 
 export function CaptureSourceEditor(props: Props) {
   const router = useRouter()
@@ -165,13 +169,14 @@ export function CaptureSourceEditor(props: Props) {
     <div>
       <div className="flex items-start justify-between mb-6">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold text-on-surface">{state.name || 'Capture source'}</h1>
-          <p className="text-sm text-on-surface-variant mt-1">
+          <p className="eyebrow">Admin · Capture</p>
+          <h1 className="pib-page-title mt-2">{state.name || 'Capture source'}</h1>
+          <p className="pib-page-sub">
             {props.source.type} · {state.doubleOptIn === 'on' ? 'Double opt-in' : 'Single opt-in'}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-sm text-on-surface-variant flex items-center gap-2">
+          <label className="text-sm text-[var(--color-pib-text-muted)] flex items-center gap-2">
             <input
               type="checkbox"
               checked={state.active}
@@ -182,11 +187,11 @@ export function CaptureSourceEditor(props: Props) {
           <button
             onClick={save}
             disabled={saving}
-            className="px-4 py-2 rounded-lg bg-primary text-on-primary text-sm disabled:opacity-50"
+            className="btn-pib-primary text-sm disabled:opacity-50"
           >
             {saving ? 'Saving…' : saved ? 'Saved' : 'Save'}
           </button>
-          <button onClick={destroy} className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm">
+          <button onClick={destroy} className="btn-pib-danger text-sm">
             Delete
           </button>
         </div>
@@ -263,8 +268,8 @@ function Tabs(props: { tab: TabKey; setTab: (t: TabKey) => void; submissionCount
 function Section(props: { title: string; children: React.ReactNode; description?: string }) {
   return (
     <div className="mb-6">
-      <h3 className="text-sm font-semibold text-on-surface mb-1">{props.title}</h3>
-      {props.description ? <p className="text-xs text-on-surface-variant mb-3">{props.description}</p> : null}
+      <h3 className="text-sm font-semibold text-[var(--color-pib-text)] mb-1">{props.title}</h3>
+      {props.description ? <p className="text-xs text-[var(--color-pib-text-muted)] mb-3">{props.description}</p> : null}
       {props.children}
     </div>
   )
@@ -279,13 +284,13 @@ function Input(props: {
 }) {
   return (
     <label className="block mb-3">
-      <span className="block text-xs font-medium text-on-surface-variant mb-1">{props.label}</span>
+      <span className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">{props.label}</span>
       <input
         type={props.type ?? 'text'}
         value={props.value}
         onChange={(e) => props.onChange(e.target.value)}
         placeholder={props.placeholder}
-        className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+        className="w-full pib-input"
       />
     </label>
   )
@@ -294,13 +299,13 @@ function Input(props: {
 function TextArea(props: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; rows?: number }) {
   return (
     <label className="block mb-3">
-      <span className="block text-xs font-medium text-on-surface-variant mb-1">{props.label}</span>
+      <span className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">{props.label}</span>
       <textarea
         value={props.value}
         onChange={(e) => props.onChange(e.target.value)}
         placeholder={props.placeholder}
         rows={props.rows ?? 5}
-        className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm font-mono"
+        className="w-full pib-input font-mono"
       />
     </label>
   )
@@ -313,11 +318,11 @@ function SetupTab(props: { state: EditableSource; update: <K extends keyof Edita
       <Section title="Name & opt-in mode">
         <Input label="Name" value={state.name} onChange={(v) => update('name', v)} />
         <label className="block mb-3">
-          <span className="block text-xs font-medium text-on-surface-variant mb-1">Opt-in mode</span>
+          <span className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Opt-in mode</span>
           <select
             value={state.doubleOptIn}
             onChange={(e) => update('doubleOptIn', e.target.value as DoubleOptInMode)}
-            className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+            className="w-full pib-input"
           >
             <option value="off">Single opt-in (immediate enrollment)</option>
             <option value="on">Double opt-in (confirmation email required)</option>
@@ -363,26 +368,26 @@ function FieldsTab(props: {
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
-        <p className="text-xs text-on-surface-variant">Email is always required and added automatically. Configure extra fields here.</p>
-        <button onClick={props.onAdd} className="px-3 py-1.5 rounded-lg bg-primary text-on-primary text-sm">
+        <p className="text-xs text-[var(--color-pib-text-muted)]">Email is always required and added automatically. Configure extra fields here.</p>
+        <button onClick={props.onAdd} className="btn-pib-primary text-sm">
           Add field
         </button>
       </div>
       <div className="space-y-2">
         {props.fields.length === 0 ? (
-          <p className="text-sm text-on-surface-variant py-4">No additional fields. The form will collect email only.</p>
+          <p className="text-sm text-[var(--color-pib-text-muted)] py-4">No additional fields. The form will collect email only.</p>
         ) : (
           props.fields.map((f, i) => (
-            <div key={i} className="p-3 rounded-lg bg-surface-container space-y-2">
+            <div key={i} className="p-3 rounded-lg bg-[var(--color-pib-surface-soft)] space-y-2">
               <div className="flex gap-2">
                 <input
-                  className="flex-1 px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+                  className="flex-1 pib-input"
                   placeholder="key"
                   value={f.key}
                   onChange={(e) => props.onPatch(i, { key: e.target.value })}
                 />
                 <input
-                  className="flex-1 px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+                  className="flex-1 pib-input"
                   placeholder="Label"
                   value={f.label}
                   onChange={(e) => props.onPatch(i, { label: e.target.value })}
@@ -390,13 +395,13 @@ function FieldsTab(props: {
                 <select
                   value={f.type}
                   onChange={(e) => props.onPatch(i, { type: e.target.value as CaptureFieldType })}
-                  className="px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+                  className="pib-input"
                 >
                   {FIELD_TYPES.map((t) => (
                     <option key={t} value={t}>{t}</option>
                   ))}
                 </select>
-                <label className="flex items-center gap-1 text-sm text-on-surface-variant whitespace-nowrap">
+                <label className="flex items-center gap-1 text-sm text-[var(--color-pib-text-muted)] whitespace-nowrap">
                   <input
                     type="checkbox"
                     checked={f.required}
@@ -413,18 +418,69 @@ function FieldsTab(props: {
               </div>
               <div className="flex gap-2">
                 <input
-                  className="flex-1 px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+                  className="flex-1 pib-input"
                   placeholder="placeholder (optional)"
                   value={f.placeholder ?? ''}
                   onChange={(e) => props.onPatch(i, { placeholder: e.target.value })}
                 />
                 {f.type === 'select' && (
                   <input
-                    className="flex-1 px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+                    className="flex-1 pib-input"
                     placeholder="options, comma-separated"
                     value={(f.options ?? []).join(', ')}
                     onChange={(e) => props.onPatch(i, { options: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })}
                   />
+                )}
+              </div>
+              <div className="grid gap-2 md:grid-cols-3">
+                <label className="text-xs text-[var(--color-pib-text-muted)]">
+                  Progressive step
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={f.progressiveStep ?? ''}
+                    onChange={(e) => props.onPatch(i, { progressiveStep: e.target.value ? Number(e.target.value) : undefined })}
+                    className="mt-1 w-full pib-input"
+                  />
+                </label>
+                {f.type === 'hidden' ? (
+                  <label className="text-xs text-[var(--color-pib-text-muted)] md:col-span-2">
+                    Trusted attribution value
+                    <select
+                      value={f.attributionKey ?? ''}
+                      onChange={(e) => props.onPatch(i, { attributionKey: e.target.value as CaptureField['attributionKey'] })}
+                      className="mt-1 w-full pib-input"
+                    >
+                      <option value="">Select attribution field</option>
+                      {ATTRIBUTION_KEYS.map((key) => <option key={key} value={key}>{key}</option>)}
+                    </select>
+                  </label>
+                ) : (
+                  <>
+                    <label className="text-xs text-[var(--color-pib-text-muted)]">
+                      Show when field
+                      <select
+                        value={f.showWhen?.fieldKey ?? ''}
+                        onChange={(e) => props.onPatch(i, { showWhen: e.target.value ? { fieldKey: e.target.value, operator: 'equals', value: '' } : undefined })}
+                        className="mt-1 w-full pib-input"
+                      >
+                        <option value="">Always visible</option>
+                        {props.fields.filter((candidate) => candidate.key !== f.key && candidate.type !== 'hidden').map((candidate) => (
+                          <option key={candidate.key} value={candidate.key}>{candidate.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                    {f.showWhen ? (
+                      <input
+                        aria-label="Conditional value"
+                        value={f.showWhen.value ?? ''}
+                        placeholder="equals value"
+                        onChange={(e) => props.onPatch(i, { showWhen: { ...f.showWhen!, value: e.target.value } })}
+                        className="self-end pib-input"
+                      />
+                    ) : <div />}
+                  </>
                 )}
               </div>
             </div>
@@ -452,17 +508,17 @@ function ChipList(props: { values: string[]; onChange: (v: string[]) => void; pl
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } }}
           placeholder={props.placeholder}
-          className="flex-1 px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+          className="flex-1 pib-input"
         />
-        <button onClick={add} className="px-3 py-2 rounded-lg bg-primary text-on-primary text-sm">Add</button>
+        <button onClick={add} className="btn-pib-primary text-sm">Add</button>
       </div>
       <div className="flex flex-wrap gap-1">
         {props.values.map((v) => (
-          <span key={v} className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-surface-container text-xs text-on-surface">
+          <span key={v} className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[var(--color-pib-surface-soft)] text-xs text-[var(--color-pib-text)]">
             {v}
             <button
               onClick={() => props.onChange(props.values.filter((x) => x !== v))}
-              className="text-on-surface-variant hover:text-red-700"
+              className="text-[var(--color-pib-text-muted)] hover:text-red-700"
               aria-label={`Remove ${v}`}
             >
               ×
@@ -486,13 +542,13 @@ function MultiSelect(props: {
   }
   return (
     <div className="mb-3">
-      <span className="block text-xs font-medium text-on-surface-variant mb-1">{props.label}</span>
+      <span className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">{props.label}</span>
       {props.options.length === 0 ? (
-        <p className="text-sm text-on-surface-variant">None available.</p>
+        <p className="text-sm text-[var(--color-pib-text-muted)]">None available.</p>
       ) : (
-        <div className="space-y-1 max-h-48 overflow-y-auto rounded-lg border border-outline-variant p-2">
+        <div className="space-y-1 max-h-48 overflow-y-auto rounded-lg border border-[var(--color-pib-line)] p-2">
           {props.options.map((o) => (
-            <label key={o.id} className="flex items-center gap-2 text-sm text-on-surface">
+            <label key={o.id} className="flex items-center gap-2 text-sm text-[var(--color-pib-text)]">
               <input type="checkbox" checked={props.values.includes(o.id)} onChange={() => toggle(o.id)} />
               {o.label}
             </label>
@@ -541,19 +597,19 @@ function RoutingTab(props: {
 function ColorInput(props: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <label className="block mb-3">
-      <span className="block text-xs font-medium text-on-surface-variant mb-1">{props.label}</span>
+      <span className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">{props.label}</span>
       <div className="flex gap-2 items-center">
         <input
           type="color"
           value={props.value}
           onChange={(e) => props.onChange(e.target.value)}
-          className="h-9 w-12 rounded-lg border border-outline-variant"
+          className="h-9 w-12 rounded-lg border border-[var(--color-pib-line)]"
         />
         <input
           type="text"
           value={props.value}
           onChange={(e) => props.onChange(e.target.value)}
-          className="flex-1 px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+          className="flex-1 pib-input"
         />
       </div>
     </label>
@@ -576,20 +632,20 @@ function WidgetTab(props: {
         <ColorInput label="Text color" value={props.theme.textColor} onChange={(v) => props.updateTheme('textColor', v)} />
         <ColorInput label="Background color" value={props.theme.backgroundColor} onChange={(v) => props.updateTheme('backgroundColor', v)} />
         <label className="block mb-3">
-          <span className="block text-xs font-medium text-on-surface-variant mb-1">Border radius (px)</span>
+          <span className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">Border radius (px)</span>
           <input
             type="number"
             min={0}
             value={props.theme.borderRadius}
             onChange={(e) => props.updateTheme('borderRadius', parseInt(e.target.value || '0', 10))}
-            className="w-32 px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+            className="w-32 pib-input"
           />
         </label>
-        <p className="text-xs text-on-surface-variant mt-2">Save to refresh the preview.</p>
+        <p className="text-xs text-[var(--color-pib-text-muted)] mt-2">Save to refresh the preview.</p>
       </div>
       <div>
-        <div className="rounded-xl bg-surface-container p-4">
-          <p className="text-xs text-on-surface-variant mb-2">Live preview (iframe)</p>
+        <div className="rounded-xl bg-[var(--color-pib-surface-soft)] p-4">
+          <p className="text-xs text-[var(--color-pib-text-muted)] mb-2">Live preview (iframe)</p>
           <iframe
             key={previewKey}
             src={props.previewUrl}
@@ -635,7 +691,7 @@ function SpamProtectionTab(props: {
         title="Cloudflare Turnstile"
         description="Privacy-friendly CAPTCHA. Requires TURNSTILE_SECRET_KEY env var on the server."
       >
-        <label className="flex items-center gap-2 text-sm text-on-surface mb-3">
+        <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text)] mb-3">
           <input
             type="checkbox"
             checked={state.turnstileEnabled}
@@ -649,7 +705,7 @@ function SpamProtectionTab(props: {
           onChange={(v) => update('turnstileSiteKey', v)}
           placeholder="0x4AAAAAAA..."
         />
-        <p className="text-xs text-on-surface-variant">
+        <p className="text-xs text-[var(--color-pib-text-muted)]">
           Set the matching secret key as the <code>TURNSTILE_SECRET_KEY</code> environment variable on the deployment. Without it, all submissions to a turnstile-enabled source will be rejected.
         </p>
       </Section>
@@ -658,7 +714,7 @@ function SpamProtectionTab(props: {
         title="Honeypot field"
         description="Adds a hidden _hp input — invisible to humans, often filled by bots. Recommended ON."
       >
-        <label className="flex items-center gap-2 text-sm text-on-surface">
+        <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text)]">
           <input
             type="checkbox"
             checked={state.honeypotEnabled}
@@ -672,7 +728,7 @@ function SpamProtectionTab(props: {
         title="Block disposable email providers"
         description="Reject signups from mailinator / tempmail / etc. Reduces spam contacts in your CRM."
       >
-        <label className="flex items-center gap-2 text-sm text-on-surface">
+        <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text)]">
           <input
             type="checkbox"
             checked={state.blockDisposableEmails}
@@ -686,7 +742,7 @@ function SpamProtectionTab(props: {
         title="Rate limiting"
         description="Per-IP hourly cap and per-email daily cap. Defaults to 10/hr/IP and 3/day/email."
       >
-        <label className="flex items-center gap-2 text-sm text-on-surface mb-3">
+        <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text)] mb-3">
           <input
             type="checkbox"
             checked={state.rateLimit.enabled}
@@ -698,7 +754,7 @@ function SpamProtectionTab(props: {
         </label>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <label className="block">
-            <span className="block text-xs font-medium text-on-surface-variant mb-1">
+            <span className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">
               Max submissions per hour per IP
             </span>
             <input
@@ -715,11 +771,11 @@ function SpamProtectionTab(props: {
                   ),
                 })
               }
-              className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+              className="w-full pib-input"
             />
           </label>
           <label className="block">
-            <span className="block text-xs font-medium text-on-surface-variant mb-1">
+            <span className="block text-xs font-medium text-[var(--color-pib-text-muted)] mb-1">
               Max submissions per day per email
             </span>
             <input
@@ -736,7 +792,7 @@ function SpamProtectionTab(props: {
                   ),
                 })
               }
-              className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+              className="w-full pib-input"
             />
           </label>
         </div>
@@ -749,11 +805,11 @@ function StatTile(props: { label: string; value: number; highlight?: boolean }) 
   return (
     <div
       className={`p-3 rounded-lg ${
-        props.highlight ? 'bg-primary/10 border border-primary/30' : 'bg-surface-container'
+        props.highlight ? 'bg-primary/10 border border-primary/30' : 'bg-[var(--color-pib-surface-soft)]'
       }`}
     >
-      <div className="text-xs text-on-surface-variant">{props.label}</div>
-      <div className="text-xl font-semibold text-on-surface mt-1">{props.value}</div>
+      <div className="text-xs text-[var(--color-pib-text-muted)]">{props.label}</div>
+      <div className="text-xl font-semibold text-[var(--color-pib-text)] mt-1">{props.value}</div>
     </div>
   )
 }
@@ -784,7 +840,7 @@ function CodeBlock(props: { value: string }) {
   }
   return (
     <div className="relative">
-      <pre className="p-3 rounded-lg bg-surface-container text-xs overflow-x-auto whitespace-pre-wrap break-all">{props.value}</pre>
+      <pre className="p-3 rounded-lg bg-[var(--color-pib-surface-soft)] text-xs overflow-x-auto whitespace-pre-wrap break-all">{props.value}</pre>
       <button
         onClick={copy}
         className="absolute top-2 right-2 px-2 py-1 rounded bg-primary text-on-primary text-xs"
@@ -808,7 +864,7 @@ function tsToDate(t: CaptureSubmission['createdAt']): string {
 
 function SubmissionsTab(props: { submissions: CaptureSubmission[] }) {
   if (props.submissions.length === 0) {
-    return <p className="text-sm text-on-surface-variant py-4">No submissions yet.</p>
+    return <p className="text-sm text-[var(--color-pib-text-muted)] py-4">No submissions yet.</p>
   }
   const sorted = [...props.submissions].sort((a, b) => {
     const as = (a.createdAt as { _seconds?: number; seconds?: number } | null)?._seconds ?? 0
@@ -818,7 +874,7 @@ function SubmissionsTab(props: { submissions: CaptureSubmission[] }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
-        <thead className="text-left text-xs text-on-surface-variant">
+        <thead className="text-left text-xs text-[var(--color-pib-text-muted)]">
           <tr>
             <th className="py-2 pr-4">Email</th>
             <th className="py-2 pr-4">Data</th>
@@ -829,12 +885,12 @@ function SubmissionsTab(props: { submissions: CaptureSubmission[] }) {
         </thead>
         <tbody>
           {sorted.map((s) => (
-            <tr key={s.id} className="border-t border-outline-variant">
-              <td className="py-2 pr-4 font-medium text-on-surface">{s.email}</td>
-              <td className="py-2 pr-4 text-on-surface-variant">{Object.entries(s.data || {}).map(([k, v]) => `${k}=${v}`).join(', ') || '—'}</td>
+            <tr key={s.id} className="border-t border-[var(--color-pib-line)]">
+              <td className="py-2 pr-4 font-medium text-[var(--color-pib-text)]">{s.email}</td>
+              <td className="py-2 pr-4 text-[var(--color-pib-text-muted)]">{Object.entries(s.data || {}).map(([k, v]) => `${k}=${v}`).join(', ') || '—'}</td>
               <td className="py-2 pr-4">{s.confirmedAt ? <span className="text-green-700">Yes</span> : <span className="text-yellow-700">Pending</span>}</td>
-              <td className="py-2 pr-4 text-on-surface-variant truncate max-w-[10ch]">{s.contactId}</td>
-              <td className="py-2 pr-4 text-on-surface-variant">{tsToDate(s.createdAt)}</td>
+              <td className="py-2 pr-4 text-[var(--color-pib-text-muted)] truncate max-w-[10ch]">{s.contactId}</td>
+              <td className="py-2 pr-4 text-[var(--color-pib-text-muted)]">{tsToDate(s.createdAt)}</td>
             </tr>
           ))}
         </tbody>

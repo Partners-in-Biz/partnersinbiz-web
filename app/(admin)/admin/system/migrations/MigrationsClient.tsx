@@ -38,7 +38,7 @@ function statusBadge(status: string) {
     completed: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
     failed: 'border-red-500/30 bg-red-500/10 text-red-300',
     rolled_back: 'border-purple-500/30 bg-purple-500/10 text-purple-300',
-    idle: 'border-outline/40 bg-surface-variant/30 text-on-surface-variant',
+    idle: 'border-[var(--color-pib-line-strong)]/40 bg-surface-variant/30 text-[var(--color-pib-text-muted)]',
   }
   return map[status] ?? map.idle
 }
@@ -225,11 +225,11 @@ export default function MigrationsClient() {
     <div className="space-y-6 max-w-4xl mx-auto">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Platform · System
           </p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Migration runner</h1>
-          <p className="text-sm text-on-surface-variant mt-1">
+          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Migration runner</h1>
+          <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
             Run registered data migrations with a dry-run preview, typed confirmation, and a live log.
             Destructive runs are restricted to super admins.
           </p>
@@ -257,7 +257,7 @@ export default function MigrationsClient() {
           ))}
         </div>
       ) : migrations.length === 0 ? (
-        <div className="pib-card p-10 text-center text-sm text-on-surface-variant">
+        <div className="pib-card p-10 text-center text-sm text-[var(--color-pib-text-muted)]">
           No migrations registered.
         </div>
       ) : (
@@ -271,15 +271,15 @@ export default function MigrationsClient() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h2 className="text-base font-semibold text-on-surface">{m.name}</h2>
+                      <h2 className="text-base font-semibold text-[var(--color-pib-text)]">{m.name}</h2>
                       <span
                         className={`rounded-full border px-2 py-0.5 text-[10px] font-label uppercase tracking-wide ${statusBadge(m.status)}`}
                       >
                         {m.status}
                       </span>
-                      <span className="font-mono text-[10px] text-on-surface-variant/70">{m.id}</span>
+                      <span className="font-mono text-[10px] text-[var(--color-pib-text-muted)]/70">{m.id}</span>
                     </div>
-                    <p className="text-sm text-on-surface-variant mt-1">{m.description}</p>
+                    <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">{m.description}</p>
                   </div>
                   {isSuperAdmin && (
                     <button
@@ -293,9 +293,9 @@ export default function MigrationsClient() {
                 </div>
 
                 {/* Last run summary */}
-                <div className="rounded-lg border border-outline/40 bg-surface-variant/20 p-3 text-xs text-on-surface-variant grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="rounded-lg border border-[var(--color-pib-line-strong)]/40 bg-surface-variant/20 p-3 text-xs text-[var(--color-pib-text-muted)] grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <div>
-                    <div className="uppercase tracking-wide text-[9px] text-on-surface-variant/70">Last run</div>
+                    <div className="uppercase tracking-wide text-[9px] text-[var(--color-pib-text-muted)]/70">Last run</div>
                     <div className="mt-0.5">
                       {lr ? (
                         <span
@@ -310,20 +310,20 @@ export default function MigrationsClient() {
                     </div>
                   </div>
                   <div>
-                    <div className="uppercase tracking-wide text-[9px] text-on-surface-variant/70">When</div>
+                    <div className="uppercase tracking-wide text-[9px] text-[var(--color-pib-text-muted)]/70">When</div>
                     <div className="mt-0.5">{fmtWhen(lr?.startedAt ?? m.lastRunAt)}</div>
                   </div>
                   <div>
-                    <div className="uppercase tracking-wide text-[9px] text-on-surface-variant/70">Duration</div>
+                    <div className="uppercase tracking-wide text-[9px] text-[var(--color-pib-text-muted)]/70">Duration</div>
                     <div className="mt-0.5">{fmtDuration(lr?.startedAt ?? null, lr?.finishedAt ?? null)}</div>
                   </div>
                   <div>
-                    <div className="uppercase tracking-wide text-[9px] text-on-surface-variant/70">Items</div>
+                    <div className="uppercase tracking-wide text-[9px] text-[var(--color-pib-text-muted)]/70">Items</div>
                     <div className="mt-0.5">{lr ? lr.itemsProcessed : '—'}</div>
                   </div>
                   {lr?.triggeredBy && (
                     <div className="col-span-2 sm:col-span-4">
-                      <div className="uppercase tracking-wide text-[9px] text-on-surface-variant/70">By</div>
+                      <div className="uppercase tracking-wide text-[9px] text-[var(--color-pib-text-muted)]/70">By</div>
                       <div className="mt-0.5">{lr.triggeredBy.name}</div>
                     </div>
                   )}
@@ -342,8 +342,8 @@ export default function MigrationsClient() {
 
                 {/* Run panel */}
                 {isOpen && (
-                  <div className="rounded-lg border border-outline/60 bg-surface-variant/30 p-4 space-y-3">
-                    <label className="flex items-center gap-2 text-sm text-on-surface cursor-pointer">
+                  <div className="rounded-lg border border-[var(--color-pib-line-strong)]/60 bg-surface-variant/30 p-4 space-y-3">
+                    <label className="flex items-center gap-2 text-sm text-[var(--color-pib-text)] cursor-pointer">
                       <input
                         type="checkbox"
                         checked={dryRun}
@@ -354,7 +354,7 @@ export default function MigrationsClient() {
                     </label>
 
                     <label className="space-y-1 block">
-                      <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
+                      <span className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                         Org ID {m.requiresOrgId ? '(required for a live run)' : '(optional)'}
                       </span>
                       <input
@@ -366,8 +366,8 @@ export default function MigrationsClient() {
                     </label>
 
                     <label className="space-y-1 block">
-                      <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
-                        Type <span className="font-mono text-on-surface">{m.id}</span> to confirm
+                      <span className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+                        Type <span className="font-mono text-[var(--color-pib-text)]">{m.id}</span> to confirm
                       </span>
                       <input
                         className="pib-input w-full font-mono text-sm"
@@ -398,7 +398,7 @@ export default function MigrationsClient() {
 
                     {/* Live log */}
                     {activeRun && (
-                      <div className="rounded-lg border border-outline/40 bg-black/30 p-3 space-y-2">
+                      <div className="rounded-lg border border-[var(--color-pib-line-strong)]/40 bg-black/30 p-3 space-y-2">
                         <div className="flex items-center justify-between gap-2">
                           <span
                             className={`rounded-full border px-2 py-0.5 text-[10px] font-label uppercase tracking-wide ${statusBadge(activeRun.status)}`}
@@ -410,11 +410,11 @@ export default function MigrationsClient() {
                             )}
                             {activeRun.status}
                           </span>
-                          <span className="text-[10px] text-on-surface-variant">
+                          <span className="text-[10px] text-[var(--color-pib-text-muted)]">
                             {activeRun.itemsProcessed} item(s) processed
                           </span>
                         </div>
-                        <pre className="text-[11px] leading-relaxed font-mono text-on-surface-variant whitespace-pre-wrap max-h-64 overflow-auto">
+                        <pre className="text-[11px] leading-relaxed font-mono text-[var(--color-pib-text-muted)] whitespace-pre-wrap max-h-64 overflow-auto">
                           {(activeRun.log ?? []).join('\n') || 'No log output.'}
                         </pre>
                         {activeRun.error && (
@@ -431,7 +431,7 @@ export default function MigrationsClient() {
       )}
 
       {!isSuperAdmin && !loading && (
-        <p className="text-xs text-on-surface-variant">
+        <p className="text-xs text-[var(--color-pib-text-muted)]">
           You can view migration state. Running and rolling back migrations is restricted to super admins.
         </p>
       )}

@@ -61,24 +61,24 @@ function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`pib-skeleton ${className}`} />
 }
 
-const INVOICE_STATUS_MAP: Record<InvoiceStatus, { label: string; color: string }> = {
-  draft: { label: 'Draft', color: 'var(--color-outline)' },
-  sent: { label: 'Sent', color: '#60a5fa' },
-  viewed: { label: 'Viewed', color: '#c084fc' },
-  payment_pending_verification: { label: 'Payment review', color: '#facc15' },
-  paid: { label: 'Paid', color: '#4ade80' },
-  overdue: { label: 'Overdue', color: '#ef4444' },
-  cancelled: { label: 'Cancelled', color: 'var(--color-outline)' },
+const INVOICE_STATUS_MAP: Record<InvoiceStatus, { label: string; pill: string }> = {
+  draft: { label: 'Draft', pill: 'pib-pill' },
+  sent: { label: 'Sent', pill: 'pib-pill pib-pill-blue' },
+  viewed: { label: 'Viewed', pill: 'pib-pill pib-pill-violet' },
+  payment_pending_verification: { label: 'Payment review', pill: 'pib-pill pib-pill-warn' },
+  paid: { label: 'Paid', pill: 'pib-pill pib-pill-success' },
+  overdue: { label: 'Overdue', pill: 'pib-pill pib-pill-danger' },
+  cancelled: { label: 'Cancelled', pill: 'pib-pill' },
 }
 
-const QUOTE_STATUS_MAP: Record<string, { label: string; color: string }> = {
-  draft: { label: 'Draft', color: 'var(--color-outline)' },
-  sent: { label: 'Sent', color: '#60a5fa' },
-  accepted: { label: 'Accepted', color: '#4ade80' },
-  declined: { label: 'Declined', color: '#f97316' },
-  rejected: { label: 'Rejected', color: '#f97316' },
-  expired: { label: 'Expired', color: '#ef4444' },
-  converted: { label: 'Converted', color: '#c084fc' },
+const QUOTE_STATUS_MAP: Record<string, { label: string; pill: string }> = {
+  draft: { label: 'Draft', pill: 'pib-pill' },
+  sent: { label: 'Sent', pill: 'pib-pill pib-pill-blue' },
+  accepted: { label: 'Accepted', pill: 'pib-pill pib-pill-success' },
+  declined: { label: 'Declined', pill: 'pib-pill pib-pill-warn' },
+  rejected: { label: 'Rejected', pill: 'pib-pill pib-pill-warn' },
+  expired: { label: 'Expired', pill: 'pib-pill pib-pill-danger' },
+  converted: { label: 'Converted', pill: 'pib-pill pib-pill-violet' },
 }
 
 function formatCurrency(amount = 0, currency = 'ZAR') {
@@ -237,31 +237,31 @@ export default function InvoicingPage() {
   }
 
   const renderDraftEditor = (onSave: () => void) => (
-    <div className="col-span-12 rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-white/[0.02] p-4">
+    <div className="col-span-12 rounded-2xl border border-[var(--color-pib-line)] p-4">
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="text-xs text-on-surface-variant">Date
+        <label className="pib-label">Date
           <input type="date" value={draftForm.date} onChange={e => setDraftForm(c => ({ ...c, date: e.target.value }))} className="pib-input mt-1 w-full" />
         </label>
-        <label className="text-xs text-on-surface-variant">Tax rate
+        <label className="pib-label">Tax rate
           <input type="number" min="0" max="100" value={draftForm.taxRate} onChange={e => setDraftForm(c => ({ ...c, taxRate: e.target.value }))} className="pib-input mt-1 w-full" />
         </label>
-        <label className="text-xs text-on-surface-variant sm:col-span-2">Line item description
+        <label className="pib-label sm:col-span-2">Line item description
           <input value={draftForm.description} onChange={e => setDraftForm(c => ({ ...c, description: e.target.value }))} className="pib-input mt-1 w-full" />
         </label>
-        <label className="text-xs text-on-surface-variant">Quantity
+        <label className="pib-label">Quantity
           <input type="number" min="1" value={draftForm.quantity} onChange={e => setDraftForm(c => ({ ...c, quantity: e.target.value }))} className="pib-input mt-1 w-full" />
         </label>
-        <label className="text-xs text-on-surface-variant">Unit price
+        <label className="pib-label">Unit price
           <input type="number" min="0" step="0.01" value={draftForm.unitPrice} onChange={e => setDraftForm(c => ({ ...c, unitPrice: e.target.value }))} className="pib-input mt-1 w-full" />
         </label>
-        <label className="text-xs text-on-surface-variant sm:col-span-2">Notes
+        <label className="pib-label sm:col-span-2">Notes
           <textarea value={draftForm.notes} onChange={e => setDraftForm(c => ({ ...c, notes: e.target.value }))} className="pib-textarea mt-1 w-full" rows={2} />
         </label>
       </div>
-      {error ? <p className="mt-3 text-xs text-red-300">{error}</p> : null}
+      {error ? <p className="mt-3 text-xs text-[var(--color-error)]">{error}</p> : null}
       <div className="mt-3 flex justify-end gap-2">
-        <button type="button" onClick={() => setEditing(null)} className="pib-btn-secondary text-sm font-label">Cancel</button>
-        <button type="button" onClick={onSave} disabled={Boolean(savingId)} className="pib-btn-primary text-sm font-label disabled:opacity-60">
+        <button type="button" onClick={() => setEditing(null)} className="btn-pib-ghost">Cancel</button>
+        <button type="button" onClick={onSave} disabled={Boolean(savingId)} className="btn-pib-primary">
           {savingId ? 'Saving…' : 'Save Draft'}
         </button>
       </div>
@@ -269,26 +269,27 @@ export default function InvoicingPage() {
   )
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto max-w-6xl space-y-8">
+      <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Billing</h1>
-          <p className="text-sm text-on-surface-variant mt-0.5">{loading ? '—' : `${invoices.length} invoices · ${quotes.length} quotes`}</p>
+          <p className="eyebrow">Invoicing · Billing</p>
+          <h1 className="pib-page-title mt-2">Billing</h1>
+          <p className="pib-page-sub">{loading ? '—' : `${invoices.length} invoices · ${quotes.length} quotes`}</p>
         </div>
-        <Link href="/portal/invoicing/new" className="pib-btn-primary text-sm font-label">+ New Invoice</Link>
-      </div>
+        <Link href="/portal/invoicing/new" className="btn-pib-primary">+ New Invoice</Link>
+      </header>
 
       {!loading && (
-        <div className="grid grid-cols-3 gap-4">
-          <div className="pib-card"><p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">Revenue Collected</p><p className="text-2xl font-headline font-bold" style={{ color: 'var(--color-accent-v2)' }}>{formatCurrency(totalRevenue, 'ZAR')}</p></div>
-          <div className="pib-card"><p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">Outstanding</p><p className="text-2xl font-headline font-bold text-on-surface">{formatCurrency(outstanding, 'ZAR')}</p></div>
-          <div className="pib-card"><p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">Overdue</p><p className="text-2xl font-headline font-bold" style={{ color: overdueCount > 0 ? '#ef4444' : 'var(--color-on-surface)' }}>{overdueCount}</p></div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="pib-stat-card"><p className="pib-label mb-1">Revenue Collected</p><p className="text-2xl font-semibold text-[var(--color-pib-accent)]">{formatCurrency(totalRevenue, 'ZAR')}</p></div>
+          <div className="pib-stat-card"><p className="pib-label mb-1">Outstanding</p><p className="text-2xl font-semibold">{formatCurrency(outstanding, 'ZAR')}</p></div>
+          <div className="pib-stat-card"><p className="pib-label mb-1">Overdue</p><p className={`text-2xl font-semibold ${overdueCount > 0 ? 'text-[var(--color-error)]' : ''}`}>{overdueCount}</p></div>
         </div>
       )}
 
-      <div className="flex gap-2 flex-wrap">
+      <div role="tablist" aria-label="Billing tabs" className="pib-tabs pib-tabs-segmented">
         {(['invoices', 'quotes'] as const).map(nextTab => (
-          <button key={nextTab} onClick={() => { setTab(nextTab); setFilter('all'); setEditing(null) }} className="text-xs font-label px-3 py-1.5 rounded-[var(--radius-btn)] capitalize" style={tab === nextTab ? { background: 'var(--color-accent-v2)', color: '#000' } : { color: 'var(--color-on-surface-variant)' }}>
+          <button key={nextTab} type="button" role="tab" aria-selected={tab === nextTab} onClick={() => { setTab(nextTab); setFilter('all'); setEditing(null) }} className={`pib-tab capitalize ${tab === nextTab ? 'pib-tab-active' : ''}`}>
             {nextTab === 'invoices' ? `Invoices (${invoices.length})` : `Quotes (${quotes.length})`}
           </button>
         ))}
@@ -296,56 +297,56 @@ export default function InvoicingPage() {
 
       <div className="flex gap-2 flex-wrap">
         {filterOptions.map(s => (
-          <button key={s} onClick={() => setFilter(s)} className="text-xs font-label px-3 py-1.5 rounded-[var(--radius-btn)] transition-colors capitalize" style={filter === s ? { background: 'var(--color-accent-v2)', color: '#000' } : { color: 'var(--color-on-surface-variant)' }}>
+          <button key={s} onClick={() => setFilter(s)} className={`capitalize transition-colors ${filter === s ? 'pib-pill pib-pill-cyan' : 'pib-pill'}`}>
             {s.replace(/_/g, ' ')}
           </button>
         ))}
       </div>
 
-      <div className="pib-card overflow-hidden !p-0">
-        <div className="grid grid-cols-12 gap-4 px-5 py-3 border-b border-[var(--color-card-border)]">
-          <p className="col-span-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">#</p>
-          <p className="col-span-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Client</p>
-          <p className="col-span-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Status</p>
-          <p className="col-span-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Amount</p>
-          <p className="col-span-1 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Date</p>
-          <p className="col-span-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant text-right">Actions</p>
+      <div className="pib-surface pib-surface-table overflow-hidden">
+        <div className="grid grid-cols-12 gap-4 border-b border-[var(--color-pib-line)] px-5 py-3">
+          <p className="col-span-2 pib-label">#</p>
+          <p className="col-span-3 pib-label">Client</p>
+          <p className="col-span-2 pib-label">Status</p>
+          <p className="col-span-2 pib-label">Amount</p>
+          <p className="col-span-1 pib-label">Date</p>
+          <p className="col-span-2 pib-label text-right">Actions</p>
         </div>
 
         {loading ? (
-          <div className="divide-y divide-[var(--color-card-border)]">{[1, 2, 3].map(i => <div key={i} className="px-5 py-4"><Skeleton className="h-5 w-48" /></div>)}</div>
+          <div className="divide-y divide-[var(--color-pib-line)]">{[1, 2, 3].map(i => <div key={i} className="px-5 py-4"><Skeleton className="h-5 w-48" /></div>)}</div>
         ) : tab === 'invoices' ? (
-          visibleInvoices.length === 0 ? <EmptyState label="No invoices found." /> : <div className="divide-y divide-[var(--color-card-border)]">{visibleInvoices.map(inv => {
-            const status = INVOICE_STATUS_MAP[inv.status] ?? { label: inv.status, color: 'var(--color-outline)' }
-            return <div key={inv.id} className="grid grid-cols-12 gap-4 items-center px-5 py-3 hover:bg-[var(--color-row-hover)] transition-colors">
-              <p className="col-span-2 text-sm font-mono text-on-surface">{inv.invoiceNumber ?? inv.id}</p>
-              <p className="col-span-3 text-sm text-on-surface truncate">{orgMap[inv.orgId ?? ''] ?? inv.orgId ?? '—'}</p>
+          visibleInvoices.length === 0 ? <EmptyState label="No invoices found." /> : <div className="divide-y divide-[var(--color-pib-line)]">{visibleInvoices.map(inv => {
+            const status = INVOICE_STATUS_MAP[inv.status] ?? { label: inv.status, pill: 'pib-pill' }
+            return <div key={inv.id} className="grid grid-cols-12 items-center gap-4 px-5 py-3 transition-colors hover:bg-[var(--color-row-hover)]">
+              <p className="col-span-2 font-mono text-sm">{inv.invoiceNumber ?? inv.id}</p>
+              <p className="col-span-3 truncate text-sm">{orgMap[inv.orgId ?? ''] ?? inv.orgId ?? '—'}</p>
               <div className="col-span-2"><StatusPill status={status} /></div>
-              <p className="col-span-2 text-sm font-medium text-on-surface">{formatCurrency(inv.total ?? 0, inv.currency ?? 'ZAR')}</p>
-              <p className="col-span-1 text-sm text-on-surface-variant">{formatDate(inv.dueDate)}</p>
-              <div className="col-span-2 flex justify-end gap-2 flex-wrap text-[10px] font-label uppercase tracking-wide">
-                {inv.canEdit ? <button type="button" onClick={() => startInvoiceEdit(inv)} style={{ color: 'var(--color-accent-v2)' }}>Edit</button> : null}
-                {inv.canSend ? <button type="button" onClick={() => patchInvoice(inv, { status: 'sent' })} disabled={savingId === inv.id} style={{ color: 'var(--color-accent-v2)' }}>Mark sent</button> : null}
-                {inv.canCancel ? <button type="button" onClick={() => patchInvoice(inv, { status: 'cancelled' })} disabled={savingId === inv.id} className="text-red-300">Cancel</button> : null}
-                <Link href={`/portal/invoicing/${inv.id}`} style={{ color: 'var(--color-accent-v2)' }}>View</Link>
+              <p className="col-span-2 text-sm font-medium">{formatCurrency(inv.total ?? 0, inv.currency ?? 'ZAR')}</p>
+              <p className="col-span-1 text-sm text-[var(--color-pib-text-muted)]">{formatDate(inv.dueDate)}</p>
+              <div className="col-span-2 flex flex-wrap justify-end gap-2 text-[10px] font-label uppercase tracking-wide">
+                {inv.canEdit ? <button type="button" onClick={() => startInvoiceEdit(inv)} className="text-[var(--color-pib-accent)]">Edit</button> : null}
+                {inv.canSend ? <button type="button" onClick={() => patchInvoice(inv, { status: 'sent' })} disabled={savingId === inv.id} className="text-[var(--color-pib-accent)]">Mark sent</button> : null}
+                {inv.canCancel ? <button type="button" onClick={() => patchInvoice(inv, { status: 'cancelled' })} disabled={savingId === inv.id} className="text-[var(--color-error)]">Cancel</button> : null}
+                <Link href={`/portal/invoicing/${inv.id}`} className="text-[var(--color-pib-accent)]">View</Link>
               </div>
               {editing?.kind === 'invoices' && editing.id === inv.id ? renderDraftEditor(() => saveInvoiceDraft(inv)) : null}
             </div>
           })}</div>
         ) : (
-          visibleQuotes.length === 0 ? <EmptyState label="No quotes found." /> : <div className="divide-y divide-[var(--color-card-border)]">{visibleQuotes.map(quote => {
-            const status = QUOTE_STATUS_MAP[quote.status] ?? { label: quote.status, color: 'var(--color-outline)' }
-            return <div key={quote.id} className="grid grid-cols-12 gap-4 items-center px-5 py-3 hover:bg-[var(--color-row-hover)] transition-colors">
-              <p className="col-span-2 text-sm font-mono text-on-surface">{quote.quoteNumber ?? quote.id}</p>
-              <p className="col-span-3 text-sm text-on-surface truncate">{orgMap[quote.orgId ?? ''] ?? quote.orgId ?? '—'}</p>
+          visibleQuotes.length === 0 ? <EmptyState label="No quotes found." /> : <div className="divide-y divide-[var(--color-pib-line)]">{visibleQuotes.map(quote => {
+            const status = QUOTE_STATUS_MAP[quote.status] ?? { label: quote.status, pill: 'pib-pill' }
+            return <div key={quote.id} className="grid grid-cols-12 items-center gap-4 px-5 py-3 transition-colors hover:bg-[var(--color-row-hover)]">
+              <p className="col-span-2 font-mono text-sm">{quote.quoteNumber ?? quote.id}</p>
+              <p className="col-span-3 truncate text-sm">{orgMap[quote.orgId ?? ''] ?? quote.orgId ?? '—'}</p>
               <div className="col-span-2"><StatusPill status={status} /></div>
-              <p className="col-span-2 text-sm font-medium text-on-surface">{formatCurrency(quote.total ?? 0, quote.currency ?? 'ZAR')}</p>
-              <p className="col-span-1 text-sm text-on-surface-variant">{formatDate(quote.validUntil)}</p>
-              <div className="col-span-2 flex justify-end gap-2 flex-wrap text-[10px] font-label uppercase tracking-wide">
-                {quote.canEdit ? <button type="button" onClick={() => startQuoteEdit(quote)} style={{ color: 'var(--color-accent-v2)' }}>Edit</button> : null}
-                {quote.canSend ? <button type="button" onClick={() => patchQuote(quote, { status: 'sent' })} disabled={savingId === quote.id} style={{ color: 'var(--color-accent-v2)' }}>Send</button> : null}
-                {quote.canAccept ? <button type="button" onClick={() => patchQuote(quote, { status: 'accepted' })} disabled={savingId === quote.id} style={{ color: 'var(--color-accent-v2)' }}>Accept</button> : null}
-                {quote.canDecline ? <button type="button" onClick={() => patchQuote(quote, { status: 'declined' })} disabled={savingId === quote.id} className="text-red-300">Decline</button> : null}
+              <p className="col-span-2 text-sm font-medium">{formatCurrency(quote.total ?? 0, quote.currency ?? 'ZAR')}</p>
+              <p className="col-span-1 text-sm text-[var(--color-pib-text-muted)]">{formatDate(quote.validUntil)}</p>
+              <div className="col-span-2 flex flex-wrap justify-end gap-2 text-[10px] font-label uppercase tracking-wide">
+                {quote.canEdit ? <button type="button" onClick={() => startQuoteEdit(quote)} className="text-[var(--color-pib-accent)]">Edit</button> : null}
+                {quote.canSend ? <button type="button" onClick={() => patchQuote(quote, { status: 'sent' })} disabled={savingId === quote.id} className="text-[var(--color-pib-accent)]">Send</button> : null}
+                {quote.canAccept ? <button type="button" onClick={() => patchQuote(quote, { status: 'accepted' })} disabled={savingId === quote.id} className="text-[var(--color-pib-accent)]">Accept</button> : null}
+                {quote.canDecline ? <button type="button" onClick={() => patchQuote(quote, { status: 'declined' })} disabled={savingId === quote.id} className="text-[var(--color-error)]">Decline</button> : null}
               </div>
               {editing?.kind === 'quotes' && editing.id === quote.id ? renderDraftEditor(() => saveQuoteDraft(quote)) : null}
             </div>
@@ -356,10 +357,17 @@ export default function InvoicingPage() {
   )
 }
 
-function StatusPill({ status }: { status: { label: string; color: string } }) {
-  return <span className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full" style={{ background: `${status.color}20`, color: status.color }}>{status.label}</span>
+function StatusPill({ status }: { status: { label: string; pill: string } }) {
+  return <span className={status.pill}>{status.label}</span>
 }
 
 function EmptyState({ label }: { label: string }) {
-  return <div className="py-10 text-center"><p className="text-on-surface-variant text-sm">{label}</p><Link href="/portal/invoicing/new" className="text-sm mt-2 inline-block" style={{ color: 'var(--color-accent-v2)' }}>Create your first invoice →</Link></div>
+  return (
+    <div className="pib-empty-state border-0">
+      <h2 className="pib-empty-state-title">{label}</h2>
+      <div className="mt-5 flex justify-center">
+        <Link href="/portal/invoicing/new" className="btn-pib-secondary">Create your first invoice →</Link>
+      </div>
+    </div>
+  )
 }

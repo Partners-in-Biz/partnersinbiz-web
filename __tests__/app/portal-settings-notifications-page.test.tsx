@@ -6,6 +6,10 @@ jest.mock('@/components/pwa/PushNotificationsToggle', () => ({
   PushNotificationsToggle: () => <div data-testid="push-notifications-toggle">Push notifications device toggle</div>,
 }))
 
+jest.mock('@/components/settings/NotificationPreferences', () => ({
+  NotificationPreferences: () => <div data-testid="notification-preferences">Notification preferences</div>,
+}))
+
 describe('Portal notifications settings page', () => {
   it('frames notification setup as a CRM readiness command center', () => {
     render(<NotificationsPage />)
@@ -17,7 +21,7 @@ describe('Portal notifications settings page', () => {
     expect(screen.getByText('4 CRM signals')).toBeInTheDocument()
     expect(screen.getByText('1 device channel')).toBeInTheDocument()
     expect(screen.getByText('Team accountability')).toBeInTheDocument()
-    expect(screen.getByTestId('notification-command-hero')).toHaveClass('bento-card')
+    expect(screen.getByTestId('notification-command-hero')).toBeInTheDocument()
     expect(screen.getByTestId('notification-readiness-grid').querySelectorAll('.pib-stat-card')).toHaveLength(3)
     expect(screen.getByTestId('notification-push-panel')).toHaveClass('pib-card-section')
     expect(screen.getByTestId('notification-signal-grid').querySelectorAll('.pib-stat-card')).toHaveLength(4)

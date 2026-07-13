@@ -99,8 +99,8 @@ export function AdminMobileAppsGovernanceWorkspace({ orgSlug }: AdminMobileAppsG
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="eyebrow !text-[10px]">Mobile app access</p>
-            <h2 className="mt-2 text-lg font-semibold text-on-surface">Who can use Mobile Apps</h2>
-            <p className="mt-1 max-w-2xl text-sm leading-relaxed text-on-surface-variant">
+            <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Who can use Mobile Apps</h2>
+            <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
               Every action exposes the same role choices so each organisation can choose its own mobile app rules.
             </p>
           </div>
@@ -129,8 +129,8 @@ export function AdminMobileAppsGovernanceWorkspace({ orgSlug }: AdminMobileAppsG
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <p className="eyebrow !text-[10px]">App profile templates</p>
-            <h2 className="mt-2 text-lg font-semibold text-on-surface">Default mobile app templates plus organisation custom templates</h2>
-            <p className="mt-1 max-w-2xl text-sm leading-relaxed text-on-surface-variant">
+            <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Default mobile app templates plus organisation custom templates</h2>
+            <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
               Keep standard iOS, Android, PWA, internal app, and ASO workflows available by default. Add organisation-specific mobile app templates here.
             </p>
           </div>
@@ -139,7 +139,7 @@ export function AdminMobileAppsGovernanceWorkspace({ orgSlug }: AdminMobileAppsG
               value={newTemplateName}
               onChange={(event) => setNewTemplateName(event.target.value)}
               placeholder="Custom template"
-              className="min-w-0 flex-1 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface"
+              className="min-w-0 flex-1 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-pib-text)]"
             />
             <button type="button" onClick={addTemplate} className="pib-btn-secondary shrink-0">
               <span className="material-symbols-outlined text-[18px]">add</span>
@@ -153,10 +153,10 @@ export function AdminMobileAppsGovernanceWorkspace({ orgSlug }: AdminMobileAppsG
             <div key={template.id} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-on-surface">{template.label}</h3>
-                  <p className="mt-1 text-sm text-on-surface-variant">{template.description}</p>
+                  <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{template.label}</h3>
+                  <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{template.description}</p>
                 </div>
-                <span className="rounded-full border border-[var(--color-card-border)] px-2 py-1 text-[10px] uppercase tracking-wide text-on-surface-variant">
+                <span className="rounded-full border border-[var(--color-card-border)] px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                   {template.locked ? 'Default' : 'Custom'}
                 </span>
               </div>
@@ -164,7 +164,7 @@ export function AdminMobileAppsGovernanceWorkspace({ orgSlug }: AdminMobileAppsG
                 type="button"
                 disabled={template.locked}
                 onClick={() => removeTemplate(template.id)}
-                className="mt-4 inline-flex items-center gap-1 text-xs text-on-surface-variant transition-colors hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-45"
+                className="mt-4 inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-45"
               >
                 <span className="material-symbols-outlined text-[15px]">delete</span>
                 {template.locked ? 'Default cannot be deleted yet' : 'Delete custom template'}
@@ -173,13 +173,13 @@ export function AdminMobileAppsGovernanceWorkspace({ orgSlug }: AdminMobileAppsG
           ))}
         </div>
 
-        <p className="mt-4 text-xs text-on-surface-variant">{customTemplateCount} custom mobile app templates configured for this organisation.</p>
+        <p className="mt-4 text-xs text-[var(--color-pib-text-muted)]">{customTemplateCount} custom mobile app templates configured for this organisation.</p>
       </Surface>
 
       <Surface className="p-5">
         <p className="eyebrow !text-[10px]">App-owner settings</p>
-        <h2 className="mt-2 text-lg font-semibold text-on-surface">What app owners control inside an app profile</h2>
-        <p className="mt-1 max-w-3xl text-sm leading-relaxed text-on-surface-variant">
+        <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">What app owners control inside an app profile</h2>
+        <p className="mt-1 max-w-3xl text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
           These app-level permissions belong inside each mobile app settings flow, separate from the admin module rules.
         </p>
         <OrganizationOwnerControlsGrid

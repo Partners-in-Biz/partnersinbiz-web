@@ -203,7 +203,7 @@ export function TimelinePanel(props: TimelinePanelProps) {
                 type="button"
                 aria-label={mode.label}
                 aria-pressed={editMode === mode.id}
-                className={['px-2 py-1 text-sm', editMode === mode.id ? 'bg-[var(--color-pib-primary)]/20 text-on-surface' : 'text-on-surface-variant'].join(' ')}
+                className={['px-2 py-1 text-sm', editMode === mode.id ? 'bg-[var(--color-pib-primary)]/20 text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)]'].join(' ')}
                 onClick={() => onEditModeChange?.(mode.id)}
               >
                 <span className="material-symbols-rounded text-base">{mode.icon}</span>
@@ -229,7 +229,7 @@ export function TimelinePanel(props: TimelinePanelProps) {
             <span className="material-symbols-rounded text-base">zoom_out</span>
           </button>
         </div>
-        <label className="text-sm text-on-surface-variant">
+        <label className="text-sm text-[var(--color-pib-text-muted)]">
           Add to timeline
           <select
             className="ml-2 rounded-lg border border-[var(--color-pib-line)] bg-transparent px-2 py-1"
@@ -251,7 +251,7 @@ export function TimelinePanel(props: TimelinePanelProps) {
       </div>
       <div className="overflow-x-auto">
         <div style={{ width: `${duration * pxPerSecond + 220}px` }} className="min-w-full">
-          <div className="flex border-b border-[var(--color-pib-line)] text-xs text-on-surface-variant">
+          <div className="flex border-b border-[var(--color-pib-line)] text-xs text-[var(--color-pib-text-muted)]">
             <div className="w-48 shrink-0 p-2">Timeline</div>
             <div
               data-testid="timeline-ruler"
@@ -270,7 +270,7 @@ export function TimelinePanel(props: TimelinePanelProps) {
           {timeline.tracks.map((track) => (
             <div key={track.id} className="flex border-b border-[var(--color-pib-line)]">
               <div className="w-48 shrink-0 space-y-2 p-2">
-                <p className="truncate text-sm font-medium text-on-surface">{track.label || track.kind}</p>
+                <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{track.label || track.kind}</p>
                 <div className="flex gap-1">
                   <button type="button" className="rounded border border-[var(--color-pib-line)] px-2 py-1 text-xs" onClick={() => onToggleTrackFlag(track.id, 'muted')} aria-label={`Mute ${track.label || track.kind}`}>M</button>
                   <button type="button" className="rounded border border-[var(--color-pib-line)] px-2 py-1 text-xs" onClick={() => onToggleTrackFlag(track.id, 'locked')} aria-label={`Lock ${track.label || track.kind}`}>L</button>
@@ -306,7 +306,7 @@ export function TimelinePanel(props: TimelinePanelProps) {
                       }}
                       className={[
                         'group absolute top-3 h-12 overflow-hidden rounded-md border px-2 text-left text-xs',
-                        selected ? 'border-[var(--color-pib-primary)] bg-[var(--color-pib-primary)]/20 text-on-surface' : 'border-[var(--color-pib-line)] bg-white/[0.04] text-on-surface-variant',
+                        selected ? 'border-[var(--color-pib-primary)] bg-[var(--color-pib-primary)]/20 text-[var(--color-pib-text)]' : 'border-[var(--color-pib-line)] bg-white/[0.04] text-[var(--color-pib-text-muted)]',
                         editMode === 'slip' ? 'cursor-ew-resize' : 'cursor-pointer',
                       ].join(' ')}
                       onClick={(event) => handleClipClick(event, track.id, clip.id)}

@@ -177,7 +177,7 @@ export default function DemoOrgsPage() {
         title="Demo organisations"
         description="Tag client orgs as demos, seed realistic sample data, reset on a 24h cycle, and share no-login preview links."
         actions={
-          <button type="button" className="pib-btn-primary" onClick={openTagModal}>
+          <button type="button" className="btn-pib-primary" onClick={openTagModal}>
             <span className="material-symbols-outlined text-[18px]">add</span>
             Tag as demo
           </button>
@@ -185,14 +185,14 @@ export default function DemoOrgsPage() {
       />
 
       {toast && (
-        <div className="mb-4 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-accent-soft)] px-4 py-2 text-sm text-on-surface">
+        <div className="mb-4 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-accent-soft)] px-4 py-2 text-sm text-[var(--color-pib-text)]">
           {toast}
         </div>
       )}
 
       {error && (
-        <Surface className="mb-4 border-[var(--color-pib-danger,#b00)]/40">
-          <p className="text-sm text-on-surface">{error}</p>
+        <Surface className="mb-4 border-[var(--color-error)]">
+          <p className="text-sm text-[var(--color-pib-text)]">{error}</p>
         </Surface>
       )}
 
@@ -206,7 +206,7 @@ export default function DemoOrgsPage() {
             icon="science"
             title="No demo organisations yet"
             description="Tag an existing organisation as a demo to seed sample CRM data and generate a shareable preview link."
-            action={<button type="button" className="pib-btn-primary" onClick={openTagModal}>Tag as demo</button>}
+            action={<button type="button" className="btn-pib-primary" onClick={openTagModal}>Tag as demo</button>}
           />
         </Surface>
       ) : (
@@ -218,24 +218,24 @@ export default function DemoOrgsPage() {
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="font-headline text-base text-on-surface">{org.name}</h3>
+                      <h3 className="font-headline text-base text-[var(--color-pib-text)]">{org.name}</h3>
                       {org.personaLabel && <StatusPill tone="accent">{org.personaLabel}</StatusPill>}
                       <StatusPill tone={org.status === 'active' ? 'success' : 'neutral'} dot>{org.status}</StatusPill>
                     </div>
-                    <p className="mt-1 font-label text-xs text-on-surface-variant">/{org.slug}</p>
+                    <p className="mt-1 font-label text-xs text-[var(--color-pib-text-muted)]">/{org.slug}</p>
 
-                    <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-on-surface-variant sm:grid-cols-4">
+                    <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-[var(--color-pib-text-muted)] sm:grid-cols-4">
                       <div>
                         <div className="font-label uppercase tracking-wide opacity-70">Seeded contacts</div>
-                        <div className="text-on-surface">{org.seededContacts}</div>
+                        <div className="text-[var(--color-pib-text)]">{org.seededContacts}</div>
                       </div>
                       <div>
                         <div className="font-label uppercase tracking-wide opacity-70">Last reset</div>
-                        <div className="text-on-surface" title={fmtDate(org.resetAt)}>{relativeFromNow(org.resetAt)}</div>
+                        <div className="text-[var(--color-pib-text)]" title={fmtDate(org.resetAt)}>{relativeFromNow(org.resetAt)}</div>
                       </div>
                       <div>
                         <div className="font-label uppercase tracking-wide opacity-70">Seeded at</div>
-                        <div className="text-on-surface">{fmtDate(org.seededAt)}</div>
+                        <div className="text-[var(--color-pib-text)]">{fmtDate(org.seededAt)}</div>
                       </div>
                       <div className="min-w-0">
                         <div className="font-label uppercase tracking-wide opacity-70">Preview</div>
@@ -254,15 +254,15 @@ export default function DemoOrgsPage() {
                   </div>
 
                   <div className="flex shrink-0 flex-wrap items-center gap-2">
-                    <button type="button" className="pib-btn-secondary" disabled={busy} onClick={() => runAction(org.id, 'seed')}>
+                    <button type="button" className="btn-pib-secondary" disabled={busy} onClick={() => runAction(org.id, 'seed')}>
                       <span className="material-symbols-outlined text-[18px]">database</span>
                       {busy ? '…' : 'Seed'}
                     </button>
-                    <button type="button" className="pib-btn-secondary" disabled={busy} onClick={() => runAction(org.id, 'reset')}>
+                    <button type="button" className="btn-pib-secondary" disabled={busy} onClick={() => runAction(org.id, 'reset')}>
                       <span className="material-symbols-outlined text-[18px]">restart_alt</span>
                       {busy ? '…' : 'Reset (24h)'}
                     </button>
-                    <button type="button" className="pib-btn-ghost" disabled={busy} onClick={() => runAction(org.id, 'untag')}>
+                    <button type="button" className="btn-pib-ghost" disabled={busy} onClick={() => runAction(org.id, 'untag')}>
                       <span className="material-symbols-outlined text-[18px]">delete</span>
                       Untag
                     </button>
@@ -281,8 +281,8 @@ export default function DemoOrgsPage() {
         description="Mark an existing org as a demo and assign a persona preset. A no-login preview token is generated automatically."
         footer={
           <>
-            <button type="button" className="pib-btn-ghost" onClick={() => setTagOpen(false)}>Cancel</button>
-            <button type="button" className="pib-btn-primary" disabled={tagging} onClick={submitTag}>
+            <button type="button" className="btn-pib-ghost" onClick={() => setTagOpen(false)}>Cancel</button>
+            <button type="button" className="btn-pib-primary" disabled={tagging} onClick={submitTag}>
               {tagging ? 'Tagging…' : 'Tag as demo'}
             </button>
           </>
@@ -290,7 +290,7 @@ export default function DemoOrgsPage() {
       >
         <div className="flex flex-col gap-4">
           <label className="flex flex-col gap-1.5">
-            <span className="font-label text-xs uppercase tracking-wide text-on-surface-variant">Organisation</span>
+            <span className="font-label text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Organisation</span>
             <select
               className="pib-input"
               value={tagOrgId}
@@ -301,11 +301,11 @@ export default function DemoOrgsPage() {
                 <option key={o.id} value={o.id}>{o.name} (/{o.slug})</option>
               ))}
             </select>
-            {allOrgs.length === 0 && <span className="text-xs text-on-surface-variant">No eligible (non-demo) orgs found.</span>}
+            {allOrgs.length === 0 && <span className="text-xs text-[var(--color-pib-text-muted)]">No eligible (non-demo) orgs found.</span>}
           </label>
 
           <fieldset className="flex flex-col gap-2">
-            <legend className="font-label text-xs uppercase tracking-wide text-on-surface-variant">Persona</legend>
+            <legend className="font-label text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Persona</legend>
             <div className="grid gap-2 sm:grid-cols-2">
               {personaList.map((p) => (
                 <label
@@ -325,9 +325,9 @@ export default function DemoOrgsPage() {
                       checked={tagPersona === p.key}
                       onChange={() => setTagPersona(p.key)}
                     />
-                    <span className="font-headline text-sm text-on-surface">{p.label}</span>
+                    <span className="font-headline text-sm text-[var(--color-pib-text)]">{p.label}</span>
                   </span>
-                  {p.description && <span className="text-xs text-on-surface-variant">{p.description}</span>}
+                  {p.description && <span className="text-xs text-[var(--color-pib-text-muted)]">{p.description}</span>}
                 </label>
               ))}
             </div>

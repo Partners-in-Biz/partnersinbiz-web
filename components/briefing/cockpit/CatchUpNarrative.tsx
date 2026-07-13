@@ -11,15 +11,15 @@ type Props = {
 
 export function CatchUpNarrative({ changedCount, changed, riskCount, autoCount, onBriefMe }: Props) {
   return (
-    <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 text-sm">
-      <div className="mb-2 text-xs font-medium uppercase tracking-wide text-on-surface-variant">
+    <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)] p-3 text-sm">
+      <div className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--color-pib-text-muted)]">
         Since you last looked
       </div>
       {changedCount === 0 ? (
-        <p className="text-on-surface-variant">Nothing new since you last looked.</p>
+        <p className="text-[var(--color-pib-text-muted)]">Nothing new since you last looked.</p>
       ) : (
         <>
-          <p className="text-on-surface">
+          <p className="text-[var(--color-pib-text)]">
             <strong>
               {changedCount} {changedCount === 1 ? 'thing' : 'things'} changed.
             </strong>
@@ -36,7 +36,7 @@ export function CatchUpNarrative({ changedCount, changed, riskCount, autoCount, 
           )}
           <ul className="mt-2 space-y-1">
             {changed.slice(0, 3).map((c) => (
-              <li key={c.id} className="truncate text-xs text-on-surface-variant">
+              <li key={c.id} className="truncate text-xs text-[var(--color-pib-text-muted)]">
                 • {c.title}
               </li>
             ))}

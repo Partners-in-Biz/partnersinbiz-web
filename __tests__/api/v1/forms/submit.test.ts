@@ -24,11 +24,12 @@ const mockContactsGet = jest.fn()
 const mockActivitiesAdd = jest.fn()
 const mockFormsGet = jest.fn()
 const mockCollection = jest.fn()
+const mockRunTransaction = jest.fn()
 const mockWhere = jest.fn()
 const mockLimit = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
-  adminDb: { collection: mockCollection },
+  adminDb: { collection: mockCollection, runTransaction: mockRunTransaction },
 }))
 
 jest.mock('@/lib/forms/ratelimit', () => ({
@@ -114,6 +115,7 @@ function stageDb(
 ) {
   const formDoc = {
     id: form.id,
+    ref: { update: jest.fn() },
     data: () => {
       const { id: _id, ...rest } = form
       return rest
@@ -173,6 +175,7 @@ function stageDb(
         add: mockContactsAdd,
       }
     if (name === 'activities') return { add: mockActivitiesAdd }
+    if (name === 'lead_capture_schema_versions') return { doc: jest.fn(() => ({ id: 'schema-doc' })) }
     return {}
   })
 }
@@ -187,9 +190,87 @@ beforeEach(() => {
   ;(checkFormRateLimit as jest.Mock).mockResolvedValue(true)
   ;(verifyTurnstileToken as jest.Mock).mockResolvedValue({ success: true })
   mockDispatchWebhook.mockResolvedValue(undefined)
+  mockRunTransaction.mockImplementation(async (callback) => callback({
+    get: jest.fn().mockResolvedValue({ exists: false, data: () => undefined }),
+    create: jest.fn(),
+    update: jest.fn(),
+  }))
 })
 
 describe('POST /api/v1/forms/[id]/submit — attribution', () => {
+  it('rejects caller-supplied hidden fields', async () => {
+    const form = makeForm({ fields: [
+      { id: 'email', label: 'Email', type: 'email', required: true },
+      { id: 'internalCampaign', label: 'Internal campaign', type: 'hidden', required: false },
+    ] })
+    stageDb(form, { existingContact: null })
+    const { POST } = await import('@/app/api/v1/forms/[id]/submit/route')
+    const res = await POST(submitReq('contact-us', 'org-1', {
+      email: 'bob@example.com', internalCampaign: 'spoofed',
+    }), { params: Promise.resolve({ id: 'contact-us' }) })
+    expect(res.status).toBe(400)
+    expect(mockFormSubmissionsAdd).not.toHaveBeenCalled()
+  })
+
+  it('persists canonical number, checkbox and multiselect values under the exact version', async () => {
+    const form = makeForm({ fields: [
+      { id: 'email', label: 'Email', type: 'email', required: true },
+      { id: 'amount', label: 'Amount', type: 'number', required: true, validation: { min: 1 } },
+      { id: 'agree', label: 'Agree', type: 'checkbox', required: true },
+      { id: 'topics', label: 'Topics', type: 'multiselect', required: true, options: ['growth', 'sales'] },
+    ] })
+    stageDb(form, { existingContact: null })
+    const { POST } = await import('@/app/api/v1/forms/[id]/submit/route')
+    const res = await POST(submitReq('contact-us', 'org-1', {
+      email: 'bob@example.com', amount: '12', agree: 'true', topics: ['growth'],
+    }), { params: Promise.resolve({ id: 'contact-us' }) })
+    expect(res.status).toBe(200)
+    expect(mockFormSubmissionsAdd).toHaveBeenCalledWith(expect.objectContaining({
+      data: { email: 'bob@example.com', amount: 12, agree: true, topics: ['growth'] },
+      schemaVersionId: expect.stringMatching(/^schema_/),
+    }))
+  })
+
+  it('persists referrer, campaign and UTM attribution on the submission', async () => {
+    const form = makeForm()
+    stageDb(form, { existingContact: null })
+
+    const { POST } = await import('@/app/api/v1/forms/[id]/submit/route')
+    const req = new NextRequest(
+      'http://localhost/api/v1/forms/contact-us/submit?orgId=org-1&utm_source=linkedin',
+      {
+        method: 'POST',
+        headers: new Headers({
+          'content-type': 'application/json',
+          'x-forwarded-for': '127.0.0.1',
+          referer: 'https://example.com/form?utm_campaign=growth',
+        }),
+        body: JSON.stringify({ email: 'bob@example.com' }),
+      },
+    )
+    await POST(req, { params: Promise.resolve({ id: 'contact-us' }) })
+
+    expect(mockFormSubmissionsAdd).toHaveBeenCalledWith(expect.objectContaining({
+      attribution: expect.objectContaining({
+        sourceId: 'form-abc',
+        campaignId: '',
+        referrer: expect.stringContaining('example.com/form'),
+        utm: expect.objectContaining({ source: 'linkedin' }),
+      }),
+    }))
+  })
+
+  it('rejects body-supplied campaign and click lineage', async () => {
+    const form = makeForm()
+    stageDb(form, { existingContact: null })
+    const { POST } = await import('@/app/api/v1/forms/[id]/submit/route')
+    const res = await POST(submitReq('contact-us', 'org-1', {
+      email: 'bob@example.com', campaignId: 'spoofed', gclid: 'spoofed-click',
+    }), { params: Promise.resolve({ id: 'contact-us' }) })
+    expect(res.status).toBe(400)
+    expect(mockFormSubmissionsAdd).not.toHaveBeenCalled()
+  })
+
   it('writes formSubmissionRef on FormSubmission record', async () => {
     const form = makeForm()
     stageDb(form, { existingContact: null })

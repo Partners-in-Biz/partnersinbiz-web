@@ -116,11 +116,11 @@ function ImpersonateContent() {
 
       <div className="pib-card p-5 space-y-4">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Firebase custom token
           </p>
-          <p className="text-sm text-on-surface-variant">
-            This token is valid for <strong className="text-on-surface">1 hour</strong>. Clicking
+          <p className="text-sm text-[var(--color-pib-text-muted)]">
+            This token is valid for <strong className="text-[var(--color-pib-text)]">1 hour</strong>. Clicking
             &ldquo;Sign in as this user&rdquo; below will replace your current session. You will need
             to sign back in as yourself afterwards.
           </p>
@@ -128,7 +128,7 @@ function ImpersonateContent() {
 
         {/* Token display */}
         <div className="relative">
-          <pre className="pib-card bg-on-surface/5 p-4 text-[11px] font-mono break-all whitespace-pre-wrap text-on-surface-variant overflow-x-auto rounded-xl">
+          <pre className="pib-card bg-[var(--color-pib-text)]/5 p-4 text-[11px] font-mono break-all whitespace-pre-wrap text-[var(--color-pib-text-muted)] overflow-x-auto rounded-xl">
             {token}
           </pre>
           <button
@@ -179,7 +179,7 @@ function ImpersonateContent() {
           </div>
         )}
 
-        <p className="text-xs text-on-surface-variant/60">
+        <p className="text-xs text-[var(--color-pib-text-muted)]/60">
           Signing in will call <code>signInWithCustomToken</code> with the Firebase client SDK and
           redirect you to <code>/portal</code>. Your existing admin session will be replaced. Sign
           out and back in to restore admin access.
@@ -193,18 +193,18 @@ export default function ImpersonatePage() {
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
       <div>
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+        <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
           Admin / Impersonate
         </p>
-        <h1 className="text-2xl font-headline font-bold text-on-surface">Impersonate User</h1>
-        <p className="text-sm text-on-surface-variant mt-0.5">
+        <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Impersonate User</h1>
+        <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5">
           Use this token to sign in as the selected user for debugging purposes.
         </p>
       </div>
 
       <Suspense
         fallback={
-          <div className="pib-card p-6 text-center text-sm text-on-surface-variant">
+          <div className="pib-card p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
             Loading...
           </div>
         }

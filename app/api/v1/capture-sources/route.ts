@@ -24,8 +24,6 @@ import {
   DEFAULT_DISPLAY_CONFIG,
   LEAD_CAPTURE_SOURCES,
   VALID_CAPTURE_TYPES,
-  VALID_FIELD_TYPES,
-  type CaptureField,
   type CaptureSourceRateLimit,
   type CaptureSourceType,
   type CaptureWidgetTheme,
@@ -35,6 +33,8 @@ import {
   type WidgetDisplayStep,
   type WidgetPosition,
 } from '@/lib/lead-capture/types'
+import { parseCaptureFields } from '@/lib/lead-capture/schema'
+import { publishCaptureSchemaVersion } from '@/lib/lead-capture/schema-store'
 
 const VALID_DISPLAY_MODES: WidgetDisplayMode[] = [
   'inline',
@@ -122,32 +122,6 @@ function sanitizeRateLimit(input: unknown): CaptureSourceRateLimit {
 }
 
 export const dynamic = 'force-dynamic'
-
-function sanitizeFields(input: unknown): CaptureField[] {
-  if (!Array.isArray(input)) return []
-  return input
-    .map((raw): CaptureField | null => {
-      if (!raw || typeof raw !== 'object') return null
-      const r = raw as Record<string, unknown>
-      const key = typeof r.key === 'string' ? r.key.trim() : ''
-      const label = typeof r.label === 'string' ? r.label.trim() : ''
-      const type = (typeof r.type === 'string' ? r.type : 'text') as CaptureField['type']
-      if (!key || !label) return null
-      if (!VALID_FIELD_TYPES.includes(type)) return null
-      const field: CaptureField = {
-        key,
-        label,
-        type,
-        required: r.required === true,
-      }
-      if (typeof r.placeholder === 'string') field.placeholder = r.placeholder
-      if (Array.isArray(r.options)) {
-        field.options = r.options.filter((o): o is string => typeof o === 'string')
-      }
-      return field
-    })
-    .filter((f): f is CaptureField => f !== null)
-}
 
 function sanitizeTheme(input: unknown): CaptureWidgetTheme {
   if (!input || typeof input !== 'object') return { ...DEFAULT_WIDGET_THEME }
@@ -238,6 +212,10 @@ export const POST = withAuth(
 
     const doubleOptIn: DoubleOptInMode = body.doubleOptIn === 'on' ? 'on' : 'off'
 
+    const parsedFields = parseCaptureFields(body.fields ?? [])
+    if (!parsedFields.ok) return apiError(parsedFields.errors.join('; '), 400)
+    const fields = parsedFields.fields
+    const display = sanitizeDisplay(body.display)
     const docData = {
       orgId,
       name,
@@ -250,7 +228,7 @@ export const POST = withAuth(
           ? body.successMessage
           : 'Thanks — you are subscribed!',
       successRedirectUrl: typeof body.successRedirectUrl === 'string' ? body.successRedirectUrl : '',
-      fields: sanitizeFields(body.fields),
+      fields,
       tagsToApply: strArray(body.tagsToApply),
       campaignIdsToEnroll: strArray(body.campaignIdsToEnroll),
       sequenceIdsToEnroll: strArray(body.sequenceIdsToEnroll),
@@ -266,7 +244,7 @@ export const POST = withAuth(
       blockDisposableEmails: body.blockDisposableEmails === false ? false : true,
       rateLimit: sanitizeRateLimit(body.rateLimit),
       stats: { blocked: { ...DEFAULT_BLOCK_STATS } },
-      display: sanitizeDisplay(body.display),
+      display,
       // Outbound webhook (US-091)
       webhookUrl: sanitizeWebhookUrl(body.webhookUrl),
       webhookSecret: typeof body.webhookSecret === 'string' ? body.webhookSecret.trim() : '',
@@ -277,6 +255,9 @@ export const POST = withAuth(
     }
 
     const ref = await adminDb.collection(LEAD_CAPTURE_SOURCES).add(docData)
+    await publishCaptureSchemaVersion(adminDb as never, ref as never, {
+      orgId, sourceId: ref.id, fields, display, createdBy: user.uid,
+    })
     const created = await ref.get()
     return apiSuccess({ id: ref.id, ...created.data() }, 201)
   }),

@@ -5,6 +5,7 @@ import { scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-
 import type { SoftwareBuildEvidenceRow, AgentOutputReviewStatus, AgentOutputReviewArtifact, AgentOutputQualityCheck, AgentOutputApprovalGate, AgentOutputReviewCard, AgentLearningReviewLink, AgentLearningReviewCard, BriefingCard, Mode } from './cockpit/cockpitTypes'
 import { useBriefingFeed } from './cockpit/useBriefingFeed'
 import { CockpitShell } from './cockpit/CockpitShell'
+import { sanitizeContextReferenceSeeds, type ContextReferenceSeed, type ContextReferenceType } from '@/lib/context-references/types'
 
 const ACTION_CONTROL_GRID_CLASS = 'mt-3 grid min-w-0 grid-cols-1 gap-2'
 const ACTION_CONTEXT_GRID_CLASS = 'mt-2 grid min-w-0 grid-cols-1 gap-2'
@@ -12,6 +13,39 @@ const ACTION_CONTROL_CLASS = 'pib-btn-secondary min-w-0 w-full items-start justi
 const ACTION_CONTROL_LINK_CLASS = `${ACTION_CONTROL_CLASS} inline-flex`
 const ACTION_CONTROL_ICON_CLASS = 'material-symbols-outlined shrink-0 text-[15px]'
 const SOURCE_ACTION_CONTROL_CLASS = 'pib-btn-secondary min-w-0 w-full items-center justify-center whitespace-normal rounded-lg px-3 py-2 text-center text-xs leading-4'
+
+export function briefingContextSeed(item: BriefingCard, mode: Mode, portalScope?: PortalOrgRouteScope): ContextReferenceSeed {
+  const supplied = item.metadata?.contextReference
+  const orgId = item.orgId || item.context.orgId || undefined
+  const base = {
+    orgId,
+    href: mode === 'admin' ? adminSourceHref(item) ?? undefined : sourceHref(item, mode, portalScope) ?? undefined,
+    summary: humanReadableCopy(item.excerpt || item.summary),
+  }
+  const parsed = sanitizeContextReferenceSeeds([supplied])[0]
+  if (parsed) {
+    return { ...base, ...parsed, orgId, label: parsed.label || item.title }
+  }
+  const candidates: Array<[ContextReferenceType, string | null | undefined, string | null | undefined]> = [
+    ['task', item.context.taskId, item.context.taskTitle],
+    ['document', item.context.documentId, item.context.documentTitle],
+    ['contact', item.context.contactId, item.context.contactName],
+    ['company', item.context.companyId, item.context.companyName],
+    ['deal', item.context.dealId, item.context.dealTitle],
+    ['invoice', item.context.invoiceId, item.context.invoiceNumber],
+    ['quote', item.context.quoteId, item.context.quoteNumber],
+    ['report', item.context.reportId, item.context.reportTitle],
+    ['workspace_artifact', item.context.workspaceArtifactId, item.context.workspaceArtifactTitle],
+    ['calendar_event', item.context.calendarEventId, item.context.calendarEventTitle],
+    ['project', item.context.projectId, item.context.projectName],
+  ]
+  const domain = candidates.find(([, id]) => typeof id === 'string' && id.trim())
+  if (domain) {
+    const [type, id, label] = domain
+    return { ...base, type, id: id!.trim(), label: label?.trim() || item.title, metadata: { sourceType: item.source.type, sourceId: item.source.id } }
+  }
+  return { ...base, type: 'report', id: `briefing:${item.id}`, label: item.title, metadata: { sourceType: item.source.type, sourceId: item.source.id } }
+}
 
 function ActionControlLabel({ children }: { children: ReactNode }) {
   return (
@@ -90,7 +124,7 @@ function priorityClass(priority: BriefingCard['priority']) {
     case 'progress':
       return 'border-emerald-300/45 bg-emerald-400/15 text-emerald-100'
     default:
-      return 'border-white/10 bg-white/[0.04] text-on-surface-variant'
+      return 'border-white/10 bg-white/[0.04] text-[var(--color-pib-text-muted)]'
   }
 }
 
@@ -107,7 +141,7 @@ function priorityAccentColor(priority: BriefingCard['priority'] | string) {
     case 'progress':
       return '#4ade80'
     default:
-      return 'var(--color-outline)'
+      return 'var(--color-pib-line)'
   }
 }
 
@@ -355,7 +389,7 @@ function statusToneClass(status: AgentOutputReviewStatus) {
     case 'blocked':
       return 'border-amber-300/45 bg-amber-400/10 text-amber-100'
     default:
-      return 'border-white/10 bg-white/[0.04] text-on-surface-variant'
+      return 'border-white/10 bg-white/[0.04] text-[var(--color-pib-text-muted)]'
   }
 }
 
@@ -2357,36 +2391,36 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
   }
 
   const workFeedContent = (
-    <div className="h-full min-h-0 bg-page text-on-surface">
+    <div className="h-full min-h-0 bg-page text-[var(--color-pib-text)]">
       <div className="flex h-full min-h-0 w-full flex-col gap-2">
         <section className="hidden" aria-hidden="true">
           <span className="absolute inset-y-0 left-0 w-1.5 bg-[var(--color-accent-v2)]" aria-hidden="true" />
           <div className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(520px,1.05fr)] lg:items-center">
             <div className="pl-2">
               <p className="eyebrow !text-[10px] text-brand">{mode === 'admin' ? 'Admin / Mission Control' : 'Workspace / Mission Control'}</p>
-              <h1 className="mt-1 max-w-4xl font-display text-3xl font-semibold text-on-surface sm:text-4xl">Briefings Mission Control</h1>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-on-surface-variant">
+              <h1 className="mt-1 max-w-4xl font-display text-3xl font-semibold text-[var(--color-pib-text)] sm:text-4xl">Briefings Mission Control</h1>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
                 One place to see what needs Peet, what is blocked, and what can safely move without opening every task.
               </p>
             </div>
             <div className="grid gap-2 sm:grid-cols-3" aria-label="Mission Control routing summary">
               {missionRoutes.map((route) => (
-                <div key={route.id} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] p-3">
+                <div key={route.id} className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-3">
                   <div className="flex items-center justify-between gap-2">
                     <span className="material-symbols-outlined text-[18px] text-brand" aria-hidden="true">{route.icon}</span>
-                    <span className="text-2xl font-semibold text-on-surface">{route.count}</span>
+                    <span className="text-2xl font-semibold text-[var(--color-pib-text)]">{route.count}</span>
                   </div>
-                  <p className="mt-2 text-sm font-semibold text-on-surface">{route.label}</p>
-                  <p className="mt-1 text-xs leading-5 text-on-surface-variant">{route.description}</p>
+                  <p className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">{route.label}</p>
+                  <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{route.description}</p>
                 </div>
               ))}
             </div>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8" aria-label="Mission Control detail counters">
             {SUMMARY_COUNTER_DEFS.map((stat) => (
-              <div key={stat.id} aria-label={`Summary counter: ${stat.label}`} className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
-                <p className="text-lg font-semibold text-on-surface">{topStats[stat.id]}</p>
-                <p className="text-[11px] leading-4 text-on-surface-variant">{stat.label}</p>
+              <div key={stat.id} aria-label={`Summary counter: ${stat.label}`} className="rounded-md border border-[var(--color-pib-line)] bg-black/10 px-2 py-2">
+                <p className="text-lg font-semibold text-[var(--color-pib-text)]">{topStats[stat.id]}</p>
+                <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{stat.label}</p>
               </div>
             ))}
           </div>
@@ -2398,35 +2432,35 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
           </div>
         ) : null}
 
-        <section className="shrink-0 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/65 px-2 py-1.5">
+        <section className="shrink-0 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-card)]/65 px-2 py-1.5">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             {mode === 'admin' ? (
               <label className="sr-only" htmlFor="briefing-workspace-filter">Workspace</label>
             ) : null}
             {mode === 'admin' ? (
-                <select id="briefing-workspace-filter" aria-label="Workspace" className="h-8 max-w-52 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface" value={orgId} onChange={(event) => setOrgId(event.target.value)}>
+                <select id="briefing-workspace-filter" aria-label="Workspace" className="h-8 max-w-52 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2 text-xs text-[var(--color-pib-text)]" value={orgId} onChange={(event) => setOrgId(event.target.value)}>
                   <option value="">All visible workspaces</option>
                   {orgs.map((org) => (
                     <option key={org.id} value={org.id}>{org.name}</option>
                   ))}
                 </select>
             ) : (
-              <span className="hidden max-w-44 truncate px-2 text-xs text-on-surface-variant sm:inline">{activeWorkspaceName}</span>
+              <span className="hidden max-w-44 truncate px-2 text-xs text-[var(--color-pib-text-muted)] sm:inline">{activeWorkspaceName}</span>
             )}
             <label className="sr-only" htmlFor="briefing-priority-filter">Priority</label>
-              <select id="briefing-priority-filter" aria-label="Priority" className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface" value={priority} onChange={(event) => setPriority(event.target.value)}>
+              <select id="briefing-priority-filter" aria-label="Priority" className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2 text-xs text-[var(--color-pib-text)]" value={priority} onChange={(event) => setPriority(event.target.value)}>
                 {PRIORITIES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             <label className="sr-only" htmlFor="briefing-source-filter">Source</label>
-              <select id="briefing-source-filter" aria-label="Source" className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface" value={sourceType} onChange={(event) => setSourceType(event.target.value)}>
+              <select id="briefing-source-filter" aria-label="Source" className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2 text-xs text-[var(--color-pib-text)]" value={sourceType} onChange={(event) => setSourceType(event.target.value)}>
                 {SOURCES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             <div className="ml-auto flex items-center gap-1">
-              <button className={`flex h-8 items-center gap-1 rounded-md px-2 text-xs transition ${autoRefresh ? 'bg-emerald-400/10 text-emerald-300' : 'text-on-surface-variant hover:bg-white/[0.05] hover:text-on-surface'}`} type="button" onClick={() => setAutoRefresh((value) => !value)}>
+              <button className={`flex h-8 items-center gap-1 rounded-md px-2 text-xs transition ${autoRefresh ? 'bg-emerald-400/10 text-emerald-300' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]'}`} type="button" onClick={() => setAutoRefresh((value) => !value)}>
                 <span className="material-symbols-outlined text-[16px]" aria-hidden="true">{autoRefresh ? 'sync' : 'sync_disabled'}</span>
                 {autoRefresh ? 'Live on' : 'Live off'}
               </button>
-              <button className="flex h-8 items-center gap-1 rounded-md px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface" type="button" onClick={createSnapshot} disabled={snapshotting}>
+              <button className="flex h-8 items-center gap-1 rounded-md px-2 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]" type="button" onClick={createSnapshot} disabled={snapshotting}>
                 <span className="material-symbols-outlined text-[16px]" aria-hidden="true">bookmark_added</span>
                 {snapshotting ? 'Saving' : 'Snapshot'}
               </button>
@@ -2444,13 +2478,13 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
               </p>
           </div>
             {pulseSelectionId ? (
-              <button type="button" className="h-7 shrink-0 rounded-full border border-[var(--color-card-border)] px-2.5 text-[11px] text-on-surface-variant hover:text-on-surface" onClick={clearPulseSelection}>
+              <button type="button" className="h-7 shrink-0 rounded-full border border-[var(--color-pib-line)] px-2.5 text-[11px] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]" onClick={clearPulseSelection}>
                 {mode === 'portal' ? 'All accounts' : 'All workspaces'}
               </button>
             ) : null}
           <div className="flex min-w-0 items-center gap-1">
             {pulseRows.length === 0 ? (
-              <div className="px-2 text-xs text-on-surface-variant">
+              <div className="px-2 text-xs text-[var(--color-pib-text-muted)]">
                 {mode === 'portal'
                   ? 'Account counts will appear when the live feed returns active cards.'
                   : 'Workspace counts will appear when the live feed returns active cards.'}
@@ -2461,7 +2495,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                 type="button"
                 onClick={() => selectPulseRow(row)}
                 aria-label={`Filter to ${row.name} ${mode === 'portal' ? 'account' : 'workspace'}`}
-                className={`flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-[11px] transition ${pulseSelectionId === row.id ? 'border-primary/30 bg-primary/10 text-primary' : 'border-[var(--color-card-border)] text-on-surface-variant hover:text-on-surface'}`}
+                className={`flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-[11px] transition ${pulseSelectionId === row.id ? 'border-primary/30 bg-primary/10 text-primary' : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'}`}
               >
                 <span className="max-w-40 truncate">{row.name}</span>
                 <span className={row.action > 0 ? 'text-amber-300' : 'text-emerald-300'}>{row.action}</span>
@@ -2470,8 +2504,8 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
           </div>
         </section>
 
-        <section aria-label="Briefing control desk columns" className="grid min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 xl:grid-cols-[190px_350px_minmax(420px,1fr)]">
-          <aside aria-label="Workflow lanes" className="min-w-0 overflow-y-auto border-r border-[var(--color-card-border)] p-2 max-xl:order-3">
+        <section aria-label="Briefing control desk columns" className="grid min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-card)]/45 xl:grid-cols-[190px_350px_minmax(420px,1fr)]">
+          <aside aria-label="Workflow lanes" className="min-w-0 overflow-y-auto border-r border-[var(--color-pib-line)] p-2 max-xl:order-3">
             <div className="flex items-center justify-between gap-2 px-1">
               <p className="eyebrow !text-[10px]">Workflow lanes</p>
               {workflowLane !== 'all' ? (
@@ -2489,13 +2523,13 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                     type="button"
                     onClick={() => selectWorkflowLane(lane.id)}
                     aria-label={`${lane.label} workflow lane`}
-                    className={`flex min-h-14 items-start gap-2 rounded-md px-2 py-2 text-left text-xs transition ${workflowLane === lane.id ? 'bg-primary/10 text-on-surface' : 'text-on-surface-variant hover:bg-white/[0.04] hover:text-on-surface'}`}
+                    className={`flex min-h-14 items-start gap-2 rounded-md px-2 py-2 text-left text-xs transition ${workflowLane === lane.id ? 'bg-primary/10 text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.04] hover:text-[var(--color-pib-text)]'}`}
                     style={{ borderLeft: `3px solid ${priorityAccentColor(lane.id === 'unblock' ? 'critical' : lane.id === 'approve' || lane.id === 'agent-review' ? 'review' : lane.id === 'follow-up' ? 'needs-peet' : lane.id === 'decide' ? 'client-risk' : 'fyi')}` }}
                   >
                     <span className="material-symbols-outlined mt-0.5 text-[19px]" style={{ color: priorityAccentColor(lane.id === 'unblock' ? 'critical' : lane.id === 'approve' || lane.id === 'agent-review' ? 'review' : lane.id === 'follow-up' ? 'needs-peet' : lane.id === 'decide' ? 'client-risk' : 'fyi') }} aria-hidden="true">{lane.icon}</span>
                     <span className="min-w-0 flex-1">
                       <span className="block font-medium">{lane.label}</span>
-                      <span className="block text-[11px] text-on-surface-variant">{laneCount} open</span>
+                      <span className="block text-[11px] text-[var(--color-pib-text-muted)]">{laneCount} open</span>
                     </span>
                   </button>
                 )
@@ -2503,33 +2537,33 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
             </div>
           </aside>
 
-          <div aria-label="Briefing card lane" className="flex min-h-0 min-w-0 flex-col border-r border-[var(--color-card-border)] max-xl:order-2">
-            <div className="flex h-9 shrink-0 items-center justify-between border-b border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant">
+          <div aria-label="Briefing card lane" className="flex min-h-0 min-w-0 flex-col border-r border-[var(--color-pib-line)] max-xl:order-2">
+            <div className="flex h-9 shrink-0 items-center justify-between border-b border-[var(--color-pib-line)] px-3 text-xs text-[var(--color-pib-text-muted)]">
               <span>{items.length} live cards</span>
               <span>{feed?.generatedAt ? `Updated ${new Date(feed.generatedAt).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })}` : 'Waiting for feed'}</span>
             </div>
 
             <div aria-label="Live briefing cards" className="min-h-0 flex-1 overflow-y-auto">
               {loading ? (
-                <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-6 text-sm text-on-surface-variant">Loading live briefings…</div>
+                <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)] p-6 text-sm text-[var(--color-pib-text-muted)]">Loading live briefings…</div>
               ) : items.length === 0 ? (
-                <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-6 text-sm text-on-surface-variant">No matching cards right now. Reviewed and snoozed cards stay out of Mission Control until they return.</div>
+                <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)] p-6 text-sm text-[var(--color-pib-text-muted)]">No matching cards right now. Reviewed and snoozed cards stay out of Mission Control until they return.</div>
               ) : (
                 items.map((item) => (
                   <button
                     key={item.id}
                     type="button"
                     onClick={() => setSelectedId(item.id)}
-                    className={`w-full overflow-hidden border-b border-[var(--color-card-border)] px-3 py-3 text-left transition ${selected?.id === item.id ? 'bg-primary/[0.08]' : 'hover:bg-white/[0.035]'}`}
+                    className={`w-full overflow-hidden border-b border-[var(--color-pib-line)] px-3 py-3 text-left transition ${selected?.id === item.id ? 'bg-primary/[0.08]' : 'hover:bg-white/[0.035]'}`}
                     style={{ borderLeft: `3px solid ${priorityAccentColor(item.priority)}` }}
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${priorityClass(item.priority)}`}>{PRIORITY_LABELS[item.priority]}</span>
-                      <span className="min-w-0 flex-1 truncate text-[11px] text-on-surface-variant">{sourceLabel(item)}</span>
-                      <span className="text-[10px] text-on-surface-variant">{item.timeAgo}</span>
+                      <span className="min-w-0 flex-1 truncate text-[11px] text-[var(--color-pib-text-muted)]">{sourceLabel(item)}</span>
+                      <span className="text-[10px] text-[var(--color-pib-text-muted)]">{item.timeAgo}</span>
                     </div>
-                    <h2 data-testid="briefing-card-title" className="mt-2 break-words text-sm font-semibold leading-5 text-on-surface">{item.title}</h2>
-                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-on-surface-variant">
+                    <h2 data-testid="briefing-card-title" className="mt-2 break-words text-sm font-semibold leading-5 text-[var(--color-pib-text)]">{item.title}</h2>
+                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                       {humanReadableCopy(item.summary)}
                       {viewHrefFromCopy(item.summary) ? (
                         <>
@@ -2546,12 +2580,12 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                         </>
                       ) : null}
                     </p>
-                    <div className="mt-2 truncate text-[10px] text-on-surface-variant">{item.context.projectName || item.context.companyName || titledId(item.context.orgName, item.orgId)}</div>
+                    <div className="mt-2 truncate text-[10px] text-[var(--color-pib-text-muted)]">{item.context.projectName || item.context.companyName || titledId(item.context.orgName, item.orgId)}</div>
                     {softwareBuildEvidenceRows(item).length ? (
-                      <div className="mt-3 grid gap-1 rounded-lg border border-white/10 bg-white/[0.03] p-2 text-xs text-on-surface-variant" aria-label={`Software build evidence for ${item.title}`}>
+                      <div className="mt-3 grid gap-1 rounded-lg border border-white/10 bg-white/[0.03] p-2 text-xs text-[var(--color-pib-text-muted)]" aria-label={`Software build evidence for ${item.title}`}>
                         {softwareBuildEvidenceRows(item).slice(0, 4).map((row) => (
                           <span key={`${row.kind}:${row.label}:${row.value}`} className="truncate">
-                            <span className="font-medium text-on-surface">{row.label}:</span>{' '}
+                            <span className="font-medium text-[var(--color-pib-text)]">{row.label}:</span>{' '}
                             {row.href ? (
                               <a
                                 className="text-[var(--color-accent-text)] underline underline-offset-4"
@@ -2579,8 +2613,8 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
             {selected ? (
               <div className="mt-4 space-y-5">
                 <div>
-                  <h2 data-testid="selected-briefing-title" className="break-words text-xl font-semibold text-on-surface">{selected.title}</h2>
-                  <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+                  <h2 data-testid="selected-briefing-title" className="break-words text-xl font-semibold text-[var(--color-pib-text)]">{selected.title}</h2>
+                  <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
                     {humanReadableCopy(selected.excerpt || selected.summary)}
                     {viewHrefFromCopy(selected.excerpt || selected.summary) || viewHrefFromCopy(selected.summary) ? (
                       <>
@@ -2635,7 +2669,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                   )}
                 </div>
 
-                <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] p-3">
+                <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-3">
                   <div className="flex flex-wrap gap-2">
                     {phase2StateChips(selected, mode).map((chip) => (
                       <span key={chip} className="rounded-full border border-[var(--color-accent-v2)]/30 bg-[var(--color-accent-subtle)] px-2.5 py-1 text-xs font-medium text-[var(--color-accent-text)]">
@@ -2643,7 +2677,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       </span>
                     ))}
                   </div>
-                  <p className="mt-3 text-sm leading-6 text-on-surface-variant">{phase2NextActionCopy(selected, mode)}</p>
+                  <p className="mt-3 text-sm leading-6 text-[var(--color-pib-text-muted)]">{phase2NextActionCopy(selected, mode)}</p>
                 </div>
 
                 {selected.decisionRequest && selected.options?.length && selected.inputTarget && selected.afterSubmit ? (
@@ -2652,8 +2686,8 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Decision required</p>
                       <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-1 text-[11px] text-emerald-100">Auditable internal write</span>
                     </div>
-                    <p className="mt-2 text-sm font-medium text-on-surface">{selected.decisionRequest.prompt}</p>
-                    {selected.decisionRequest.reason ? <p className="mt-1 text-xs leading-5 text-on-surface-variant">{selected.decisionRequest.reason}</p> : null}
+                    <p className="mt-2 text-sm font-medium text-[var(--color-pib-text)]">{selected.decisionRequest.prompt}</p>
+                    {selected.decisionRequest.reason ? <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{selected.decisionRequest.reason}</p> : null}
                     <div className="mt-3 space-y-2" role="radiogroup" aria-label="Decision options">
                       {selected.options.map((option) => {
                         const checked = selectedDecisionOptionId(selected) === option.id
@@ -2669,11 +2703,11 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                                 onChange={() => setDecisionChoices((current) => ({ ...current, [selected.id]: option.id }))}
                               />
                               <span className="min-w-0 flex-1">
-                                <span className="flex flex-wrap items-center gap-2 font-medium text-on-surface">
+                                <span className="flex flex-wrap items-center gap-2 font-medium text-[var(--color-pib-text)]">
                                   {option.label}
                                   {recommended ? <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-emerald-100">Recommended</span> : null}
                                 </span>
-                                {option.description ? <span className="mt-1 block text-xs leading-5 text-on-surface-variant">{option.description}</span> : null}
+                                {option.description ? <span className="mt-1 block text-xs leading-5 text-[var(--color-pib-text-muted)]">{option.description}</span> : null}
                                 {option.disabledReason ? <span className="mt-1 block text-xs leading-5 text-amber-100">{option.disabledReason}</span> : null}
                               </span>
                             </span>
@@ -2682,7 +2716,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       })}
                     </div>
                     {selectedDecisionOptionId(selected) === 'other' ? (
-                      <label className="mt-3 block text-xs font-medium text-on-surface-variant" htmlFor={`decision-other-${selected.id}`}>
+                      <label className="mt-3 block text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor={`decision-other-${selected.id}`}>
                         Other keyword/theme
                         <textarea
                           id={`decision-other-${selected.id}`}
@@ -2693,8 +2727,8 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                         />
                       </label>
                     ) : null}
-                    <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-xs leading-5 text-on-surface-variant">
-                      <p><span className="font-semibold text-on-surface">After submit:</span> {selected.afterSubmit.consequence}</p>
+                    <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                      <p><span className="font-semibold text-[var(--color-pib-text)]">After submit:</span> {selected.afterSubmit.consequence}</p>
                       {selected.afterSubmit.releasesAgentId ? <p className="mt-1">Handoff: unblocks/continues {selected.afterSubmit.releasesAgentId} with source {selected.agentHandoff?.sourceTaskId ?? selected.inputTarget.resourceId}.</p> : null}
                       <p className="mt-1">No publish, send, spend, deploy, finance, secret/config, or destructive action is performed.</p>
                     </div>
@@ -2716,12 +2750,12 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                     </div>
                   ) : null}
                   {contractNearestValidActions(selected).length ? (
-                    <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-xs leading-5 text-on-surface-variant">
-                      <p className="font-semibold text-on-surface">Contract alternatives</p>
+                    <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                      <p className="font-semibold text-[var(--color-pib-text)]">Contract alternatives</p>
                       <ul className="mt-1 space-y-1">
                         {contractNearestValidActions(selected).map((action) => (
                           <li key={`${action.action}-${action.label}`}>
-                            <span className="font-medium text-on-surface">{action.label}</span>{action.reason ? ` — ${action.reason}` : ''}
+                            <span className="font-medium text-[var(--color-pib-text)]">{action.label}</span>{action.reason ? ` — ${action.reason}` : ''}
                           </li>
                         ))}
                       </ul>
@@ -2790,15 +2824,15 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       </button>
                     )}
                   </div>
-                  {!canTaskAct(selected) ? <p className="mt-2 text-xs text-on-surface-variant">Unavailable: Agent assignment requires a linked project task.</p> : null}
-                  {phase2UnavailableActionCopy(selected) ? <p className="mt-2 text-xs text-on-surface-variant">{phase2UnavailableActionCopy(selected)}</p> : null}
-                  {crmUnavailableCopy(selected) ? <p className="mt-2 text-xs text-on-surface-variant">{crmUnavailableCopy(selected)}</p> : null}
-                  <p className="mt-2 text-xs text-on-surface-variant">Usable alternatives for this card: {phase2UsableAlternatives(selected, mode, portalScope).join(', ')}.</p>
+                  {!canTaskAct(selected) ? <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">Unavailable: Agent assignment requires a linked project task.</p> : null}
+                  {phase2UnavailableActionCopy(selected) ? <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{phase2UnavailableActionCopy(selected)}</p> : null}
+                  {crmUnavailableCopy(selected) ? <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{crmUnavailableCopy(selected)}</p> : null}
+                  <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">Usable alternatives for this card: {phase2UsableAlternatives(selected, mode, portalScope).join(', ')}.</p>
                   <details className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3">
                     <summary className="cursor-pointer text-[10px] font-label uppercase tracking-[0.16em] text-brand">Secondary actions and routing notes</summary>
                     <div className="mt-3 space-y-3">
                       <div>
-                        <p className="text-[10px] font-label uppercase tracking-[0.16em] text-on-surface-variant">Copy or ask an agent</p>
+                        <p className="text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]">Copy or ask an agent</p>
                         <div className={ACTION_CONTEXT_GRID_CLASS} aria-label="Copy or ask an agent controls">
                           <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => copyBriefingAction(selected, 'exact-ask')} disabled={!!busyAction}>
                             <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">content_copy</span>
@@ -2833,11 +2867,11 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                         </p>
                       </div>
                       <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3" aria-label="Mission Control decision routing">
-                        <p className="text-[10px] font-label uppercase tracking-[0.16em] text-on-surface-variant">Decision routing</p>
-                        <dl className="mt-2 space-y-2 text-xs leading-5 text-on-surface-variant">
+                        <p className="text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]">Decision routing</p>
+                        <dl className="mt-2 space-y-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                           {MISSION_CONTROL_DECISION_ROUTES.map((row) => (
                             <div key={row.decision} className="grid gap-1 sm:grid-cols-[112px_minmax(0,1fr)]">
-                              <dt className="font-semibold text-on-surface">{row.decision}</dt>
+                              <dt className="font-semibold text-[var(--color-pib-text)]">{row.decision}</dt>
                               <dd>{row.route}</dd>
                             </div>
                           ))}
@@ -3211,7 +3245,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
 
                 {canSocialPostAct(selected) && socialActionStage(selected) ? (
                   <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                    <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-social-change">
+                    <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-social-change">
                       Social change request
                     </label>
                     <textarea
@@ -3226,7 +3260,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
 
                 {canMailboxAct(selected) ? (
                   <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                    <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-mailbox-reply">
+                    <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-mailbox-reply">
                       Mailbox reply draft
                     </label>
                     <textarea
@@ -3245,7 +3279,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
 
                 {canTaskAct(selected) || canDocumentAct(selected) || canConversationAct(selected) ? (
                   <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                    <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-reply">
+                    <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-reply">
                       {canDocumentCommentReplyAct(selected) ? 'Inline document comment reply' : canTaskAct(selected) ? 'Inline task reply' : canDocumentAct(selected) ? 'Inline document reply' : 'Inline conversation reply'}
                     </label>
                     <textarea
@@ -3264,7 +3298,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
 
                 {canActivityFollowUpAct(selected) ? (
                   <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                    <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-follow-up">
+                    <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-follow-up">
                       Follow-up note
                     </label>
                     <textarea
@@ -3275,7 +3309,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       placeholder="Log the call, decision, blocker, or next step against this CRM contact..."
                     />
                     <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_150px]">
-                      <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-next-follow-up-task">
+                      <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-next-follow-up-task">
                         Next follow-up task
                         <input
                           id="briefing-next-follow-up-task"
@@ -3285,7 +3319,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                           placeholder="Optional next step"
                         />
                       </label>
-                      <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-next-follow-up-task-due">
+                      <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-next-follow-up-task-due">
                         Next task due date
                         <input
                           id="briefing-next-follow-up-task-due"
@@ -3311,7 +3345,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
 
                 {canReportAct(selected) ? (
                   <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                    <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-report-recipients">
+                    <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-report-recipients">
                       Report recipients
                     </label>
                     <input
@@ -3330,7 +3364,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
 
                 {canSupportTicketAct(selected) ? (
                   <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                    <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-support-reply">
+                    <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-support-reply">
                       Support reply
                     </label>
                     <textarea
@@ -3349,7 +3383,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
 
                 {invoicePaymentProofReviewable(selected, mode) ? (
                   <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                    <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-payment-method">
+                    <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-payment-method">
                       Payment method
                     </label>
                     <select
@@ -3364,7 +3398,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       <option value="card">Card</option>
                       <option value="other">Other</option>
                     </select>
-                    <label className="mt-3 block text-xs font-medium text-on-surface-variant" htmlFor="briefing-payment-reference">
+                    <label className="mt-3 block text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-payment-reference">
                       Payment reference
                     </label>
                     <input
@@ -3374,7 +3408,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       onChange={(event) => setPaymentReference(event.target.value)}
                       placeholder="Bank reference or transaction id..."
                     />
-                    <label className="mt-3 block text-xs font-medium text-on-surface-variant" htmlFor="briefing-payment-proof-rejection">
+                    <label className="mt-3 block text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-payment-proof-rejection">
                       Payment proof rejection reason
                     </label>
                     <textarea
@@ -3389,7 +3423,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
 
                 {expenseReviewable(selected, mode) ? (
                   <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                    <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-expense-review-note">
+                    <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-expense-review-note">
                       Expense rejection note
                     </label>
                     <textarea
@@ -3404,7 +3438,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
 
                 {seoContentReviewable(selected) ? (
                   <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                    <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-seo-change-request">
+                    <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-seo-change-request">
                       SEO change request
                     </label>
                     <textarea
@@ -3419,7 +3453,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
 
                 {seoTaskSkippable(selected, mode) ? (
                   <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                    <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-seo-task-skip-reason">
+                    <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-seo-task-skip-reason">
                       SEO task skip reason
                     </label>
                     <textarea
@@ -3434,7 +3468,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
 
                 {adCampaignReviewable(selected) ? (
                   <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                    <label className="text-xs font-medium text-on-surface-variant" htmlFor="briefing-ad-campaign-change-request">
+                    <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-ad-campaign-change-request">
                       Ad campaign change request
                     </label>
                     <textarea
@@ -3452,7 +3486,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-xs font-medium text-violet-100">Weekly Agent Learning Review</p>
-                        <p className="mt-2 text-sm text-on-surface">{selectedLearningReview.automationGuard}</p>
+                        <p className="mt-2 text-sm text-[var(--color-pib-text)]">{selectedLearningReview.automationGuard}</p>
                       </div>
                       <span className="rounded-full border border-amber-300/35 bg-amber-300/10 px-2 py-1 text-[11px] text-amber-100">
                         Review before rewrite
@@ -3460,8 +3494,8 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                     </div>
                     {selectedLearningReview.proposedChanges.length ? (
                       <div className="mt-4 rounded-md border border-white/10 bg-white/[0.04] p-3">
-                        <p className="text-xs font-medium text-on-surface-variant">Proposed learning items</p>
-                        <ul className="mt-2 space-y-1 text-sm text-on-surface">
+                        <p className="text-xs font-medium text-[var(--color-pib-text-muted)]">Proposed learning items</p>
+                        <ul className="mt-2 space-y-1 text-sm text-[var(--color-pib-text)]">
                           {selectedLearningReview.proposedChanges.map((change) => <li key={change}>• {change}</li>)}
                         </ul>
                       </div>
@@ -3473,19 +3507,19 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                         { label: 'Tasks', links: selectedLearningReview.taskLinks },
                       ].map((group) => (
                         <div key={group.label} className="rounded-md border border-white/10 bg-white/[0.03] p-3">
-                          <p className="text-xs font-medium text-on-surface-variant">{group.label}</p>
+                          <p className="text-xs font-medium text-[var(--color-pib-text-muted)]">{group.label}</p>
                           <div className="mt-2 space-y-1 text-sm">
                             {group.links.length ? group.links.map((link) => (
                               <a key={`${group.label}:${link.href}:${link.label}`} className="block truncate text-brand underline-offset-4 hover:underline" href={link.href} target="_blank" rel="noopener noreferrer">
                                 {link.label}
                               </a>
-                            )) : <span className="text-on-surface-variant">No links attached</span>}
+                            )) : <span className="text-[var(--color-pib-text-muted)]">No links attached</span>}
                           </div>
                         </div>
                       ))}
                     </div>
                     {(selectedLearningReview.sourceDocumentId || selectedLearningReview.approvalGateTaskId) ? (
-                      <p className="mt-3 text-xs text-on-surface-variant">
+                      <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">
                         {selectedLearningReview.sourceDocumentId ? `Source doc: ${selectedLearningReview.sourceDocumentId}` : null}
                         {selectedLearningReview.sourceDocumentId && selectedLearningReview.approvalGateTaskId ? ' · ' : null}
                         {selectedLearningReview.approvalGateTaskId ? `Approval gate task: ${selectedLearningReview.approvalGateTaskId}` : null}
@@ -3499,19 +3533,19 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-xs font-medium text-sky-100">Structured review card</p>
-                        <p className="mt-2 text-sm text-on-surface">{selectedReviewCard.summary}</p>
+                        <p className="mt-2 text-sm text-[var(--color-pib-text)]">{selectedReviewCard.summary}</p>
                       </div>
-                      <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] text-on-surface-variant">
+                      <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] text-[var(--color-pib-text-muted)]">
                         Internal review
                       </span>
                     </div>
                     <div className="mt-4 rounded-md border border-white/10 bg-white/[0.04] p-3">
-                      <p className="text-xs font-medium text-on-surface-variant">Recommended reviewer next step</p>
-                      <p className="mt-1 text-sm text-on-surface">{selectedReviewCard.nextAction}</p>
+                      <p className="text-xs font-medium text-[var(--color-pib-text-muted)]">Recommended reviewer next step</p>
+                      <p className="mt-1 text-sm text-[var(--color-pib-text)]">{selectedReviewCard.nextAction}</p>
                     </div>
                     <div className="mt-4 grid gap-3 lg:grid-cols-2">
                       <div>
-                        <p className="text-xs font-medium text-on-surface-variant">Quality checks</p>
+                        <p className="text-xs font-medium text-[var(--color-pib-text-muted)]">Quality checks</p>
                         <div className="mt-2 space-y-2">
                           {selectedReviewCard.qualityChecks.map((check) => (
                             <div key={`${check.label}:${check.status}`} className={`rounded-md border px-3 py-2 ${statusToneClass(check.status)}`}>
@@ -3525,13 +3559,13 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                         </div>
                       </div>
                       <div>
-                        <p className="text-xs font-medium text-on-surface-variant">Artifacts</p>
+                        <p className="text-xs font-medium text-[var(--color-pib-text-muted)]">Artifacts</p>
                         {selectedReviewCard.artifacts.length ? (
                           <dl className="mt-2 space-y-2 text-sm">
                             {selectedReviewCard.artifacts.map((artifact) => (
                               <div key={`${artifact.type}:${artifact.ref}`}>
-                                <dt className="text-on-surface-variant">{artifact.label}</dt>
-                                <dd className="text-on-surface">
+                                <dt className="text-[var(--color-pib-text-muted)]">{artifact.label}</dt>
+                                <dd className="text-[var(--color-pib-text)]">
                                   {artifact.href ? (
                                     <a className="break-all underline-offset-2 hover:underline" href={artifact.href} target="_blank" rel="noopener noreferrer">{artifact.ref}</a>
                                   ) : (
@@ -3542,13 +3576,13 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                             ))}
                           </dl>
                         ) : (
-                          <p className="mt-2 text-sm text-on-surface-variant">No explicit artifacts were linked.</p>
+                          <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">No explicit artifacts were linked.</p>
                         )}
                       </div>
                     </div>
                     {selectedReviewCard.approvalGates.length ? (
                       <div className="mt-4">
-                        <p className="text-xs font-medium text-on-surface-variant">Approval gates</p>
+                        <p className="text-xs font-medium text-[var(--color-pib-text-muted)]">Approval gates</p>
                         <dl className="mt-2 space-y-2 text-sm">
                           {selectedReviewCard.approvalGates.map((gate) => (
                             <div key={`${gate.label}:${gate.value}`} className={`rounded-md border px-3 py-2 ${statusToneClass(gate.status)}`}>
@@ -3573,12 +3607,12 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
 
                 {softwareBuildEvidenceRows(selected).length ? (
                   <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3" aria-label="Software build evidence">
-                    <p className="text-xs font-medium text-on-surface-variant">Software build evidence</p>
+                    <p className="text-xs font-medium text-[var(--color-pib-text-muted)]">Software build evidence</p>
                     <dl className="mt-3 space-y-2 text-sm">
                       {softwareBuildEvidenceRows(selected).map((row) => (
                         <div key={`${row.kind}:${row.label}:${row.value}`}>
-                          <dt className="text-on-surface-variant">{row.label}</dt>
-                          <dd className={row.kind === 'blocker' ? 'text-amber-100' : 'text-on-surface'}>
+                          <dt className="text-[var(--color-pib-text-muted)]">{row.label}</dt>
+                          <dd className={row.kind === 'blocker' ? 'text-amber-100' : 'text-[var(--color-pib-text)]'}>
                             {row.href ? (
                               <a className="break-all underline-offset-2 hover:underline" href={row.href} target="_blank" rel="noopener noreferrer">{row.value}</a>
                             ) : (
@@ -3592,45 +3626,45 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                 ) : null}
 
                 <dl className="space-y-3 text-sm">
-                  <div><dt className="text-on-surface-variant">Actor</dt><dd className="text-on-surface">{titledId(selected.actor.name, selected.actor.id)}</dd></div>
-                  <div><dt className="text-on-surface-variant">Workspace</dt><dd className="text-on-surface">{titledId(selected.context.orgName, selected.orgId)}</dd></div>
-                  {selected.context.projectName || selected.context.projectId ? <div><dt className="text-on-surface-variant">Project</dt><dd className="text-on-surface">{titledId(selected.context.projectName, selected.context.projectId)}</dd></div> : null}
-                  {selected.context.taskTitle || selected.context.taskId ? <div><dt className="text-on-surface-variant">Task</dt><dd className="text-on-surface">{titledId(selected.context.taskTitle, selected.context.taskId)}</dd></div> : null}
-                  {selected.context.documentTitle || selected.context.documentId ? <div><dt className="text-on-surface-variant">Document</dt><dd className="text-on-surface">{titledId(selected.context.documentTitle, selected.context.documentId)}</dd></div> : null}
-                  {selected.context.conversationTitle || selected.context.conversationId ? <div><dt className="text-on-surface-variant">Conversation</dt><dd className="text-on-surface">{titledId(selected.context.conversationTitle, selected.context.conversationId)}</dd></div> : null}
-                  {selected.context.contactName || selected.context.contactId ? <div><dt className="text-on-surface-variant">Contact</dt><dd className="text-on-surface">{titledId(selected.context.contactName, selected.context.contactId)}</dd></div> : null}
-                  {typeof selected.metadata?.contactStage === 'string' && selected.metadata.contactStage ? <div><dt className="text-on-surface-variant">Contact stage</dt><dd className="text-on-surface">{selected.metadata.contactStage}</dd></div> : null}
-                  {typeof selected.metadata?.lastContactedAt === 'string' && selected.metadata.lastContactedAt ? <div><dt className="text-on-surface-variant">Last contacted</dt><dd className="text-on-surface">{selected.metadata.lastContactedAt.slice(0, 10)}</dd></div> : null}
-                  {selected.context.dealTitle || selected.context.dealId ? <div><dt className="text-on-surface-variant">Deal</dt><dd className="text-on-surface">{titledId(selected.context.dealTitle, selected.context.dealId)}</dd></div> : null}
-                  {selected.context.reportTitle || selected.context.reportId ? <div><dt className="text-on-surface-variant">Report</dt><dd className="text-on-surface">{titledId(selected.context.reportTitle, selected.context.reportId)}</dd></div> : null}
-                  {selected.context.bookingName || selected.context.bookingId ? <div><dt className="text-on-surface-variant">Booking</dt><dd className="text-on-surface">{titledId(selected.context.bookingName, selected.context.bookingId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.supportTicketSubject || selected.context.supportTicketId ? <div><dt className="text-on-surface-variant">Support ticket</dt><dd className="text-on-surface">{titledId(selected.context.supportTicketSubject, selected.context.supportTicketId)}</dd></div> : null}
-                  {selected.context.invoiceNumber || selected.context.invoiceId ? <div><dt className="text-on-surface-variant">Invoice</dt><dd className="text-on-surface">{titledId(selected.context.invoiceNumber, selected.context.invoiceId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.quoteNumber || selected.context.quoteId ? <div><dt className="text-on-surface-variant">Quote</dt><dd className="text-on-surface">{titledId(selected.context.quoteNumber, selected.context.quoteId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.orderTitle || selected.context.orderId ? <div><dt className="text-on-surface-variant">Order</dt><dd className="text-on-surface">{titledId(selected.context.orderTitle, selected.context.orderId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.inventoryItemName || selected.context.inventoryItemId ? <div><dt className="text-on-surface-variant">Inventory</dt><dd className="text-on-surface">{titledId(selected.context.inventoryItemName, selected.context.inventoryItemId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.shipmentTrackingNumber || selected.context.shipmentId ? <div><dt className="text-on-surface-variant">Shipment</dt><dd className="text-on-surface">{titledId(selected.context.shipmentTrackingNumber, selected.context.shipmentId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.expenseCategory || selected.context.expenseId ? <div><dt className="text-on-surface-variant">Expense</dt><dd className="text-on-surface">{titledId(selected.context.expenseCategory, selected.context.expenseId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.seoContentTitle || selected.context.seoContentId ? <div><dt className="text-on-surface-variant">SEO content</dt><dd className="text-on-surface">{titledId(selected.context.seoContentTitle, selected.context.seoContentId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.seoTaskTitle || selected.context.seoTaskId ? <div><dt className="text-on-surface-variant">SEO task</dt><dd className="text-on-surface">{titledId(selected.context.seoTaskTitle, selected.context.seoTaskId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.adCampaignName || selected.context.adCampaignId ? <div><dt className="text-on-surface-variant">Ad campaign</dt><dd className="text-on-surface">{titledId(selected.context.adCampaignName, selected.context.adCampaignId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.broadcastName || selected.context.broadcastId ? <div><dt className="text-on-surface-variant">Broadcast</dt><dd className="text-on-surface">{titledId(selected.context.broadcastName, selected.context.broadcastId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.campaignName || selected.context.campaignId ? <div><dt className="text-on-surface-variant">Campaign</dt><dd className="text-on-surface">{titledId(selected.context.campaignName, selected.context.campaignId ?? selected.source.id)}</dd></div> : null}
-                  {typeof selected.metadata?.sequenceId === 'string' && selected.metadata.sequenceId ? <div><dt className="text-on-surface-variant">Sequence</dt><dd className="text-on-surface">{selected.metadata.sequenceId}</dd></div> : null}
-                  {typeof selected.metadata?.segmentId === 'string' && selected.metadata.segmentId ? <div><dt className="text-on-surface-variant">Segment</dt><dd className="text-on-surface">{selected.metadata.segmentId}</dd></div> : null}
-                  {typeof selected.metadata?.subject === 'string' && selected.metadata.subject ? <div><dt className="text-on-surface-variant">Subject</dt><dd className="text-on-surface">{selected.metadata.subject}</dd></div> : null}
-                  {typeof selected.metadata?.audienceSize === 'number' ? <div><dt className="text-on-surface-variant">Audience</dt><dd className="text-on-surface">{selected.metadata.audienceSize.toLocaleString('en-ZA')} recipients</dd></div> : null}
-                  {selected.context.enquiryName || selected.context.enquiryId ? <div><dt className="text-on-surface-variant">Enquiry</dt><dd className="text-on-surface">{titledId(selected.context.enquiryName, selected.context.enquiryId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.formName || selected.context.formId || selected.context.formSubmissionId ? <div><dt className="text-on-surface-variant">Form submission</dt><dd className="text-on-surface">{titledId(selected.context.formName ?? selected.context.formId, selected.context.formSubmissionId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.socialInboxFrom || selected.context.socialInboxId ? <div><dt className="text-on-surface-variant">Social inbox</dt><dd className="text-on-surface">{titledId(selected.context.socialInboxFrom, selected.context.socialInboxId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.mailboxFrom || selected.context.mailboxMessageId ? <div><dt className="text-on-surface-variant">Mailbox</dt><dd className="text-on-surface">{titledId(selected.context.mailboxFrom, selected.context.mailboxMessageId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.agentProfile || selected.context.agentRunId ? <div><dt className="text-on-surface-variant">Agent run</dt><dd className="text-on-surface">{titledId(selected.context.agentProfile, selected.context.agentRunId ?? selected.source.id)}</dd></div> : null}
-                  {typeof selected.metadata?.approvalToolName === 'string' && selected.metadata.approvalToolName ? <div><dt className="text-on-surface-variant">Approval tool</dt><dd className="text-on-surface">{selected.metadata.approvalToolName}</dd></div> : null}
-                  {selected.context.workspaceBrokerOperation || selected.context.workspaceBrokerJobId ? <div><dt className="text-on-surface-variant">Workspace job</dt><dd className="text-on-surface">{titledId(selected.context.workspaceBrokerOperation, selected.context.workspaceBrokerJobId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.workspaceArtifactTitle || selected.context.workspaceArtifactId ? <div><dt className="text-on-surface-variant">Workspace artifact</dt><dd className="text-on-surface">{titledId(selected.context.workspaceArtifactTitle, selected.context.workspaceArtifactId)}</dd></div> : null}
-                  {selected.context.calendarEventTitle || selected.context.calendarEventId ? <div><dt className="text-on-surface-variant">Calendar event</dt><dd className="text-on-surface">{titledId(selected.context.calendarEventTitle, selected.context.calendarEventId ?? selected.source.id)}</dd></div> : null}
-                  <div><dt className="text-on-surface-variant">Occurred</dt><dd className="text-on-surface">{new Date(selected.occurredAt).toLocaleString('en-ZA')}</dd></div>
-                  <div><dt className="text-on-surface-variant">Source</dt><dd className="text-on-surface">{sourceLabel(selected)}</dd></div>
+                  <div><dt className="text-[var(--color-pib-text-muted)]">Actor</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.actor.name, selected.actor.id)}</dd></div>
+                  <div><dt className="text-[var(--color-pib-text-muted)]">Workspace</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.orgName, selected.orgId)}</dd></div>
+                  {selected.context.projectName || selected.context.projectId ? <div><dt className="text-[var(--color-pib-text-muted)]">Project</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.projectName, selected.context.projectId)}</dd></div> : null}
+                  {selected.context.taskTitle || selected.context.taskId ? <div><dt className="text-[var(--color-pib-text-muted)]">Task</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.taskTitle, selected.context.taskId)}</dd></div> : null}
+                  {selected.context.documentTitle || selected.context.documentId ? <div><dt className="text-[var(--color-pib-text-muted)]">Document</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.documentTitle, selected.context.documentId)}</dd></div> : null}
+                  {selected.context.conversationTitle || selected.context.conversationId ? <div><dt className="text-[var(--color-pib-text-muted)]">Conversation</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.conversationTitle, selected.context.conversationId)}</dd></div> : null}
+                  {selected.context.contactName || selected.context.contactId ? <div><dt className="text-[var(--color-pib-text-muted)]">Contact</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.contactName, selected.context.contactId)}</dd></div> : null}
+                  {typeof selected.metadata?.contactStage === 'string' && selected.metadata.contactStage ? <div><dt className="text-[var(--color-pib-text-muted)]">Contact stage</dt><dd className="text-[var(--color-pib-text)]">{selected.metadata.contactStage}</dd></div> : null}
+                  {typeof selected.metadata?.lastContactedAt === 'string' && selected.metadata.lastContactedAt ? <div><dt className="text-[var(--color-pib-text-muted)]">Last contacted</dt><dd className="text-[var(--color-pib-text)]">{selected.metadata.lastContactedAt.slice(0, 10)}</dd></div> : null}
+                  {selected.context.dealTitle || selected.context.dealId ? <div><dt className="text-[var(--color-pib-text-muted)]">Deal</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.dealTitle, selected.context.dealId)}</dd></div> : null}
+                  {selected.context.reportTitle || selected.context.reportId ? <div><dt className="text-[var(--color-pib-text-muted)]">Report</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.reportTitle, selected.context.reportId)}</dd></div> : null}
+                  {selected.context.bookingName || selected.context.bookingId ? <div><dt className="text-[var(--color-pib-text-muted)]">Booking</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.bookingName, selected.context.bookingId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.supportTicketSubject || selected.context.supportTicketId ? <div><dt className="text-[var(--color-pib-text-muted)]">Support ticket</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.supportTicketSubject, selected.context.supportTicketId)}</dd></div> : null}
+                  {selected.context.invoiceNumber || selected.context.invoiceId ? <div><dt className="text-[var(--color-pib-text-muted)]">Invoice</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.invoiceNumber, selected.context.invoiceId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.quoteNumber || selected.context.quoteId ? <div><dt className="text-[var(--color-pib-text-muted)]">Quote</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.quoteNumber, selected.context.quoteId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.orderTitle || selected.context.orderId ? <div><dt className="text-[var(--color-pib-text-muted)]">Order</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.orderTitle, selected.context.orderId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.inventoryItemName || selected.context.inventoryItemId ? <div><dt className="text-[var(--color-pib-text-muted)]">Inventory</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.inventoryItemName, selected.context.inventoryItemId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.shipmentTrackingNumber || selected.context.shipmentId ? <div><dt className="text-[var(--color-pib-text-muted)]">Shipment</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.shipmentTrackingNumber, selected.context.shipmentId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.expenseCategory || selected.context.expenseId ? <div><dt className="text-[var(--color-pib-text-muted)]">Expense</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.expenseCategory, selected.context.expenseId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.seoContentTitle || selected.context.seoContentId ? <div><dt className="text-[var(--color-pib-text-muted)]">SEO content</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.seoContentTitle, selected.context.seoContentId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.seoTaskTitle || selected.context.seoTaskId ? <div><dt className="text-[var(--color-pib-text-muted)]">SEO task</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.seoTaskTitle, selected.context.seoTaskId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.adCampaignName || selected.context.adCampaignId ? <div><dt className="text-[var(--color-pib-text-muted)]">Ad campaign</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.adCampaignName, selected.context.adCampaignId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.broadcastName || selected.context.broadcastId ? <div><dt className="text-[var(--color-pib-text-muted)]">Broadcast</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.broadcastName, selected.context.broadcastId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.campaignName || selected.context.campaignId ? <div><dt className="text-[var(--color-pib-text-muted)]">Campaign</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.campaignName, selected.context.campaignId ?? selected.source.id)}</dd></div> : null}
+                  {typeof selected.metadata?.sequenceId === 'string' && selected.metadata.sequenceId ? <div><dt className="text-[var(--color-pib-text-muted)]">Sequence</dt><dd className="text-[var(--color-pib-text)]">{selected.metadata.sequenceId}</dd></div> : null}
+                  {typeof selected.metadata?.segmentId === 'string' && selected.metadata.segmentId ? <div><dt className="text-[var(--color-pib-text-muted)]">Segment</dt><dd className="text-[var(--color-pib-text)]">{selected.metadata.segmentId}</dd></div> : null}
+                  {typeof selected.metadata?.subject === 'string' && selected.metadata.subject ? <div><dt className="text-[var(--color-pib-text-muted)]">Subject</dt><dd className="text-[var(--color-pib-text)]">{selected.metadata.subject}</dd></div> : null}
+                  {typeof selected.metadata?.audienceSize === 'number' ? <div><dt className="text-[var(--color-pib-text-muted)]">Audience</dt><dd className="text-[var(--color-pib-text)]">{selected.metadata.audienceSize.toLocaleString('en-ZA')} recipients</dd></div> : null}
+                  {selected.context.enquiryName || selected.context.enquiryId ? <div><dt className="text-[var(--color-pib-text-muted)]">Enquiry</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.enquiryName, selected.context.enquiryId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.formName || selected.context.formId || selected.context.formSubmissionId ? <div><dt className="text-[var(--color-pib-text-muted)]">Form submission</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.formName ?? selected.context.formId, selected.context.formSubmissionId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.socialInboxFrom || selected.context.socialInboxId ? <div><dt className="text-[var(--color-pib-text-muted)]">Social inbox</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.socialInboxFrom, selected.context.socialInboxId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.mailboxFrom || selected.context.mailboxMessageId ? <div><dt className="text-[var(--color-pib-text-muted)]">Mailbox</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.mailboxFrom, selected.context.mailboxMessageId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.agentProfile || selected.context.agentRunId ? <div><dt className="text-[var(--color-pib-text-muted)]">Agent run</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.agentProfile, selected.context.agentRunId ?? selected.source.id)}</dd></div> : null}
+                  {typeof selected.metadata?.approvalToolName === 'string' && selected.metadata.approvalToolName ? <div><dt className="text-[var(--color-pib-text-muted)]">Approval tool</dt><dd className="text-[var(--color-pib-text)]">{selected.metadata.approvalToolName}</dd></div> : null}
+                  {selected.context.workspaceBrokerOperation || selected.context.workspaceBrokerJobId ? <div><dt className="text-[var(--color-pib-text-muted)]">Workspace job</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.workspaceBrokerOperation, selected.context.workspaceBrokerJobId ?? selected.source.id)}</dd></div> : null}
+                  {selected.context.workspaceArtifactTitle || selected.context.workspaceArtifactId ? <div><dt className="text-[var(--color-pib-text-muted)]">Workspace artifact</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.workspaceArtifactTitle, selected.context.workspaceArtifactId)}</dd></div> : null}
+                  {selected.context.calendarEventTitle || selected.context.calendarEventId ? <div><dt className="text-[var(--color-pib-text-muted)]">Calendar event</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.calendarEventTitle, selected.context.calendarEventId ?? selected.source.id)}</dd></div> : null}
+                  <div><dt className="text-[var(--color-pib-text-muted)]">Occurred</dt><dd className="text-[var(--color-pib-text)]">{new Date(selected.occurredAt).toLocaleString('en-ZA')}</dd></div>
+                  <div><dt className="text-[var(--color-pib-text-muted)]">Source</dt><dd className="text-[var(--color-pib-text)]">{sourceLabel(selected)}</dd></div>
                 </dl>
 
                 {(mode === 'admin' ? adminSourceHref(selected) : sourceHref(selected, mode, portalScope)) ? (
@@ -3641,7 +3675,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                 ) : null}
               </div>
             ) : (
-              <p className="mt-4 text-sm text-on-surface-variant">Select a live card to inspect evidence and act on the source.</p>
+              <p className="mt-4 text-sm text-[var(--color-pib-text-muted)]">Select a live card to inspect evidence and act on the source.</p>
             )}
           </aside>
         </section>
@@ -3660,15 +3694,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
       generatedAt={feed?.generatedAt}
       loading={loading}
       onRefresh={() => { void loadFeed() }}
-      selectedContextSeed={selected ? {
-        type: 'report',
-        id: `briefing:${selected.id}`,
-        orgId: selected.orgId || selected.context.orgId || orgId || undefined,
-        label: selected.title,
-        href: mode === 'admin' ? adminSourceHref(selected) ?? undefined : sourceHref(selected, mode, portalScope) ?? undefined,
-        summary: humanReadableCopy(selected.excerpt || selected.summary),
-        metadata: { sourceType: selected.source.type, sourceId: selected.source.id },
-      } : null}
+      selectedContextSeed={selected ? briefingContextSeed(selected, mode, portalScope) : null}
       workFeedContent={workFeedContent}
     />
   )

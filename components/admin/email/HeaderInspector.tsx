@@ -76,8 +76,8 @@ const VERDICT_STYLE: Record<AuthLine['verdict'], string> = {
   pass: 'bg-green-500/10 text-green-400 border-green-500/30',
   fail: 'bg-red-500/10 text-red-400 border-red-500/30',
   neutral: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
-  none: 'bg-on-surface/10 text-on-surface-variant border-on-surface/20',
-  unknown: 'bg-on-surface/10 text-on-surface-variant border-on-surface/20',
+  none: 'bg-[var(--color-pib-surface-muted)] text-[var(--color-pib-text-muted)] border-[var(--color-pib-line)]',
+  unknown: 'bg-[var(--color-pib-surface-muted)] text-[var(--color-pib-text-muted)] border-[var(--color-pib-line)]',
 }
 
 export default function HeaderInspector() {
@@ -87,8 +87,8 @@ export default function HeaderInspector() {
   return (
     <div className="pib-card p-5 space-y-4">
       <div>
-        <h2 className="text-lg font-headline font-bold text-on-surface">Raw header inspector</h2>
-        <p className="text-sm text-on-surface-variant mt-0.5">
+        <h2 className="text-lg font-headline font-bold text-[var(--color-pib-text)]">Raw header inspector</h2>
+        <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5">
           Paste a message&apos;s full headers (Gmail &rarr; Show original) to read its SPF / DKIM /
           DMARC auth results. Parsing is local — nothing is uploaded.
         </p>
@@ -101,7 +101,7 @@ export default function HeaderInspector() {
         rows={7}
       />
       {parsed && parsed.auth.length === 0 && parsed.meta.length === 0 && (
-        <p className="text-xs text-on-surface-variant">
+        <p className="text-xs text-[var(--color-pib-text-muted)]">
           No recognisable headers found. Make sure you pasted the raw header block.
         </p>
       )}
@@ -119,13 +119,13 @@ export default function HeaderInspector() {
         </div>
       )}
       {parsed && parsed.meta.length > 0 && (
-        <div className="rounded-md border border-[var(--color-card-border)] bg-[var(--color-surface-container)] p-3 space-y-1">
+        <div className="rounded-md border border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)] p-3 space-y-1">
           {parsed.meta.map((m, i) => (
             <div key={i} className="flex gap-2 text-xs">
-              <span className="font-label uppercase tracking-wide text-on-surface-variant w-28 shrink-0">
+              <span className="font-label uppercase tracking-wide text-[var(--color-pib-text-muted)] w-28 shrink-0">
                 {m.key}
               </span>
-              <span className="font-mono text-on-surface break-all">{m.value}</span>
+              <span className="font-mono text-[var(--color-pib-text)] break-all">{m.value}</span>
             </div>
           ))}
         </div>

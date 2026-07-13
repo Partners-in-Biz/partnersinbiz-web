@@ -212,8 +212,8 @@ function KnowledgeGraphView({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--color-border)] pb-4">
         <div>
-          <h2 className="font-headline text-2xl font-bold text-on-surface">Knowledge Graph</h2>
-          <p className="mt-1 text-xs text-on-surface-variant">
+          <h2 className="font-headline text-2xl font-bold text-[var(--color-pib-text)]">Knowledge Graph</h2>
+          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
             {graph.nodes.length} nodes across index, wiki, raw, and logs · {graph.edges.length} links
           </p>
         </div>
@@ -365,17 +365,17 @@ function MarkdownPreview({ content }: { content: string }) {
       return
     }
     if (line.startsWith('# ')) {
-      nodes.push(<h1 key={index} className="font-headline text-3xl font-bold text-on-surface">{line.slice(2)}</h1>)
+      nodes.push(<h1 key={index} className="font-headline text-3xl font-bold text-[var(--color-pib-text)]">{line.slice(2)}</h1>)
     } else if (line.startsWith('## ')) {
-      nodes.push(<h2 key={index} className="pt-4 font-headline text-2xl font-bold text-on-surface">{line.slice(3)}</h2>)
+      nodes.push(<h2 key={index} className="pt-4 font-headline text-2xl font-bold text-[var(--color-pib-text)]">{line.slice(3)}</h2>)
     } else if (line.startsWith('### ')) {
-      nodes.push(<h3 key={index} className="pt-3 text-lg font-semibold text-on-surface">{line.slice(4)}</h3>)
+      nodes.push(<h3 key={index} className="pt-3 text-lg font-semibold text-[var(--color-pib-text)]">{line.slice(4)}</h3>)
     } else if (/^\s*[-*]\s+/.test(line)) {
-      nodes.push(<p key={index} className="pl-4 text-sm leading-7 text-on-surface-variant">• {line.replace(/^\s*[-*]\s+/, '')}</p>)
+      nodes.push(<p key={index} className="pl-4 text-sm leading-7 text-[var(--color-pib-text-muted)]">• {line.replace(/^\s*[-*]\s+/, '')}</p>)
     } else if (line.trim() === '---') {
       nodes.push(<hr key={index} className="border-[var(--color-border)]" />)
     } else if (line.trim()) {
-      nodes.push(<p key={index} className="text-sm leading-7 text-on-surface-variant">{line}</p>)
+      nodes.push(<p key={index} className="text-sm leading-7 text-[var(--color-pib-text-muted)]">{line}</p>)
     } else {
       nodes.push(<div key={index} className="h-2" />)
     }
@@ -591,7 +591,7 @@ export function KnowledgeBrowser({
                     className={`group relative grid size-10 place-items-center rounded-md transition-colors ${
                       active
                         ? 'bg-[var(--color-pib-accent)] text-black'
-                        : 'bg-[var(--color-surface)] text-on-surface-variant hover:text-on-surface'
+                        : 'bg-[var(--color-surface)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
                     }`}
                   >
                     <span className="material-symbols-outlined text-base">{tab.icon}</span>
@@ -614,7 +614,7 @@ export function KnowledgeBrowser({
                 className={`group relative grid size-10 place-items-center rounded-md transition-colors ${
                   graphOpen
                     ? 'bg-[var(--color-pib-accent)] text-black'
-                    : 'bg-[var(--color-surface)] text-on-surface-variant hover:text-on-surface'
+                    : 'bg-[var(--color-surface)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
                 }`}
               >
                 <span className="material-symbols-outlined text-base">hub</span>
@@ -623,7 +623,7 @@ export function KnowledgeBrowser({
                 </span>
               </button>
             </div>
-            <span className="rounded-full bg-[var(--color-surface)] px-2 py-1 text-xs text-on-surface-variant">
+            <span className="rounded-full bg-[var(--color-surface)] px-2 py-1 text-xs text-[var(--color-pib-text-muted)]">
               {items.length}
             </span>
           </div>
@@ -634,7 +634,7 @@ export function KnowledgeBrowser({
                 value={newTitle}
                 onChange={(event) => setNewTitle(event.target.value)}
                 placeholder={SECTIONS.find((tab) => tab.value === section)?.createLabel ?? 'New note title'}
-                className="min-w-0 flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-on-surface outline-none focus:border-[var(--color-pib-accent)]"
+                className="min-w-0 flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-pib-text)] outline-none focus:border-[var(--color-pib-accent)]"
               />
               <button
                 type="button"
@@ -651,7 +651,7 @@ export function KnowledgeBrowser({
             {loading ? (
               Array.from({ length: 8 }).map((_, index) => <div key={index} className="pib-skeleton h-11" />)
             ) : items.length === 0 ? (
-              <p className="rounded-md bg-[var(--color-surface)] p-3 text-sm text-on-surface-variant">No notes found.</p>
+              <p className="rounded-md bg-[var(--color-surface)] p-3 text-sm text-[var(--color-pib-text-muted)]">No notes found.</p>
             ) : (
               items.map((item) => (
                 <button
@@ -665,7 +665,7 @@ export function KnowledgeBrowser({
                   className={`w-full rounded-md px-3 py-2 text-left transition-colors ${
                     selectedPath === item.path
                       ? 'bg-[var(--color-pib-accent)] text-black'
-                      : 'text-on-surface-variant hover:bg-[var(--color-surface)] hover:text-on-surface'
+                      : 'text-[var(--color-pib-text-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-pib-text)]'
                   }`}
                 >
                   <span className="block truncate text-sm font-medium">{noteTitle(item.path)}</span>
@@ -698,8 +698,8 @@ export function KnowledgeBrowser({
               <div className="grid min-h-[50vh] place-items-center text-center">
                 <div>
                   <span className="material-symbols-outlined text-5xl text-[var(--color-pib-accent)]">hub</span>
-                  <h2 className="mt-3 font-headline text-2xl font-bold text-on-surface">No graph yet</h2>
-                  <p className="mt-2 text-sm text-on-surface-variant">Add notes or links like [[Another Note]] to build connections.</p>
+                  <h2 className="mt-3 font-headline text-2xl font-bold text-[var(--color-pib-text)]">No graph yet</h2>
+                  <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Add notes or links like [[Another Note]] to build connections.</p>
                 </div>
               </div>
             )
@@ -707,8 +707,8 @@ export function KnowledgeBrowser({
             <>
               <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--color-border)] pb-4">
                 <div className="min-w-0">
-                  <h2 className="truncate font-headline text-2xl font-bold text-on-surface">{noteTitle(note.path)}</h2>
-                  <p className="mt-1 text-xs text-on-surface-variant">
+                  <h2 className="truncate font-headline text-2xl font-bold text-[var(--color-pib-text)]">{noteTitle(note.path)}</h2>
+                  <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
                     {note.path}{note.updatedAt ? ` · Updated ${formatDate(note.updatedAt)}` : ''}
                   </p>
                 </div>
@@ -740,7 +740,7 @@ export function KnowledgeBrowser({
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
                   spellCheck
-                  className="min-h-[58vh] w-full resize-y rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-4 font-mono text-sm leading-7 text-on-surface outline-none focus:border-[var(--color-pib-accent)]"
+                  className="min-h-[58vh] w-full resize-y rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-4 font-mono text-sm leading-7 text-[var(--color-pib-text)] outline-none focus:border-[var(--color-pib-accent)]"
                 />
               ) : (
                 <MarkdownPreview content={draft} />
@@ -750,8 +750,8 @@ export function KnowledgeBrowser({
             <div className="grid min-h-[50vh] place-items-center text-center">
               <div>
                 <span className="material-symbols-outlined text-5xl text-[var(--color-pib-accent)]">menu_book</span>
-                <h2 className="mt-3 font-headline text-2xl font-bold text-on-surface">No note selected</h2>
-                <p className="mt-2 text-sm text-on-surface-variant">Create or select a Markdown note to start editing.</p>
+                <h2 className="mt-3 font-headline text-2xl font-bold text-[var(--color-pib-text)]">No note selected</h2>
+                <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Create or select a Markdown note to start editing.</p>
               </div>
             </div>
           )}

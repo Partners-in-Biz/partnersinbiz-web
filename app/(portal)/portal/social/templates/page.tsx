@@ -125,58 +125,59 @@ export default function SocialTemplatesPage() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-on-surface">Post Templates</h1>
-        <p className="text-sm text-on-surface-variant mt-1">
+    <div className="p-6 max-w-4xl mx-auto space-y-8">
+      <header>
+        <p className="eyebrow">Social · Templates</p>
+        <h1 className="pib-page-title mt-2">Post Templates</h1>
+        <p className="pib-page-sub">
           Reusable post-text templates with <code className="text-[var(--color-accent-v2)]">{'{{variable}}'}</code> placeholders. Insert them from the composer with “Use template”.
         </p>
-      </div>
+      </header>
 
       {message && (
-        <div className={`p-3 rounded-lg text-sm ${message.startsWith('Error') ? 'bg-error-container text-on-error-container' : 'bg-success-container text-on-success-container'}`}>
+        <div className={`pib-card text-sm ${message.startsWith('Error') ? 'border-[var(--color-error)]/40 text-[var(--color-error)]' : 'text-[var(--color-pib-text)]'}`}>
           {message}
         </div>
       )}
 
       {/* Editor */}
-      <section className="p-4 rounded-lg bg-surface-container space-y-3">
-        <h2 className="text-sm font-label uppercase tracking-widest text-on-surface-variant">
+      <section className="pib-card space-y-4">
+        <h2 className="pib-label">
           {editingId ? 'Edit template' : 'New template'}
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-on-surface-variant mb-1">Name</label>
+            <label className="pib-label block mb-1">Name</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Product launch"
-              className="w-full rounded-lg bg-surface px-3 py-2 text-sm text-on-surface outline-none border border-outline-variant focus:border-[var(--color-accent-v2)] transition-colors"
+              className="pib-input w-full"
             />
           </div>
           <div>
-            <label className="block text-xs text-on-surface-variant mb-1">Category (optional)</label>
+            <label className="pib-label block mb-1">Category (optional)</label>
             <input
               type="text"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               placeholder="e.g. promotions"
-              className="w-full rounded-lg bg-surface px-3 py-2 text-sm text-on-surface outline-none border border-outline-variant focus:border-[var(--color-accent-v2)] transition-colors"
+              className="pib-input w-full"
             />
           </div>
         </div>
         <div>
-          <label className="block text-xs text-on-surface-variant mb-1">Body</label>
+          <label className="pib-label block mb-1">Body</label>
           <textarea
             rows={5}
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder="Big news, {{company}}! We just launched {{product}}. Learn more: {{link}}"
-            className="w-full rounded-lg bg-surface px-3 py-2 text-sm text-on-surface outline-none border border-outline-variant focus:border-[var(--color-accent-v2)] transition-colors resize-none"
+            className="pib-textarea w-full resize-none"
           />
           {detectedVars.length > 0 && (
-            <p className="text-[11px] text-on-surface-variant mt-1">
+            <p className="text-[11px] text-[var(--color-pib-text-muted)] mt-1">
               Detected placeholders: <span className="text-[var(--color-accent-v2)]">{detectedVars.map((v) => `{{${v}}}`).join(' ')}</span>
             </p>
           )}
@@ -185,12 +186,12 @@ export default function SocialTemplatesPage() {
           <button
             onClick={handleSave}
             disabled={saving || !name.trim() || !body.trim()}
-            className="px-4 py-2 rounded-lg bg-[var(--color-accent-v2)] text-black font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-pib-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? 'Saving…' : editingId ? 'Update template' : 'Create template'}
           </button>
           {editingId && (
-            <button onClick={resetForm} className="px-4 py-2 rounded-lg bg-surface text-on-surface font-medium text-sm hover:bg-surface-container-high transition-colors">
+            <button onClick={resetForm} className="btn-pib-ghost">
               Cancel
             </button>
           )}
@@ -201,40 +202,46 @@ export default function SocialTemplatesPage() {
       {loading ? (
         <div className="space-y-2">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-20 rounded-lg bg-surface-container animate-pulse" />
+            <div key={i} className="pib-skeleton h-20" />
           ))}
         </div>
       ) : templates.length === 0 ? (
-        <div className="p-8 rounded-lg bg-surface-container text-center">
-          <p className="text-on-surface-variant">No templates yet. Create your first one above.</p>
+        <div className="pib-empty-state">
+          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">description</span>
+          <h2 className="pib-empty-state-title">No templates yet. Create your first one above.</h2>
         </div>
       ) : (
         <div className="space-y-2">
           {templates.map((template) => (
-            <div key={template.id} className="p-4 rounded-lg bg-surface-container">
+            <div key={template.id} className="pib-card">
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium text-on-surface">{template.name}</p>
-                    {template.category && (
-                      <span className="text-[10px] px-2 py-0.5 rounded bg-surface-container-high text-on-surface-variant">{template.category}</span>
+                <div className="flex min-w-0 items-start gap-3">
+                  <span className="pib-icon-tint-rose shrink-0">
+                    <span aria-hidden="true" className="material-symbols-outlined text-[18px]">description</span>
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-[var(--color-pib-text)]">{template.name}</p>
+                      {template.category && (
+                        <span className="pib-pill pib-pill-rose">{template.category}</span>
+                      )}
+                    </div>
+                    <p className="text-sm text-[var(--color-pib-text-muted)] mt-1 whitespace-pre-wrap break-words">{template.body}</p>
+                    {template.variables.length > 0 && (
+                      <p className="text-[11px] text-[var(--color-accent-v2)] mt-1">{template.variables.map((v) => `{{${v}}}`).join(' ')}</p>
                     )}
                   </div>
-                  <p className="text-sm text-on-surface-variant mt-1 whitespace-pre-wrap break-words">{template.body}</p>
-                  {template.variables.length > 0 && (
-                    <p className="text-[11px] text-[var(--color-accent-v2)] mt-1">{template.variables.map((v) => `{{${v}}}`).join(' ')}</p>
-                  )}
                 </div>
                 <div className="flex flex-col gap-1 shrink-0">
                   <button
                     onClick={() => startEdit(template)}
-                    className="text-xs px-2 py-1 rounded bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors"
+                    className="btn-pib-ghost text-xs"
                   >
                     Edit
                   </button>
                   <button
                     onClick={() => handleDelete(template.id)}
-                    className="text-xs px-2 py-1 rounded bg-surface-container-high text-red-400 hover:text-red-300 transition-colors"
+                    className="btn-pib-ghost text-xs text-[var(--color-error)]"
                   >
                     Delete
                   </button>

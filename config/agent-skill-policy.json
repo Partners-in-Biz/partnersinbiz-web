@@ -1,6 +1,6 @@
 {
-  "version": "2026-07-12.email-marketing-v1",
-  "catalogVersion": "2026-07-12.email-marketing-skills-v1",
+  "version": "2026-07-13.studio-artifacts-v1",
+  "catalogVersion": "2026-07-13.studio-artifact-skills-v1",
   "mode": "hard_allowlist",
   "vpsRoot": "/var/lib/hermes/agent-skills",
   "futureAgentCandidates": [],
@@ -88,6 +88,10 @@
     "seo-sprint-manager",
     "social-media-manager",
     "social-recovery-gather",
+    "studio-artifact-orchestrate",
+    "studio-artifact-review",
+    "studio-context-gather",
+    "studio-release-handoff",
     "support-manager"
   ],
   "skillCatalog": {
@@ -760,6 +764,57 @@
       "riskLevel": "medium",
       "syncTarget": "vps"
     },
+    "studio-artifact-orchestrate": {
+      "ownerAgentId": "pip",
+      "allowedAgentIds": [
+        "docs",
+        "maya",
+        "pip",
+        "qa-release",
+        "sage",
+        "theo"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
+    },
+    "studio-artifact-review": {
+      "ownerAgentId": "qa-release",
+      "allowedAgentIds": [
+        "docs",
+        "maya",
+        "pip",
+        "qa-release",
+        "sage",
+        "theo"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
+    },
+    "studio-context-gather": {
+      "ownerAgentId": "pip",
+      "allowedAgentIds": [
+        "docs",
+        "maya",
+        "pip",
+        "qa-release",
+        "sage",
+        "theo"
+      ],
+      "riskLevel": "low",
+      "syncTarget": "vps"
+    },
+    "studio-release-handoff": {
+      "ownerAgentId": "qa-release",
+      "allowedAgentIds": [
+        "docs",
+        "maya",
+        "pip",
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "critical",
+      "syncTarget": "vps"
+    },
     "support-manager": {
       "ownerAgentId": "support",
       "allowedAgentIds": [
@@ -1135,7 +1190,11 @@
         "seo-sprint-manager",
         "social-media-manager",
         "social-recovery-gather",
-        "support-manager"
+        "support-manager",
+        "studio-artifact-orchestrate",
+        "studio-artifact-review",
+        "studio-context-gather",
+        "studio-release-handoff"
       ],
       "runtimeSkills": [
         "analytics",
@@ -1165,7 +1224,11 @@
         "support-manager",
         "research/last30days",
         "research/open-notebook",
-        "platform/headroom"
+        "platform/headroom",
+        "studio-artifact-orchestrate",
+        "studio-artifact-review",
+        "studio-context-gather",
+        "studio-release-handoff"
       ],
       "globalSkills": [
         "app-store-connect-cli",
@@ -1257,7 +1320,11 @@
         "seo-sprint-manager",
         "social-media-manager",
         "social-recovery-gather",
-        "support-manager"
+        "support-manager",
+        "studio-artifact-orchestrate",
+        "studio-artifact-review",
+        "studio-context-gather",
+        "studio-release-handoff"
       ],
       "runtimeSkills": [
         "ads-manager",
@@ -1325,7 +1392,11 @@
         "agent-skills/source-driven-development",
         "agent-skills/spec-driven-development",
         "agent-skills/test-driven-development",
-        "agent-skills/using-agent-skills"
+        "agent-skills/using-agent-skills",
+        "studio-artifact-orchestrate",
+        "studio-artifact-review",
+        "studio-context-gather",
+        "studio-release-handoff"
       ],
       "globalSkills": [
         "app-store-connect-cli",
@@ -1404,7 +1475,11 @@
         "project-management",
         "research-intelligence",
         "social-media-manager",
-        "social-recovery-gather"
+        "social-recovery-gather",
+        "studio-artifact-orchestrate",
+        "studio-artifact-review",
+        "studio-context-gather",
+        "studio-release-handoff"
       ],
       "runtimeSkills": [
         "analytics",
@@ -1430,7 +1505,11 @@
         "marketing/ads-landing",
         "marketing/ads-photoshoot",
         "research/last30days",
-        "research/open-notebook"
+        "research/open-notebook",
+        "studio-artifact-orchestrate",
+        "studio-artifact-review",
+        "studio-context-gather",
+        "studio-release-handoff"
       ],
       "globalSkills": [
         "app-store-connect-cli",
@@ -1505,7 +1584,10 @@
         "project-management",
         "properties",
         "research-intelligence",
-        "seo-sprint-manager"
+        "seo-sprint-manager",
+        "studio-artifact-orchestrate",
+        "studio-artifact-review",
+        "studio-context-gather"
       ],
       "runtimeSkills": [
         "analytics",
@@ -1522,7 +1604,10 @@
         "seo-sprint-manager",
         "marketing/local-seo-system",
         "research/last30days",
-        "research/open-notebook"
+        "research/open-notebook",
+        "studio-artifact-orchestrate",
+        "studio-artifact-review",
+        "studio-context-gather"
       ],
       "globalSkills": [
         "higgsfield-generate",
@@ -1792,7 +1877,11 @@
         "seo-sprint-manager",
         "social-media-manager",
         "social-recovery-gather",
-        "support-manager"
+        "support-manager",
+        "studio-artifact-orchestrate",
+        "studio-artifact-review",
+        "studio-context-gather",
+        "studio-release-handoff"
       ],
       "runtimeSkills": [
         "ads-manager",
@@ -1852,7 +1941,11 @@
         "agent-skills/source-driven-development",
         "agent-skills/spec-driven-development",
         "agent-skills/test-driven-development",
-        "agent-skills/using-agent-skills"
+        "agent-skills/using-agent-skills",
+        "studio-artifact-orchestrate",
+        "studio-artifact-review",
+        "studio-context-gather",
+        "studio-release-handoff"
       ],
       "globalSkills": [
         "app-store-connect-cli",
@@ -2094,7 +2187,11 @@
         "platform-ops",
         "project-management",
         "properties",
-        "research-intelligence"
+        "research-intelligence",
+        "studio-artifact-orchestrate",
+        "studio-artifact-review",
+        "studio-context-gather",
+        "studio-release-handoff"
       ],
       "runtimeSkills": [
         "analytics",
@@ -2111,7 +2208,11 @@
         "project-management",
         "properties",
         "research-intelligence",
-        "research/open-notebook"
+        "research/open-notebook",
+        "studio-artifact-orchestrate",
+        "studio-artifact-review",
+        "studio-context-gather",
+        "studio-release-handoff"
       ],
       "globalSkills": [
         "higgsfield-generate",

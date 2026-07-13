@@ -201,12 +201,12 @@ export default function OnboardingPage() {
       />
 
       {toast && (
-        <div className="mb-4 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-accent-soft)] px-4 py-2 text-sm text-on-surface">
+        <div className="mb-4 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-accent-soft)] px-4 py-2 text-sm text-[var(--color-pib-text)]">
           {toast}
         </div>
       )}
       {error && (
-        <Surface className="mb-4"><p className="text-sm text-on-surface">{error}</p></Surface>
+        <Surface className="mb-4"><p className="text-sm text-[var(--color-pib-text)]">{error}</p></Surface>
       )}
 
       {loading ? (
@@ -222,23 +222,23 @@ export default function OnboardingPage() {
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-headline text-base text-on-surface">{s.businessName || '(unnamed)'}</h3>
+                    <h3 className="font-headline text-base text-[var(--color-pib-text)]">{s.businessName || '(unnamed)'}</h3>
                     <StatusPill tone={STATUS_TONE[s.status]} dot>{STATUS_LABEL[s.status]}</StatusPill>
                     {s.product && <StatusPill tone="neutral">{s.product}</StatusPill>}
                   </div>
-                  <p className="mt-1 text-xs text-on-surface-variant">
+                  <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
                     {s.contactName || '—'} · {s.contactEmail || 'no email'} · {fmtDate(s.createdAt)}
                   </p>
                   <div className="mt-3 max-w-md">
-                    <div className="mb-1 flex items-center justify-between text-xs text-on-surface-variant">
+                    <div className="mb-1 flex items-center justify-between text-xs text-[var(--color-pib-text-muted)]">
                       <span>Progress</span><span>{s.progress}%</span>
                     </div>
                     <ProgressBar value={s.progress} />
                   </div>
                 </div>
-                <div className="shrink-0 text-right text-xs text-on-surface-variant">
+                <div className="shrink-0 text-right text-xs text-[var(--color-pib-text-muted)]">
                   <div className="font-label uppercase tracking-wide opacity-70">Assigned</div>
-                  <div className="text-on-surface">{adminName(s.assignedAdminUid)}</div>
+                  <div className="text-[var(--color-pib-text)]">{adminName(s.assignedAdminUid)}</div>
                 </div>
               </div>
             </Surface>
@@ -270,14 +270,14 @@ export default function OnboardingPage() {
           <div className="flex flex-col gap-5">
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="flex flex-col gap-1.5">
-                <span className="font-label text-xs uppercase tracking-wide text-on-surface-variant">Status</span>
+                <span className="font-label text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Status</span>
                 <select className="pib-input" value={selected.status} disabled={saving}
                   onChange={(e) => patch(selected.id, { status: e.target.value })}>
                   {STATUSES.map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
                 </select>
               </label>
               <label className="flex flex-col gap-1.5">
-                <span className="font-label text-xs uppercase tracking-wide text-on-surface-variant">Assigned admin</span>
+                <span className="font-label text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Assigned admin</span>
                 <select className="pib-input" value={selected.assignedAdminUid ?? ''} disabled={saving}
                   onChange={(e) => patch(selected.id, { assignedAdminUid: e.target.value || null })}>
                   <option value="">Unassigned</option>
@@ -288,8 +288,8 @@ export default function OnboardingPage() {
 
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
-                <span className="font-label text-xs uppercase tracking-wide text-on-surface-variant">Progress</span>
-                <span className="text-xs text-on-surface">{selected.progress}%</span>
+                <span className="font-label text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Progress</span>
+                <span className="text-xs text-[var(--color-pib-text)]">{selected.progress}%</span>
               </div>
               <input
                 type="range" min={0} max={100} step={5} value={selected.progress} disabled={saving}
@@ -300,16 +300,16 @@ export default function OnboardingPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-xs text-on-surface-variant">
-              <div><div className="font-label uppercase tracking-wide opacity-70">Created</div><div className="text-on-surface">{fmtDate(selected.createdAt)}</div></div>
-              <div><div className="font-label uppercase tracking-wide opacity-70">Updated</div><div className="text-on-surface">{fmtDate(selected.updatedAt)}</div></div>
-              {selected.orgId && <div><div className="font-label uppercase tracking-wide opacity-70">Org ID</div><div className="text-on-surface break-all">{selected.orgId}</div></div>}
-              {selected.product && <div><div className="font-label uppercase tracking-wide opacity-70">Product</div><div className="text-on-surface">{selected.product}</div></div>}
+            <div className="grid grid-cols-2 gap-3 text-xs text-[var(--color-pib-text-muted)]">
+              <div><div className="font-label uppercase tracking-wide opacity-70">Created</div><div className="text-[var(--color-pib-text)]">{fmtDate(selected.createdAt)}</div></div>
+              <div><div className="font-label uppercase tracking-wide opacity-70">Updated</div><div className="text-[var(--color-pib-text)]">{fmtDate(selected.updatedAt)}</div></div>
+              {selected.orgId && <div><div className="font-label uppercase tracking-wide opacity-70">Org ID</div><div className="text-[var(--color-pib-text)] break-all">{selected.orgId}</div></div>}
+              {selected.product && <div><div className="font-label uppercase tracking-wide opacity-70">Product</div><div className="text-[var(--color-pib-text)]">{selected.product}</div></div>}
             </div>
 
             {/* Internal notes */}
             <div className="flex flex-col gap-2">
-              <span className="font-label text-xs uppercase tracking-wide text-on-surface-variant">Internal notes</span>
+              <span className="font-label text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Internal notes</span>
               <div className="flex gap-2">
                 <input
                   className="pib-input flex-1" placeholder="Add an internal note…" value={noteDraft}
@@ -319,13 +319,13 @@ export default function OnboardingPage() {
                 <button type="button" className="pib-btn-secondary" disabled={saving || !noteDraft.trim()} onClick={addNote}>Add</button>
               </div>
               {selected.internalNotes.length === 0 ? (
-                <p className="text-xs text-on-surface-variant">No notes yet.</p>
+                <p className="text-xs text-[var(--color-pib-text-muted)]">No notes yet.</p>
               ) : (
                 <ul className="flex flex-col gap-2">
                   {selected.internalNotes.map((n) => (
                     <li key={n.id} className="rounded-lg border border-[var(--color-pib-line)] p-3">
-                      <p className="text-sm text-on-surface whitespace-pre-wrap">{n.body}</p>
-                      <p className="mt-1 text-[11px] text-on-surface-variant">{n.authorEmail || n.authorUid} · {fmtDate(n.createdAt)}</p>
+                      <p className="text-sm text-[var(--color-pib-text)] whitespace-pre-wrap">{n.body}</p>
+                      <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">{n.authorEmail || n.authorUid} · {fmtDate(n.createdAt)}</p>
                     </li>
                   ))}
                 </ul>
@@ -352,14 +352,14 @@ export default function OnboardingPage() {
       >
         <div className="flex flex-col gap-4">
           <label className="flex flex-col gap-1.5">
-            <span className="font-label text-xs uppercase tracking-wide text-on-surface-variant">Subject</span>
+            <span className="font-label text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Subject</span>
             <input className="pib-input" value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} />
           </label>
           <label className="flex flex-col gap-1.5">
-            <span className="font-label text-xs uppercase tracking-wide text-on-surface-variant">Message</span>
+            <span className="font-label text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">Message</span>
             <textarea className="pib-input min-h-[180px]" value={emailBody} onChange={(e) => setEmailBody(e.target.value)} placeholder="Write your follow-up…" />
           </label>
-          <p className="text-xs text-on-surface-variant">Sent from {`peet@partnersinbiz.online`} via Resend. The send is recorded in the audit log.</p>
+          <p className="text-xs text-[var(--color-pib-text-muted)]">Sent from {`peet@partnersinbiz.online`} via Resend. The send is recorded in the audit log.</p>
         </div>
       </DialogDrawer>
     </div>

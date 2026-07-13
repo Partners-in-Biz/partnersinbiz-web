@@ -59,7 +59,7 @@ function ChannelSwitch({
       className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
         checked
           ? 'border-[var(--color-accent-v2)] bg-[var(--color-accent-v2)]/80'
-          : 'border-[var(--color-card-border)] bg-[var(--color-surface-container)]'
+          : 'border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]'
       }`}
     >
       <span
@@ -189,11 +189,11 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
-      <div>
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">Settings</p>
-        <h1 className="text-2xl font-headline font-bold text-on-surface">Platform Settings</h1>
-      </div>
+    <div className="space-y-8 max-w-3xl mx-auto">
+      <header>
+        <p className="eyebrow">Admin · Settings</p>
+        <h1 className="pib-page-title mt-2">Platform Settings</h1>
+      </header>
 
       {/* Platform configuration */}
       <SettingsPlatformConfig canEdit={isSuperAdmin} />
@@ -202,25 +202,25 @@ export default function SettingsPage() {
       {selectedOrgId && (
         <div className="pib-card-section">
           <div className="pib-card-section-header">
-            <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+            <span className="pib-label">
               Organisation
             </span>
           </div>
           {orgName && (
             <div className="pib-card-section-row">
-              <span className="text-sm text-on-surface-variant">Name</span>
-              <span className="text-sm text-on-surface font-medium">{orgName}</span>
+              <span className="text-sm text-[var(--color-pib-text-muted)]">Name</span>
+              <span className="text-sm text-[var(--color-pib-text)] font-medium">{orgName}</span>
             </div>
           )}
           <div className="pib-card-section-row">
-            <span className="text-sm text-on-surface-variant">Org ID</span>
+            <span className="text-sm text-[var(--color-pib-text-muted)]">Org ID</span>
             <span className="flex items-center gap-2">
-              <code className="font-mono text-xs text-on-surface bg-[var(--color-surface-container)] px-2 py-1 rounded select-all">
+              <code className="font-mono text-xs text-[var(--color-pib-text)] bg-[var(--color-pib-surface-2)] px-2 py-1 rounded select-all">
                 {selectedOrgId}
               </code>
               <button
                 onClick={copyOrgId}
-                className="text-xs text-on-surface-variant hover:text-on-surface transition-colors px-2 py-1 rounded hover:bg-[var(--color-surface-container)]"
+                className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors px-2 py-1 rounded hover:bg-[var(--color-pib-surface-2)]"
                 title="Copy Org ID"
               >
                 {copied ? 'Copied!' : 'Copy'}
@@ -228,7 +228,7 @@ export default function SettingsPage() {
             </span>
           </div>
           <div className="px-4 pb-3">
-            <p className="text-[11px] text-on-surface-variant/60">
+            <p className="text-[11px] text-[var(--color-pib-text-faint)]">
               Use this ID when configuring AI agents or API integrations for this organisation.
             </p>
           </div>
@@ -237,12 +237,12 @@ export default function SettingsPage() {
 
       {/* Platform */}
       <div className="pib-card space-y-2">
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-3">Platform</p>
+        <p className="pib-label mb-3">Platform</p>
         {PLATFORM_ITEMS.filter((item) => !item.superAdminOnly || isSuperAdmin).map(item => (
           <Link key={item.href} href={item.href} className="flex items-center justify-between p-3 rounded-lg hover:bg-[var(--color-row-hover)] transition-colors">
             <div>
-              <p className="text-sm font-medium text-on-surface">{item.label}</p>
-              <p className="text-xs text-on-surface-variant mt-0.5">{item.desc}</p>
+              <p className="text-sm font-medium text-[var(--color-pib-text)]">{item.label}</p>
+              <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">{item.desc}</p>
             </div>
             <span style={{ color: 'var(--color-accent-v2)' }}>→</span>
           </Link>
@@ -252,26 +252,26 @@ export default function SettingsPage() {
       {/* Account */}
       <div className="pib-card-section">
         <div className="pib-card-section-header">
-          <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+          <span className="pib-label">
             Account
           </span>
         </div>
         <div className="pib-card-section-row">
-          <span className="text-sm text-on-surface-variant">Email</span>
-          <span className="text-sm text-on-surface font-medium">
+          <span className="text-sm text-[var(--color-pib-text-muted)]">Email</span>
+          <span className="text-sm text-[var(--color-pib-text)] font-medium">
             {session?.email ?? 'Signed-in user'}
           </span>
         </div>
         <div className="pib-card-section-row">
-          <span className="text-sm text-on-surface-variant">Role</span>
-          <span className="text-[10px] font-label uppercase tracking-widest px-2.5 py-1 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">
+          <span className="text-sm text-[var(--color-pib-text-muted)]">Role</span>
+          <span className="pib-pill pib-pill-success">
             {session?.role ?? 'Admin'}
           </span>
         </div>
         <Link href="/admin/settings#integrations" className="flex items-center justify-between px-4 py-3 hover:bg-[var(--color-row-hover)] transition-colors">
           <div>
-            <p className="text-sm font-medium text-on-surface">Internal email operations</p>
-            <p className="text-xs text-on-surface-variant mt-0.5">Review the admin integration status for email services before changing mailbox configuration.</p>
+            <p className="text-sm font-medium text-[var(--color-pib-text)]">Internal email operations</p>
+            <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">Review the admin integration status for email services before changing mailbox configuration.</p>
           </div>
           <span style={{ color: 'var(--color-accent-v2)' }}>→</span>
         </Link>
@@ -281,10 +281,10 @@ export default function SettingsPage() {
       <div className="pib-card-section">
         <div className="pib-card-section-header">
           <div>
-            <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+            <span className="pib-label">
               Device push notifications
             </span>
-            <p className="text-xs text-on-surface-variant mt-1 normal-case tracking-normal">
+            <p className="text-xs text-[var(--color-pib-text-muted)] mt-1 normal-case tracking-normal">
               Enable browser push delivery on this device before choosing which organisation-alert lanes can use push.
             </p>
           </div>
@@ -297,10 +297,10 @@ export default function SettingsPage() {
       <div className="pib-card-section">
         <div className="pib-card-section-header">
           <div>
-            <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+            <span className="pib-label">
               Organisation alert preferences
             </span>
-            <p className="text-xs text-on-surface-variant mt-1 normal-case tracking-normal">
+            <p className="text-xs text-[var(--color-pib-text-muted)] mt-1 normal-case tracking-normal">
               Choose which admin organisation alert lanes can send you in-app/push alerts and email notifications.
             </p>
           </div>
@@ -317,24 +317,24 @@ export default function SettingsPage() {
         )}
         <div className="px-4 py-3">
           {notificationLoading ? (
-            <p className="text-sm text-on-surface-variant">Loading organisation alert settings…</p>
+            <p className="text-sm text-[var(--color-pib-text-muted)]">Loading organisation alert settings…</p>
           ) : clientOrgs.length === 0 ? (
-            <p className="text-sm text-on-surface-variant">No organisations are available for notification preferences.</p>
+            <p className="text-sm text-[var(--color-pib-text-muted)]">No organisations are available for notification preferences.</p>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)]">
-              <div className="grid grid-cols-12 gap-3 border-b border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-4 py-2">
-                <span className="col-span-6 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Organisation</span>
-                <span className="col-span-3 text-center text-[10px] font-label uppercase tracking-widest text-on-surface-variant">In-app / push</span>
-                <span className="col-span-3 text-center text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Email</span>
+            <div className="overflow-hidden rounded-xl border border-[var(--color-pib-line)]">
+              <div className="grid grid-cols-12 gap-3 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-4 py-2">
+                <span className="col-span-6 pib-label">Organisation</span>
+                <span className="col-span-3 text-center pib-label">In-app / push</span>
+                <span className="col-span-3 text-center pib-label">Email</span>
               </div>
               {clientOrgs.map((org) => {
                 const channels = notificationPrefs[org.id] ?? DEFAULT_CHANNELS
                 const disabled = savingOrgId === org.id
                 return (
-                  <div key={org.id} className="grid grid-cols-12 gap-3 items-center border-b border-[var(--color-card-border)] px-4 py-3 last:border-b-0">
+                  <div key={org.id} className="grid grid-cols-12 gap-3 items-center border-b border-[var(--color-pib-line)] px-4 py-3 last:border-b-0">
                     <div className="col-span-6 min-w-0">
-                      <p className="text-sm font-medium text-on-surface truncate">{org.name}</p>
-                      <p className="text-[11px] text-on-surface-variant">{disabled ? 'Saving…' : 'Acceptance, approval, billing, CRM and system alerts'}</p>
+                      <p className="text-sm font-medium text-[var(--color-pib-text)] truncate">{org.name}</p>
+                      <p className="text-[11px] text-[var(--color-pib-text-muted)]">{disabled ? 'Saving…' : 'Acceptance, approval, billing, CRM and system alerts'}</p>
                     </div>
                     <div className="col-span-3 flex justify-center">
                       <ChannelSwitch
@@ -366,20 +366,20 @@ export default function SettingsPage() {
       {/* Integrations */}
       <div id="integrations" className="pib-card-section">
         <div className="pib-card-section-header">
-          <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+          <span className="pib-label">
             Integrations
           </span>
         </div>
         <div className="pib-card-section-row">
-          <span className="text-sm text-on-surface-variant">Firebase / Firestore</span>
+          <span className="text-sm text-[var(--color-pib-text-muted)]">Firebase / Firestore</span>
           <span className="flex items-center gap-2 text-sm text-green-400">
             <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
             Connected
           </span>
         </div>
         <div className="pib-card-section-row">
-          <span className="text-sm text-on-surface-variant">Resend Email</span>
-          <span className="text-sm text-on-surface-variant">
+          <span className="text-sm text-[var(--color-pib-text-muted)]">Resend Email</span>
+          <span className="text-sm text-[var(--color-pib-text-muted)]">
             Check Vercel env vars
           </span>
         </div>
@@ -388,21 +388,21 @@ export default function SettingsPage() {
       {/* API Access */}
       <div className="pib-card-section">
         <div className="pib-card-section-header">
-          <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+          <span className="pib-label">
             API Access
           </span>
         </div>
         <div className="pib-card-section-row">
-          <span className="text-sm text-on-surface-variant">AI API Key</span>
-          <span className="text-sm text-on-surface-variant text-right">
-            Set via <code className="font-mono text-xs text-on-surface bg-[var(--color-surface-container)] px-1.5 py-0.5 rounded">ADMIN_EMAIL</code> env var
+          <span className="text-sm text-[var(--color-pib-text-muted)]">AI API Key</span>
+          <span className="text-sm text-[var(--color-pib-text-muted)] text-right">
+            Set via <code className="font-mono text-xs text-[var(--color-pib-text)] bg-[var(--color-pib-surface-2)] px-1.5 py-0.5 rounded">ADMIN_EMAIL</code> env var
           </span>
         </div>
         <div className="pib-card-section-row">
-          <span className="text-sm text-on-surface-variant">Session Cookie</span>
-          <span className="text-sm text-on-surface-variant text-right">
+          <span className="text-sm text-[var(--color-pib-text-muted)]">Session Cookie</span>
+          <span className="text-sm text-[var(--color-pib-text-muted)] text-right">
             14 days — configurable via{' '}
-            <code className="font-mono text-xs text-on-surface bg-[var(--color-surface-container)] px-1.5 py-0.5 rounded">
+            <code className="font-mono text-xs text-[var(--color-pib-text)] bg-[var(--color-pib-surface-2)] px-1.5 py-0.5 rounded">
               SESSION_EXPIRY_DAYS
             </code>
           </span>
@@ -411,7 +411,7 @@ export default function SettingsPage() {
 
       {/* Billing & Revenue */}
       <div className="pib-card space-y-1">
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-3">Billing &amp; Revenue</p>
+        <p className="pib-label mb-3">Billing &amp; Revenue</p>
         {[
           { icon: 'payments', title: 'Plans & Pricing', desc: 'Manage subscription plans and pricing tiers. Plans: Starter, Growth, Scale, Enterprise.', cta: 'View plans' },
           { icon: 'confirmation_number', title: 'Coupon / Discount Codes', desc: 'Manage promotional discount codes.', cta: 'Configure' },
@@ -427,18 +427,18 @@ export default function SettingsPage() {
             <div className="flex items-start gap-3">
               <span className="material-symbols-outlined text-[20px] mt-0.5" style={{ color: 'var(--color-accent-v2)' }}>{item.icon}</span>
               <div>
-                <p className="text-sm font-medium text-on-surface">{item.title}</p>
-                <p className="text-xs text-on-surface-variant mt-0.5">{item.desc}</p>
+                <p className="text-sm font-medium text-[var(--color-pib-text)]">{item.title}</p>
+                <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">{item.desc}</p>
               </div>
             </div>
-            <button type="button" className="shrink-0 ml-4 text-xs text-on-surface-variant hover:text-on-surface px-2 py-1 rounded hover:bg-[var(--color-surface-container)] transition-colors">{item.cta} →</button>
+            <button type="button" className="shrink-0 ml-4 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] px-2 py-1 rounded hover:bg-[var(--color-pib-surface-2)] transition-colors">{item.cta} →</button>
           </div>
         ))}
       </div>
 
       {/* Platform Communications */}
       <div className="pib-card space-y-1">
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-3">Platform Communications</p>
+        <p className="pib-label mb-3">Platform Communications</p>
         {[
           { icon: 'campaign', title: 'Platform Broadcast', desc: 'Send platform-wide broadcasts to all active organisations.', href: '/admin/settings/broadcast' },
           { icon: 'notifications', title: 'Announcements', desc: 'Publish in-app announcement banners for all users.', href: '/admin/announcements' },
@@ -448,8 +448,8 @@ export default function SettingsPage() {
             <div className="flex items-start gap-3">
               <span className="material-symbols-outlined text-[20px] mt-0.5" style={{ color: 'var(--color-accent-v2)' }}>{item.icon}</span>
               <div>
-                <p className="text-sm font-medium text-on-surface">{item.title}</p>
-                <p className="text-xs text-on-surface-variant mt-0.5">{item.desc}</p>
+                <p className="text-sm font-medium text-[var(--color-pib-text)]">{item.title}</p>
+                <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">{item.desc}</p>
               </div>
             </div>
             <span style={{ color: 'var(--color-accent-v2)' }}>→</span>
@@ -459,7 +459,7 @@ export default function SettingsPage() {
 
       {/* Legal & Compliance */}
       <div className="pib-card space-y-1">
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-3">Legal &amp; Compliance</p>
+        <p className="pib-label mb-3">Legal &amp; Compliance</p>
         {[
           { icon: 'gavel', title: 'Legal Documents', desc: 'Terms of service, privacy policy and legal document management.', href: '/admin/legal' },
           { icon: 'privacy_tip', title: 'GDPR Compliance', desc: 'Data processing agreements, right-to-erasure workflows, and GDPR reporting.', href: '/admin/legal/gdpr' },
@@ -470,8 +470,8 @@ export default function SettingsPage() {
             <div className="flex items-start gap-3">
               <span className="material-symbols-outlined text-[20px] mt-0.5" style={{ color: 'var(--color-accent-v2)' }}>{item.icon}</span>
               <div>
-                <p className="text-sm font-medium text-on-surface">{item.title}</p>
-                <p className="text-xs text-on-surface-variant mt-0.5">{item.desc}</p>
+                <p className="text-sm font-medium text-[var(--color-pib-text)]">{item.title}</p>
+                <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">{item.desc}</p>
               </div>
             </div>
             <span style={{ color: 'var(--color-accent-v2)' }}>→</span>
@@ -481,7 +481,7 @@ export default function SettingsPage() {
 
       {/* Infrastructure & Config */}
       <div className="pib-card space-y-1">
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-3">Infrastructure &amp; Config</p>
+        <p className="pib-label mb-3">Infrastructure &amp; Config</p>
         {[
           { icon: 'admin_panel_settings', title: 'Admin Users', desc: 'Manage admin accounts, roles, and access.', href: '/admin/settings/admins' },
           { icon: 'dns', title: 'White-Label Domains', desc: 'Configure custom domains for client portal white-labelling.', href: '/admin/domains' },
@@ -495,8 +495,8 @@ export default function SettingsPage() {
             <div className="flex items-start gap-3">
               <span className="material-symbols-outlined text-[20px] mt-0.5" style={{ color: 'var(--color-accent-v2)' }}>{item.icon}</span>
               <div>
-                <p className="text-sm font-medium text-on-surface">{item.title}</p>
-                <p className="text-xs text-on-surface-variant mt-0.5">{item.desc}</p>
+                <p className="text-sm font-medium text-[var(--color-pib-text)]">{item.title}</p>
+                <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">{item.desc}</p>
               </div>
             </div>
             <span style={{ color: 'var(--color-accent-v2)' }}>→</span>

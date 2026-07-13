@@ -10,15 +10,15 @@ import {
 
 const PALETTE = ['#fbbf24', '#60a5fa', '#34d399', '#f87171', '#a78bfa', '#fb923c', '#22d3ee', '#f472b6', '#a3e635', '#94a3b8']
 
-const AXIS = { fontSize: 11, fill: 'var(--color-on-surface-variant)' }
-const GRID = 'var(--color-card-border)'
+const AXIS = { fontSize: 11, fill: 'var(--color-pib-text-muted)' }
+const GRID = 'var(--color-pib-line)'
 
 const tooltipStyle = {
-  background: 'var(--color-surface-container, #1e293b)',
-  border: '1px solid var(--color-card-border)',
+  background: 'var(--color-pib-surface-2, #1e293b)',
+  border: '1px solid var(--color-pib-line)',
   borderRadius: 8,
   fontSize: 12,
-  color: 'var(--color-on-surface)',
+  color: 'var(--color-pib-text)',
 }
 
 export function LineSeries({
@@ -96,7 +96,7 @@ export function DonutChart({
   height?: number
 }) {
   if (data.length === 0) {
-    return <div className="flex items-center justify-center text-on-surface-variant text-sm" style={{ height }}>No data</div>
+    return <div className="flex items-center justify-center text-[var(--color-pib-text-muted)] text-sm" style={{ height }}>No data</div>
   }
   return (
     <ResponsiveContainer width="100%" height={height}>

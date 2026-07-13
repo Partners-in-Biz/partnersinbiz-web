@@ -49,14 +49,14 @@ export function ProgramList({ scope }: { scope: PortalOrgRouteScope }) {
           href={scopedPortalPath(program.href, scope)}
           className="group grid min-w-0 grid-cols-[30px_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2.5 transition hover:bg-white/[0.025]"
         >
-          <span className="material-symbols-outlined grid h-7 w-7 place-items-center rounded-md bg-white/[0.04] text-[16px] text-on-surface-variant group-hover:text-primary" aria-hidden="true">
+          <span className="pib-icon-tint-blue material-symbols-outlined grid h-7 w-7 place-items-center rounded-md text-[16px]" aria-hidden="true">
             {program.icon}
           </span>
           <span className="min-w-0">
-            <span className="block text-xs font-semibold text-on-surface">{program.label}</span>
-            <span className="block truncate text-[11px] leading-4 text-on-surface-variant">{program.description}</span>
+            <span className="block text-xs font-semibold text-[var(--color-pib-text)]">{program.label}</span>
+            <span className="block truncate text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{program.description}</span>
           </span>
-          <span className="flex items-center gap-1 text-[10px] uppercase tracking-[0.14em] text-on-surface-variant">
+          <span className="flex items-center gap-1 text-[10px] uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">
             {program.cue}
             <span className="material-symbols-outlined text-[14px]" aria-hidden="true">chevron_right</span>
           </span>

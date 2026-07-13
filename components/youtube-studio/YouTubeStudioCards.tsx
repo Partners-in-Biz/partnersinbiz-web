@@ -78,8 +78,8 @@ export function YouTubeChannelCard({
     <article className="pib-card-section min-w-0 space-y-3 p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <h3 className="break-words font-headline text-lg font-semibold text-on-surface">{channel.title}</h3>
-          <p className="break-words text-sm text-on-surface-variant">{handle}</p>
+          <h3 className="break-words font-headline text-lg font-semibold text-[var(--color-pib-text)]">{channel.title}</h3>
+          <p className="break-words text-sm text-[var(--color-pib-text-muted)]">{handle}</p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
           <StatusPill status={channel.status} />
@@ -89,21 +89,21 @@ export function YouTubeChannelCard({
       {channel.contentPillars?.length ? (
         <div className="flex flex-wrap gap-2">
           {channel.contentPillars.slice(0, 4).map((pillar) => (
-            <span key={pillar} className="max-w-full break-words rounded-full bg-white/[0.04] px-2 py-1 text-xs text-on-surface-variant">
+            <span key={pillar} className="max-w-full break-words rounded-full bg-white/[0.04] px-2 py-1 text-xs text-[var(--color-pib-text-muted)]">
               {pillar}
             </span>
           ))}
         </div>
       ) : null}
       {channel.publishingReadiness ? (
-        <div className="grid grid-cols-2 gap-2 text-xs text-on-surface-variant sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 text-xs text-[var(--color-pib-text-muted)] sm:grid-cols-4">
           <span className="min-w-0 break-words">Publishing: {label(channel.publishingReadiness.readiness)}</span>
           <span className="min-w-0 break-words">Account: {label(channel.publishingReadiness.accountStatus)}</span>
           <span className="min-w-0 break-words">API: {label(channel.publishingReadiness.apiProjectStatus)}</span>
           <span className="min-w-0 break-words">Privacy: {label(channel.publishingReadiness.defaultUploadPrivacy)}</span>
         </div>
       ) : null}
-      {channel.clientNotes ? <p className="break-words text-sm text-on-surface-variant">{channel.clientNotes}</p> : null}
+      {channel.clientNotes ? <p className="break-words text-sm text-[var(--color-pib-text-muted)]">{channel.clientNotes}</p> : null}
       {children ? <div className="flex flex-wrap gap-2 pt-1">{children}</div> : null}
     </article>
   )
@@ -120,18 +120,18 @@ export function YouTubeVideoCard({
     <article className="pib-card-section min-w-0 space-y-4 p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <h3 className="break-words font-headline text-base font-semibold leading-snug text-on-surface">{video.title}</h3>
-          <p className="mt-1 break-words text-sm leading-relaxed text-on-surface-variant">{video.objective || label(video.videoType)}</p>
+          <h3 className="break-words font-headline text-base font-semibold leading-snug text-[var(--color-pib-text)]">{video.title}</h3>
+          <p className="mt-1 break-words text-sm leading-relaxed text-[var(--color-pib-text-muted)]">{video.objective || label(video.videoType)}</p>
         </div>
         <StatusPill status={video.status} />
       </div>
-      <div className="grid gap-2 text-xs leading-relaxed text-on-surface-variant sm:grid-cols-2">
+      <div className="grid gap-2 text-xs leading-relaxed text-[var(--color-pib-text-muted)] sm:grid-cols-2">
         <span className="min-w-0 break-words">Format: {label(video.videoType)}</span>
         <span className="min-w-0 break-words">Approval: {clientStatusLabel(video.clientReview?.status)}</span>
         <span className="min-w-0 break-words">Input: {label(video.source?.intakeType)}</span>
         <span className="min-w-0 break-words">Length: {video.targetDurationSeconds ? `${video.targetDurationSeconds}s` : 'Open'}</span>
       </div>
-      {video.clientNotes ? <p className="break-words rounded-xl bg-white/[0.04] p-3 text-sm text-on-surface">{video.clientNotes}</p> : null}
+      {video.clientNotes ? <p className="break-words rounded-xl bg-white/[0.04] p-3 text-sm text-[var(--color-pib-text)]">{video.clientNotes}</p> : null}
       {children ? <div className="flex flex-wrap gap-2 pt-1">{children}</div> : null}
     </article>
   )

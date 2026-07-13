@@ -393,9 +393,9 @@ export default function SkillTastingLabClient() {
     <div className="mx-auto max-w-7xl space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className="mb-1 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Platform / Agents</p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Skill Tasting Lab</h1>
-          <p className="mt-1 max-w-3xl text-sm text-on-surface-variant">
+          <p className="mb-1 text-[10px] pib-label">Platform / Agents</p>
+          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Skill Tasting Lab</h1>
+          <p className="mt-1 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
             Select an agent, select one allowlisted skill, run a sandbox tasting conversation, then turn weak behaviour into a routed skill-improvement task. The lab does not edit skills directly; it captures evidence for Pip/the owning agent to review and patch safely. No live publishing, sends, spend, billing, destructive work, secrets, or production deploys from here.
           </p>
         </div>
@@ -417,13 +417,13 @@ export default function SkillTastingLabClient() {
       <div className="grid gap-6 lg:grid-cols-[420px_minmax(0,1fr)]">
         <form onSubmit={startRun} className="pib-card space-y-5 p-5">
           <div>
-            <h2 className="text-sm font-semibold text-on-surface">Tasting setup</h2>
-            <p className="mt-1 text-xs text-on-surface-variant">The generated prompt wraps your scenario in hard sandbox guardrails before it reaches the agent.</p>
+            <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Tasting setup</h2>
+            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">The generated prompt wraps your scenario in hard sandbox guardrails before it reaches the agent.</p>
           </div>
 
           <label className="block space-y-1.5">
-            <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Agent</span>
-            <select className="pib-input w-full text-sm" value={selectedAgentId} onChange={(e) => setSelectedAgentId(e.target.value)} disabled={loading || starting}>
+            <span className="text-[10px] pib-label">Agent</span>
+            <select className="pib-select w-full text-sm" value={selectedAgentId} onChange={(e) => setSelectedAgentId(e.target.value)} disabled={loading || starting}>
               {agents.map((agent) => (
                 <option key={agent.agentId} value={agent.agentId}>{agent.name} ({agent.agentId})</option>
               ))}
@@ -431,22 +431,22 @@ export default function SkillTastingLabClient() {
           </label>
 
           <label className="block space-y-1.5">
-            <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Allowlisted skill</span>
-            <select className="pib-input w-full text-sm" value={selectedSkill} onChange={(e) => setSelectedSkill(e.target.value)} disabled={policyLoading || starting || skillOptions.length === 0}>
+            <span className="text-[10px] pib-label">Allowlisted skill</span>
+            <select className="pib-select w-full text-sm" value={selectedSkill} onChange={(e) => setSelectedSkill(e.target.value)} disabled={policyLoading || starting || skillOptions.length === 0}>
               {skillOptions.map((skill) => (
                 <option key={skill} value={skill}>{skill}</option>
               ))}
             </select>
-            <p className="text-[11px] text-on-surface-variant">
+            <p className="text-[11px] text-[var(--color-pib-text-muted)]">
               {policyLoading ? 'Loading policy…' : `${skillOptions.length} selectable skill${skillOptions.length === 1 ? '' : 's'} from policy/runtime allowlist.`}
             </p>
           </label>
 
           <div className="space-y-2">
-            <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Scenario templates</span>
+            <span className="text-[10px] pib-label">Scenario templates</span>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
               {SCENARIO_TEMPLATES.map((scenario) => (
-                <button key={scenario.label} type="button" className="rounded-lg border border-[var(--color-card-border)] px-3 py-2 text-left text-xs text-on-surface-variant transition hover:border-[var(--color-accent-v2)]/50 hover:text-on-surface" onClick={() => setPrompt(scenario.prompt)}>
+                <button key={scenario.label} type="button" className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-left text-xs text-[var(--color-pib-text-muted)] transition hover:border-[var(--color-accent-v2)]/50 hover:text-[var(--color-pib-text)]" onClick={() => setPrompt(scenario.prompt)}>
                   {scenario.label}
                 </button>
               ))}
@@ -454,13 +454,13 @@ export default function SkillTastingLabClient() {
           </div>
 
           <label className="block space-y-1.5">
-            <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Tester prompt</span>
+            <span className="text-[10px] pib-label">Tester prompt</span>
             <textarea className="pib-input min-h-36 w-full resize-y text-sm" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Ask the selected agent to perform a safe, reviewable task with this one skill." />
           </label>
 
-          <details className="rounded-lg border border-[var(--color-card-border)] bg-black/10 p-3">
-            <summary className="cursor-pointer text-xs font-label uppercase tracking-wide text-on-surface-variant">Preview sandbox prompt</summary>
-            <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-on-surface-variant">{sandboxPrompt || 'Select a skill to preview the guarded prompt.'}</pre>
+          <details className="rounded-lg border border-[var(--color-pib-line)] bg-black/10 p-3">
+            <summary className="cursor-pointer text-xs pib-label">Preview sandbox prompt</summary>
+            <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-[var(--color-pib-text-muted)]">{sandboxPrompt || 'Select a skill to preview the guarded prompt.'}</pre>
           </details>
 
           <button type="submit" className="pib-btn-primary w-full justify-center text-sm" disabled={loading || starting || !selectedAgentId || !selectedSkill || !prompt.trim()}>
@@ -468,7 +468,7 @@ export default function SkillTastingLabClient() {
           </button>
         </form>
 
-        <section className="min-h-[620px] overflow-hidden rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]">
+        <section className="min-h-[620px] overflow-hidden rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)]">
           {labRun && session?.uid ? (
             <UnifiedChat
               key={labRun.conversationId}
@@ -487,8 +487,8 @@ export default function SkillTastingLabClient() {
                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
                   <span className="material-symbols-outlined">science</span>
                 </div>
-                <h2 className="text-lg font-semibold text-on-surface">No tasting run yet</h2>
-                <p className="text-sm text-on-surface-variant">Start a sandbox run and the live conversation will appear here. The run is scoped to the parent platform workspace, not a client account.</p>
+                <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">No tasting run yet</h2>
+                <p className="text-sm text-[var(--color-pib-text-muted)]">Start a sandbox run and the live conversation will appear here. The run is scoped to the parent platform workspace, not a client account.</p>
               </div>
             </div>
           )}
@@ -498,29 +498,29 @@ export default function SkillTastingLabClient() {
 
       <section className="pib-card space-y-4 p-5">
         <div>
-          <h2 className="text-sm font-semibold text-on-surface">Agent Learning Review schedule</h2>
-          <p className="mt-1 text-xs text-on-surface-variant">
+          <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Agent Learning Review schedule</h2>
+          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
             This schedules the PiB “scan → stage → review” loop under Pip. Pick whether it runs for the system as a whole or a scoped organisation being administered. Runs only create reviewable proposals/tasks; they do not mutate skills, publish, send, spend, bill, deploy, or change secrets.
           </p>
         </div>
         <div className="grid gap-3 lg:grid-cols-[180px_minmax(0,1fr)_260px] lg:items-end">
           <label className="space-y-1.5">
-            <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Scope</span>
-            <select className="pib-input w-full text-sm" value={learningScope} onChange={(e) => setLearningScope(e.target.value as 'system' | 'client')}>
+            <span className="text-[10px] pib-label">Scope</span>
+            <select className="pib-select w-full text-sm" value={learningScope} onChange={(e) => setLearningScope(e.target.value as 'system' | 'client')}>
               <option value="system">System / PiB parent</option>
               <option value="client">Scoped organisation</option>
             </select>
           </label>
           <label className="space-y-1.5">
-            <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Scoped organisation</span>
-            <select className="pib-input w-full text-sm" value={learningOrgId} onChange={(e) => setLearningOrgId(e.target.value)} disabled={learningScope === 'system'}>
+            <span className="text-[10px] pib-label">Scoped organisation</span>
+            <select className="pib-select w-full text-sm" value={learningOrgId} onChange={(e) => setLearningOrgId(e.target.value)} disabled={learningScope === 'system'}>
               {organizations.map((org) => (
                 <option key={org.id} value={org.id}>{org.name} ({org.id})</option>
               ))}
             </select>
           </label>
           <label className="space-y-1.5">
-            <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">When to run</span>
+            <span className="text-[10px] pib-label">When to run</span>
             <input
               className="pib-input w-full text-sm font-mono"
               value={learningSchedule}
@@ -531,38 +531,38 @@ export default function SkillTastingLabClient() {
             <datalist id="learning-review-schedules">
               {LEARNING_REVIEW_SCHEDULES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </datalist>
-            <p className="text-[11px] text-on-surface-variant">Use a preset or any Hermes cron expression, e.g. monthly, weekly, or post-campaign one-off ISO timestamp.</p>
+            <p className="text-[11px] text-[var(--color-pib-text-muted)]">Use a preset or any Hermes cron expression, e.g. monthly, weekly, or post-campaign one-off ISO timestamp.</p>
           </label>
         </div>
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <label className="space-y-1.5">
-            <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Optional focus</span>
+            <span className="text-[10px] pib-label">Optional focus</span>
             <textarea className="pib-input min-h-20 w-full resize-y text-sm" value={learningFocus} onChange={(e) => setLearningFocus(e.target.value)} placeholder="Example: review repeated blockers from the last month, client voice lessons, or platform skill/runbook improvement opportunities." />
           </label>
           <button type="button" className="pib-btn-primary whitespace-nowrap text-sm" onClick={createLearningReviewJob} disabled={learningCreating || (learningScope === 'client' && !learningOrgId)}>
             {learningCreating ? 'Scheduling…' : 'Schedule learning review'}
           </button>
         </div>
-        <details className="rounded-lg border border-[var(--color-card-border)] bg-black/10 p-3">
-          <summary className="cursor-pointer text-xs font-label uppercase tracking-wide text-on-surface-variant">Preview scheduled prompt</summary>
-          <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-on-surface-variant">{buildLearningReviewPrompt(learningScope, organizations.find((org) => org.id === learningOrgId), learningFocus)}</pre>
+        <details className="rounded-lg border border-[var(--color-pib-line)] bg-black/10 p-3">
+          <summary className="cursor-pointer text-xs pib-label">Preview scheduled prompt</summary>
+          <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-[var(--color-pib-text-muted)]">{buildLearningReviewPrompt(learningScope, organizations.find((org) => org.id === learningOrgId), learningFocus)}</pre>
         </details>
       </section>
 
       <section className="pib-card space-y-4 p-5">
         <div>
-          <h2 className="text-sm font-semibold text-on-surface">Review outcome</h2>
-          <p className="mt-1 text-xs text-on-surface-variant">Use this after reading the transcript. If the agent produced “Skill improvement notes”, paste them below. Creating the follow-up does not edit the skill immediately; it creates a Pip routing task with the transcript, notes, and safety gates linked.</p>
+          <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Review outcome</h2>
+          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Use this after reading the transcript. If the agent produced “Skill improvement notes”, paste them below. Creating the follow-up does not edit the skill immediately; it creates a Pip routing task with the transcript, notes, and safety gates linked.</p>
         </div>
         <div className="grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)_auto] lg:items-end">
           <label className="space-y-1.5">
-            <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Verdict</span>
-            <select className="pib-input w-full text-sm" value={reviewStatus} onChange={(e) => setReviewStatus(e.target.value)}>
+            <span className="text-[10px] pib-label">Verdict</span>
+            <select className="pib-select w-full text-sm" value={reviewStatus} onChange={(e) => setReviewStatus(e.target.value)}>
               {REVIEW_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
           </label>
           <label className="space-y-1.5">
-            <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Notes</span>
+            <span className="text-[10px] pib-label">Notes</span>
             <textarea className="pib-input min-h-20 w-full resize-y text-sm" value={reviewNotes} onChange={(e) => setReviewNotes(e.target.value)} placeholder="Paste the agent’s Skill improvement notes, plus what felt wrong, stale, unsafe, or off-brand." />
           </label>
           <button type="button" className="pib-btn-secondary whitespace-nowrap text-sm" onClick={createImprovementTask} disabled={!labRun || taskCreating}>

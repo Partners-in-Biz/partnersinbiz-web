@@ -35,7 +35,7 @@ interface TemplateVersion {
 }
 
 const inputClass =
-  'mt-1 w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2 text-sm text-on-surface'
+  'mt-1 w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)] px-3 py-2 text-sm text-[var(--color-pib-text)]'
 
 function fmt(value: string | null): string {
   if (!value) return '—'
@@ -187,9 +187,9 @@ export function ReportTemplatesManager() {
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       <div>
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">Governance</p>
-        <h1 className="text-2xl font-headline font-bold text-on-surface">Report Templates</h1>
-        <p className="text-sm text-on-surface-variant mt-1">
+        <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">Governance</p>
+        <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Report Templates</h1>
+        <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
           Firestore-backed report templates with org assignment and full version history. Built-in defaults are
           read-only.
         </p>
@@ -213,14 +213,14 @@ export function ReportTemplatesManager() {
       {/* Editor */}
       <div className="pib-card space-y-4">
         <div className="flex items-center justify-between">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
             {editingId && !editingId.startsWith('builtin:') ? 'Edit template' : 'New template'}
           </p>
           {editingId && (
             <button
               type="button"
               onClick={resetForm}
-              className="text-xs text-on-surface-variant hover:text-on-surface transition-colors"
+              className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
             >
               Cancel
             </button>
@@ -228,23 +228,23 @@ export function ReportTemplatesManager() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="text-xs text-on-surface-variant">Name</label>
+            <label className="text-xs text-[var(--color-pib-text-muted)]">Name</label>
             <input className={inputClass} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </div>
           <div>
-            <label className="text-xs text-on-surface-variant">Eyebrow</label>
+            <label className="text-xs text-[var(--color-pib-text-muted)]">Eyebrow</label>
             <input className={inputClass} value={form.eyebrow} onChange={(e) => setForm({ ...form, eyebrow: e.target.value })} />
           </div>
           <div className="sm:col-span-2">
-            <label className="text-xs text-on-surface-variant">Subject (use {'{org}'} and {'{period}'})</label>
+            <label className="text-xs text-[var(--color-pib-text-muted)]">Subject (use {'{org}'} and {'{period}'})</label>
             <input className={inputClass} value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} />
           </div>
           <div className="sm:col-span-2">
-            <label className="text-xs text-on-surface-variant">Description</label>
+            <label className="text-xs text-[var(--color-pib-text-muted)]">Description</label>
             <input className={inputClass} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           </div>
           <div className="sm:col-span-2">
-            <label className="text-xs text-on-surface-variant">Body (optional intro copy)</label>
+            <label className="text-xs text-[var(--color-pib-text-muted)]">Body (optional intro copy)</label>
             <textarea
               rows={3}
               className={inputClass}
@@ -254,17 +254,17 @@ export function ReportTemplatesManager() {
           </div>
           {editingId && !editingId.startsWith('builtin:') && (
             <div className="sm:col-span-2">
-              <label className="text-xs text-on-surface-variant">Change note (version history)</label>
+              <label className="text-xs text-[var(--color-pib-text-muted)]">Change note (version history)</label>
               <input className={inputClass} value={form.changeNote} onChange={(e) => setForm({ ...form, changeNote: e.target.value })} />
             </div>
           )}
         </div>
 
         <div>
-          <p className="text-xs text-on-surface-variant mb-2">Assign to organisations</p>
+          <p className="text-xs text-[var(--color-pib-text-muted)] mb-2">Assign to organisations</p>
           <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
             {orgs.length === 0 ? (
-              <span className="text-xs text-on-surface-variant">No accessible organisations.</span>
+              <span className="text-xs text-[var(--color-pib-text-muted)]">No accessible organisations.</span>
             ) : (
               orgs.map((o) => (
                 <button
@@ -273,8 +273,8 @@ export function ReportTemplatesManager() {
                   onClick={() => toggleOrg(o.id)}
                   className={`rounded-full border px-3 py-1 text-xs transition-colors ${
                     assigned.includes(o.id)
-                      ? 'border-[var(--color-accent-v2)] bg-[var(--color-accent-v2)]/15 text-on-surface'
-                      : 'border-[var(--color-card-border)] text-on-surface-variant hover:text-on-surface'
+                      ? 'border-[var(--color-accent-v2)] bg-[var(--color-accent-v2)]/15 text-[var(--color-pib-text)]'
+                      : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
                   }`}
                 >
                   {o.name}
@@ -294,7 +294,7 @@ export function ReportTemplatesManager() {
             {busy ? 'Saving…' : editingId && !editingId.startsWith('builtin:') ? 'Save changes' : 'Create template'}
           </button>
           {editingId?.startsWith('builtin:') && (
-            <span className="text-xs text-on-surface-variant">
+            <span className="text-xs text-[var(--color-pib-text-muted)]">
               Editing from a built-in default — saving creates a new custom template.
             </span>
           )}
@@ -303,13 +303,13 @@ export function ReportTemplatesManager() {
 
       {/* Listing */}
       <div className="overflow-x-auto rounded-xl border border-[var(--color-card-border)]">
-        <table className="w-full text-left text-sm text-on-surface">
+        <table className="w-full text-left text-sm text-[var(--color-pib-text)]">
           <thead>
-            <tr className="border-b border-[var(--color-card-border)] bg-[var(--color-surface-container)]">
+            <tr className="border-b border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)]">
               {['Template', 'Subject', 'Assigned orgs', 'Version', 'Source', 'Updated', 'Actions'].map((col) => (
                 <th
                   key={col}
-                  className="px-3 py-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant whitespace-nowrap"
+                  className="px-3 py-2 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] whitespace-nowrap"
                 >
                   {col}
                 </th>
@@ -319,7 +319,7 @@ export function ReportTemplatesManager() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-on-surface-variant">
+                <td colSpan={7} className="px-3 py-6 text-center text-[var(--color-pib-text-muted)]">
                   Loading templates…
                 </td>
               </tr>
@@ -330,31 +330,31 @@ export function ReportTemplatesManager() {
                   className="border-b border-[var(--color-card-border)] last:border-b-0 hover:bg-[var(--color-row-hover)] transition-colors align-top"
                 >
                   <td className="px-3 py-2">
-                    <p className="font-medium text-on-surface">{t.name}</p>
-                    {t.isDefault && <span className="text-[11px] text-on-surface-variant">Default</span>}
-                    {t.description && <p className="text-[11px] text-on-surface-variant mt-0.5 max-w-[260px]">{t.description}</p>}
+                    <p className="font-medium text-[var(--color-pib-text)]">{t.name}</p>
+                    {t.isDefault && <span className="text-[11px] text-[var(--color-pib-text-muted)]">Default</span>}
+                    {t.description && <p className="text-[11px] text-[var(--color-pib-text-muted)] mt-0.5 max-w-[260px]">{t.description}</p>}
                   </td>
-                  <td className="px-3 py-2 text-xs text-on-surface-variant max-w-[220px] break-words">{t.subject}</td>
-                  <td className="px-3 py-2 text-xs text-on-surface-variant max-w-[180px]">
+                  <td className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)] max-w-[220px] break-words">{t.subject}</td>
+                  <td className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)] max-w-[180px]">
                     {t.assignedOrgIds.length === 0 ? '—' : t.assignedOrgIds.map(orgName).join(', ')}
                   </td>
-                  <td className="px-3 py-2 text-xs text-on-surface-variant">v{t.version}</td>
+                  <td className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">v{t.version}</td>
                   <td className="px-3 py-2">
                     <span
                       className={`inline-block rounded px-1.5 py-0.5 text-xs ${
-                        t.source === 'builtin' ? 'bg-[var(--color-surface-container)] text-on-surface-variant' : 'bg-blue-500/15 text-blue-300'
+                        t.source === 'builtin' ? 'bg-[var(--color-pib-surface-soft)] text-[var(--color-pib-text-muted)]' : 'bg-blue-500/15 text-blue-300'
                       }`}
                     >
                       {t.source}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-xs text-on-surface-variant whitespace-nowrap">{fmt(t.updatedAt)}</td>
+                  <td className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)] whitespace-nowrap">{fmt(t.updatedAt)}</td>
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-1.5">
                       <button
                         type="button"
                         onClick={() => startEdit(t)}
-                        className="rounded-md border border-[var(--color-card-border)] px-2 py-1 text-xs text-on-surface hover:bg-[var(--color-row-hover)] transition-colors"
+                        className="rounded-md border border-[var(--color-card-border)] px-2 py-1 text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-row-hover)] transition-colors"
                       >
                         {t.source === 'builtin' ? 'Clone' : 'Edit'}
                       </button>
@@ -363,7 +363,7 @@ export function ReportTemplatesManager() {
                           <button
                             type="button"
                             onClick={() => showVersions(t)}
-                            className="rounded-md border border-[var(--color-card-border)] px-2 py-1 text-xs text-on-surface hover:bg-[var(--color-row-hover)] transition-colors"
+                            className="rounded-md border border-[var(--color-card-border)] px-2 py-1 text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-row-hover)] transition-colors"
                           >
                             History
                           </button>
@@ -390,29 +390,29 @@ export function ReportTemplatesManager() {
       {versionsFor && (
         <div className="pib-card space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Version history</p>
+            <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Version history</p>
             <button
               type="button"
               onClick={() => setVersionsFor(null)}
-              className="text-xs text-on-surface-variant hover:text-on-surface transition-colors"
+              className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
             >
               Close
             </button>
           </div>
           {versionsLoading ? (
-            <p className="text-sm text-on-surface-variant">Loading history…</p>
+            <p className="text-sm text-[var(--color-pib-text-muted)]">Loading history…</p>
           ) : versions.length === 0 ? (
-            <p className="text-sm text-on-surface-variant">No version snapshots yet.</p>
+            <p className="text-sm text-[var(--color-pib-text-muted)]">No version snapshots yet.</p>
           ) : (
             <ul className="space-y-2">
               {versions.map((v) => (
                 <li key={v.id} className="rounded-lg border border-[var(--color-card-border)] px-3 py-2">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-medium text-on-surface">v{v.version}</span>
-                    <span className="text-xs text-on-surface-variant">{v.changeNote}</span>
-                    <span className="text-[11px] text-on-surface-variant ml-auto">{fmt(v.createdAt)}</span>
+                    <span className="text-xs font-medium text-[var(--color-pib-text)]">v{v.version}</span>
+                    <span className="text-xs text-[var(--color-pib-text-muted)]">{v.changeNote}</span>
+                    <span className="text-[11px] text-[var(--color-pib-text-muted)] ml-auto">{fmt(v.createdAt)}</span>
                   </div>
-                  <p className="text-[11px] text-on-surface-variant mt-1">
+                  <p className="text-[11px] text-[var(--color-pib-text-muted)] mt-1">
                     {v.name} · {v.subject} · by {v.changedBy || 'unknown'}
                   </p>
                 </li>

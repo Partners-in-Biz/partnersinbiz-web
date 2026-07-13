@@ -38,7 +38,7 @@ export function AnalyticsNav({ active, propertyId: selectedPropertyId, basePath 
             className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
               active === t.key
                 ? 'bg-amber-400/20 text-amber-400'
-                : 'text-on-surface-variant hover:text-on-surface'
+                : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
             }`}>
             {t.label}
           </Link>

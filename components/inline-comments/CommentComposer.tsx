@@ -52,7 +52,7 @@ export function CommentComposer({ anchor, orgId, projectId, onCancel, onSubmit, 
         onClick={e => e.stopPropagation()}
         className="pib-card w-full max-w-lg p-5 space-y-3"
       >
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+        <p className="pib-label">
           {anchor.kind === 'text'
             ? 'Comment on selection'
             : anchor.kind === 'image'
@@ -61,7 +61,7 @@ export function CommentComposer({ anchor, orgId, projectId, onCancel, onSubmit, 
         </p>
         {anchor.kind === 'text' && (
           <blockquote
-            className="text-sm border-l-2 pl-3 italic text-on-surface-variant max-h-24 overflow-y-auto"
+            className="text-sm border-l-2 pl-3 italic text-[var(--color-pib-text-muted)] max-h-24 overflow-y-auto"
             style={{ borderColor: 'var(--org-accent, var(--color-pib-accent))' }}
           >
             {anchorPreview}
@@ -81,7 +81,7 @@ export function CommentComposer({ anchor, orgId, projectId, onCancel, onSubmit, 
           onChange={e => setText(e.target.value)}
           rows={4}
           placeholder="What needs to change? Be specific so the writer knows what to fix."
-          className="w-full text-sm bg-[var(--color-surface)] border border-[var(--color-outline)] rounded-md px-3 py-2 text-on-surface placeholder:text-on-surface-variant focus:outline-none"
+          className="w-full text-sm bg-[var(--color-surface)] border border-[var(--color-pib-line)] rounded-md px-3 py-2 text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:outline-none"
         />
         {orgId ? (
           <ContextReferencePicker
@@ -99,7 +99,7 @@ export function CommentComposer({ anchor, orgId, projectId, onCancel, onSubmit, 
           />
         ) : null}
         {hasCrmRefs(contextRefs) ? (
-          <label className="flex items-start gap-2 rounded-md border border-[var(--color-outline)] bg-[var(--color-surface-variant)] px-2 py-1.5 text-xs text-on-surface-variant">
+          <label className="flex items-start gap-2 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-surface-variant)] px-2 py-1.5 text-xs text-[var(--color-pib-text-muted)]">
             <input
               type="checkbox"
               checked={alsoLinkToDocument}
@@ -117,7 +117,7 @@ export function CommentComposer({ anchor, orgId, projectId, onCancel, onSubmit, 
           <button
             type="button"
             onClick={onCancel}
-            className="text-xs text-on-surface-variant hover:text-on-surface px-3 py-1.5"
+            className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] px-3 py-1.5"
             disabled={busy}
           >
             Cancel

@@ -273,16 +273,16 @@ function SectionTitle({ eyebrow, title, count }: { eyebrow: string; title: strin
   return (
     <div className="mb-3 flex items-center justify-between gap-3">
       <div>
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{eyebrow}</p>
-        <h2 className="mt-1 text-lg font-headline font-bold text-on-surface">{title}</h2>
+        <p className="pib-label">{eyebrow}</p>
+        <h2 className="mt-1 text-lg font-headline font-bold text-[var(--color-pib-text)]">{title}</h2>
       </div>
-      {typeof count === 'number' ? <span className="rounded-full bg-[var(--color-surface-container)] px-2 py-1 text-[10px] font-label uppercase tracking-wide text-on-surface-variant">{count}</span> : null}
+      {typeof count === 'number' ? <span className="rounded-full bg-[var(--color-pib-surface-2)] px-2 py-1 text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">{count}</span> : null}
     </div>
   )
 }
 
 function EmptyCard({ label }: { label: string }) {
-  return <div className="rounded-lg border border-dashed border-[var(--color-card-border)] bg-[var(--color-surface-container)]/35 p-4 text-sm text-on-surface-variant">{label}</div>
+  return <div className="rounded-lg border border-dashed border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]/35 p-4 text-sm text-[var(--color-pib-text-muted)]">{label}</div>
 }
 
 function BriefingList({ items, empty, renderMeta }: { items: BriefingCard[]; empty: string; renderMeta?: (item: BriefingCard) => string }) {
@@ -290,12 +290,12 @@ function BriefingList({ items, empty, renderMeta }: { items: BriefingCard[]; emp
   return (
     <div className="space-y-2">
       {items.slice(0, 5).map(item => (
-        <Link key={item.id} href={sourceHref(item)} className="group block rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 p-4 transition-colors hover:border-[var(--color-pib-accent)]/50">
+        <Link key={item.id} href={sourceHref(item)} className="group block rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)]/70 p-4 transition-colors hover:border-[var(--color-pib-accent)]/50">
           <div className="flex items-start justify-between gap-3">
-            <p className="line-clamp-2 text-sm font-semibold text-on-surface group-hover:text-[var(--color-pib-accent-hover)]">{item.title}</p>
-            <span className="shrink-0 rounded-full bg-[var(--color-surface-container)] px-2 py-1 text-[9px] font-label uppercase tracking-wide text-on-surface-variant">{item.source?.type ?? item.priority ?? 'card'}</span>
+            <p className="line-clamp-2 text-sm font-semibold text-[var(--color-pib-text)] group-hover:text-[var(--color-pib-accent-hover)]">{item.title}</p>
+            <span className="shrink-0 rounded-full bg-[var(--color-pib-surface-2)] px-2 py-1 text-[9px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">{item.source?.type ?? item.priority ?? 'card'}</span>
           </div>
-          <p className="mt-2 line-clamp-3 text-xs leading-5 text-on-surface-variant">{item.summary || renderMeta?.(item) || 'Open source for evidence.'}</p>
+          <p className="mt-2 line-clamp-3 text-xs leading-5 text-[var(--color-pib-text-muted)]">{item.summary || renderMeta?.(item) || 'Open source for evidence.'}</p>
           {renderMeta ? <p className="mt-3 text-xs font-medium text-[var(--color-pib-accent)]">{renderMeta(item)}</p> : null}
         </Link>
       ))}
@@ -308,9 +308,9 @@ function FollowUpList({ tasks }: { tasks: AgentTask[] }) {
   return (
     <div className="space-y-2">
       {tasks.slice(0, 6).map(task => (
-        <Link key={task.id} href={taskHref(task)} className="group block rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 p-4 transition-colors hover:border-[var(--color-pib-accent)]/50">
-          <p className="line-clamp-2 text-sm font-semibold text-on-surface group-hover:text-[var(--color-pib-accent-hover)]">{task.title}</p>
-          <p className="mt-2 text-xs text-on-surface-variant">{task.assigneeAgentId ?? 'agent'} · {task.agentStatus ?? task.columnId ?? 'open'} · {task.priority ?? 'normal'}</p>
+        <Link key={task.id} href={taskHref(task)} className="group block rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)]/70 p-4 transition-colors hover:border-[var(--color-pib-accent)]/50">
+          <p className="line-clamp-2 text-sm font-semibold text-[var(--color-pib-text)] group-hover:text-[var(--color-pib-accent-hover)]">{task.title}</p>
+          <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{task.assigneeAgentId ?? 'agent'} · {task.agentStatus ?? task.columnId ?? 'open'} · {task.priority ?? 'normal'}</p>
         </Link>
       ))}
     </div>
@@ -327,9 +327,9 @@ function AgentLearningDashboard({ items, metrics }: { items: BriefingCard[]; met
     <Surface className="p-4 sm:p-5 lg:col-span-2" aria-label="Agent Learning dashboard">
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">System learning</p>
-          <h2 className="mt-1 text-lg font-headline font-bold text-on-surface">Agent Learning dashboard</h2>
-          <p className="mt-2 max-w-3xl text-xs leading-5 text-on-surface-variant">
+          <p className="pib-label">System learning</p>
+          <h2 className="mt-1 text-lg font-headline font-bold text-[var(--color-pib-text)]">Agent Learning dashboard</h2>
+          <p className="mt-2 max-w-3xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
             Shows reviewable evidence that the PiB operating system is learning: no automatic skill/wiki rewrite, just source-backed improvements Peet can inspect.
           </p>
         </div>
@@ -339,24 +339,24 @@ function AgentLearningDashboard({ items, metrics }: { items: BriefingCard[]; met
         {metrics.map(metric => {
           const preview = metric.items.slice(0, 2)
           return (
-            <div key={metric.key} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 p-4">
+            <div key={metric.key} className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)]/70 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{metric.label}</p>
-                  <p className="mt-2 text-3xl font-headline font-bold leading-none text-on-surface">{metric.items.length}</p>
+                  <p className="pib-label">{metric.label}</p>
+                  <p className="mt-2 text-3xl font-headline font-bold leading-none text-[var(--color-pib-text)]">{metric.items.length}</p>
                 </div>
                 <span className="material-symbols-outlined text-[22px] text-[var(--color-pib-accent)]" aria-hidden>{metric.icon}</span>
               </div>
-              <p className="mt-3 text-xs leading-5 text-on-surface-variant">{metric.detail}</p>
+              <p className="mt-3 text-xs leading-5 text-[var(--color-pib-text-muted)]">{metric.detail}</p>
               {preview.length ? (
                 <div className="mt-3 space-y-1">
                   {preview.map((item, index) => item.href ? (
                     <Link key={`${metric.key}-${index}`} href={item.href} className="block truncate text-xs font-medium text-[var(--color-pib-accent)] hover:text-[var(--color-pib-accent-hover)]">{item.label}</Link>
                   ) : (
-                    <p key={`${metric.key}-${index}`} className="truncate text-xs font-medium text-on-surface">{item.label}</p>
+                    <p key={`${metric.key}-${index}`} className="truncate text-xs font-medium text-[var(--color-pib-text)]">{item.label}</p>
                   ))}
                 </div>
-              ) : <p className="mt-3 text-xs text-on-surface-variant">No evidence captured in this category yet.</p>}
+              ) : <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">No evidence captured in this category yet.</p>}
             </div>
           )
         })}
@@ -379,42 +379,42 @@ function BusinessInsightDashboard({ items }: { items: BriefingCard[] }) {
     <Surface className="p-4 sm:p-5 lg:col-span-2" aria-label="Business Insights dashboard">
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Business intelligence</p>
-          <h2 className="mt-1 text-lg font-headline font-bold text-on-surface">Business Insights dashboard</h2>
-          <p className="mt-2 max-w-3xl text-xs leading-5 text-on-surface-variant">
+          <p className="pib-label">Business intelligence</p>
+          <h2 className="mt-1 text-lg font-headline font-bold text-[var(--color-pib-text)]">Business Insights dashboard</h2>
+          <p className="mt-2 max-w-3xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
             Proactive growth, risk, follow-up, and missing-data cards surfaced from briefing evidence. Review stays internal until an explicit approval gate is satisfied.
           </p>
         </div>
         <Link href="/admin/briefings?source=business-insight-review" className="pib-btn-secondary self-start">Open insight reviews</Link>
       </div>
       <div className="grid gap-3 lg:grid-cols-[0.75fr_1.25fr]">
-        <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 p-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Insight lanes</p>
+        <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)]/70 p-4">
+          <p className="pib-label">Insight lanes</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {lanes.map(([lane, count]) => (
-              <span key={lane} className="inline-flex items-center gap-2 rounded-full bg-[var(--color-surface-container)] px-3 py-1 text-xs font-medium text-on-surface">
+              <span key={lane} className="inline-flex items-center gap-2 rounded-full bg-[var(--color-pib-surface-2)] px-3 py-1 text-xs font-medium text-[var(--color-pib-text)]">
                 <span>{lane}</span>
-                <span className="text-on-surface-variant">{count}</span>
+                <span className="text-[var(--color-pib-text-muted)]">{count}</span>
               </span>
             ))}
           </div>
-          <p className="mt-4 text-xs leading-5 text-on-surface-variant">{items.length} proactive insight{items.length === 1 ? '' : 's'} waiting for review.</p>
+          <p className="mt-4 text-xs leading-5 text-[var(--color-pib-text-muted)]">{items.length} proactive insight{items.length === 1 ? '' : 's'} waiting for review.</p>
         </div>
-        <Link href={sourceHref(top)} className="group rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 p-4 transition-colors hover:border-[var(--color-pib-accent)]/50">
+        <Link href={sourceHref(top)} className="group rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)]/70 p-4 transition-colors hover:border-[var(--color-pib-accent)]/50">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Highest impact</p>
-              <p className="mt-2 text-sm font-semibold text-on-surface group-hover:text-[var(--color-pib-accent-hover)]">{top.title}</p>
+              <p className="pib-label">Highest impact</p>
+              <p className="mt-2 text-sm font-semibold text-[var(--color-pib-text)] group-hover:text-[var(--color-pib-accent-hover)]">{top.title}</p>
             </div>
             <span className="rounded-full bg-[var(--color-pib-accent-soft)] px-2 py-1 text-xs font-medium text-[var(--color-pib-accent)]">Score {businessInsightScore(top)}</span>
           </div>
-          <p className="mt-3 text-xs leading-5 text-on-surface-variant">{businessInsightImpact(top)}</p>
+          <p className="mt-3 text-xs leading-5 text-[var(--color-pib-text-muted)]">{businessInsightImpact(top)}</p>
           <p className="mt-2 text-xs font-medium text-[var(--color-pib-accent)]">{businessInsightRecommendation(top)}</p>
           <div className="mt-3 space-y-1">
             {businessInsightEvidence(top).slice(0, 3).map((row, index) => (
-              <p key={`${top.id}-evidence-${index}`} className="flex min-w-0 items-center gap-2 text-xs font-medium text-on-surface">
+              <p key={`${top.id}-evidence-${index}`} className="flex min-w-0 items-center gap-2 text-xs font-medium text-[var(--color-pib-text)]">
                 <span className="truncate">{row.label}</span>
-                {row.value ? <span className="shrink-0 text-on-surface-variant">{row.value}</span> : null}
+                {row.value ? <span className="shrink-0 text-[var(--color-pib-text-muted)]">{row.value}</span> : null}
               </p>
             ))}
           </div>
@@ -429,14 +429,14 @@ function KpiTile({ label, value, detail, icon }: { label: string; value: number 
     <Surface className="p-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{label}</p>
-          <p className="mt-3 text-3xl font-headline font-bold leading-none text-on-surface">{value}</p>
+          <p className="pib-label">{label}</p>
+          <p className="mt-3 text-3xl font-headline font-bold leading-none text-[var(--color-pib-text)]">{value}</p>
         </div>
         <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[var(--color-pib-accent)]/20 bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
           <span className="material-symbols-outlined text-[21px]">{icon}</span>
         </span>
       </div>
-      <p className="mt-4 text-xs leading-5 text-on-surface-variant">{detail}</p>
+      <p className="mt-4 text-xs leading-5 text-[var(--color-pib-text-muted)]">{detail}</p>
     </Surface>
   )
 }
@@ -522,9 +522,9 @@ export function PeetMissionControl() {
           {decisions.length === 0 ? <EmptyCard label="No explicit decision cards found yet today." /> : (
             <div className="space-y-2">
               {decisions.slice(0, 4).map(item => (
-                <Link key={item.id} href={sourceHref(item)} className="group block rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 p-4 transition-colors hover:border-[var(--color-pib-accent)]/50">
-                  <p className="text-sm font-semibold text-on-surface group-hover:text-[var(--color-pib-accent-hover)]">{decisionText(item)}</p>
-                  <p className="mt-2 text-xs text-on-surface-variant">{item.title} · {formatTime(item.occurredAt)}</p>
+                <Link key={item.id} href={sourceHref(item)} className="group block rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)]/70 p-4 transition-colors hover:border-[var(--color-pib-accent)]/50">
+                  <p className="text-sm font-semibold text-[var(--color-pib-text)] group-hover:text-[var(--color-pib-accent-hover)]">{decisionText(item)}</p>
+                  <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{item.title} · {formatTime(item.occurredAt)}</p>
                   <p className="mt-3 text-xs font-medium text-[var(--color-pib-accent)]">Open source/evidence</p>
                 </Link>
               ))}
@@ -563,22 +563,22 @@ export function PeetMissionControl() {
         {/* System Jobs */}
         <Surface className="p-4 sm:p-5">
           <SectionTitle eyebrow="Background processing" title="System Jobs" />
-          <p className="text-xs text-on-surface-variant mb-4">Background job queue — cron jobs, email sends, webhooks.</p>
-          <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)]">
-            <div className="grid grid-cols-12 gap-3 border-b border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-4 py-2">
-              <span className="col-span-6 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Job</span>
-              <span className="col-span-3 text-center text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Status</span>
-              <span className="col-span-3 text-center text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Last run</span>
+          <p className="text-xs text-[var(--color-pib-text-muted)] mb-4">Background job queue — cron jobs, email sends, webhooks.</p>
+          <div className="overflow-hidden rounded-xl border border-[var(--color-pib-line)]">
+            <div className="grid grid-cols-12 gap-3 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-4 py-2">
+              <span className="col-span-6 pib-label">Job</span>
+              <span className="col-span-3 text-center pib-label">Status</span>
+              <span className="col-span-3 text-center pib-label">Last run</span>
             </div>
             {[
               { name: 'Email send queue', status: 'Idle', last: 'Just now' },
               { name: 'Webhook dispatcher', status: 'Idle', last: '2m ago' },
               { name: 'Briefing feed refresh', status: 'Scheduled', last: '15m ago' },
             ].map(job => (
-              <div key={job.name} className="grid grid-cols-12 gap-3 items-center border-b border-[var(--color-card-border)] px-4 py-3 last:border-b-0">
-                <p className="col-span-6 text-sm text-on-surface">{job.name}</p>
-                <p className="col-span-3 text-center text-xs text-on-surface-variant">{job.status}</p>
-                <p className="col-span-3 text-center text-xs text-on-surface-variant">{job.last}</p>
+              <div key={job.name} className="grid grid-cols-12 gap-3 items-center border-b border-[var(--color-pib-line)] px-4 py-3 last:border-b-0">
+                <p className="col-span-6 text-sm text-[var(--color-pib-text)]">{job.name}</p>
+                <p className="col-span-3 text-center text-xs text-[var(--color-pib-text-muted)]">{job.status}</p>
+                <p className="col-span-3 text-center text-xs text-[var(--color-pib-text-muted)]">{job.last}</p>
               </div>
             ))}
           </div>
@@ -587,17 +587,17 @@ export function PeetMissionControl() {
         {/* Error Logs */}
         <Surface className="p-4 sm:p-5">
           <SectionTitle eyebrow="Observability" title="Error Logs" />
-          <p className="text-xs text-on-surface-variant mb-4">Application error log viewer.</p>
+          <p className="text-xs text-[var(--color-pib-text-muted)] mb-4">Application error log viewer.</p>
           <div className="space-y-2">
             {[
               { level: 'INFO', msg: 'Briefing feed loaded successfully', ts: 'Just now' },
               { level: 'WARN', msg: 'Slow API response — /api/v1/organizations (1.4s)', ts: '4m ago' },
               { level: 'INFO', msg: 'Notification preferences saved', ts: '12m ago' },
             ].map((entry, i) => (
-              <div key={i} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 px-3 py-2 flex items-start gap-3">
+              <div key={i} className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)]/70 px-3 py-2 flex items-start gap-3">
                 <span className={`shrink-0 text-[9px] font-label uppercase tracking-widest px-1.5 py-1 rounded ${entry.level === 'WARN' ? 'bg-amber-500/10 text-amber-300' : 'bg-emerald-500/10 text-emerald-300'}`}>{entry.level}</span>
-                <span className="flex-1 text-xs text-on-surface">{entry.msg}</span>
-                <span className="shrink-0 text-[10px] text-on-surface-variant">{entry.ts}</span>
+                <span className="flex-1 text-xs text-[var(--color-pib-text)]">{entry.msg}</span>
+                <span className="shrink-0 text-[10px] text-[var(--color-pib-text-muted)]">{entry.ts}</span>
               </div>
             ))}
           </div>
@@ -606,12 +606,12 @@ export function PeetMissionControl() {
         {/* Database Tools */}
         <Surface className="p-4 sm:p-5">
           <SectionTitle eyebrow="Data management" title="Database Tools" />
-          <p className="text-xs text-on-surface-variant mb-4">Firestore collection browser and management tools.</p>
+          <p className="text-xs text-[var(--color-pib-text-muted)] mb-4">Firestore collection browser and management tools.</p>
           <div className="space-y-2">
             {['organizations', 'briefing_cards', 'agent_tasks', 'notification_preferences', 'hermes_profile_links'].map(col => (
-              <div key={col} className="flex items-center justify-between rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 px-3 py-2">
-                <span className="font-mono text-xs text-on-surface">{col}</span>
-                <button type="button" className="text-[10px] text-on-surface-variant hover:text-on-surface px-2 py-1 rounded hover:bg-[var(--color-surface-container)] transition-colors">Browse →</button>
+              <div key={col} className="flex items-center justify-between rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)]/70 px-3 py-2">
+                <span className="font-mono text-xs text-[var(--color-pib-text)]">{col}</span>
+                <button type="button" className="text-[10px] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] px-2 py-1 rounded hover:bg-[var(--color-row-hover)] transition-colors">Browse →</button>
               </div>
             ))}
           </div>
@@ -620,17 +620,17 @@ export function PeetMissionControl() {
         {/* Data Migration Tools */}
         <Surface className="p-4 sm:p-5">
           <SectionTitle eyebrow="Schema management" title="Data Migration Tools" />
-          <p className="text-xs text-on-surface-variant mb-4">Schema migration history and pending migrations.</p>
+          <p className="text-xs text-[var(--color-pib-text-muted)] mb-4">Schema migration history and pending migrations.</p>
           <div className="space-y-2">
             {[
               { id: 'M-001', name: 'Add notification_preferences collection', status: 'Applied' },
               { id: 'M-002', name: 'Firestore indexes — partners org', status: 'Applied' },
               { id: 'M-003', name: 'hermes_profile_links schema', status: 'Applied' },
             ].map(m => (
-              <div key={m.id} className="flex items-center justify-between rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 px-3 py-2">
+              <div key={m.id} className="flex items-center justify-between rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)]/70 px-3 py-2">
                 <div>
-                  <p className="text-xs font-medium text-on-surface">{m.name}</p>
-                  <p className="text-[10px] text-on-surface-variant">{m.id}</p>
+                  <p className="text-xs font-medium text-[var(--color-pib-text)]">{m.name}</p>
+                  <p className="text-[10px] text-[var(--color-pib-text-muted)]">{m.id}</p>
                 </div>
                 <span className="text-[9px] font-label uppercase tracking-widest px-2 py-1 rounded bg-emerald-500/10 text-emerald-300">{m.status}</span>
               </div>
@@ -641,7 +641,7 @@ export function PeetMissionControl() {
         {/* Infrastructure Status */}
         <Surface className="p-4 sm:p-5">
           <SectionTitle eyebrow="Uptime" title="Infrastructure Status" />
-          <p className="text-xs text-on-surface-variant mb-4">VPS, CDN, and API gateway status monitors.</p>
+          <p className="text-xs text-[var(--color-pib-text-muted)] mb-4">VPS, CDN, and API gateway status monitors.</p>
           <div className="grid grid-cols-2 gap-3">
             {[
               { name: 'Hermes VPS (hermes-vps-01)', status: 'Operational' },
@@ -651,8 +651,8 @@ export function PeetMissionControl() {
               { name: 'Caddy Reverse Proxy', status: 'Operational' },
               { name: 'Wiki Git Mirror', status: 'Syncing' },
             ].map(s => (
-              <div key={s.name} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)]/35 p-3">
-                <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">{s.name}</p>
+              <div key={s.name} className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]/35 p-3">
+                <p className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">{s.name}</p>
                 <p className={`mt-2 text-sm font-bold ${s.status === 'Operational' ? 'text-emerald-300' : 'text-amber-200'}`}>{s.status}</p>
               </div>
             ))}
@@ -662,23 +662,23 @@ export function PeetMissionControl() {
         {/* Document Storage */}
         <Surface className="p-4 sm:p-5">
           <SectionTitle eyebrow="Storage" title="Document Storage" />
-          <p className="text-xs text-on-surface-variant mb-4">Storage utilisation by organisation.</p>
+          <p className="text-xs text-[var(--color-pib-text-muted)] mb-4">Storage utilisation by organisation.</p>
           <EmptyCard label="Storage metrics will appear here when the document storage adapter is connected." />
-          <button type="button" className="mt-3 text-xs text-on-surface-variant hover:text-on-surface px-3 py-2 rounded border border-[var(--color-card-border)] hover:bg-[var(--color-surface-container)] transition-colors">View storage →</button>
+          <button type="button" className="mt-3 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] px-3 py-2 rounded border border-[var(--color-pib-line)] hover:bg-[var(--color-row-hover)] transition-colors">View storage →</button>
         </Surface>
 
         {/* Org Backups */}
         <Surface className="p-4 sm:p-5">
           <SectionTitle eyebrow="Disaster recovery" title="Org Backups" />
-          <p className="text-xs text-on-surface-variant mb-4">Automated backup schedule and restore history.</p>
+          <p className="text-xs text-[var(--color-pib-text-muted)] mb-4">Automated backup schedule and restore history.</p>
           <EmptyCard label="Backup schedule and restore jobs will appear here." />
-          <button type="button" className="mt-3 text-xs text-on-surface-variant hover:text-on-surface px-3 py-2 rounded border border-[var(--color-card-border)] hover:bg-[var(--color-surface-container)] transition-colors">Configure backups →</button>
+          <button type="button" className="mt-3 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] px-3 py-2 rounded border border-[var(--color-pib-line)] hover:bg-[var(--color-row-hover)] transition-colors">Configure backups →</button>
         </Surface>
 
         {/* Wiki Sync Monitor */}
         <Surface className="p-4 sm:p-5">
           <SectionTitle eyebrow="Knowledge sync" title="Wiki Sync Monitor" />
-          <p className="text-xs text-on-surface-variant mb-4">GitHub ↔ Obsidian wiki sync status and conflict log.</p>
+          <p className="text-xs text-[var(--color-pib-text-muted)] mb-4">GitHub ↔ Obsidian wiki sync status and conflict log.</p>
           <div className="space-y-2">
             {[
               { label: 'Mac → GitHub (launchd every 5m)', status: 'Active' },
@@ -686,9 +686,9 @@ export function PeetMissionControl() {
               { label: 'Obsidian Sync (Mac ↔ mobile)', status: 'Active' },
               { label: 'Conflict log', status: 'Clean' },
             ].map(row => (
-              <div key={row.label} className="flex items-center justify-between rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70 px-3 py-2">
-                <span className="text-xs text-on-surface">{row.label}</span>
-                <span className={`text-[9px] font-label uppercase tracking-widest px-2 py-1 rounded ${row.status === 'Active' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-[var(--color-surface-container)] text-on-surface-variant'}`}>{row.status}</span>
+              <div key={row.label} className="flex items-center justify-between rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)]/70 px-3 py-2">
+                <span className="text-xs text-[var(--color-pib-text)]">{row.label}</span>
+                <span className={`text-[9px] font-label uppercase tracking-widest px-2 py-1 rounded ${row.status === 'Active' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]'}`}>{row.status}</span>
               </div>
             ))}
           </div>
@@ -697,32 +697,32 @@ export function PeetMissionControl() {
         {/* Broadcast Centre */}
         <Surface className="p-4 sm:p-5">
           <SectionTitle eyebrow="Announcements" title="Broadcast Centre" />
-          <p className="text-xs text-on-surface-variant mb-4">Send announcements to all organisations.</p>
+          <p className="text-xs text-[var(--color-pib-text-muted)] mb-4">Send announcements to all organisations.</p>
           <div className="space-y-3">
-            <textarea disabled rows={3} placeholder="Compose announcement..." className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)]/35 px-3 py-2 text-sm text-on-surface-variant resize-none cursor-not-allowed" />
-            <button type="button" className="text-xs text-on-surface-variant hover:text-on-surface px-3 py-2 rounded border border-[var(--color-card-border)] hover:bg-[var(--color-surface-container)] transition-colors">Send broadcast →</button>
+            <textarea disabled rows={3} placeholder="Compose announcement..." className="w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]/35 px-3 py-2 text-sm text-[var(--color-pib-text-muted)] resize-none cursor-not-allowed" />
+            <button type="button" className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] px-3 py-2 rounded border border-[var(--color-pib-line)] hover:bg-[var(--color-row-hover)] transition-colors">Send broadcast →</button>
           </div>
         </Surface>
 
         {/* Admin Audit Log */}
         <Surface className="p-4 sm:p-5 lg:col-span-2">
           <SectionTitle eyebrow="Compliance" title="Admin Audit Log" />
-          <p className="text-xs text-on-surface-variant mb-4">Full admin action log for compliance and security.</p>
-          <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)]">
-            <div className="grid grid-cols-12 gap-3 border-b border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-4 py-2">
-              <span className="col-span-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Actor</span>
-              <span className="col-span-6 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Action</span>
-              <span className="col-span-3 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Time</span>
+          <p className="text-xs text-[var(--color-pib-text-muted)] mb-4">Full admin action log for compliance and security.</p>
+          <div className="overflow-hidden rounded-xl border border-[var(--color-pib-line)]">
+            <div className="grid grid-cols-12 gap-3 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-4 py-2">
+              <span className="col-span-3 pib-label">Actor</span>
+              <span className="col-span-6 pib-label">Action</span>
+              <span className="col-span-3 pib-label">Time</span>
             </div>
             {[
               { actor: 'peet@partnersinbiz.online', action: 'Viewed Mission Control', time: 'Just now' },
               { actor: 'pip (agent)', action: 'Updated briefing feed', time: '8m ago' },
               { actor: 'system', action: 'Notification preference saved', time: '14m ago' },
             ].map((entry, i) => (
-              <div key={i} className="grid grid-cols-12 gap-3 items-center border-b border-[var(--color-card-border)] px-4 py-3 last:border-b-0">
-                <p className="col-span-3 text-xs text-on-surface font-medium truncate">{entry.actor}</p>
-                <p className="col-span-6 text-xs text-on-surface-variant">{entry.action}</p>
-                <p className="col-span-3 text-xs text-on-surface-variant">{entry.time}</p>
+              <div key={i} className="grid grid-cols-12 gap-3 items-center border-b border-[var(--color-pib-line)] px-4 py-3 last:border-b-0">
+                <p className="col-span-3 text-xs text-[var(--color-pib-text)] font-medium truncate">{entry.actor}</p>
+                <p className="col-span-6 text-xs text-[var(--color-pib-text-muted)]">{entry.action}</p>
+                <p className="col-span-3 text-xs text-[var(--color-pib-text-muted)]">{entry.time}</p>
               </div>
             ))}
           </div>

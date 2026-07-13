@@ -162,6 +162,25 @@ describe('PortalLayout chat drawer', () => {
     expect(screen.queryByText(/Partners in Biz · Pretoria/)).not.toBeInTheDocument()
   })
 
+  it('retains the Studio workspace switcher and all five deep Studio destinations', async () => {
+    mockPathname = '/portal/creative-canvas'
+
+    render(
+      <PortalLayout>
+        <div>Studio content</div>
+      </PortalLayout>,
+    )
+
+    await screen.findByText('Studio content')
+    const studio = screen.getByRole('button', { name: /Studio/i })
+    fireEvent.click(studio)
+    expect(screen.getByRole('menuitem', { name: 'Marketing Studio' })).toHaveAttribute('href', expect.stringContaining('/portal/creative-canvas'))
+    expect(screen.getByRole('menuitem', { name: 'Video Editor' })).toHaveAttribute('href', expect.stringContaining('/portal/video-editor'))
+    expect(screen.getByRole('menuitem', { name: 'Book Studio' })).toHaveAttribute('href', expect.stringContaining('/portal/book-studio'))
+    expect(screen.getByRole('menuitem', { name: 'YouTube Studio' })).toHaveAttribute('href', expect.stringContaining('/portal/youtube-studio'))
+    expect(screen.getByRole('menuitem', { name: 'Mobile Apps' })).toHaveAttribute('href', expect.stringContaining('/portal/mobile-apps'))
+  })
+
   it('loads the requested workspace when portal routes are opened from a CRM company', async () => {
     mockSearchParams = new URLSearchParams({ orgId: 'lumen-org', orgSlug: 'lumen-speeds' })
 

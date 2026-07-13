@@ -286,6 +286,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           { emailOrgId, bouncedEmail },
           err,
         )
+        throw err
       }
     }
 
@@ -312,6 +313,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         })
       } catch (err) {
         console.error('[email/webhook] failed to flag contact bouncedAt', contactId, err)
+        throw err
       }
     }
 
@@ -358,6 +360,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           { emailOrgId, bouncedEmail, isHard, isSoft },
           err,
         )
+        throw err
       }
     }
   } else if (type === 'email.delivery_delayed') {
@@ -371,6 +374,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         })
       } catch (err) {
         console.error('[email/webhook] failed to flag contact unsubscribedAt', contactId, err)
+        throw err
       }
     }
 
@@ -400,6 +404,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           { emailOrgId, complainedEmail },
           err,
         )
+        throw err
       }
     }
   }

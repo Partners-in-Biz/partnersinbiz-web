@@ -74,37 +74,36 @@ export function ProductModal({ product, onSave, onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.5)' }}
+      className="pib-dialog-backdrop"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="w-full max-w-md flex flex-col overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]">
+      <div className="pib-dialog-drawer w-full max-w-md">
         {/* Header */}
-        <div className="flex h-11 shrink-0 items-center justify-between border-b border-[var(--color-card-border)] px-4">
-          <h2 className="text-sm font-semibold text-on-surface">
+        <div className="pib-dialog-header">
+          <h2 className="pib-dialog-title">
             {isEdit ? 'Edit product' : 'New product'}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="cursor-pointer flex h-7 w-7 items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
+            className="pib-dialog-close cursor-pointer"
           >
             <span className="material-symbols-outlined text-[16px]">close</span>
           </button>
         </div>
 
         {/* Form */}
-        <form id="product-form" onSubmit={handleSubmit} className="px-4 py-4 space-y-3 overflow-y-auto">
+        <form id="product-form" onSubmit={handleSubmit} className="pib-dialog-body space-y-4">
           {/* Name */}
           <div>
-            <label className="block text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant mb-1">
-              Name <span className="text-red-400">*</span>
+            <label className="pib-label">
+              Name <span className="text-[var(--color-error)]">*</span>
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 py-2 text-sm text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)] transition-colors"
+              className="pib-input w-full text-sm"
               placeholder="e.g. Social Media Management"
               autoFocus
             />
@@ -112,14 +111,14 @@ export function ProductModal({ product, onSave, onClose }: Props) {
 
           {/* Description */}
           <div>
-            <label className="block text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant mb-1">
+            <label className="pib-label">
               Description
             </label>
             <textarea
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 py-2 text-sm text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)] transition-colors resize-none"
+              className="pib-textarea w-full resize-none text-sm"
               placeholder="Optional description"
             />
           </div>
@@ -127,8 +126,8 @@ export function ProductModal({ product, onSave, onClose }: Props) {
           {/* Unit price + Currency row */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant mb-1">
-                Unit price <span className="text-red-400">*</span>
+              <label className="pib-label">
+                Unit price <span className="text-[var(--color-error)]">*</span>
               </label>
               <input
                 type="number"
@@ -136,18 +135,18 @@ export function ProductModal({ product, onSave, onClose }: Props) {
                 onChange={(e) => setUnitPrice(e.target.value)}
                 step="0.01"
                 min="0"
-                className="w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 py-2 text-sm text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)] transition-colors"
+                className="pib-input w-full text-sm"
                 placeholder="0.00"
               />
             </div>
             <div>
-              <label className="block text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant mb-1">
+              <label className="pib-label">
                 Currency
               </label>
               <select
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value as Currency)}
-                className="w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 py-2 text-sm text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)] transition-colors cursor-pointer"
+                className="pib-select w-full cursor-pointer text-sm"
               >
                 {CURRENCIES.map((c) => (
                   <option key={c} value={c}>{c}</option>
@@ -158,21 +157,21 @@ export function ProductModal({ product, onSave, onClose }: Props) {
 
           {/* Unit */}
           <div>
-            <label className="block text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant mb-1">
+            <label className="pib-label">
               Unit
             </label>
             <input
               type="text"
               value={unit}
               onChange={(e) => setUnit(e.target.value)}
-              className="w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 py-2 text-sm text-on-surface focus:outline-none focus:border-[var(--color-accent-v2)] transition-colors"
+              className="pib-input w-full text-sm"
               placeholder="hr / item / month"
             />
           </div>
 
           {/* Inline error */}
           {error && (
-            <p className="text-sm text-red-400 flex items-center gap-1.5">
+            <p className="text-sm text-[var(--color-error)] flex items-center gap-1.5">
               <span className="material-symbols-outlined text-[16px]">error</span>
               {error}
             </p>
@@ -180,11 +179,11 @@ export function ProductModal({ product, onSave, onClose }: Props) {
         </form>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-[var(--color-card-border)]">
+        <div className="pib-dialog-footer justify-end">
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-8 cursor-pointer items-center rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+            className="btn-pib-secondary h-8 px-3 text-xs"
           >
             Cancel
           </button>
@@ -192,7 +191,7 @@ export function ProductModal({ product, onSave, onClose }: Props) {
             type="submit"
             form="product-form"
             disabled={saving}
-            className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition disabled:opacity-60"
+            className="btn-pib-primary h-8 gap-1.5 px-3 text-xs"
           >
             <span className="material-symbols-outlined text-[15px]">save</span>
             {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create product'}

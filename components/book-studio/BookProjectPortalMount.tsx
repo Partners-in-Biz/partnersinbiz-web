@@ -8,9 +8,10 @@ import type { BookStudioCapabilities } from '@/lib/book-studio/capabilities'
 type BookProjectPortalMountProps = {
   projectId: string
   orgId?: string | null
+  initialTab?: 'content' | 'metadata' | 'assembly'
 }
 
-export function BookProjectPortalMount({ projectId, orgId }: BookProjectPortalMountProps) {
+export function BookProjectPortalMount({ projectId, orgId, initialTab }: BookProjectPortalMountProps) {
   const [state, setState] = useState<{ capabilities: BookStudioCapabilities; orgId: string } | null>(null)
   const [notice, setNotice] = useState('')
 
@@ -35,5 +36,5 @@ export function BookProjectPortalMount({ projectId, orgId }: BookProjectPortalMo
 
   if (notice) return <main className="p-6 text-sm text-[var(--color-pib-text-muted)]">{notice}</main>
   if (!state) return <main className="p-6 text-sm text-[var(--color-pib-text-muted)]">Loading…</main>
-  return <BookProjectWorkspace orgId={state.orgId} projectId={projectId} surface="portal" capabilities={state.capabilities} />
+  return <BookProjectWorkspace orgId={state.orgId} projectId={projectId} surface="portal" capabilities={state.capabilities} initialTab={initialTab} />
 }

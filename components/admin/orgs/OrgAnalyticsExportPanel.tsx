@@ -73,7 +73,7 @@ export function OrgAnalyticsExportPanel({ slug }: { slug: string }) {
       <Surface header={<span className="font-label">New export</span>}>
         <div className="grid gap-4 sm:grid-cols-3">
           <label className="flex flex-col gap-1">
-            <span className="text-xs text-on-surface-variant">Type</span>
+            <span className="text-xs text-[var(--color-pib-text-muted)]">Type</span>
             <select className="pib-select" value={type} onChange={(e) => setType(e.target.value as ExportType)}>
               {(Object.keys(TYPE_LABELS) as ExportType[]).map((t) => (
                 <option key={t} value={t}>{TYPE_LABELS[t]}</option>
@@ -81,11 +81,11 @@ export function OrgAnalyticsExportPanel({ slug }: { slug: string }) {
             </select>
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-xs text-on-surface-variant">From (optional)</span>
+            <span className="text-xs text-[var(--color-pib-text-muted)]">From (optional)</span>
             <input type="date" className="pib-input" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-xs text-on-surface-variant">To (optional)</span>
+            <span className="text-xs text-[var(--color-pib-text-muted)]">To (optional)</span>
             <input type="date" className="pib-input" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
           </label>
         </div>
@@ -110,8 +110,8 @@ export function OrgAnalyticsExportPanel({ slug }: { slug: string }) {
             {jobs.map((j) => (
               <div key={j.id} className="flex items-center justify-between gap-4 py-3 text-sm">
                 <div className="min-w-0">
-                  <p className="font-medium text-on-surface">{TYPE_LABELS[j.type as ExportType] ?? j.type}</p>
-                  <p className="text-xs text-on-surface-variant">
+                  <p className="font-medium text-[var(--color-pib-text)]">{TYPE_LABELS[j.type as ExportType] ?? j.type}</p>
+                  <p className="text-xs text-[var(--color-pib-text-muted)]">
                     {j.rowCount} rows · {formatDateTime(j.createdAt)}
                     {j.range?.from || j.range?.to ? ` · ${j.range?.from ?? '…'} → ${j.range?.to ?? '…'}` : ''}
                   </p>

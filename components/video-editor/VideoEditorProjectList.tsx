@@ -101,22 +101,22 @@ export function VideoEditorProjectList({
     <section className={compact ? 'space-y-3' : 'pib-card-section space-y-4 p-5'}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="font-headline text-xl font-semibold text-on-surface">Video Editor projects</h2>
-          <p className="mt-1 text-sm text-on-surface-variant">
+          <h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">Video Editor projects</h2>
+          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
             {channelChoices.length > 0
               ? 'Create channel-linked edits here, render an MP4, then send the output back into YouTube review.'
               : 'Create the editable cut here, add source media from Marketing Studio or YouTube assets, render an MP4, then send it back into YouTube review or the canvas library.'}
           </p>
         </div>
       </div>
-      {notice ? <p className="rounded-lg border border-[var(--color-pib-line)] p-3 text-sm text-on-surface-variant">{notice}</p> : null}
+      {notice ? <p className="rounded-lg border border-[var(--color-pib-line)] p-3 text-sm text-[var(--color-pib-text-muted)]">{notice}</p> : null}
       {channelChoices.length > 0 ? (
-        <label className="grid gap-2 text-sm text-on-surface-variant">
+        <label className="grid gap-2 text-sm text-[var(--color-pib-text-muted)]">
           <span className="font-label uppercase tracking-widest">YouTube channel</span>
           <select
             value={effectiveChannelWorkspaceId ?? ''}
             onChange={(event) => setSelectedChannelWorkspaceId(event.target.value)}
-            className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] px-3 py-2 text-on-surface"
+            className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] px-3 py-2 text-[var(--color-pib-text)]"
           >
             {channelChoices.map((channel) => (
               <option key={channel.id} value={channel.id}>
@@ -128,7 +128,7 @@ export function VideoEditorProjectList({
         </label>
       ) : null}
       {selectedChannel ? (
-        <p className="text-sm text-on-surface-variant">
+        <p className="text-sm text-[var(--color-pib-text-muted)]">
           New renders from this section will register back to {selectedChannel.title || selectedChannel.youtubeHandle || 'this YouTube channel'}.
         </p>
       ) : null}
@@ -146,7 +146,7 @@ export function VideoEditorProjectList({
       {loading ? <div className="pib-skeleton h-24" /> : null}
       <div className="grid gap-3">
         {!loading && visibleProjects.length === 0 ? (
-          <div className="rounded-lg border border-[var(--color-pib-line)] p-4 text-sm text-on-surface-variant">
+          <div className="rounded-lg border border-[var(--color-pib-line)] p-4 text-sm text-[var(--color-pib-text-muted)]">
             {channelChoices.length > 0 ? 'No editable video projects for this channel yet.' : 'No editable video projects yet.'}
           </div>
         ) : null}
@@ -156,8 +156,8 @@ export function VideoEditorProjectList({
             <article key={project.id} className="rounded-lg border border-[var(--color-pib-line)] p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <h3 className="break-words font-semibold text-on-surface">{project.title}</h3>
-                  <p className="mt-1 text-sm text-on-surface-variant">
+                  <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{project.title}</h3>
+                  <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
                     {project.status} / {project.settings?.width ?? 1920}x{project.settings?.height ?? 1080} / {project.timeline?.tracks?.length ?? 0} tracks
                   </p>
                 </div>

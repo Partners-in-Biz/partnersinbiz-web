@@ -69,34 +69,37 @@ export default function SessionsPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-8">
       <AnalyticsNav active="sessions" propertyId={propertyId} />
-      <h1 className="text-xl font-headline font-bold text-on-surface">Sessions</h1>
+      <header>
+        <p className="eyebrow">Analytics · Sessions</p>
+        <h1 className="pib-page-title mt-2">Sessions</h1>
+      </header>
 
-      <div className="pib-card p-4 space-y-3">
+      <div className="pib-card space-y-4">
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
         <div className="flex flex-wrap gap-3 items-end">
         <div>
-          <label className="text-xs text-on-surface-variant font-label block mb-1">From</label>
+          <label className="pib-label mb-1">From</label>
           <input type="date" value={from} onChange={e => setFrom(e.target.value)} className="pib-input text-sm" />
         </div>
         <div>
-          <label className="text-xs text-on-surface-variant font-label block mb-1">To</label>
+          <label className="pib-label mb-1">To</label>
           <input type="date" value={to} onChange={e => setTo(e.target.value)} className="pib-input text-sm" />
         </div>
-        <button onClick={fetchSessions} disabled={!propertyId || loading} className="pib-btn-primary text-sm font-label">
+        <button onClick={fetchSessions} disabled={!propertyId || loading} className="btn-pib-primary text-sm">
           {loading ? 'Loading…' : 'Search'}
         </button>
         </div>
       </div>
 
       {sessions.length > 0 && (
-        <div className="pib-card overflow-x-auto">
+        <div className="pib-surface pib-surface-table overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-[var(--color-outline-variant)]">
+              <tr className="border-b border-[var(--color-pib-line)]">
                 {['Started', 'User', 'Duration', 'Events', 'Pages', 'Device', 'Country', 'UTM Source'].map(h => (
-                  <th key={h} className="text-left px-3 py-2 text-on-surface-variant font-label">{h}</th>
+                  <th key={h} className="text-left px-3 py-2 pib-label mb-0">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -105,16 +108,16 @@ export default function SessionsPage() {
                 <tr
                   key={s.id}
                   onClick={() => router.push(`/portal/analytics/sessions/${s.id}`)}
-                  className="border-b border-[var(--color-outline-variant)] hover:bg-[var(--color-surface-container)] cursor-pointer"
+                  className="border-b border-[var(--color-pib-line)] hover:bg-[var(--color-row-hover)] cursor-pointer"
                 >
-                  <td className="px-3 py-2 text-on-surface-variant">{formatTs(s.startedAt)}</td>
-                  <td className="px-3 py-2 font-mono text-on-surface">{s.distinctId.slice(0, 12)}…</td>
-                  <td className="px-3 py-2 text-on-surface-variant">{durationLabel(s.startedAt, s.lastActivityAt)}</td>
-                  <td className="px-3 py-2 text-on-surface">{s.eventCount}</td>
-                  <td className="px-3 py-2 text-on-surface-variant">{s.pageCount}</td>
-                  <td className="px-3 py-2 text-on-surface-variant">{s.device ?? '—'}</td>
-                  <td className="px-3 py-2 text-on-surface-variant">{s.country ?? '—'}</td>
-                  <td className="px-3 py-2 text-on-surface-variant">{s.utmSource ?? '—'}</td>
+                  <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{formatTs(s.startedAt)}</td>
+                  <td className="px-3 py-2 font-mono text-[var(--color-pib-text)]">{s.distinctId.slice(0, 12)}…</td>
+                  <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{durationLabel(s.startedAt, s.lastActivityAt)}</td>
+                  <td className="px-3 py-2 text-[var(--color-pib-text)]">{s.eventCount}</td>
+                  <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{s.pageCount}</td>
+                  <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{s.device ?? '—'}</td>
+                  <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{s.country ?? '—'}</td>
+                  <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{s.utmSource ?? '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -123,7 +126,10 @@ export default function SessionsPage() {
       )}
 
       {!loading && sessions.length === 0 && propertyId && (
-        <div className="pib-card p-8 text-center text-on-surface-variant text-sm">No sessions found.</div>
+        <div className="pib-empty-state">
+          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">timeline</span>
+          <p className="pib-empty-state-description">No sessions found.</p>
+        </div>
       )}
     </div>
   )

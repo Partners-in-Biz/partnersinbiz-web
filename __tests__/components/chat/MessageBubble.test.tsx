@@ -637,4 +637,56 @@ describe('MessageBubble', () => {
     expect(screen.queryByText(/"rich_parts"/)).not.toBeInTheDocument()
     expect(screen.getByText('Waiting for agent activity...')).toBeInTheDocument()
   })
+
+  it('rehydrates Studio artifacts by stable ID instead of rendering stale snapshots', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({
+      success: true,
+      data: {
+        artifacts: [{
+          id: 'marketing_studio:org:b3JnLTE:canvas:Y2FudmFzLTE', studioKind: 'marketing_studio',
+          resourceType: 'canvas', resourceId: 'canvas-1', title: 'Current campaign', artifactKind: 'canvas',
+          state: 'ready', statusLabel: 'Current status', href: '/canvas/current', actions: [],
+        }],
+      },
+    }), { status: 200 }))
+
+    render(<MessageBubble currentUserUid="user-1" message={{
+      id: 'artifact-message', conversationId: 'conv-1', role: 'assistant', content: '', authorKind: 'agent',
+      authorId: 'pip', authorDisplayName: 'Pip', status: 'completed',
+      richParts: [{ type: 'studio_artifact', artifactId: 'marketing_studio:org:b3JnLTE:canvas:Y2FudmFzLTE', title: 'Stale campaign' }],
+    }} />)
+
+    expect(await screen.findByText('Current campaign')).toBeInTheDocument()
+    expect(screen.queryByText('Stale campaign')).not.toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/v1/chat-context/studio_artifact/marketing_studio%3Aorg%3Ab3JnLTE%3Acanvas%3AY2FudmFzLTE'))
+    fetchMock.mockRestore()
+  })
+
+  it('rehydrates child artifacts through their authoritative parents, including mixed bundles', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ success: true, data: { artifacts: [{
+        id: 'video_editor:render:render-1', studioKind: 'video_editor', resourceType: 'render', resourceId: 'render-1',
+        title: 'Current render', artifactKind: 'video', state: 'complete', statusLabel: 'Rendered', href: '/video', actions: [],
+      }] } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ success: true, data: { artifacts: [{
+        id: 'book_studio:cover_pdf:book-1:0', studioKind: 'book_studio', resourceType: 'cover_pdf', resourceId: 'book-1:cover_pdf:0',
+        title: 'Current cover', artifactKind: 'document', state: 'ready', statusLabel: 'Generated', href: '/book', actions: [],
+      }] } }), { status: 200 }))
+
+    render(<MessageBubble currentUserUid="user-1" message={{
+      id: 'child-artifacts', conversationId: 'conv-1', role: 'assistant', content: '', authorKind: 'agent',
+      authorId: 'pip', authorDisplayName: 'Pip', status: 'completed', richParts: [{
+        type: 'studio_artifact_bundle', artifacts: [
+          { id: 'video_editor:render:render-1', contextId: 'video_editor:project:project-1', title: 'Stale render' },
+          { id: 'book_studio:cover_pdf:book-1:0', contextId: 'book_studio:project:book-1', title: 'Stale cover' },
+        ],
+      }],
+    }} />)
+
+    expect(await screen.findByText('Current render')).toBeInTheDocument()
+    expect(await screen.findByText('Current cover')).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/chat-context/studio_artifact/video_editor%3Aproject%3Aproject-1?artifactId=video_editor%3Arender%3Arender-1')
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/chat-context/studio_artifact/book_studio%3Aproject%3Abook-1?artifactId=book_studio%3Acover_pdf%3Abook-1%3A0')
+    fetchMock.mockRestore()
+  })
 })

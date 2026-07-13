@@ -72,14 +72,14 @@ function MetricCard({
 }) {
   return (
     <div className="pib-card p-4">
-      <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{label}</p>
+      <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</p>
       <p
         className="text-2xl font-headline font-bold mt-1"
-        style={{ color: accent ? 'var(--color-accent-v2)' : undefined }}
+        style={{ color: accent ? 'var(--color-pib-accent)' : undefined }}
       >
         {value}
       </p>
-      {hint && <p className="text-[11px] text-on-surface-variant/70 mt-0.5">{hint}</p>}
+      {hint && <p className="text-[11px] text-[var(--color-pib-text-muted)]/70 mt-0.5">{hint}</p>}
     </div>
   )
 }
@@ -129,11 +129,11 @@ export default function RevenuePage() {
     <div className="space-y-6 max-w-6xl mx-auto">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Billing / Revenue
           </p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Revenue & MRR</h1>
-          <p className="text-sm text-on-surface-variant mt-0.5">
+          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Revenue & MRR</h1>
+          <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5">
             Recurring revenue, churn, expansion, and collections across all client accounts. All figures ZAR.
           </p>
         </div>
@@ -186,14 +186,14 @@ export default function RevenuePage() {
       <div className="pib-card p-5">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-sm font-headline font-bold text-on-surface">Collected revenue</h2>
-            <p className="text-[11px] text-on-surface-variant/70">Monthly, last 12 months</p>
+            <h2 className="text-sm font-headline font-bold text-[var(--color-pib-text)]">Collected revenue</h2>
+            <p className="text-[11px] text-[var(--color-pib-text-muted)]/70">Monthly, last 12 months</p>
           </div>
         </div>
         {loading ? (
           <Skeleton className="h-64 rounded-xl" />
         ) : !trendData.length || trendData.every((t) => t.collectedZar === 0) ? (
-          <div className="h-64 flex items-center justify-center text-sm text-on-surface-variant">
+          <div className="h-64 flex items-center justify-center text-sm text-[var(--color-pib-text-muted)]">
             No collected revenue recorded yet.
           </div>
         ) : (
@@ -202,19 +202,19 @@ export default function RevenuePage() {
               <AreaChart data={trendData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
                 <defs>
                   <linearGradient id="revFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--color-accent-v2)" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="var(--color-accent-v2)" stopOpacity={0} />
+                    <stop offset="0%" stopColor="var(--color-pib-accent)" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="var(--color-pib-accent)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                 <XAxis
                   dataKey="label"
-                  tick={{ fontSize: 11, fill: 'var(--color-on-surface-variant, #9ca3af)' }}
+                  tick={{ fontSize: 11, fill: 'var(--color-pib-text-muted, #9ca3af)' }}
                   tickLine={false}
                   axisLine={false}
                 />
                 <YAxis
-                  tick={{ fontSize: 11, fill: 'var(--color-on-surface-variant, #9ca3af)' }}
+                  tick={{ fontSize: 11, fill: 'var(--color-pib-text-muted, #9ca3af)' }}
                   tickLine={false}
                   axisLine={false}
                   width={64}
@@ -227,13 +227,13 @@ export default function RevenuePage() {
                     borderRadius: 8,
                     fontSize: 12,
                   }}
-                  labelStyle={{ color: 'var(--color-on-surface, #fff)' }}
+                  labelStyle={{ color: 'var(--color-pib-text, #fff)' }}
                   formatter={(value) => [formatZar(Number(value)), 'Collected']}
                 />
                 <Area
                   type="monotone"
                   dataKey="collectedZar"
-                  stroke="var(--color-accent-v2)"
+                  stroke="var(--color-pib-accent)"
                   strokeWidth={2}
                   fill="url(#revFill)"
                 />
@@ -247,7 +247,7 @@ export default function RevenuePage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Plan distribution */}
         <div className="pib-card p-5">
-          <h2 className="text-sm font-headline font-bold text-on-surface mb-4">Plan distribution</h2>
+          <h2 className="text-sm font-headline font-bold text-[var(--color-pib-text)] mb-4">Plan distribution</h2>
           {loading ? (
             <div className="space-y-3">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -255,23 +255,23 @@ export default function RevenuePage() {
               ))}
             </div>
           ) : !data?.planDistribution.length ? (
-            <p className="text-sm text-on-surface-variant">No active subscriptions yet.</p>
+            <p className="text-sm text-[var(--color-pib-text-muted)]">No active subscriptions yet.</p>
           ) : (
             <ul className="space-y-3">
               {data.planDistribution.map((plan) => (
                 <li key={plan.planKey}>
                   <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="font-semibold text-on-surface truncate">{plan.planName}</span>
-                    <span className="text-on-surface-variant ml-2 flex-shrink-0">
+                    <span className="font-semibold text-[var(--color-pib-text)] truncate">{plan.planName}</span>
+                    <span className="text-[var(--color-pib-text-muted)] ml-2 flex-shrink-0">
                       {plan.count} {plan.count === 1 ? 'sub' : 'subs'} · {formatZar(plan.mrrZar)}
                     </span>
                   </div>
-                  <div className="h-2 rounded-full bg-on-surface/10 overflow-hidden">
+                  <div className="h-2 rounded-full bg-[var(--color-pib-text)]/10 overflow-hidden">
                     <div
                       className="h-full rounded-full"
                       style={{
                         width: `${Math.max(4, (plan.mrrZar / maxPlanMrr) * 100)}%`,
-                        background: 'var(--color-accent-v2)',
+                        background: 'var(--color-pib-accent)',
                       }}
                     />
                   </div>
@@ -283,7 +283,7 @@ export default function RevenuePage() {
 
         {/* Top orgs */}
         <div className="pib-card p-5">
-          <h2 className="text-sm font-headline font-bold text-on-surface mb-4">Top 10 accounts by revenue</h2>
+          <h2 className="text-sm font-headline font-bold text-[var(--color-pib-text)] mb-4">Top 10 accounts by revenue</h2>
           {loading ? (
             <div className="space-y-2">
               {Array.from({ length: 5 }).map((_, i) => (
@@ -291,12 +291,12 @@ export default function RevenuePage() {
               ))}
             </div>
           ) : !data?.topOrgs.length ? (
-            <p className="text-sm text-on-surface-variant">No paid revenue recorded yet.</p>
+            <p className="text-sm text-[var(--color-pib-text-muted)]">No paid revenue recorded yet.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                  <tr className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                     <th className="text-left font-label pb-2">Account</th>
                     <th className="text-right font-label pb-2">Lifetime</th>
                     <th className="text-right font-label pb-2">MRR</th>
@@ -304,19 +304,19 @@ export default function RevenuePage() {
                 </thead>
                 <tbody>
                   {data.topOrgs.map((org) => (
-                    <tr key={org.orgId} className="border-t border-on-surface/10">
+                    <tr key={org.orgId} className="border-t border-[var(--color-pib-text)]/10">
                       <td className="py-2 pr-2">
                         <Link
                           href={`/admin/org/${org.slug}/dashboard`}
-                          className="text-on-surface hover:text-[var(--color-accent-v2)] transition-colors truncate"
+                          className="text-[var(--color-pib-text)] hover:text-[var(--color-pib-accent)] transition-colors truncate"
                         >
                           {org.name}
                         </Link>
                       </td>
-                      <td className="py-2 text-right font-semibold text-on-surface">
+                      <td className="py-2 text-right font-semibold text-[var(--color-pib-text)]">
                         {formatZar(org.lifetimeZar)}
                       </td>
-                      <td className="py-2 text-right text-on-surface-variant">{formatZar(org.mrrZar)}</td>
+                      <td className="py-2 text-right text-[var(--color-pib-text-muted)]">{formatZar(org.mrrZar)}</td>
                     </tr>
                   ))}
                 </tbody>

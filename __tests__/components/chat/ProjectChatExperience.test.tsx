@@ -75,6 +75,37 @@ describe('Project chat experience', () => {
     expect(close).toHaveBeenCalled()
   })
 
+  it('focuses the drawer close control, closes on Escape, and restores focus', () => {
+    const close = jest.fn()
+    const { rerender } = render(
+      <>
+        <button type="button">Open project lens</button>
+        <ProjectLens progress={progress} open={false} onClose={close} onTaskAction={jest.fn()} taskHref={(id) => `/tasks/${id}`} />
+      </>,
+    )
+    const trigger = screen.getByRole('button', { name: 'Open project lens' })
+    trigger.focus()
+
+    rerender(
+      <>
+        <button type="button">Open project lens</button>
+        <ProjectLens progress={progress} open onClose={close} onTaskAction={jest.fn()} taskHref={(id) => `/tasks/${id}`} />
+      </>,
+    )
+
+    expect(screen.getByRole('button', { name: 'Close project lens' })).toHaveFocus()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(close).toHaveBeenCalledTimes(1)
+
+    rerender(
+      <>
+        <button type="button">Open project lens</button>
+        <ProjectLens progress={progress} open={false} onClose={close} onTaskAction={jest.fn()} taskHref={(id) => `/tasks/${id}`} />
+      </>,
+    )
+    expect(screen.getByRole('button', { name: 'Open project lens' })).toHaveFocus()
+  })
+
   it('does not offer approval actions when the current role cannot approve', () => {
     render(
       <ProjectLens
@@ -102,5 +133,12 @@ describe('Project chat experience', () => {
     expect(screen.getByText('Your approval is needed')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Approve next step' }))
     expect(action).toHaveBeenCalledWith(expect.objectContaining({ id: 'approval' }))
+  })
+
+  it('keeps approval controls out of living bundles for non-approvers', () => {
+    render(<LivingTaskBundle tasks={progress.tasks} canApprove={false} onTaskAction={jest.fn()} taskHref={(id) => `/tasks/${id}`} />)
+
+    expect(screen.queryByRole('button', { name: 'Approve next step' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Review blocker' })).toHaveAttribute('href', '/tasks/approval')
   })
 })

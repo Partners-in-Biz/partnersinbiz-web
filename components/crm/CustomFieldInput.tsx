@@ -27,7 +27,7 @@ function isCurrencyValue(v: unknown): v is CurrencyValue {
 function HelpText({ text }: { text?: string }) {
   if (!text) return null
   return (
-    <p className="mt-1 text-[11px] leading-4 text-on-surface-variant">{text}</p>
+    <p className="mt-1 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{text}</p>
   )
 }
 
@@ -47,7 +47,7 @@ export function CustomFieldInput({ definition, value, onChange, disabled }: Cust
           value={typeof value === 'string' ? value : ''}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
-          className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm text-on-surface outline-none transition focus:border-primary/40 disabled:opacity-50"
+          className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm text-[var(--color-pib-text)] outline-none transition focus:border-primary/40 disabled:opacity-50"
         />
         <HelpText text={helpText} />
       </div>
@@ -64,7 +64,7 @@ export function CustomFieldInput({ definition, value, onChange, disabled }: Cust
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
           rows={4}
-          className="w-full resize-none rounded-md border border-[var(--color-card-border)] bg-transparent p-2 text-sm text-on-surface outline-none transition focus:border-primary/40 disabled:opacity-50"
+          className="w-full resize-none rounded-md border border-[var(--color-card-border)] bg-transparent p-2 text-sm text-[var(--color-pib-text)] outline-none transition focus:border-primary/40 disabled:opacity-50"
         />
         <HelpText text={helpText} />
       </div>
@@ -86,7 +86,7 @@ export function CustomFieldInput({ definition, value, onChange, disabled }: Cust
           disabled={disabled}
           min={definition.min}
           max={definition.max}
-          className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm text-on-surface outline-none transition focus:border-primary/40 disabled:opacity-50"
+          className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm text-[var(--color-pib-text)] outline-none transition focus:border-primary/40 disabled:opacity-50"
         />
         <HelpText text={helpText} />
       </div>
@@ -113,7 +113,7 @@ export function CustomFieldInput({ definition, value, onChange, disabled }: Cust
             disabled={disabled}
             min={definition.min}
             max={definition.max}
-            className="h-9 min-w-0 flex-1 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm text-on-surface outline-none transition focus:border-primary/40 disabled:opacity-50"
+            className="h-9 min-w-0 flex-1 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm text-[var(--color-pib-text)] outline-none transition focus:border-primary/40 disabled:opacity-50"
           />
           <input
             type="text"
@@ -122,7 +122,7 @@ export function CustomFieldInput({ definition, value, onChange, disabled }: Cust
             maxLength={3}
             onChange={(e) => onChange({ ...cv, currency: e.target.value.toUpperCase() })}
             disabled={disabled}
-            className="h-9 w-20 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm uppercase text-on-surface outline-none transition focus:border-primary/40 disabled:opacity-50"
+            className="h-9 w-20 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm uppercase text-[var(--color-pib-text)] outline-none transition focus:border-primary/40 disabled:opacity-50"
           />
         </div>
         <HelpText text={helpText} />
@@ -140,7 +140,7 @@ export function CustomFieldInput({ definition, value, onChange, disabled }: Cust
           value={typeof value === 'string' ? value : ''}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
-          className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm text-on-surface outline-none transition focus:border-primary/40 disabled:opacity-50"
+          className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm text-[var(--color-pib-text)] outline-none transition focus:border-primary/40 disabled:opacity-50"
         />
         <HelpText text={helpText} />
       </div>
@@ -157,7 +157,7 @@ export function CustomFieldInput({ definition, value, onChange, disabled }: Cust
           value={typeof value === 'string' ? value : ''}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
-          className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm text-on-surface outline-none transition focus:border-primary/40 disabled:opacity-50"
+          className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm text-[var(--color-pib-text)] outline-none transition focus:border-primary/40 disabled:opacity-50"
         />
         <HelpText text={helpText} />
       </div>
@@ -173,7 +173,7 @@ export function CustomFieldInput({ definition, value, onChange, disabled }: Cust
           value={typeof value === 'string' ? value : ''}
           onChange={(e) => onChange(e.target.value || undefined)}
           disabled={disabled}
-          className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm text-on-surface outline-none transition focus:border-primary/40 disabled:opacity-50"
+          className="h-9 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-sm text-[var(--color-pib-text)] outline-none transition focus:border-primary/40 disabled:opacity-50"
         >
           <option value="">{`Select ${definition.label}`}</option>
           {(options ?? []).map((opt) => (
@@ -213,7 +213,7 @@ export function CustomFieldInput({ definition, value, onChange, disabled }: Cust
                 className={`flex h-7 cursor-pointer items-center rounded-full border px-2.5 text-[11px] transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                   active
                     ? 'border-primary/30 bg-primary/10 text-primary'
-                    : 'border-[var(--color-card-border)] text-on-surface-variant hover:bg-white/[0.05] hover:text-on-surface'
+                    : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]'
                 }`}
               >
                 {opt.label}
@@ -238,7 +238,7 @@ export function CustomFieldInput({ definition, value, onChange, disabled }: Cust
             disabled={disabled}
             className="cursor-pointer"
           />
-          <span className="text-sm text-on-surface">{definition.label}</span>
+          <span className="text-sm text-[var(--color-pib-text)]">{definition.label}</span>
         </label>
         <HelpText text={helpText} />
       </div>

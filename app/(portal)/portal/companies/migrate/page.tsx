@@ -52,25 +52,25 @@ function Skeleton({ className = '' }: { className?: string }) {
 function ResultBanner({ summary }: { summary: ApplyResponse['summary'] }) {
   const total = summary.created + summary.linked + summary.failed
   return (
-    <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3 space-y-2">
-      <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Migration complete — {total} group{total === 1 ? '' : 's'} processed</p>
+    <div className="pib-card space-y-2">
+      <p className="pib-label mb-0">Migration complete — {total} group{total === 1 ? '' : 's'} processed</p>
       <div className="flex gap-3 flex-wrap">
         <div className="flex items-center gap-2">
-          <span className="inline-block w-2 h-2 rounded-full bg-green-400" />
-          <span className="text-xs text-on-surface">
+          <span className="inline-block w-2 h-2 rounded-full bg-[var(--color-pib-green)]" />
+          <span className="text-xs text-[var(--color-pib-text)]">
             {summary.created} company{summary.created === 1 ? '' : 'ies'} created
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="inline-block w-2 h-2 rounded-full bg-blue-400" />
-          <span className="text-xs text-on-surface">
+          <span className="inline-block w-2 h-2 rounded-full bg-[var(--color-pib-blue)]" />
+          <span className="text-xs text-[var(--color-pib-text)]">
             {summary.linked} linked to existing
           </span>
         </div>
         {summary.failed > 0 && (
           <div className="flex items-center gap-2">
-            <span className="inline-block w-2 h-2 rounded-full bg-red-400" />
-            <span className="text-xs text-on-surface">
+            <span className="inline-block w-2 h-2 rounded-full bg-[var(--color-error)]" />
+            <span className="text-xs text-[var(--color-pib-text)]">
               {summary.failed} failed
             </span>
           </div>
@@ -200,34 +200,33 @@ export default function MigrateCompaniesPage() {
   const selectedCount = Object.values(selected).filter(Boolean).length
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col space-y-8">
       {/* Header row */}
-      <div className="flex min-h-11 flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 px-3 py-1.5">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
           <Link
             href={companyPortalPath('/portal/companies')}
-            className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md px-2 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface"
+            className="btn-pib-ghost text-xs"
           >
             <span aria-hidden="true" className="material-symbols-outlined text-[16px]">arrow_back</span>
             Companies
           </Link>
-          <div className="min-w-0">
-            <h1 className="truncate text-sm font-semibold text-on-surface">Migrate contacts → companies</h1>
-            <p className="truncate text-xs text-on-surface-variant">
-              Review grouped company names from your contacts and create first-class company records.
-            </p>
-          </div>
+          <p className="eyebrow mt-4">CRM · Companies</p>
+          <h1 className="pib-page-title mt-2">Migrate contacts → companies</h1>
+          <p className="pib-page-sub">
+            Review grouped company names from your contacts and create first-class company records.
+          </p>
         </div>
         {!applyResult && !loading && !previewError && matches.length > 0 && (
           <div className="flex items-center gap-2">
-            <span className="font-mono text-[11px] text-on-surface-variant">
+            <span className="font-mono text-[11px] text-[var(--color-pib-text-muted)]">
               {selectedCount} / {matches.length} selected
             </span>
             <button
               type="button"
               onClick={handleApply}
               disabled={applying || selectedCount === 0}
-              className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-pib-primary text-xs"
             >
               {applying ? (
                 <>
@@ -243,48 +242,48 @@ export default function MigrateCompaniesPage() {
             </button>
           </div>
         )}
-      </div>
+      </header>
 
       {/* Apply result */}
       {applyResult && <ResultBanner summary={applyResult.summary} />}
 
       {/* Apply result detail table */}
       {applyResult && applyResult.results.length > 0 && (
-        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 overflow-x-auto">
+        <div className="pib-surface pib-surface-table overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-[var(--color-card-border)]">
-                <th className="px-3 py-2 text-left text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Group</th>
-                <th className="px-3 py-2 text-left text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Status</th>
-                <th className="px-3 py-2 text-left text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Company</th>
-                <th className="px-3 py-2 text-left text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Contacts updated</th>
-                <th className="px-3 py-2 text-left text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Note</th>
+              <tr className="border-b border-[var(--color-pib-line)]">
+                <th className="px-3 py-2 text-left pib-label mb-0">Group</th>
+                <th className="px-3 py-2 text-left pib-label mb-0">Status</th>
+                <th className="px-3 py-2 text-left pib-label mb-0">Company</th>
+                <th className="px-3 py-2 text-left pib-label mb-0">Contacts updated</th>
+                <th className="px-3 py-2 text-left pib-label mb-0">Note</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[var(--color-card-border)]">
+            <tbody className="divide-y divide-[var(--color-pib-line)]">
               {applyResult.results.map((row) => (
-                <tr key={row.normalizedKey} className="hover:bg-white/[0.04] transition-colors">
-                  <td className="px-3 py-2 font-mono text-xs text-on-surface-variant">{row.normalizedKey}</td>
+                <tr key={row.normalizedKey} className="hover:bg-[var(--color-row-hover)] transition-colors">
+                  <td className="px-3 py-2 font-mono text-xs text-[var(--color-pib-text-muted)]">{row.normalizedKey}</td>
                   <td className="px-3 py-2">
-                    <span className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full ${
-                      row.status === 'created' ? 'bg-green-500/20 text-green-300' :
-                      row.status === 'linked'  ? 'bg-blue-500/20 text-blue-300' :
-                                                 'bg-red-500/20 text-red-300'
+                    <span className={`pib-pill ${
+                      row.status === 'created' ? 'pib-pill-success' :
+                      row.status === 'linked'  ? 'pib-pill-blue' :
+                                                 'pib-pill-danger'
                     }`}>
                       {row.status}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-on-surface">
+                  <td className="px-3 py-2 text-[var(--color-pib-text)]">
                     {row.companyId ? (
-                      <Link href={companyPortalPath(`/portal/companies/${row.companyId}`)} className="text-primary hover:underline">
+                      <Link href={companyPortalPath(`/portal/companies/${row.companyId}`)} className="text-[var(--color-pib-accent-hover)] hover:underline">
                         {row.companyId}
                       </Link>
                     ) : '—'}
                   </td>
-                  <td className="px-3 py-2 text-on-surface-variant font-mono text-xs">
+                  <td className="px-3 py-2 text-[var(--color-pib-text-muted)] font-mono text-xs">
                     {row.contactsUpdated ?? '—'}
                   </td>
-                  <td className="px-3 py-2 text-on-surface-variant text-xs">{row.reason ?? ''}</td>
+                  <td className="px-3 py-2 text-[var(--color-pib-text-muted)] text-xs">{row.reason ?? ''}</td>
                 </tr>
               ))}
             </tbody>
@@ -294,22 +293,22 @@ export default function MigrateCompaniesPage() {
 
       {/* Errors */}
       {previewError && (
-        <div className="space-y-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center">
-          <span className="material-symbols-outlined text-[19px] text-on-surface-variant">
+        <div className="pib-empty-state space-y-2">
+          <span className="material-symbols-outlined pib-empty-state-icon">
             {previewError.includes('Admin') ? 'lock' : 'error_outline'}
           </span>
-          <p className="text-xs text-on-surface-variant">{previewError}</p>
+          <p className="text-xs text-[var(--color-pib-text-muted)]">{previewError}</p>
         </div>
       )}
 
       {applyError && (
-        <p className="rounded-lg border border-red-400/40 bg-red-400/10 px-3 py-2 text-xs text-red-100">{applyError}</p>
+        <p className="rounded-lg border border-[var(--color-error)]/40 bg-[var(--color-error-container)] px-3 py-2 text-xs text-[var(--color-error)]">{applyError}</p>
       )}
 
       {/* Loading skeleton */}
       {loading && !previewError && (
-        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 overflow-x-auto">
-          <div className="p-3 space-y-2">
+        <div className="pib-surface pib-surface-table overflow-x-auto">
+          <div className="p-4 space-y-3">
             {[...Array(5)].map((_, i) => (
               <Skeleton key={i} className="h-8" />
             ))}
@@ -319,21 +318,23 @@ export default function MigrateCompaniesPage() {
 
       {/* Empty state (preview loaded, zero matches) */}
       {!loading && !previewError && !applyResult && matches.length === 0 && (
-        <div className="space-y-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center">
-          <span className="material-symbols-outlined mx-auto grid h-8 w-8 place-items-center rounded-md bg-primary/10 text-[19px] text-primary" aria-hidden="true">check_circle</span>
-          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Clean account data</p>
-          <h2 className="text-sm font-semibold text-on-surface">
+        <div className="pib-empty-state">
+          <span className="pib-icon-tint mb-3" aria-hidden="true">
+            <span className="material-symbols-outlined text-[18px]">check_circle</span>
+          </span>
+          <p className="eyebrow">Clean account data</p>
+          <h2 className="pib-empty-state-title mt-2">
             No contact company strings need migration.
           </h2>
-          <p className="mx-auto max-w-2xl text-xs leading-5 text-on-surface-variant">
+          <p className="pib-empty-state-description">
             Every visible contact company value is already grouped or ready for first-class account work.
           </p>
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
-            <Link href={companyPortalPath('/portal/companies')} className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition hover:opacity-90">
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+            <Link href={companyPortalPath('/portal/companies')} className="btn-pib-primary text-xs">
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">business</span>
               Review companies
             </Link>
-            <Link href={companyPortalPath('/portal/contacts')} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface">
+            <Link href={companyPortalPath('/portal/contacts')} className="btn-pib-secondary text-xs">
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">group</span>
               Review contacts
             </Link>
@@ -345,10 +346,10 @@ export default function MigrateCompaniesPage() {
       {!loading && !previewError && !applyResult && matches.length > 0 && (
         <div className="flex flex-col gap-2">
           <CompanyMigrationCommandCenter matches={matches} selected={selected} names={names} />
-          <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 overflow-x-auto">
+          <div className="pib-surface pib-surface-table overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-[var(--color-card-border)]">
+                <tr className="border-b border-[var(--color-pib-line)]">
                   <th className="px-3 py-2 text-left w-10">
                     <input
                       type="checkbox"
@@ -358,18 +359,18 @@ export default function MigrateCompaniesPage() {
                       className="cursor-pointer"
                     />
                   </th>
-                  <th className="px-3 py-2 text-left text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Normalised key</th>
-                  <th className="px-3 py-2 text-left text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Raw values</th>
-                  <th className="px-3 py-2 text-left text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Suggested name</th>
-                  <th className="px-3 py-2 text-left text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Existing match</th>
-                  <th className="px-3 py-2 text-left text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Contacts</th>
+                  <th className="px-3 py-2 text-left pib-label mb-0">Normalised key</th>
+                  <th className="px-3 py-2 text-left pib-label mb-0">Raw values</th>
+                  <th className="px-3 py-2 text-left pib-label mb-0">Suggested name</th>
+                  <th className="px-3 py-2 text-left pib-label mb-0">Existing match</th>
+                  <th className="px-3 py-2 text-left pib-label mb-0">Contacts</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[var(--color-card-border)]">
+              <tbody className="divide-y divide-[var(--color-pib-line)]">
                 {matches.map((m) => (
                   <tr
                     key={m.normalizedKey}
-                    className={`transition-colors ${selected[m.normalizedKey] ? '' : 'opacity-50'} hover:bg-white/[0.04]`}
+                    className={`transition-colors ${selected[m.normalizedKey] ? '' : 'opacity-50'} hover:bg-[var(--color-row-hover)]`}
                   >
                     <td className="px-3 py-2">
                       <input
@@ -380,11 +381,11 @@ export default function MigrateCompaniesPage() {
                         className="cursor-pointer"
                       />
                     </td>
-                    <td className="px-3 py-2 font-mono text-xs text-on-surface-variant max-w-[140px] truncate">
+                    <td className="px-3 py-2 font-mono text-xs text-[var(--color-pib-text-muted)] max-w-[140px] truncate">
                       {m.normalizedKey}
                     </td>
                     <td className="px-3 py-2 max-w-[180px]">
-                      <p className="text-xs text-on-surface-variant truncate" title={m.rawValues.join(', ')}>
+                      <p className="text-xs text-[var(--color-pib-text-muted)] truncate" title={m.rawValues.join(', ')}>
                         {m.rawValues.join(', ')}
                       </p>
                     </td>
@@ -393,7 +394,7 @@ export default function MigrateCompaniesPage() {
                         type="text"
                         value={names[m.normalizedKey] ?? m.suggestedCompanyName}
                         onChange={(e) => setNames((prev) => ({ ...prev, [m.normalizedKey]: e.target.value }))}
-                        className="h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface focus:outline-none"
+                        className="pib-input h-8 w-full px-2 text-xs"
                         aria-label={`Company name for ${m.normalizedKey}`}
                       />
                     </td>
@@ -405,10 +406,10 @@ export default function MigrateCompaniesPage() {
                           href={companyPortalPath(`/portal/companies/${m.existingCompanyId}`)}
                         />
                       ) : (
-                        <span className="text-xs text-on-surface-variant">—</span>
+                        <span className="text-xs text-[var(--color-pib-text-muted)]">—</span>
                       )}
                     </td>
-                    <td className="px-3 py-2 font-mono text-xs text-on-surface-variant">
+                    <td className="px-3 py-2 font-mono text-xs text-[var(--color-pib-text-muted)]">
                       {m.contactIds.length}
                     </td>
                   </tr>
@@ -422,14 +423,14 @@ export default function MigrateCompaniesPage() {
       {/* Bottom action bar (mirrors top, only visible when table has content) */}
       {!loading && !previewError && !applyResult && matches.length > 0 && (
         <div className="flex items-center justify-between gap-2 pt-1">
-          <span className="font-mono text-[11px] text-on-surface-variant">
+          <span className="font-mono text-[11px] text-[var(--color-pib-text-muted)]">
             {selectedCount} / {matches.length} selected
           </span>
           <button
             type="button"
             onClick={handleApply}
             disabled={applying || selectedCount === 0}
-            className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-pib-primary text-xs"
           >
             {applying ? (
               <>

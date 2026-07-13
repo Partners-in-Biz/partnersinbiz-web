@@ -213,10 +213,10 @@ export default function ApiKeysSettingsPage() {
   const activeCount = keys.filter((k) => keyStatus(k).tone === 'success').length
 
   return (
-    <div className="max-w-5xl space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+    <div className="max-w-5xl space-y-8">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className="eyebrow !text-[10px]">Workspace settings</p>
+          <p className="eyebrow">Workspace settings</p>
           <h1 className="pib-page-title mt-2">API keys</h1>
           <p className="pib-page-sub max-w-2xl">
             Issue scoped API keys so agents and integrations can act on this workspace. Keys are shown once at
@@ -236,14 +236,14 @@ export default function ApiKeysSettingsPage() {
           </span>
           {showForm ? 'Cancel' : 'Create key'}
         </button>
-      </div>
+      </header>
 
       {/* Raw key reveal — shown ONCE */}
       {newKey && (
         <div className="pib-card border border-[var(--color-pib-accent)]/40 bg-[var(--color-pib-accent-soft)] p-5">
           <div className="flex items-start gap-3">
-            <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]" aria-hidden="true">
-              vpn_key
+            <span className="pib-icon-tint-cyan shrink-0">
+              <span className="material-symbols-outlined text-[20px]" aria-hidden="true">vpn_key</span>
             </span>
             <div className="min-w-0 flex-1 space-y-3">
               <div>
@@ -280,7 +280,7 @@ export default function ApiKeysSettingsPage() {
       {showForm && (
         <form onSubmit={handleCreate} className="pib-card-section">
           <div className="pib-card-section-header">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">New API key</p>
+            <p className="pib-label">New API key</p>
           </div>
           <div className="space-y-5 p-5">
             <div>
@@ -377,7 +377,7 @@ export default function ApiKeysSettingsPage() {
             </div>
 
             {createError && (
-              <p className="text-xs text-[var(--color-pib-danger,#ef4444)]">{createError}</p>
+              <p className="text-xs text-[var(--color-error)]">{createError}</p>
             )}
 
             <div className="flex items-center gap-3">
@@ -403,7 +403,7 @@ export default function ApiKeysSettingsPage() {
       {/* Key list */}
       <section className="pib-card-section">
         <div className="pib-card-section-header flex items-center justify-between">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Active keys</p>
+          <p className="pib-label">Active keys</p>
           <span className="text-xs text-[var(--color-pib-text-muted)]">
             {activeCount} active · {keys.length} total
           </span>
@@ -411,24 +411,23 @@ export default function ApiKeysSettingsPage() {
 
         <div className="p-5">
           {loading ? (
-            <p className="text-sm text-[var(--color-pib-text-muted)]">Loading keys…</p>
+            <div className="space-y-3">
+              <div className="pib-skeleton h-4 w-1/3" />
+              <div className="pib-skeleton h-4 w-2/3" />
+              <div className="pib-skeleton h-4 w-1/2" />
+            </div>
           ) : error ? (
-            <div className="flex items-center gap-2 text-sm text-[var(--color-pib-danger,#ef4444)]">
+            <div className="flex items-center gap-2 text-sm text-[var(--color-error)]">
               <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
                 error
               </span>
               {error}
             </div>
           ) : keys.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-[var(--color-pib-line)] px-6 py-10 text-center">
-              <span
-                className="material-symbols-outlined text-[28px] text-[var(--color-pib-text-muted)]"
-                aria-hidden="true"
-              >
-                key_off
-              </span>
-              <p className="mt-2 text-sm text-[var(--color-pib-text)]">No API keys yet</p>
-              <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+            <div className="pib-empty-state">
+              <span className="material-symbols-outlined pib-empty-state-icon" aria-hidden="true">key_off</span>
+              <h3 className="pib-empty-state-title">No API keys yet</h3>
+              <p className="pib-empty-state-description">
                 Create a scoped key to let an agent or integration work on this workspace.
               </p>
             </div>
@@ -457,7 +456,7 @@ export default function ApiKeysSettingsPage() {
                           >
                             {status.label}
                           </span>
-                          <code className="rounded border border-[var(--color-pib-line)] px-1.5 py-0.5 font-mono text-[11px] text-[var(--color-pib-text-muted)]">
+                          <code className="pib-pill font-mono">
                             {key.keyPrefix}…
                           </code>
                         </div>

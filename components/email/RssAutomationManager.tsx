@@ -157,7 +157,7 @@ export default function RssAutomationManager({ orgScope }: Props) {
   if (loading) {
     return (
       <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
-        <p className="text-sm text-on-surface-variant">Loading RSS automations…</p>
+        <p className="text-sm text-[var(--color-pib-text-muted)]">Loading RSS automations…</p>
       </div>
     )
   }
@@ -187,7 +187,7 @@ export default function RssAutomationManager({ orgScope }: Props) {
 
           <div className="grid gap-3 md:grid-cols-2">
             <label className="block">
-              <span className="block text-[11px] text-on-surface-variant mb-1">Name</span>
+              <span className="block text-[11px] text-[var(--color-pib-text-muted)] mb-1">Name</span>
               <input
                 value={draft.name}
                 onChange={(e) => setDraft({ ...draft, name: e.target.value })}
@@ -195,7 +195,7 @@ export default function RssAutomationManager({ orgScope }: Props) {
               />
             </label>
             <label className="block">
-              <span className="block text-[11px] text-on-surface-variant mb-1">RSS / Atom feed URL</span>
+              <span className="block text-[11px] text-[var(--color-pib-text-muted)] mb-1">RSS / Atom feed URL</span>
               <input
                 value={draft.feedUrl}
                 onChange={(e) => setDraft({ ...draft, feedUrl: e.target.value })}
@@ -208,7 +208,7 @@ export default function RssAutomationManager({ orgScope }: Props) {
           {/* Schedule */}
           <div className="flex flex-wrap items-end gap-3">
             <label className="block">
-              <span className="block text-[11px] text-on-surface-variant mb-1">Cadence</span>
+              <span className="block text-[11px] text-[var(--color-pib-text-muted)] mb-1">Cadence</span>
               <select
                 value={draft.schedule.cadence}
                 onChange={(e) =>
@@ -222,7 +222,7 @@ export default function RssAutomationManager({ orgScope }: Props) {
             </label>
             {draft.schedule.cadence === 'weekly' && (
               <label className="block">
-                <span className="block text-[11px] text-on-surface-variant mb-1">Day</span>
+                <span className="block text-[11px] text-[var(--color-pib-text-muted)] mb-1">Day</span>
                 <select
                   value={draft.schedule.dayOfWeek ?? 1}
                   onChange={(e) => setDraft({ ...draft, schedule: { ...draft.schedule, dayOfWeek: parseInt(e.target.value, 10) } })}
@@ -237,7 +237,7 @@ export default function RssAutomationManager({ orgScope }: Props) {
               </label>
             )}
             <label className="block">
-              <span className="block text-[11px] text-on-surface-variant mb-1">Hour (0-23)</span>
+              <span className="block text-[11px] text-[var(--color-pib-text-muted)] mb-1">Hour (0-23)</span>
               <input
                 type="number"
                 min={0}
@@ -248,7 +248,7 @@ export default function RssAutomationManager({ orgScope }: Props) {
               />
             </label>
             <label className="block">
-              <span className="block text-[11px] text-on-surface-variant mb-1">Timezone</span>
+              <span className="block text-[11px] text-[var(--color-pib-text-muted)] mb-1">Timezone</span>
               <input
                 value={draft.schedule.timezone ?? 'UTC'}
                 onChange={(e) => setDraft({ ...draft, schedule: { ...draft.schedule, timezone: e.target.value } })}
@@ -257,7 +257,7 @@ export default function RssAutomationManager({ orgScope }: Props) {
               />
             </label>
             <label className="block">
-              <span className="block text-[11px] text-on-surface-variant mb-1">Posts per digest</span>
+              <span className="block text-[11px] text-[var(--color-pib-text-muted)] mb-1">Posts per digest</span>
               <input
                 type="number"
                 min={1}
@@ -272,7 +272,7 @@ export default function RssAutomationManager({ orgScope }: Props) {
           {/* Recipient */}
           <div className="flex flex-wrap items-end gap-3">
             <label className="block">
-              <span className="block text-[11px] text-on-surface-variant mb-1">Send to</span>
+              <span className="block text-[11px] text-[var(--color-pib-text-muted)] mb-1">Send to</span>
               <select
                 value={draft.recipient.kind}
                 onChange={(e) => {
@@ -295,7 +295,7 @@ export default function RssAutomationManager({ orgScope }: Props) {
             </label>
             {draft.recipient.kind === 'segment' && (
               <label className="block">
-                <span className="block text-[11px] text-on-surface-variant mb-1">Segment</span>
+                <span className="block text-[11px] text-[var(--color-pib-text-muted)] mb-1">Segment</span>
                 <select
                   value={draft.recipient.segmentId ?? ''}
                   onChange={(e) => setDraft({ ...draft, recipient: { kind: 'segment', segmentId: e.target.value } })}
@@ -312,7 +312,7 @@ export default function RssAutomationManager({ orgScope }: Props) {
             )}
             {draft.recipient.kind === 'tag' && (
               <label className="block">
-                <span className="block text-[11px] text-on-surface-variant mb-1">Tag</span>
+                <span className="block text-[11px] text-[var(--color-pib-text-muted)] mb-1">Tag</span>
                 <select
                   value={draft.recipient.tag ?? ''}
                   onChange={(e) => setDraft({ ...draft, recipient: { kind: 'tag', tag: e.target.value } })}
@@ -331,7 +331,7 @@ export default function RssAutomationManager({ orgScope }: Props) {
 
           {/* Templates */}
           <label className="block">
-            <span className="block text-[11px] text-on-surface-variant mb-1">Subject</span>
+            <span className="block text-[11px] text-[var(--color-pib-text-muted)] mb-1">Subject</span>
             <input
               value={draft.subject}
               onChange={(e) => setDraft({ ...draft, subject: e.target.value })}
@@ -339,14 +339,14 @@ export default function RssAutomationManager({ orgScope }: Props) {
             />
           </label>
           <label className="block">
-            <span className="block text-[11px] text-on-surface-variant mb-1">Body (HTML)</span>
+            <span className="block text-[11px] text-[var(--color-pib-text-muted)] mb-1">Body (HTML)</span>
             <textarea
               value={draft.bodyHtml}
               onChange={(e) => setDraft({ ...draft, bodyHtml: e.target.value })}
               rows={4}
               className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/45 px-3 py-2 text-xs font-mono"
             />
-            <span className="mt-1 block text-[10px] text-on-surface-variant">
+            <span className="mt-1 block text-[10px] text-[var(--color-pib-text-muted)]">
               Merge tags: {'{{latest_post_title}}'}, {'{{latest_post_link}}'}, {'{{posts_html}}'}, {'{{post_count}}'}, {'{{feed_title}}'}
             </span>
           </label>
@@ -356,7 +356,7 @@ export default function RssAutomationManager({ orgScope }: Props) {
             <button type="button" onClick={save} disabled={saving} className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black disabled:opacity-50">
               {saving ? 'Saving…' : 'Save digest'}
             </button>
-            <button type="button" onClick={() => setDraft(null)} className="h-8 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant hover:bg-white/[0.05] hover:text-on-surface">
+            <button type="button" onClick={() => setDraft(null)} className="h-8 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]">
               Cancel
             </button>
           </div>
@@ -366,8 +366,8 @@ export default function RssAutomationManager({ orgScope }: Props) {
       {/* List */}
       {list.length === 0 && !draft ? (
         <div className="mt-3 border-t border-[var(--color-card-border)] p-3 text-center">
-          <span className="material-symbols-outlined mb-2 block text-[18px] text-on-surface-variant">rss_feed</span>
-          <p className="text-sm text-on-surface-variant">No RSS digests yet. Create one to auto-email new posts.</p>
+          <span className="material-symbols-outlined mb-2 block text-[18px] text-[var(--color-pib-text-muted)]">rss_feed</span>
+          <p className="text-sm text-[var(--color-pib-text-muted)]">No RSS digests yet. Create one to auto-email new posts.</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -386,7 +386,7 @@ export default function RssAutomationManager({ orgScope }: Props) {
                     >
                       {item.enabled ? 'Active' : 'Paused'}
                     </span>
-                    <span className="rounded-full border border-[var(--color-card-border)] px-2 py-0.5 text-[10px] text-on-surface-variant">
+                    <span className="rounded-full border border-[var(--color-card-border)] px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">
                       {item.schedule.cadence === 'weekly'
                         ? `Weekly ${DAYS[item.schedule.dayOfWeek ?? 1]} ${item.schedule.hourLocal}:00`
                         : `Daily ${item.schedule.hourLocal}:00`}{' '}
@@ -394,15 +394,15 @@ export default function RssAutomationManager({ orgScope }: Props) {
                     </span>
                   </div>
                   <h3 className="truncate text-sm font-semibold">{item.name}</h3>
-                  <p className="truncate text-xs text-on-surface-variant">{item.feedUrl}</p>
-                  <p className="mt-1 text-[11px] text-on-surface-variant">{recipientLabel(item.recipient)}</p>
+                  <p className="truncate text-xs text-[var(--color-pib-text-muted)]">{item.feedUrl}</p>
+                  <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">{recipientLabel(item.recipient)}</p>
                 </div>
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={() => toggle(item)}
                     title={item.enabled ? 'Pause' : 'Activate'}
-                    className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant hover:bg-white/[0.06]"
+                    className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-white/[0.06]"
                   >
                     <span className="material-symbols-outlined text-[17px]">{item.enabled ? 'pause' : 'play_arrow'}</span>
                   </button>
@@ -410,7 +410,7 @@ export default function RssAutomationManager({ orgScope }: Props) {
                     type="button"
                     onClick={() => setDraft(item)}
                     title="Edit"
-                    className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant hover:bg-white/[0.06]"
+                    className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-white/[0.06]"
                   >
                     <span className="material-symbols-outlined text-[17px]">edit</span>
                   </button>
@@ -418,7 +418,7 @@ export default function RssAutomationManager({ orgScope }: Props) {
                     type="button"
                     onClick={() => remove(item.id)}
                     title="Delete"
-                    className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant hover:bg-red-400/[0.08] hover:text-red-400"
+                    className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-red-400/[0.08] hover:text-red-400"
                   >
                     <span className="material-symbols-outlined text-[17px]">delete</span>
                   </button>

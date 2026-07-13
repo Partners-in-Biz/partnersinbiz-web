@@ -52,11 +52,11 @@ export default function MergeTagPicker({
   }
 
   return (
-    <div className="rounded-xl border border-white/10 bg-black/40 p-4 space-y-3 text-on-surface">
+    <div className="rounded-xl border border-white/10 bg-black/40 p-4 space-y-3 text-[var(--color-pib-text)]">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold text-amber-300">Merge tags</h3>
-          <p className="text-xs text-on-surface-variant">
+          <p className="text-xs text-[var(--color-pib-text-muted)]">
             Personalise with contact fields. Set a fallback for when a field is empty.
           </p>
         </div>
@@ -110,22 +110,20 @@ export default function MergeTagPicker({
                         </span>
                       )}
                     </div>
-                    <div className="truncate text-xs text-on-surface-variant" title={tag.description}>
+                    <div className="truncate text-xs text-[var(--color-pib-text-muted)]" title={tag.description}>
                       {tag.label}
                     </div>
                   </div>
                   <div>
                     {ALWAYS_RESOLVABLE.has(tag.key) ? (
-                      <span className="text-xs text-on-surface-variant italic">Always resolves — no fallback needed</span>
+                      <span className="text-xs text-[var(--color-pib-text-muted)] italic">Always resolves — no fallback needed</span>
                     ) : (
                       <input
                         value={fb}
                         disabled={disabled}
                         placeholder={tag.defaultFallback ? `Fallback (e.g. "${tag.defaultFallback}")` : 'Fallback text'}
                         onChange={(e) => setFallback(tag.key, e.target.value)}
-                        className={`w-full rounded-md border bg-black/50 px-3 py-1.5 text-sm ${
-                          needsFallback ? 'border-amber-500/50' : 'border-white/10'
-                        }`}
+                        className={`pib-input text-sm ${needsFallback ? 'border-amber-500/50' : ''}`}
                       />
                     )}
                     {needsFallback && (

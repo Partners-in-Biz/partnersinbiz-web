@@ -45,7 +45,7 @@ export function NewSourceButton() {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="px-4 py-2 rounded-lg bg-primary text-on-primary text-sm font-medium"
+        className="btn-pib-primary text-sm"
       >
         New capture source
       </button>
@@ -59,13 +59,13 @@ export function NewSourceButton() {
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="Newsletter signup"
-        className="px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm w-48"
+        className="pib-input w-48"
         onKeyDown={(e) => e.key === 'Enter' && create()}
       />
       <select
         value={type}
         onChange={(e) => setType(e.target.value as CaptureSourceType)}
-        className="px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+        className="pib-input"
       >
         <option value="newsletter">Newsletter</option>
         <option value="lead-magnet">Lead magnet</option>
@@ -76,13 +76,13 @@ export function NewSourceButton() {
       <button
         onClick={create}
         disabled={creating}
-        className="px-4 py-2 rounded-lg bg-primary text-on-primary text-sm disabled:opacity-50"
+        className="btn-pib-primary text-sm disabled:opacity-50"
       >
         {creating ? 'Creating…' : 'Create'}
       </button>
       <button
         onClick={() => { setOpen(false); setError(''); setName('') }}
-        className="px-4 py-2 rounded-lg bg-surface-container text-on-surface text-sm"
+        className="px-4 py-2 rounded-lg bg-[var(--color-pib-surface-soft)] text-[var(--color-pib-text)] text-sm"
       >
         Cancel
       </button>

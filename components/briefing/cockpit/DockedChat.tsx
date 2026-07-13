@@ -8,20 +8,21 @@ export type DockedChatProps = {
   currentUserDisplayName: string
   orgName?: string
   contextSeed?: ContextReferenceSeed | null
+  onContextActionResolved?: () => void
   onClose?: () => void
 }
 
-export function DockedChat({ orgId, currentUserUid, currentUserDisplayName, orgName, contextSeed, onClose }: DockedChatProps) {
+export function DockedChat({ orgId, currentUserUid, currentUserDisplayName, orgName, contextSeed, onContextActionResolved, onClose }: DockedChatProps) {
   if (!orgId || !currentUserUid) {
-    return <div className="p-4 text-sm text-on-surface-variant">Sign in to chat with Pip.</div>
+    return <div className="p-4 text-sm text-[var(--color-pib-text-muted)]">Sign in to chat with Pip.</div>
   }
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center border-b border-[var(--color-card-border)] px-3 py-2">
+      <div className="flex items-center border-b border-[var(--color-pib-line)] px-3 py-2">
         <span className="material-symbols-outlined align-middle text-[18px] text-[var(--color-pib-accent)]">smart_toy</span>
-        <span className="ml-1.5 flex-1 text-sm font-semibold text-on-surface">Pip</span>
+        <span className="ml-1.5 flex-1 text-sm font-semibold text-[var(--color-pib-text)]">Pip</span>
         {onClose && (
-          <button onClick={onClose} className="text-on-surface-variant hover:text-on-surface transition-colors" aria-label="Close chat">
+          <button onClick={onClose} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors" aria-label="Close chat">
             <span className="material-symbols-outlined text-[18px]">close</span>
           </button>
         )}
@@ -37,7 +38,9 @@ export function DockedChat({ orgId, currentUserUid, currentUserDisplayName, orgN
           allowSendMessages
           allowAgentParticipants
           compact
+          preferCurrentPageContext
           currentPageContext={contextSeed ?? undefined}
+          onContextActionResolved={onContextActionResolved}
         />
       </div>
     </div>

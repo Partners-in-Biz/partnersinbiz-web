@@ -91,19 +91,19 @@ const PLATFORM_OPTIONS = [
 ]
 
 const STATUS_PILLS: { key: VaultStatus; label: string; cls: string }[] = [
-  { key: 'approved', label: 'Approved', cls: 'border-amber-400/40 text-amber-300 bg-amber-400/5' },
-  { key: 'scheduled', label: 'Scheduled', cls: 'border-blue-400/40 text-blue-300 bg-blue-400/5' },
-  { key: 'published', label: 'Published', cls: 'border-green-400/40 text-green-300 bg-green-400/5' },
-  { key: 'vaulted', label: 'Vaulted', cls: 'border-slate-400/40 text-slate-300 bg-slate-400/5' },
+  { key: 'approved', label: 'Approved', cls: 'border-[var(--color-pib-amber)]/40 text-[var(--color-pib-amber)] bg-[var(--color-pib-amber-soft)]' },
+  { key: 'scheduled', label: 'Scheduled', cls: 'border-[var(--color-pib-blue)]/40 text-[var(--color-pib-blue)] bg-[var(--color-pib-blue-soft)]' },
+  { key: 'published', label: 'Published', cls: 'border-[var(--color-pib-green)]/40 text-[var(--color-pib-green)] bg-[var(--color-pib-green-soft)]' },
+  { key: 'vaulted', label: 'Vaulted', cls: 'border-[var(--color-pib-line-strong)] text-[var(--color-pib-text)] bg-[var(--color-pib-surface)]' },
 ]
 
 const STATUS_PILL_STYLES: Record<VaultStatus, string> = {
-  approved: 'border-amber-400/40 text-amber-300',
-  vaulted: 'border-slate-400/40 text-slate-300',
-  scheduled: 'border-blue-400/40 text-blue-300',
-  publishing: 'border-blue-400/40 text-blue-300',
-  published: 'border-green-400/40 text-green-300',
-  partially_published: 'border-green-400/40 text-green-300',
+  approved: 'border-[var(--color-pib-amber)]/40 text-[var(--color-pib-amber)]',
+  vaulted: 'border-[var(--color-pib-line-strong)] text-[var(--color-pib-text-muted)]',
+  scheduled: 'border-[var(--color-pib-blue)]/40 text-[var(--color-pib-blue)]',
+  publishing: 'border-[var(--color-pib-blue)]/40 text-[var(--color-pib-blue)]',
+  published: 'border-[var(--color-pib-green)]/40 text-[var(--color-pib-green)]',
+  partially_published: 'border-[var(--color-pib-green)]/40 text-[var(--color-pib-green)]',
 }
 
 const STATUS_LABELS: Record<VaultStatus, string> = {
@@ -127,7 +127,7 @@ const VAULT_PREVIEW_BRAND: PreviewBrand = {
 }
 
 function PlatformBadge({ platform }: { platform: string }) {
-  const cfg = PLATFORM_COLORS[platform] ?? { bg: 'bg-gray-600', label: platform.slice(0, 2).toUpperCase() }
+  const cfg = PLATFORM_COLORS[platform] ?? { bg: 'bg-[var(--color-pib-line-strong)]', label: platform.slice(0, 2).toUpperCase() }
   return <span className={`${cfg.bg} text-white text-[10px] px-2 py-0.5 rounded font-bold`}>{cfg.label}</span>
 }
 
@@ -274,19 +274,19 @@ function useInlineToast() {
           className="pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-[var(--radius-card)] shadow-lg min-w-72 max-w-sm animate-[slideIn_0.2s_ease-out]"
           style={{
             background: 'var(--color-sidebar)',
-            border: `1px solid ${t.tone === 'success' ? '#4ade80' : t.tone === 'error' ? '#ef4444' : '#60a5fa'}`,
+            border: `1px solid ${t.tone === 'success' ? 'var(--color-pib-green)' : t.tone === 'error' ? 'var(--color-error)' : 'var(--color-pib-blue)'}`,
           }}
         >
           <span
             className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
             style={{
-              background: t.tone === 'success' ? 'rgba(74,222,128,0.15)' : t.tone === 'error' ? 'rgba(239,68,68,0.15)' : 'rgba(96,165,250,0.15)',
-              color: t.tone === 'success' ? '#4ade80' : t.tone === 'error' ? '#ef4444' : '#60a5fa',
+              background: t.tone === 'success' ? 'var(--color-pib-green-soft)' : t.tone === 'error' ? 'color-mix(in srgb, var(--color-error) 15%, transparent)' : 'var(--color-pib-blue-soft)',
+              color: t.tone === 'success' ? 'var(--color-pib-green)' : t.tone === 'error' ? 'var(--color-error)' : 'var(--color-pib-blue)',
             }}
           >
             {t.tone === 'success' ? '✓' : t.tone === 'error' ? '✕' : 'i'}
           </span>
-          <p className="text-sm text-[var(--color-on-surface)] flex-1">{t.message}</p>
+          <p className="text-sm text-[var(--color-pib-text)] flex-1">{t.message}</p>
         </div>
       ))}
     </div>
@@ -339,7 +339,7 @@ function VaultCard({ post, onCopy, onDownload, onPostAction, actionBusy }: {
           <button
             type="button"
             onClick={() => setPreviewOpen(true)}
-            className="grid h-7 w-7 place-items-center rounded-full border border-[var(--color-outline-variant)] text-[var(--color-on-surface-variant)] transition hover:border-[var(--color-accent-v2)] hover:text-[var(--color-accent-v2)]"
+            className="grid h-7 w-7 place-items-center rounded-full border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] transition hover:border-[var(--color-accent-v2)] hover:text-[var(--color-accent-v2)]"
             aria-label="Preview post"
             title="Preview post"
           >
@@ -350,7 +350,7 @@ function VaultCard({ post, onCopy, onDownload, onPostAction, actionBusy }: {
               type="button"
               onClick={() => onPostAction(post, headerAction)}
               disabled={actionBusy}
-              className="grid h-7 w-7 place-items-center rounded-full border border-[var(--color-outline-variant)] text-[var(--color-on-surface-variant)] transition hover:border-[var(--color-accent-v2)] hover:text-[var(--color-accent-v2)] disabled:cursor-wait disabled:opacity-50"
+              className="grid h-7 w-7 place-items-center rounded-full border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] transition hover:border-[var(--color-accent-v2)] hover:text-[var(--color-accent-v2)] disabled:cursor-wait disabled:opacity-50"
               aria-label={headerAction === 'post' ? 'Post scheduled post' : 'Repost published post'}
               title={headerAction === 'post' ? 'Post now' : 'Repost'}
             >
@@ -374,22 +374,22 @@ function VaultCard({ post, onCopy, onDownload, onPostAction, actionBusy }: {
           onClick={() => setPreviewOpen(false)}
         >
           <div
-            className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-[var(--color-outline-variant)] bg-[var(--color-surface)] p-4 shadow-2xl"
+            className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-surface)] p-4 shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
-                <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-on-surface-variant)]">
+                <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                   Platform preview
                 </p>
-                <p className="text-sm font-medium text-[var(--color-on-surface)]">
+                <p className="text-sm font-medium text-[var(--color-pib-text)]">
                   {STATUS_LABELS[status] ?? status}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setPreviewOpen(false)}
-                className="grid h-8 w-8 place-items-center rounded-full border border-[var(--color-outline-variant)] text-[var(--color-on-surface-variant)] hover:text-[var(--color-on-surface)]"
+                className="grid h-8 w-8 place-items-center rounded-full border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
                 aria-label="Close preview"
               >
                 <span className="material-symbols-outlined text-[18px] leading-none">close</span>
@@ -412,7 +412,7 @@ function VaultCard({ post, onCopy, onDownload, onPostAction, actionBusy }: {
             return (
               <div
                 key={i}
-                className={`relative overflow-hidden rounded-[var(--radius-card)] bg-[var(--color-surface-variant)] border border-[var(--color-outline-variant)] ${visibleMedia.length === 1 ? 'aspect-[4/3]' : 'aspect-square'} ${isFeature ? 'col-span-2 aspect-[16/9]' : ''}`}
+                className={`relative overflow-hidden rounded-[var(--radius-card)] bg-[var(--color-surface-variant)] border border-[var(--color-pib-line)] ${visibleMedia.length === 1 ? 'aspect-[4/3]' : 'aspect-square'} ${isFeature ? 'col-span-2 aspect-[16/9]' : ''}`}
               >
                 {isVideo && (m.url || m.thumbnailUrl) ? (
                   <video
@@ -428,7 +428,7 @@ function VaultCard({ post, onCopy, onDownload, onPostAction, actionBusy }: {
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={src} alt={m.alt ?? ''} className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-xs text-[var(--color-on-surface-variant)]">
+                  <div className="w-full h-full flex items-center justify-center text-xs text-[var(--color-pib-text-muted)]">
                     {(m.type ?? 'file').slice(0, 3)}
                   </div>
                 )}
@@ -451,7 +451,7 @@ function VaultCard({ post, onCopy, onDownload, onPostAction, actionBusy }: {
       {/* Content */}
       <div className="relative">
         <p
-          className={`text-sm text-[var(--color-on-surface)] whitespace-pre-wrap ${expanded ? '' : 'max-h-[10rem] overflow-hidden'}`}
+          className={`text-sm text-[var(--color-pib-text)] whitespace-pre-wrap ${expanded ? '' : 'max-h-[10rem] overflow-hidden'}`}
         >
           {text}
         </p>
@@ -494,14 +494,14 @@ function VaultCard({ post, onCopy, onDownload, onPostAction, actionBusy }: {
       {(post.labels?.length || post.campaign) && (
         <div className="flex gap-1 flex-wrap text-[10px]">
           {post.campaign && (
-            <span className="px-2 py-0.5 rounded border border-[var(--color-outline-variant)] text-[var(--color-on-surface-variant)]">
+            <span className="px-2 py-0.5 rounded border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)]">
               {post.campaign}
             </span>
           )}
           {(post.labels ?? []).map(label => (
             <span
               key={label}
-              className="px-2 py-0.5 rounded border border-[var(--color-outline-variant)] text-[var(--color-on-surface-variant)]"
+              className="px-2 py-0.5 rounded border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)]"
             >
               {label}
             </span>
@@ -511,21 +511,21 @@ function VaultCard({ post, onCopy, onDownload, onPostAction, actionBusy }: {
 
       {/* Date */}
       {dateLabel && (
-        <p className="text-xs text-[var(--color-on-surface-variant)]">{dateLabel}</p>
+        <p className="text-xs text-[var(--color-pib-text-muted)]">{dateLabel}</p>
       )}
 
       {/* Action bar */}
-      <div className="flex gap-2 pt-3 mt-auto border-t border-[var(--color-outline-variant)]">
+      <div className="flex gap-2 pt-3 mt-auto border-t border-[var(--color-pib-line)]">
         <button
           onClick={() => onCopy(post)}
-          className="pib-btn-secondary text-xs px-3 py-1.5 flex-1 inline-flex items-center justify-center text-center"
+          className="btn-pib-secondary text-xs px-3 py-1.5 flex-1 inline-flex items-center justify-center text-center"
           title="Copy text + hashtags"
         >
           Copy text
         </button>
         <button
           onClick={() => onDownload(post)}
-          className="pib-btn-primary text-xs px-3 py-1.5 flex-1 inline-flex items-center justify-center text-center"
+          className="btn-pib-primary text-xs px-3 py-1.5 flex-1 inline-flex items-center justify-center text-center"
           title="Download bundle"
         >
           Download
@@ -709,16 +709,17 @@ export function SocialVaultWorkspace({
     !!toDate
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {toastNode}
 
       {/* Header */}
-      <div>
-        <h1 className="font-headline text-2xl font-bold tracking-tighter">{title}</h1>
-        <p className="text-sm text-[var(--color-on-surface-variant)] mt-1">
+      <header>
+        <p className="eyebrow">Social · Vault</p>
+        <h1 className="pib-page-title mt-2">{title}</h1>
+        <p className="pib-page-sub">
           {description}
         </p>
-      </div>
+      </header>
 
       {/* Filters */}
       <div className="pib-card p-4 space-y-3 sticky top-2 z-10 backdrop-blur-sm">
@@ -765,7 +766,7 @@ export function SocialVaultWorkspace({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[10px] font-label uppercase tracking-widest text-[var(--color-on-surface-variant)] mr-1">
+          <span className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mr-1">
             Status
           </span>
           {STATUS_PILLS.map(p => {
@@ -777,7 +778,7 @@ export function SocialVaultWorkspace({
                 className={`text-[10px] font-label uppercase tracking-widest border px-2.5 py-1 rounded-full transition-colors ${
                   active
                     ? p.cls
-                    : 'border-[var(--color-outline-variant)] text-[var(--color-on-surface-variant)] hover:text-[var(--color-on-surface)]'
+                    : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
                 }`}
               >
                 {p.label}
@@ -788,7 +789,7 @@ export function SocialVaultWorkspace({
           {hasActiveFilters && (
             <button
               onClick={resetFilters}
-              className="ml-auto text-xs text-[var(--color-on-surface-variant)] hover:text-[var(--color-accent-v2)] underline"
+              className="ml-auto text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-accent-v2)] underline"
             >
               Reset filters
             </button>
@@ -798,7 +799,7 @@ export function SocialVaultWorkspace({
 
       {/* Error */}
       {error && (
-        <div className="p-3 bg-red-900/30 border border-red-400/40 text-red-300 text-sm rounded">
+        <div className="rounded-lg border border-[var(--color-error)]/40 p-3 text-sm text-[var(--color-error)]">
           {error}
         </div>
       )}
@@ -806,13 +807,13 @@ export function SocialVaultWorkspace({
       {/* Bulk actions */}
       {!loading && posts.length > 0 && (
         <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-xs font-label uppercase tracking-widest border border-[var(--color-outline-variant)] text-[var(--color-on-surface-variant)] px-2.5 py-1 rounded-full">
+          <span className="text-xs font-label uppercase tracking-widest border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] px-2.5 py-1 rounded-full">
             {visiblePosts.length} of {posts.length} {posts.length === 1 ? 'post' : 'posts'}
           </span>
           <button
             onClick={handleCopyAllVisible}
             disabled={visiblePosts.length === 0}
-            className="pib-btn-secondary text-xs px-3 py-1.5"
+            className="btn-pib-secondary text-xs px-3 py-1.5"
             style={{
               opacity: visiblePosts.length === 0 ? 0.5 : 1,
               cursor: visiblePosts.length === 0 ? 'not-allowed' : 'pointer',
@@ -822,7 +823,7 @@ export function SocialVaultWorkspace({
           </button>
           <Link
             href={scopedPortalPath('/portal/social', orgScope)}
-            className="ml-auto text-xs text-[var(--color-on-surface-variant)] hover:text-[var(--color-accent-v2)] underline"
+            className="ml-auto text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-accent-v2)] underline"
           >
             ← Back to Social
           </Link>
@@ -841,14 +842,14 @@ export function SocialVaultWorkspace({
         </div>
       ) : posts.length === 0 ? (
         <div className="pib-card text-center py-12">
-          <p className="text-[var(--color-on-surface)] font-headline text-lg mb-2">Your vault is empty.</p>
-          <p className="text-sm text-[var(--color-on-surface-variant)]">
+          <p className="text-[var(--color-pib-text)] font-headline text-lg mb-2">Your vault is empty.</p>
+          <p className="text-sm text-[var(--color-pib-text-muted)]">
             Once your team approves posts, they&apos;ll show up here for you to grab any time.
           </p>
         </div>
       ) : visiblePosts.length === 0 ? (
         <div className="pib-card text-center py-10">
-          <p className="text-sm text-[var(--color-on-surface-variant)]">
+          <p className="text-sm text-[var(--color-pib-text-muted)]">
             No posts match your filters.
           </p>
           <button

@@ -64,7 +64,7 @@ function labelForOrganization(org: AccessOrganization): string {
 
 function StatusPill({ value }: { value?: string }) {
   return (
-    <span className="rounded-full border border-[var(--color-card-border)] px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
+    <span className="pib-pill">
       {value || 'active'}
     </span>
   )
@@ -285,12 +285,12 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
   }
 
   return (
-    <section className="rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card)] p-5 shadow-sm">
+    <section className="pib-card">
       <div className="mb-5 flex items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">People & Access</p>
-          <h2 className="mt-1 text-xl font-headline font-bold text-on-surface">Project collaboration</h2>
-          <p className="mt-2 max-w-2xl text-sm text-on-surface-variant">Invite people and organisations to this project without granting workspace-wide access.</p>
+          <p className="pib-label">People & Access</p>
+          <h2 className="mt-1 text-xl font-headline font-bold text-[var(--color-pib-text)]">Project collaboration</h2>
+          <p className="mt-2 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">Invite people and organisations to this project without granting workspace-wide access.</p>
         </div>
         <button type="button" onClick={() => loadAccess()} className="pib-btn-secondary text-xs font-label" disabled={loading}>
           Refresh
@@ -301,14 +301,14 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] p-4">
-          <h3 className="text-sm font-headline font-semibold text-on-surface">Internal members</h3>
+          <h3 className="text-sm font-headline font-semibold text-[var(--color-pib-text)]">Internal members</h3>
           <div className="mt-3 space-y-2">
-            {data.members.length === 0 ? <p className="text-sm text-on-surface-variant">{loading ? 'Loading members...' : 'No project members yet.'}</p> : null}
+            {data.members.length === 0 ? <p className="text-sm text-[var(--color-pib-text-muted)]">{loading ? 'Loading members...' : 'No project members yet.'}</p> : null}
             {data.members.map((member) => (
               <div key={member.id || member.uid} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-on-surface">{labelForMember(member)}</p>
-                  <p className="text-xs text-on-surface-variant">{member.memberType || 'internal'} / {member.role || 'viewer'}</p>
+                  <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{labelForMember(member)}</p>
+                  <p className="text-xs text-[var(--color-pib-text-muted)]">{member.memberType || 'internal'} / {member.role || 'viewer'}</p>
                 </div>
                 <StatusPill value={member.status} />
               </div>
@@ -327,7 +327,7 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
           >
             <div className="min-w-[220px] flex-1">
               <label>
-                <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Search team member</span>
+                <span className="pib-label mb-1 block">Search team member</span>
                 <input
                   value={memberSearch}
                   onChange={(event) => {
@@ -335,20 +335,20 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
                     setSelectedMember(null)
                   }}
                   placeholder="Search owner-org members by name or email"
-                  className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface"
+                  className="pib-input"
                 />
               </label>
               {selectedMember ? (
-                <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-xs text-on-surface">
+                <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-xs text-[var(--color-pib-text)]">
                   <span className="min-w-0 truncate">Selected member: {labelForMember(selectedMember)}</span>
-                  <button type="button" className="text-on-surface-variant hover:text-on-surface" onClick={() => setSelectedMember(null)} aria-label="Clear selected member">
+                  <button type="button" className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]" onClick={() => setSelectedMember(null)} aria-label="Clear selected member">
                     <span className="material-symbols-outlined text-[16px]">close</span>
                   </button>
                 </div>
               ) : null}
               {!selectedMember && memberSearch.trim().length >= 2 ? (
                 <div className="mt-2 grid gap-2">
-                  {memberMatches.length === 0 ? <p className="text-xs text-on-surface-variant">No owner-org members match this search.</p> : null}
+                  {memberMatches.length === 0 ? <p className="text-xs text-[var(--color-pib-text-muted)]">No owner-org members match this search.</p> : null}
                   {memberMatches.map((member) => (
                     <button
                       key={member.uid}
@@ -358,11 +358,11 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
                         setSelectedMember(member)
                         setMemberSearch(labelForMember(member))
                       }}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-left text-sm text-on-surface hover:border-[var(--color-primary)]"
+                      className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-left text-sm text-[var(--color-pib-text)] hover:border-[var(--color-primary)]"
                     >
                       <span className="min-w-0">
                         <span className="block truncate font-medium">{labelForMember(member)}</span>
-                        {member.email ? <span className="block truncate text-xs text-on-surface-variant">{member.email}</span> : null}
+                        {member.email ? <span className="block truncate text-xs text-[var(--color-pib-text-muted)]">{member.email}</span> : null}
                       </span>
                       <span className="material-symbols-outlined text-[18px]">person_add</span>
                     </button>
@@ -371,8 +371,8 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
               ) : null}
             </div>
             <label>
-              <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Role</span>
-              <select value={memberRole} onChange={(event) => setMemberRole(event.target.value)} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface">
+              <span className="pib-label mb-1 block">Role</span>
+              <select value={memberRole} onChange={(event) => setMemberRole(event.target.value)} className="pib-select">
                 {ROLE_OPTIONS.map((role) => <option key={role} value={role}>{role}</option>)}
               </select>
             </label>
@@ -381,14 +381,14 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
         </div>
 
         <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] p-4">
-          <h3 className="text-sm font-headline font-semibold text-on-surface">External organisations</h3>
+          <h3 className="text-sm font-headline font-semibold text-[var(--color-pib-text)]">External organisations</h3>
           <div className="mt-3 space-y-2">
-            {data.organizations.length === 0 ? <p className="text-sm text-on-surface-variant">{loading ? 'Loading organisations...' : 'No external organisations yet.'}</p> : null}
+            {data.organizations.length === 0 ? <p className="text-sm text-[var(--color-pib-text-muted)]">{loading ? 'Loading organisations...' : 'No external organisations yet.'}</p> : null}
             {data.organizations.map((org) => (
               <div key={org.id || org.orgId || org.companyId} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-on-surface">{labelForOrganization(org)}</p>
-                  <p className="text-xs text-on-surface-variant">{org.role || 'viewer'}</p>
+                  <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{labelForOrganization(org)}</p>
+                  <p className="text-xs text-[var(--color-pib-text-muted)]">{org.role || 'viewer'}</p>
                 </div>
                 <StatusPill value={org.status} />
               </div>
@@ -412,7 +412,7 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
           >
             <div className="sm:col-span-3">
               <label>
-                <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Search CRM company</span>
+                <span className="pib-label mb-1 block">Search CRM company</span>
                 <input
                   value={companySearch}
                   onChange={(event) => {
@@ -423,11 +423,11 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
                     setContactId('')
                   }}
                   placeholder="Search by company name or email"
-                  className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface"
+                  className="pib-input"
                 />
               </label>
               <div className="mt-2 grid gap-2">
-                {companySearchLoading ? <p className="text-xs text-on-surface-variant">Searching companies...</p> : null}
+                {companySearchLoading ? <p className="text-xs text-[var(--color-pib-text-muted)]">Searching companies...</p> : null}
                 {companyResults.map((company) => (
                   <button
                     key={company.id}
@@ -441,11 +441,11 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
                       setSelectedContact(null)
                       setContactId('')
                     }}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-left text-sm text-on-surface hover:border-[var(--color-primary)]"
+                    className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-left text-sm text-[var(--color-pib-text)] hover:border-[var(--color-primary)]"
                   >
                     <span className="min-w-0">
                       <span className="block truncate font-medium">{company.name || 'Unnamed company'}</span>
-                      {company.email ? <span className="block truncate text-xs text-on-surface-variant">{company.email}</span> : null}
+                      {company.email ? <span className="block truncate text-xs text-[var(--color-pib-text-muted)]">{company.email}</span> : null}
                     </span>
                     <span className="material-symbols-outlined text-[18px]">chevron_right</span>
                   </button>
@@ -455,7 +455,7 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
                     type="button"
                     onClick={() => createCrmCompany()}
                     disabled={companyCreating}
-                    className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm font-medium text-on-surface hover:border-[var(--color-primary)] disabled:opacity-50"
+                    className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm font-medium text-[var(--color-pib-text)] hover:border-[var(--color-primary)] disabled:opacity-50"
                   >
                     <span className="material-symbols-outlined text-[18px]" aria-hidden="true">add_business</span>
                     {companyCreating ? 'Creating company...' : 'Create CRM company'}
@@ -463,17 +463,17 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
                 ) : null}
               </div>
               {selectedCompany ? (
-                <p className="mt-2 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-xs text-on-surface">
+                <p className="mt-2 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-xs text-[var(--color-pib-text)]">
                   Selected company: {selectedCompany.name || selectedCompany.email || selectedCompany.id}
                 </p>
               ) : null}
             </div>
             {selectedCompany ? (
               <div className="sm:col-span-2">
-                <p className="mb-1 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">CRM contact</p>
+                <p className="pib-label mb-1">CRM contact</p>
                 <div className="grid gap-2">
-                  {contactsLoading ? <p className="text-xs text-on-surface-variant">Loading contacts...</p> : null}
-                  {!contactsLoading && contactResults.length === 0 ? <p className="text-xs text-on-surface-variant">No linked contacts found for this company.</p> : null}
+                  {contactsLoading ? <p className="text-xs text-[var(--color-pib-text-muted)]">Loading contacts...</p> : null}
+                  {!contactsLoading && contactResults.length === 0 ? <p className="text-xs text-[var(--color-pib-text-muted)]">No linked contacts found for this company.</p> : null}
                   {contactResults.map((contact) => (
                     <button
                       key={contact.id}
@@ -483,11 +483,11 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
                         setSelectedContact(contact)
                         setContactId(contact.id)
                       }}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-left text-sm text-on-surface hover:border-[var(--color-primary)]"
+                      className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-left text-sm text-[var(--color-pib-text)] hover:border-[var(--color-primary)]"
                     >
                       <span className="min-w-0">
                         <span className="block truncate font-medium">{contact.name || 'Unnamed contact'}</span>
-                        {contact.email ? <span className="block truncate text-xs text-on-surface-variant">{contact.email}</span> : null}
+                        {contact.email ? <span className="block truncate text-xs text-[var(--color-pib-text-muted)]">{contact.email}</span> : null}
                       </span>
                       <span className="material-symbols-outlined text-[18px]">person_add</span>
                     </button>
@@ -495,20 +495,20 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
                   <div className="rounded-lg border border-dashed border-[var(--color-card-border)] bg-[var(--color-card)] p-3">
                     <div className="grid gap-2 sm:grid-cols-2">
                       <label>
-                        <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">New contact name</span>
+                        <span className="pib-label mb-1 block">New contact name</span>
                         <input
                           value={newContactName}
                           onChange={(event) => setNewContactName(event.target.value)}
-                          className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface"
+                          className="pib-input"
                         />
                       </label>
                       <label>
-                        <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">New contact email</span>
+                        <span className="pib-label mb-1 block">New contact email</span>
                         <input
                           type="email"
                           value={newContactEmail}
                           onChange={(event) => setNewContactEmail(event.target.value)}
-                          className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-on-surface"
+                          className="pib-input"
                         />
                       </label>
                     </div>
@@ -516,7 +516,7 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
                       type="button"
                       onClick={() => createCrmContact()}
                       disabled={contactCreating || !newContactName.trim() || !newContactEmail.trim()}
-                      className="mt-2 inline-flex items-center gap-2 rounded-lg border border-[var(--color-card-border)] px-3 py-2 text-xs font-label text-on-surface hover:border-[var(--color-primary)] disabled:opacity-50"
+                      className="mt-2 inline-flex items-center gap-2 rounded-lg border border-[var(--color-card-border)] px-3 py-2 text-xs font-label text-[var(--color-pib-text)] hover:border-[var(--color-primary)] disabled:opacity-50"
                     >
                       <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
                       {contactCreating ? 'Creating contact...' : 'Create contact'}
@@ -524,15 +524,15 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
                   </div>
                 </div>
                 {selectedContact ? (
-                  <p className="mt-2 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-xs text-on-surface">
+                  <p className="mt-2 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-xs text-[var(--color-pib-text)]">
                     Selected contact: {selectedContact.name || selectedContact.email || selectedContact.id}
                   </p>
                 ) : null}
               </div>
             ) : null}
             <label>
-              <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Role</span>
-              <select value={orgRole} onChange={(event) => setOrgRole(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-on-surface">
+              <span className="pib-label mb-1 block">Role</span>
+              <select value={orgRole} onChange={(event) => setOrgRole(event.target.value)} className="pib-select w-full">
                 {ROLE_OPTIONS.map((role) => <option key={role} value={role}>{role}</option>)}
               </select>
             </label>
@@ -542,14 +542,14 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
       </div>
 
       <div className="mt-4 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-background)] p-4">
-        <h3 className="text-sm font-headline font-semibold text-on-surface">Access audit</h3>
+        <h3 className="text-sm font-headline font-semibold text-[var(--color-pib-text)]">Access audit</h3>
         <div className="mt-3 grid gap-2">
-          {auditRows.length === 0 ? <p className="text-sm text-on-surface-variant">{loading ? 'Loading audit...' : 'No access records yet.'}</p> : null}
+          {auditRows.length === 0 ? <p className="text-sm text-[var(--color-pib-text-muted)]">{loading ? 'Loading audit...' : 'No access records yet.'}</p> : null}
           {auditRows.map((row) => (
             <div key={`${row.kind}-${row.id}`} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2">
               <div className="min-w-0">
-                <p className="truncate text-sm text-on-surface">{row.label}</p>
-                <p className="text-xs text-on-surface-variant">{row.kind} / {row.role || 'viewer'}</p>
+                <p className="truncate text-sm text-[var(--color-pib-text)]">{row.label}</p>
+                <p className="text-xs text-[var(--color-pib-text-muted)]">{row.kind} / {row.role || 'viewer'}</p>
               </div>
               <StatusPill value={row.status} />
             </div>

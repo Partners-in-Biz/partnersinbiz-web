@@ -654,7 +654,7 @@ export default function SocialPostComposer({
   const renderPreview = () => {
     if (selectedPlatforms.length === 0) {
       return (
-        <div className="pib-card p-4 text-sm text-[var(--color-on-surface-variant)]">
+        <div className="pib-card p-4 text-sm text-[var(--color-pib-text-muted)]">
           Select a connected platform to see its preview.
         </div>
       )
@@ -667,7 +667,7 @@ export default function SocialPostComposer({
             ?? accounts.find((item) => item.platform === platform)
           return (
             <div key={platform} className={previewMode === 'toggle' ? 'flex-shrink-0' : 'space-y-2'}>
-              <div className="flex items-center gap-2 text-xs font-label font-bold uppercase tracking-widest text-[var(--color-on-surface-variant)]">
+              <div className="flex items-center gap-2 text-xs font-label font-bold uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                 <span className={`${PLATFORM_CONFIG[platform]?.bg ?? 'bg-gray-600'} text-white text-[10px] px-2 py-0.5 rounded font-bold`}>
                   {PLATFORM_CONFIG[platform]?.short ?? platform.slice(0, 2).toUpperCase()}
                 </span>
@@ -692,10 +692,10 @@ export default function SocialPostComposer({
     <div className={previewMode === 'sidebar' ? 'grid gap-6 xl:grid-cols-[minmax(0,42rem)_minmax(22rem,1fr)]' : 'p-6 max-w-2xl mx-auto space-y-6'}>
       <div className="space-y-6 max-w-2xl">
         <div>
-          <h1 className={advanced ? 'text-2xl font-semibold text-on-surface' : 'font-headline text-2xl font-bold tracking-tighter'}>
+          <h1 className={advanced ? 'text-2xl font-semibold text-[var(--color-pib-text)]' : 'font-headline text-2xl font-bold tracking-tighter'}>
             {title}
           </h1>
-          <p className={advanced ? 'text-sm text-on-surface-variant mt-1' : 'text-sm text-[var(--color-on-surface-variant)] mt-1'}>
+          <p className={advanced ? 'text-sm text-[var(--color-pib-text-muted)] mt-1' : 'text-sm text-[var(--color-pib-text-muted)] mt-1'}>
             {description}
           </p>
         </div>
@@ -704,9 +704,9 @@ export default function SocialPostComposer({
         {errors.submit && <div className="border border-red-400/40 p-4 text-red-300 text-sm">{errors.submit}</div>}
 
         <section className="pib-card space-y-3">
-          <h2 className="text-sm font-label uppercase tracking-widest text-on-surface-variant">Platforms</h2>
+          <h2 className="text-sm pib-label">Platforms</h2>
           {availablePlatforms.length === 0 ? (
-            <p className="text-[var(--color-on-surface-variant)] text-sm">
+            <p className="text-[var(--color-pib-text-muted)] text-sm">
               No accounts connected. <Link href={accountsHref} className="text-[var(--color-accent-v2)] underline">Connect an account</Link> first.
             </p>
           ) : (
@@ -736,14 +736,14 @@ export default function SocialPostComposer({
 
         {selectedPlatforms.length > 0 && (
           <section className="pib-card space-y-3">
-            <h2 className="text-sm font-label uppercase tracking-widest text-on-surface-variant">Accounts</h2>
+            <h2 className="text-sm pib-label">Accounts</h2>
             <div className="space-y-2">
               {selectedPlatforms.map((platform) => {
                 const platformAccounts = filteredAccounts.filter((account) => account.platform === platform)
                 if (platformAccounts.length === 0) return null
                 return (
                   <div key={platform}>
-                    <p className="text-xs text-on-surface-variant font-medium mb-1">{PLATFORM_CONFIG[platform]?.label ?? platform}</p>
+                    <p className="text-xs text-[var(--color-pib-text-muted)] font-medium mb-1">{PLATFORM_CONFIG[platform]?.label ?? platform}</p>
                     {platformAccounts.map((account) => (
                       <label key={account.id} className="pib-card pib-card-hover p-3 cursor-pointer flex items-center gap-3 transition-colors">
                         <input
@@ -755,8 +755,8 @@ export default function SocialPostComposer({
                         <span className={`${PLATFORM_CONFIG[account.platform]?.bg ?? 'bg-gray-600'} text-white text-[10px] px-2 py-0.5 rounded font-bold`}>
                           {PLATFORM_CONFIG[account.platform]?.short ?? account.platform.slice(0, 2).toUpperCase()}
                         </span>
-                        <span className="text-sm text-[var(--color-on-surface)]">{accountLabel(account)}</span>
-                        <span className="text-xs text-[var(--color-on-surface-variant)]">{accountHandle(account, '')}</span>
+                        <span className="text-sm text-[var(--color-pib-text)]">{accountLabel(account)}</span>
+                        <span className="text-xs text-[var(--color-pib-text-muted)]">{accountHandle(account, '')}</span>
                       </label>
                     ))}
                   </div>
@@ -769,7 +769,7 @@ export default function SocialPostComposer({
 
         {linkedinSelected && (
           <section className="pib-card space-y-3">
-            <h2 className="text-sm font-label uppercase tracking-widest text-on-surface-variant">LinkedIn — Share As</h2>
+            <h2 className="text-sm pib-label">LinkedIn — Share As</h2>
             <div className="flex gap-2">
               {([
                 { value: 'profile', label: 'Profile' },
@@ -787,7 +787,7 @@ export default function SocialPostComposer({
                 </button>
               ))}
             </div>
-            <p className="text-xs text-on-surface-variant">
+            <p className="text-xs text-[var(--color-pib-text-muted)]">
               Share as your personal Profile or as a connected Company Page. The LinkedIn account you publish with must match the chosen type.
             </p>
           </section>
@@ -797,14 +797,14 @@ export default function SocialPostComposer({
           <section className="pib-card space-y-3">
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1">
-                <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-wide mb-2">Mode</label>
+                <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] uppercase tracking-wide mb-2">Mode</label>
                 <div className="flex gap-2">
                   {(['single', 'thread'] as ComposeMode[]).map((item) => (
                     <button
                       key={item}
                       onClick={() => setMode(item)}
                       className={`px-4 py-2 rounded-lg font-label text-sm font-medium transition-colors capitalize ${
-                        mode === item ? 'bg-white text-black' : 'bg-surface-container text-on-surface hover:bg-surface-container-high'
+                        mode === item ? 'bg-white text-black' : 'bg-[var(--color-pib-surface)] text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-2)]'
                       }`}
                     >
                       {item === 'single' ? 'Single Post' : 'Thread'}
@@ -814,11 +814,11 @@ export default function SocialPostComposer({
               </div>
               {previewMode === 'toggle' && (
                 <div className="flex-1">
-                  <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-wide mb-2">Preview</label>
+                  <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] uppercase tracking-wide mb-2">Preview</label>
                   <button
                     onClick={() => setShowPreview((value) => !value)}
                     className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      showPreview ? 'bg-amber-500 text-black font-label' : 'bg-surface-container text-on-surface hover:bg-surface-container-high font-label'
+                      showPreview ? 'bg-amber-500 text-black font-label' : 'bg-[var(--color-pib-surface)] text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-2)] font-label'
                     }`}
                   >
                     {showPreview ? 'Hide Preview' : 'Show Preview'}
@@ -831,11 +831,11 @@ export default function SocialPostComposer({
 
         {isThread ? (
           <section className="pib-card space-y-3">
-            <h2 className="text-sm font-label uppercase tracking-widest text-on-surface-variant">Thread Parts</h2>
+            <h2 className="text-sm pib-label">Thread Parts</h2>
             {threadParts.map((part, index) => (
-              <div key={index} className="rounded-xl bg-surface-container p-3 space-y-2">
+              <div key={index} className="rounded-xl bg-[var(--color-pib-surface)] p-3 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-on-surface-variant">Part {index + 1}</span>
+                  <span className="text-xs text-[var(--color-pib-text-muted)]">Part {index + 1}</span>
                   {threadParts.length > 1 && (
                     <button onClick={() => removeThreadPart(index)} className="text-xs text-red-400 hover:text-red-300 transition-colors">
                       Remove
@@ -847,10 +847,10 @@ export default function SocialPostComposer({
                   value={part}
                   onChange={(event) => updateThreadPart(index, event.target.value)}
                   placeholder={`Part ${index + 1}...`}
-                  className="w-full bg-transparent text-sm text-on-surface placeholder:text-on-surface-variant/50 resize-none outline-none"
+                  className="w-full bg-transparent text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)]/50 resize-none outline-none"
                 />
                 <div className="flex justify-end">
-                  <span className={`text-xs ${part.length > charLimit ? 'text-red-400' : 'text-on-surface-variant'}`}>
+                  <span className={`text-xs ${part.length > charLimit ? 'text-red-400' : 'text-[var(--color-pib-text-muted)]'}`}>
                     {part.length} / {charLimit}
                   </span>
                 </div>
@@ -864,7 +864,7 @@ export default function SocialPostComposer({
         ) : (
           <section>
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-xs font-label uppercase tracking-widest text-[var(--color-on-surface-variant)]">Content</label>
+              <label className="block text-xs pib-label">Content</label>
               {templates.length > 0 && (
                 <button
                   type="button"
@@ -881,10 +881,10 @@ export default function SocialPostComposer({
                 value={content}
                 onChange={(event) => setContent(event.target.value)}
                 placeholder="Write your post…"
-                className="w-full bg-transparent text-sm text-[var(--color-on-surface)] placeholder:text-[var(--color-on-surface-variant)] resize-none outline-none"
+                className="w-full bg-transparent text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] resize-none outline-none"
               />
               <div className="flex justify-end mt-1">
-                <span className={`text-xs ${content.length > charLimit ? 'text-red-400' : 'text-[var(--color-on-surface-variant)]'}`}>
+                <span className={`text-xs ${content.length > charLimit ? 'text-red-400' : 'text-[var(--color-pib-text-muted)]'}`}>
                   {content.length} / {charLimit}
                 </span>
               </div>
@@ -895,17 +895,17 @@ export default function SocialPostComposer({
 
         {previewMode === 'toggle' && showPreview && (
           <section className="pib-card p-6">
-            <h3 className="text-sm font-semibold text-on-surface mb-4">Platform Preview</h3>
+            <h3 className="text-sm font-semibold text-[var(--color-pib-text)] mb-4">Platform Preview</h3>
             {renderPreview()}
           </section>
         )}
 
         <section className="pib-card p-3 space-y-3">
-          <label className="block text-xs font-label uppercase tracking-widest text-[var(--color-on-surface-variant)]">Images</label>
+          <label className="block text-xs pib-label">Images</label>
           {mediaItems.length > 0 && (
             <div className="grid grid-cols-2 gap-2">
               {mediaItems.map((media) => (
-                <div key={media.id} className="relative overflow-hidden border border-[var(--color-outline-variant)] bg-black/20">
+                <div key={media.id} className="relative overflow-hidden border border-[var(--color-pib-line)] bg-black/20">
                   <img src={media.url} alt={media.altText || 'Uploaded media'} className="h-32 w-full object-cover" />
                   <button
                     type="button"
@@ -922,12 +922,12 @@ export default function SocialPostComposer({
           {advanced ? (
             <button
               onClick={() => setShowImageModal(true)}
-              className="w-full px-4 py-3 text-sm font-label font-bold uppercase tracking-widest border border-dashed border-[var(--color-outline-variant)] text-[var(--color-on-surface-variant)] transition-colors hover:border-[var(--color-on-surface-variant)] hover:text-[var(--color-on-surface)]"
+              className="w-full px-4 py-3 text-sm font-label font-bold uppercase tracking-widest border border-dashed border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] transition-colors hover:border-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
             >
               + Generate Image with AI
             </button>
           ) : (
-            <label className="flex cursor-pointer items-center justify-center border border-dashed border-[var(--color-outline-variant)] px-4 py-3 text-sm font-label font-bold uppercase tracking-widest text-[var(--color-on-surface-variant)] transition-colors hover:border-[var(--color-on-surface-variant)] hover:text-[var(--color-on-surface)]">
+            <label className="flex cursor-pointer items-center justify-center border border-dashed border-[var(--color-pib-line)] px-4 py-3 text-sm font-label font-bold uppercase tracking-widest text-[var(--color-pib-text-muted)] transition-colors hover:border-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]">
               {uploadingImage ? 'Uploading...' : '+ Upload Image'}
               <input
                 type="file"
@@ -948,36 +948,36 @@ export default function SocialPostComposer({
           <section className="pib-card p-4 space-y-3">
             <button
               onClick={() => setShowAi((value) => !value)}
-              className="flex items-center gap-2 text-sm font-medium text-on-surface hover:text-white transition-colors"
+              className="flex items-center gap-2 text-sm font-medium text-[var(--color-pib-text)] hover:text-white transition-colors"
             >
               <span className="text-base">*</span>
               AI Assist
-              <span className="text-[10px] text-on-surface-variant">{showAi ? 'Hide' : 'Show'}</span>
+              <span className="text-[10px] text-[var(--color-pib-text-muted)]">{showAi ? 'Hide' : 'Show'}</span>
             </button>
 
             {showAi && (
               <div className="space-y-3 pt-1">
                 <div className="space-y-2">
-                  <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Generate Caption</label>
+                  <label className="text-xs font-medium text-[var(--color-pib-text-muted)] uppercase tracking-wide">Generate Caption</label>
                   <div className="grid grid-cols-2 gap-2">
-                    <label className="space-y-1 text-[10px] font-medium text-on-surface-variant uppercase tracking-wide">
+                    <label className="space-y-1 text-[10px] font-medium text-[var(--color-pib-text-muted)] uppercase tracking-wide">
                       Tone
                       <select
                         value={aiTone}
                         onChange={(event) => setAiTone(event.target.value as AiTone)}
-                        className="w-full rounded-lg bg-surface px-3 py-2 text-sm text-on-surface outline-none border border-transparent focus:border-outline-variant transition-colors capitalize"
+                        className="w-full rounded-lg bg-[var(--color-pib-surface)] px-3 py-2 text-sm text-[var(--color-pib-text)] outline-none border border-transparent focus:border-[var(--color-pib-line)] transition-colors capitalize"
                       >
                         {AI_TONES.map((tone) => (
                           <option key={tone} value={tone}>{tone}</option>
                         ))}
                       </select>
                     </label>
-                    <label className="space-y-1 text-[10px] font-medium text-on-surface-variant uppercase tracking-wide">
+                    <label className="space-y-1 text-[10px] font-medium text-[var(--color-pib-text-muted)] uppercase tracking-wide">
                       Variations
                       <select
                         value={aiCount}
                         onChange={(event) => setAiCount(Number(event.target.value))}
-                        className="w-full rounded-lg bg-surface px-3 py-2 text-sm text-on-surface outline-none border border-transparent focus:border-outline-variant transition-colors"
+                        className="w-full rounded-lg bg-[var(--color-pib-surface)] px-3 py-2 text-sm text-[var(--color-pib-text)] outline-none border border-transparent focus:border-[var(--color-pib-line)] transition-colors"
                       >
                         {[1, 2, 3, 4, 5].map((n) => (
                           <option key={n} value={n}>{n} {n === 1 ? 'variation' : 'variations'}</option>
@@ -992,16 +992,16 @@ export default function SocialPostComposer({
                       onChange={(event) => setAiPrompt(event.target.value)}
                       onKeyDown={(event) => event.key === 'Enter' && handleAiGenerate()}
                       placeholder="Topic or prompt"
-                      className="flex-1 rounded-lg bg-surface px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/50 outline-none border border-transparent focus:border-outline-variant transition-colors"
+                      className="flex-1 rounded-lg bg-[var(--color-pib-surface)] px-3 py-2 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)]/50 outline-none border border-transparent focus:border-[var(--color-pib-line)] transition-colors"
                     />
                     <button onClick={handleAiGenerate} disabled={aiLoading || !aiPrompt.trim()} className="pib-btn-primary !py-2 !px-3 !text-xs disabled:opacity-50">
                       {aiLoading ? 'Generating...' : 'Generate'}
                     </button>
                   </div>
                   {aiCaptions.map((caption, index) => (
-                    <div key={index} className="rounded-lg bg-surface p-2.5">
-                      <p className="text-xs text-on-surface leading-relaxed">{caption.text}</p>
-                      {caption.hashtags?.length > 0 && <p className="text-[10px] text-on-surface-variant mt-1">{caption.hashtags.join(' ')}</p>}
+                    <div key={index} className="rounded-lg bg-[var(--color-pib-surface)] p-2.5">
+                      <p className="text-xs text-[var(--color-pib-text)] leading-relaxed">{caption.text}</p>
+                      {caption.hashtags?.length > 0 && <p className="text-[10px] text-[var(--color-pib-text-muted)] mt-1">{caption.hashtags.join(' ')}</p>}
                       <button onClick={() => applyCaption(caption)} className="mt-1.5 text-[10px] text-blue-400 hover:text-blue-300 font-medium">
                         Use this caption
                       </button>
@@ -1012,7 +1012,7 @@ export default function SocialPostComposer({
                 {previewContent.trim() && (
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Suggest Hashtags</label>
+                      <label className="text-xs font-medium text-[var(--color-pib-text-muted)] uppercase tracking-wide">Suggest Hashtags</label>
                       <button onClick={handleAiHashtags} disabled={aiLoading} className="pib-btn-secondary !py-1 !px-2 !text-[10px] disabled:opacity-50">
                         {aiLoading ? 'Loading...' : 'Suggest'}
                       </button>
@@ -1025,10 +1025,10 @@ export default function SocialPostComposer({
                             onClick={() => applyHashtag(item.tag)}
                             disabled={hashtags.includes(item.tag)}
                             className={`text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors ${
-                              hashtags.includes(item.tag) ? 'bg-surface-container-high text-on-surface-variant/40' : 'bg-surface text-on-surface hover:bg-surface-container-high'
+                              hashtags.includes(item.tag) ? 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]/40' : 'bg-[var(--color-pib-surface)] text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-2)]'
                             }`}
                           >
-                            {item.tag} <span className="text-on-surface-variant/60">{Math.round(item.relevance * 100)}%</span>
+                            {item.tag} <span className="text-[var(--color-pib-text-muted)]/60">{Math.round(item.relevance * 100)}%</span>
                           </button>
                         ))}
                       </div>
@@ -1041,16 +1041,16 @@ export default function SocialPostComposer({
         )}
 
         <section className="pib-card space-y-3">
-          <h2 className="text-sm font-label uppercase tracking-widest text-on-surface-variant">Schedule</h2>
+          <h2 className="text-sm pib-label">Schedule</h2>
           <div className="flex items-end gap-2">
             <div className="flex-1">
-              <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-wide mb-2">Schedule For</label>
+              <label className="block text-xs font-medium text-[var(--color-pib-text-muted)] uppercase tracking-wide mb-2">Schedule For</label>
               <input
                 type="datetime-local"
                 value={scheduledFor}
                 min={minDateTime}
                 onChange={(event) => setScheduledFor(event.target.value)}
-                className="w-full rounded-xl bg-surface-container px-4 py-2.5 text-sm text-on-surface outline-none border border-transparent focus:border-outline-variant transition-colors"
+                className="w-full rounded-xl bg-[var(--color-pib-surface)] px-4 py-2.5 text-sm text-[var(--color-pib-text)] outline-none border border-transparent focus:border-[var(--color-pib-line)] transition-colors"
               />
             </div>
             {advanced && (
@@ -1059,17 +1059,17 @@ export default function SocialPostComposer({
               </button>
             )}
           </div>
-          <p className="text-xs text-on-surface-variant">Leave empty to save as draft.</p>
+          <p className="text-xs text-[var(--color-pib-text-muted)]">Leave empty to save as draft.</p>
         </section>
 
         {advanced && (
           <>
             <section className="pib-card space-y-3">
-              <h2 className="text-sm font-label uppercase tracking-widest text-on-surface-variant">Category</h2>
+              <h2 className="text-sm pib-label">Category</h2>
               <select
                 value={category}
                 onChange={(event) => setCategory(event.target.value as SocialPostCategory)}
-                className="rounded-xl bg-surface-container px-4 py-2.5 text-sm text-on-surface outline-none border border-transparent focus:border-outline-variant transition-colors capitalize"
+                className="rounded-xl bg-[var(--color-pib-surface)] px-4 py-2.5 text-sm text-[var(--color-pib-text)] outline-none border border-transparent focus:border-[var(--color-pib-line)] transition-colors capitalize"
               >
                 {CATEGORIES.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
@@ -1099,17 +1099,17 @@ export default function SocialPostComposer({
 
         <section className="pib-card space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-label uppercase tracking-widest text-on-surface-variant">First Comment</h2>
-            <span className="text-[10px] text-on-surface-variant uppercase tracking-wide">Posted automatically after publish</span>
+            <h2 className="text-sm pib-label">First Comment</h2>
+            <span className="text-[10px] text-[var(--color-pib-text-muted)] uppercase tracking-wide">Posted automatically after publish</span>
           </div>
           <textarea
             rows={2}
             value={firstComment}
             onChange={(event) => setFirstComment(event.target.value)}
             placeholder="Optional — e.g. drop your link or extra hashtags as the first comment…"
-            className="w-full rounded-xl bg-surface-container px-4 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 outline-none border border-transparent focus:border-outline-variant transition-colors resize-none"
+            className="w-full rounded-xl bg-[var(--color-pib-surface)] px-4 py-2.5 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)]/50 outline-none border border-transparent focus:border-[var(--color-pib-line)] transition-colors resize-none"
           />
-          <p className="text-xs text-on-surface-variant">
+          <p className="text-xs text-[var(--color-pib-text-muted)]">
             Leave empty to skip. The comment is posted on the published post by the same account; a comment failure never blocks the post.
           </p>
         </section>
@@ -1117,7 +1117,7 @@ export default function SocialPostComposer({
         {hashtagSets.length > 0 && (
           <section className="pib-card space-y-2">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-label uppercase tracking-widest text-on-surface-variant">Saved Hashtag Sets</h2>
+              <h2 className="text-sm pib-label">Saved Hashtag Sets</h2>
               <button
                 type="button"
                 onClick={() => setShowHashtagSets((value) => !value)}
@@ -1129,10 +1129,10 @@ export default function SocialPostComposer({
             {showHashtagSets && (
               <div className="space-y-2">
                 {hashtagSets.map((set) => (
-                  <div key={set.id} className="flex items-center justify-between gap-3 rounded-lg bg-surface-container-high p-2.5">
+                  <div key={set.id} className="flex items-center justify-between gap-3 rounded-lg bg-[var(--color-pib-surface-2)] p-2.5">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-on-surface truncate">{set.name}</p>
-                      <p className="text-[11px] text-on-surface-variant truncate">{set.hashtags.join(' ')}</p>
+                      <p className="text-sm font-medium text-[var(--color-pib-text)] truncate">{set.name}</p>
+                      <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{set.hashtags.join(' ')}</p>
                     </div>
                     <button
                       type="button"
@@ -1182,7 +1182,7 @@ export default function SocialPostComposer({
         <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
           <div>
             <h2 className="font-headline text-xl font-bold tracking-tighter">Preview</h2>
-            <p className="text-sm text-[var(--color-on-surface-variant)] mt-1">Selected platforms render here as you compose.</p>
+            <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">Selected platforms render here as you compose.</p>
           </div>
           {renderPreview()}
         </aside>
@@ -1190,14 +1190,14 @@ export default function SocialPostComposer({
 
       {advanced && showImageModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-surface rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto space-y-4 p-6">
+          <div className="bg-[var(--color-pib-surface)] rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto space-y-4 p-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-on-surface">AI Image Generation</h2>
-              <button onClick={() => setShowImageModal(false)} className="text-on-surface-variant hover:text-on-surface text-xl">x</button>
+              <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">AI Image Generation</h2>
+              <button onClick={() => setShowImageModal(false)} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] text-xl">x</button>
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Template (Optional)</label>
+              <label className="text-xs font-medium text-[var(--color-pib-text-muted)] uppercase tracking-wide">Template (Optional)</label>
               <select
                 value={selectedTemplate}
                 disabled={templatesLoading}
@@ -1210,7 +1210,7 @@ export default function SocialPostComposer({
                     setImageSize(template.suggestedSize)
                   }
                 }}
-                className="w-full rounded-xl bg-surface-container px-4 py-2.5 text-sm text-on-surface outline-none border border-transparent focus:border-outline-variant transition-colors"
+                className="w-full rounded-xl bg-[var(--color-pib-surface)] px-4 py-2.5 text-sm text-[var(--color-pib-text)] outline-none border border-transparent focus:border-[var(--color-pib-line)] transition-colors"
               >
                 <option value="">Choose a template...</option>
                 {imageTemplates.map((template) => (
@@ -1220,28 +1220,28 @@ export default function SocialPostComposer({
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Image Prompt</label>
+              <label className="text-xs font-medium text-[var(--color-pib-text-muted)] uppercase tracking-wide">Image Prompt</label>
               <textarea
                 rows={4}
                 value={imagePrompt}
                 onChange={(event) => setImagePrompt(event.target.value)}
                 placeholder="Describe the image you want to generate..."
-                className="w-full rounded-xl bg-surface-container px-4 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 outline-none border border-transparent focus:border-outline-variant transition-colors resize-none"
+                className="w-full rounded-xl bg-[var(--color-pib-surface)] px-4 py-2.5 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)]/50 outline-none border border-transparent focus:border-[var(--color-pib-line)] transition-colors resize-none"
               />
-              <p className="text-[10px] text-on-surface-variant">{imagePrompt.length} / 4000 characters</p>
+              <p className="text-[10px] text-[var(--color-pib-text-muted)]">{imagePrompt.length} / 4000 characters</p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <label className="space-y-2 text-xs font-medium text-on-surface-variant uppercase tracking-wide">
+              <label className="space-y-2 text-xs font-medium text-[var(--color-pib-text-muted)] uppercase tracking-wide">
                 Provider
-                <select value={imageProvider} onChange={(event) => setImageProvider(event.target.value as ImageProvider)} className="w-full rounded-xl bg-surface-container px-4 py-2.5 text-sm text-on-surface">
+                <select value={imageProvider} onChange={(event) => setImageProvider(event.target.value as ImageProvider)} className="w-full rounded-xl bg-[var(--color-pib-surface)] px-4 py-2.5 text-sm text-[var(--color-pib-text)]">
                   <option value="xai">xAI (Grok)</option>
                   <option value="gemini">Google Gemini</option>
                 </select>
               </label>
-              <label className="space-y-2 text-xs font-medium text-on-surface-variant uppercase tracking-wide">
+              <label className="space-y-2 text-xs font-medium text-[var(--color-pib-text-muted)] uppercase tracking-wide">
                 Size
-                <select value={imageSize} onChange={(event) => setImageSize(event.target.value as ImageSize)} className="w-full rounded-xl bg-surface-container px-4 py-2.5 text-sm text-on-surface">
+                <select value={imageSize} onChange={(event) => setImageSize(event.target.value as ImageSize)} className="w-full rounded-xl bg-[var(--color-pib-surface)] px-4 py-2.5 text-sm text-[var(--color-pib-text)]">
                   <option value="1024x1024">Square (1024x1024)</option>
                   <option value="1024x1536">Portrait (1024x1536)</option>
                   <option value="1536x1024">Landscape (1536x1024)</option>
@@ -1257,13 +1257,13 @@ export default function SocialPostComposer({
 
             {generatedImageUrl && (
               <div className="space-y-2">
-                <div className="rounded-xl bg-surface-container overflow-hidden">
+                <div className="rounded-xl bg-[var(--color-pib-surface)] overflow-hidden">
                   <img src={generatedImageUrl} alt="generated" className="w-full" />
                 </div>
                 {generatedPrompt && (
-                  <div className="rounded-lg bg-surface p-2.5">
-                    <p className="text-[10px] text-on-surface-variant font-medium mb-1">Revised Prompt:</p>
-                    <p className="text-xs text-on-surface leading-relaxed">{generatedPrompt}</p>
+                  <div className="rounded-lg bg-[var(--color-pib-surface)] p-2.5">
+                    <p className="text-[10px] text-[var(--color-pib-text-muted)] font-medium mb-1">Revised Prompt:</p>
+                    <p className="text-xs text-[var(--color-pib-text)] leading-relaxed">{generatedPrompt}</p>
                   </div>
                 )}
                 <button onClick={useGeneratedImage} className="w-full pib-btn-secondary">Use This Image</button>
@@ -1275,13 +1275,13 @@ export default function SocialPostComposer({
 
       {showTemplatePicker && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-surface rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto space-y-4 p-6">
+          <div className="bg-[var(--color-pib-surface)] rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto space-y-4 p-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-on-surface">Use a Post Template</h2>
-              <button onClick={() => setShowTemplatePicker(false)} className="text-on-surface-variant hover:text-on-surface text-xl">x</button>
+              <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Use a Post Template</h2>
+              <button onClick={() => setShowTemplatePicker(false)} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] text-xl">x</button>
             </div>
             {templates.length === 0 ? (
-              <p className="text-sm text-on-surface-variant">No templates yet. Create reusable post-text templates under Social → Templates.</p>
+              <p className="text-sm text-[var(--color-pib-text-muted)]">No templates yet. Create reusable post-text templates under Social → Templates.</p>
             ) : (
               <div className="space-y-2">
                 {templates.map((template) => (
@@ -1289,11 +1289,11 @@ export default function SocialPostComposer({
                     key={template.id}
                     type="button"
                     onClick={() => openTemplate(template)}
-                    className="w-full text-left rounded-lg bg-surface-container hover:bg-surface-container-high p-3 transition-colors"
+                    className="w-full text-left rounded-lg bg-[var(--color-pib-surface)] hover:bg-[var(--color-pib-surface-2)] p-3 transition-colors"
                   >
-                    <p className="text-sm font-medium text-on-surface">{template.name}</p>
-                    {template.description && <p className="text-[11px] text-on-surface-variant mt-0.5">{template.description}</p>}
-                    <p className="text-xs text-on-surface-variant mt-1 line-clamp-2">{template.body}</p>
+                    <p className="text-sm font-medium text-[var(--color-pib-text)]">{template.name}</p>
+                    {template.description && <p className="text-[11px] text-[var(--color-pib-text-muted)] mt-0.5">{template.description}</p>}
+                    <p className="text-xs text-[var(--color-pib-text-muted)] mt-1 line-clamp-2">{template.body}</p>
                     {template.variables.length > 0 && (
                       <p className="text-[10px] text-[var(--color-accent-v2)] mt-1">{template.variables.map((v) => `{{${v}}}`).join(' ')}</p>
                     )}
@@ -1307,24 +1307,24 @@ export default function SocialPostComposer({
 
       {activeTemplate && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-surface rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto space-y-4 p-6">
+          <div className="bg-[var(--color-pib-surface)] rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto space-y-4 p-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-on-surface">{activeTemplate.name}</h2>
-              <button onClick={() => { setActiveTemplate(null); setTemplateVars({}) }} className="text-on-surface-variant hover:text-on-surface text-xl">x</button>
+              <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">{activeTemplate.name}</h2>
+              <button onClick={() => { setActiveTemplate(null); setTemplateVars({}) }} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] text-xl">x</button>
             </div>
 
             {activeTemplate.variables.length > 0 && (
               <div className="space-y-2">
-                <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Fill in placeholders</label>
+                <label className="text-xs font-medium text-[var(--color-pib-text-muted)] uppercase tracking-wide">Fill in placeholders</label>
                 {activeTemplate.variables.map((variable) => (
                   <div key={variable}>
-                    <label className="block text-[11px] text-on-surface-variant mb-1">{`{{${variable}}}`}</label>
+                    <label className="block text-[11px] text-[var(--color-pib-text-muted)] mb-1">{`{{${variable}}}`}</label>
                     <input
                       type="text"
                       value={templateVars[variable] ?? ''}
                       onChange={(event) => setTemplateVars((prev) => ({ ...prev, [variable]: event.target.value }))}
                       placeholder={variable}
-                      className="w-full rounded-lg bg-surface-container px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/50 outline-none border border-transparent focus:border-outline-variant transition-colors"
+                      className="w-full rounded-lg bg-[var(--color-pib-surface)] px-3 py-2 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)]/50 outline-none border border-transparent focus:border-[var(--color-pib-line)] transition-colors"
                     />
                   </div>
                 ))}
@@ -1332,8 +1332,8 @@ export default function SocialPostComposer({
             )}
 
             <div className="space-y-1">
-              <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Preview</label>
-              <div className="rounded-lg bg-surface-container p-3 text-sm text-on-surface whitespace-pre-wrap">
+              <label className="text-xs font-medium text-[var(--color-pib-text-muted)] uppercase tracking-wide">Preview</label>
+              <div className="rounded-lg bg-[var(--color-pib-surface)] p-3 text-sm text-[var(--color-pib-text)] whitespace-pre-wrap">
                 {renderTemplate(activeTemplate, templateVars)}
               </div>
             </div>
@@ -1368,21 +1368,21 @@ function ChipSection({
 }) {
   return (
     <section className="pib-card space-y-3">
-      <h2 className="text-sm font-label uppercase tracking-widest text-on-surface-variant">{title}</h2>
+      <h2 className="text-sm pib-label">{title}</h2>
       <input
         type="text"
         value={value}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={onKeyDown}
         placeholder={placeholder}
-        className="w-full rounded-xl bg-surface-container px-4 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 outline-none border border-transparent focus:border-outline-variant transition-colors"
+        className="w-full rounded-xl bg-[var(--color-pib-surface)] px-4 py-2.5 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)]/50 outline-none border border-transparent focus:border-[var(--color-pib-line)] transition-colors"
       />
       {items.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {items.map((item) => (
-            <span key={item} className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface text-xs font-medium">
+            <span key={item} className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)] text-xs font-medium">
               {item}
-              <button onClick={() => onRemove(item)} className="text-on-surface-variant hover:text-on-surface transition-colors ml-0.5">x</button>
+              <button onClick={() => onRemove(item)} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors ml-0.5">x</button>
             </span>
           ))}
         </div>

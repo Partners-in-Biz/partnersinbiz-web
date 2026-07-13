@@ -22,11 +22,11 @@ function timeAgo(iso: string | null): string {
 
 export function InboxPanel({ status, messages, unreadCount, loading, onAskPipReply }: Props) {
   if (loading) {
-    return <div className="p-4 text-sm text-on-surface-variant">Loading inbox&hellip;</div>
+    return <div className="p-4 text-sm text-[var(--color-pib-text-muted)]">Loading inbox&hellip;</div>
   }
   if (status === 'not_connected') {
     return (
-      <div className="p-4 text-sm text-on-surface-variant">
+      <div className="p-4 text-sm text-[var(--color-pib-text-muted)]">
         No Gmail account connected.{' '}
         <a href="/portal/email" className="text-[var(--color-pib-accent)] hover:underline">
           Connect Gmail
@@ -35,7 +35,7 @@ export function InboxPanel({ status, messages, unreadCount, loading, onAskPipRep
     )
   }
   if (messages.length === 0) {
-    return <div className="p-4 text-sm text-on-surface-variant">No unread emails.</div>
+    return <div className="p-4 text-sm text-[var(--color-pib-text-muted)]">No unread emails.</div>
   }
 
   return (
@@ -43,16 +43,16 @@ export function InboxPanel({ status, messages, unreadCount, loading, onAskPipRep
       {messages.map((mail) => (
         <div
           key={mail.id}
-          className="rounded-lg border-y border-r border-l-4 border-[var(--color-card-border)] border-l-blue-400 bg-[var(--color-card)] p-2.5"
+          className="rounded-lg border-y border-r border-l-4 border-[var(--color-pib-line)] border-l-blue-400 bg-[var(--color-card)] p-2.5"
         >
           <div className="flex items-start justify-between gap-2">
-            <span className="text-xs font-bold text-on-surface">{mail.from}</span>
-            <span className="shrink-0 text-[10px] text-on-surface-variant">
+            <span className="text-xs font-bold text-[var(--color-pib-text)]">{mail.from}</span>
+            <span className="shrink-0 text-[10px] text-[var(--color-pib-text-muted)]">
               {timeAgo(mail.receivedAt)}
             </span>
           </div>
-          <div className="mt-0.5 text-xs font-medium text-on-surface">{mail.subject}</div>
-          <div className="mt-0.5 line-clamp-1 text-[11px] text-on-surface-variant">
+          <div className="mt-0.5 text-xs font-medium text-[var(--color-pib-text)]">{mail.subject}</div>
+          <div className="mt-0.5 line-clamp-1 text-[11px] text-[var(--color-pib-text-muted)]">
             {mail.snippet}
           </div>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -74,7 +74,7 @@ export function InboxPanel({ status, messages, unreadCount, loading, onAskPipRep
         </div>
       ))}
       {unreadCount > messages.length && (
-        <div className="rounded-lg border border-dashed border-[var(--color-card-border)] py-2 text-center text-xs text-on-surface-variant">
+        <div className="rounded-lg border border-dashed border-[var(--color-pib-line)] py-2 text-center text-xs text-[var(--color-pib-text-muted)]">
           ↓ See {unreadCount - messages.length} more unread
         </div>
       )}

@@ -195,9 +195,9 @@ export default function LegalPage() {
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       <div>
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">Legal</p>
-        <h1 className="text-2xl font-headline font-bold text-on-surface">Legal Documents</h1>
-        <p className="text-sm text-on-surface-variant mt-1">
+        <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">Legal</p>
+        <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Legal Documents</h1>
+        <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
           Manage versioned Terms of Service and Privacy Policy documents, publish them, and audit user acceptances.
         </p>
       </div>
@@ -211,8 +211,8 @@ export default function LegalPage() {
             onClick={() => setDocType(t.key)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors border ${
               docType === t.key
-                ? 'border-[var(--color-accent-v2)] text-on-surface bg-[var(--color-surface-container)]'
-                : 'border-[var(--color-card-border)] text-on-surface-variant hover:text-on-surface'
+                ? 'border-[var(--color-pib-accent)] text-[var(--color-pib-text)] bg-[var(--color-pib-surface-2)]'
+                : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
             }`}
           >
             {t.label}
@@ -231,20 +231,20 @@ export default function LegalPage() {
         {/* Version list */}
         <div className="lg:col-span-2 pib-card space-y-2">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Versions</p>
+            <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Versions</p>
             <button
               type="button"
               disabled={busy}
               onClick={createDraft}
-              className="text-xs font-medium px-2.5 py-1 rounded-md border border-[var(--color-card-border)] text-on-surface hover:bg-[var(--color-surface-container)] disabled:opacity-50"
+              className="text-xs font-medium px-2.5 py-1 rounded-md border border-[var(--color-pib-line)] text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-2)] disabled:opacity-50"
             >
               + New draft
             </button>
           </div>
           {loading ? (
-            <p className="text-sm text-on-surface-variant">Loading…</p>
+            <p className="text-sm text-[var(--color-pib-text-muted)]">Loading…</p>
           ) : versions.length === 0 ? (
-            <p className="text-sm text-on-surface-variant">No versions yet. Create a draft to begin.</p>
+            <p className="text-sm text-[var(--color-pib-text-muted)]">No versions yet. Create a draft to begin.</p>
           ) : (
             versions.map((v) => (
               <button
@@ -253,17 +253,17 @@ export default function LegalPage() {
                 onClick={() => setSelectedId(v.id)}
                 className={`w-full text-left p-3 rounded-lg border transition-colors ${
                   selectedId === v.id
-                    ? 'border-[var(--color-accent-v2)] bg-[var(--color-surface-container)]'
-                    : 'border-[var(--color-card-border)] hover:bg-[var(--color-row-hover)]'
+                    ? 'border-[var(--color-pib-accent)] bg-[var(--color-pib-surface-2)]'
+                    : 'border-[var(--color-pib-line)] hover:bg-[var(--color-row-hover)]'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-on-surface">v{v.version}</span>
+                  <span className="text-sm font-medium text-[var(--color-pib-text)]">v{v.version}</span>
                   <StatusBadge status={v.status} />
                 </div>
-                <p className="text-xs text-on-surface-variant mt-1 truncate">{v.title}</p>
+                <p className="text-xs text-[var(--color-pib-text-muted)] mt-1 truncate">{v.title}</p>
                 {v.effectiveDate && (
-                  <p className="text-[11px] text-on-surface-variant/70 mt-0.5">
+                  <p className="text-[11px] text-[var(--color-pib-text-muted)]/70 mt-0.5">
                     Effective {String(v.effectiveDate).slice(0, 10)}
                   </p>
                 )}
@@ -274,44 +274,44 @@ export default function LegalPage() {
 
         {/* Editor */}
         <div className="lg:col-span-3 pib-card space-y-3">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Editor</p>
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Editor</p>
           {!selected ? (
-            <p className="text-sm text-on-surface-variant">Select a version, or create a new draft.</p>
+            <p className="text-sm text-[var(--color-pib-text-muted)]">Select a version, or create a new draft.</p>
           ) : (
             <>
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-on-surface">
+                <span className="text-sm font-medium text-[var(--color-pib-text)]">
                   v{selected.version} <StatusBadge status={selected.status} />
                 </span>
               </div>
               <label className="block">
-                <span className="text-xs text-on-surface-variant">Title</span>
+                <span className="text-xs text-[var(--color-pib-text-muted)]">Title</span>
                 <input
                   type="text"
                   value={editTitle}
                   disabled={selected.status !== 'draft' || busy}
                   onChange={(e) => setEditTitle(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2 text-sm text-on-surface disabled:opacity-60"
+                  className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 text-sm text-[var(--color-pib-text)] disabled:opacity-60"
                 />
               </label>
               <label className="block">
-                <span className="text-xs text-on-surface-variant">Body (markdown / HTML)</span>
+                <span className="text-xs text-[var(--color-pib-text-muted)]">Body (markdown / HTML)</span>
                 <textarea
                   value={editBody}
                   disabled={selected.status !== 'draft' || busy}
                   onChange={(e) => setEditBody(e.target.value)}
                   rows={14}
-                  className="mt-1 w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2 text-sm text-on-surface font-mono disabled:opacity-60"
+                  className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 text-sm text-[var(--color-pib-text)] font-mono disabled:opacity-60"
                 />
               </label>
               <label className="block">
-                <span className="text-xs text-on-surface-variant">Effective date</span>
+                <span className="text-xs text-[var(--color-pib-text-muted)]">Effective date</span>
                 <input
                   type="date"
                   value={editEffective}
                   disabled={busy}
                   onChange={(e) => setEditEffective(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2 text-sm text-on-surface"
+                  className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 text-sm text-[var(--color-pib-text)]"
                 />
               </label>
               <div className="flex flex-wrap gap-2 pt-2">
@@ -321,7 +321,7 @@ export default function LegalPage() {
                       type="button"
                       disabled={busy}
                       onClick={saveDraft}
-                      className="text-sm font-medium px-3 py-1.5 rounded-lg border border-[var(--color-card-border)] text-on-surface hover:bg-[var(--color-surface-container)] disabled:opacity-50"
+                      className="text-sm font-medium px-3 py-1.5 rounded-lg border border-[var(--color-pib-line)] text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-2)] disabled:opacity-50"
                     >
                       Save draft
                     </button>
@@ -330,7 +330,7 @@ export default function LegalPage() {
                       disabled={busy}
                       onClick={publish}
                       className="text-sm font-medium px-3 py-1.5 rounded-lg text-white disabled:opacity-50"
-                      style={{ background: 'var(--color-accent-v2)' }}
+                      style={{ background: 'var(--color-pib-accent)' }}
                     >
                       Publish
                     </button>
@@ -345,7 +345,7 @@ export default function LegalPage() {
                   </>
                 )}
                 {selected.status !== 'draft' && (
-                  <p className="text-xs text-on-surface-variant">
+                  <p className="text-xs text-[var(--color-pib-text-muted)]">
                     {selected.status === 'published'
                       ? 'Published versions are read-only. Create a new draft to make changes.'
                       : 'Archived version (read-only).'}
@@ -360,36 +360,36 @@ export default function LegalPage() {
       {/* Acceptance log */}
       <div className="pib-card space-y-3">
         <div className="flex items-center justify-between">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Acceptance log</p>
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Acceptance log</p>
           <a
             href={`/api/v1/admin/legal/acceptances?docType=${encodeURIComponent(docType)}&format=csv`}
-            className="text-xs font-medium px-2.5 py-1 rounded-md border border-[var(--color-card-border)] text-on-surface hover:bg-[var(--color-surface-container)]"
+            className="text-xs font-medium px-2.5 py-1 rounded-md border border-[var(--color-pib-line)] text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-2)]"
           >
             Download CSV
           </a>
         </div>
         {acceptLoading ? (
-          <p className="text-sm text-on-surface-variant">Loading acceptances…</p>
+          <p className="text-sm text-[var(--color-pib-text-muted)]">Loading acceptances…</p>
         ) : acceptances.length === 0 ? (
-          <p className="text-sm text-on-surface-variant">No acceptance records for this document type yet.</p>
+          <p className="text-sm text-[var(--color-pib-text-muted)]">No acceptance records for this document type yet.</p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-[var(--color-card-border)]">
+          <div className="overflow-x-auto rounded-xl border border-[var(--color-pib-line)]">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-[var(--color-surface-container)] text-left">
+                <tr className="bg-[var(--color-pib-surface-2)] text-left">
                   {['User', 'Org', 'Version', 'Accepted', 'IP'].map((h) => (
-                    <th key={h} className="px-3 py-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{h}</th>
+                    <th key={h} className="px-3 py-2 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {acceptances.map((a) => (
-                  <tr key={a.id} className="border-t border-[var(--color-card-border)]">
-                    <td className="px-3 py-2 text-on-surface">{a.userEmail || a.userId || '—'}</td>
-                    <td className="px-3 py-2 text-on-surface-variant">{a.orgId || '—'}</td>
-                    <td className="px-3 py-2 text-on-surface-variant">v{a.version ?? '—'}</td>
-                    <td className="px-3 py-2 text-on-surface-variant">{a.acceptedAt ? String(a.acceptedAt).slice(0, 19).replace('T', ' ') : '—'}</td>
-                    <td className="px-3 py-2 text-on-surface-variant font-mono text-xs">{a.ip || '—'}</td>
+                  <tr key={a.id} className="border-t border-[var(--color-pib-line)]">
+                    <td className="px-3 py-2 text-[var(--color-pib-text)]">{a.userEmail || a.userId || '—'}</td>
+                    <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{a.orgId || '—'}</td>
+                    <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">v{a.version ?? '—'}</td>
+                    <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{a.acceptedAt ? String(a.acceptedAt).slice(0, 19).replace('T', ' ') : '—'}</td>
+                    <td className="px-3 py-2 text-[var(--color-pib-text-muted)] font-mono text-xs">{a.ip || '—'}</td>
                   </tr>
                 ))}
               </tbody>

@@ -52,8 +52,8 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
       >
         {colors.icon}
       </span>
-      <p className="text-sm text-on-surface flex-1">{toast.message}</p>
-      <button onClick={onDismiss} className="text-on-surface-variant hover:text-on-surface transition-colors text-lg leading-none shrink-0">×</button>
+      <p className="text-sm text-[var(--color-pib-text)] flex-1">{toast.message}</p>
+      <button onClick={onDismiss} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors text-lg leading-none shrink-0">×</button>
     </div>
   )
 }

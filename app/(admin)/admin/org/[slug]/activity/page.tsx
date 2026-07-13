@@ -38,9 +38,9 @@ function ActivityIcon({ type }: { type: string }) {
 
 function ActorBadge({ role }: { role: 'admin' | 'client' | 'ai' }) {
   const styles: Record<string, { bg: string; text: string; label: string }> = {
-    admin: { bg: 'var(--color-accent-v2)', text: 'var(--color-on-accent)', label: 'Admin' },
-    client: { bg: 'var(--color-outline)', text: 'var(--color-on-surface-variant)', label: 'Client' },
-    ai: { bg: 'var(--color-secondary)', text: 'var(--color-on-secondary)', label: 'AI' },
+    admin: { bg: 'var(--color-pib-cyan)', text: 'var(--color-pib-ink)', label: 'Admin' },
+    client: { bg: 'var(--color-pib-text-muted)', text: 'var(--color-pib-text-muted)', label: 'Client' },
+    ai: { bg: 'var(--color-pib-violet)', text: 'var(--color-pib-ink)', label: 'AI' },
   }
   const style = styles[role]
   return (
@@ -140,9 +140,10 @@ export default function ActivityPage() {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="border-b border-outline-variant px-6 py-4">
-        <h1 className="font-headline text-xl font-bold text-on-surface">Activity Log</h1>
-        <p className="text-sm text-on-surface-variant mt-1">
+      <div className="border-b border-[var(--color-pib-line)] px-6 py-4">
+        <p className="eyebrow">Admin · Activity</p>
+        <h1 className="pib-page-title mt-2">Activity Log</h1>
+        <p className="pib-page-sub">
           Track selected-org account activity, approvals, and internal operator events
         </p>
       </div>
@@ -166,7 +167,7 @@ export default function ActivityPage() {
           ) : events.length === 0 ? (
             // Empty state
             <div className="text-center py-12">
-              <p className="text-on-surface-variant text-sm">
+              <p className="text-[var(--color-pib-text-muted)] text-sm">
                 No selected-org activity yet.
               </p>
             </div>
@@ -176,11 +177,11 @@ export default function ActivityPage() {
               <div key={groupLabel}>
                 {/* Date divider */}
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="flex-1 h-px bg-outline-variant" />
-                  <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant/60 px-3">
+                  <div className="flex-1 h-px bg-[var(--color-pib-line)]" />
+                  <span className="pib-label text-[var(--color-pib-text-faint)] px-3">
                     {groupLabel}
                   </span>
-                  <div className="flex-1 h-px bg-outline-variant" />
+                  <div className="flex-1 h-px bg-[var(--color-pib-line)]" />
                 </div>
 
                 {/* Events */}
@@ -189,7 +190,7 @@ export default function ActivityPage() {
                     <div
                       key={event.id}
                       className="pib-card p-4 flex gap-4 border-l-2"
-                      style={{ borderLeftColor: 'var(--color-outline-variant)' }}
+                      style={{ borderLeftColor: 'var(--color-pib-line)' }}
                     >
                       {/* Timeline icon */}
                       <div className="shrink-0 text-xl leading-none pt-1">
@@ -199,14 +200,14 @@ export default function ActivityPage() {
                       {/* Content */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-3 mb-2">
-                          <p className="text-sm font-medium text-on-surface flex-1">
+                          <p className="text-sm font-medium text-[var(--color-pib-text)] flex-1">
                             {event.description}
                           </p>
                           <ActorBadge role={event.actorRole} />
                         </div>
 
                         {/* Meta */}
-                        <div className="flex items-center gap-3 text-xs text-on-surface-variant">
+                        <div className="flex items-center gap-3 text-xs text-[var(--color-pib-text-muted)]">
                           <span>{event.actorName}</span>
                           <span>•</span>
                           <time title={formatTime(event.createdAt)}>

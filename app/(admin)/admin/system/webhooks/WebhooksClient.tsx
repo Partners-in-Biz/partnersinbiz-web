@@ -145,11 +145,11 @@ export default function WebhooksClient() {
     <div className="space-y-6 max-w-6xl mx-auto">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             System / Ops
           </p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Webhook Event Log</h1>
-          <p className="text-sm text-on-surface-variant mt-1">
+          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Webhook Event Log</h1>
+          <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
             Platform-wide outbound webhook deliveries. Inspect payload hashes, response bodies, per-org
             delivery health, and requeue failed deliveries.
           </p>
@@ -176,8 +176,8 @@ export default function WebhooksClient() {
         <section className="grid gap-4 lg:grid-cols-2">
           <div className="pib-card p-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-label uppercase tracking-wide text-on-surface-variant">Deliveries by event</h2>
-              <span className="text-xs text-on-surface-variant">
+              <h2 className="text-sm font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Deliveries by event</h2>
+              <span className="text-xs text-[var(--color-pib-text-muted)]">
                 {breakdown.byStatus.total} total
                 {breakdown.scanCapped ? ' (recent slice)' : ''}
               </span>
@@ -188,11 +188,11 @@ export default function WebhooksClient() {
                   const w = maxEventCount > 0 ? (e.count / maxEventCount) * 250 : 0
                   return (
                     <g key={e.event} transform={`translate(0, ${i * 22})`}>
-                      <text x="0" y="13" className="fill-current text-on-surface-variant" fontSize="10">
+                      <text x="0" y="13" className="fill-current text-[var(--color-pib-text-muted)]" fontSize="10">
                         {e.event.length > 20 ? e.event.slice(0, 19) + '…' : e.event}
                       </text>
                       <rect x="140" y="3" width={w} height="13" rx="2" className="fill-current text-blue-500/70" />
-                      <text x={140 + w + 4} y="13" className="fill-current text-on-surface" fontSize="10">
+                      <text x={140 + w + 4} y="13" className="fill-current text-[var(--color-pib-text)]" fontSize="10">
                         {e.count}
                       </text>
                     </g>
@@ -207,14 +207,14 @@ export default function WebhooksClient() {
           </div>
 
           <div className="pib-card p-4">
-            <h2 className="text-sm font-label uppercase tracking-wide text-on-surface-variant">Per-org delivery health</h2>
+            <h2 className="text-sm font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Per-org delivery health</h2>
             <div className="mt-3 space-y-2 max-h-64 overflow-y-auto">
               {breakdown.perOrg.length === 0 ? (
-                <p className="text-xs text-on-surface-variant">No deliveries recorded yet.</p>
+                <p className="text-xs text-[var(--color-pib-text-muted)]">No deliveries recorded yet.</p>
               ) : (
                 breakdown.perOrg.map((o) => (
                   <div key={o.orgId} className="flex items-center gap-3">
-                    <span className="font-mono text-xs text-on-surface-variant w-40 truncate" title={o.orgId}>
+                    <span className="font-mono text-xs text-[var(--color-pib-text-muted)] w-40 truncate" title={o.orgId}>
                       {o.orgId}
                     </span>
                     <div className="flex-1 h-2 rounded bg-white/10 overflow-hidden">
@@ -223,7 +223,7 @@ export default function WebhooksClient() {
                         style={{ width: `${o.successRate}%` }}
                       />
                     </div>
-                    <span className="text-xs text-on-surface w-28 text-right">
+                    <span className="text-xs text-[var(--color-pib-text)] w-28 text-right">
                       {o.successRate}% ({o.success}/{o.total})
                     </span>
                   </div>
@@ -238,19 +238,19 @@ export default function WebhooksClient() {
       <section className="pib-card p-4">
         <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <label className="space-y-1">
-            <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Org ID</span>
+            <span className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Org ID</span>
             <input className="pib-input w-full font-mono text-xs" value={orgId} onChange={(e) => setOrgId(e.target.value)} />
           </label>
           <label className="space-y-1">
-            <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Webhook ID</span>
+            <span className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Webhook ID</span>
             <input className="pib-input w-full font-mono text-xs" value={webhookId} onChange={(e) => setWebhookId(e.target.value)} />
           </label>
           <label className="space-y-1">
-            <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Event</span>
+            <span className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Event</span>
             <input className="pib-input w-full text-xs" value={event} onChange={(e) => setEvent(e.target.value)} placeholder="invoice.paid" />
           </label>
           <label className="space-y-1">
-            <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">Status</span>
+            <span className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Status</span>
             <select className="pib-input w-full text-xs" value={status} onChange={(e) => setStatus(e.target.value)}>
               <option value="">All</option>
               <option value="success">Success (2xx)</option>
@@ -258,11 +258,11 @@ export default function WebhooksClient() {
             </select>
           </label>
           <label className="space-y-1">
-            <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">From</span>
+            <span className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">From</span>
             <input type="datetime-local" className="pib-input w-full text-xs" value={from} onChange={(e) => setFrom(e.target.value)} />
           </label>
           <label className="space-y-1">
-            <span className="text-[10px] font-label uppercase tracking-wide text-on-surface-variant">To</span>
+            <span className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">To</span>
             <input type="datetime-local" className="pib-input w-full text-xs" value={to} onChange={(e) => setTo(e.target.value)} />
           </label>
         </div>
@@ -283,9 +283,9 @@ export default function WebhooksClient() {
       {/* Deliveries table */}
       <section className="pib-card overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-          <h2 className="text-sm font-label uppercase tracking-wide text-on-surface-variant">Deliveries</h2>
+          <h2 className="text-sm font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">Deliveries</h2>
           {list && (
-            <span className="text-xs text-on-surface-variant">
+            <span className="text-xs text-[var(--color-pib-text-muted)]">
               {list.deliveries.length} shown · {list.total} matched
               {list.scanCapped ? ' · recent slice only' : ''}
             </span>
@@ -296,12 +296,12 @@ export default function WebhooksClient() {
             {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-10 rounded" />)}
           </div>
         ) : !list || list.deliveries.length === 0 ? (
-          <div className="p-10 text-center text-sm text-on-surface-variant">No deliveries match these filters.</div>
+          <div className="p-10 text-center text-sm text-[var(--color-pib-text-muted)]">No deliveries match these filters.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="text-left text-on-surface-variant border-b border-white/10">
+                <tr className="text-left text-[var(--color-pib-text-muted)] border-b border-white/10">
                   <th className="px-3 py-2 font-label">Event</th>
                   <th className="px-3 py-2 font-label">Org</th>
                   <th className="px-3 py-2 font-label">Webhook</th>
@@ -319,13 +319,13 @@ export default function WebhooksClient() {
                       className="border-b border-white/5 hover:bg-white/5 cursor-pointer"
                       onClick={() => setExpanded(expanded === d.id ? null : d.id)}
                     >
-                      <td className="px-3 py-2 text-on-surface">{d.event}</td>
-                      <td className="px-3 py-2 font-mono text-on-surface-variant truncate max-w-[120px]" title={d.orgId}>{d.orgId || '—'}</td>
-                      <td className="px-3 py-2 text-on-surface-variant truncate max-w-[140px]" title={d.webhookUrl}>{d.webhookName || d.webhookId}</td>
+                      <td className="px-3 py-2 text-[var(--color-pib-text)]">{d.event}</td>
+                      <td className="px-3 py-2 font-mono text-[var(--color-pib-text-muted)] truncate max-w-[120px]" title={d.orgId}>{d.orgId || '—'}</td>
+                      <td className="px-3 py-2 text-[var(--color-pib-text-muted)] truncate max-w-[140px]" title={d.webhookUrl}>{d.webhookName || d.webhookId}</td>
                       <td className={`px-3 py-2 font-mono ${statusColor(d)}`}>{d.responseStatus ?? (d.error ? 'ERR' : '—')}</td>
-                      <td className="px-3 py-2 text-on-surface-variant">{d.durationMs !== null ? `${d.durationMs}ms` : '—'}</td>
-                      <td className="px-3 py-2 text-on-surface-variant">{d.attemptNumber ?? '—'}</td>
-                      <td className="px-3 py-2 text-on-surface-variant whitespace-nowrap">{fmtTime(d.deliveredAtMs)}</td>
+                      <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{d.durationMs !== null ? `${d.durationMs}ms` : '—'}</td>
+                      <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">{d.attemptNumber ?? '—'}</td>
+                      <td className="px-3 py-2 text-[var(--color-pib-text-muted)] whitespace-nowrap">{fmtTime(d.deliveredAtMs)}</td>
                       <td className="px-3 py-2 text-right">
                         {!d.isSuccess && isSuperAdmin && (
                           <button
@@ -344,16 +344,16 @@ export default function WebhooksClient() {
                         <td colSpan={8} className="px-4 py-3">
                           <div className="grid gap-3 sm:grid-cols-2 text-xs">
                             <div className="space-y-1">
-                              <p><span className="text-on-surface-variant">Delivery ID:</span> <span className="font-mono">{d.id}</span></p>
-                              <p><span className="text-on-surface-variant">Queue item:</span> <span className="font-mono">{d.queueItemId || '—'}</span></p>
-                              <p><span className="text-on-surface-variant">Webhook URL:</span> <span className="font-mono break-all">{d.webhookUrl || '—'}</span></p>
-                              <p><span className="text-on-surface-variant">Payload hash:</span> <span className="font-mono break-all">{d.payloadHash || '—'}</span></p>
+                              <p><span className="text-[var(--color-pib-text-muted)]">Delivery ID:</span> <span className="font-mono">{d.id}</span></p>
+                              <p><span className="text-[var(--color-pib-text-muted)]">Queue item:</span> <span className="font-mono">{d.queueItemId || '—'}</span></p>
+                              <p><span className="text-[var(--color-pib-text-muted)]">Webhook URL:</span> <span className="font-mono break-all">{d.webhookUrl || '—'}</span></p>
+                              <p><span className="text-[var(--color-pib-text-muted)]">Payload hash:</span> <span className="font-mono break-all">{d.payloadHash || '—'}</span></p>
                             </div>
                             <div className="space-y-1">
-                              <p><span className="text-on-surface-variant">Response status:</span> <span className="font-mono">{d.responseStatus ?? '—'}</span></p>
+                              <p><span className="text-[var(--color-pib-text-muted)]">Response status:</span> <span className="font-mono">{d.responseStatus ?? '—'}</span></p>
                               {d.error && <p className="text-red-400">Error: {d.error}</p>}
-                              <p className="text-on-surface-variant">Response body:</p>
-                              <pre className="bg-black/40 rounded p-2 overflow-x-auto max-h-40 text-[10px] text-on-surface-variant whitespace-pre-wrap">
+                              <p className="text-[var(--color-pib-text-muted)]">Response body:</p>
+                              <pre className="bg-black/40 rounded p-2 overflow-x-auto max-h-40 text-[10px] text-[var(--color-pib-text-muted)] whitespace-pre-wrap">
                                 {d.responseBody || '(empty)'}
                               </pre>
                             </div>
@@ -367,7 +367,7 @@ export default function WebhooksClient() {
             </table>
           </div>
         )}
-        {list?._note && <div className="px-4 py-2 text-[11px] text-on-surface-variant border-t border-white/10">{list._note}</div>}
+        {list?._note && <div className="px-4 py-2 text-[11px] text-[var(--color-pib-text-muted)] border-t border-white/10">{list._note}</div>}
       </section>
     </div>
   )

@@ -70,12 +70,12 @@ function DuplicateGroupResolver({
     <article className="rounded-md border border-[var(--color-card-border)] bg-black/10 p-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Matched by {group.reason}</p>
-          <p className="mt-0.5 text-xs font-semibold text-on-surface">
+          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Matched by {group.reason}</p>
+          <p className="mt-0.5 text-xs font-semibold text-[var(--color-pib-text)]">
             {group.contacts.length} records need {remainingMergeCount} merge{remainingMergeCount === 1 ? '' : 's'}
           </p>
         </div>
-        <span className="flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-[var(--color-card-border)] px-2.5 text-[11px] text-on-surface-variant">
+        <span className="flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-[var(--color-card-border)] px-2.5 text-[11px] text-[var(--color-pib-text-muted)]">
           <span className="material-symbols-outlined text-[14px]">data_check</span>
           One merge at a time
         </span>
@@ -102,14 +102,14 @@ function DuplicateGroupResolver({
                 className="mt-0.5 accent-[var(--color-accent-v2)]"
               />
               <span className="min-w-0">
-                <span className="block truncate text-xs font-medium text-on-surface">
+                <span className="block truncate text-xs font-medium text-[var(--color-pib-text)]">
                   {duplicateContactIdentityLabel(contact)}
                 </span>
-                <span className="mt-0.5 block truncate text-[11px] text-on-surface-variant">
+                <span className="mt-0.5 block truncate text-[11px] text-[var(--color-pib-text-muted)]">
                   {contact.email || 'No email'}
                 </span>
                 {(contact.company || contact.stage) && (
-                  <span className="mt-0.5 block truncate text-[11px] text-on-surface-variant">
+                  <span className="mt-0.5 block truncate text-[11px] text-[var(--color-pib-text-muted)]">
                     {[contact.company, readableDuplicateContactLabel(contact.stage)].filter(Boolean).join(' · ')}
                   </span>
                 )}
@@ -125,7 +125,7 @@ function DuplicateGroupResolver({
       </div>
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[11px] text-on-surface-variant">
+        <p className="text-[11px] text-[var(--color-pib-text-muted)]">
           {loser
             ? `Next merge will archive ${duplicateContactIdentityLabel(loser)} into the selected canonical contact.`
             : 'Select a canonical contact to continue.'}
@@ -153,16 +153,16 @@ export function ContactDuplicateCommandCenter({ groups, mergingGroup, onClose, o
     <div className="space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Duplicate hygiene</p>
-          <h2 className="mt-0.5 text-sm font-semibold text-on-surface">Resolve contact conflicts</h2>
-          <p className="mt-1 max-w-xl text-xs leading-5 text-on-surface-variant">
+          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Duplicate hygiene</p>
+          <h2 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">Resolve contact conflicts</h2>
+          <p className="mt-1 max-w-xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
             Pick the canonical record, merge one duplicate at a time, and keep reviewing until each match group is clean.
           </p>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-[var(--color-card-border)] text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
           aria-label="Close duplicate contacts"
         >
           <span className="material-symbols-outlined text-[16px]">close</span>
@@ -171,22 +171,22 @@ export function ContactDuplicateCommandCenter({ groups, mergingGroup, onClose, o
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
-          <p className="text-lg font-semibold leading-6 text-on-surface">
+          <p className="text-lg font-semibold leading-6 text-[var(--color-pib-text)]">
             {groupCount} match group{groupCount === 1 ? '' : 's'}
           </p>
-          <p className="text-[11px] leading-4 text-on-surface-variant">Groups</p>
+          <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Groups</p>
         </div>
         <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
-          <p className="text-lg font-semibold leading-6 text-on-surface">
+          <p className="text-lg font-semibold leading-6 text-[var(--color-pib-text)]">
             {recordCount} record{recordCount === 1 ? '' : 's'}
           </p>
-          <p className="text-[11px] leading-4 text-on-surface-variant">Records</p>
+          <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Records</p>
         </div>
         <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
-          <p className="text-lg font-semibold leading-6 text-on-surface">
+          <p className="text-lg font-semibold leading-6 text-[var(--color-pib-text)]">
             {queuedMerges} merge{queuedMerges === 1 ? '' : 's'} queued
           </p>
-          <p className="text-[11px] leading-4 text-on-surface-variant">Queue</p>
+          <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Queue</p>
         </div>
       </div>
 
@@ -201,15 +201,15 @@ export function ContactDuplicateCommandCenter({ groups, mergingGroup, onClose, o
                 verified
               </span>
               <div className="min-w-0">
-                <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Scan complete</p>
-                <h3 className="mt-0.5 text-sm font-semibold text-on-surface">Contact data is clean</h3>
-                <p className="mt-1 max-w-2xl text-xs leading-5 text-on-surface-variant">
+                <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Scan complete</p>
+                <h3 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">Contact data is clean</h3>
+                <p className="mt-1 max-w-2xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
                   No duplicate contacts need review right now. Keep the team moving with clean owner, stage, and
                   follow-up lists.
                 </p>
               </div>
             </div>
-            <button type="button" onClick={onClose} className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface">
+            <button type="button" onClick={onClose} className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]">
               <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
                 arrow_back
               </span>
@@ -219,16 +219,16 @@ export function ContactDuplicateCommandCenter({ groups, mergingGroup, onClose, o
 
           <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
             <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
-              <p className="text-xs font-semibold leading-5 text-on-surface">0 merge backlog</p>
-              <p className="text-[11px] leading-4 text-on-surface-variant">Backlog</p>
+              <p className="text-xs font-semibold leading-5 text-[var(--color-pib-text)]">0 merge backlog</p>
+              <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Backlog</p>
             </div>
             <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
-              <p className="text-xs font-semibold leading-5 text-on-surface">Lists stay trustworthy</p>
-              <p className="text-[11px] leading-4 text-on-surface-variant">Team impact</p>
+              <p className="text-xs font-semibold leading-5 text-[var(--color-pib-text)]">Lists stay trustworthy</p>
+              <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Team impact</p>
             </div>
             <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
-              <p className="text-xs font-semibold leading-5 text-on-surface">Run after imports</p>
-              <p className="text-[11px] leading-4 text-on-surface-variant">Next check</p>
+              <p className="text-xs font-semibold leading-5 text-[var(--color-pib-text)]">Run after imports</p>
+              <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Next check</p>
             </div>
           </div>
         </div>

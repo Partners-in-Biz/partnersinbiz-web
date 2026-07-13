@@ -107,7 +107,7 @@ export function EntityScopedChat({
 
   if (!user) {
     return (
-      <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3 text-xs text-on-surface-variant">
+      <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3 text-xs text-[var(--color-pib-text-muted)]">
         Sign in to use the {entityType}-scoped chat for {entityLabel}.
       </div>
     )

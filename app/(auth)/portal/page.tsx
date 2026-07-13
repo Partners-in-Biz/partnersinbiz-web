@@ -38,7 +38,7 @@ export default async function PortalPage() {
   // This return is never reached if redirect() fires, but it satisfies TypeScript
   return (
     <div className="min-h-screen flex items-center justify-center bg-[var(--color-bg)]">
-      <p className="text-on-surface-variant text-sm">Redirecting to your workspace…</p>
+      <p className="text-[var(--color-pib-text-muted)] text-sm">Redirecting to your workspace…</p>
     </div>
   )
 }

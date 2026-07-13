@@ -71,6 +71,8 @@ export type RichMessagePartType =
   | 'clarify'
   | 'model_picker'
   | 'project_task_proposal'
+  | 'studio_artifact'
+  | 'studio_artifact_bundle'
 
 export type RichMessageChoice = string | {
   id?: string
@@ -124,6 +126,10 @@ export type RichMessagePart = {
   dataSkill?: string
   analysisQuestion?: string
   statusLabel?: string
+  artifactId?: string
+  artifactIds?: string[]
+  artifacts?: Array<{ id: string; contextId: string }>
+  contextId?: string
   [key: string]: unknown
 }
 

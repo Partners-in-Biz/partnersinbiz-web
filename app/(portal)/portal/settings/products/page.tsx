@@ -54,13 +54,13 @@ function productSearchText(product: Product): string {
 
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
   return (
-    <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+    <div className="pib-stat-card min-w-0">
       <div className="flex items-start justify-between gap-3">
-        <p className="eyebrow !text-[10px]">{label}</p>
-        <span className="material-symbols-outlined text-[18px] text-on-surface-variant">{icon}</span>
+        <p className="pib-label">{label}</p>
+        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
       </div>
-      <p className="mt-3 font-display text-lg leading-none text-on-surface">{value}</p>
-      <p className="mt-3 text-xs text-on-surface-variant">{sub}</p>
+      <p className="mt-3 font-display text-2xl leading-none text-[var(--color-pib-text)]">{value}</p>
+      <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">{sub}</p>
     </div>
   )
 }
@@ -230,19 +230,19 @@ export default function ProductsPage() {
   ]
 
   return (
-    <div className="space-y-3">
-      <header className="flex items-start justify-between gap-4 flex-wrap">
+    <div className="space-y-8">
+      <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="eyebrow">CRM settings</p>
-          <h1 className="text-base font-semibold text-on-surface mt-2">Product catalog</h1>
-          <p className="text-xs leading-5 text-on-surface-variant max-w-2xl">
+          <h1 className="pib-page-title mt-2">Product catalog</h1>
+          <p className="pib-page-sub max-w-2xl">
             Manage the services and products that power deal line items, quote pricing, and revenue forecasting.
           </p>
         </div>
         <button
           type="button"
           onClick={handleOpenCreate}
-          className="cursor-pointer h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 flex items-center gap-1.5 shrink-0"
+          className="btn-pib-primary shrink-0"
         >
           <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
           New product
@@ -262,22 +262,24 @@ export default function ProductsPage() {
             <section
               role="region"
               aria-label="Catalog readiness review"
-              className="rounded-[var(--radius-card)] border border-amber-400/25 bg-amber-400/[0.08] p-5"
+              className="pib-card"
             >
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="flex gap-3">
-                  <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">rule_settings</span>
+                  <span className="pib-icon-tint mt-0.5 shrink-0">
+                    <span className="material-symbols-outlined text-[18px]" aria-hidden="true">rule_settings</span>
+                  </span>
                   <div>
-                    <p className="eyebrow !text-[10px] text-amber-200">Catalog readiness</p>
-                    <h2 className="mt-1 font-display text-xl text-on-surface">Quote readiness needs cleanup</h2>
-                    <p className="mt-2 max-w-2xl text-sm leading-6 text-on-surface-variant">
+                    <p className="eyebrow">Catalog readiness</p>
+                    <h2 className="mt-1 font-display text-xl">Quote readiness needs cleanup</h2>
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-pib-text-muted)]">
                       Sales teams need pricing, units, descriptions, and currencies before this catalog can support reliable quotes and forecasts.
                     </p>
                     <div className="mt-4 flex flex-wrap items-center gap-2">
-                      <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1 text-xs font-semibold text-amber-50">
+                      <span className="pib-pill pib-pill-warn">
                         {productDisplayName(firstIncompleteProduct)}
                       </span>
-                      <span className="text-xs text-on-surface-variant">
+                      <span className="text-xs text-[var(--color-pib-text-muted)]">
                         Missing {firstIncompleteHealth.gaps.join(', ')}
                       </span>
                     </div>
@@ -287,7 +289,7 @@ export default function ProductsPage() {
                   type="button"
                   onClick={() => handleOpenEdit(firstIncompleteProduct)}
                   aria-label={`Fix catalog setup for ${productDisplayName(firstIncompleteProduct)}`}
-                  className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex shrink-0 items-center gap-1.5"
+                  className="btn-pib-secondary shrink-0"
                 >
                   <span className="material-symbols-outlined text-base" aria-hidden="true">edit_note</span>
                   Fix catalog setup
@@ -302,25 +304,25 @@ export default function ProductsPage() {
                 <input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface min-w-[220px] flex-1"
+                  className="pib-input min-w-[220px] flex-1"
                   placeholder="Search product, unit, currency..."
                 />
                 <select
                   aria-label="Filter products by currency"
                   value={currencyFilter}
                   onChange={(event) => setCurrencyFilter(event.target.value)}
-                  className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface !w-auto"
+                  className="pib-select !w-auto"
                 >
                   <option value="">All currencies</option>
                   {currencyCodes.map((currency) => (
-                    <option key={currency} value={currency} className="bg-black">{currency}</option>
+                    <option key={currency} value={currency}>{currency}</option>
                   ))}
                 </select>
                 <select
                   aria-label="Filter products by health"
                   value={healthFilter}
                   onChange={(event) => setHealthFilter(event.target.value as 'all' | 'ready' | 'needs-work')}
-                  className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface !w-auto"
+                  className="pib-select !w-auto"
                 >
                   <option value="all">All health</option>
                   <option value="ready">Ready</option>
@@ -332,7 +334,7 @@ export default function ProductsPage() {
                 <button
                   type="button"
                   onClick={() => { setSearch(''); setCurrencyFilter(''); setHealthFilter('all') }}
-                  className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface text-xs inline-flex items-center gap-1.5"
+                  className="btn-pib-ghost"
                 >
                   <span className="material-symbols-outlined text-[14px]" aria-hidden="true">filter_alt_off</span>
                   Clear filters
@@ -340,25 +342,25 @@ export default function ProductsPage() {
               ) : null}
             </div>
 
-            <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-3 space-y-4">
+            <div className="pib-card space-y-4">
               <div>
-                <p className="eyebrow !text-[10px]">Catalog focus</p>
-                <p className="mt-2 text-sm text-on-surface-variant">
+                <p className="pib-label">Catalog focus</p>
+                <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
                   Quote-ready products need a price, unit, description, and currency. Gaps here become manual work in deals.
                 </p>
               </div>
               <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.03] p-3">
-                  <p className="font-display text-xl text-on-surface">{zeroPriceCount}</p>
-                  <p className="mt-1 text-[10px] uppercase tracking-widest text-on-surface-variant">No price</p>
+                <div className="rounded-xl border border-[var(--color-pib-line)] p-3">
+                  <p className="font-display text-xl text-[var(--color-pib-text)]">{zeroPriceCount}</p>
+                  <p className="pib-label mt-1">No price</p>
                 </div>
-                <div className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.03] p-3">
-                  <p className="font-display text-xl text-on-surface">{missingUnitCount}</p>
-                  <p className="mt-1 text-[10px] uppercase tracking-widest text-on-surface-variant">No unit</p>
+                <div className="rounded-xl border border-[var(--color-pib-line)] p-3">
+                  <p className="font-display text-xl text-[var(--color-pib-text)]">{missingUnitCount}</p>
+                  <p className="pib-label mt-1">No unit</p>
                 </div>
-                <div className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.03] p-3">
-                  <p className="font-display text-xl text-on-surface">{missingDescriptionCount}</p>
-                  <p className="mt-1 text-[10px] uppercase tracking-widest text-on-surface-variant">No copy</p>
+                <div className="rounded-xl border border-[var(--color-pib-line)] p-3">
+                  <p className="font-display text-xl text-[var(--color-pib-text)]">{missingDescriptionCount}</p>
+                  <p className="pib-label mt-1">No copy</p>
                 </div>
               </div>
             </div>
@@ -371,22 +373,24 @@ export default function ProductsPage() {
           {Array.from({ length: 4 }).map((_, index) => <div key={index} className="pib-skeleton h-16" />)}
         </div>
       ) : fetchError ? (
-        <section className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-5">
+        <section className="pib-card">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div className="flex gap-3">
-              <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">warning</span>
+              <span className="pib-icon-tint mt-0.5 shrink-0">
+                <span className="material-symbols-outlined text-[18px]" aria-hidden="true">warning</span>
+              </span>
               <div>
-                <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
-                <h2 className="mt-1 font-display text-xl text-on-surface">
+                <p className="eyebrow">Source health</p>
+                <h2 className="mt-1 font-display text-xl">
                   Product catalog could not load
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-on-surface-variant">{fetchError}</p>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{fetchError}</p>
               </div>
             </div>
             <button
               type="button"
               onClick={loadProducts}
-              className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex shrink-0 items-center gap-1.5"
+              className="btn-pib-secondary shrink-0"
               aria-label="Retry loading products"
             >
               <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
@@ -395,71 +399,75 @@ export default function ProductsPage() {
           </div>
         </section>
       ) : products.length === 0 ? (
-        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-0 overflow-hidden">
+        <div className="pib-card overflow-hidden !p-0">
           <div className="grid gap-0 lg:grid-cols-[1.1fr_1.4fr]">
-            <div className="border-b border-[var(--color-card-border)] p-4 lg:border-b-0 lg:border-r">
-              <span className="material-symbols-outlined mb-4 block text-[34px] text-[var(--color-accent-v2)]">inventory_2</span>
-              <p className="eyebrow !text-[10px]">Catalog setup</p>
-              <h2 className="mt-2 font-display text-2xl leading-tight text-on-surface">
+            <div className="border-b border-[var(--color-pib-line)] p-6 lg:border-b-0 lg:border-r">
+              <span className="pib-icon-tint-cyan mb-4">
+                <span className="material-symbols-outlined text-[24px]">inventory_2</span>
+              </span>
+              <p className="pib-label">Catalog setup</p>
+              <h2 className="mt-2 font-display text-2xl leading-tight text-[var(--color-pib-text)]">
                 Build a quote-ready catalog
               </h2>
-              <p className="mt-3 text-sm leading-6 text-on-surface-variant">
+              <p className="mt-3 text-sm leading-6 text-[var(--color-pib-text-muted)]">
                 Start with the products and services your team sells most often. A clean catalog turns deal line items,
                 quote pricing, and revenue forecasts into repeatable company data instead of manual admin work.
               </p>
               <button
                 type="button"
                 onClick={handleOpenCreate}
-                className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 mt-5 inline-flex cursor-pointer items-center gap-1.5"
+                className="btn-pib-primary mt-5"
               >
                 <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
                 Create the first catalog item
               </button>
             </div>
 
-            <div className="grid gap-px bg-[var(--color-card-border)] sm:grid-cols-2">
+            <div className="grid gap-px bg-[var(--color-pib-line)] sm:grid-cols-2">
               {catalogBlueprint.map((item) => (
-                <div key={item.label} className="bg-[var(--color-card)] p-5">
+                <div key={item.label} className="bg-[var(--color-pib-surface)] p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-widest text-on-surface-variant">{item.label}</p>
-                      <p className="mt-2 font-display text-xl leading-none text-on-surface">{item.value}</p>
+                      <p className="pib-label">{item.label}</p>
+                      <p className="mt-2 font-display text-xl leading-none text-[var(--color-pib-text)]">{item.value}</p>
                     </div>
-                    <span className="material-symbols-outlined text-[21px] text-on-surface-variant">{item.icon}</span>
+                    <span className="material-symbols-outlined text-[21px] text-[var(--color-pib-text-muted)]">{item.icon}</span>
                   </div>
-                  <p className="mt-4 text-xs leading-5 text-on-surface-variant">{item.copy}</p>
+                  <p className="mt-4 text-xs leading-5 text-[var(--color-pib-text-muted)]">{item.copy}</p>
                 </div>
               ))}
             </div>
           </div>
         </div>
       ) : filteredProducts.length === 0 ? (
-        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-4 text-center">
-          <span className="material-symbols-outlined text-[32px] text-on-surface-variant mb-3 block" aria-hidden="true">search_off</span>
-          <p className="eyebrow !text-[10px]">Filtered catalog view</p>
-          <h2 className="mt-2 text-lg font-semibold text-on-surface">No products match this view.</h2>
-          <p className="mt-2 text-sm text-on-surface-variant">Clear the product filters to return to the full quote-ready catalog.</p>
-          <button
-            type="button"
-            onClick={clearProductFilters}
-            className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface mt-5 inline-flex items-center gap-1.5 text-xs"
-            aria-label="Show all products"
-          >
-            <span className="material-symbols-outlined text-[15px]" aria-hidden="true">filter_alt_off</span>
-            Show all products
-          </button>
+        <div className="pib-empty-state">
+          <span className="material-symbols-outlined pib-empty-state-icon" aria-hidden="true">search_off</span>
+          <p className="pib-label">Filtered catalog view</p>
+          <h2 className="pib-empty-state-title">No products match this view.</h2>
+          <p className="pib-empty-state-description">Clear the product filters to return to the full quote-ready catalog.</p>
+          <div className="mt-5 flex justify-center">
+            <button
+              type="button"
+              onClick={clearProductFilters}
+              className="btn-pib-secondary"
+              aria-label="Show all products"
+            >
+              <span className="material-symbols-outlined text-[15px]" aria-hidden="true">filter_alt_off</span>
+              Show all products
+            </button>
+          </div>
         </div>
       ) : (
-        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-0 overflow-hidden">
+        <div className="pib-surface pib-surface-table overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[var(--color-card-border)]">
-                <th className="text-left px-4 py-3 text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider">Name</th>
-                <th className="text-left px-4 py-3 text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider">Health</th>
-                <th className="text-left px-4 py-3 text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider">Unit</th>
-                <th className="text-right px-4 py-3 text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider">Unit Price</th>
-                <th className="text-left px-4 py-3 text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider">Currency</th>
-                <th className="text-right px-4 py-3 text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider">Actions</th>
+              <tr className="border-b border-[var(--color-pib-line)]">
+                <th className="px-4 py-3 text-left font-mono text-[0.7rem] uppercase tracking-[0.08em] text-[var(--color-pib-text-muted)]">Name</th>
+                <th className="px-4 py-3 text-left font-mono text-[0.7rem] uppercase tracking-[0.08em] text-[var(--color-pib-text-muted)]">Health</th>
+                <th className="px-4 py-3 text-left font-mono text-[0.7rem] uppercase tracking-[0.08em] text-[var(--color-pib-text-muted)]">Unit</th>
+                <th className="px-4 py-3 text-right font-mono text-[0.7rem] uppercase tracking-[0.08em] text-[var(--color-pib-text-muted)]">Unit Price</th>
+                <th className="px-4 py-3 text-left font-mono text-[0.7rem] uppercase tracking-[0.08em] text-[var(--color-pib-text-muted)]">Currency</th>
+                <th className="px-4 py-3 text-right font-mono text-[0.7rem] uppercase tracking-[0.08em] text-[var(--color-pib-text-muted)]">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -472,14 +480,14 @@ export default function ProductsPage() {
                   <tr
                     key={p.id}
                     className={[
-                      'transition-colors hover:bg-white/[0.02]',
-                      i < filteredProducts.length - 1 ? 'border-b border-[var(--color-card-border)]' : '',
+                      'transition-colors hover:bg-[var(--color-row-hover)]',
+                      i < filteredProducts.length - 1 ? 'border-b border-[var(--color-pib-line)]' : '',
                     ].join(' ')}
                   >
                     <td className="px-4 py-3">
-                      <p className="font-medium text-on-surface">{displayName}</p>
+                      <p className="font-medium text-[var(--color-pib-text)]">{displayName}</p>
                       <div className="mt-1 flex max-w-[360px] flex-wrap items-center gap-x-2 gap-y-1">
-                        <p className="max-w-[320px] truncate text-xs text-on-surface-variant">
+                        <p className="max-w-[320px] truncate text-xs text-[var(--color-pib-text-muted)]">
                           {hasDescription ? p.description : 'No product description yet.'}
                         </p>
                         {!hasDescription && (
@@ -487,7 +495,7 @@ export default function ProductsPage() {
                             type="button"
                             onClick={() => handleOpenEdit(p)}
                             aria-label={`Add description for ${displayName}`}
-                            className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-[var(--color-card-border)] bg-white/[0.03] px-2 py-1 text-[11px] font-medium text-on-surface transition-colors hover:border-[var(--color-accent-v2)]/40 hover:bg-[var(--color-accent-v2)]/10"
+                            className="pib-pill cursor-pointer gap-1 transition-colors hover:border-[var(--color-pib-line-strong)]"
                           >
                             <span className="material-symbols-outlined text-[13px]" aria-hidden="true">edit_note</span>
                             Add copy
@@ -498,26 +506,26 @@ export default function ProductsPage() {
                     <td className="px-4 py-3">
                       <div className="min-w-[110px] space-y-1.5">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-mono text-on-surface">{health.score}%</span>
-                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${health.score >= 80 ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-200'}`}>
+                          <span className="font-mono text-xs text-[var(--color-pib-text)]">{health.score}%</span>
+                          <span className={`pib-pill ${health.score >= 80 ? 'pib-pill-success' : 'pib-pill-warn'}`}>
                             {health.score >= 80 ? 'Ready' : 'Needs work'}
                           </span>
                         </div>
-                        <div className="h-1.5 overflow-hidden rounded-full bg-[var(--color-card-border-strong)]">
+                        <div className="h-1.5 overflow-hidden rounded-full bg-[var(--color-pib-line)]">
                           <div
-                            className="h-full rounded-full bg-primary"
+                            className="h-full rounded-full bg-[var(--color-pib-cyan)]"
                             style={{ width: `${health.score}%` }}
                           />
                         </div>
                         {health.gaps.length > 0 && (
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                            <p className="text-[10px] text-on-surface-variant">Missing {health.gaps.join(', ')}</p>
+                            <p className="text-[10px] text-[var(--color-pib-text-muted)]">Missing {health.gaps.join(', ')}</p>
                             {pricingGaps.length > 0 && (
                               <button
                                 type="button"
                                 onClick={() => handleOpenEdit(p)}
                                 aria-label={`Fix pricing setup for ${displayName}`}
-                                className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-amber-300/20 bg-amber-300/10 px-2 py-1 text-[11px] font-medium text-amber-100 transition-colors hover:border-amber-200/50 hover:bg-amber-300/15"
+                                className="pib-pill pib-pill-warn cursor-pointer gap-1"
                               >
                                 <span className="material-symbols-outlined text-[13px]" aria-hidden="true">price_check</span>
                                 Fix pricing
@@ -527,11 +535,11 @@ export default function ProductsPage() {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-on-surface-variant">
+                    <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">
                       {p.unit?.trim() ? p.unit : 'Unit not set'}
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums">{fmtMoney(p.unitPrice, p.currency)}</td>
-                    <td className="px-4 py-3 text-on-surface-variant">{productCurrencyLabel(p)}</td>
+                    <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">{productCurrencyLabel(p)}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
                         <button
@@ -539,7 +547,7 @@ export default function ProductsPage() {
                           onClick={() => handleOpenEdit(p)}
                           aria-label={`Edit ${displayName}`}
                           title="Edit product"
-                          className="cursor-pointer w-7 h-7 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/[0.06] transition-colors"
+                          className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]"
                         >
                           <span className="material-symbols-outlined text-[16px]">edit</span>
                         </button>
@@ -549,7 +557,7 @@ export default function ProductsPage() {
                           disabled={deletingId === p.id}
                           aria-label={`Delete ${displayName}`}
                           title="Delete product"
-                          className="cursor-pointer w-7 h-7 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-red-400 hover:bg-red-400/[0.08] transition-colors disabled:opacity-50"
+                          className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-error)] disabled:opacity-50"
                         >
                           <span className="material-symbols-outlined text-[16px]">{deletingId === p.id ? 'hourglass_empty' : 'delete'}</span>
                         </button>
@@ -576,29 +584,29 @@ export default function ProductsPage() {
           role="alertdialog"
           aria-labelledby="delete-product-title"
           aria-describedby="delete-product-description"
-          className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-4xl rounded-lg border border-red-400/30 bg-[var(--color-card)] p-4 md:bottom-6"
+          className="pib-card fixed inset-x-4 bottom-4 z-50 mx-auto max-w-4xl border-[var(--color-pib-line-strong)] md:bottom-6"
         >
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex gap-3">
-              <span className="material-symbols-outlined mt-0.5 text-red-300" aria-hidden="true">
-                warning
+              <span className="pib-icon-tint mt-0.5 shrink-0">
+                <span className="material-symbols-outlined text-[18px]" aria-hidden="true">warning</span>
               </span>
               <div>
-                <p className="eyebrow !text-[10px] text-red-200">Catalog delete confirmation</p>
-                <h2 id="delete-product-title" className="mt-1 font-display text-lg text-on-surface">
+                <p className="eyebrow">Catalog delete confirmation</p>
+                <h2 id="delete-product-title" className="mt-1 font-display text-lg">
                   Delete catalog product &quot;{productDisplayName(pendingDeleteProduct)}&quot;?
                 </h2>
-                <p id="delete-product-description" className="mt-2 max-w-3xl text-sm text-on-surface-variant">
+                <p id="delete-product-description" className="mt-2 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
                   This removes the product from the active catalog used by deal line items, quotes, and revenue reporting. Historical records keep their saved line-item data.
                 </p>
                 {deleteError && (
                   <div
                     role="status"
                     aria-label="Catalog product delete failed"
-                    className="mt-3 rounded-md border border-amber-400/25 bg-amber-400/10 p-3"
+                    className="mt-3 rounded-xl border border-[var(--color-pib-line)] p-3"
                   >
-                    <p className="text-sm font-medium text-amber-100">{deleteError}</p>
-                    <p className="mt-1 text-xs leading-5 text-on-surface-variant">
+                    <p className="text-sm font-medium text-[var(--color-pib-text)]">{deleteError}</p>
+                    <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                       The product stayed in the catalog. Resolve the dependency or archive it before trying again.
                     </p>
                   </div>
@@ -612,7 +620,7 @@ export default function ProductsPage() {
                   setPendingDeleteProduct(null)
                   setDeleteError(null)
                 }}
-                className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface text-xs"
+                className="btn-pib-ghost"
                 disabled={deletingId === pendingDeleteProduct.id}
                 aria-label={`Cancel delete for catalog product ${productDisplayName(pendingDeleteProduct)}`}
               >
@@ -621,7 +629,7 @@ export default function ProductsPage() {
               <button
                 type="button"
                 onClick={confirmDeleteProduct}
-                className="inline-flex items-center gap-1.5 rounded-md border border-red-300/30 bg-red-400/15 px-3 py-2 text-xs font-semibold text-red-100 transition-colors hover:bg-red-400/25 disabled:opacity-50"
+                className="btn-pib-danger"
                 disabled={deletingId === pendingDeleteProduct.id}
                 aria-label={`Confirm delete catalog product ${productDisplayName(pendingDeleteProduct)}`}
               >

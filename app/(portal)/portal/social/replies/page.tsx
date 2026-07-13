@@ -47,60 +47,69 @@ export default function RepliesPage() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-on-surface">Reply Suggestions</h1>
-          <p className="text-sm text-on-surface-variant mt-1">AI-generated reply ideas for trending topics</p>
-        </div>
+    <div className="p-6 max-w-5xl mx-auto space-y-8">
+      <div className="flex items-start justify-between gap-4">
+        <header>
+          <p className="eyebrow">Social · Replies</p>
+          <h1 className="pib-page-title mt-2">Reply Suggestions</h1>
+          <p className="pib-page-sub">AI-generated reply ideas for trending topics</p>
+        </header>
         <button
           onClick={fetchSuggestions}
-          className="px-4 py-2 rounded-lg bg-surface-container text-on-surface font-label text-sm font-medium hover:bg-surface-container-high transition-colors"
+          className="btn-pib-secondary shrink-0"
         >
           Refresh
         </button>
       </div>
 
       {error && (
-        <div className="px-4 py-3 rounded-xl bg-red-900/30 text-red-400 text-sm">{error}</div>
+        <div className="pib-card border-[var(--color-error)]/40 text-sm text-[var(--color-error)]">{error}</div>
       )}
 
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-48 rounded-xl bg-surface-container animate-pulse" />
+            <div key={i} className="pib-skeleton h-48" />
           ))}
         </div>
       ) : suggestions.length === 0 ? (
-        <div className="py-16 text-center text-on-surface-variant text-sm">No reply suggestions available.</div>
+        <div className="pib-empty-state">
+          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">forum</span>
+          <h2 className="pib-empty-state-title">No reply suggestions available.</h2>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {suggestions.map((suggestion, i) => (
             <div
               key={suggestion.id ?? i}
-              className="rounded-xl bg-surface-container hover:bg-surface-container-high transition-colors p-5 space-y-3 flex flex-col"
+              className="pib-card space-y-4 flex flex-col"
             >
-              <h3 className="font-headline text-sm uppercase tracking-widest text-on-surface">
-                {suggestion.topic}
-              </h3>
+              <div className="flex items-center gap-3">
+                <span className="pib-icon-tint-rose">
+                  <span aria-hidden="true" className="material-symbols-outlined text-[18px]">forum</span>
+                </span>
+                <h3 className="pib-label">
+                  {suggestion.topic}
+                </h3>
+              </div>
 
               <div>
-                <p className="text-[10px] text-on-surface-variant uppercase tracking-wide mb-1">Search Query</p>
-                <code className="font-mono text-xs text-on-surface-variant bg-surface-container-high px-2 py-1 rounded block">
+                <p className="pib-label mb-1">Search Query</p>
+                <code className="font-mono text-xs text-[var(--color-pib-text-muted)] border border-[var(--color-pib-line)] px-2 py-1 rounded block">
                   {suggestion.searchQuery}
                 </code>
               </div>
 
               {suggestion.context && (
                 <div>
-                  <p className="text-[10px] text-on-surface-variant uppercase tracking-wide mb-1">Context</p>
-                  <p className="text-xs text-on-surface-variant leading-relaxed">{suggestion.context}</p>
+                  <p className="pib-label mb-1">Context</p>
+                  <p className="text-xs text-[var(--color-pib-text-muted)] leading-relaxed">{suggestion.context}</p>
                 </div>
               )}
 
               <div>
-                <p className="text-[10px] text-on-surface-variant uppercase tracking-wide mb-1">Draft Reply</p>
-                <p className="text-xs text-on-surface leading-relaxed bg-surface-container-high rounded-lg px-3 py-2">
+                <p className="pib-label mb-1">Draft Reply</p>
+                <p className="text-xs text-[var(--color-pib-text)] leading-relaxed border border-[var(--color-pib-line)] rounded-lg px-3 py-2">
                   {suggestion.draftReply}
                 </p>
               </div>
@@ -109,7 +118,7 @@ export default function RepliesPage() {
 
               <button
                 onClick={() => handleUseDraft(suggestion)}
-                className="w-full px-4 py-2 rounded-lg bg-white text-black font-label text-sm font-medium hover:bg-white/90 transition-colors mt-auto"
+                className="btn-pib-primary w-full mt-auto"
               >
                 Use as Draft
               </button>

@@ -83,13 +83,13 @@ function formatDate(value: unknown): string {
 
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
   return (
-    <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+    <div className="pib-stat-card min-w-0">
       <div className="flex items-start justify-between gap-3">
-        <p className="eyebrow !text-[10px]">{label}</p>
-        <span className="material-symbols-outlined text-[18px] text-on-surface-variant">{icon}</span>
+        <p className="pib-label">{label}</p>
+        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
       </div>
-      <p className="mt-3 font-display text-lg leading-none text-on-surface">{value}</p>
-      <p className="mt-3 text-xs text-on-surface-variant">{sub}</p>
+      <p className="mt-3 font-display text-2xl leading-none text-[var(--color-pib-text)]">{value}</p>
+      <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">{sub}</p>
     </div>
   )
 }
@@ -110,21 +110,21 @@ function PriorityAction({
   onClick: () => void
 }) {
   return (
-    <div className="rounded-xl border border-[var(--color-card-border)] bg-black/10 p-4">
+    <div className="pib-card min-w-0 !p-4">
       <div className="mb-4 flex items-start justify-between gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-on-surface">
+        <span className="pib-icon-tint-cyan shrink-0">
           <span className="material-symbols-outlined text-[18px]">{icon}</span>
         </span>
-        <span className="rounded-full border border-[var(--color-card-border)] px-2 py-1 text-[10px] text-on-surface-variant">
+        <span className="pib-pill pib-pill-cyan">
           {value}
         </span>
       </div>
-      <h3 className="text-sm font-semibold text-on-surface">{label}</h3>
-      <p className="mt-2 min-h-[40px] text-xs leading-5 text-on-surface-variant">{copy}</p>
+      <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{label}</h3>
+      <p className="mt-2 min-h-[40px] text-xs leading-5 text-[var(--color-pib-text-muted)]">{copy}</p>
       <button
         type="button"
         onClick={onClick}
-        className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface mt-4 flex w-full items-center justify-center gap-1.5 text-xs"
+        className="btn-pib-secondary mt-4 w-full justify-center"
       >
         <span className="material-symbols-outlined text-[14px]" aria-hidden="true">arrow_forward</span>
         {actionLabel}
@@ -263,21 +263,21 @@ export default function ScoringPage() {
   const hasSourceFailure = Boolean(fetchError)
 
   return (
-    <div className="space-y-3">
-      <header className="flex items-start justify-between gap-4 flex-wrap">
+    <div className="space-y-8">
+      <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="eyebrow">CRM settings</p>
-          <h1 className="text-base font-semibold text-on-surface mt-2">Scoring command center</h1>
-          <p className="text-xs leading-5 text-on-surface-variant max-w-2xl">
+          <h1 className="pib-page-title mt-2">Scoring command center</h1>
+          <p className="pib-page-sub max-w-2xl">
             Tune the ICP and lead-signal model that ranks contacts, highlights sales focus, and powers recomputation across the CRM.
           </p>
         </div>
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={handleSave}
             disabled={saving || loading || hasSourceFailure}
-            className="cursor-pointer h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 flex items-center gap-1.5 disabled:opacity-60"
+            className="btn-pib-primary"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">save</span>
             {saving ? 'Saving...' : 'Save model'}
@@ -286,7 +286,7 @@ export default function ScoringPage() {
             type="button"
             onClick={handleRecompute}
             disabled={recomputing || loading || hasSourceFailure}
-            className="cursor-pointer h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface flex items-center gap-1.5 disabled:opacity-60"
+            className="btn-pib-secondary"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
             {recomputing ? 'Recomputing...' : 'Recompute all'}
@@ -308,22 +308,24 @@ export default function ScoringPage() {
           {Array.from({ length: 4 }).map((_, index) => <div key={index} className="pib-skeleton h-24" />)}
         </div>
       ) : fetchError ? (
-        <section className="rounded-[var(--radius-card)] border border-amber-500/25 bg-amber-500/[0.07] p-5">
+        <section className="pib-card">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div className="flex gap-3">
-              <span className="material-symbols-outlined mt-0.5 text-amber-200" aria-hidden="true">warning</span>
+              <span className="pib-icon-tint mt-0.5 shrink-0">
+                <span className="material-symbols-outlined text-[18px]" aria-hidden="true">warning</span>
+              </span>
               <div>
-                <p className="eyebrow !text-[10px] text-amber-200">Source health</p>
-                <h2 className="mt-1 font-display text-xl text-on-surface">
+                <p className="eyebrow">Source health</p>
+                <h2 className="mt-1 font-display text-xl">
                   Scoring model could not load
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-on-surface-variant">{fetchError}</p>
+                <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{fetchError}</p>
               </div>
             </div>
             <button
               type="button"
               onClick={fetchScoringConfig}
-              className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface inline-flex shrink-0 items-center gap-1.5"
+              className="btn-pib-secondary shrink-0"
               aria-label="Retry loading scoring model"
             >
               <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>
@@ -332,25 +334,25 @@ export default function ScoringPage() {
           </div>
         </section>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-8">
           {recomputeConfirmOpen && (
             <section
               role="alertdialog"
               aria-labelledby="recompute-confirm-title"
               aria-describedby="recompute-confirm-description"
-              className="rounded-lg border border-amber-400/30 bg-amber-500/10 px-4 py-3"
+              className="pib-card"
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex gap-3">
-                  <span className="material-symbols-outlined mt-0.5 text-amber-300" aria-hidden="true">
-                    warning
+                  <span className="pib-icon-tint mt-0.5 shrink-0">
+                    <span className="material-symbols-outlined text-[18px]" aria-hidden="true">warning</span>
                   </span>
                   <div>
-                    <p className="eyebrow !text-[10px] text-amber-200">Score recompute confirmation</p>
-                    <h2 id="recompute-confirm-title" className="mt-1 font-display text-lg text-on-surface">
+                    <p className="eyebrow">Score recompute confirmation</p>
+                    <h2 id="recompute-confirm-title" className="mt-1 font-display text-lg">
                       Recompute scores for all contacts?
                     </h2>
-                    <p id="recompute-confirm-description" className="mt-2 max-w-3xl text-sm text-amber-100/90">
+                    <p id="recompute-confirm-description" className="mt-2 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
                       This refreshes lead, ICP, and AI score outputs across the active CRM workspace. Team priority lists may change after it finishes.
                     </p>
                   </div>
@@ -359,7 +361,7 @@ export default function ScoringPage() {
                   <button
                     type="button"
                     onClick={() => setRecomputeConfirmOpen(false)}
-                    className="h-8 rounded-md border border-[var(--color-card-border)] bg-transparent px-2.5 text-xs text-on-surface-variant transition-colors hover:bg-white/[0.05] hover:text-on-surface text-xs"
+                    className="btn-pib-ghost"
                     disabled={recomputing}
                   >
                     Cancel
@@ -367,7 +369,7 @@ export default function ScoringPage() {
                   <button
                     type="button"
                     onClick={confirmRecompute}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-amber-300/30 bg-amber-400/15 px-3 py-2 text-xs font-semibold text-amber-100 transition-colors hover:bg-amber-400/25 disabled:opacity-50"
+                    className="btn-pib-primary"
                     disabled={recomputing}
                     aria-label="Confirm recompute all contact scores"
                   >
@@ -382,68 +384,68 @@ export default function ScoringPage() {
           )}
 
           <section className="grid gap-4 lg:grid-cols-[1fr_340px]">
-            <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-3 space-y-4">
+            <div className="pib-card space-y-4">
               <div>
-                <p className="eyebrow !text-[10px]">Model focus</p>
-                <p className="mt-2 text-sm text-on-surface-variant">
+                <p className="pib-label">Model focus</p>
+                <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
                   Keep ICP fit and lead engagement balanced. A strong model should explain both who is a fit and who is showing buying intent.
                 </p>
               </div>
               <div className="space-y-3">
                 <div>
                   <div className="flex items-center justify-between gap-3 text-xs">
-                    <span className="text-on-surface-variant">ICP fit coverage</span>
-                    <span className="font-mono text-on-surface">{Math.round((Math.min(icpDimensions.length, 4) / 4) * 100)}%</span>
+                    <span className="text-[var(--color-pib-text-muted)]">ICP fit coverage</span>
+                    <span className="font-mono text-[var(--color-pib-text)]">{Math.round((Math.min(icpDimensions.length, 4) / 4) * 100)}%</span>
                   </div>
-                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--color-card-border-strong)]">
-                    <div className="h-full rounded-full bg-primary" style={{ width: `${Math.round((Math.min(icpDimensions.length, 4) / 4) * 100)}%` }} />
+                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--color-pib-line)]">
+                    <div className="h-full rounded-full bg-[var(--color-pib-cyan)]" style={{ width: `${Math.round((Math.min(icpDimensions.length, 4) / 4) * 100)}%` }} />
                   </div>
                 </div>
                 <div>
                   <div className="flex items-center justify-between gap-3 text-xs">
-                    <span className="text-on-surface-variant">Lead engagement weight</span>
-                    <span className="font-mono text-on-surface">{totalWeight} pts</span>
+                    <span className="text-[var(--color-pib-text-muted)]">Lead engagement weight</span>
+                    <span className="font-mono text-[var(--color-pib-text)]">{totalWeight} pts</span>
                   </div>
-                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--color-card-border-strong)]">
-                    <div className="h-full rounded-full bg-emerald-400" style={{ width: `${Math.min(100, Math.round((totalWeight / 80) * 100))}%` }} />
+                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--color-pib-line)]">
+                    <div className="h-full rounded-full bg-[var(--color-pib-success)]" style={{ width: `${Math.min(100, Math.round((totalWeight / 80) * 100))}%` }} />
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-3 space-y-4">
+            <div className="pib-card space-y-4">
               <div>
-                <p className="eyebrow !text-[10px]">Operational status</p>
-                <p className="mt-2 text-sm text-on-surface-variant">
-                  The strongest lead signal is <span className="text-on-surface">{strongestSignalLabel}</span> at {strongestSignal[1]} points.
+                <p className="pib-label">Operational status</p>
+                <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
+                  The strongest lead signal is <span className="text-[var(--color-pib-text)]">{strongestSignalLabel}</span> at {strongestSignal[1]} points.
                 </p>
               </div>
-              <div className="space-y-2 text-xs text-on-surface-variant">
+              <div className="space-y-2 text-xs text-[var(--color-pib-text-muted)]">
                 <div className="flex items-center justify-between gap-3">
                   <span>Updated</span>
-                  <span className="text-right text-on-surface">{formatDate(config?.updatedAt)}</span>
+                  <span className="text-right text-[var(--color-pib-text)]">{formatDate(config?.updatedAt)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <span>AI cache</span>
-                  <span className="text-on-surface">{config?.aiCacheHours ?? 24}h</span>
+                  <span className="text-[var(--color-pib-text)]">{config?.aiCacheHours ?? 24}h</span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <span>Recompute</span>
-                  <span className="text-on-surface">Admin controlled</span>
+                  <span className="text-[var(--color-pib-text)]">Admin controlled</span>
                 </div>
               </div>
             </div>
           </section>
 
           {(scoringHealth < 100 || explicitWeightCount < Object.keys(DEFAULT_WEIGHTS).length) && (
-            <section className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-0 overflow-hidden">
+            <section className="pib-card overflow-hidden !p-0">
               <div className="grid gap-0 lg:grid-cols-[minmax(0,0.75fr)_minmax(320px,1.25fr)]">
-                <div className="border-b border-[var(--color-card-border)] p-5 lg:border-b-0 lg:border-r">
-                  <p className="eyebrow !text-[10px]">Model setup priorities</p>
-                  <h2 className="mt-3 text-xl font-semibold text-on-surface">
+                <div className="border-b border-[var(--color-pib-line)] p-6 lg:border-b-0 lg:border-r">
+                  <p className="pib-label">Model setup priorities</p>
+                  <h2 className="mt-3 text-xl font-semibold text-[var(--color-pib-text)]">
                     Turn scoring gaps into sales focus
                   </h2>
-                  <p className="mt-3 text-sm leading-6 text-on-surface-variant">
+                  <p className="mt-3 text-sm leading-6 text-[var(--color-pib-text-muted)]">
                     A useful lead score should explain company fit, buying intent, and whether AI is adding judgment. Work these priorities before recomputing scores for the whole team.
                   </p>
                 </div>
@@ -485,12 +487,12 @@ export default function ScoringPage() {
           />
 
           {/* Tab content */}
-          <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-3">
+          <div className="pib-card">
             {activeTab === 'icp' && (
               <>
                 <div className="mb-5">
-                  <p className="eyebrow !text-[10px]">ICP Profile</p>
-                  <p className="mt-2 text-sm text-on-surface-variant">
+                  <p className="pib-label">ICP Profile</p>
+                  <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
                     Define the companies and regions that should lift a contact&apos;s fit score.
                   </p>
                 </div>
@@ -500,8 +502,8 @@ export default function ScoringPage() {
             {activeTab === 'weights' && (
               <>
                 <div className="mb-5">
-                  <p className="eyebrow !text-[10px]">Lead Signal Weights</p>
-                  <p className="mt-2 text-sm text-on-surface-variant">
+                  <p className="pib-label">Lead Signal Weights</p>
+                  <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
                     Tune how engagement signals add urgency to the contact&apos;s lead score.
                   </p>
                 </div>
@@ -511,14 +513,14 @@ export default function ScoringPage() {
           </div>
 
           {/* AI toggle */}
-          <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 !p-3 flex items-center justify-between gap-4">
+          <div className="pib-card flex items-center justify-between gap-4">
             <div>
               <p id="ai-scoring-toggle-label" className="text-sm font-medium">AI scoring</p>
-              <p className="text-xs text-on-surface-variant mt-0.5">
+              <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">
                 Use AI to compute a supplemental lead score alongside the formula score.
               </p>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer shrink-0">
+            <label className="relative inline-flex shrink-0 cursor-pointer items-center">
               <input
                 type="checkbox"
                 aria-labelledby="ai-scoring-toggle-label"
@@ -526,20 +528,20 @@ export default function ScoringPage() {
                 checked={aiEnabled}
                 onChange={(e) => setAiEnabled(e.target.checked)}
               />
-              <div className="w-10 h-6 bg-[var(--color-card-border-strong)] peer-checked:bg-primary rounded-full transition-colors" />
-              <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4" />
+              <div className="h-6 w-10 rounded-full bg-[var(--color-pib-line-strong)] transition-colors peer-checked:bg-[var(--color-pib-accent)]" />
+              <div className="absolute left-1 top-1 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-4" />
             </label>
           </div>
 
           {/* Save feedback */}
           {saveMsg && (
-            <p className="text-sm text-emerald-400 flex items-center gap-1.5">
+            <p className="flex items-center gap-1.5 text-sm text-[var(--color-pib-success)]">
               <span className="material-symbols-outlined text-[16px]">check_circle</span>
               {saveMsg}
             </p>
           )}
           {saveError && (
-            <p className="text-sm text-red-400 flex items-center gap-1.5">
+            <p className="flex items-center gap-1.5 text-sm text-[var(--color-error)]">
               <span className="material-symbols-outlined text-[16px]">error</span>
               {saveError}
             </p>
@@ -547,7 +549,7 @@ export default function ScoringPage() {
 
           {/* Recompute feedback */}
           {recomputeMsg && (
-            <p className="text-sm text-on-surface-variant flex items-center gap-1.5">
+            <p className="flex items-center gap-1.5 text-sm text-[var(--color-pib-text-muted)]">
               <span className="material-symbols-outlined text-[16px]">info</span>
               {recomputeMsg}
             </p>

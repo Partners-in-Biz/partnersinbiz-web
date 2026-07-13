@@ -46,9 +46,16 @@ import { checkFormRateLimit } from '@/lib/forms/ratelimit'
 import { checkQuota } from '@/lib/platform/quotas'
 import type { CaptureSource } from '@/lib/crm/captureSources'
 import type { Campaign } from '@/lib/campaigns/types'
+import { assertEmailMarketingDispatchApproval } from '@/lib/email-marketing/agent-governance'
 import type { Sequence, SequenceEnrollment } from '@/lib/sequences/types'
 import { evaluateSequenceReentry } from '@/lib/email-marketing/automation-policy'
 import { appendConsentEvent } from '@/lib/consent-ledger/store'
+import { isDisposableEmail } from '@/lib/lead-capture/disposable-domains'
+import { LEAD_CAPTURE_SUBMISSIONS } from '@/lib/lead-capture/types'
+import { buildCaptureAttributionContext } from '@/lib/lead-capture/attribution-context'
+import { publishCaptureSchemaVersion } from '@/lib/lead-capture/schema-store'
+import { LEGACY_PUBLIC_CAPTURE_FIELDS } from '@/lib/lead-capture/schema-presets'
+import { resolveCaptureFields } from '@/lib/lead-capture/schema'
 
 type Params = { params: Promise<{ publicKey: string }> }
 
@@ -113,15 +120,29 @@ export async function POST(req: NextRequest, context: Params) {
 
   // Honeypot: silently 200 on submission so the bot thinks it succeeded.
   if (typeof body._hp === 'string' && body._hp.trim().length > 0) {
+    Promise.resolve(sourceDoc.ref.update({
+      'stats.blocked.honeypot': FieldValue.increment(1),
+      updatedAt: FieldValue.serverTimestamp(),
+    })).catch(() => {})
     return jsonSuccess({ ok: true, deduped: false }, 200)
   }
 
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
   if (!email || !isEmail(email)) return jsonError('A valid email is required', 400)
+  if (isDisposableEmail(email)) {
+    Promise.resolve(sourceDoc.ref.update({
+      'stats.blocked.disposable': FieldValue.increment(1),
+      updatedAt: FieldValue.serverTimestamp(),
+    })).catch(() => {})
+    return jsonError('Disposable email addresses are not allowed', 422)
+  }
 
   if (source.consentRequired && body.consent !== true) {
     return jsonError('Consent is required for this form', 422)
   }
+  const forbidden = ['campaignId', 'programId', 'sourceId', 'gclid', 'fbclid', 'msclkid', 'ttclid']
+    .filter((key) => body[key] !== undefined)
+  if (forbidden.length) return jsonError(`Server-controlled fields are not accepted: ${forbidden.join(', ')}`, 400)
 
   // Compose contact fields
   const firstName = typeof body.firstName === 'string' ? body.firstName.trim() : ''
@@ -147,6 +168,23 @@ export async function POST(req: NextRequest, context: Params) {
     metaSummary ? `Submitted: ${metaSummary}` : '',
   ].filter(Boolean).join('\n\n')
   const consentGiven = body.consent === true
+  const { context: attributionContext, provenance: attribution, lineage } = buildCaptureAttributionContext({
+    requestUrl: req.url,
+    refererHeader: req.headers.get('referer') ?? '',
+    body: body as Record<string, unknown>,
+    source: { ...(source as unknown as Record<string, unknown>), id: source.id, name: source.name, type: source.type },
+  })
+  const schemaInput = Object.fromEntries(
+    ['name', 'firstName', 'lastName', 'phone', 'company', 'notes']
+      .filter((key) => body[key] !== undefined)
+      .map((key) => [key, body[key]]),
+  )
+  const resolvedLegacy = resolveCaptureFields(
+    LEGACY_PUBLIC_CAPTURE_FIELDS,
+    schemaInput,
+    attributionContext,
+  )
+  if (!resolvedLegacy.ok) return jsonError(resolvedLegacy.errors.join('; '), 400)
   const consentMetadata = {
     consentRequired: !!source.consentRequired,
     consentGiven,
@@ -176,6 +214,7 @@ export async function POST(req: NextRequest, context: Params) {
       tags: mergedTags,
       lastContactedAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
+      lastTouchAttribution: attribution,
       ...(consentGiven ? {
         marketingConsent: true,
         consentAt: FieldValue.serverTimestamp(),
@@ -208,6 +247,8 @@ export async function POST(req: NextRequest, context: Params) {
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
       lastContactedAt: FieldValue.serverTimestamp(),
+      firstTouchAttribution: attribution,
+      lastTouchAttribution: attribution,
     })
     contactId = docRef.id
   }
@@ -230,6 +271,29 @@ export async function POST(req: NextRequest, context: Params) {
       metadata: consentMetadata,
     })
   }
+
+  const schemaVersion = await publishCaptureSchemaVersion(
+    adminDb as never,
+    sourceDoc.ref as never,
+    { orgId: source.orgId, sourceId: source.id, fields: LEGACY_PUBLIC_CAPTURE_FIELDS },
+  )
+  await adminDb.collection(LEAD_CAPTURE_SUBMISSIONS).add({
+    orgId: source.orgId,
+    captureSourceId: source.id,
+    captureSourceSystem: 'legacy',
+    email,
+    data: { ...resolvedLegacy.data, ...(body.meta && typeof body.meta === 'object' ? { meta: body.meta } : {}) },
+    contactId,
+    confirmedAt: consentGiven || !source.consentRequired ? FieldValue.serverTimestamp() : null,
+    confirmationToken: '',
+    ipAddress: ip,
+    userAgent: req.headers.get('user-agent') ?? '',
+    referer: attribution.referrer,
+    attribution,
+    attributionLineage: lineage,
+    schemaVersionId: schemaVersion.id,
+    createdAt: FieldValue.serverTimestamp(),
+  })
 
   // ── 5. Bump source counter (best-effort) ───────────────────────────────────
   try {
@@ -268,6 +332,9 @@ export async function POST(req: NextRequest, context: Params) {
       const campaign = campSnap.data() as Campaign
       if (campaign.deleted || campaign.status !== 'active') continue
       if (campaign.orgId !== source.orgId) continue
+      await assertEmailMarketingDispatchApproval(campaign as unknown as Record<string, unknown>, {
+        orgId: source.orgId, resourceType: 'email_campaign', resourceId: campaignId,
+      })
 
       // Idempotency
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -282,6 +349,9 @@ export async function POST(req: NextRequest, context: Params) {
       if (!seqSnap.exists) continue
       const sequence = seqSnap.data() as Sequence
       if (!sequence.steps?.length) continue
+      await assertEmailMarketingDispatchApproval(sequence as unknown as Record<string, unknown>, {
+        orgId: source.orgId, resourceType: 'email_sequence', resourceId: campaign.sequenceId,
+      })
 
       const firstStep = sequence.steps[0]
       const delayMs = (firstStep.delayDays ?? 0) * 24 * 60 * 60 * 1000
@@ -329,6 +399,9 @@ export async function POST(req: NextRequest, context: Params) {
       if (sequence.deleted || sequence.status !== 'active') continue
       if (sequence.orgId !== source.orgId) continue
       if (!sequence.steps?.length) continue
+      await assertEmailMarketingDispatchApproval(sequence as unknown as Record<string, unknown>, {
+        orgId: source.orgId, resourceType: 'email_sequence', resourceId: sequenceId,
+      })
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const existing = await (adminDb.collection('sequence_enrollments') as any)

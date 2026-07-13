@@ -7,6 +7,7 @@ import { YOUTUBE_COLLECTIONS } from '@/lib/youtube-studio/api'
 import { CREATIVE_CANVAS_COLLECTION, VIDEO_EDITOR_COLLECTIONS, validateTimelineMediaRefs } from '@/lib/video-editor/api'
 import { sanitizeVideoEditorProjectInput, serializeVideoEditorRecord, validateEditorTimeline } from '@/lib/video-editor/sanitize'
 import type { VideoEditorProject } from '@/lib/video-editor/types'
+import { authorizeMarketingStudioMutation } from '@/lib/chat-context/marketingMutationAccess'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,6 +59,8 @@ export const POST = withAuth('client', async (req: NextRequest, user) => {
   const orgId = cleanString(body.orgId) ?? ''
   const denied = await ensureOrgAccess(user, orgId)
   if (denied) return denied
+  const policyAccess = await authorizeMarketingStudioMutation(user, orgId, 'create')
+  if (!policyAccess.ok) return apiError(policyAccess.error, policyAccess.status)
 
   const data = sanitizeVideoEditorProjectInput({ ...body, orgId })
   if (!data.title) return apiError('title is required', 400)

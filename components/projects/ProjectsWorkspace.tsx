@@ -486,8 +486,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
                 placeholder="Project name..."
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
-                className="w-full px-3 py-2 rounded-md text-sm"
-                style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-outline)' }}
+                className="pib-input w-full text-sm"
                 disabled={formLoading}
                 autoFocus
               />
@@ -495,8 +494,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
             <select
               value={formStatus}
               onChange={(e) => setFormStatus(e.target.value)}
-              className="px-3 py-2 rounded-md text-sm"
-              style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-outline)' }}
+              className="pib-select text-sm"
               disabled={formLoading}
             >
               {STATUS_OPTIONS.map(status => (
@@ -562,10 +560,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
                   className="pib-input h-9 text-sm"
                 />
               </label>
-              <div
-                className="flex rounded-[var(--radius-btn)] overflow-hidden border"
-                style={{ borderColor: 'var(--color-outline)' }}
-              >
+              <div className="flex rounded-[var(--radius-btn)] overflow-hidden border border-[var(--color-pib-line)]">
                 {(['list', 'board'] as const).map(displayMode => (
                   <button
                     key={displayMode}
@@ -574,7 +569,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
                     style={
                       viewMode === displayMode
                         ? { background: 'var(--color-accent-v2)', color: '#000' }
-                        : { background: 'transparent', color: 'var(--color-on-surface-variant)' }
+                        : { background: 'transparent', color: 'var(--color-pib-text-muted)' }
                     }
                   >
                     <span className="material-symbols-outlined text-[14px]">
@@ -588,7 +583,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
                 <button
                   type="button"
                   onClick={() => setBoardSortMode(prev => prev === 'latest' ? 'manual' : 'latest')}
-                  className="inline-flex shrink-0 items-center gap-2 rounded-[var(--radius-btn)] border border-[var(--color-card-border)] px-3 py-1.5 text-xs font-label uppercase tracking-wide text-on-surface-variant transition-colors hover:text-on-surface"
+                  className="inline-flex shrink-0 items-center gap-2 rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] px-3 py-1.5 text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
                   aria-pressed={boardSortMode === 'manual'}
                 >
                   <span className="material-symbols-outlined text-[16px]">sort</span>
@@ -630,7 +625,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
             </div>
           ) : projectView === 'archive' ? (
             <>
-              <p className="text-sm text-on-surface-variant">Completed and archived project history.</p>
+              <p className="text-sm text-[var(--color-pib-text-muted)]">Completed and archived project history.</p>
               {filtered.length === 0 ? (
                 <EmptyState
                   icon="archive"
@@ -667,10 +662,10 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
                       >
                         {deletingId === project.id ? '...' : 'Yes'}
                       </button>
-                      <span className="text-[11px] text-on-surface-variant">/</span>
+                      <span className="text-[11px] text-[var(--color-pib-text-muted)]">/</span>
                       <button
                         onClick={() => setConfirmId(null)}
-                        className="text-[11px] text-on-surface-variant hover:text-on-surface"
+                        className="text-[11px] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
                       >
                         No
                       </button>

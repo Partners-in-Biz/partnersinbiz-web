@@ -37,7 +37,7 @@ interface Counts {
 }
 
 const inputClass =
-  'mt-1 w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2 text-sm text-on-surface'
+  'mt-1 w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)] px-3 py-2 text-sm text-[var(--color-pib-text)]'
 
 const EMPTY_COUNTS: Counts = { total: 0, draft: 0, scheduled: 0, published: 0, archived: 0, totalViews: 0 }
 const EMPTY_FORM = {
@@ -58,7 +58,7 @@ function fmt(value: string | null): string {
 function statusBadge(status: Status): string {
   if (status === 'published') return 'bg-green-500/15 text-green-300'
   if (status === 'scheduled') return 'bg-blue-500/15 text-blue-300'
-  if (status === 'archived') return 'bg-[var(--color-surface-container)] text-on-surface-variant'
+  if (status === 'archived') return 'bg-[var(--color-pib-surface-soft)] text-[var(--color-pib-text-muted)]'
   return 'bg-amber-500/15 text-amber-300'
 }
 
@@ -221,9 +221,9 @@ export function AnnouncementsManager() {
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       <div>
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">Governance</p>
-        <h1 className="text-2xl font-headline font-bold text-on-surface">Announcements</h1>
-        <p className="text-sm text-on-surface-variant mt-1">
+        <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">Governance</p>
+        <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Announcements</h1>
+        <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
           Author feature announcements, schedule them, target by plan, and publish to the portal changelog with view
           tracking.
         </p>
@@ -239,8 +239,8 @@ export function AnnouncementsManager() {
           { label: 'Views', value: counts.totalViews },
         ].map((m) => (
           <div key={m.label} className="pib-card">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{m.label}</p>
-            <p className="text-2xl font-headline font-bold text-on-surface mt-1">{m.value}</p>
+            <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{m.label}</p>
+            <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{m.value}</p>
           </div>
         ))}
       </div>
@@ -263,14 +263,14 @@ export function AnnouncementsManager() {
       {/* Editor */}
       <div className="pib-card space-y-4">
         <div className="flex items-center justify-between">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
             {editingId ? 'Edit announcement' : 'New announcement'}
           </p>
           {editingId && (
             <button
               type="button"
               onClick={resetForm}
-              className="text-xs text-on-surface-variant hover:text-on-surface transition-colors"
+              className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
             >
               Cancel
             </button>
@@ -278,19 +278,19 @@ export function AnnouncementsManager() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2">
-            <label className="text-xs text-on-surface-variant">Title</label>
+            <label className="text-xs text-[var(--color-pib-text-muted)]">Title</label>
             <input className={inputClass} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           </div>
           <div>
-            <label className="text-xs text-on-surface-variant">Category</label>
+            <label className="text-xs text-[var(--color-pib-text-muted)]">Category</label>
             <input className={inputClass} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
           </div>
           <div>
-            <label className="text-xs text-on-surface-variant">Version (optional)</label>
+            <label className="text-xs text-[var(--color-pib-text-muted)]">Version (optional)</label>
             <input className={inputClass} value={form.version} onChange={(e) => setForm({ ...form, version: e.target.value })} />
           </div>
           <div className="sm:col-span-2">
-            <label className="text-xs text-on-surface-variant">Summary / body</label>
+            <label className="text-xs text-[var(--color-pib-text-muted)]">Summary / body</label>
             <textarea
               rows={2}
               className={inputClass}
@@ -299,7 +299,7 @@ export function AnnouncementsManager() {
             />
           </div>
           <div className="sm:col-span-2">
-            <label className="text-xs text-on-surface-variant">Bullet notes (one per line)</label>
+            <label className="text-xs text-[var(--color-pib-text-muted)]">Bullet notes (one per line)</label>
             <textarea
               rows={3}
               className={inputClass}
@@ -308,7 +308,7 @@ export function AnnouncementsManager() {
             />
           </div>
           <div>
-            <label className="text-xs text-on-surface-variant">Schedule publish at (optional)</label>
+            <label className="text-xs text-[var(--color-pib-text-muted)]">Schedule publish at (optional)</label>
             <input
               type="datetime-local"
               className={inputClass}
@@ -319,10 +319,10 @@ export function AnnouncementsManager() {
         </div>
 
         <div>
-          <p className="text-xs text-on-surface-variant mb-2">Target plans (none selected = all plans)</p>
+          <p className="text-xs text-[var(--color-pib-text-muted)] mb-2">Target plans (none selected = all plans)</p>
           <div className="flex flex-wrap gap-2">
             {plans.length === 0 ? (
-              <span className="text-xs text-on-surface-variant">No plans configured — announcement targets everyone.</span>
+              <span className="text-xs text-[var(--color-pib-text-muted)]">No plans configured — announcement targets everyone.</span>
             ) : (
               plans.map((p) => (
                 <button
@@ -331,8 +331,8 @@ export function AnnouncementsManager() {
                   onClick={() => togglePlan(p.key)}
                   className={`rounded-full border px-3 py-1 text-xs transition-colors ${
                     targetPlans.includes(p.key)
-                      ? 'border-[var(--color-accent-v2)] bg-[var(--color-accent-v2)]/15 text-on-surface'
-                      : 'border-[var(--color-card-border)] text-on-surface-variant hover:text-on-surface'
+                      ? 'border-[var(--color-accent-v2)] bg-[var(--color-accent-v2)]/15 text-[var(--color-pib-text)]'
+                      : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
                   }`}
                 >
                   {p.name}
@@ -347,7 +347,7 @@ export function AnnouncementsManager() {
             type="button"
             disabled={busy}
             onClick={() => save('draft')}
-            className="rounded-lg border border-[var(--color-card-border)] px-4 py-2 text-sm text-on-surface hover:bg-[var(--color-row-hover)] disabled:opacity-50 transition-colors"
+            className="rounded-lg border border-[var(--color-card-border)] px-4 py-2 text-sm text-[var(--color-pib-text)] hover:bg-[var(--color-row-hover)] disabled:opacity-50 transition-colors"
           >
             Save draft
           </button>
@@ -355,7 +355,7 @@ export function AnnouncementsManager() {
             type="button"
             disabled={busy || !form.publishAt}
             onClick={() => save('scheduled')}
-            className="rounded-lg border border-[var(--color-card-border)] px-4 py-2 text-sm text-on-surface hover:bg-[var(--color-row-hover)] disabled:opacity-50 transition-colors"
+            className="rounded-lg border border-[var(--color-card-border)] px-4 py-2 text-sm text-[var(--color-pib-text)] hover:bg-[var(--color-row-hover)] disabled:opacity-50 transition-colors"
           >
             Schedule
           </button>
@@ -372,13 +372,13 @@ export function AnnouncementsManager() {
 
       {/* Listing */}
       <div className="overflow-x-auto rounded-xl border border-[var(--color-card-border)]">
-        <table className="w-full text-left text-sm text-on-surface">
+        <table className="w-full text-left text-sm text-[var(--color-pib-text)]">
           <thead>
-            <tr className="border-b border-[var(--color-card-border)] bg-[var(--color-surface-container)]">
+            <tr className="border-b border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)]">
               {['Title', 'Status', 'Target plans', 'Publish', 'Views', 'Updated', 'Actions'].map((col) => (
                 <th
                   key={col}
-                  className="px-3 py-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant whitespace-nowrap"
+                  className="px-3 py-2 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] whitespace-nowrap"
                 >
                   {col}
                 </th>
@@ -388,13 +388,13 @@ export function AnnouncementsManager() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-on-surface-variant">
+                <td colSpan={7} className="px-3 py-6 text-center text-[var(--color-pib-text-muted)]">
                   Loading announcements…
                 </td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-on-surface-variant">
+                <td colSpan={7} className="px-3 py-6 text-center text-[var(--color-pib-text-muted)]">
                   No announcements yet. Author one above.
                 </td>
               </tr>
@@ -405,8 +405,8 @@ export function AnnouncementsManager() {
                   className="border-b border-[var(--color-card-border)] last:border-b-0 hover:bg-[var(--color-row-hover)] transition-colors align-top"
                 >
                   <td className="px-3 py-2">
-                    <p className="font-medium text-on-surface">{a.title}</p>
-                    <p className="text-[11px] text-on-surface-variant">
+                    <p className="font-medium text-[var(--color-pib-text)]">{a.title}</p>
+                    <p className="text-[11px] text-[var(--color-pib-text-muted)]">
                       {a.category}
                       {a.version ? ` · ${a.version}` : ''}
                     </p>
@@ -414,20 +414,20 @@ export function AnnouncementsManager() {
                   <td className="px-3 py-2 whitespace-nowrap">
                     <span className={`inline-block rounded px-1.5 py-0.5 text-xs ${statusBadge(a.status)}`}>{a.status}</span>
                   </td>
-                  <td className="px-3 py-2 text-xs text-on-surface-variant max-w-[160px]">
+                  <td className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)] max-w-[160px]">
                     {a.targetPlans.length === 0 ? 'All plans' : a.targetPlans.map(planName).join(', ')}
                   </td>
-                  <td className="px-3 py-2 text-xs text-on-surface-variant whitespace-nowrap">
+                  <td className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)] whitespace-nowrap">
                     {a.status === 'scheduled' ? `Scheduled ${fmt(a.publishAt)}` : a.publishedAt ? fmt(a.publishedAt) : '—'}
                   </td>
-                  <td className="px-3 py-2 text-xs text-on-surface-variant">{a.views}</td>
-                  <td className="px-3 py-2 text-xs text-on-surface-variant whitespace-nowrap">{fmt(a.updatedAt)}</td>
+                  <td className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">{a.views}</td>
+                  <td className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)] whitespace-nowrap">{fmt(a.updatedAt)}</td>
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-1.5">
                       <button
                         type="button"
                         onClick={() => startEdit(a)}
-                        className="rounded-md border border-[var(--color-card-border)] px-2 py-1 text-xs text-on-surface hover:bg-[var(--color-row-hover)] transition-colors"
+                        className="rounded-md border border-[var(--color-card-border)] px-2 py-1 text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-row-hover)] transition-colors"
                       >
                         Edit
                       </button>
@@ -446,7 +446,7 @@ export function AnnouncementsManager() {
                           type="button"
                           disabled={busy}
                           onClick={() => transition(a, 'archived')}
-                          className="rounded-md border border-[var(--color-card-border)] px-2 py-1 text-xs text-on-surface-variant hover:bg-[var(--color-row-hover)] disabled:opacity-50 transition-colors"
+                          className="rounded-md border border-[var(--color-card-border)] px-2 py-1 text-xs text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] disabled:opacity-50 transition-colors"
                         >
                           Archive
                         </button>

@@ -45,6 +45,8 @@ export const CONTEXT_REFERENCE_MENTION_OPTIONS: ContextReferenceMentionOption[] 
   { type: 'workspace_artifact', namespace: 'workspaceartifacts', label: 'Workspace artifacts' },
   { type: 'workspace_connection', namespace: 'workspaceconnections', label: 'Workspace connections' },
   { type: 'workspace_broker_job', namespace: 'brokerjobs', label: 'Workspace broker jobs' },
+  { type: 'studio', namespace: 'studios', label: 'Studios' },
+  { type: 'studio_artifact', namespace: 'studioartifacts', label: 'Studio artifacts' },
   { type: 'file', namespace: 'files', label: 'Files' },
   { type: 'report', namespace: 'reports', label: 'Reports' },
   { type: 'calendar_event', namespace: 'events', label: 'Calendar events' },

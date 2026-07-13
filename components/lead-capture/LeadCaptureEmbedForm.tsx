@@ -81,16 +81,25 @@ export function LeadCaptureEmbedForm(props: Props) {
   const isLastStep = isMultiStep ? stepIndex >= steps.length - 1 : true
 
   const fieldsForStep = useMemo<CaptureField[]>(() => {
+    const visible = (field: CaptureField) => {
+      if (field.type === 'hidden') return false
+      if (!field.showWhen) return true
+      const actual = values[field.showWhen.fieldKey] ?? ''
+      if (field.showWhen.operator === 'is_set') return actual.trim().length > 0
+      if (field.showWhen.operator === 'not_equals') return actual !== (field.showWhen.value ?? '')
+      if (field.showWhen.operator === 'contains') return actual.includes(field.showWhen.value ?? '')
+      return actual === (field.showWhen.value ?? '')
+    }
     if (!isMultiStep || !currentStepCfg) {
-      return fields.filter((f) => f.key !== 'email')
+      return fields.filter((f) => f.key !== 'email' && visible(f))
     }
     const byKey: Record<string, CaptureField> = {}
     fields.forEach((f) => { if (f.key) byKey[f.key] = f })
     return (currentStepCfg.fields || [])
       .filter((k) => k !== 'email')
       .map((k) => byKey[k])
-      .filter((f): f is CaptureField => !!f)
-  }, [isMultiStep, currentStepCfg, fields])
+      .filter((f): f is CaptureField => !!f && visible(f))
+  }, [isMultiStep, currentStepCfg, fields, values])
 
   const headingText = currentStepCfg?.headingText || theme.headingText || 'Join our newsletter'
   const subheadingText = currentStepCfg?.subheadingText ?? theme.subheadingText ?? ''

@@ -50,7 +50,7 @@ export function SaveAsTemplateButton({ documentId, orgId }: SaveAsTemplateButton
 
   if (savedName && !open) {
     return (
-      <div className="mt-3 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs text-on-surface-variant">
+      <div className="mt-3 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
         <span className="material-symbols-outlined align-middle text-[14px] text-[var(--color-pib-accent)]">
           check_circle
         </span>{' '}
@@ -61,7 +61,7 @@ export function SaveAsTemplateButton({ documentId, orgId }: SaveAsTemplateButton
             setSavedName(null)
             setOpen(true)
           }}
-          className="underline hover:text-on-surface"
+          className="underline hover:text-[var(--color-pib-text)]"
         >
           Save another
         </button>
@@ -77,7 +77,7 @@ export function SaveAsTemplateButton({ documentId, orgId }: SaveAsTemplateButton
           setOpen(true)
           setError(null)
         }}
-        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-white/10 px-3 py-2 text-xs font-medium text-on-surface-variant hover:bg-white/5 hover:text-on-surface"
+        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-white/10 px-3 py-2 text-xs font-medium text-[var(--color-pib-text-muted)] hover:bg-white/5 hover:text-[var(--color-pib-text)]"
       >
         <span className="material-symbols-outlined text-[16px]">bookmark_add</span>
         Save as template
@@ -87,7 +87,7 @@ export function SaveAsTemplateButton({ documentId, orgId }: SaveAsTemplateButton
 
   return (
     <form onSubmit={handleSubmit} className="mt-3 space-y-2 rounded-md border border-white/10 bg-white/5 p-3">
-      <p className="text-[11px] uppercase tracking-[0.18em] text-on-surface-variant">Save as template</p>
+      <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">Save as template</p>
       <input
         type="text"
         value={name}
@@ -95,7 +95,7 @@ export function SaveAsTemplateButton({ documentId, orgId }: SaveAsTemplateButton
         placeholder="Template name"
         required
         disabled={submitting}
-        className="w-full rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:ring-1 focus:ring-[var(--color-pib-accent)]"
+        className="w-full rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--color-pib-accent)]"
       />
       <textarea
         value={description}
@@ -103,7 +103,7 @@ export function SaveAsTemplateButton({ documentId, orgId }: SaveAsTemplateButton
         rows={2}
         placeholder="Description (optional)"
         disabled={submitting}
-        className="w-full resize-none rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:ring-1 focus:ring-[var(--color-pib-accent)]"
+        className="w-full resize-none rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--color-pib-accent)]"
       />
       {error && <p className="text-[11px] text-red-400">{error}</p>}
       <div className="flex items-center gap-2">

@@ -2,6 +2,12 @@ import { FieldValue } from 'firebase-admin/firestore'
 
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import type { ApiUser } from '@/lib/api/types'
+import type { StudioKind } from '@/lib/chat-context/types'
+import { parseMarketingCanvasContextId } from '@/lib/chat-context/marketingCanvasIdentity'
+import { parseStudioArtifactContextId, studioArtifactContextId } from '@/lib/chat-context/studioArtifactIdentity'
+import { canAccessModule, type WorkspaceModuleKey } from '@/lib/orgMembers/access-policy'
+import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
+import { isPortalModuleEnabled, type PortalModuleKey } from '@/lib/organizations/portal-modules'
 import { CLIENT_DOCUMENTS_COLLECTION, getClientDocument } from '@/lib/client-documents/store'
 import { listCompanyDocuments } from '@/lib/companies/command-center'
 import type { Company } from '@/lib/companies/types'
@@ -87,6 +93,83 @@ const SEARCH_SCAN_LIMIT_BY_TYPE: Partial<Record<ContextReferenceType, number>> =
   company: 500,
 }
 
+type StudioDefinition = {
+  label: string
+  route: string
+  adminRoute?: (orgData: RawDoc) => string
+  moduleKey: Extract<WorkspaceModuleKey, 'marketing' | 'mobileApps' | 'youtubeStudio' | 'bookStudio'>
+  portalModuleKey?: PortalModuleKey
+  resources: Record<string, { collection: string; exactHref?: (id: string, base: string, data: RawDoc) => string }>
+}
+
+const STUDIO_DEFINITIONS: Record<StudioKind, StudioDefinition> = {
+  marketing_studio: {
+    label: 'Marketing Studio', route: '/portal/creative-canvas', adminRoute: () => '/admin/creative-canvas', moduleKey: 'marketing',
+    resources: {
+      canvas: { collection: 'creative_canvases', exactHref: (id, base) => `${base}?canvasId=${encodeURIComponent(id)}` },
+    },
+  },
+  video_editor: {
+    label: 'Video Editor', route: '/portal/video-editor', moduleKey: 'marketing',
+    resources: {
+      project: { collection: 'video_editor_projects', exactHref: (id, base) => `${base}?projectId=${encodeURIComponent(id)}` },
+    },
+  },
+  book_studio: {
+    label: 'Book Studio', route: '/portal/book-studio', adminRoute: (org) => clean(org.slug) ? `/admin/org/${encodeURIComponent(clean(org.slug))}/book-studio` : '/portal/book-studio', moduleKey: 'bookStudio', portalModuleKey: 'bookStudio',
+    resources: {
+      project: { collection: 'book_studio_projects', exactHref: (id, base) => `${base}/${encodeURIComponent(id)}` },
+      book: { collection: 'book_studio_projects', exactHref: (id, base) => `${base}/${encodeURIComponent(id)}` },
+    },
+  },
+  youtube_studio: {
+    label: 'YouTube Studio', route: '/portal/youtube-studio', adminRoute: (org) => clean(org.slug) ? `/admin/org/${encodeURIComponent(clean(org.slug))}/youtube-studio` : '/portal/youtube-studio', moduleKey: 'youtubeStudio', portalModuleKey: 'youtubeStudio',
+    resources: {
+      video_project: { collection: 'youtube_video_projects', exactHref: (id, base) => `${base}/editor/${encodeURIComponent(id)}` },
+      project: { collection: 'youtube_video_projects', exactHref: (id, base) => `${base}/editor/${encodeURIComponent(id)}` },
+    },
+  },
+  mobile_apps: {
+    label: 'Mobile Apps', route: '/portal/mobile-apps', adminRoute: (org) => clean(org.slug) ? `/admin/org/${encodeURIComponent(clean(org.slug))}/mobile-apps` : '/portal/mobile-apps', moduleKey: 'mobileApps', portalModuleKey: 'mobileApps',
+    resources: {
+      app: { collection: 'mobile_apps', exactHref: (id, base) => `${base}?appId=${encodeURIComponent(id)}` },
+    },
+  },
+}
+
+function studioKindFrom(value: string): StudioKind | null {
+  return Object.prototype.hasOwnProperty.call(STUDIO_DEFINITIONS, value) ? value as StudioKind : null
+}
+
+function studioArtifactReferenceId(studioKind: StudioKind, orgId: string, resourceType: string, resourceId: string): string {
+  return studioKind === 'marketing_studio' || studioKind === 'mobile_apps'
+    ? studioArtifactContextId({ studioKind, orgId, resourceType, resourceId })
+    : `${studioKind}:${resourceType}:${encodeURIComponent(resourceId)}`
+}
+
+function portalSettingsFrom(data: RawDoc): { portalModules?: Partial<Record<PortalModuleKey, boolean>> } | undefined {
+  if (!data.settings || typeof data.settings !== 'object' || Array.isArray(data.settings)) return undefined
+  const settings = data.settings as Record<string, unknown>
+  if (!settings.portalModules || typeof settings.portalModules !== 'object' || Array.isArray(settings.portalModules)) return {}
+  const raw = settings.portalModules as Record<string, unknown>
+  const portalModules: Partial<Record<PortalModuleKey, boolean>> = {}
+  for (const key of ['mobileApps', 'youtubeStudio', 'bookStudio'] as PortalModuleKey[]) {
+    if (typeof raw[key] === 'boolean') portalModules[key] = raw[key] as boolean
+  }
+  return { portalModules }
+}
+
+async function canUseStudio(user: ApiUser, orgId: string, definition: StudioDefinition, orgData: RawDoc): Promise<boolean> {
+  if (!canUseOrg(user, orgId)) return false
+  if (user.role !== 'client') return true
+  if (!canAccessModule(user.memberAccessPolicy, definition.moduleKey)) return false
+  if (definition.portalModuleKey && !isPortalModuleEnabled(portalSettingsFrom(orgData), definition.portalModuleKey)) return false
+  const policy = await assertUserCanPerformOrganizationModuleAction(
+    user, orgId, definition.moduleKey, 'visibility', 'Forbidden', orgData,
+  )
+  return policy.ok
+}
+
 function clean(value: unknown, max = 260): string {
   if (typeof value === 'number' && Number.isFinite(value)) return String(value)
   return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ').slice(0, max) : ''
@@ -122,7 +205,7 @@ function origin(seed: ContextReferenceSeed): ContextReferenceOrigin {
 }
 
 function expectedOrgId(seed: ContextReferenceSeed, defaultOrgId?: string): string | undefined {
-  return seed.orgId || defaultOrgId
+  return defaultOrgId || seed.orgId
 }
 
 function sameOrg(data: RawDoc, orgId?: string): boolean {
@@ -158,6 +241,9 @@ function href(type: ContextReferenceType, id: string, data: RawDoc, seedHref?: s
   if (seedHref) return seedHref
   const slug = clean(data.orgSlug) || clean(data.slug)
   switch (type) {
+    case 'studio':
+    case 'studio_artifact':
+      return ''
     case 'project':
       return slug ? `/admin/org/${slug}/projects/${id}` : `/admin/projects/${id}`
     case 'task': {
@@ -244,6 +330,11 @@ async function queryByOrg(collection: string, orgId: string, limit: number) {
     .where('orgId', '==', orgId)
     .limit(Math.max(limit, 30))
     .get()
+  return snap.docs as FirestoreDoc[]
+}
+
+async function queryStudioByOrg(collection: string, orgId: string, limit: number) {
+  const snap = await adminDb.collection(collection).where('orgId', '==', orgId).limit(limit).get()
   return snap.docs as FirestoreDoc[]
 }
 
@@ -520,6 +611,72 @@ async function resolveSupport(input: ResolverInput): Promise<ContextReference | 
   })
 }
 
+async function loadStudioOrg(input: ResolverInput, orgId: string, definition: StudioDefinition) {
+  const expected = expectedOrgId(input.seed, input.defaultOrgId)
+  if (!orgId || (expected && orgId !== expected) || (input.defaultOrgId && input.seed.orgId && input.seed.orgId !== input.defaultOrgId)) return null
+  const orgDoc = await getDoc('organizations', orgId)
+  if (!orgDoc) return null
+  const orgData = orgDoc.data() ?? {}
+  if (isDeleted(orgData) || !await canUseStudio(input.user, orgId, definition, orgData)) return null
+  return orgData
+}
+
+async function resolveStudio(input: ResolverInput): Promise<ContextReference | null> {
+  const parts = input.seed.id.split(':')
+  if (parts.length !== 2 || parts.some((part) => !part)) return null
+  const studioKind = studioKindFrom(parts[0])
+  if (!studioKind) return null
+  const definition = STUDIO_DEFINITIONS[studioKind]
+  const orgId = parts[1]
+  const orgData = await loadStudioOrg(input, orgId, definition)
+  if (!orgData) return null
+  const canonicalRoute = input.user.role === 'client' ? definition.route : definition.adminRoute?.(orgData) ?? definition.route
+  return makeRef({
+    type: 'studio', id: `${studioKind}:${orgId}`, orgId, label: definition.label,
+    origin: origin(input.seed), href: canonicalRoute,
+  })
+}
+
+async function resolveStudioArtifact(input: ResolverInput): Promise<ContextReference | null> {
+  const marketingIdentity = parseMarketingCanvasContextId(input.seed.id)
+  const canonicalIdentity = parseStudioArtifactContextId(input.seed.id)
+  const parts = input.seed.id.split(':')
+  if (!marketingIdentity && !canonicalIdentity && (parts.length !== 3 || parts.some((part) => !part))) return null
+  const studioKind = marketingIdentity ? 'marketing_studio' : canonicalIdentity?.studioKind ?? studioKindFrom(parts[0])
+  if (!studioKind) return null
+  const definition = STUDIO_DEFINITIONS[studioKind]
+  const resourceType = marketingIdentity ? 'canvas' : canonicalIdentity?.resourceType ?? parts[1]
+  let resourceId = ''
+  if (marketingIdentity) resourceId = marketingIdentity.canvasId
+  else if (canonicalIdentity) resourceId = canonicalIdentity.resourceId
+  else try { resourceId = decodeURIComponent(parts[2]) } catch { return null }
+  if (!resourceId) return null
+  const resource = definition.resources[resourceType]
+  if (!resource?.exactHref) return null
+  const knownOrgId = canonicalIdentity?.orgId ?? marketingIdentity?.orgId ?? expectedOrgId(input.seed, input.defaultOrgId)
+  const preloadedOrgData = knownOrgId ? await loadStudioOrg(input, knownOrgId, definition) : null
+  if (knownOrgId && !preloadedOrgData) return null
+  const record = await getDoc(resource.collection, resourceId)
+  if (!record) return null
+  const data = record.data() ?? {}
+  const orgId = docOrgId(data)
+  const lifecycle = clean(data.lifecycleStatus || data.status).toLowerCase()
+  const encodedOrgId = marketingIdentity?.orgId ?? canonicalIdentity?.orgId
+  if (!orgId || (knownOrgId && knownOrgId !== orgId) || (encodedOrgId && encodedOrgId !== orgId) || isDeleted(data) || lifecycle === 'deleted' || (lifecycle === 'archived' && studioKind !== 'video_editor')) return null
+  const orgData = preloadedOrgData ?? await loadStudioOrg(input, orgId, definition)
+  if (!orgData) return null
+  const canonicalRoute = input.user.role === 'client' ? definition.route : definition.adminRoute?.(orgData) ?? definition.route
+  const rawHref = resource.exactHref(record.id, canonicalRoute, data)
+  const exactHref = studioKind === 'marketing_studio' ? `${rawHref}&orgId=${encodeURIComponent(orgId)}` : rawHref
+  if (/(?:\?|&)[^=]+=(&|$)/.test(exactHref) || exactHref.startsWith(`${canonicalRoute}/?`)) return null
+  const label = clean(data.title) || clean(data.name) || clean(data.label) || `${definition.label} ${resourceType.replace(/_/g, ' ')}`
+  return makeRef({
+    type: 'studio_artifact', id: studioArtifactReferenceId(studioKind, orgId, resourceType, record.id), orgId, label,
+    origin: origin(input.seed), href: exactHref,
+    summary: resourceType.replace(/_/g, ' '),
+  })
+}
+
 async function resolveOne(seed: ContextReferenceSeed, user: ApiUser, defaultOrgId?: string): Promise<ContextReference | null> {
   switch (seed.type) {
     case 'project':
@@ -554,6 +711,10 @@ async function resolveOne(seed: ContextReferenceSeed, user: ApiUser, defaultOrgI
       return resolveGeneric(seed.type, { seed, user, defaultOrgId })
     case 'support':
       return resolveSupport({ seed, user, defaultOrgId })
+    case 'studio':
+      return resolveStudio({ seed, user, defaultOrgId })
+    case 'studio_artifact':
+      return resolveStudioArtifact({ seed, user, defaultOrgId })
   }
 }
 
@@ -660,6 +821,54 @@ export async function searchContextReferences(input: SearchContextReferencesInpu
   if (!type) return []
   const limit = Math.min(Math.max(input.limit ?? 8, 1), MAX_CONTEXT_REFS)
   const query = clean(input.query, 120).toLowerCase()
+
+  if ((type === 'studio' || type === 'studio_artifact') && query.length < 2) return []
+
+  if (type === 'studio') {
+    const refs = await resolveContextReferences(
+      (Object.keys(STUDIO_DEFINITIONS) as StudioKind[]).map((kind) => ({ type: 'studio', id: `${kind}:${input.orgId}`, orgId: input.orgId, origin: 'mention' })),
+      input.user,
+      input.orgId,
+    )
+    return refs.filter((ref) => matchesQuery({ name: ref.label }, query)).slice(0, limit)
+  }
+
+  if (type === 'studio_artifact') {
+    const sources = (Object.entries(STUDIO_DEFINITIONS) as Array<[StudioKind, StudioDefinition]>)
+      .flatMap(([studioKind, definition]) => Object.entries(definition.resources).map(([resourceType, resource]) => ({ studioKind, resourceType, resource })))
+      .filter((source, index, all) => all.findIndex((candidate) => candidate.resource.collection === source.resource.collection) === index)
+    const orgDoc = await getDoc('organizations', input.orgId)
+    if (!orgDoc) return []
+    const orgData = orgDoc.data() ?? {}
+    if (isDeleted(orgData)) return []
+    const accessEntries = await Promise.all((Object.entries(STUDIO_DEFINITIONS) as Array<[StudioKind, StudioDefinition]>).map(async ([kind, definition]) => (
+      [kind, await canUseStudio(input.user, input.orgId, definition, orgData)] as const
+    )))
+    const accessByStudio = new Map(accessEntries)
+    const batches = await Promise.all(sources.filter((source) => accessByStudio.get(source.studioKind)).map(async (source) => ({
+      source,
+      docs: await queryStudioByOrg(source.resource.collection, input.orgId, 24),
+    })))
+    const refs: ContextReference[] = []
+    for (const { source, docs } of batches) {
+      const definition = STUDIO_DEFINITIONS[source.studioKind]
+      const canonicalRoute = input.user.role === 'client' ? definition.route : definition.adminRoute?.(orgData) ?? definition.route
+      for (const doc of docs) {
+        const data = doc.data() ?? {}
+        const lifecycle = clean(data.lifecycleStatus || data.status).toLowerCase()
+        if (!matchesQuery(data, query) || isDeleted(data) || lifecycle === 'archived' || lifecycle === 'deleted' || docOrgId(data) !== input.orgId) continue
+        const rawHref = source.resource.exactHref?.(doc.id, canonicalRoute, data)
+        if (!rawHref) continue
+        const exactHref = source.studioKind === 'marketing_studio' ? `${rawHref}&orgId=${encodeURIComponent(input.orgId)}` : rawHref
+        refs.push(makeRef({
+          type: 'studio_artifact', id: studioArtifactReferenceId(source.studioKind, input.orgId, source.resourceType, doc.id),
+          orgId: input.orgId, label: clean(data.title) || clean(data.name) || clean(data.label) || `${definition.label} ${source.resourceType.replace(/_/g, ' ')}`,
+          origin: 'mention', href: exactHref, summary: source.resourceType.replace(/_/g, ' '),
+        }))
+      }
+    }
+    return refs.slice(0, limit)
+  }
 
   if (type === 'task' && input.projectId) {
     const projectAccess = await getProjectForUser(input.projectId, input.user)

@@ -71,26 +71,26 @@ export default function ApiKeysPage() {
     setKeys(prev => prev.filter(k => k.id !== keyId))
   }
 
-  const inputClass = "w-full px-3 py-2 text-sm bg-[var(--color-card)] border border-[var(--color-card-border)] rounded-[var(--radius-btn)] text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-[var(--color-accent-v2)] transition-colors"
+  const inputClass = "pib-input"
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <div>
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">Settings / API Keys</p>
-        <h1 className="text-2xl font-headline font-bold text-on-surface">API Keys</h1>
-        <p className="text-sm text-on-surface-variant mt-1">Manage API keys for AI agents and integrations.</p>
-      </div>
+    <div className="max-w-3xl mx-auto space-y-8">
+      <header>
+        <p className="eyebrow">Admin · Settings</p>
+        <h1 className="pib-page-title mt-2">API Keys</h1>
+        <p className="pib-page-sub">Manage API keys for AI agents and integrations.</p>
+      </header>
 
       {/* New key revealed */}
       {createdKey && (
-        <div className="pib-card" style={{ borderColor: '#4ade80' }}>
-          <p className="text-sm font-bold text-on-surface mb-2">✓ API key created — copy it now</p>
-          <p className="text-xs text-on-surface-variant mb-3">This key will only be shown once. Store it securely.</p>
+        <div className="pib-card" style={{ borderColor: 'var(--color-pib-green)' }}>
+          <p className="text-sm font-bold text-[var(--color-pib-text)] mb-2">✓ API key created — copy it now</p>
+          <p className="text-xs text-[var(--color-pib-text-muted)] mb-3">This key will only be shown once. Store it securely.</p>
           <div className="flex gap-2">
-            <code className="flex-1 text-xs bg-black px-3 py-2 rounded font-mono text-green-400 break-all">{createdKey}</code>
+            <code className="flex-1 text-xs bg-[var(--color-pib-ink)] px-3 py-2 rounded font-mono text-[var(--color-pib-green)] break-all">{createdKey}</code>
             <button
               onClick={() => { copyToClipboard(createdKey); setCreatedKey(null) }}
-              className="pib-btn-primary text-xs font-label shrink-0"
+              className="btn-pib-primary text-xs font-label shrink-0"
             >
               Copy & Dismiss
             </button>
@@ -100,27 +100,27 @@ export default function ApiKeysPage() {
 
       {/* Create new key */}
       <div className="pib-card space-y-4">
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Create New Key</p>
+        <p className="pib-label">Create New Key</p>
         <form onSubmit={handleCreate} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-on-surface-variant block mb-1.5">Key Name *</label>
+              <label className="text-xs text-[var(--color-pib-text-muted)] block mb-1.5">Key Name *</label>
               <input value={newKeyName} onChange={e => setNewKeyName(e.target.value)} className={inputClass} placeholder='e.g. "Social Agent"' />
             </div>
             <div>
-              <label className="text-xs text-on-surface-variant block mb-1.5">Role</label>
+              <label className="text-xs text-[var(--color-pib-text-muted)] block mb-1.5">Role</label>
               <select value={newKeyRole} onChange={e => setNewKeyRole(e.target.value as 'ai' | 'admin')} className={inputClass}>
                 <option value="ai">AI Agent</option>
                 <option value="admin">Admin</option>
               </select>
             </div>
             <div className="col-span-2">
-              <label className="text-xs text-on-surface-variant block mb-1.5">Org ID (leave empty for platform-level access)</label>
+              <label className="text-xs text-[var(--color-pib-text-muted)] block mb-1.5">Org ID (leave empty for platform-level access)</label>
               <input value={newOrgId} onChange={e => setNewOrgId(e.target.value)} className={inputClass} placeholder="org-id or leave blank for global" />
             </div>
           </div>
-          {error && <p className="text-xs text-red-400">{error}</p>}
-          <button type="submit" disabled={creating || !newKeyName.trim()} className="pib-btn-primary font-label">
+          {error && <p className="text-xs text-[var(--color-error)]">{error}</p>}
+          <button type="submit" disabled={creating || !newKeyName.trim()} className="btn-pib-primary">
             {creating ? 'Creating…' : 'Generate Key'}
           </button>
         </form>
@@ -128,33 +128,33 @@ export default function ApiKeysPage() {
 
       {/* Existing keys */}
       <div className="pib-card overflow-hidden !p-0">
-        <div className="px-5 py-3 border-b border-[var(--color-card-border)]">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Active Keys</p>
+        <div className="px-5 py-3 border-b border-[var(--color-pib-line)]">
+          <p className="pib-label">Active Keys</p>
         </div>
         {loading ? (
-          <div className="divide-y divide-[var(--color-card-border)]">
+          <div className="divide-y divide-[var(--color-pib-line)]">
             {[1,2].map(i => <div key={i} className="px-5 py-4"><Skeleton className="h-5 w-48" /></div>)}
           </div>
         ) : keys.length === 0 ? (
           <div className="py-10 text-center">
-            <p className="text-on-surface-variant text-sm">No API keys yet.</p>
+            <p className="text-[var(--color-pib-text-muted)] text-sm">No API keys yet.</p>
           </div>
         ) : (
-          <div className="divide-y divide-[var(--color-card-border)]">
+          <div className="divide-y divide-[var(--color-pib-line)]">
             {keys.map(key => (
               <div key={key.id} className="flex items-center gap-4 px-5 py-3 hover:bg-[var(--color-row-hover)] transition-colors">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-on-surface">{key.name}</p>
+                  <p className="text-sm font-medium text-[var(--color-pib-text)]">{key.name}</p>
                   <div className="flex items-center gap-3 mt-0.5">
-                    <code className="text-[10px] font-mono text-on-surface-variant">{key.keyPrefix}••••••••</code>
-                    <span className="text-[9px] font-label uppercase tracking-wide px-1.5 py-0.5 rounded" style={{ background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)' }}>{key.role}</span>
-                    {key.orgId && <span className="text-[9px] text-on-surface-variant">org: {key.orgId}</span>}
+                    <code className="text-[10px] font-mono text-[var(--color-pib-text-muted)]">{key.keyPrefix}••••••••</code>
+                    <span className="text-[9px] font-label uppercase tracking-wide px-1.5 py-0.5 rounded" style={{ background: 'var(--color-pib-surface-2)', color: 'var(--color-pib-text-muted)' }}>{key.role}</span>
+                    {key.orgId && <span className="text-[9px] text-[var(--color-pib-text-muted)]">org: {key.orgId}</span>}
                   </div>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-[10px] text-on-surface-variant">Last used: {formatDate(key.lastUsedAt)}</p>
+                  <p className="text-[10px] text-[var(--color-pib-text-muted)]">Last used: {formatDate(key.lastUsedAt)}</p>
                 </div>
-                <button onClick={() => handleRevoke(key.id)} className="text-xs text-on-surface-variant hover:text-red-400 transition-colors font-label shrink-0">
+                <button onClick={() => handleRevoke(key.id)} className="text-xs text-[var(--color-pib-text-muted)] hover:text-red-400 transition-colors font-label shrink-0">
                   Revoke
                 </button>
               </div>

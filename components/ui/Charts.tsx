@@ -33,9 +33,9 @@ function ChartTooltip({ active, payload, label, formatter }: any) {
   if (!active || !payload?.length) return null
   return (
     <div className="pib-card !p-2 !text-xs !shadow-lg border border-[var(--color-card-border)]">
-      {label && <p className="text-on-surface-variant mb-1">{label}</p>}
+      {label && <p className="text-[var(--color-pib-text-muted)] mb-1">{label}</p>}
       {payload.map((entry: any, i: number) => (
-        <p key={i} className="text-on-surface font-medium" style={{ color: entry.color }}>
+        <p key={i} className="text-[var(--color-pib-text)] font-medium" style={{ color: entry.color }}>
           {entry.name}: {formatter ? formatter(entry.value) : entry.value.toLocaleString()}
         </p>
       ))}
@@ -61,7 +61,7 @@ export function StatCardWithChart({
   return (
     <div className="pib-stat-card flex items-end justify-between gap-4">
       <div className="flex-1 min-w-0">
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-2">
+        <p className="pib-label mb-2">
           {label}
         </p>
         <p
@@ -71,7 +71,7 @@ export function StatCardWithChart({
           {value}
         </p>
         {sub && (
-          <p className="text-xs text-on-surface-variant flex items-center gap-1">
+          <p className="text-xs text-[var(--color-pib-text-muted)] flex items-center gap-1">
             {trend === 'up' && <span className="text-green-400 text-xs">↑</span>}
             {trend === 'down' && <span className="text-red-400 text-xs">↓</span>}
             {sub}
@@ -269,10 +269,10 @@ export function DonutChart({
       {(centerLabel || centerValue) && (
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
           {centerValue && (
-            <span className="text-2xl font-headline font-bold text-on-surface">{centerValue}</span>
+            <span className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">{centerValue}</span>
           )}
           {centerLabel && (
-            <span className="text-[10px] text-on-surface-variant uppercase tracking-wide">{centerLabel}</span>
+            <span className="text-[10px] text-[var(--color-pib-text-muted)] uppercase tracking-wide">{centerLabel}</span>
           )}
         </div>
       )}
@@ -284,7 +284,7 @@ export function DonutChart({
               className="w-2 h-2 rounded-full shrink-0"
               style={{ background: entry.color ?? DONUT_PALETTE[i % DONUT_PALETTE.length] }}
             />
-            <span className="text-[10px] text-on-surface-variant">
+            <span className="text-[10px] text-[var(--color-pib-text-muted)]">
               {entry.name} ({entry.value})
             </span>
           </div>

@@ -99,11 +99,11 @@ function PipelineSummary({ deals, stages }: PipelineSummaryProps) {
       ].map(stat => (
         <div
           key={stat.label}
-          className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2"
+          className="pib-stat-card min-w-0 p-3"
         >
-          <p className="text-[10px] font-label uppercase tracking-[0.18em] text-on-surface-variant mb-0.5">{stat.label}</p>
-          <p className="text-lg font-semibold text-on-surface leading-none">{stat.value}</p>
-          <p className="text-[10px] text-on-surface-variant mt-0.5">{stat.sub}</p>
+          <p className="pib-label mb-1">{stat.label}</p>
+          <p className="text-lg font-semibold text-[var(--color-pib-text)] leading-none">{stat.value}</p>
+          <p className="text-[10px] text-[var(--color-pib-text-muted)] mt-1">{stat.sub}</p>
         </div>
       ))}
     </div>
@@ -136,12 +136,12 @@ function PipelineLaunchCommandCenter({
   ]
 
   return (
-    <section className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
-      <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="p-4">
-          <p className="text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Revenue workspace</p>
-          <h2 className="mt-1 text-base font-semibold text-on-surface">Launch this pipeline</h2>
-          <p className="mt-2 max-w-2xl text-xs leading-5 text-on-surface-variant">
+    <section className="pib-card">
+      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        <div>
+          <p className="eyebrow">Revenue workspace</p>
+          <h2 className="mt-2 text-base font-semibold text-[var(--color-pib-text)]">Launch this pipeline</h2>
+          <p className="mt-2 max-w-2xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
             {needsSetupReview
               ? 'This pipeline needs setup review before the team treats it as board-ready. Review the revenue path, then create the first deal with a buyer, owner, value, stage, and forecast date.'
               : 'This board is ready, but there are no opportunities in it yet. Create the first deal so the pipeline has a buyer, owner, value, stage, and forecast date from the start.'}
@@ -150,7 +150,7 @@ function PipelineLaunchCommandCenter({
             <button
               type="button"
               onClick={onCreateDeal}
-              className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition"
+              className="btn-pib-primary"
               aria-label="Create first deal for this pipeline"
             >
               <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add</span>
@@ -159,7 +159,7 @@ function PipelineLaunchCommandCenter({
             <button
               type="button"
               onClick={onCreateDeal}
-              className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+              className="btn-pib-secondary"
               aria-label="Open deal setup for forecast baseline"
             >
               <span className="material-symbols-outlined text-[15px]" aria-hidden="true">trending_up</span>
@@ -167,22 +167,20 @@ function PipelineLaunchCommandCenter({
             </button>
           </div>
         </div>
-        <div className="border-t border-[var(--color-card-border)] bg-white/[0.02] p-3 lg:border-l lg:border-t-0">
-          <div className="grid gap-2">
-            {launchSteps.map((step) => (
-              <div key={step.label} className="rounded-md border border-[var(--color-card-border)] bg-black/10 p-3">
-                <div className="flex gap-2.5">
-                  <span className="material-symbols-outlined mt-0.5 text-[16px] text-[var(--color-accent-v2)]" aria-hidden="true">
-                    {step.icon}
-                  </span>
-                  <div>
-                    <p className="text-xs font-semibold text-on-surface">{step.label}</p>
-                    <p className="mt-0.5 text-[11px] leading-4 text-on-surface-variant">{step.body}</p>
-                  </div>
+        <div className="grid gap-2">
+          {launchSteps.map((step) => (
+            <div key={step.label} className="rounded-[12px] border border-[var(--color-pib-line)] p-3">
+              <div className="flex gap-2.5">
+                <span className="pib-icon-tint material-symbols-outlined shrink-0" aria-hidden="true">
+                  {step.icon}
+                </span>
+                <div>
+                  <p className="text-xs font-semibold text-[var(--color-pib-text)]">{step.label}</p>
+                  <p className="mt-0.5 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{step.body}</p>
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </div>
     </section>
@@ -207,16 +205,16 @@ function PipelineSetupReviewCard({ pipeline, settingsHref }: { pipeline: Pipelin
           <span className="material-symbols-outlined mt-0.5 text-[16px] text-amber-200" aria-hidden="true">rule_settings</span>
           <div>
             <p className="text-[10px] font-label uppercase tracking-[0.22em] text-amber-200">Pipeline hygiene</p>
-            <h2 className="mt-0.5 text-sm font-semibold text-on-surface">Pipeline setup needs review</h2>
-            <p className="mt-1 text-xs leading-5 text-on-surface-variant">
-              <span className="font-medium text-on-surface">{pipeline.name}</span> looks like smoke-test pipeline data.
+            <h2 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">Pipeline setup needs review</h2>
+            <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+              <span className="font-medium text-[var(--color-pib-text)]">{pipeline.name}</span> looks like smoke-test pipeline data.
               Review pipeline settings before the team treats this as a board-ready revenue path.
             </p>
           </div>
         </div>
         <Link
           href={settingsHref}
-          className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface shrink-0"
+          className="btn-pib-secondary shrink-0"
           aria-label={`Review pipeline settings for ${pipeline.name}`}
         >
           <span className="material-symbols-outlined text-[15px]" aria-hidden="true">settings</span>
@@ -714,20 +712,18 @@ export default function DealsPage() {
   const isReady = !pipelinesLoading && !loading && !contactsLoading
 
   return (
-    <div className="space-y-2">
-      <header className="flex min-h-11 flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 px-3 py-1.5">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="material-symbols-outlined grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-[15px] text-primary" aria-hidden="true">
+    <div className="space-y-4">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="pib-icon-tint material-symbols-outlined" aria-hidden="true">
             handshake
           </span>
           <div className="min-w-0">
-            <div className="truncate text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">
-              Client workspace / Deals
-            </div>
-            <h1 className="truncate text-sm font-semibold leading-tight text-on-surface">Pipeline</h1>
+            <p className="eyebrow">Client workspace · Deals</p>
+            <h1 className="pib-page-title mt-1">Pipeline</h1>
           </div>
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-1.5">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           {pipelines.length > 0 && (
             <PipelineSelector
               pipelines={pipelines}
@@ -739,7 +735,7 @@ export default function DealsPage() {
 
           <button
             onClick={() => setShowCreateDrawer(true)}
-            className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition"
+            className="btn-pib-primary"
             aria-label="New deal"
           >
             <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add</span>
@@ -747,7 +743,7 @@ export default function DealsPage() {
           </button>
         </div>
       </header>
-      <p className="px-1 text-xs leading-5 text-on-surface-variant">
+      <p className="pib-page-sub">
         Track shared opportunities and forecasts with the same workspace controls as admin, limited to client-safe CRM actions.
       </p>
 
@@ -772,32 +768,32 @@ export default function DealsPage() {
 
       {isReady && !error && (
         <section className="grid gap-2 md:grid-cols-[180px_1fr_1fr]">
-          <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
+          <div className="pib-stat-card p-3">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-[10px] font-label uppercase tracking-[0.18em] text-on-surface-variant">Deal owner coverage</p>
-              <span className="material-symbols-outlined text-[15px] text-on-surface-variant">supervisor_account</span>
+              <p className="pib-label">Deal owner coverage</p>
+              <span className="material-symbols-outlined text-[15px] text-[var(--color-pib-text-muted)]">supervisor_account</span>
             </div>
-            <p className="mt-1 text-lg font-semibold text-on-surface leading-none">{Math.round(ownerCoverage * 100)}%</p>
-            <p className="mt-1 text-[11px] leading-4 text-on-surface-variant">{unassignedDeals.length} unassigned</p>
+            <p className="mt-1 text-lg font-semibold text-[var(--color-pib-text)] leading-none">{Math.round(ownerCoverage * 100)}%</p>
+            <p className="mt-1 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{unassignedDeals.length} unassigned</p>
           </div>
           <button
             type="button"
             onClick={() => setOwnerLens(ownerLens === 'all' ? 'unassigned' : 'all')}
             className={[
-              'rounded-md border p-2.5 text-left transition-colors',
+              'rounded-[14px] border p-3 text-left transition-colors',
               ownerLens !== 'all'
-                ? 'border-amber-400/40 bg-amber-400/10'
-                : 'border-[var(--color-card-border)] bg-white/[0.02] hover:bg-white/[0.05]',
+                ? 'border-[var(--color-pib-line-strong)] bg-[var(--color-pib-surface-soft)]'
+                : 'border-[var(--color-pib-line)] hover:bg-[var(--color-row-hover)]',
             ].join(' ')}
             aria-label={ownerLens !== 'all' ? 'Show all deals' : 'Show unassigned deals needing an owner'}
           >
             <div className="flex items-start gap-2">
-              <span className="material-symbols-outlined mt-0.5 text-[16px] text-[var(--color-accent-v2)]">manage_accounts</span>
+              <span className="pib-icon-tint material-symbols-outlined shrink-0">manage_accounts</span>
               <span className="min-w-0">
-                <p className="text-xs font-semibold text-on-surface">
+                <p className="text-xs font-semibold text-[var(--color-pib-text)]">
                   {ownerLens === 'unassigned' ? 'Showing unassigned deals' : ownerLens !== 'all' ? 'Showing selected owner deals' : 'Review unassigned deals'}
                 </p>
-                <p className="mt-0.5 text-[11px] leading-4 text-on-surface-variant">
+                <p className="mt-0.5 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
                   {ownerLens !== 'all' && ownerLens !== 'unassigned'
                     ? 'This report lens is showing deals owned by the selected rep. Show all deals to return to the full pipeline.'
                     : unassignedDeals.length > 0
@@ -807,12 +803,12 @@ export default function DealsPage() {
               </span>
             </div>
           </button>
-          <div className="rounded-md border border-[var(--color-card-border)] bg-white/[0.02] p-2.5">
+          <div className="rounded-[14px] border border-[var(--color-pib-line)] p-3">
             <div className="flex items-start gap-2">
-              <span className="material-symbols-outlined mt-0.5 text-[16px] text-[var(--color-accent-v2)]">query_stats</span>
+              <span className="pib-icon-tint material-symbols-outlined shrink-0">query_stats</span>
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-on-surface">Pipeline responsibility</p>
-                <p className="mt-0.5 text-[11px] leading-4 text-on-surface-variant">
+                <p className="text-xs font-semibold text-[var(--color-pib-text)]">Pipeline responsibility</p>
+                <p className="mt-0.5 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
                   Use owner coverage with the forecast and stage lenses so open revenue always has a named person behind it.
                 </p>
               </div>
@@ -821,7 +817,7 @@ export default function DealsPage() {
               type="button"
               onClick={selectUnassignedDealsForAssignment}
               disabled={unassignedDeals.length === 0}
-              className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface mt-2 w-full justify-center disabled:cursor-not-allowed disabled:opacity-50"
+              className="btn-pib-secondary mt-2 w-full justify-center disabled:cursor-not-allowed disabled:opacity-50"
               aria-label={
                 unassignedDeals.length === 0
                   ? 'No unassigned deals to select for owner assignment'
@@ -851,14 +847,14 @@ export default function DealsPage() {
       )}
 
       {isReady && !error && selectedDealIds.size > 0 && (
-        <section className="flex flex-wrap items-end gap-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 px-3 py-2">
+        <section className="pib-card flex flex-wrap items-end gap-2">
           <div className="min-w-[240px] flex-1">
-            <label htmlFor="dealBulkOwner" className="block text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Assign selected deals to owner</label>
+            <label htmlFor="dealBulkOwner" className="pib-label">Assign selected deals to owner</label>
             <select
               id="dealBulkOwner"
               value={bulkOwnerUid}
               onChange={(event) => setBulkOwnerUid(event.target.value)}
-              className="mt-1 h-8 w-full rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface"
+              className="pib-select mt-1"
             >
               <option value="">Select a team member</option>
               {teamMembers.map((member) => (
@@ -872,7 +868,7 @@ export default function DealsPage() {
             type="button"
             onClick={assignSelectedDealOwner}
             disabled={!bulkOwnerUid.trim() || bulkOwnerPending}
-            className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition disabled:cursor-not-allowed disabled:opacity-50"
+            className="btn-pib-primary disabled:cursor-not-allowed disabled:opacity-50"
             aria-label={`Assign owner to ${selectedDealIds.size} selected deal${selectedDealIds.size === 1 ? '' : 's'}`}
           >
             <span className="material-symbols-outlined text-[15px]">supervisor_account</span>
@@ -881,11 +877,11 @@ export default function DealsPage() {
           <button
             type="button"
             onClick={() => { setSelectedDealIds(new Set()); setBulkOwnerUid(''); setBulkOwnerError('') }}
-            className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+            className="btn-pib-ghost"
           >
             Clear selection
           </button>
-          <p className="basis-full text-[11px] text-on-surface-variant">
+          <p className="basis-full text-[11px] text-[var(--color-pib-text-muted)]">
             {selectedDealIds.size} selected for owner assignment.
           </p>
           {bulkOwnerError && <p className="basis-full text-xs text-red-300">{bulkOwnerError}</p>}
@@ -906,7 +902,7 @@ export default function DealsPage() {
                   'flex h-7 shrink-0 items-center rounded-full border px-2.5 text-[11px] font-label transition capitalize',
                   stageFilter === s
                     ? 'border-primary/30 bg-primary/10 text-primary'
-                    : 'border-[var(--color-card-border)] text-on-surface-variant hover:text-on-surface',
+                    : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]',
                 ].join(' ')}
               >
                 {s === 'all' ? 'All stages' : (stage?.label ?? s)}
@@ -924,17 +920,17 @@ export default function DealsPage() {
               <span className="material-symbols-outlined mt-0.5 text-[16px] text-amber-200" aria-hidden="true">warning</span>
               <div>
                 <p className="text-[10px] font-label uppercase tracking-[0.22em] text-amber-200">Source health</p>
-                <h2 className="mt-0.5 text-sm font-semibold text-on-surface">
+                <h2 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">
                   {selectedPipelineId ? 'Deals could not load' : 'Pipeline could not load'}
                 </h2>
-                <p className="mt-1 text-xs leading-5 text-on-surface-variant">{error}</p>
+                <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{error}</p>
               </div>
             </div>
             {selectedPipelineId && (
               <button
                 type="button"
                 onClick={retryDealsLoad}
-                className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface shrink-0"
+                className="btn-pib-secondary shrink-0"
                 aria-label="Retry loading deals"
               >
                 <span className="material-symbols-outlined text-[15px]" aria-hidden="true">refresh</span>
@@ -977,7 +973,7 @@ export default function DealsPage() {
 
       {/* Board loading state when pipeline not yet loaded */}
       {!error && viewMode === 'board' && stages.length === 0 && pipelinesLoading && (
-        <div className="flex gap-3 overflow-x-auto rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3">
+        <div className="flex gap-3 overflow-x-auto pib-card">
           {[...Array(5)].map((_, i) => (
             <div key={i} className="flex flex-col w-56 shrink-0 gap-1.5">
               <Skeleton className="h-5 w-32" />
@@ -1004,7 +1000,7 @@ export default function DealsPage() {
               <button
                 type="button"
                 onClick={() => setOwnerLens('all')}
-                className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                className="btn-pib-secondary"
                 aria-label="Show all deals"
               >
                 <span className="material-symbols-outlined text-[16px]" aria-hidden="true">filter_alt_off</span>
@@ -1014,7 +1010,7 @@ export default function DealsPage() {
               <button
                 type="button"
                 onClick={() => setStageFilter('all')}
-                className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+                className="btn-pib-secondary"
                 aria-label="Show all stages"
               >
                 <span className="material-symbols-outlined text-[16px]" aria-hidden="true">filter_alt_off</span>
@@ -1023,23 +1019,23 @@ export default function DealsPage() {
             ) : undefined}
           />
         ) : (
-          <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+          <div className="pib-surface pib-surface-table">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-[var(--color-card-border)]">
+                <tr className="border-b border-[var(--color-pib-line)]">
                   <th className="w-10 px-3 py-2">
                     <input
                       type="checkbox"
                       aria-label="Select visible deals for owner assignment"
                       checked={filteredDeals.length > 0 && filteredDeals.every((deal) => selectedDealIds.has(deal.id))}
                       onChange={toggleVisibleDeals}
-                      className="h-4 w-4 rounded border-[var(--color-card-border)] bg-transparent"
+                      className="h-4 w-4 rounded border-[var(--color-pib-line)] bg-transparent"
                     />
                   </th>
                   {['Deal', 'Stage', 'Owner', 'Value', 'Prob', 'Weighted', 'Contact'].map(h => (
                     <th
                       key={h}
-                      className="text-left text-[10px] font-label uppercase tracking-[0.18em] text-on-surface-variant px-3 py-2"
+                      className="pib-label text-left px-3 py-2"
                     >
                       {h}
                     </th>
@@ -1061,7 +1057,7 @@ export default function DealsPage() {
                     <tr
                       key={deal.id}
                       data-deal-row
-                      className="border-b border-[var(--color-card-border)] transition-colors hover:bg-white/[0.04] cursor-pointer"
+                      className="border-b border-[var(--color-pib-line)] transition-colors hover:bg-[var(--color-row-hover)] cursor-pointer"
                       onClick={() => setViewingDeal(deal)}
                     >
                       <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
@@ -1070,10 +1066,10 @@ export default function DealsPage() {
                           aria-label={`Select ${dealTitle} for deal owner assignment`}
                           checked={selectedDealIds.has(deal.id)}
                           onChange={() => toggleDealSelection(deal.id)}
-                          className="h-4 w-4 rounded border-[var(--color-card-border)] bg-transparent"
+                          className="h-4 w-4 rounded border-[var(--color-pib-line)] bg-transparent"
                         />
                       </td>
-                      <td className="px-3 py-2 font-medium text-on-surface">
+                      <td className="px-3 py-2 font-medium text-[var(--color-pib-text)]">
                         <Link
                           href={dealPortalPath(`/portal/deals/${deal.id}`)}
                           className="hover:text-[var(--color-accent-text)] transition-colors font-medium"
@@ -1100,12 +1096,12 @@ export default function DealsPage() {
                           </span>
                         </button>
                       </td>
-                      <td className="px-3 py-2 text-xs text-on-surface-variant" onClick={e => e.stopPropagation()}>
+                      <td className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)]" onClick={e => e.stopPropagation()}>
                         <button
                           type="button"
                           aria-label={`${hasAssignedOwner ? 'Edit owner' : 'Assign owner'} for ${dealTitle} from deals list`}
                           onClick={() => setEditingDeal(deal)}
-                          className="inline-flex max-w-full items-center gap-1 rounded-md border border-transparent px-1 py-0.5 text-left transition-colors hover:border-[var(--color-accent-v2)] hover:text-on-surface"
+                          className="inline-flex max-w-full items-center gap-1 rounded-md border border-transparent px-1 py-0.5 text-left transition-colors hover:border-[var(--color-accent-v2)] hover:text-[var(--color-pib-text)]"
                         >
                           <span className="material-symbols-outlined text-[13px]" aria-hidden="true">
                             {hasAssignedOwner ? 'manage_accounts' : 'person_add'}
@@ -1113,12 +1109,12 @@ export default function DealsPage() {
                           <span className="truncate">{dealOwnerLabel(deal)}</span>
                         </button>
                       </td>
-                      <td className="px-3 py-2 font-mono text-on-surface-variant text-xs" onClick={e => e.stopPropagation()}>
+                      <td className="px-3 py-2 font-mono text-[var(--color-pib-text-muted)] text-xs" onClick={e => e.stopPropagation()}>
                         <button
                           type="button"
                           aria-label={`${hasCapturedValue ? 'Edit' : 'Add'} value for ${dealTitle} from deals list`}
                           onClick={() => setEditingDeal(deal)}
-                          className="inline-flex max-w-full items-center gap-1 rounded-md border border-transparent px-1 py-0.5 text-left transition-colors hover:border-[var(--color-accent-v2)] hover:text-on-surface"
+                          className="inline-flex max-w-full items-center gap-1 rounded-md border border-transparent px-1 py-0.5 text-left transition-colors hover:border-[var(--color-accent-v2)] hover:text-[var(--color-pib-text)]"
                         >
                           <span className="material-symbols-outlined text-[13px]" aria-hidden="true">
                             {hasCapturedValue ? 'edit' : 'add'}
@@ -1144,7 +1140,7 @@ export default function DealsPage() {
                           </span>
                         </button>
                       </td>
-                      <td className="px-3 py-2 font-mono text-on-surface-variant text-xs">
+                      <td className="px-3 py-2 font-mono text-[var(--color-pib-text-muted)] text-xs">
                         {fmtDealValue(weighted, deal.currency)}
                       </td>
                       <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
@@ -1160,7 +1156,7 @@ export default function DealsPage() {
                             type="button"
                             aria-label={`Link contact for ${dealTitle} from deals list`}
                             onClick={() => setEditingDeal(deal)}
-                            className="inline-flex items-center gap-1 rounded-md border border-transparent px-1 py-0.5 text-xs text-on-surface-variant transition-colors hover:border-[var(--color-accent-v2)] hover:text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-v2)]"
+                            className="inline-flex items-center gap-1 rounded-md border border-transparent px-1 py-0.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:border-[var(--color-accent-v2)] hover:text-[var(--color-pib-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-v2)]"
                           >
                             <span className="material-symbols-outlined text-[13px]" aria-hidden="true">person_add</span>
                             No contact linked
@@ -1182,22 +1178,22 @@ export default function DealsPage() {
             {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14" />)}
           </div>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+          <div className="pib-surface pib-surface-table">
             {/* Summary bar */}
-            <div className="flex gap-4 border-b border-[var(--color-card-border)] bg-black/[0.08] px-3 py-2">
+            <div className="flex gap-4 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] px-3 py-2">
               <div>
-                <span className="text-[11px] text-on-surface-variant">Total value</span>
-                <span className="ml-2 text-xs font-semibold text-on-surface">{formatDealsTotal(openDeals, 'value')}</span>
+                <span className="text-[11px] text-[var(--color-pib-text-muted)]">Total value</span>
+                <span className="ml-2 text-xs font-semibold text-[var(--color-pib-text)]">{formatDealsTotal(openDeals, 'value')}</span>
               </div>
               <div>
-                <span className="text-[11px] text-on-surface-variant">Weighted</span>
+                <span className="text-[11px] text-[var(--color-pib-text-muted)]">Weighted</span>
                 <span className="ml-2 text-xs font-semibold text-[var(--color-accent-text)]">{formatDealsTotal(openDeals, 'weighted')}</span>
               </div>
             </div>
 
             {/* Table */}
             <table className="w-full text-xs">
-              <thead className="text-[10px] font-label uppercase tracking-[0.18em] text-on-surface-variant border-b border-[var(--color-card-border)]">
+              <thead className="pib-label border-b border-[var(--color-pib-line)]">
                 <tr>
                   <th className="text-left px-3 py-2">Deal</th>
                   <th className="text-left px-3 py-2 hidden md:table-cell">Stage</th>
@@ -1211,20 +1207,20 @@ export default function DealsPage() {
                 {openDeals.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-4 py-6 text-center">
-                      <div className="mx-auto flex max-w-xl flex-col items-center rounded-md border border-dashed border-[var(--color-card-border)] bg-white/[0.02] px-4 py-4">
-                        <span className="material-symbols-outlined flex h-8 w-8 items-center justify-center rounded-md bg-white/[0.04] text-[18px] text-on-surface-variant">
+                      <div className="mx-auto flex max-w-xl flex-col items-center rounded-[14px] border border-dashed border-[var(--color-pib-line)] px-4 py-6">
+                        <span className="pib-icon-tint material-symbols-outlined">
                           trending_up
                         </span>
-                        <p className="mt-2 text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">Forecast setup</p>
-                        <h3 className="mt-1 text-sm font-semibold text-on-surface">{forecastEmptyTitle}</h3>
-                        <p className="mt-1 max-w-md text-xs leading-5 text-on-surface-variant">
+                        <p className="mt-3 eyebrow">Forecast setup</p>
+                        <h3 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">{forecastEmptyTitle}</h3>
+                        <p className="mt-1 max-w-md text-xs leading-5 text-[var(--color-pib-text-muted)]">
                           {forecastEmptyDescription}
                         </p>
                         {focusMode === 'noCloseDate' ? (
                           <button
                             type="button"
                             onClick={() => setFocusMode('all')}
-                            className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-3 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface mt-3"
+                            className="btn-pib-secondary mt-3"
                             aria-label="Show full forecast"
                           >
                             <span className="material-symbols-outlined text-[14px]">filter_alt_off</span>
@@ -1234,7 +1230,7 @@ export default function DealsPage() {
                           <button
                             type="button"
                             onClick={() => setShowCreateDrawer(true)}
-                            className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition mt-3"
+                            className="btn-pib-primary mt-3"
                           >
                             <span className="material-symbols-outlined text-[14px]">add</span>
                             Create forecastable deal
@@ -1253,9 +1249,9 @@ export default function DealsPage() {
                     return (
                       <tr
                         key={deal.id}
-                        className="border-b border-[var(--color-card-border)] last:border-0 hover:bg-white/[0.04] transition-colors"
+                        className="border-b border-[var(--color-pib-line)] last:border-0 hover:bg-[var(--color-row-hover)] transition-colors"
                       >
-                        <td className="px-3 py-2 font-medium text-on-surface">
+                        <td className="px-3 py-2 font-medium text-[var(--color-pib-text)]">
                           <Link
                             href={dealPortalPath(`/portal/deals/${deal.id}`)}
                             className="hover:text-[var(--color-accent-text)] transition-colors"
@@ -1263,7 +1259,7 @@ export default function DealsPage() {
                             {dealTitle}
                           </Link>
                         </td>
-                        <td className="px-3 py-2 text-on-surface-variant hidden md:table-cell">{stageLabel}</td>
+                        <td className="px-3 py-2 text-[var(--color-pib-text-muted)] hidden md:table-cell">{stageLabel}</td>
                         <td className="px-3 py-2 text-right">{fmtDealValue(deal.value, deal.currency)}</td>
                         <td className="px-3 py-2 text-right">
                           <ProbabilityInput deal={deal} onUpdate={handleProbabilityUpdate} />
@@ -1271,12 +1267,12 @@ export default function DealsPage() {
                         <td className="px-3 py-2 text-right text-[var(--color-accent-text)]">
                           {fmtDealValue(weighted, deal.currency)}
                         </td>
-                        <td className="px-3 py-2 text-right text-on-surface-variant hidden lg:table-cell">
+                        <td className="px-3 py-2 text-right text-[var(--color-pib-text-muted)] hidden lg:table-cell">
                           <button
                             type="button"
                             onClick={() => setEditingDeal(deal)}
                             aria-label={`${deal.expectedCloseDate ? 'Edit' : 'Add'} close date for ${dealTitle} from forecast`}
-                            className="inline-flex rounded-md border border-transparent px-1 py-0.5 text-right transition-colors hover:border-[var(--color-accent-v2)] hover:text-on-surface"
+                            className="inline-flex rounded-md border border-transparent px-1 py-0.5 text-right transition-colors hover:border-[var(--color-accent-v2)] hover:text-[var(--color-pib-text)]"
                           >
                             {deal.expectedCloseDate ? fmtRelativeDate(deal.expectedCloseDate) : 'No close date captured'}
                           </button>

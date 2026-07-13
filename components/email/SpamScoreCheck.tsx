@@ -75,7 +75,7 @@ function Gauge({ score, verdict }: { score: number; verdict: SpamVerdict }) {
           r={radius}
           fill="none"
           strokeWidth="10"
-          className="stroke-surface-container-high"
+          className="stroke-[var(--color-pib-line)]"
         />
         <circle
           cx="60"
@@ -90,7 +90,7 @@ function Gauge({ score, verdict }: { score: number; verdict: SpamVerdict }) {
       </svg>
       <div className="absolute flex flex-col items-center">
         <span className={`text-3xl font-bold ${meta.color}`}>{score.toFixed(1)}</span>
-        <span className="text-[10px] uppercase tracking-wide text-on-surface-variant">/ 10</span>
+        <span className="text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">/ 10</span>
       </div>
     </div>
   )
@@ -148,8 +148,8 @@ export function SpamScoreCheck({
     <div className={`pib-card ${className}`}>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h3 className="text-sm font-semibold text-on-surface">Spam score</h3>
-          <p className="mt-0.5 text-xs text-on-surface-variant">
+          <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Spam score</h3>
+          <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">
             Rule-based, SpamAssassin-style analysis. Higher = more likely to hit spam.
           </p>
         </div>
@@ -157,7 +157,7 @@ export function SpamScoreCheck({
           type="button"
           onClick={() => void runCheck()}
           disabled={loading}
-          className="shrink-0 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-on-primary disabled:opacity-50"
+          className="btn-pib-primary shrink-0 disabled:opacity-50"
         >
           {loading ? 'Checking…' : data ? 'Re-check' : 'Run check'}
         </button>
@@ -170,7 +170,7 @@ export function SpamScoreCheck({
       )}
 
       {!data && !error && !loading && (
-        <div className="mt-6 py-8 text-center text-xs text-on-surface-variant">
+        <div className="mt-6 py-8 text-center text-xs text-[var(--color-pib-text-muted)]">
           Run a check to score this campaign&apos;s spam likelihood.
         </div>
       )}
@@ -183,7 +183,7 @@ export function SpamScoreCheck({
               <div className={`text-lg font-semibold ${VERDICT_META[data.verdict].color}`}>
                 {VERDICT_META[data.verdict].label}
               </div>
-              <p className="mt-1 text-xs leading-relaxed text-on-surface-variant">
+              <p className="mt-1 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
                 {penalties.length === 0
                   ? 'No spam triggers fired. This email reads as legitimate.'
                   : `${penalties.length} rule${penalties.length === 1 ? '' : 's'} added to the score${
@@ -191,7 +191,7 @@ export function SpamScoreCheck({
                     }.`}
               </p>
               {data.source && (
-                <p className="mt-1 text-[11px] text-on-surface-variant">
+                <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">
                   Analysed: {data.source.replace('-', ' ')}
                 </p>
               )}
@@ -199,13 +199,13 @@ export function SpamScoreCheck({
           </div>
 
           {triggered.length > 0 && (
-            <ul className="mt-5 divide-y divide-outline-variant border-t border-outline-variant">
+            <ul className="mt-5 divide-y divide-[var(--color-pib-line)] border-t border-[var(--color-pib-line)]">
               {triggered.map((r) => (
                 <li key={r.id} className="flex items-start justify-between gap-3 py-2.5">
                   <div className="min-w-0">
-                    <span className="text-sm text-on-surface">{r.label}</span>
+                    <span className="text-sm text-[var(--color-pib-text)]">{r.label}</span>
                     {r.detail && (
-                      <p className="mt-0.5 text-xs leading-relaxed text-on-surface-variant">
+                      <p className="mt-0.5 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
                         {r.detail}
                       </p>
                     )}

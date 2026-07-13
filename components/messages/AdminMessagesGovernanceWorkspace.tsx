@@ -64,8 +64,8 @@ export function AdminMessagesGovernanceWorkspace({ orgSlug }: AdminMessagesGover
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="eyebrow !text-[10px]">Message access</p>
-            <h2 className="mt-2 text-lg font-semibold text-on-surface">Who can use Messages</h2>
-            <p className="mt-1 max-w-2xl text-sm leading-relaxed text-on-surface-variant">
+            <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Who can use Messages</h2>
+            <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
               Every action exposes the same role choices so each organisation can choose its own conversation rules.
             </p>
           </div>
@@ -92,15 +92,15 @@ export function AdminMessagesGovernanceWorkspace({ orgSlug }: AdminMessagesGover
 
       <Surface className="p-5">
         <p className="eyebrow !text-[10px]">Conversation modules</p>
-        <h2 className="mt-2 text-lg font-semibold text-on-surface">Default message areas plus organisation controls</h2>
-        <p className="mt-1 max-w-2xl text-sm leading-relaxed text-on-surface-variant">
+        <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Default message areas plus organisation controls</h2>
+        <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
           Keep the operational chat workspace for live conversation handling, while this page controls which message areas are enabled and who can administer them.
         </p>
         <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {MESSAGE_MODULE_ROWS.map((module) => (
             <div key={module.label} className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-4">
-              <h3 className="text-sm font-semibold text-on-surface">{module.label}</h3>
-              <p className="mt-1 text-sm text-on-surface-variant">{module.description}</p>
+              <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{module.label}</h3>
+              <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{module.description}</p>
             </div>
           ))}
         </div>
@@ -108,8 +108,8 @@ export function AdminMessagesGovernanceWorkspace({ orgSlug }: AdminMessagesGover
 
       <Surface className="p-5">
         <p className="eyebrow !text-[10px]">Thread-owner settings</p>
-        <h2 className="mt-2 text-lg font-semibold text-on-surface">What conversation owners control inside a thread</h2>
-        <p className="mt-1 max-w-3xl text-sm leading-relaxed text-on-surface-variant">
+        <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">What conversation owners control inside a thread</h2>
+        <p className="mt-1 max-w-3xl text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
           These thread-level permissions belong inside the conversation workspace, separate from the admin module rules.
         </p>
         <OrganizationOwnerControlsGrid

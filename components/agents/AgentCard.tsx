@@ -71,7 +71,7 @@ const HEALTH_PILL: Record<HealthStatus, { label: string; className: string }> = 
   ok:          { label: 'Online',      className: 'bg-emerald-500/15 text-emerald-400' },
   degraded:    { label: 'Degraded',    className: 'bg-amber-500/15 text-amber-400' },
   unreachable: { label: 'Unreachable', className: 'bg-red-500/15 text-red-400' },
-  loading:     { label: 'Checking…',   className: 'bg-white/10 text-on-surface-variant' },
+  loading:     { label: 'Checking…',   className: 'bg-white/10 text-[var(--color-pib-text-muted)]' },
 }
 
 interface AgentCardProps {
@@ -82,7 +82,7 @@ interface AgentCardProps {
 
 export function AgentCard({ agent, onClick, healthStatus = 'loading' }: AgentCardProps) {
   const borderClass = COLOR_BORDER[agent.colorKey] ?? 'border-white/20'
-  const iconClass   = COLOR_ICON_BG[agent.colorKey] ?? 'bg-white/10 text-on-surface-variant'
+  const iconClass   = COLOR_ICON_BG[agent.colorKey] ?? 'bg-white/10 text-[var(--color-pib-text-muted)]'
   const pill        = HEALTH_PILL[healthStatus]
   const runtimeModel = agent.runtimeModel
   const modelLabel = runtimeModel?.label || agent.defaultModel
@@ -101,14 +101,14 @@ export function AgentCard({ agent, onClick, healthStatus = 'loading' }: AgentCar
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-semibold text-on-surface leading-tight">{agent.name}</span>
+            <span className="text-sm font-semibold text-[var(--color-pib-text)] leading-tight">{agent.name}</span>
             {/* Enabled / disabled dot */}
             <span
               className={`w-1.5 h-1.5 rounded-full shrink-0 ${agent.enabled ? 'bg-emerald-400' : 'bg-white/20'}`}
               title={agent.enabled ? 'Enabled' : 'Disabled'}
             />
           </div>
-          <p className="text-xs text-on-surface-variant mt-0.5 leading-snug">{agent.role}</p>
+          <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5 leading-snug">{agent.role}</p>
         </div>
 
         {/* Health pill */}
@@ -118,12 +118,12 @@ export function AgentCard({ agent, onClick, healthStatus = 'loading' }: AgentCar
       </div>
 
       {/* Persona */}
-      <p className="text-xs text-on-surface-variant mt-3 leading-relaxed line-clamp-2">
+      <p className="text-xs text-[var(--color-pib-text-muted)] mt-3 leading-relaxed line-clamp-2">
         {agent.persona}
       </p>
 
       {agent.exampleTaskTypes?.length > 0 && (
-        <p className="mt-2 text-[10px] text-on-surface-variant/70 line-clamp-1">
+        <p className="mt-2 text-[10px] text-[var(--color-pib-text-muted)]/70 line-clamp-1">
           Example: {agent.exampleTaskTypes[0]}
         </p>
       )}
@@ -131,16 +131,16 @@ export function AgentCard({ agent, onClick, healthStatus = 'loading' }: AgentCar
       {/* Footer row */}
       <div className="mt-3 space-y-1.5">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-[10px] font-mono text-on-surface-variant/80 truncate" title={modelLabel}>
+          <span className="text-[10px] font-mono text-[var(--color-pib-text-muted)]/80 truncate" title={modelLabel}>
             {modelLabel}
           </span>
-          <span className="text-on-surface-variant/30 text-[10px]">·</span>
-          <span className={`text-[10px] font-label ${agent.enabled ? 'text-emerald-400/80' : 'text-on-surface-variant/40'}`}>
+          <span className="text-[var(--color-pib-text-muted)]/30 text-[10px]">·</span>
+          <span className={`text-[10px] font-label ${agent.enabled ? 'text-emerald-400/80' : 'text-[var(--color-pib-text-muted)]/40'}`}>
             {agent.enabled ? 'active' : 'disabled'}
           </span>
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-label uppercase tracking-wide ${runtimeModel?.source === 'live_config' ? 'bg-sky-500/10 text-sky-300' : 'bg-white/10 text-on-surface-variant'}`}>
+          <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-label uppercase tracking-wide ${runtimeModel?.source === 'live_config' ? 'bg-sky-500/10 text-sky-300' : 'bg-white/10 text-[var(--color-pib-text-muted)]'}`}>
             {modelSourceLabel}
           </span>
           {runtimeModel?.staleRegistry && (

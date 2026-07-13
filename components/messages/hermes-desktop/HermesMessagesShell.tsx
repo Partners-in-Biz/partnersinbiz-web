@@ -25,8 +25,8 @@ function StatusPill({ children, tone = 'default' }: { children: ReactNode; tone?
   const toneClass = tone === 'accent'
     ? 'border-primary/25 bg-primary/10 text-primary'
     : tone === 'muted'
-      ? 'border-white/10 bg-white/[0.03] text-on-surface-variant'
-      : 'border-[var(--color-card-border)] bg-white/[0.04] text-on-surface-variant'
+      ? 'border-white/10 bg-white/[0.03] text-[var(--color-pib-text-muted)]'
+      : 'border-[var(--color-card-border)] bg-white/[0.04] text-[var(--color-pib-text-muted)]'
   return (
     <span className={`inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[11px] ${toneClass}`}>
       {children}
@@ -61,12 +61,12 @@ export function HermesMessagesShell({
             forum
           </span>
           <div className="min-w-0">
-            <div className="truncate text-[10px] font-label uppercase tracking-[0.22em] text-on-surface-variant">
+            <div className="truncate pib-label">
               {copy.eyebrow}
             </div>
             <div className="flex min-w-0 items-center gap-2">
-              <h1 className="truncate text-sm font-semibold leading-tight text-on-surface">{copy.title}</h1>
-              {orgName && <span className="hidden truncate text-xs text-on-surface-variant sm:inline">· {orgName}</span>}
+              <h1 className="truncate text-sm font-semibold leading-tight text-[var(--color-pib-text)]">{copy.title}</h1>
+              {orgName && <span className="hidden truncate text-xs text-[var(--color-pib-text-muted)] sm:inline">· {orgName}</span>}
             </div>
           </div>
         </div>

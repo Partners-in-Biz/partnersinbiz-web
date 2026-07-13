@@ -68,17 +68,17 @@ function Standalone({
       <header className="space-y-2">
         <Link
           href={`/admin/org/${slug}/social`}
-          className="text-xs text-on-surface-variant hover:text-on-surface inline-flex items-center gap-1"
+          className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1"
         >
           ← Back to {orgName || 'social'}
         </Link>
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+        <p className="eyebrow">
           Standalone · Not part of a campaign
         </p>
-        <h1 className="text-3xl md:text-4xl font-headline font-bold">
+        <h1 className="pib-page-title">
           Standalone Posts
         </h1>
-        <p className="text-sm text-on-surface-variant">
+        <p className="text-sm text-[var(--color-pib-text-muted)]">
           Posts composed manually for {orgName || 'this client'}, outside of any
           content-engine campaign.
         </p>
@@ -97,7 +97,7 @@ function Standalone({
         </div>
       ) : posts.length === 0 ? (
         <div className="pib-card py-12 text-center">
-          <p className="text-on-surface-variant text-sm">
+          <p className="text-[var(--color-pib-text-muted)] text-sm">
             No standalone posts. Compose one to get started.
           </p>
         </div>

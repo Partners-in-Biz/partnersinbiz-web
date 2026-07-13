@@ -10,7 +10,7 @@ import type { PublishOptions } from '@/lib/social/providers/base'
 
 export const YOUTUBE_UPLOAD_QUOTA_UNITS = 1600
 
-const PACKET_CHECK_KEYS: Array<keyof YouTubePublishingPacket['checks']> = [
+export const YOUTUBE_PACKET_CHECK_KEYS: Array<keyof YouTubePublishingPacket['checks']> = [
   'rights',
   'aiDisclosure',
   'madeForKids',
@@ -53,6 +53,28 @@ type EvaluateInput = {
   videoAsset?: YouTubeSourceAsset | null
 }
 
+export type YouTubeSafePublishBlocker =
+  | 'manual_handoff'
+  | 'release_plan_not_ready'
+  | 'release_plan_checks'
+  | 'ready_video_required'
+  | 'private_upload_not_ready'
+  | 'scheduled_publish_not_ready'
+  | 'scheduled_publish_must_be_public'
+
+export function classifyYouTubeSafePublishBlockers(input: EvaluateInput): YouTubeSafePublishBlocker[] {
+  const { channel, releasePlan, videoAsset } = input
+  const blockers: YouTubeSafePublishBlocker[] = []
+  if (releasePlan.mode === 'manual_handoff') blockers.push('manual_handoff')
+  if (!['ready', 'scheduled'].includes(releasePlan.status)) blockers.push('release_plan_not_ready')
+  if (Object.values(releasePlan.checks ?? {}).some((check) => check?.status === 'block')) blockers.push('release_plan_checks')
+  if (!videoAssetUrl(videoAsset)) blockers.push('ready_video_required')
+  if (releasePlan.mode === 'private_api_upload' && !['private_upload_ready', 'scheduled_publish_ready'].includes(channel.publishingReadiness?.readiness ?? '')) blockers.push('private_upload_not_ready')
+  if (releasePlan.mode === 'scheduled_api_publish' && channel.publishingReadiness?.readiness !== 'scheduled_publish_ready') blockers.push('scheduled_publish_not_ready')
+  if (releasePlan.mode === 'scheduled_api_publish' && releasePlan.targetVisibility !== 'public') blockers.push('scheduled_publish_must_be_public')
+  return blockers
+}
+
 function gateStatus(check?: YouTubeGateCheck): YouTubeGateCheck['status'] | undefined {
   return check?.status
 }
@@ -76,22 +98,22 @@ function hasApprovalRecordIdentity(record?: YouTubePacketApprovalRecord): boolea
     && approval.snapshotHash.trim().length > 0
 }
 
-function hasInternalApprovalEvidence(packet: YouTubePublishingPacket): boolean {
+export function hasYouTubeInternalApprovalEvidence(packet: YouTubePublishingPacket): boolean {
   if (hasApprovalRecordIdentity(packet.approvalState?.internalApproval)) return true
   return hasLegacyApprovalEvidence(packet)
 }
 
-function hasClientApprovalEvidence(packet: YouTubePublishingPacket): boolean {
+export function hasYouTubeClientApprovalEvidence(packet: YouTubePublishingPacket): boolean {
   if (hasApprovalRecordIdentity(packet.approvalState?.clientApproval)) return true
   return !packet.approvalState && hasLegacyApprovalEvidence(packet)
 }
 
-function openChangeRequests(packet: YouTubePublishingPacket): boolean {
+export function hasOpenYouTubePacketChangeRequests(packet: YouTubePublishingPacket): boolean {
   if (packet.approvalState?.changeRequestStatus === 'open') return true
   return (packet.changeRequests ?? []).some((request) => request.status === 'open')
 }
 
-function immutableAuditPresent(packet: YouTubePublishingPacket): boolean {
+export function hasImmutableYouTubePacketAudit(packet: YouTubePublishingPacket): boolean {
   if ((packet.immutableAuditRecordIds ?? []).length > 0) return true
   return !packet.approvalState && hasLegacyApprovalEvidence(packet)
 }
@@ -147,23 +169,23 @@ export function evaluateYouTubePublishReadiness(input: EvaluateInput): YouTubePu
   if (!packet.approvalState && !hasLegacyApprovalEvidence(packet)) {
     blockers.push('Publishing packet approval evidence is required before YouTube upload.')
   }
-  if (!hasInternalApprovalEvidence(packet)) {
+  if (!hasYouTubeInternalApprovalEvidence(packet)) {
     blockers.push('Internal publishing approval with approver identity is required before YouTube upload.')
   }
-  if (!hasClientApprovalEvidence(packet)) {
+  if (!hasYouTubeClientApprovalEvidence(packet)) {
     blockers.push('Client publishing approval with approver identity is required before YouTube upload.')
   }
-  if (openChangeRequests(packet)) {
+  if (hasOpenYouTubePacketChangeRequests(packet)) {
     blockers.push('Open publishing packet change requests must be resolved before YouTube upload.')
   }
   for (const reason of publishLockReasons(packet)) {
     blockers.push(`Publishing packet publish lock is active: ${reason}`)
   }
-  if (!immutableAuditPresent(packet)) {
+  if (!hasImmutableYouTubePacketAudit(packet)) {
     blockers.push('Immutable publishing packet audit record is required before YouTube upload.')
   }
 
-  for (const key of PACKET_CHECK_KEYS) {
+  for (const key of YOUTUBE_PACKET_CHECK_KEYS) {
     const check = packet.checks?.[key]
     if (gateStatus(check) === 'block') {
       blockers.push(`Publishing packet check ${key} is blocking: ${gateMessage(check)}`)

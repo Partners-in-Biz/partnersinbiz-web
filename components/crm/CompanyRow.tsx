@@ -132,14 +132,14 @@ export function CompanyRow({
   onEditProfile,
 }: CompanyRowProps) {
   const lcCls = company.lifecycleStage
-    ? (LIFECYCLE_COLOURS[company.lifecycleStage] ?? 'bg-surface-container text-on-surface-variant')
+    ? (LIFECYCLE_COLOURS[company.lifecycleStage] ?? 'bg-[var(--color-pib-surface)] text-[var(--color-pib-text-muted)]')
     : ''
   const lifecycleLabel = readableAccountLabel(company.lifecycleStage)
   const strength = profileStrength(company)
   const health = typeof company.healthScore === 'number' ? company.healthScore : strength
   const healthTone = health >= 75 ? 'text-emerald-300' : health >= 45 ? 'text-amber-200' : 'text-red-300'
   const healthBarTone = health >= 75 ? 'bg-emerald-400' : health >= 45 ? 'bg-amber-300' : 'bg-red-400'
-  const tierCls = company.tier ? (TIER_COLOURS[company.tier] ?? 'bg-surface-container text-on-surface-variant') : ''
+  const tierCls = company.tier ? (TIER_COLOURS[company.tier] ?? 'bg-[var(--color-pib-surface)] text-[var(--color-pib-text-muted)]') : ''
   const tierLabel = readableAccountLabel(company.tier)
   const websiteLabel = company.domain || company.website || ''
   const websiteLink = websiteHref(websiteLabel)
@@ -185,7 +185,7 @@ export function CompanyRow({
             className="w-8 h-8 rounded-full object-cover"
           />
         ) : (
-          <div className="w-8 h-8 rounded-full bg-[var(--color-surface-container)] flex items-center justify-center text-[10px] font-label text-on-surface-variant">
+          <div className="w-8 h-8 rounded-full bg-[var(--color-pib-surface)] flex items-center justify-center text-[10px] font-label text-[var(--color-pib-text-muted)]">
             {initials(company.name)}
           </div>
         )}
@@ -200,7 +200,7 @@ export function CompanyRow({
             onClick(company.id)
           }}
           aria-label={openAccountDetailLabel(company.name)}
-          className="block max-w-xs truncate text-left text-sm font-medium text-on-surface transition-colors hover:text-[var(--color-accent-v2)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent-v2)]"
+          className="block max-w-xs truncate text-left text-sm font-medium text-[var(--color-pib-text)] transition-colors hover:text-[var(--color-accent-v2)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent-v2)]"
         >
           {company.name}
         </button>
@@ -211,12 +211,12 @@ export function CompanyRow({
             rel="noopener noreferrer"
             onClick={(event) => event.stopPropagation()}
             aria-label={`Open website for ${company.name}`}
-            className="text-[11px] text-on-surface-variant font-mono transition-colors hover:text-[var(--color-accent-v2)]"
+            className="text-[11px] text-[var(--color-pib-text-muted)] font-mono transition-colors hover:text-[var(--color-accent-v2)]"
           >
             {websiteLabel}
           </a>
         ) : (
-          <p className="text-[11px] text-on-surface-variant font-mono">
+          <p className="text-[11px] text-[var(--color-pib-text-muted)] font-mono">
             {company.legalName || 'No domain captured'}
           </p>
         )}
@@ -235,7 +235,7 @@ export function CompanyRow({
         >
           <div className="flex items-center justify-between gap-2">
             <span className={`font-mono text-xs ${healthTone}`}>{health}%</span>
-            <span className="text-[10px] text-on-surface-variant">health</span>
+            <span className="text-[10px] text-[var(--color-pib-text-muted)]">health</span>
           </div>
           <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10">
             <div className={`h-full rounded-full ${healthBarTone}`} style={{ width: `${health}%` }} />
@@ -275,7 +275,7 @@ export function CompanyRow({
           aria-label={`Edit profile for ${company.name}`}
           className="block max-w-[170px] space-y-1 text-left"
         >
-          <span className="text-sm text-on-surface-variant truncate max-w-[150px] block">
+          <span className="text-sm text-[var(--color-pib-text-muted)] truncate max-w-[150px] block">
             {company.industry ?? 'No industry'}
           </span>
           <div className="flex flex-wrap gap-1">
@@ -285,7 +285,7 @@ export function CompanyRow({
               </span>
             )}
             {company.size && (
-              <span className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full bg-white/5 text-on-surface-variant">
+              <span className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full bg-white/5 text-[var(--color-pib-text-muted)]">
                 {company.size}
               </span>
             )}
@@ -303,11 +303,11 @@ export function CompanyRow({
               onEditValue?.(company.id)
             }}
             aria-label={`${hasAnnualRevenue ? 'Edit' : 'Add'} annual revenue for ${company.name}`}
-            className="block text-left text-sm font-mono text-on-surface transition-colors hover:text-[var(--color-accent-v2)]"
+            className="block text-left text-sm font-mono text-[var(--color-pib-text)] transition-colors hover:text-[var(--color-accent-v2)]"
           >
             {fmtCurrency(company.annualRevenue, company.currency)}
           </button>
-          <p className="text-[11px] text-on-surface-variant">
+          <p className="text-[11px] text-[var(--color-pib-text-muted)]">
             {company.employeeCount != null ? `${company.employeeCount.toLocaleString()} people` : 'No size data'}
           </p>
         </div>
@@ -334,11 +334,11 @@ export function CompanyRow({
               className="h-6 w-6 rounded-full object-cover"
             />
           ) : accountOwnerRef?.displayName ? (
-            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--color-surface-container)] text-[9px] font-label text-on-surface-variant">
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--color-pib-surface)] text-[9px] font-label text-[var(--color-pib-text-muted)]">
               {initials(accountOwnerRef.displayName)}
             </div>
           ) : null}
-          <span className={`${hasOwner ? 'text-xs' : 'text-sm'} truncate text-on-surface-variant group-hover:text-[var(--color-accent-v2)]`}>
+          <span className={`${hasOwner ? 'text-xs' : 'text-sm'} truncate text-[var(--color-pib-text-muted)] group-hover:text-[var(--color-accent-v2)]`}>
             {accountManagerName(company)}
           </span>
         </button>
@@ -362,18 +362,18 @@ export function CompanyRow({
             </button>
           )}
           {signals.length > 0 ? signals.map((signal) => (
-            <span key={signal} className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-on-surface-variant">
+            <span key={signal} className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">
               {signal}
             </span>
           )) : (
-            <span className="text-xs text-on-surface-variant">Needs setup</span>
+            <span className="text-xs text-[var(--color-pib-text-muted)]">Needs setup</span>
           )}
         </div>
       </td>
 
       {/* Updated at */}
       <td className="px-3 py-2">
-        <span className="text-xs text-on-surface-variant">{fmtDate(company.updatedAt)}</span>
+        <span className="text-xs text-[var(--color-pib-text-muted)]">{fmtDate(company.updatedAt)}</span>
       </td>
     </tr>
   )

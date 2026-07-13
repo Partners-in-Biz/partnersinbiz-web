@@ -168,21 +168,21 @@ export function PersonalXMcpConnectionCard({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-accent)]">Personal intelligence</p>
-          <h2 className="mt-1 font-headline text-xl font-bold text-on-surface">Personal X MCP and bookmarks</h2>
-          <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+          <h2 className="mt-1 font-headline text-xl font-bold text-[var(--color-pib-text)]">Personal X MCP and bookmarks</h2>
+          <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
             This is for your own X account permissions: bookmarks, searches, timelines, posts, news, and article drafts. It is separate from company X/Twitter accounts used for brand publishing below.
           </p>
         </div>
         <span className={statusClass(connection)}>{loading ? 'Checking…' : statusLabel(connection)}</span>
       </div>
 
-      <div className="grid gap-2 rounded-lg border border-outline-variant/50 bg-[var(--color-surface)] p-3 text-xs text-on-surface-variant">
-        <p><span className="font-medium text-on-surface">Workspace record:</span> user-owned{activeOrgName ? ` in ${activeOrgName}` : ''}; no shared X bearer or refresh token stored by PiB.</p>
-        <p><span className="font-medium text-on-surface">Server:</span> {X_MCP_CLIENT_CONFIG.streamableHttpServer}</p>
-        <p><span className="font-medium text-on-surface">Client command:</span> <code className="rounded bg-[var(--color-surface-container)] px-1 py-0.5">{X_MCP_CLIENT_CONFIG.command}</code></p>
-        <p><span className="font-medium text-on-surface">Docs MCP:</span> {X_MCP_CLIENT_CONFIG.docsServer}</p>
-        <p><span className="font-medium text-on-surface">Startup timeout:</span> {X_MCP_CLIENT_CONFIG.startupTimeoutSeconds}s minimum for the one-time OAuth login.</p>
-        <p><span className="font-medium text-on-surface">Bookmark access in PiB:</span> Personal X social OAuth now requests <code className="rounded bg-[var(--color-surface-container)] px-1 py-0.5">bookmark.read</code> and <code className="rounded bg-[var(--color-surface-container)] px-1 py-0.5">bookmark.write</code>. If your X account was connected before this update, reconnect it from this Personal accounts page so PiB can read your latest bookmark.</p>
+      <div className="pib-surface grid gap-2 p-3 text-xs text-[var(--color-pib-text-muted)]">
+        <p><span className="font-medium text-[var(--color-pib-text)]">Workspace record:</span> user-owned{activeOrgName ? ` in ${activeOrgName}` : ''}; no shared X bearer or refresh token stored by PiB.</p>
+        <p><span className="font-medium text-[var(--color-pib-text)]">Server:</span> {X_MCP_CLIENT_CONFIG.streamableHttpServer}</p>
+        <p><span className="font-medium text-[var(--color-pib-text)]">Client command:</span> <code className="rounded bg-[var(--color-pib-surface)] px-1 py-0.5">{X_MCP_CLIENT_CONFIG.command}</code></p>
+        <p><span className="font-medium text-[var(--color-pib-text)]">Docs MCP:</span> {X_MCP_CLIENT_CONFIG.docsServer}</p>
+        <p><span className="font-medium text-[var(--color-pib-text)]">Startup timeout:</span> {X_MCP_CLIENT_CONFIG.startupTimeoutSeconds}s minimum for the one-time OAuth login.</p>
+        <p><span className="font-medium text-[var(--color-pib-text)]">Bookmark access in PiB:</span> Personal X social OAuth now requests <code className="rounded bg-[var(--color-pib-surface)] px-1 py-0.5">bookmark.read</code> and <code className="rounded bg-[var(--color-pib-surface)] px-1 py-0.5">bookmark.write</code>. If your X account was connected before this update, reconnect it from this Personal accounts page so PiB can read your latest bookmark.</p>
       </div>
 
       {error && <p className="rounded-md border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-300">{error}</p>}

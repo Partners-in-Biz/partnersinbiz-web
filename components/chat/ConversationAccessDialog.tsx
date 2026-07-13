@@ -177,24 +177,24 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
         <header className="flex items-start justify-between gap-4 border-b border-[var(--color-card-border)] p-5">
           <div>
             <p className="text-[10px] font-label uppercase tracking-[0.2em] text-primary">Workspace access</p>
-            <h2 id="conversation-access-title" className="mt-1 text-lg font-semibold text-on-surface">Manage conversation access</h2>
-            <p className="mt-1 text-xs text-on-surface-variant">{conversation.title}</p>
+            <h2 id="conversation-access-title" className="mt-1 text-lg font-semibold text-[var(--color-pib-text)]">Manage conversation access</h2>
+            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{conversation.title}</p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close access manager" className="grid h-8 w-8 place-items-center rounded-lg text-on-surface-variant hover:bg-white/[0.06] hover:text-on-surface">
+          <button type="button" onClick={onClose} aria-label="Close access manager" className="grid h-8 w-8 place-items-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]">
             <span className="material-symbols-outlined text-[18px]">close</span>
           </button>
         </header>
 
         <div className="max-h-[65vh] space-y-5 overflow-y-auto p-5">
           <fieldset className="space-y-2">
-            <legend className="mb-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Who can open this conversation?</legend>
+            <legend className="mb-2 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Who can open this conversation?</legend>
             {OPTIONS.map((option) => (
               <label key={option.value} className={`flex cursor-pointer gap-3 rounded-xl border p-3 transition-colors ${shareMode === option.value ? 'border-primary/50 bg-primary/10' : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.04]'}`}>
                 <input type="radio" name="share-mode" value={option.value} checked={shareMode === option.value} onChange={() => chooseMode(option.value)} className="sr-only" />
                 <span className="material-symbols-outlined mt-0.5 text-[18px] text-primary">{option.icon}</span>
                 <span>
-                  <span className="block text-sm font-medium text-on-surface">{option.label}</span>
-                  <span className="mt-0.5 block text-xs leading-5 text-on-surface-variant">{option.description}</span>
+                  <span className="block text-sm font-medium text-[var(--color-pib-text)]">{option.label}</span>
+                  <span className="mt-0.5 block text-xs leading-5 text-[var(--color-pib-text-muted)]">{option.description}</span>
                 </span>
               </label>
             ))}
@@ -202,8 +202,8 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
 
           {shareMode !== 'private' && (
             <fieldset>
-              <legend className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Collaborators</legend>
-              <p className="mt-1 text-xs text-on-surface-variant">{shareMode === 'shared' ? 'The owner is always retained. Select at least one other person.' : 'The owner is always retained. Selected people are shown as collaborators.'}</p>
+              <legend className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Collaborators</legend>
+              <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{shareMode === 'shared' ? 'The owner is always retained. Select at least one other person.' : 'The owner is always retained. Selected people are shown as collaborators.'}</p>
               <div className="mt-3 space-y-1.5">
                 {loading && <div className="pib-skeleton h-10 w-full" />}
                 {!loading && people.map((person) => {
@@ -213,8 +213,8 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
                     <label key={person.uid} className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${checked ? 'border-white/15 bg-white/[0.06]' : 'border-transparent hover:bg-white/[0.03]'} ${owner ? 'cursor-default' : 'cursor-pointer'}`}>
                       <input type="checkbox" checked={checked} disabled={owner} onChange={() => togglePerson(person.uid)} className="h-4 w-4 rounded border-white/20 bg-transparent text-primary" />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm text-on-surface">{labelFor(person)}</span>
-                        {person.email && person.email !== labelFor(person) && <span className="block truncate text-[11px] text-on-surface-variant">{person.email}</span>}
+                        <span className="block truncate text-sm text-[var(--color-pib-text)]">{labelFor(person)}</span>
+                        {person.email && person.email !== labelFor(person) && <span className="block truncate text-[11px] text-[var(--color-pib-text-muted)]">{person.email}</span>}
                       </span>
                       {owner && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-primary">Owner</span>}
                     </label>

@@ -21,7 +21,7 @@ export function CompanyRecordStatusChip({
   emptyLabel?: string
 }) {
   if (typeof value !== 'string' || !value.trim()) {
-    return <span className="text-xs text-on-surface-variant">{emptyLabel}</span>
+    return <span className="text-xs text-[var(--color-pib-text-muted)]">{emptyLabel}</span>
   }
   return (
     <span className="inline-flex rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-emerald-300">
@@ -41,8 +41,8 @@ export function CompanyRecordEmptyPanel({
 }) {
   return (
     <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center">
-      <span className="material-symbols-outlined text-[22px] text-on-surface-variant">{icon}</span>
-      <p className="mx-auto mt-2 max-w-2xl text-xs leading-5 text-on-surface-variant">
+      <span className="material-symbols-outlined text-[22px] text-[var(--color-pib-text-muted)]">{icon}</span>
+      <p className="mx-auto mt-2 max-w-2xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
         {label}
       </p>
       {children ? <div className="mt-3 flex justify-center">{children}</div> : null}

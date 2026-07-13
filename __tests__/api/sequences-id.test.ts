@@ -6,9 +6,13 @@ const mockUpdate = jest.fn()
 const mockDoc = jest.fn()
 const mockCollection = jest.fn()
 const mockAssertEmailMarketingAgentAction = jest.fn()
+const mockBatchCreate = jest.fn()
+const mockBatchUpdate = jest.fn()
+const mockBatchCommit = jest.fn()
+const mockBatch = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
-  adminDb: { collection: mockCollection },
+  adminDb: { collection: mockCollection, batch: mockBatch },
 }))
 jest.mock('@/lib/email-marketing/agent-governance', () => ({
   assertEmailMarketingAgentActionWithTask: mockAssertEmailMarketingAgentAction,
@@ -24,8 +28,12 @@ const params = { params: Promise.resolve({ id: 'seq1' }) }
 beforeEach(() => {
   jest.clearAllMocks()
   mockAssertEmailMarketingAgentAction.mockReturnValue({ ok: true, gateRequired: false })
-  mockDoc.mockReturnValue({ get: mockGet, update: mockUpdate })
+  mockDoc.mockImplementation((id?: string) => ({ id, get: mockGet, update: mockUpdate }))
   mockCollection.mockReturnValue({ doc: mockDoc })
+  mockBatch.mockReturnValue({ create: mockBatchCreate, update: mockBatchUpdate, commit: mockBatchCommit })
+  mockBatchCreate.mockReturnValue(undefined)
+  mockBatchUpdate.mockReturnValue(undefined)
+  mockBatchCommit.mockResolvedValue(undefined)
 })
 
 describe('GET /api/v1/sequences/[id]', () => {
@@ -129,6 +137,33 @@ describe('PUT /api/v1/sequences/[id]', () => {
 
     expect(res.status).toBe(403)
     expect(mockUpdate).not.toHaveBeenCalled()
+  })
+
+  it('atomically archives an immutable workflow snapshot when activating', async () => {
+    mockGet.mockResolvedValue({
+      exists: true,
+      id: 'seq1',
+      data: () => ({
+        orgId: 'org-test', name: 'Welcome', description: '', status: 'draft',
+        steps: [{ stepNumber: 0, delayDays: 0, subject: 'Hi', bodyText: 'Hi', bodyHtml: '<p>Hi</p>' }],
+        activeWorkflowVersion: 2, deleted: false,
+      }),
+    })
+    const { PUT } = await import('@/app/api/v1/sequences/[id]/route')
+    const req = new NextRequest('http://localhost/api/v1/sequences/seq1', {
+      method: 'PUT', headers: { ...authHeader, 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'active' }),
+    })
+    const res = await PUT(req, params)
+
+    expect(res.status).toBe(200)
+    expect(mockBatchCreate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      sequenceId: 'seq1', orgId: 'org-test', version: 3, schemaVersion: 1,
+    }))
+    expect(mockBatchUpdate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      status: 'active', activeWorkflowVersion: 3,
+      activeWorkflowSnapshot: expect.objectContaining({ version: 3 }),
+    }))
+    expect(mockBatchCommit).toHaveBeenCalledTimes(1)
   })
 })
 

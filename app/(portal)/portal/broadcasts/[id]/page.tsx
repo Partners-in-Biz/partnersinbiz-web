@@ -22,8 +22,14 @@ export default function BroadcastDetailPage({ params }: { params: Promise<{ id: 
     })
   }, [params])
 
-  if (loading) return <div className="p-6 animate-pulse h-40 bg-surface-container rounded-xl" />
-  if (!broadcast || !id) return <div className="p-6 text-on-surface-variant">Broadcast not found.</div>
+  if (loading) return <div className="pib-skeleton h-40" />
+  if (!broadcast || !id)
+    return (
+      <div className="pib-empty-state">
+        <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">campaign</span>
+        <h2 className="pib-empty-state-title">Broadcast not found.</h2>
+      </div>
+    )
 
   return (
     <BroadcastEditor

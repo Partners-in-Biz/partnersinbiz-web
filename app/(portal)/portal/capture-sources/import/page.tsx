@@ -191,19 +191,19 @@ export default function PortalCaptureSourceImportPage() {
   ]
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-8">
       <header className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <p className="eyebrow">CRM</p>
-          <h1 className="mt-1 text-base font-semibold text-on-surface">CSV intake command center</h1>
-          <p className="mt-1 max-w-2xl text-xs text-on-surface-variant">
+          <h1 className="pib-page-title mt-2">CSV intake command center</h1>
+          <p className="pib-page-sub max-w-2xl">
             Govern bulk CRM intake before records land in the database. Preview rows, apply source attribution, merge tags, and validate the import before any contacts are created or updated.
           </p>
         </div>
         <div>
           <Link
             href={captureSourcesHref}
-            className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+            className="btn-pib-secondary text-xs"
           >
             <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
             Back to capture sources
@@ -211,7 +211,7 @@ export default function PortalCaptureSourceImportPage() {
         </div>
       </header>
 
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <ImportStat
           label="Import readiness"
           value={rows.length > 0 && !parseError ? 'Ready' : 'Draft'}
@@ -238,49 +238,49 @@ export default function PortalCaptureSourceImportPage() {
         />
       </div>
 
-      <div className="rounded-xl bg-[var(--color-card)] border border-[var(--color-card-border)] p-4">
-        <h2 className="text-sm font-medium text-on-surface">Import path</h2>
+      <div className="pib-card">
+        <h2 className="pib-label mb-0">Import path</h2>
         <div className="mt-3 grid gap-2 sm:grid-cols-4">
           {readySteps.map((step, index) => (
             <div
               key={`${step}-${index}`}
-              className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2"
+              className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] px-3 py-2"
             >
-              <p className="text-[10px] uppercase tracking-widest text-on-surface-variant">
+              <p className="pib-label mb-0">
                 Step {index + 1}
               </p>
-              <p className="mt-1 text-sm text-on-surface">{step}</p>
+              <p className="mt-1 text-sm text-[var(--color-pib-text)]">{step}</p>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="rounded-xl bg-[var(--color-card)] border border-[var(--color-card-border)] p-4 space-y-4">
+      <div className="pib-card space-y-4">
         <div>
-          <label className="block text-sm font-medium text-on-surface mb-1.5">
+          <label className="pib-label">
             CSV file
           </label>
           <input
             type="file"
             accept=".csv,text/csv"
             onChange={handleFileChange}
-            className="block text-sm text-on-surface file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border file:border-[var(--color-card-border)] file:bg-[var(--color-surface-container)] file:text-on-surface file:text-sm file:cursor-pointer"
+            className="block text-sm text-[var(--color-pib-text)] file:mr-3 file:px-3 file:py-1.5 file:rounded-full file:border file:border-[var(--color-pib-line-strong)] file:bg-transparent file:text-[var(--color-pib-text)] file:text-sm file:cursor-pointer"
           />
           {fileName && (
-            <p className="mt-1.5 text-xs text-on-surface-variant">
+            <p className="mt-1.5 text-xs text-[var(--color-pib-text-muted)]">
               {fileName} — parsed {rows.length} row{rows.length === 1 ? '' : 's'}
             </p>
           )}
           {parseError && (
-            <p className="mt-1.5 text-sm text-red-100">{parseError}</p>
+            <p className="mt-1.5 text-sm text-[var(--color-error)]">{parseError}</p>
           )}
-          <p className="mt-2 text-xs text-on-surface-variant">
+          <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">
             Expected headers (case-insensitive): email (required), name or firstname/lastname, company, phone, tags (comma- or semicolon-separated), notes.
           </p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-on-surface mb-1.5">
+          <label className="pib-label">
             Default tags
           </label>
           <input
@@ -288,21 +288,21 @@ export default function PortalCaptureSourceImportPage() {
             value={defaultTagsRaw}
             onChange={(e) => setDefaultTagsRaw(e.target.value)}
             placeholder="e.g. q2-import, webinar-leads"
-            className="w-full px-3 py-2 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] text-on-surface text-sm"
+            className="pib-input"
           />
-          <p className="mt-1.5 text-xs text-on-surface-variant">
+          <p className="mt-1.5 text-xs text-[var(--color-pib-text-muted)]">
             Comma-separated. Applied to every imported contact in addition to per-row tags.
           </p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-on-surface mb-1.5">
+          <label className="pib-label">
             Capture source (optional)
           </label>
           <select
             value={selectedSourceId}
             onChange={(e) => setSelectedSourceId(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] text-on-surface text-sm"
+            className="pib-select"
           >
             <option value="">(none)</option>
             {sources.map((s) => (
@@ -311,17 +311,17 @@ export default function PortalCaptureSourceImportPage() {
               </option>
             ))}
           </select>
-          <p className="mt-1.5 text-xs text-on-surface-variant">
+          <p className="mt-1.5 text-xs text-[var(--color-pib-text-muted)]">
             If set, imported contacts will be tagged with the source&apos;s autoTags and the source&apos;s captured-count will be bumped by the number of newly created contacts.
           </p>
         </div>
       </div>
 
       {headers.length > 0 && (
-        <div className="rounded-xl bg-[var(--color-card)] border border-[var(--color-card-border)] p-4 space-y-3">
+        <div className="pib-card space-y-4">
           <div>
-            <h2 className="text-sm font-medium text-on-surface">Map columns</h2>
-            <p className="mt-1 text-xs text-on-surface-variant">
+            <h2 className="pib-label mb-0">Map columns</h2>
+            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
               Match each column in your file to a contact field. Columns set to
               &ldquo;Ignore&rdquo; are not imported. A column must be mapped to
               <span className="font-medium"> Email</span> before you can import.
@@ -334,13 +334,13 @@ export default function PortalCaptureSourceImportPage() {
               return (
                 <div
                   key={`${header}-${columnIndex}`}
-                  className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] p-3"
+                  className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3"
                 >
-                  <p className="text-[11px] font-medium text-on-surface break-all">
+                  <p className="text-[11px] font-medium text-[var(--color-pib-text)] break-all">
                     {header || `Column ${columnIndex + 1}`}
                   </p>
                   {sampleValue && (
-                    <p className="mt-0.5 text-[11px] text-on-surface-variant break-all">
+                    <p className="mt-0.5 text-[11px] text-[var(--color-pib-text-muted)] break-all">
                       e.g. {sampleValue}
                     </p>
                   )}
@@ -351,7 +351,7 @@ export default function PortalCaptureSourceImportPage() {
                     id={`col-map-${columnIndex}`}
                     value={current}
                     onChange={(e) => setColumnMapping(columnIndex, e.target.value)}
-                    className="mt-2 w-full px-2 py-1.5 rounded-md border border-[var(--color-card-border)] bg-[var(--color-surface-container)] text-on-surface text-xs"
+                    className="pib-select mt-2 px-2 py-1.5 text-xs"
                   >
                     <option value={IGNORE_COLUMN}>Ignore this column</option>
                     {CONTACT_IMPORT_FIELDS.map((f) => (
@@ -365,7 +365,7 @@ export default function PortalCaptureSourceImportPage() {
             })}
           </div>
           {!emailMapped && (
-            <p className="text-xs text-amber-100">
+            <p className="text-xs text-[var(--color-pib-accent-hover)]">
               Map one column to Email to enable validation and import.
             </p>
           )}
@@ -373,14 +373,14 @@ export default function PortalCaptureSourceImportPage() {
       )}
 
       {previewRows.length > 0 && (
-        <div className="rounded-xl bg-[var(--color-card)] border border-[var(--color-card-border)] p-4">
-          <h2 className="text-sm font-medium text-on-surface mb-2">
+        <div className="pib-card">
+          <h2 className="pib-label">
             Preview (first {previewRows.length} of {rows.length})
           </h2>
-          <div className="overflow-x-auto rounded-lg border border-[var(--color-card-border)]">
+          <div className="overflow-x-auto rounded-lg border border-[var(--color-pib-line)]">
             <table className="w-full text-sm">
-              <thead className="bg-white/[0.03]">
-                <tr className="text-left text-[10px] uppercase tracking-widest text-on-surface-variant">
+              <thead className="bg-[var(--color-pib-surface-muted)]">
+                <tr className="text-left text-[10px] font-mono uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                   <th className="px-3 py-2 font-medium">Email</th>
                   <th className="px-3 py-2 font-medium">Name</th>
                   <th className="px-3 py-2 font-medium">Company</th>
@@ -394,14 +394,14 @@ export default function PortalCaptureSourceImportPage() {
                     r.name ??
                     [r.firstName, r.lastName].filter(Boolean).join(' ').trim()
                   return (
-                    <tr key={i} className="border-t border-[var(--color-card-border)] align-top">
-                      <td className="px-3 py-2 font-mono text-xs text-on-surface break-all">
+                    <tr key={i} className="border-t border-[var(--color-pib-line)] align-top">
+                      <td className="px-3 py-2 font-mono text-xs text-[var(--color-pib-text)] break-all">
                         {r.email}
                       </td>
-                      <td className="px-3 py-2 text-on-surface">{name}</td>
-                      <td className="px-3 py-2 text-on-surface">{r.company ?? ''}</td>
-                      <td className="px-3 py-2 text-on-surface">{r.phone ?? ''}</td>
-                      <td className="px-3 py-2 text-on-surface-variant">
+                      <td className="px-3 py-2 text-[var(--color-pib-text)]">{name}</td>
+                      <td className="px-3 py-2 text-[var(--color-pib-text)]">{r.company ?? ''}</td>
+                      <td className="px-3 py-2 text-[var(--color-pib-text)]">{r.phone ?? ''}</td>
+                      <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">
                         {(r.tags ?? []).join(', ')}
                       </td>
                     </tr>
@@ -419,7 +419,7 @@ export default function PortalCaptureSourceImportPage() {
             type="button"
             onClick={handleValidate}
             disabled={validating || importing}
-            className="h-8 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface disabled:opacity-50"
+            className="btn-pib-secondary text-xs"
           >
             {validating ? 'Validating...' : 'Validate (dry run)'}
           </button>
@@ -427,7 +427,7 @@ export default function PortalCaptureSourceImportPage() {
             type="button"
             onClick={handleImport}
             disabled={validating || importing}
-            className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black disabled:opacity-50"
+            className="btn-pib-primary text-xs"
           >
             {importing ? 'Importing...' : 'Import'}
           </button>
@@ -435,7 +435,7 @@ export default function PortalCaptureSourceImportPage() {
       )}
 
       {submitError && (
-        <div className="rounded-xl border border-red-400/40 bg-red-400/10 p-3 text-sm text-red-100">
+        <div className="rounded-xl border border-[var(--color-error)]/40 bg-[var(--color-error-container)] p-3 text-sm text-[var(--color-error)]">
           {submitError}
         </div>
       )}
@@ -461,9 +461,9 @@ function ResultCard({
   variant: 'dryrun' | 'done'
 }) {
   return (
-    <div className="rounded-xl bg-[var(--color-card)] border border-[var(--color-card-border)] p-4 space-y-3">
-      <h2 className="text-sm font-medium text-on-surface">{title}</h2>
-      <div className="grid grid-cols-3 gap-3">
+    <div className="pib-card space-y-4">
+      <h2 className="pib-label mb-0">{title}</h2>
+      <div className="grid grid-cols-3 gap-4">
         <Stat
           label={variant === 'dryrun' ? 'Would create' : 'Created'}
           value={result.created}
@@ -476,17 +476,17 @@ function ResultCard({
       </div>
       {result.invalidRows.length > 0 && (
         <div>
-          <p className="text-[10px] uppercase tracking-widest text-on-surface-variant mb-1">
+          <p className="pib-label">
             Invalid rows
           </p>
-          <ul className="space-y-1 text-sm text-on-surface">
+          <ul className="space-y-1 text-sm text-[var(--color-pib-text)]">
             {result.invalidRows.slice(0, 50).map((r) => (
               <li key={r.index} className="font-mono text-xs">
                 row {r.index}: {r.reason}
               </li>
             ))}
             {result.invalidRows.length > 50 && (
-              <li className="text-xs text-on-surface-variant">
+              <li className="text-xs text-[var(--color-pib-text-muted)]">
                 ...and {result.invalidRows.length - 50} more
               </li>
             )}
@@ -499,11 +499,11 @@ function ResultCard({
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] p-3">
-      <p className="text-[10px] uppercase tracking-widest text-on-surface-variant">
+    <div className="pib-stat-card">
+      <p className="pib-label mb-0">
         {label}
       </p>
-      <p className="text-2xl font-display text-on-surface">{value}</p>
+      <p className="mt-2 text-2xl font-display text-[var(--color-pib-text)]">{value}</p>
     </div>
   )
 }
@@ -520,21 +520,21 @@ function ImportStat({
   icon: string
 }) {
   return (
-    <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)] p-4">
+    <div className="pib-stat-card">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[10px] font-medium uppercase tracking-widest text-on-surface-variant">
+          <p className="pib-label mb-0">
             {label}
           </p>
-          <p className="mt-2 truncate text-2xl font-display text-on-surface">
+          <p className="mt-2 truncate text-2xl font-display text-[var(--color-pib-text)]">
             {value}
           </p>
         </div>
-        <span className="material-symbols-outlined rounded-lg border border-[var(--color-card-border)] bg-white/[0.04] p-2 text-[18px] text-on-surface-variant">
-          {icon}
+        <span className="pib-icon-tint" aria-hidden="true">
+          <span className="material-symbols-outlined text-[18px]">{icon}</span>
         </span>
       </div>
-      <p className="mt-3 text-xs text-on-surface-variant">{detail}</p>
+      <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">{detail}</p>
     </div>
   )
 }

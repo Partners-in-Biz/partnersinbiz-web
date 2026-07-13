@@ -90,24 +90,24 @@ function fmtDateTime(ts: any) {
 
 function StatusBadge({ status }: { status: SocialPostStatus }) {
   const styles: Record<SocialPostStatus, string> = {
-    scheduled: 'bg-blue-900/30 text-blue-400',
-    published: 'bg-green-900/30 text-green-400',
-    failed: 'bg-red-900/30 text-red-400',
-    draft: 'bg-surface-container-high text-on-surface-variant',
-    pending_approval: 'bg-amber-900/30 text-amber-400',
-    approved: 'bg-teal-900/30 text-teal-400',
-    cancelled: 'bg-surface-container text-on-surface-variant/50 line-through',
+    scheduled: 'pib-pill-blue',
+    published: 'pib-pill-success',
+    failed: 'pib-pill-danger',
+    draft: '',
+    pending_approval: 'pib-pill-warn',
+    approved: 'pib-pill-cyan',
+    cancelled: 'line-through opacity-60',
   }
   const displayLabel = status === 'pending_approval' ? 'Needs Approval' : status === 'approved' ? 'Approved' : status
   return (
-    <span className={`text-[10px] px-2 py-0.5 rounded font-medium capitalize ${styles[status]}`}>
+    <span className={`pib-pill capitalize ${styles[status]}`}>
       {displayLabel}
     </span>
   )
 }
 
 function PlatformBadge({ platform }: { platform: string }) {
-  const config = PLATFORM_COLORS[platform] ?? { bg: 'bg-surface-container-high', label: platform.slice(0, 2).toUpperCase() }
+  const config = PLATFORM_COLORS[platform] ?? { bg: 'bg-[var(--color-pib-line-strong)]', label: platform.slice(0, 2).toUpperCase() }
   return (
     <span className={`${config.bg} text-white text-[10px] px-2 py-0.5 rounded font-bold`}>
       {config.label}
@@ -126,7 +126,7 @@ function RetryInfo({ post }: { post: SocialPost }) {
   }
   if (parts.length === 0) return null
   return (
-    <span className="text-[9px] text-red-400/70">{parts.join(' · ')}</span>
+    <span className="text-[9px] text-[var(--color-error)]/70">{parts.join(' · ')}</span>
   )
 }
 
@@ -191,10 +191,10 @@ function EditPanel({ post, onClose, onSaved }: EditPanelProps) {
   return (
     <div className="fixed inset-0 z-40 flex justify-end">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative z-50 w-96 h-full bg-surface-container border-l border-outline-variant flex flex-col overflow-y-auto">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-outline-variant">
+      <div className="relative z-50 w-96 h-full bg-[var(--color-pib-bg)] border-l border-[var(--color-pib-line)] flex flex-col overflow-y-auto">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-pib-line)]">
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold text-on-surface">Edit Post</h2>
+            <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Edit Post</h2>
             <div className="flex gap-1">
               {platforms.map((p) => (
                 <PlatformBadge key={p} platform={p} />
@@ -203,7 +203,7 @@ function EditPanel({ post, onClose, onSaved }: EditPanelProps) {
           </div>
           <button
             onClick={onClose}
-            className="text-on-surface-variant hover:text-on-surface text-xl leading-none transition-colors"
+            className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] text-xl leading-none transition-colors"
           >
             ×
           </button>
@@ -211,35 +211,35 @@ function EditPanel({ post, onClose, onSaved }: EditPanelProps) {
 
         <div className="p-5 space-y-5 flex-1">
           {error && (
-            <div className="px-3 py-2 rounded-lg bg-red-900/30 text-red-400 text-xs">{error}</div>
+            <div className="rounded-lg border border-[var(--color-error)]/40 px-3 py-2 text-xs text-[var(--color-error)]">{error}</div>
           )}
 
           <div>
-            <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-wide mb-2">Content</label>
+            <label className="pib-label block mb-2">Content</label>
             <textarea
               rows={6}
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              className="w-full rounded-xl bg-surface-container-high px-3 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 resize-none outline-none border border-transparent focus:border-outline-variant transition-colors"
+              className="pib-textarea w-full resize-none"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-wide mb-2">Schedule For</label>
+            <label className="pib-label block mb-2">Schedule For</label>
             <input
               type="datetime-local"
               value={scheduledFor}
               onChange={(e) => setScheduledFor(e.target.value)}
-              className="w-full rounded-xl bg-surface-container-high px-3 py-2.5 text-sm text-on-surface outline-none border border-transparent focus:border-outline-variant transition-colors"
+              className="pib-input w-full"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-wide mb-2">Category</label>
+            <label className="pib-label block mb-2">Category</label>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value as SocialPostCategory)}
-              className="w-full rounded-xl bg-surface-container-high px-3 py-2.5 text-sm text-on-surface outline-none border border-transparent focus:border-outline-variant transition-colors capitalize"
+              className="pib-select w-full capitalize"
             >
               {CATEGORIES.map((c) => (
                 <option key={c} value={c} className="capitalize">{c}</option>
@@ -248,24 +248,24 @@ function EditPanel({ post, onClose, onSaved }: EditPanelProps) {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-on-surface-variant uppercase tracking-wide mb-2">Tags</label>
+            <label className="pib-label block mb-2">Tags</label>
             <input
               type="text"
               value={tagInput}
               onChange={(e) => setTagInput(e.target.value)}
               onKeyDown={handleTagKeyDown}
               placeholder="Type tag + Enter…"
-              className="w-full rounded-xl bg-surface-container-high px-3 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 outline-none border border-transparent focus:border-outline-variant transition-colors"
+              className="pib-input w-full"
             />
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">
                 {tags.map((tag) => (
                   <span
                     key={tag}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container text-on-surface text-xs font-medium"
+                    className="pib-pill flex items-center gap-1"
                   >
                     {tag}
-                    <button onClick={() => removeTag(tag)} className="text-on-surface-variant hover:text-on-surface transition-colors">×</button>
+                    <button onClick={() => removeTag(tag)} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">×</button>
                   </span>
                 ))}
               </div>
@@ -273,17 +273,17 @@ function EditPanel({ post, onClose, onSaved }: EditPanelProps) {
           </div>
         </div>
 
-        <div className="px-5 py-4 border-t border-outline-variant flex gap-3">
+        <div className="px-5 py-4 border-t border-[var(--color-pib-line)] flex gap-3">
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-2 rounded-lg bg-white text-black font-label text-sm font-medium hover:bg-white/90 transition-colors disabled:opacity-50"
+            className="btn-pib-primary disabled:opacity-50"
           >
             {saving ? 'Saving…' : 'Save Changes'}
           </button>
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-surface-container-high text-on-surface font-label text-sm font-medium hover:bg-surface-container transition-colors"
+            className="btn-pib-ghost"
           >
             Close
           </button>
@@ -394,7 +394,7 @@ export default function QueuePage() {
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-6 max-w-6xl mx-auto space-y-8">
       {editPost && (
         <EditPanel
           post={editPost}
@@ -403,38 +403,31 @@ export default function QueuePage() {
         />
       )}
 
-      <div>
-        <h1 className="text-2xl font-semibold text-on-surface">Post Queue</h1>
-        <p className="text-sm text-on-surface-variant mt-1">Manage drafts, scheduled, and failed posts</p>
-      </div>
+      <header>
+        <p className="eyebrow">Social · Queue</p>
+        <h1 className="pib-page-title mt-2">Post Queue</h1>
+        <p className="pib-page-sub">Manage drafts, scheduled, and failed posts</p>
+      </header>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-4">
-        <div className="flex gap-1 flex-wrap">
+        <div className="pib-tabs pib-tabs-segmented flex-wrap">
           {FILTER_PLATFORMS.map((p) => (
             <button
               key={p.value}
               onClick={() => setPlatformFilter(p.value)}
-              className={`px-3 py-1.5 rounded-lg font-label text-xs font-medium transition-colors ${
-                platformFilter === p.value
-                  ? 'bg-white text-black'
-                  : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high'
-              }`}
+              className={`pib-tab ${platformFilter === p.value ? 'pib-tab-active' : ''}`}
             >
               {p.label}
             </button>
           ))}
         </div>
-        <div className="flex gap-1">
+        <div className="pib-tabs pib-tabs-segmented">
           {(['all', 'draft', 'pending_approval', 'scheduled', 'failed'] as const).map((s) => (
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
-              className={`px-3 py-1.5 rounded-lg font-label text-xs font-medium transition-colors capitalize ${
-                statusFilter === s
-                  ? 'bg-white text-black'
-                  : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high'
-              }`}
+              className={`pib-tab capitalize ${statusFilter === s ? 'pib-tab-active' : ''}`}
             >
               {s === 'all' ? 'All' : s === 'pending_approval' ? 'Needs Approval' : s}
             </button>
@@ -446,17 +439,20 @@ export default function QueuePage() {
       {loading ? (
         <div className="space-y-2">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-12 rounded-xl bg-surface-container animate-pulse" />
+            <div key={i} className="pib-skeleton h-12" />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="py-16 text-center text-on-surface-variant text-sm">No posts found.</div>
+        <div className="pib-empty-state">
+          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">pending_actions</span>
+          <h2 className="pib-empty-state-title">No posts found.</h2>
+        </div>
       ) : (
-        <div className="rounded-xl bg-surface-container overflow-hidden">
+        <div className="pib-surface pib-surface-table overflow-hidden">
           {/* Header */}
-          <div className="grid grid-cols-[90px_1fr_90px_120px_80px_120px_160px] gap-3 px-4 py-2.5 border-b border-outline-variant">
+          <div className="grid grid-cols-[90px_1fr_90px_120px_80px_120px_160px] gap-3 px-4 py-2.5 border-b border-[var(--color-pib-line)]">
             {['Platforms', 'Content', 'Category', 'Scheduled For', 'Status', 'Tags', 'Actions'].map((h) => (
-              <span key={h} className="text-[10px] font-medium text-on-surface-variant uppercase tracking-wide">{h}</span>
+              <span key={h} className="pib-label">{h}</span>
             ))}
           </div>
           {/* Rows */}
@@ -466,25 +462,25 @@ export default function QueuePage() {
             return (
               <div
                 key={post.id}
-                className={`grid grid-cols-[90px_1fr_90px_120px_80px_120px_160px] gap-3 px-4 py-3 items-center ${i > 0 ? 'border-t border-outline-variant' : ''}`}
+                className={`grid grid-cols-[90px_1fr_90px_120px_80px_120px_160px] gap-3 px-4 py-3 items-center hover:bg-[var(--color-row-hover)] ${i > 0 ? 'border-t border-[var(--color-pib-line)]' : ''}`}
               >
                 <div className="flex flex-wrap gap-1">
                   {platforms.map((p) => (
                     <PlatformBadge key={p} platform={p} />
                   ))}
                 </div>
-                <p className="text-sm text-on-surface truncate min-w-0">
+                <p className="text-sm text-[var(--color-pib-text)] truncate min-w-0">
                   {text.slice(0, 60)}{text.length > 60 ? '…' : ''}
                 </p>
-                <span className="text-xs text-on-surface-variant capitalize">{post.category}</span>
-                <span className="text-xs text-on-surface-variant">{fmtDateTime(post.scheduledFor)}</span>
+                <span className="text-xs text-[var(--color-pib-text-muted)] capitalize">{post.category}</span>
+                <span className="text-xs text-[var(--color-pib-text-muted)]">{fmtDateTime(post.scheduledFor)}</span>
                 <div className="flex flex-col gap-0.5">
                   <StatusBadge status={post.status} />
                   <RetryInfo post={post} />
                 </div>
                 <div className="flex flex-wrap gap-1 min-w-0">
                   {(post.tags ?? []).slice(0, 2).map((t) => (
-                    <span key={t} className="text-[9px] px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface-variant">{t}</span>
+                    <span key={t} className="pib-pill">{t}</span>
                   ))}
                 </div>
                 <div className="flex gap-1.5 flex-wrap">
@@ -493,14 +489,14 @@ export default function QueuePage() {
                       <button
                         onClick={() => handleApprove(post)}
                         disabled={approving === post.id}
-                        className="px-2.5 py-1 rounded-lg bg-green-600 text-white font-label text-[10px] font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
+                        className="btn-pib-primary text-[10px] disabled:opacity-50"
                       >
                         {approving === post.id ? 'Approving…' : 'Approve'}
                       </button>
                       <button
                         onClick={() => handleRejectApproval(post)}
                         disabled={approving === post.id}
-                        className="px-2.5 py-1 rounded-lg bg-red-900/30 text-red-400 font-label text-[10px] font-medium hover:bg-red-900/50 transition-colors disabled:opacity-50"
+                        className="btn-pib-ghost text-[10px] text-[var(--color-error)] disabled:opacity-50"
                       >
                         Reject
                       </button>
@@ -510,13 +506,13 @@ export default function QueuePage() {
                       <button
                         onClick={() => handlePublish(post)}
                         disabled={publishing === post.id}
-                        className="px-2.5 py-1 rounded-lg bg-white text-black font-label text-[10px] font-medium hover:bg-white/90 transition-colors disabled:opacity-50"
+                        className="btn-pib-primary text-[10px] disabled:opacity-50"
                       >
                         Publish
                       </button>
                       <button
                         onClick={() => setEditPost(post)}
-                        className="px-2.5 py-1 rounded-lg bg-surface-container-high text-on-surface font-label text-[10px] font-medium hover:bg-surface-container transition-colors"
+                        className="btn-pib-secondary text-[10px]"
                       >
                         Edit
                       </button>
@@ -524,7 +520,7 @@ export default function QueuePage() {
                         <button
                           onClick={() => handleCancel(post)}
                           disabled={cancelling === post.id}
-                          className="px-2.5 py-1 rounded-lg bg-red-900/30 text-red-400 font-label text-[10px] font-medium hover:bg-red-900/50 transition-colors disabled:opacity-50"
+                          className="btn-pib-ghost text-[10px] text-[var(--color-error)] disabled:opacity-50"
                         >
                           Cancel
                         </button>

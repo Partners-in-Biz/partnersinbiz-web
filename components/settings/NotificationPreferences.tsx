@@ -90,7 +90,7 @@ export function NotificationPreferences() {
     <section data-testid="notification-preferences" className="pib-card-section">
       <div className="pib-card-section-header flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Per-category preferences</p>
+          <p className="pib-label">Per-category preferences</p>
           <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Choose what reaches you</h2>
           <p className="mt-1 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
             Toggle in-app and email delivery for each notification category. Changes save automatically.
@@ -109,7 +109,7 @@ export function NotificationPreferences() {
 
       <div className="p-5">
         <div className="overflow-hidden rounded-xl border border-[var(--color-pib-line)]">
-          <div className="grid grid-cols-[1fr_auto_auto] items-center gap-4 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] px-4 py-2.5 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+          <div className="pib-label grid grid-cols-[1fr_auto_auto] items-center gap-4 border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] px-4 py-2.5">
             <span>Category</span>
             <span className="w-16 text-center">In-app</span>
             <span className="w-16 text-center">Email</span>
@@ -121,8 +121,8 @@ export function NotificationPreferences() {
               className="grid grid-cols-[1fr_auto_auto] items-center gap-4 border-b border-[var(--color-pib-line)] px-4 py-3 last:border-b-0"
             >
               <div className="flex min-w-0 items-start gap-3">
-                <span className="material-symbols-outlined mt-0.5 text-[18px] text-[var(--color-pib-text-muted)]" aria-hidden="true">
-                  {cat.icon}
+                <span className="pib-icon-tint-cyan mt-0.5" aria-hidden="true">
+                  <span className="material-symbols-outlined text-[18px]">{cat.icon}</span>
                 </span>
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-[var(--color-pib-text)]">{cat.label}</p>

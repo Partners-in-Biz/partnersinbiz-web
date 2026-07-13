@@ -47,7 +47,7 @@ export function OrgHealthPanel({ slug }: { slug: string }) {
     return () => { cancelled = true }
   }, [slug])
 
-  if (loading) return <Surface className="text-on-surface-variant text-sm">Computing health score…</Surface>
+  if (loading) return <Surface className="text-[var(--color-pib-text-muted)] text-sm">Computing health score…</Surface>
   if (error) return <Surface className="text-red-400 text-sm">{error}</Surface>
   if (!data) return null
 
@@ -69,8 +69,8 @@ export function OrgHealthPanel({ slug }: { slug: string }) {
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-4xl font-headline font-bold text-on-surface">{data.score}</span>
-              <span className="text-[10px] uppercase tracking-widest text-on-surface-variant">/ 100</span>
+              <span className="text-4xl font-headline font-bold text-[var(--color-pib-text)]">{data.score}</span>
+              <span className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">/ 100</span>
             </div>
           </div>
           <StatusPill tone={BAND_TONE[data.band] ?? 'neutral'} dot>
@@ -84,8 +84,8 @@ export function OrgHealthPanel({ slug }: { slug: string }) {
             {data.pillars.map((p) => (
               <div key={p.key}>
                 <div className="mb-1 flex items-center justify-between text-sm">
-                  <span className="font-medium text-on-surface">{p.label}</span>
-                  <span className="text-on-surface-variant">{p.score} / {p.max}</span>
+                  <span className="font-medium text-[var(--color-pib-text)]">{p.label}</span>
+                  <span className="text-[var(--color-pib-text-muted)]">{p.score} / {p.max}</span>
                 </div>
                 <div className="h-2 w-full overflow-hidden rounded-full bg-white/5">
                   <div
@@ -95,7 +95,7 @@ export function OrgHealthPanel({ slug }: { slug: string }) {
                 </div>
                 <ul className="mt-1.5 space-y-0.5">
                   {p.factors.map((f, i) => (
-                    <li key={i} className="text-[11px] text-on-surface-variant">• {f}</li>
+                    <li key={i} className="text-[11px] text-[var(--color-pib-text-muted)]">• {f}</li>
                   ))}
                 </ul>
               </div>
@@ -116,7 +116,7 @@ export function OrgHealthPanel({ slug }: { slug: string }) {
                 >
                   {a.kind === 'upsell' ? 'trending_up' : 'warning'}
                 </span>
-                <span className="text-on-surface">{a.message}</span>
+                <span className="text-[var(--color-pib-text)]">{a.message}</span>
               </div>
             ))}
           </div>

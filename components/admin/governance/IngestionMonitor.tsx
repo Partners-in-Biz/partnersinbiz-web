@@ -69,9 +69,9 @@ interface IngestionData {
   properties: PropertyOption[]
 }
 
-const card = 'rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-surface-container)] text-on-surface'
+const card = 'rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)] text-[var(--color-pib-text)]'
 const input =
-  'rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2 text-sm text-on-surface'
+  'rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)] px-3 py-2 text-sm text-[var(--color-pib-text)]'
 
 function fmtTime(ms: number | null): string {
   if (!ms) return 'n/a'
@@ -145,9 +145,9 @@ function BarChart({ series }: { series: SeriesPoint[] }) {
 function Metric({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className={`${card} px-4 py-3`}>
-      <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{label}</p>
-      <p className="mt-1 text-2xl font-headline font-bold text-on-surface">{value}</p>
-      {hint && <p className="mt-0.5 text-[11px] text-on-surface-variant/70">{hint}</p>}
+      <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</p>
+      <p className="mt-1 text-2xl font-headline font-bold text-[var(--color-pib-text)]">{value}</p>
+      {hint && <p className="mt-0.5 text-[11px] text-[var(--color-pib-text-muted)]/70">{hint}</p>}
     </div>
   )
 }
@@ -228,17 +228,17 @@ export function IngestionMonitor() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Analytics ingestion
           </p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Ingestion monitor</h1>
-          <p className="text-sm text-on-surface-variant mt-1">
+          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Ingestion monitor</h1>
+          <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
             Live product_events flow, latency, top properties, and the dead-letter queue.
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-2">
           <label className="block">
-            <span className="block text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+            <span className="block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
               Organisation
             </span>
             <select
@@ -258,7 +258,7 @@ export function IngestionMonitor() {
             </select>
           </label>
           <label className="block">
-            <span className="block text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+            <span className="block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
               Property
             </span>
             <select className={input} value={propertyFilter} onChange={(e) => setPropertyFilter(e.target.value)}>
@@ -273,7 +273,7 @@ export function IngestionMonitor() {
           <button
             type="button"
             onClick={load}
-            className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2 text-sm text-on-surface hover:bg-[var(--color-row-hover)]"
+            className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)] px-3 py-2 text-sm text-[var(--color-pib-text)] hover:bg-[var(--color-row-hover)]"
           >
             Refresh
           </button>
@@ -292,13 +292,13 @@ export function IngestionMonitor() {
         <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div>
       )}
       {feedback && (
-        <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface-container)] px-3 py-2 text-xs text-on-surface">
+        <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)] px-3 py-2 text-xs text-[var(--color-pib-text)]">
           {feedback}
         </div>
       )}
 
       {loading && !data ? (
-        <p className="text-sm text-on-surface-variant">Loading ingestion metrics…</p>
+        <p className="text-sm text-[var(--color-pib-text-muted)]">Loading ingestion metrics…</p>
       ) : !data ? null : (
         <>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -323,11 +323,11 @@ export function IngestionMonitor() {
           </div>
 
           {!data.latency.available && (
-            <p className="text-[11px] text-on-surface-variant/70">{data.latency.note}</p>
+            <p className="text-[11px] text-[var(--color-pib-text-muted)]/70">{data.latency.note}</p>
           )}
 
           <div className={`${card} p-4`}>
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-3">
+            <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-3">
               Events received — last 24h (hourly)
             </p>
             <BarChart series={data.series} />
@@ -336,19 +336,19 @@ export function IngestionMonitor() {
           {/* Dead-letter list */}
           <div className={`${card} overflow-hidden`}>
             <div className="border-b border-[var(--color-card-border)] px-4 py-3">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+              <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                 Dead-letter queue
               </p>
             </div>
             {data.deadLetter.items.length === 0 ? (
-              <p className="px-4 py-6 text-sm text-on-surface-variant">
+              <p className="px-4 py-6 text-sm text-[var(--color-pib-text-muted)]">
                 No failed events in the dead-letter queue. Ingestion is healthy.
               </p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-[var(--color-card-border)] text-left text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                    <tr className="border-b border-[var(--color-card-border)] text-left text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                       <th className="px-4 py-2">Event</th>
                       <th className="px-4 py-2">Property</th>
                       <th className="px-4 py-2">Org</th>
@@ -360,17 +360,17 @@ export function IngestionMonitor() {
                   <tbody>
                     {data.deadLetter.items.map((d) => (
                       <tr key={d.id} className="border-b border-[var(--color-card-border)] last:border-b-0">
-                        <td className="px-4 py-2 text-on-surface">{d.event}</td>
-                        <td className="px-4 py-2 text-on-surface-variant">{d.propertyId}</td>
-                        <td className="px-4 py-2 text-on-surface-variant">{d.orgId || 'unknown'}</td>
-                        <td className="px-4 py-2 text-on-surface-variant">{d.reason}</td>
-                        <td className="px-4 py-2 text-on-surface-variant">{fmtTime(d.failedAtMs)}</td>
+                        <td className="px-4 py-2 text-[var(--color-pib-text)]">{d.event}</td>
+                        <td className="px-4 py-2 text-[var(--color-pib-text-muted)]">{d.propertyId}</td>
+                        <td className="px-4 py-2 text-[var(--color-pib-text-muted)]">{d.orgId || 'unknown'}</td>
+                        <td className="px-4 py-2 text-[var(--color-pib-text-muted)]">{d.reason}</td>
+                        <td className="px-4 py-2 text-[var(--color-pib-text-muted)]">{fmtTime(d.failedAtMs)}</td>
                         <td className="px-4 py-2 text-right">
                           <button
                             type="button"
                             disabled={retrying === d.id}
                             onClick={() => retry(d.id)}
-                            className="rounded-lg border border-[var(--color-card-border)] px-2.5 py-1 text-xs text-on-surface hover:bg-[var(--color-row-hover)] disabled:opacity-60"
+                            className="rounded-lg border border-[var(--color-card-border)] px-2.5 py-1 text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-row-hover)] disabled:opacity-60"
                           >
                             {retrying === d.id ? 'Retrying…' : 'Retry'}
                           </button>
@@ -386,17 +386,17 @@ export function IngestionMonitor() {
           {/* Top properties */}
           <div className={`${card} overflow-hidden`}>
             <div className="border-b border-[var(--color-card-border)] px-4 py-3">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+              <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                 Top properties by 7-day volume
               </p>
             </div>
             {data.topProperties.length === 0 ? (
-              <p className="px-4 py-6 text-sm text-on-surface-variant">No events in the accessible scope.</p>
+              <p className="px-4 py-6 text-sm text-[var(--color-pib-text-muted)]">No events in the accessible scope.</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-[var(--color-card-border)] text-left text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                    <tr className="border-b border-[var(--color-card-border)] text-left text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                       <th className="px-4 py-2">Property</th>
                       <th className="px-4 py-2">Domain</th>
                       <th className="px-4 py-2">Org</th>
@@ -407,11 +407,11 @@ export function IngestionMonitor() {
                   <tbody>
                     {data.topProperties.map((p) => (
                       <tr key={p.propertyId} className="border-b border-[var(--color-card-border)] last:border-b-0">
-                        <td className="px-4 py-2 text-on-surface">{p.name}</td>
-                        <td className="px-4 py-2 text-on-surface-variant">{p.domain}</td>
-                        <td className="px-4 py-2 text-on-surface-variant">{p.orgId}</td>
-                        <td className="px-4 py-2 text-right text-on-surface">{p.volume}</td>
-                        <td className="px-4 py-2 text-on-surface-variant">{fmtTime(p.lastSeenMs)}</td>
+                        <td className="px-4 py-2 text-[var(--color-pib-text)]">{p.name}</td>
+                        <td className="px-4 py-2 text-[var(--color-pib-text-muted)]">{p.domain}</td>
+                        <td className="px-4 py-2 text-[var(--color-pib-text-muted)]">{p.orgId}</td>
+                        <td className="px-4 py-2 text-right text-[var(--color-pib-text)]">{p.volume}</td>
+                        <td className="px-4 py-2 text-[var(--color-pib-text-muted)]">{fmtTime(p.lastSeenMs)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -423,17 +423,17 @@ export function IngestionMonitor() {
           {/* Recent events */}
           <div className={`${card} overflow-hidden`}>
             <div className="border-b border-[var(--color-card-border)] px-4 py-3">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+              <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                 Recent events ({data.counts.scanned} scanned)
               </p>
             </div>
             {data.recentEvents.length === 0 ? (
-              <p className="px-4 py-6 text-sm text-on-surface-variant">No recent events.</p>
+              <p className="px-4 py-6 text-sm text-[var(--color-pib-text-muted)]">No recent events.</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-[var(--color-card-border)] text-left text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+                    <tr className="border-b border-[var(--color-card-border)] text-left text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                       <th className="px-4 py-2">Event</th>
                       <th className="px-4 py-2">Property</th>
                       <th className="px-4 py-2">Session</th>
@@ -445,12 +445,12 @@ export function IngestionMonitor() {
                   <tbody>
                     {data.recentEvents.map((e) => (
                       <tr key={e.id} className="border-b border-[var(--color-card-border)] last:border-b-0">
-                        <td className="px-4 py-2 text-on-surface">{e.event}</td>
-                        <td className="px-4 py-2 text-on-surface-variant">{e.propertyId}</td>
-                        <td className="px-4 py-2 text-on-surface-variant font-mono text-xs">{e.sessionId}</td>
-                        <td className="px-4 py-2 text-on-surface-variant">{e.path ?? 'n/a'}</td>
-                        <td className="px-4 py-2 text-on-surface-variant">{fmtMs(e.latencyMs)}</td>
-                        <td className="px-4 py-2 text-on-surface-variant">{fmtTime(e.timestampMs)}</td>
+                        <td className="px-4 py-2 text-[var(--color-pib-text)]">{e.event}</td>
+                        <td className="px-4 py-2 text-[var(--color-pib-text-muted)]">{e.propertyId}</td>
+                        <td className="px-4 py-2 text-[var(--color-pib-text-muted)] font-mono text-xs">{e.sessionId}</td>
+                        <td className="px-4 py-2 text-[var(--color-pib-text-muted)]">{e.path ?? 'n/a'}</td>
+                        <td className="px-4 py-2 text-[var(--color-pib-text-muted)]">{fmtMs(e.latencyMs)}</td>
+                        <td className="px-4 py-2 text-[var(--color-pib-text-muted)]">{fmtTime(e.timestampMs)}</td>
                       </tr>
                     ))}
                   </tbody>

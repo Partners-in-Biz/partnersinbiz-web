@@ -49,7 +49,7 @@ export default function AdminOrgDetailPage({ params }: { params: Promise<{ slug:
     <div className="space-y-6">
       <PageHeader
         eyebrow={
-          <Link href="/admin/organizations" className="inline-flex items-center gap-1 hover:text-on-surface">
+          <Link href="/admin/organizations" className="inline-flex items-center gap-1 hover:text-[var(--color-pib-text)]">
             <span className="material-symbols-outlined text-[16px]">arrow_back</span> Organisations
           </Link>
         }
@@ -67,7 +67,7 @@ export default function AdminOrgDetailPage({ params }: { params: Promise<{ slug:
         }
         actions={
           org ? (
-            <Link href={`/admin/org/${slug}/dashboard`} className="pib-btn-secondary">
+            <Link href={`/admin/org/${slug}/dashboard`} className="btn-pib-secondary">
               <span className="material-symbols-outlined text-[18px]">open_in_new</span> Open workspace
             </Link>
           ) : null
@@ -75,8 +75,8 @@ export default function AdminOrgDetailPage({ params }: { params: Promise<{ slug:
         tabs={<PageTabs tabs={TABS} value={tab} onValueChange={(v) => setTab(v as TabValue)} ariaLabel="Org control tabs" />}
       />
 
-      {error && <div className="pib-card text-sm text-red-400">{error}</div>}
-      {loading && !org && <div className="pib-card text-sm text-on-surface-variant">Loading organisation…</div>}
+      {error && <div className="pib-card text-sm text-[var(--color-error)]">{error}</div>}
+      {loading && !org && <div className="pib-card text-sm text-[var(--color-pib-text-muted)]">Loading organisation…</div>}
 
       {org && (
         <>

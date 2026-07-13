@@ -216,7 +216,14 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
 })
 
 describe('UnifiedChat project pulse integration', () => {
+  const projectSeenKey = 'pib.messages.projectSeen.v1:org-1:conv-1:project-1'
+
+  afterEach(() => {
+    window.localStorage.removeItem(projectSeenKey)
+  })
+
   it('loads project progress, anchors a living bundle, opens the lens, and resolves approval through the task API', async () => {
+    window.localStorage.setItem(projectSeenKey, String(Date.parse('2026-07-12T08:00:00.000Z')))
     const conversation = { ...baseConversation, contextRefs: [projectRef] }
     const progress = {
       project: { id: 'project-1', name: 'Launch Project', status: 'active' },
@@ -229,7 +236,7 @@ describe('UnifiedChat project pulse integration', () => {
       tasks: [
         {
           id: 'draft', title: 'Draft copy', columnId: 'in_progress', agentStatus: 'in-progress', state: 'running',
-          unresolvedDependencyIds: [], assigneeAgentId: 'maya',
+          unresolvedDependencyIds: [], assigneeAgentId: 'maya', updatedAt: '2026-07-12T09:30:00.000Z',
           chatOrigin: { conversationId: 'conv-1', requestMessageId: 'm-1', responseMessageId: 'm-2', bundleId: 'bundle-1', sequence: 0 },
         },
         {
@@ -247,12 +254,25 @@ describe('UnifiedChat project pulse integration', () => {
       if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [] } })
       if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [conversation] } })
       if (url === '/api/v1/conversations/conv-1/messages') {
-        return jsonResponse({ data: { messages: [{
-          id: 'm-2', conversationId: 'conv-1', role: 'assistant', content: 'I created the linked work.',
-          authorKind: 'agent', authorId: 'pip', authorDisplayName: 'Pip', status: 'completed', createdAt: '2026-07-12T09:00:00.000Z',
-        }] } })
+        return jsonResponse({ data: { messages: [
+          {
+            id: 'm-2', conversationId: 'conv-1', role: 'assistant', content: 'I created the linked work.',
+            authorKind: 'agent', authorId: 'pip', authorDisplayName: 'Pip', status: 'completed', createdAt: '2026-07-12T09:00:00.000Z',
+          },
+          {
+            id: 'm-3', conversationId: 'conv-1', role: 'assistant', content: 'This is an unrelated later response.',
+            authorKind: 'agent', authorId: 'pip', authorDisplayName: 'Pip', status: 'completed', createdAt: '2026-07-12T09:05:00.000Z',
+          },
+        ] } })
       }
       if (url === '/api/v1/projects/project-1/chat-progress') return jsonResponse({ data: progress })
+      if (url === '/api/v1/chat-context/project/project-1') return jsonResponse({ data: {
+        context: { kind: 'project', id: 'project-1', orgId: 'org-1', label: 'Launch Project', icon: 'rocket_launch' },
+        pulse: { label: 'Launch Project', metrics: [{ id: 'complete', label: 'complete', value: '0/2' }], progress: { complete: 0, total: 2 } },
+        groups: [], artifacts: [],
+        attention: [{ id: 'approval', label: 'Approve sender', severity: 'approval', actions: [{ id: 'approve', label: 'Approve next step', href: '/api/v1/projects/project-1/tasks/approval', method: 'PATCH', requiresApproval: true }] }],
+        activity: [], capabilities: [], asOf: progress.asOf,
+      } })
       if (url === '/api/v1/projects/project-1/tasks/approval' && init?.method === 'PATCH') return jsonResponse({ data: { updated: true } })
       throw new Error(`Unhandled fetch: ${url}`)
     })
@@ -269,18 +289,86 @@ describe('UnifiedChat project pulse integration', () => {
       />,
     )
 
-    expect(await screen.findByTestId('project-pulse')).toHaveTextContent('0/2 complete')
-    expect(await screen.findByText('2 linked tasks')).toBeInTheDocument()
+    expect(await screen.findByTestId('context-pulse')).toHaveTextContent('0/2 complete')
+    expect(screen.getByRole('button', { name: /Open context dock/i })).toHaveClass('focus-visible:ring-2')
+    const conversationLog = screen.getByRole('log', { name: 'Conversation messages' })
+    const matchingMessage = await screen.findByText('I created the linked work.')
+    const unrelatedMessage = screen.getByText('This is an unrelated later response.')
+    const directMessageChild = (element: HTMLElement) => {
+      if (!conversationLog.contains(element)) throw new Error('Message is outside the conversation log')
+      let node = element
+      while (node.parentElement !== conversationLog) {
+        if (!node.parentElement || !conversationLog.contains(node.parentElement)) {
+          throw new Error('Message does not resolve to a direct conversation-log child')
+        }
+        node = node.parentElement
+      }
+      return node
+    }
+    expect(within(directMessageChild(matchingMessage)).getByText('2 linked tasks')).toBeInTheDocument()
+    expect(within(directMessageChild(unrelatedMessage)).queryByText('2 linked tasks')).not.toBeInTheDocument()
     expect(screen.getByTestId('project-composer-chip')).toHaveTextContent('Launch Project')
 
-    fireEvent.click(screen.getByRole('button', { name: /Open project lens/i }))
-    expect(screen.getByRole('dialog', { name: 'Launch Project project tasks' })).toBeInTheDocument()
+    const routineUpdates = await screen.findByRole('button', { name: /1 project update/i })
+    expect(window.localStorage.getItem(projectSeenKey)).toBe(String(Date.parse(progress.asOf)))
+    fireEvent.click(routineUpdates)
+    expect(screen.queryByRole('button', { name: /project update/i })).not.toBeInTheDocument()
+    expect(Number(window.localStorage.getItem(projectSeenKey))).toBeGreaterThanOrEqual(Date.parse(progress.asOf))
+
+    fireEvent.click(screen.getByRole('button', { name: /Open context dock/i }))
+    expect(screen.getByRole('dialog', { name: 'Launch Project context' })).toBeInTheDocument()
+    jest.spyOn(window, 'confirm').mockReturnValue(true)
     fireEvent.click(screen.getAllByRole('button', { name: 'Approve next step' })[0])
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
       '/api/v1/projects/project-1/tasks/approval',
       expect.objectContaining({ method: 'PATCH' }),
     ))
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.filter(([url]) => String(url) === '/api/v1/chat-context/project/project-1')).toHaveLength(2)
+      expect(fetchMock.mock.calls.filter(([url]) => String(url) === '/api/v1/projects/project-1/chat-progress')).toHaveLength(2)
+    })
+  })
+
+  it('uses one 5-second context coordinator with a 30-second derived fallback for legacy project bundles', async () => {
+    jest.useFakeTimers()
+    const conversation = { ...baseConversation, contextRefs: [projectRef] }
+    const contextModel = {
+      context: { kind: 'project', id: 'project-1', orgId: 'org-1', label: 'Launch Project', icon: 'rocket_launch' },
+      pulse: { label: 'Launch Project', metrics: [] }, groups: [], artifacts: [], attention: [], activity: [], capabilities: [], asOf: '2026-07-13T10:00:00.000Z',
+    }
+    const progress = {
+      project: { id: 'project-1', name: 'Launch Project', status: 'active' },
+      counts: { total: 0, complete: 0, running: 0, waiting: 0, blocked: 0, needsYou: 0, approvals: 0 },
+      tasks: [], asOf: '2026-07-13T10:00:00.000Z',
+    }
+    let contextRevision = 0
+    const fetchMock = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [] } })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [conversation] } })
+      if (url === '/api/v1/conversations/conv-1/messages') return jsonResponse({ data: { messages: [] } })
+      if (url === '/api/v1/chat-context/project/project-1') return jsonResponse({ data: { ...contextModel, asOf: `2026-07-13T10:00:0${contextRevision++}.000Z` } })
+      if (url === '/api/v1/projects/project-1/chat-progress') return jsonResponse({ data: progress })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+    global.fetch = fetchMock
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" initialConvId="conv-1" layoutVariant="hermes" />)
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); await Promise.resolve() })
+    expect(fetchMock.mock.calls.filter(([url]) => String(url) === '/api/v1/chat-context/project/project-1')).toHaveLength(1)
+    expect(fetchMock.mock.calls.filter(([url]) => String(url) === '/api/v1/projects/project-1/chat-progress')).toHaveLength(1)
+
+    await act(async () => { jest.advanceTimersByTime(5_100); await Promise.resolve(); await Promise.resolve(); await Promise.resolve() })
+    expect(fetchMock.mock.calls.filter(([url]) => String(url) === '/api/v1/chat-context/project/project-1')).toHaveLength(2)
+    expect(fetchMock.mock.calls.filter(([url]) => String(url) === '/api/v1/projects/project-1/chat-progress')).toHaveLength(1)
+
+    await act(async () => { jest.advanceTimersByTime(25_000); await Promise.resolve(); await Promise.resolve(); await Promise.resolve() })
+    expect(fetchMock.mock.calls.filter(([url]) => String(url) === '/api/v1/chat-context/project/project-1')).toHaveLength(7)
+    expect(fetchMock.mock.calls.filter(([url]) => String(url) === '/api/v1/projects/project-1/chat-progress')).toHaveLength(2)
+    jest.useRealTimers()
   })
 })
 
@@ -487,6 +575,45 @@ describe('UnifiedChat message scrolling', () => {
     expect(screen.getByTestId('conversation-row-conv-pinned')).toBeInTheDocument()
   })
 
+  it('keeps the Hermes left rail conversation-only while filtering sessions and showing one compact context glyph', async () => {
+    const studioRef: ContextReference = {
+      type: 'studio',
+      id: 'marketing:org-1',
+      orgId: 'org-1',
+      label: 'Marketing Studio',
+      origin: 'mention',
+    }
+    const conversations = [
+      { ...baseConversation, id: 'conv-studio', title: 'Campaign review', contextRefs: [studioRef] },
+      { ...baseConversation, id: 'conv-general', title: 'General catch-up', contextRefs: [] },
+    ]
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [] } })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations } })
+      if (url.includes('/messages')) return jsonResponse({ data: { messages: [] } })
+      if (url.startsWith('/api/v1/chat-context/')) return jsonResponse({ data: {
+        context: { kind: 'studio', id: studioRef.id, orgId: 'org-1', label: 'Marketing Studio', icon: 'draw' },
+        pulse: { label: 'Marketing Studio', metrics: [] }, groups: [], artifacts: [], attention: [], activity: [], capabilities: [], asOf: '2026-07-13T10:00:00.000Z',
+      } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" layoutVariant="hermes" />)
+
+    const search = await screen.findByRole('searchbox', { name: 'Filter conversations' })
+    expect(await screen.findByTestId('conversation-row-conv-studio')).toHaveTextContent('Campaign review')
+    expect(screen.getByTestId('conversation-row-conv-studio')).toHaveClass('focus-visible:ring-2')
+    expect(within(screen.getByTestId('conversation-row-conv-studio')).getByTitle('Context: Marketing Studio')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Marketing Studio|Projects|CRM/i })).not.toBeInTheDocument()
+
+    fireEvent.change(search, { target: { value: 'general' } })
+    expect(screen.queryByTestId('conversation-row-conv-studio')).not.toBeInTheDocument()
+    expect(screen.getByTestId('conversation-row-conv-general')).toBeInTheDocument()
+  })
+
   it('pins and unpins Hermes sessions from the conversation menu as a local preference', async () => {
     window.localStorage.removeItem('pib.messages.pinnedConversations.v1:org-1')
     const conversations = [
@@ -544,7 +671,7 @@ describe('UnifiedChat message scrolling', () => {
     expect(window.localStorage.getItem('pib.messages.pinnedConversations.v1:org-1')).toBeNull()
   })
 
-  it('shows the Hermes bottom runtime bar and collapsed inspector in the dense layout', async () => {
+  it('keeps idle Hermes chat on the two-column grid without a competing runtime rail', async () => {
     render(
       <UnifiedChat
         orgId="org-1"
@@ -558,13 +685,55 @@ describe('UnifiedChat message scrolling', () => {
 
     expect(screen.getByTestId('hermes-runtime-control-bar')).toHaveTextContent('0 queued')
     expect(screen.getByLabelText('Runtime thinking effort')).toBeInTheDocument()
-    expect(screen.getByTestId('runtime-inspector-rail')).toHaveAttribute('data-collapsed', 'true')
+    expect(screen.queryByTestId('runtime-inspector-rail')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('hermes-runtime-inspector-toggle')).not.toBeInTheDocument()
+    expect(screen.getByTestId('unified-chat-root')).not.toHaveClass('xl:grid-cols-[236px_minmax(0,1fr)_260px]')
+  })
 
-    const toggle = screen.getByTestId('hermes-runtime-inspector-toggle')
-    expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    fireEvent.click(toggle)
-    expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    expect(screen.getByTestId('runtime-inspector-rail')).toHaveAttribute('data-collapsed', 'false')
+  it('opens active execution in the shared context dock instead of a third rail', async () => {
+    const defaultFetch = global.fetch as jest.Mock
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input) === '/api/v1/conversations/conv-1/messages') return jsonResponse({ data: { messages: [{
+        id: 'msg-run', conversationId: 'conv-1', role: 'assistant', content: 'Working', authorKind: 'agent',
+        authorId: 'pip', authorDisplayName: 'Pip', status: 'failed', runId: 'run-live', createdAt: '2026-06-08T09:05:00.000Z',
+        uiActions: [{ id: 'retry-run', type: 'retry', label: 'Retry' }],
+      }] } })
+      if (String(input) === '/api/v1/admin/agents/pip/runs/run-live/actions') return errorResponse(500, { error: 'retry unavailable' })
+      return defaultFetch(input, init)
+    })
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" layoutVariant="hermes" initialConvId="conv-1" />)
+    await screen.findByText('Working')
+    expect(screen.queryByTestId('runtime-inspector-rail')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('hermes-runtime-inspector-toggle'))
+    expect(screen.getByRole('dialog', { name: 'Conversation context' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Execution' })).toHaveAttribute('data-emphasized', 'true')
+    fireEvent.click(screen.getByRole('button', { name: 'Retry run' }))
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/admin/agents/pip/runs/run-live/actions', expect.objectContaining({ method: 'POST' })))
+  })
+
+  it('opens execution in the same modal sheet used by compact Briefings chat', async () => {
+    const originalMatchMedia = window.matchMedia
+    const matchMedia = jest.fn(() => ({ matches: true, addEventListener: jest.fn(), removeEventListener: jest.fn() }))
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: matchMedia })
+    const defaultFetch = global.fetch as jest.Mock
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input) === '/api/v1/conversations/conv-1/messages') return jsonResponse({ data: { messages: [{
+        id: 'msg-run-compact', conversationId: 'conv-1', role: 'assistant', content: 'Compact run', authorKind: 'agent',
+        authorId: 'pip', authorDisplayName: 'Pip', status: 'waiting_approval', runId: 'run-compact', createdAt: '2026-06-08T09:05:00.000Z',
+      }] } })
+      return defaultFetch(input, init)
+    })
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" compact initialConvId="conv-1" />)
+    await screen.findByText('Compact run')
+    fireEvent.click(screen.getByTestId('execution-context-trigger'))
+    const sheet = screen.getByRole('dialog', { name: 'Conversation context' })
+    expect(sheet).toHaveAttribute('data-presentation', 'sheet')
+    expect(sheet).toHaveAttribute('aria-modal', 'true')
+    expect(screen.getByRole('region', { name: 'Execution' })).toBeInTheDocument()
+    expect(matchMedia).toHaveBeenCalledWith('(max-width: 1023px)')
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalMatchMedia })
   })
 })
 
@@ -1089,6 +1258,75 @@ describe('UnifiedChat context references', () => {
         attachments: [{ id: 'file-1', name: 'brief.pdf' }],
       })
     })
+  })
+
+  it('seeds the exact preferred context when the first send creates a conversation', async () => {
+    const studioRef = { type: 'studio_artifact' as const, id: 'youtube_studio:video:video-1', orgId: 'org-1', label: 'Launch film' }
+    mockFetch.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/visible-agents')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [] } })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [] } })
+      if (url === '/api/v1/conversations' && init?.method === 'POST') return jsonResponse({ data: { conversation: { ...baseConversation, id: 'conv-studio', contextRefs: [studioRef] } } })
+      if (url === '/api/v1/conversations/conv-studio/messages' && init?.method === 'POST') return jsonResponse({ data: { message: { id: 'm1', conversationId: 'conv-studio', role: 'user', content: 'Review it', status: 'completed' } } })
+      if (url === '/api/v1/conversations/conv-studio/messages') return jsonResponse({ data: { messages: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" currentPageContext={studioRef} preferCurrentPageContext />)
+    const input = await screen.findByPlaceholderText('Message Pip')
+    fireEvent.change(input, { target: { value: 'Review it' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }))
+    await waitFor(() => {
+      const create = mockFetch.mock.calls.find(([url, init]) => String(url) === '/api/v1/conversations' && init?.method === 'POST')
+      expect(JSON.parse(create![1].body as string)).toMatchObject({ contextRefs: [studioRef] })
+    })
+  })
+
+  it('uses only the latest preferred context after a fast card switch before first send', async () => {
+    const firstRef = { type: 'studio_artifact' as const, id: 'youtube_studio:video:first', orgId: 'org-1', label: 'First film' }
+    const latestRef = { type: 'studio_artifact' as const, id: 'youtube_studio:video:latest', orgId: 'org-1', label: 'Latest film' }
+    mockFetch.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/visible-agents')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [] } })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [] } })
+      if (url === '/api/v1/conversations' && init?.method === 'POST') return jsonResponse({ data: { conversation: { ...baseConversation, id: 'conv-latest', contextRefs: [latestRef] } } })
+      if (url === '/api/v1/conversations/conv-latest/messages' && init?.method === 'POST') return jsonResponse({ data: { message: { id: 'm1', conversationId: 'conv-latest', role: 'user', content: 'Use latest', status: 'completed' } } })
+      if (url === '/api/v1/conversations/conv-latest/messages') return jsonResponse({ data: { messages: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+    const { rerender } = render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" currentPageContext={firstRef} preferCurrentPageContext />)
+    await screen.findByPlaceholderText('Message Pip')
+    rerender(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" currentPageContext={latestRef} preferCurrentPageContext />)
+    const input = await screen.findByPlaceholderText('Message Pip')
+    fireEvent.change(input, { target: { value: 'Use latest' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }))
+    await waitFor(() => {
+      const create = mockFetch.mock.calls.find(([url, init]) => String(url) === '/api/v1/conversations' && init?.method === 'POST')
+      const body = JSON.parse(create![1].body as string)
+      expect(body.contextRefs).toEqual([expect.objectContaining(latestRef)])
+      expect(body.contextRefs).not.toContainEqual(expect.objectContaining(firstRef))
+    })
+  })
+
+  it('opens the permitted conversation carrying the exact preferred context', async () => {
+    const studioRef = { type: 'studio' as const, id: 'youtube_studio:org-1', orgId: 'org-1', label: 'YouTube Studio' }
+    const unrelated = { ...baseConversation, id: 'conv-other', title: 'General operations', contextRefs: [] }
+    const related = { ...baseConversation, id: 'conv-related', title: 'YouTube launch', contextRefs: [studioRef] }
+    mockFetch.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [] } })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [unrelated, related] } })
+      if (url === '/api/v1/conversations/conv-related/messages') return jsonResponse({ data: { messages: [] } })
+      if (url.includes('/api/v1/chat-context/studio/')) return jsonResponse({ data: { context: { kind: 'studio', id: studioRef.id, orgId: 'org-1', label: 'YouTube Studio', icon: 'video' }, pulse: { label: 'YouTube Studio', metrics: [] }, groups: [], artifacts: [], attention: [], activity: [], capabilities: [], asOf: '2026-07-13T00:00:00Z' } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" currentPageContext={studioRef} preferCurrentPageContext />)
+    expect((await screen.findAllByText('YouTube launch')).length).toBeGreaterThan(0)
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith('/api/v1/conversations/conv-related/messages'))
+    expect(mockFetch).not.toHaveBeenCalledWith('/api/v1/conversations/conv-other/messages')
   })
 
   it('accepts dropped image files into the existing attachment preview before send', async () => {

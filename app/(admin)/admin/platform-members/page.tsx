@@ -51,8 +51,8 @@ function Avatar({ name }: { name: string }) {
 
   return (
     <div
-      className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-on-surface flex-shrink-0"
-      style={{ backgroundColor: 'var(--color-accent-v2)' }}
+      className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-[var(--color-pib-text)] flex-shrink-0"
+      style={{ backgroundColor: 'var(--color-pib-accent)' }}
     >
       {initials || '?'}
     </div>
@@ -62,7 +62,7 @@ function Avatar({ name }: { name: string }) {
 function RoleBadge({ role }: { role?: OrgRole }) {
   if (!role) return null
   const colors: Record<OrgRole, string> = {
-    owner: 'var(--color-accent-v2)',
+    owner: 'var(--color-pib-accent)',
     admin: '#2563eb',
     member: '#6b7280',
     viewer: '#9ca3af',
@@ -304,11 +304,11 @@ export default function PlatformMembersPage() {
     <div className="space-y-6 max-w-6xl mx-auto">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
             Settings / Platform
           </p>
-          <h1 className="text-2xl font-headline font-bold text-on-surface">Client Portal Access</h1>
-          <p className="text-sm text-on-surface-variant mt-0.5">
+          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Client Portal Access</h1>
+          <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5">
             Platform-admin controls for client portal logins, account links, role changes, resets, and access removal.
           </p>
         </div>
@@ -341,7 +341,7 @@ export default function PlatformMembersPage() {
         <form onSubmit={handleCreate} className="pib-card p-5 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label className="block">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+              <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 Name
               </span>
               <input
@@ -354,7 +354,7 @@ export default function PlatformMembersPage() {
               />
             </label>
             <label className="block">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+              <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 Email
               </span>
               <input
@@ -367,7 +367,7 @@ export default function PlatformMembersPage() {
               />
             </label>
             <label className="block">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+              <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 Client account
               </span>
               <select
@@ -385,7 +385,7 @@ export default function PlatformMembersPage() {
               </select>
             </label>
             <label className="block">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+              <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 Client portal role
               </span>
               <select
@@ -400,7 +400,7 @@ export default function PlatformMembersPage() {
               </select>
             </label>
             <label className="block md:col-span-2">
-              <span className="text-xs font-label uppercase tracking-wide text-on-surface-variant">
+              <span className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 Password
               </span>
               <input
@@ -430,18 +430,18 @@ export default function PlatformMembersPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="pib-card p-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Portal logins</p>
-          <p className="text-2xl font-headline font-bold text-on-surface mt-1">{members.length}</p>
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Portal logins</p>
+          <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">{members.length}</p>
         </div>
         <div className="pib-card p-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Missing Auth</p>
-          <p className="text-2xl font-headline font-bold text-on-surface mt-1">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Missing Auth</p>
+          <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">
             {members.filter((member) => !member.authFound).length}
           </p>
         </div>
         <div className="pib-card p-4">
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Multi-account users</p>
-          <p className="text-2xl font-headline font-bold text-on-surface mt-1">
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Multi-account users</p>
+          <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-1">
             {members.filter((member) => member.linkedOrgs.length > 1).length}
           </p>
         </div>
@@ -462,7 +462,7 @@ export default function PlatformMembersPage() {
           <Skeleton className="h-24 rounded-xl" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="pib-card p-6 text-center text-sm text-on-surface-variant">
+        <div className="pib-card p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
           {members.length === 0 ? 'No client logins found.' : 'No matches.'}
         </div>
       ) : (
@@ -477,7 +477,7 @@ export default function PlatformMembersPage() {
                     <Avatar name={member.displayName || member.email} />
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-semibold text-on-surface truncate">
+                        <p className="text-sm font-semibold text-[var(--color-pib-text)] truncate">
                           {member.displayName || '(no name)'}
                         </p>
                         {!member.authFound && (
@@ -491,16 +491,16 @@ export default function PlatformMembersPage() {
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-on-surface-variant truncate">{member.email}</p>
-                      <p className="text-[11px] text-on-surface-variant/60 mt-0.5 font-mono truncate">
+                      <p className="text-xs text-[var(--color-pib-text-muted)] truncate">{member.email}</p>
+                      <p className="text-[11px] text-[var(--color-pib-text-muted)]/60 mt-0.5 font-mono truncate">
                         {member.uid}
                       </p>
                       {member.lastSignInTime ? (
-                        <p className="text-[11px] text-on-surface-variant/60 mt-0.5">
+                        <p className="text-[11px] text-[var(--color-pib-text-muted)]/60 mt-0.5">
                           Last login: {new Date(member.lastSignInTime).toLocaleString()}
                         </p>
                       ) : (
-                        <p className="text-[11px] text-on-surface-variant/40 mt-0.5">Never signed in</p>
+                        <p className="text-[11px] text-[var(--color-pib-text-muted)]/40 mt-0.5">Never signed in</p>
                       )}
                     </div>
                   </div>
@@ -536,17 +536,17 @@ export default function PlatformMembersPage() {
 
                 <div className="mt-4 flex flex-wrap gap-2">
                   {member.linkedOrgs.length === 0 ? (
-                    <span className="text-xs text-on-surface-variant">No linked client accounts</span>
+                    <span className="text-xs text-[var(--color-pib-text-muted)]">No linked client accounts</span>
                   ) : (
                     member.linkedOrgs.map((org) => (
                       <span
                         key={`${member.uid}-${org.id}`}
-                        className="inline-flex flex-wrap items-center overflow-hidden rounded-full bg-on-surface/10 text-xs text-on-surface-variant"
+                        className="inline-flex flex-wrap items-center overflow-hidden rounded-full bg-[var(--color-pib-text)]/10 text-xs text-[var(--color-pib-text-muted)]"
                         title={org.source === 'user' ? 'Linked from user profile' : 'Linked from organisation members'}
                       >
                         <Link
                           href={`/admin/org/${org.slug}/dashboard`}
-                          className="inline-flex items-center gap-2 px-3 py-1 hover:text-on-surface transition-colors"
+                          className="inline-flex items-center gap-2 px-3 py-1 hover:text-[var(--color-pib-text)] transition-colors"
                         >
                           <span>{org.name}</span>
                           <RoleBadge role={org.role} />
@@ -557,7 +557,7 @@ export default function PlatformMembersPage() {
                           )}
                         </Link>
                         {org.source === 'membership' ? (
-                          <label className="border-l border-on-surface/10 px-2 py-1 text-[10px] font-label uppercase tracking-wide text-on-surface-variant">
+                          <label className="border-l border-[var(--color-pib-text)]/10 px-2 py-1 text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                             <span className="sr-only">Set {org.name} role</span>
                             <select
                               value={org.role ?? 'member'}
@@ -577,7 +577,7 @@ export default function PlatformMembersPage() {
                           type="button"
                           onClick={() => removeOrgLink(member, org)}
                           disabled={busy}
-                          className="border-l border-on-surface/10 px-2 py-1 text-[10px] font-label uppercase tracking-wide text-on-surface-variant hover:bg-red-500/10 hover:text-red-300 disabled:opacity-50"
+                          className="border-l border-[var(--color-pib-text)]/10 px-2 py-1 text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)] hover:bg-red-500/10 hover:text-red-300 disabled:opacity-50"
                           title={`Remove ${member.email || member.displayName || member.uid} from ${org.name}`}
                         >
                           Remove
@@ -588,18 +588,18 @@ export default function PlatformMembersPage() {
                 </div>
 
                 {setupLinkByUid[member.uid] && (
-                  <div className="mt-3 rounded-md border border-on-surface/10 bg-on-surface/5 p-3">
-                    <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+                  <div className="mt-3 rounded-md border border-[var(--color-pib-text)]/10 bg-[var(--color-pib-text)]/5 p-3">
+                    <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
                       Setup link
                     </p>
-                    <code className="block text-[11px] break-all text-on-surface-variant">
+                    <code className="block text-[11px] break-all text-[var(--color-pib-text-muted)]">
                       {setupLinkByUid[member.uid]}
                     </code>
                   </div>
                 )}
 
                 {showPassword && (
-                  <div className="mt-4 rounded-md border border-on-surface/10 bg-on-surface/5 p-3">
+                  <div className="mt-4 rounded-md border border-[var(--color-pib-text)]/10 bg-[var(--color-pib-text)]/5 p-3">
                     <div className="flex flex-col gap-2 sm:flex-row">
                       <input
                         type="password"

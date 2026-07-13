@@ -6,17 +6,17 @@ export const dynamic = 'force-dynamic'
 
 function AdminStubCard({ icon, title, desc, cta }: { icon: string; title: string; desc: string; cta: string }) {
   return (
-    <div className="flex items-start justify-between p-4 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)]/70">
+    <div className="flex items-start justify-between p-4 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)]/70">
       <div className="flex items-start gap-3">
-        <span className="material-symbols-outlined text-[20px] mt-0.5 shrink-0" style={{ color: 'var(--color-accent-v2)' }}>{icon}</span>
+        <span className="material-symbols-outlined text-[20px] mt-0.5 shrink-0" style={{ color: 'var(--color-pib-accent)' }}>{icon}</span>
         <div>
-          <p className="text-sm font-medium text-on-surface">{title}</p>
-          <p className="text-xs text-on-surface-variant mt-0.5">{desc}</p>
+          <p className="text-sm font-medium text-[var(--color-pib-text)]">{title}</p>
+          <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">{desc}</p>
         </div>
       </div>
       <button
         type="button"
-        className="shrink-0 ml-4 text-xs text-on-surface-variant hover:text-on-surface px-2 py-1 rounded hover:bg-[var(--color-surface-container)] transition-colors"
+        className="shrink-0 ml-4 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] px-2 py-1 rounded hover:bg-[var(--color-pib-surface-2)] transition-colors"
       >
         {cta} →
       </button>
@@ -37,8 +37,8 @@ export default function AdminKnowledgePage() {
       {/* SEO & Content Management */}
       <section className="space-y-3">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">SEO &amp; Content</p>
-          <h2 className="mt-1 text-lg font-headline font-bold text-on-surface">Content Management</h2>
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">SEO &amp; Content</p>
+          <h2 className="mt-1 text-lg font-headline font-bold text-[var(--color-pib-text)]">Content Management</h2>
         </div>
         <div className="space-y-2">
           <AdminStubCard
@@ -71,8 +71,8 @@ export default function AdminKnowledgePage() {
       {/* API & Developer Docs */}
       <section className="space-y-3">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Developer resources</p>
-          <h2 className="mt-1 text-lg font-headline font-bold text-on-surface">API Documentation</h2>
+          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Developer resources</p>
+          <h2 className="mt-1 text-lg font-headline font-bold text-[var(--color-pib-text)]">API Documentation</h2>
         </div>
         <AdminStubCard
           icon="api"

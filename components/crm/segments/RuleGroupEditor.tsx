@@ -177,13 +177,13 @@ export function RuleGroupEditor({ group, onChange, depth = 0, onRemove }: RuleGr
               className={`rounded-full px-2.5 py-0.5 text-[11px] font-label uppercase tracking-[0.22em] transition ${
                 group.combinator === c
                   ? 'bg-[var(--color-accent-v2)] text-black'
-                  : 'text-on-surface-variant hover:text-on-surface'
+                  : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
               }`}
             >
               {c}
             </button>
           ))}
-          <span className="px-2 text-[10px] text-on-surface-variant">
+          <span className="px-2 text-[10px] text-[var(--color-pib-text-muted)]">
             {group.combinator === 'AND' ? 'match all' : 'match any'}
           </span>
         </div>
@@ -191,7 +191,7 @@ export function RuleGroupEditor({ group, onChange, depth = 0, onRemove }: RuleGr
           <button
             type="button"
             onClick={onRemove}
-            className="grid h-8 w-8 place-items-center rounded-md text-on-surface-variant transition hover:bg-white/[0.05] hover:text-red-300"
+            className="grid h-8 w-8 place-items-center rounded-md text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-red-300"
             aria-label="Remove group"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
@@ -202,7 +202,7 @@ export function RuleGroupEditor({ group, onChange, depth = 0, onRemove }: RuleGr
       </div>
 
       {group.rules.length === 0 && (
-        <p className="text-[11px] text-on-surface-variant">
+        <p className="text-[11px] text-[var(--color-pib-text-muted)]">
           No conditions yet — add a rule below.
         </p>
       )}
@@ -232,7 +232,7 @@ export function RuleGroupEditor({ group, onChange, depth = 0, onRemove }: RuleGr
         <button
           type="button"
           onClick={addRule}
-          className="flex h-8 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+          className="flex h-8 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
         >
           <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
             add
@@ -243,7 +243,7 @@ export function RuleGroupEditor({ group, onChange, depth = 0, onRemove }: RuleGr
           <button
             type="button"
             onClick={addGroup}
-            className="flex h-8 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-on-surface-variant transition hover:bg-white/[0.05] hover:text-on-surface"
+            className="flex h-8 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
               account_tree
@@ -310,7 +310,7 @@ function FieldRuleRow({ rule, onChange, onRemove }: FieldRuleRowProps) {
       <select
         value={rule.field}
         onChange={(e) => changeField(e.target.value as RuleField)}
-        className="h-8 min-w-[8rem] rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface outline-none transition focus:border-[var(--color-accent-v2)]"
+        className="h-8 min-w-[8rem] rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-[var(--color-pib-text)] outline-none transition focus:border-[var(--color-accent-v2)]"
         aria-label="Field"
       >
         {FIELD_DEFS.map((f) => (
@@ -323,7 +323,7 @@ function FieldRuleRow({ rule, onChange, onRemove }: FieldRuleRowProps) {
       <select
         value={rule.operator}
         onChange={(e) => changeOperator(e.target.value as RuleOperator)}
-        className="h-8 min-w-[9rem] rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface outline-none transition focus:border-[var(--color-accent-v2)]"
+        className="h-8 min-w-[9rem] rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-[var(--color-pib-text)] outline-none transition focus:border-[var(--color-accent-v2)]"
         aria-label="Operator"
       >
         {operators.map((op) => (
@@ -338,7 +338,7 @@ function FieldRuleRow({ rule, onChange, onRemove }: FieldRuleRowProps) {
           <select
             value={valueAsString}
             onChange={(e) => changeValue(e.target.value)}
-            className="h-8 min-w-[8rem] rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface outline-none transition focus:border-[var(--color-accent-v2)]"
+            className="h-8 min-w-[8rem] rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-[var(--color-pib-text)] outline-none transition focus:border-[var(--color-accent-v2)]"
             aria-label="Value"
           >
             <option value="" className="bg-black">
@@ -356,7 +356,7 @@ function FieldRuleRow({ rule, onChange, onRemove }: FieldRuleRowProps) {
             onChange={(e) => changeValue(e.target.value)}
             type={def.kind === 'number' && !isMulti ? 'number' : def.kind === 'date' && !isMulti ? 'date' : 'text'}
             placeholder={isMulti ? 'comma, separated, values' : def.kind === 'tags' ? 'tag' : 'value'}
-            className="h-8 min-w-[10rem] flex-1 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-on-surface outline-none transition focus:border-[var(--color-accent-v2)]"
+            className="h-8 min-w-[10rem] flex-1 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-[var(--color-pib-text)] outline-none transition focus:border-[var(--color-accent-v2)]"
             aria-label="Value"
           />
         ))}
@@ -364,7 +364,7 @@ function FieldRuleRow({ rule, onChange, onRemove }: FieldRuleRowProps) {
       <button
         type="button"
         onClick={onRemove}
-        className="ml-auto grid h-8 w-8 place-items-center rounded-md text-on-surface-variant transition hover:bg-white/[0.05] hover:text-red-300"
+        className="ml-auto grid h-8 w-8 place-items-center rounded-md text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-red-300"
         aria-label="Remove rule"
       >
         <span className="material-symbols-outlined text-[16px]" aria-hidden="true">

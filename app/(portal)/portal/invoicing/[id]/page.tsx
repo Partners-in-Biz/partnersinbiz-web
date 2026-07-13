@@ -51,15 +51,15 @@ function formatCurrencyValue(amount: number, currency: string): string {
   }).format(amount)
 }
 
-const STATUS_MAP: Record<InvoiceStatus, { label: string; color: string }> = {
-  draft:     { label: 'Draft',     color: 'var(--color-outline)' },
-  sent:      { label: 'Sent',      color: '#60a5fa' },
-  viewed:    { label: 'Viewed',    color: '#c084fc' },
-  payment_pending_verification: { label: 'Payment review', color: '#facc15' },
-  paid:      { label: 'Paid',      color: '#4ade80' },
-  partially_paid: { label: 'Partially paid', color: '#34d399' },
-  overdue:   { label: 'Overdue',   color: '#ef4444' },
-  cancelled: { label: 'Cancelled', color: 'var(--color-outline)' },
+const STATUS_MAP: Record<InvoiceStatus, { label: string; pill: string }> = {
+  draft:     { label: 'Draft',     pill: 'pib-pill' },
+  sent:      { label: 'Sent',      pill: 'pib-pill pib-pill-blue' },
+  viewed:    { label: 'Viewed',    pill: 'pib-pill pib-pill-violet' },
+  payment_pending_verification: { label: 'Payment review', pill: 'pib-pill pib-pill-warn' },
+  paid:      { label: 'Paid',      pill: 'pib-pill pib-pill-success' },
+  partially_paid: { label: 'Partially paid', pill: 'pib-pill pib-pill-success' },
+  overdue:   { label: 'Overdue',   pill: 'pib-pill pib-pill-danger' },
+  cancelled: { label: 'Cancelled', pill: 'pib-pill' },
 }
 
 function formatDate(ts: any) {
@@ -316,78 +316,84 @@ export default function InvoiceDetailPage() {
   }
 
   if (loading) return <div className="space-y-4"><Skeleton className="h-12 w-64" /><Skeleton className="h-96" /></div>
-  if (!invoice) return <div className="pib-card py-12 text-center"><p className="text-on-surface-variant">Invoice not found.</p></div>
+  if (!invoice) return (
+    <div className="pib-empty-state">
+      <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">receipt_long</span>
+      <h2 className="pib-empty-state-title">Invoice not found.</h2>
+    </div>
+  )
 
   const status = STATUS_MAP[invoice.status]
   const taxLabel = invoice.currency === 'ZAR' ? 'VAT' : 'Tax'
   const canShowPaymentWorkspace = !['draft', 'paid', 'cancelled'].includes(invoice.status)
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="mx-auto max-w-3xl space-y-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <Link href={scopedPortalPath('/portal/invoicing', orgScope)} className="text-xs text-on-surface-variant hover:text-on-surface transition-colors">← Invoicing</Link>
-          <h1 className="text-2xl font-headline font-bold text-on-surface mt-1">{invoice.invoiceNumber}</h1>
+          <Link href={scopedPortalPath('/portal/invoicing', orgScope)} className="text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]">← Invoicing</Link>
+          <p className="eyebrow mt-3">Invoicing · Invoice</p>
+          <h1 className="pib-page-title mt-2">{invoice.invoiceNumber}</h1>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[10px] font-label uppercase tracking-wide px-2 py-1 rounded-full" style={{ background: `${status.color}20`, color: status.color }}>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={status.pill}>
             {status.label}
           </span>
           <a
             href={scopedApiPath(`/api/v1/invoices/${id}/pdf`, orgScope)}
             target="_blank"
             rel="noopener noreferrer"
-            className="pib-btn-secondary text-sm font-label"
+            className="btn-pib-secondary"
           >
             📄 Download PDF
           </a>
           <button
             onClick={handleDuplicate}
             disabled={duplicating}
-            className="pib-btn-secondary text-sm font-label"
+            className="btn-pib-secondary"
           >
             {duplicating ? 'Duplicating…' : 'Duplicate'}
           </button>
-          <button onClick={handlePrint} className="pib-btn-secondary text-sm font-label">Print</button>
+          <button onClick={handlePrint} className="btn-pib-secondary">Print</button>
         </div>
-      </div>
+      </header>
 
       {/* Invoice card */}
       <div className="pib-card space-y-6" id="invoice-print">
         {/* Top meta */}
         <div className="flex flex-col sm:flex-row sm:justify-between gap-3">
           <div>
-            <p className="text-lg font-headline font-bold text-on-surface">Partners in Biz</p>
-            <p className="text-sm text-on-surface-variant">partnersinbiz.online</p>
+            <p className="text-lg font-semibold">Partners in Biz</p>
+            <p className="text-sm text-[var(--color-pib-text-muted)]">partnersinbiz.online</p>
           </div>
           <div className="sm:text-right">
-            <p className="text-2xl font-headline font-bold" style={{ color: 'var(--color-accent-v2)' }}>{invoice.invoiceNumber}</p>
-            <p className="text-xs text-on-surface-variant mt-1">Issued: {formatDate(invoice.issueDate)}</p>
-            <p className="text-xs text-on-surface-variant">Due: {formatDate(invoice.dueDate)}</p>
+            <p className="text-2xl font-semibold text-[var(--color-pib-accent)]">{invoice.invoiceNumber}</p>
+            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Issued: {formatDate(invoice.issueDate)}</p>
+            <p className="text-xs text-[var(--color-pib-text-muted)]">Due: {formatDate(invoice.dueDate)}</p>
           </div>
         </div>
 
-        <div className="border-t border-[var(--color-card-border)] pt-4">
-          <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant mb-1">Bill To</p>
-          <p className="text-sm font-medium text-on-surface">{(invoice as any).clientDetails?.name ?? invoice.orgId}</p>
+        <div className="border-t border-[var(--color-pib-line)] pt-4">
+          <p className="pib-label mb-1">Bill To</p>
+          <p className="text-sm font-medium">{(invoice as any).clientDetails?.name ?? invoice.orgId}</p>
         </div>
 
         {/* Line items */}
         <div>
-          <div className="hidden sm:grid grid-cols-12 gap-2 pb-2 border-b border-[var(--color-card-border)]">
-            <p className="col-span-6 text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Description</p>
-            <p className="col-span-2 text-right text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Qty</p>
-            <p className="col-span-2 text-right text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Unit</p>
-            <p className="col-span-2 text-right text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Amount</p>
+          <div className="hidden sm:grid grid-cols-12 gap-2 pb-2 border-b border-[var(--color-pib-line)]">
+            <p className="col-span-6 pib-label">Description</p>
+            <p className="col-span-2 pib-label text-right">Qty</p>
+            <p className="col-span-2 pib-label text-right">Unit</p>
+            <p className="col-span-2 pib-label text-right">Amount</p>
           </div>
           {invoice.lineItems.map((item, i) => (
-            <div key={i} className="py-3 border-b border-[var(--color-card-border)]/50 sm:grid sm:grid-cols-12 sm:gap-2 sm:py-2">
-              <p className="text-sm text-on-surface sm:col-span-6 mb-2 sm:mb-0">{item.description}</p>
-              <div className="flex justify-between sm:contents text-sm text-on-surface-variant">
-                <span className="sm:col-span-2 sm:text-right"><span className="sm:hidden text-[9px] font-label uppercase tracking-widest mr-1">Qty</span>{item.quantity}</span>
-                <span className="sm:col-span-2 sm:text-right"><span className="sm:hidden text-[9px] font-label uppercase tracking-widest mr-1">Unit</span>{formatCurrencyValue(item.unitPrice, invoice.currency)}</span>
-                <span className="sm:col-span-2 sm:text-right text-on-surface font-medium"><span className="sm:hidden text-[9px] font-label uppercase tracking-widest mr-1 text-on-surface-variant">Amount</span>{formatCurrencyValue(item.amount, invoice.currency)}</span>
+            <div key={i} className="border-b border-[var(--color-pib-line)] py-3 sm:grid sm:grid-cols-12 sm:gap-2 sm:py-2">
+              <p className="mb-2 text-sm sm:col-span-6 sm:mb-0">{item.description}</p>
+              <div className="flex justify-between text-sm text-[var(--color-pib-text-muted)] sm:contents">
+                <span className="sm:col-span-2 sm:text-right"><span className="pib-label mr-1 sm:hidden">Qty</span>{item.quantity}</span>
+                <span className="sm:col-span-2 sm:text-right"><span className="pib-label mr-1 sm:hidden">Unit</span>{formatCurrencyValue(item.unitPrice, invoice.currency)}</span>
+                <span className="font-medium text-[var(--color-pib-text)] sm:col-span-2 sm:text-right"><span className="pib-label mr-1 sm:hidden">Amount</span>{formatCurrencyValue(item.amount, invoice.currency)}</span>
               </div>
             </div>
           ))}
@@ -395,26 +401,26 @@ export default function InvoiceDetailPage() {
 
         {/* Totals */}
         <div className="flex justify-end">
-          <div className="space-y-1 min-w-48">
-            <div className="flex justify-between text-sm text-on-surface-variant">
+          <div className="min-w-48 space-y-1">
+            <div className="flex justify-between text-sm text-[var(--color-pib-text-muted)]">
               <span>Subtotal</span><span>{formatCurrencyValue(invoice.subtotal ?? 0, invoice.currency)}</span>
             </div>
             {invoice.taxRate > 0 && (
-              <div className="flex justify-between text-sm text-on-surface-variant">
+              <div className="flex justify-between text-sm text-[var(--color-pib-text-muted)]">
                 <span>{taxLabel} ({invoice.taxRate}%)</span><span>{formatCurrencyValue(invoice.taxAmount ?? 0, invoice.currency)}</span>
               </div>
             )}
-            <div className="flex justify-between text-base font-bold text-on-surface pt-1 border-t border-[var(--color-card-border)]">
+            <div className="flex justify-between border-t border-[var(--color-pib-line)] pt-1 text-base font-semibold">
               <span>Total</span>
-              <span style={{ color: 'var(--color-accent-v2)' }}>{formatCurrencyValue(invoice.total ?? 0, invoice.currency)}</span>
+              <span className="text-[var(--color-pib-accent)]">{formatCurrencyValue(invoice.total ?? 0, invoice.currency)}</span>
             </div>
           </div>
         </div>
 
         {invoice.notes && (
-          <div className="border-t border-[var(--color-card-border)] pt-4">
-            <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant mb-1">Notes</p>
-            <p className="text-sm text-on-surface-variant">{invoice.notes}</p>
+          <div className="border-t border-[var(--color-pib-line)] pt-4">
+            <p className="pib-label mb-1">Notes</p>
+            <p className="text-sm text-[var(--color-pib-text-muted)]">{invoice.notes}</p>
           </div>
         )}
       </div>
@@ -422,18 +428,23 @@ export default function InvoiceDetailPage() {
       {canShowPaymentWorkspace && (
         <div className="pib-card space-y-4">
           <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-sm font-medium text-on-surface">EFT payment</p>
-              <p className="text-xs text-on-surface-variant mt-0.5">
-                Use the invoice number as the EFT reference, then upload proof so finance can verify it.
-              </p>
+            <div className="flex items-start gap-3">
+              <span className="pib-icon-tint pib-icon-tint-cyan" aria-hidden="true">
+                <span className="material-symbols-outlined text-[18px]">account_balance</span>
+              </span>
+              <div>
+                <p className="text-sm font-medium">EFT payment</p>
+                <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">
+                  Use the invoice number as the EFT reference, then upload proof so finance can verify it.
+                </p>
+              </div>
             </div>
             {paymentInstructions?.publicViewUrl ? (
               <a
                 href={paymentInstructions.publicViewUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="pib-btn-secondary text-xs font-label"
+                className="btn-pib-secondary"
               >
                 Open public invoice
               </a>
@@ -441,50 +452,50 @@ export default function InvoiceDetailPage() {
           </div>
 
           {paymentInstructionsError ? (
-            <p className="text-sm text-red-300">{paymentInstructionsError}</p>
+            <p className="text-sm text-[var(--color-error)]">{paymentInstructionsError}</p>
           ) : paymentInstructions ? (
             <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-white/[0.02] p-4">
-                <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Bank details</p>
-                <dl className="mt-3 space-y-2 text-sm text-on-surface">
+              <div className="rounded-2xl border border-[var(--color-pib-line)] p-4">
+                <p className="pib-label">Bank details</p>
+                <dl className="mt-3 space-y-2 text-sm">
                   <div className="flex items-start justify-between gap-4">
-                    <dt className="text-on-surface-variant">Bank</dt>
+                    <dt className="text-[var(--color-pib-text-muted)]">Bank</dt>
                     <dd>{paymentInstructions.eft.bankingDetails.bankName ?? '—'}</dd>
                   </div>
                   <div className="flex items-start justify-between gap-4">
-                    <dt className="text-on-surface-variant">Account name</dt>
+                    <dt className="text-[var(--color-pib-text-muted)]">Account name</dt>
                     <dd>{paymentInstructions.eft.bankingDetails.accountName ?? '—'}</dd>
                   </div>
                   <div className="flex items-start justify-between gap-4">
-                    <dt className="text-on-surface-variant">Account number</dt>
+                    <dt className="text-[var(--color-pib-text-muted)]">Account number</dt>
                     <dd>{paymentInstructions.eft.bankingDetails.accountNumber ?? '—'}</dd>
                   </div>
                   <div className="flex items-start justify-between gap-4">
-                    <dt className="text-on-surface-variant">Branch code</dt>
+                    <dt className="text-[var(--color-pib-text-muted)]">Branch code</dt>
                     <dd>{paymentInstructions.eft.bankingDetails.branchCode ?? '—'}</dd>
                   </div>
                   <div className="flex items-start justify-between gap-4">
-                    <dt className="text-on-surface-variant">Reference</dt>
+                    <dt className="text-[var(--color-pib-text-muted)]">Reference</dt>
                     <dd>{paymentInstructions.eft.reference}</dd>
                   </div>
                 </dl>
               </div>
 
-              <div className="rounded-[var(--radius-card)] border border-[var(--color-card-border)] bg-white/[0.02] p-4 space-y-3">
+              <div className="space-y-3 rounded-2xl border border-[var(--color-pib-line)] p-4">
                 <div>
-                  <p className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant">Proof upload</p>
-                  <p className="mt-2 text-sm text-on-surface-variant">
+                  <p className="pib-label">Proof upload</p>
+                  <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
                     Send proof to {paymentInstructions.eft.proofOfPaymentEmail} or attach it here for verification.
                   </p>
                 </div>
 
                 {invoice.status === 'payment_pending_verification' ? (
-                  <p className="rounded-[var(--radius-card)] border border-amber-300/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+                  <p className="pib-pill pib-pill-warn">
                     Payment proof submitted. Finance is reviewing it now.
                   </p>
                 ) : null}
 
-                <label className="block text-xs text-on-surface-variant">
+                <label className="pib-label block">
                   Upload payment proof
                   <input
                     type="file"
@@ -495,7 +506,7 @@ export default function InvoiceDetailPage() {
                   />
                 </label>
 
-                <label className="block text-xs text-on-surface-variant">
+                <label className="pib-label block">
                   Payment note
                   <textarea
                     aria-label="Payment note"
@@ -511,13 +522,13 @@ export default function InvoiceDetailPage() {
                   type="button"
                   onClick={handleUploadPaymentProof}
                   disabled={!paymentProofFile || uploadingPaymentProof}
-                  className="pib-btn-primary text-sm font-label disabled:opacity-60"
+                  className="btn-pib-primary"
                 >
                   {uploadingPaymentProof ? 'Submitting proof…' : 'Submit proof of payment'}
                 </button>
 
                 {paymentProofMessage ? (
-                  <p className="text-sm text-on-surface">{paymentProofMessage}</p>
+                  <p className="text-sm">{paymentProofMessage}</p>
                 ) : null}
               </div>
             </div>
@@ -551,11 +562,11 @@ export default function InvoiceDetailPage() {
       {editingDraft && invoice.canEdit && invoice.status === 'draft' && (
         <div className="pib-card space-y-4">
           <div>
-            <p className="text-sm font-medium text-on-surface">Draft invoice editor</p>
-            <p className="text-xs text-on-surface-variant mt-0.5">Update the editable draft fields before sending this invoice.</p>
+            <p className="text-sm font-medium text-[var(--color-pib-text)]">Draft invoice editor</p>
+            <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">Update the editable draft fields before sending this invoice.</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="text-xs text-on-surface-variant">Due date
+            <label className="text-xs text-[var(--color-pib-text-muted)]">Due date
               <input
                 type="date"
                 value={draftForm.dueDate}
@@ -563,7 +574,7 @@ export default function InvoiceDetailPage() {
                 className="pib-input mt-1 w-full"
               />
             </label>
-            <label className="text-xs text-on-surface-variant">Tax rate
+            <label className="text-xs text-[var(--color-pib-text-muted)]">Tax rate
               <input
                 type="number"
                 min="0"
@@ -573,14 +584,14 @@ export default function InvoiceDetailPage() {
                 className="pib-input mt-1 w-full"
               />
             </label>
-            <label className="text-xs text-on-surface-variant sm:col-span-2">Line item description
+            <label className="text-xs text-[var(--color-pib-text-muted)] sm:col-span-2">Line item description
               <input
                 value={draftForm.description}
                 onChange={(event) => setDraftForm((current) => ({ ...current, description: event.target.value }))}
                 className="pib-input mt-1 w-full"
               />
             </label>
-            <label className="text-xs text-on-surface-variant">Quantity
+            <label className="text-xs text-[var(--color-pib-text-muted)]">Quantity
               <input
                 type="number"
                 min="1"
@@ -589,7 +600,7 @@ export default function InvoiceDetailPage() {
                 className="pib-input mt-1 w-full"
               />
             </label>
-            <label className="text-xs text-on-surface-variant">Unit price
+            <label className="text-xs text-[var(--color-pib-text-muted)]">Unit price
               <input
                 type="number"
                 min="0"
@@ -599,7 +610,7 @@ export default function InvoiceDetailPage() {
                 className="pib-input mt-1 w-full"
               />
             </label>
-            <label className="text-xs text-on-surface-variant sm:col-span-2">Notes
+            <label className="text-xs text-[var(--color-pib-text-muted)] sm:col-span-2">Notes
               <textarea
                 value={draftForm.notes}
                 onChange={(event) => setDraftForm((current) => ({ ...current, notes: event.target.value }))}
@@ -623,13 +634,13 @@ export default function InvoiceDetailPage() {
       <div className="pib-card space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-on-surface">Recurring Invoice</p>
+            <p className="text-sm font-medium text-[var(--color-pib-text)]">Recurring Invoice</p>
             {schedule ? (
-              <p className="text-xs text-on-surface-variant mt-0.5">
+              <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">
                 {INTERVAL_LABELS[schedule.interval as RecurrenceInterval] ?? schedule.interval} · Status: {schedule.status}
               </p>
             ) : (
-              <p className="text-xs text-on-surface-variant mt-0.5">Not set up</p>
+              <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">Not set up</p>
             )}
           </div>
           {schedule ? (
@@ -651,10 +662,10 @@ export default function InvoiceDetailPage() {
         </div>
 
         {showRecurringForm && !schedule && (
-          <div className="space-y-3 border-t border-[var(--color-card-border)] pt-4">
+          <div className="space-y-3 border-t border-[var(--color-pib-line)] pt-4">
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant block mb-1">Interval</label>
+                <label className="pib-label block mb-1">Interval</label>
                 <select
                   value={recurringInterval}
                   onChange={e => setRecurringInterval(e.target.value as RecurrenceInterval)}
@@ -666,7 +677,7 @@ export default function InvoiceDetailPage() {
                 </select>
               </div>
               <div>
-                <label className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant block mb-1">Start Date</label>
+                <label className="pib-label block mb-1">Start Date</label>
                 <input
                   type="date"
                   value={recurringStartDate}
@@ -675,7 +686,7 @@ export default function InvoiceDetailPage() {
                 />
               </div>
               <div>
-                <label className="text-[9px] font-label uppercase tracking-widest text-on-surface-variant block mb-1">End Date (optional)</label>
+                <label className="pib-label block mb-1">End Date (optional)</label>
                 <input
                   type="date"
                   value={recurringEndDate}

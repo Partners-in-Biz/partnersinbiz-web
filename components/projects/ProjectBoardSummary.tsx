@@ -114,17 +114,17 @@ export function ProjectBoardSummary({ tasks, columns }: { tasks: Task[]; columns
   return (
     <section
       aria-label="Project board summary"
-      className="mb-3 shrink-0 overflow-hidden rounded-2xl border border-[var(--color-card-border)] bg-[linear-gradient(135deg,var(--color-card),var(--color-surface-container))] shadow-[0_18px_45px_rgba(0,0,0,0.20)] md:mb-4"
+      className="pib-card mb-3 shrink-0 overflow-hidden !p-0 md:mb-4"
     >
       <div className="grid gap-0 md:grid-cols-[minmax(220px,0.85fr)_minmax(0,1.6fr)]">
-        <div className="border-b border-[var(--color-card-border)] p-4 md:border-b-0 md:border-r md:p-5">
+        <div className="border-b border-[var(--color-pib-line)] p-4 md:border-b-0 md:border-r md:p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-[10px] font-label uppercase tracking-[0.18em] text-on-surface-variant">Actually done</p>
-              <p aria-label="Done task progress" className="mt-2 text-3xl font-headline font-bold text-on-surface md:text-4xl">
+              <p className="pib-label">Actually done</p>
+              <p aria-label="Done task progress" className="mt-2 text-3xl font-headline font-bold text-[var(--color-pib-text)] md:text-4xl">
                 {summary.done} / {summary.total}
               </p>
-              <p className="mt-1 text-xs text-on-surface-variant">Done column, completed tasks, and agent-done work</p>
+              <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Done column, completed tasks, and agent-done work</p>
             </div>
             <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#4ade8040] bg-[#4ade8016] text-[#4ade80]">
               <span aria-hidden="true" data-icon="fact_check" className="material-symbols-outlined text-[24px] before:content-[attr(data-icon)]" />
@@ -132,7 +132,7 @@ export function ProjectBoardSummary({ tasks, columns }: { tasks: Task[]; columns
           </div>
 
           <div className="mt-5">
-            <div className="mb-2 flex items-center justify-between text-[11px] text-on-surface-variant">
+            <div className="mb-2 flex items-center justify-between text-[11px] text-[var(--color-pib-text-muted)]">
               <span>Completion</span>
               <span className="font-mono">{summary.progress}%</span>
             </div>
@@ -141,12 +141,12 @@ export function ProjectBoardSummary({ tasks, columns }: { tasks: Task[]; columns
             </div>
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-on-surface-variant">
-            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-card-border)] px-2 py-1">
+          <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-[var(--color-pib-text-muted)]">
+            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-pib-line)] px-2 py-1">
               <span aria-hidden="true" data-icon="event" className="material-symbols-outlined text-[14px] before:content-[attr(data-icon)]" />
               {summary.dueSoon} due this week
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-card-border)] px-2 py-1">
+            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-pib-line)] px-2 py-1">
               <span aria-hidden="true" data-icon="pending_actions" className="material-symbols-outlined text-[14px] before:content-[attr(data-icon)]" />
               {summary.open} still open
             </span>
@@ -158,15 +158,15 @@ export function ProjectBoardSummary({ tasks, columns }: { tasks: Task[]; columns
             {summary.stats.map(stat => (
               <div
                 key={stat.key}
-                className="relative overflow-hidden rounded-2xl border border-[var(--color-card-border)] bg-[color-mix(in_srgb,var(--color-card)_82%,black)] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                className="pib-surface relative overflow-hidden p-3.5"
               >
                 <div className="absolute inset-x-0 top-0 h-0.5" style={{ background: stat.tone }} />
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{stat.label}</span>
+                  <span className="pib-label">{stat.label}</span>
                   <span aria-hidden="true" data-icon={stat.icon} className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/[0.04] material-symbols-outlined text-[16px] before:content-[attr(data-icon)]" style={{ color: stat.tone }} />
                 </div>
-                <p aria-label={stat.ariaLabel} className="mt-3 text-3xl font-headline font-bold leading-none text-on-surface">{stat.value}</p>
-                <p className="mt-2 min-h-[2.25rem] text-[11px] leading-4 text-on-surface-variant">{stat.helper}</p>
+                <p aria-label={stat.ariaLabel} className="mt-3 text-3xl font-headline font-bold leading-none text-[var(--color-pib-text)]">{stat.value}</p>
+                <p className="mt-2 min-h-[2.25rem] text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{stat.helper}</p>
               </div>
             ))}
           </div>
@@ -191,7 +191,7 @@ export function ProjectBoardSummary({ tasks, columns }: { tasks: Task[]; columns
             {summary.columns.map(column => {
               const count = summary.columnCounts.get(column.id) ?? 0
               return (
-                <span key={column.id} className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-card-border)] px-2.5 py-1 text-[11px] text-on-surface-variant">
+                <span key={column.id} className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-pib-line)] px-2.5 py-1 text-[11px] text-[var(--color-pib-text-muted)]">
                   <span className="h-1.5 w-1.5 rounded-full" style={{ background: column.color ?? 'var(--color-outline)' }} />
                   {column.name} {count}
                 </span>

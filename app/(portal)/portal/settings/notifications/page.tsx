@@ -63,7 +63,7 @@ function ReadinessMetric({
   return (
     <div className="pib-stat-card min-w-0 space-y-3">
       <div className="relative flex items-start justify-between gap-3">
-        <p className="eyebrow !text-[10px]">{label}</p>
+        <p className="pib-label">{label}</p>
         <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]" aria-hidden="true">
           {icon}
         </span>
@@ -88,7 +88,7 @@ function SignalCard({
   return (
     <div className="pib-stat-card min-w-0 space-y-3 p-4">
       <div className="relative flex items-start gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] text-[var(--color-pib-text-muted)]">
+        <span className="pib-icon-tint-cyan shrink-0">
           <span className="material-symbols-outlined text-[18px]" aria-hidden="true">{icon}</span>
         </span>
         <div className="min-w-0">
@@ -102,26 +102,26 @@ function SignalCard({
 
 export default function NotificationsPage() {
   return (
-    <div className="max-w-6xl space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+    <div className="max-w-6xl space-y-8">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className="eyebrow !text-[10px]">CRM operations</p>
+          <p className="eyebrow">Settings · CRM operations</p>
           <h1 className="pib-page-title mt-2">Notifications</h1>
           <p className="pib-page-sub max-w-2xl">
             Keep CRM work visible across sales, approvals, billing, and client communication before the team grows.
           </p>
         </div>
-      </div>
+      </header>
 
       <section role="region" aria-label="CRM notification command center" className="space-y-4">
-        <div data-testid="notification-command-hero" className="bento-card !p-0 overflow-hidden">
+        <div data-testid="notification-command-hero" className="pib-card overflow-hidden !p-0">
           <div className="grid gap-0 lg:grid-cols-[minmax(0,0.9fr)_minmax(320px,1.1fr)]">
             <div className="flex flex-col justify-between gap-8 border-b border-[var(--color-pib-line)] p-6 lg:border-b-0 lg:border-r">
               <div>
-                <span className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--color-pib-accent)]/25 bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent)]">
+                <span className="pib-icon-tint-cyan mb-4">
                   <span className="material-symbols-outlined text-[22px]" aria-hidden="true">notifications_active</span>
                 </span>
-                <p className="eyebrow !text-[10px]">Operating readiness</p>
+                <p className="eyebrow">Operating readiness</p>
                 <h2 className="mt-3 text-2xl font-semibold tracking-normal text-[var(--color-pib-text)]">
                   Notification command center
                 </h2>
@@ -130,12 +130,8 @@ export default function NotificationsPage() {
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-3">
-                <span className="rounded-full border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)]">
-                  Team accountability
-                </span>
-                <span className="rounded-full border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)]">
-                  Browser push first
-                </span>
+                <span className="pib-pill">Team accountability</span>
+                <span className="pib-pill">Browser push first</span>
               </div>
             </div>
 
@@ -151,7 +147,7 @@ export default function NotificationsPage() {
       <div className="grid gap-5 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
         <section data-testid="notification-push-panel" className="pib-card-section">
           <div className="pib-card-section-header">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Device channel</p>
+            <p className="pib-label">Device channel</p>
           </div>
           <div className="space-y-4 p-5">
             <div>
@@ -168,7 +164,7 @@ export default function NotificationsPage() {
 
         <section className="pib-card-section">
           <div className="pib-card-section-header">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">CRM signals</p>
+            <p className="pib-label">CRM signals</p>
           </div>
           <div className="space-y-4 p-5">
             <div>

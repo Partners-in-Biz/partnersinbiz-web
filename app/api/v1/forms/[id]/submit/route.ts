@@ -17,13 +17,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { apiSuccess, apiError } from '@/lib/api/response'
-import { validateSubmission } from '@/lib/forms/validate'
 import { checkFormRateLimit } from '@/lib/forms/ratelimit'
 import { verifyTurnstileToken } from '@/lib/forms/turnstile'
 import { getResendClient, FROM_ADDRESS } from '@/lib/email/resend'
 import type { Form } from '@/lib/forms/types'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { formSubmissionRef } from '@/lib/orgMembers/memberRef'
+import { buildCaptureAttributionContext } from '@/lib/lead-capture/attribution-context'
+import { publishCaptureSchemaVersion } from '@/lib/lead-capture/schema-store'
+import { formCaptureSchemaFields } from '@/lib/lead-capture/schema-presets'
+import { resolveCaptureFields } from '@/lib/lead-capture/schema'
 
 export const dynamic = 'force-dynamic'
 
@@ -185,11 +188,8 @@ export async function POST(
     }
   }
 
-  // Validate.
-  const result = validateSubmission(form, body)
-
   // Honeypot: silently accept without creating a submission.
-  if (result.ok && 'normalized' in result && result._honeypot) {
+  if (body._hp !== undefined && body._hp !== null && String(body._hp).trim() !== '') {
     return apiSuccess({
       submitted: true,
       thankYou: form.thankYouMessage,
@@ -197,15 +197,35 @@ export async function POST(
     })
   }
 
-  if (!result.ok) {
+  const submitterRef = formSubmissionRef(form.id, form.name)
+  const forbidden = ['campaignId', 'programId', 'sourceId', 'gclid', 'fbclid', 'msclkid', 'ttclid']
+    .filter((key) => body[key] !== undefined)
+  if (forbidden.length) return apiError(`Server-controlled fields are not accepted: ${forbidden.join(', ')}`, 400)
+  const { context: attributionContext, provenance: attribution, lineage } = buildCaptureAttributionContext({
+    requestUrl: req.url,
+    refererHeader: req.headers.get('referer') ?? '',
+    body,
+    source: { id: form.id, name: form.name, type: 'form' },
+  })
+  const schemaFields = formCaptureSchemaFields(form.fields)
+  const controlKeys = new Set([
+    '_hp', 'cf-turnstile-response', 'landingPage',
+    'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+  ])
+  const submittedFields = Object.fromEntries(Object.entries(body).filter(([key]) => !controlKeys.has(key)))
+  const resolved = resolveCaptureFields(schemaFields, submittedFields, attributionContext)
+  if (!resolved.ok) {
     return NextResponse.json(
-      { success: false, error: result.errors.join('; '), errors: result.errors },
+      { success: false, error: resolved.errors.join('; '), errors: resolved.errors },
       { status: 400 },
     )
   }
-
-  const normalized = result.normalized
-  const submitterRef = formSubmissionRef(form.id, form.name)
+  const normalized = resolved.data
+  const schemaVersion = await publishCaptureSchemaVersion(
+    adminDb as never,
+    formDoc.ref as never,
+    { orgId, sourceId: form.id, fields: schemaFields },
+  )
 
   // Persist submission.
   const submissionRef = await adminDb.collection('form_submissions').add({
@@ -218,6 +238,9 @@ export async function POST(
     status: 'new' as const,
     contactId: null,
     source: 'form',
+    attribution,
+    attributionLineage: lineage,
+    schemaVersionId: schemaVersion.id,
     createdBy: submitterRef.uid,
     createdByRef: submitterRef,
   })

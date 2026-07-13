@@ -76,7 +76,7 @@ const CHANNEL_STYLES: Record<string, { label: string; badge: string; frame: stri
   generic: {
     label: 'Generic post',
     badge: 'Post',
-    frame: 'aspect-[4/3] bg-[var(--color-surface-container)]',
+    frame: 'aspect-[4/3] bg-[var(--color-pib-surface)]',
     icon: '✦',
   },
 }
@@ -203,8 +203,8 @@ export function ScheduledContentPreviewCards({
     <section className="pib-card space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Today’s scheduled content</p>
-          <p className="text-sm text-on-surface-variant mt-1">{description}</p>
+          <p className="text-[10px] pib-label">Today’s scheduled content</p>
+          <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">{description}</p>
         </div>
         <Link href={resolvedComposeHref} className="text-[10px] font-label uppercase tracking-wide" style={{ color: 'var(--color-accent-v2)' }}>
           {composeLabel}
@@ -217,8 +217,8 @@ export function ScheduledContentPreviewCards({
         </div>
       ) : posts.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-[var(--color-outline)]/50 p-8 text-center">
-          <p className="text-sm font-medium text-on-surface">No scheduled content today.</p>
-          <p className="text-xs text-on-surface-variant mt-1">Create a post or approve queued content to see native cards here.</p>
+          <p className="text-sm font-medium text-[var(--color-pib-text)]">No scheduled content today.</p>
+          <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">Create a post or approve queued content to see native cards here.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
@@ -230,17 +230,17 @@ export function ScheduledContentPreviewCards({
                 key={post.id}
                 data-testid={`scheduled-preview-${post.id}`}
                 href={hrefForPost?.(post) ?? defaultPostHref(slug, post)}
-                className="group rounded-3xl border border-white/10 bg-[var(--color-surface-container)]/70 p-3 transition hover:-translate-y-0.5 hover:border-[var(--color-accent-v2)]/60 hover:shadow-lg"
+                className="group rounded-3xl border border-white/10 bg-[var(--color-pib-surface)]/70 p-3 transition hover:-translate-y-0.5 hover:border-[var(--color-accent-v2)]/60 hover:shadow-lg"
               >
                 <MediaPane post={post} style={style} />
                 <div className="mt-3 space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs font-label uppercase tracking-wide text-on-surface">{style.label}</p>
-                    <span className="text-[10px] text-on-surface-variant">{formatTime(post)}</span>
+                    <p className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text)]">{style.label}</p>
+                    <span className="text-[10px] text-[var(--color-pib-text-muted)]">{formatTime(post)}</span>
                   </div>
-                  <p className="line-clamp-3 text-sm text-on-surface-variant">{text}</p>
+                  <p className="line-clamp-3 text-sm text-[var(--color-pib-text-muted)]">{text}</p>
                   <div className="flex items-center justify-between text-[10px] font-label uppercase tracking-wide">
-                    <span className="text-on-surface-variant">{post.status?.replace(/_/g, ' ') ?? 'scheduled'}</span>
+                    <span className="text-[var(--color-pib-text-muted)]">{post.status?.replace(/_/g, ' ') ?? 'scheduled'}</span>
                     <span style={{ color: 'var(--color-accent-v2)' }}>Open →</span>
                   </div>
                 </div>

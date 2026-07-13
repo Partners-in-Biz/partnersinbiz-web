@@ -50,20 +50,20 @@ function blockPreviewText(block: DocumentBlock): string {
 function VersionPreview({ version, label }: { version: ClientDocumentVersion | null; label: string }) {
   return (
     <div className="flex min-w-0 flex-col">
-      <p className="mb-2 text-[10px] uppercase tracking-[0.18em] text-on-surface-variant">{label}</p>
+      <p className="mb-2 text-[10px] uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">{label}</p>
       {!version ? (
-        <p className="text-xs text-on-surface-variant">Select a version to preview.</p>
+        <p className="text-xs text-[var(--color-pib-text-muted)]">Select a version to preview.</p>
       ) : (
         <div className="space-y-3">
           {version.blocks.length === 0 ? (
-            <p className="text-xs text-on-surface-variant">No content blocks.</p>
+            <p className="text-xs text-[var(--color-pib-text-muted)]">No content blocks.</p>
           ) : (
             version.blocks.map((block) => {
               const preview = blockPreviewText(block)
               return (
                 <div key={block.id} className="rounded-lg border border-white/10 bg-white/5 p-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-[9px] uppercase tracking-wider text-on-surface-variant">
+                    <span className="text-[9px] uppercase tracking-wider text-[var(--color-pib-text-muted)]">
                       {readableType(block.type)}
                     </span>
                     {block.visibility && block.visibility !== 'client-visible' ? (
@@ -73,10 +73,10 @@ function VersionPreview({ version, label }: { version: ClientDocumentVersion | n
                     ) : null}
                   </div>
                   {block.title ? (
-                    <p className="mt-1 text-sm font-medium text-on-surface">{block.title}</p>
+                    <p className="mt-1 text-sm font-medium text-[var(--color-pib-text)]">{block.title}</p>
                   ) : null}
                   {preview ? (
-                    <pre className="mt-1 whitespace-pre-wrap break-words font-sans text-xs text-on-surface-variant">
+                    <pre className="mt-1 whitespace-pre-wrap break-words font-sans text-xs text-[var(--color-pib-text-muted)]">
                       {preview.length > 600 ? `${preview.slice(0, 600)}…` : preview}
                     </pre>
                   ) : null}
@@ -196,7 +196,7 @@ export function VersionHistoryDrawer({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="rounded-md p-1.5 text-on-surface-variant hover:bg-white/5 hover:text-on-surface"
+            className="rounded-md p-1.5 text-[var(--color-pib-text-muted)] hover:bg-white/5 hover:text-[var(--color-pib-text)]"
           >
             <span className="material-symbols-outlined" aria-hidden>
               close
@@ -214,11 +214,11 @@ export function VersionHistoryDrawer({
           {/* Version list */}
           <div className="min-h-0 overflow-y-auto border-b border-white/10 md:border-b-0 md:border-r">
             {state === 'loading' ? (
-              <p className="px-5 py-4 text-xs text-on-surface-variant">Loading versions…</p>
+              <p className="px-5 py-4 text-xs text-[var(--color-pib-text-muted)]">Loading versions…</p>
             ) : state === 'error' ? (
-              <p className="px-5 py-4 text-xs text-on-surface-variant">Could not load versions.</p>
+              <p className="px-5 py-4 text-xs text-[var(--color-pib-text-muted)]">Could not load versions.</p>
             ) : versions.length === 0 ? (
-              <p className="px-5 py-4 text-xs text-on-surface-variant">No versions yet.</p>
+              <p className="px-5 py-4 text-xs text-[var(--color-pib-text-muted)]">No versions yet.</p>
             ) : (
               <ul className="divide-y divide-white/5">
                 {versions.map((version) => {
@@ -235,17 +235,17 @@ export function VersionHistoryDrawer({
                         ].join(' ')}
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-medium text-on-surface">v{version.versionNumber}</span>
+                          <span className="text-sm font-medium text-[var(--color-pib-text)]">v{version.versionNumber}</span>
                           {isCurrent ? (
                             <span className="rounded-full bg-[var(--color-pib-accent)] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-black">
                               Current
                             </span>
                           ) : null}
                         </div>
-                        <p className="mt-0.5 text-[11px] text-on-surface-variant">{fmtTimestamp(version.createdAt)}</p>
-                        <p className="mt-0.5 text-[11px] text-on-surface-variant">By {version.createdBy}</p>
+                        <p className="mt-0.5 text-[11px] text-[var(--color-pib-text-muted)]">{fmtTimestamp(version.createdAt)}</p>
+                        <p className="mt-0.5 text-[11px] text-[var(--color-pib-text-muted)]">By {version.createdBy}</p>
                         {version.changeSummary ? (
-                          <p className="mt-1 text-xs text-on-surface-variant line-clamp-2">{version.changeSummary}</p>
+                          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)] line-clamp-2">{version.changeSummary}</p>
                         ) : null}
                         {!isCurrent ? (
                           <button
@@ -274,7 +274,7 @@ export function VersionHistoryDrawer({
           {/* Side-by-side preview */}
           <div className="min-h-0 overflow-y-auto px-5 py-4">
             {!selectedVersion ? (
-              <p className="text-xs text-on-surface-variant">Select a version on the left to compare it with the current version.</p>
+              <p className="text-xs text-[var(--color-pib-text-muted)]">Select a version on the left to compare it with the current version.</p>
             ) : (
               <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
                 <VersionPreview

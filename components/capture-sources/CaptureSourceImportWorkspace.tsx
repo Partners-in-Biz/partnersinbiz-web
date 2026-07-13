@@ -194,11 +194,11 @@ export function CaptureSourceImportWorkspace({ orgId, orgName }: CaptureSourceIm
   return (
     <div className="mx-auto flex h-full min-h-0 max-w-5xl flex-col overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
       <div className="border-b border-[var(--color-card-border)] px-3 py-2">
-        <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-1">
+        <p className="pib-label mb-1">
           {orgName || 'Workspace'}
         </p>
-        <h1 className="text-base font-semibold text-on-surface">Import contacts from CSV</h1>
-        <p className="text-sm text-on-surface-variant mt-1 max-w-2xl">
+        <h1 className="text-base font-semibold text-[var(--color-pib-text)]">Import contacts from CSV</h1>
+        <p className="text-sm text-[var(--color-pib-text-muted)] mt-1 max-w-2xl">
           Bulk-import contacts into this organisation. Existing contacts (matched by
           email) get their tags merged — names and other fields are not overwritten.
           CSV imports skip campaign auto-enrollment to avoid surprise sends.
@@ -208,24 +208,24 @@ export function CaptureSourceImportWorkspace({ orgId, orgName }: CaptureSourceIm
 
       <>          <div className="space-y-3 border-b border-[var(--color-card-border)] p-3">
             <div>
-              <label className="block text-sm font-medium text-on-surface mb-1">
+              <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">
                 CSV file
               </label>
               <input
                 type="file"
                 accept=".csv,text/csv"
                 onChange={handleFileChange}
-                className="block text-sm text-on-surface file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border file:border-outline-variant file:bg-surface file:text-on-surface file:text-sm file:cursor-pointer"
+                className="block text-sm text-[var(--color-pib-text)] file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border file:border-[var(--color-pib-line)] file:bg-[var(--color-pib-surface)] file:text-[var(--color-pib-text)] file:text-sm file:cursor-pointer"
               />
               {fileName && (
-                <p className="mt-1 text-xs text-on-surface-variant">
+                <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
                   {fileName} — parsed {rows.length} row{rows.length === 1 ? '' : 's'}
                 </p>
               )}
               {parseError && (
                 <p className="mt-1 text-sm text-red-600">{parseError}</p>
               )}
-              <p className="mt-2 text-xs text-on-surface-variant">
+              <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">
                 Expected headers (case-insensitive): email (required), name or
                 firstname/lastname, company, phone, tags (comma- or semicolon-separated),
                 notes.
@@ -233,7 +233,7 @@ export function CaptureSourceImportWorkspace({ orgId, orgName }: CaptureSourceIm
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-on-surface mb-1">
+              <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">
                 Default tags
               </label>
               <input
@@ -241,22 +241,22 @@ export function CaptureSourceImportWorkspace({ orgId, orgName }: CaptureSourceIm
                 value={defaultTagsRaw}
                 onChange={(e) => setDefaultTagsRaw(e.target.value)}
                 placeholder="e.g. q2-import, webinar-leads"
-                className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+                className="pib-input"
               />
-              <p className="mt-1 text-xs text-on-surface-variant">
+              <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
                 Comma-separated. Applied to every imported contact in addition to
                 per-row tags.
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-on-surface mb-1">
+              <label className="block text-sm font-medium text-[var(--color-pib-text)] mb-1">
                 Capture source (optional)
               </label>
               <select
                 value={selectedSourceId}
                 onChange={(e) => setSelectedSourceId(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-on-surface text-sm"
+                className="pib-input"
               >
                 <option value="">(none)</option>
                 {sources.map((s) => (
@@ -265,7 +265,7 @@ export function CaptureSourceImportWorkspace({ orgId, orgName }: CaptureSourceIm
                   </option>
                 ))}
               </select>
-              <p className="mt-1 text-xs text-on-surface-variant">
+              <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
                 If set, imported contacts will be tagged with the source&apos;s
                 autoTags and the source&apos;s captured-count will be bumped by the
                 number of newly created contacts.
@@ -276,8 +276,8 @@ export function CaptureSourceImportWorkspace({ orgId, orgName }: CaptureSourceIm
           {headers.length > 0 && (
             <div className="space-y-3 border-b border-[var(--color-card-border)] p-3">
               <div>
-                <h2 className="text-sm font-medium text-on-surface">Map columns</h2>
-                <p className="mt-1 text-xs text-on-surface-variant">
+                <h2 className="text-sm font-medium text-[var(--color-pib-text)]">Map columns</h2>
+                <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
                   Match each column in your file to a contact field. Columns set to
                   &ldquo;Ignore&rdquo; are not imported. A column must be mapped to
                   <span className="font-medium"> Email</span> before you can import.
@@ -290,13 +290,13 @@ export function CaptureSourceImportWorkspace({ orgId, orgName }: CaptureSourceIm
                   return (
                     <div
                       key={`${header}-${columnIndex}`}
-                      className="rounded-lg border border-outline-variant bg-surface p-3"
+                      className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3"
                     >
-                      <p className="text-[11px] font-medium text-on-surface break-all">
+                      <p className="text-[11px] font-medium text-[var(--color-pib-text)] break-all">
                         {header || `Column ${columnIndex + 1}`}
                       </p>
                       {sampleValue && (
-                        <p className="mt-0.5 text-[11px] text-on-surface-variant break-all">
+                        <p className="mt-0.5 text-[11px] text-[var(--color-pib-text-muted)] break-all">
                           e.g. {sampleValue}
                         </p>
                       )}
@@ -307,7 +307,7 @@ export function CaptureSourceImportWorkspace({ orgId, orgName }: CaptureSourceIm
                         id={`col-map-${columnIndex}`}
                         value={current}
                         onChange={(e) => setColumnMapping(columnIndex, e.target.value)}
-                        className="mt-2 w-full px-2 py-1.5 rounded-md border border-outline-variant bg-surface text-on-surface text-xs"
+                        className="pib-select mt-2"
                       >
                         <option value={IGNORE_COLUMN}>Ignore this column</option>
                         {CONTACT_IMPORT_FIELDS.map((f) => (
@@ -330,13 +330,13 @@ export function CaptureSourceImportWorkspace({ orgId, orgName }: CaptureSourceIm
 
           {previewRows.length > 0 && (
             <div className="border-b border-[var(--color-card-border)] p-3">
-              <h2 className="text-sm font-medium text-on-surface mb-2">
+              <h2 className="text-sm font-medium text-[var(--color-pib-text)] mb-2">
                 Preview (first {previewRows.length} of {rows.length})
               </h2>
-              <div className="overflow-x-auto rounded-lg border border-outline-variant">
+              <div className="overflow-x-auto rounded-lg border border-[var(--color-pib-line)]">
                 <table className="w-full text-sm">
-                  <thead className="bg-surface-container">
-                    <tr className="text-left text-xs uppercase tracking-wide text-on-surface-variant">
+                  <thead className="bg-[var(--color-pib-surface-soft)]">
+                    <tr className="text-left text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                       <th className="px-3 py-2 font-medium">Email</th>
                       <th className="px-3 py-2 font-medium">Name</th>
                       <th className="px-3 py-2 font-medium">Company</th>
@@ -350,14 +350,14 @@ export function CaptureSourceImportWorkspace({ orgId, orgName }: CaptureSourceIm
                         r.name ??
                         [r.firstName, r.lastName].filter(Boolean).join(' ').trim()
                       return (
-                        <tr key={i} className="border-t border-outline-variant align-top">
-                          <td className="px-3 py-2 font-mono text-xs text-on-surface break-all">
+                        <tr key={i} className="border-t border-[var(--color-pib-line)] align-top">
+                          <td className="px-3 py-2 font-mono text-xs text-[var(--color-pib-text)] break-all">
                             {r.email}
                           </td>
-                          <td className="px-3 py-2 text-on-surface">{name}</td>
-                          <td className="px-3 py-2 text-on-surface">{r.company ?? ''}</td>
-                          <td className="px-3 py-2 text-on-surface">{r.phone ?? ''}</td>
-                          <td className="px-3 py-2 text-on-surface-variant">
+                          <td className="px-3 py-2 text-[var(--color-pib-text)]">{name}</td>
+                          <td className="px-3 py-2 text-[var(--color-pib-text)]">{r.company ?? ''}</td>
+                          <td className="px-3 py-2 text-[var(--color-pib-text)]">{r.phone ?? ''}</td>
+                          <td className="px-3 py-2 text-[var(--color-pib-text-muted)]">
                             {(r.tags ?? []).join(', ')}
                           </td>
                         </tr>
@@ -375,7 +375,7 @@ export function CaptureSourceImportWorkspace({ orgId, orgName }: CaptureSourceIm
                 type="button"
                 onClick={handleValidate}
                 disabled={validating || importing || !emailMapped}
-                className="px-4 py-2 rounded-lg bg-surface text-on-surface text-sm border border-outline-variant hover:bg-surface-container-high disabled:opacity-50 transition-colors"
+                className="btn-pib-secondary disabled:opacity-50"
               >
                 {validating ? 'Validating…' : 'Validate (dry run)'}
               </button>
@@ -383,7 +383,7 @@ export function CaptureSourceImportWorkspace({ orgId, orgName }: CaptureSourceIm
                 type="button"
                 onClick={handleImport}
                 disabled={validating || importing || !emailMapped}
-                className="px-4 py-2 rounded-lg bg-primary text-on-primary text-sm font-medium disabled:opacity-50"
+                className="btn-pib-primary disabled:opacity-50"
               >
                 {importing ? 'Importing…' : 'Import'}
               </button>
@@ -418,8 +418,8 @@ function ResultCard({
   variant: 'dryrun' | 'done'
 }) {
   return (
-    <div className="rounded-xl bg-surface-container border border-outline-variant p-4 space-y-3">
-      <h2 className="text-sm font-medium text-on-surface">{title}</h2>
+    <div className="rounded-xl bg-[var(--color-pib-surface-soft)] border border-[var(--color-pib-line)] p-4 space-y-3">
+      <h2 className="text-sm font-medium text-[var(--color-pib-text)]">{title}</h2>
       <div className="grid grid-cols-3 gap-3">
         <Stat
           label={variant === 'dryrun' ? 'Would create' : 'Created'}
@@ -433,17 +433,17 @@ function ResultCard({
       </div>
       {result.invalidRows.length > 0 && (
         <div>
-          <p className="text-xs uppercase tracking-wide text-on-surface-variant mb-1">
+          <p className="text-xs uppercase tracking-wide text-[var(--color-pib-text-muted)] mb-1">
             Invalid rows
           </p>
-          <ul className="space-y-1 text-sm text-on-surface">
+          <ul className="space-y-1 text-sm text-[var(--color-pib-text)]">
             {result.invalidRows.slice(0, 50).map((r) => (
               <li key={r.index} className="font-mono text-xs">
                 row {r.index}: {r.reason}
               </li>
             ))}
             {result.invalidRows.length > 50 && (
-              <li className="text-xs text-on-surface-variant">
+              <li className="text-xs text-[var(--color-pib-text-muted)]">
                 …and {result.invalidRows.length - 50} more
               </li>
             )}
@@ -456,11 +456,11 @@ function ResultCard({
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-outline-variant bg-surface p-3">
-      <p className="text-[10px] uppercase tracking-widest text-on-surface-variant">
+    <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3">
+      <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">
         {label}
       </p>
-      <p className="text-lg font-semibold text-on-surface">{value}</p>
+      <p className="text-lg font-semibold text-[var(--color-pib-text)]">{value}</p>
     </div>
   )
 }

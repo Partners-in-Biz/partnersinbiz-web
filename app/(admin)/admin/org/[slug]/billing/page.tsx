@@ -161,7 +161,7 @@ export default function BillingPage() {
     : `/admin/invoicing/new?orgId=${encodeURIComponent(orgId)}`
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-8 max-w-5xl mx-auto">
       <PageHeader
         eyebrow="Admin org / Billing"
         title="Billing"
@@ -169,7 +169,7 @@ export default function BillingPage() {
         actions={(
           <Link
             href={newInvoiceHref}
-            className="pib-btn-primary text-sm font-label"
+            className="btn-pib-primary text-sm font-label"
           >
             + New Invoice
           </Link>
@@ -183,7 +183,7 @@ export default function BillingPage() {
         ) : (
           <>
             <div className="pib-card">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-2">
+              <p className="pib-label mb-2">
                 Total Billed
               </p>
               <p className="text-2xl font-headline font-bold" style={{ color: 'var(--color-accent-v2)' }}>
@@ -191,18 +191,18 @@ export default function BillingPage() {
               </p>
             </div>
             <div className="pib-card">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-2">
+              <p className="pib-label mb-2">
                 Outstanding
               </p>
-              <p className="text-2xl font-headline font-bold text-on-surface">
+              <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">
                 {formatCurrency(outstanding, currency)}
               </p>
             </div>
             <div className="pib-card">
-              <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-2">
+              <p className="pib-label mb-2">
                 Paid
               </p>
-              <p className="text-2xl font-headline font-bold text-on-surface">
+              <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">
                 {formatCurrency(paid, currency)}
               </p>
             </div>
@@ -212,29 +212,29 @@ export default function BillingPage() {
 
       {/* Invoice Table */}
       <Surface variant="table" className="overflow-hidden !p-0" bodyClassName="!p-0">
-        <div className="grid grid-cols-12 gap-4 px-5 py-3 border-b border-[var(--color-card-border)]">
-          <p className="col-span-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+        <div className="grid grid-cols-12 gap-4 px-5 py-3 border-b border-[var(--color-pib-line)]">
+          <p className="col-span-2 pib-label">
             Invoice #
           </p>
-          <p className="col-span-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+          <p className="col-span-2 pib-label">
             Issue Date
           </p>
-          <p className="col-span-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+          <p className="col-span-2 pib-label">
             Due Date
           </p>
-          <p className="col-span-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+          <p className="col-span-2 pib-label">
             Amount
           </p>
-          <p className="col-span-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+          <p className="col-span-2 pib-label">
             Status
           </p>
-          <p className="col-span-2 text-[10px] font-label uppercase tracking-widest text-on-surface-variant">
+          <p className="col-span-2 pib-label">
             Actions
           </p>
         </div>
 
         {loading ? (
-          <div className="divide-y divide-[var(--color-card-border)]">
+          <div className="divide-y divide-[var(--color-pib-line)]">
             {[1, 2, 3].map(i => (
               <div key={i} className="px-5 py-4">
                 <Skeleton className="h-5 w-48" />
@@ -249,14 +249,14 @@ export default function BillingPage() {
             action={(
               <Link
                 href={newInvoiceHref}
-                className="pib-btn-primary text-sm font-label"
+                className="btn-pib-primary text-sm font-label"
               >
                 Create Invoice
               </Link>
             )}
           />
         ) : (
-          <div className="divide-y divide-[var(--color-card-border)]">
+          <div className="divide-y divide-[var(--color-pib-line)]">
             {invoices.map(inv => {
               const status = STATUS_MAP[inv.status] ?? { label: inv.status, tone: 'neutral' as const }
               return (
@@ -265,16 +265,16 @@ export default function BillingPage() {
                   className="grid grid-cols-12 gap-4 items-center px-5 py-3 hover:bg-[var(--color-row-hover)] transition-colors"
                 >
                   <div className="col-span-2">
-                    <p className="text-sm font-mono text-on-surface">{inv.invoiceNumber}</p>
+                    <p className="text-sm font-mono text-[var(--color-pib-text)]">{inv.invoiceNumber}</p>
                   </div>
                   <div className="col-span-2">
-                    <p className="text-sm text-on-surface-variant">{formatDate(inv.issueDate)}</p>
+                    <p className="text-sm text-[var(--color-pib-text-muted)]">{formatDate(inv.issueDate)}</p>
                   </div>
                   <div className="col-span-2">
-                    <p className="text-sm text-on-surface-variant">{formatDate(inv.dueDate)}</p>
+                    <p className="text-sm text-[var(--color-pib-text-muted)]">{formatDate(inv.dueDate)}</p>
                   </div>
                   <div className="col-span-2">
-                    <p className="text-sm font-medium text-on-surface">
+                    <p className="text-sm font-medium text-[var(--color-pib-text)]">
                       {formatCurrency(inv.total ?? 0, inv.currency ?? 'USD')}
                     </p>
                   </div>

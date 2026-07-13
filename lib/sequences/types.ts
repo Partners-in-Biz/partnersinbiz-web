@@ -1,6 +1,7 @@
 // lib/sequences/types.ts
 import type { Timestamp } from 'firebase-admin/firestore'
 import type { AbConfig } from '@/lib/ab-testing/types'
+import type { MemberRef } from '@/lib/orgMembers/memberRef'
 
 // ── Branching / Goal / Wait-Until ───────────────────────────────────────────
 //
@@ -65,6 +66,35 @@ export interface SequenceGoal {
   label: string
   condition: BranchCondition
   exitReason?: string
+  /** Whether hitting this goal completes the journey or exits it early. */
+  outcome?: 'complete' | 'exit'
+}
+
+export interface SequenceQuietHours {
+  enabled: boolean
+  /** Minute of local day, 0..1439. Overnight windows wrap across midnight. */
+  startMinuteLocal: number
+  /** Minute of local day, 0..1439. Equal start/end means quiet all day. */
+  endMinuteLocal: number
+  timezoneMode: 'recipient' | 'organization'
+}
+
+export interface SequenceWorkflowSnapshot {
+  id: string
+  sequenceId: string
+  orgId: string
+  schemaVersion: 1
+  version: number
+  contentHash: string
+  activatedAtIso: string
+  steps: SequenceStep[]
+  goals: SequenceGoal[]
+  topicId: string
+  quietHours?: SequenceQuietHours
+  reentryPolicy?: SequenceReentryPolicy
+  maxActiveEnrollments?: number
+  /** Exact resource shape whose approval evidence was accepted at activation. */
+  approvalResource?: Record<string, unknown>
 }
 
 export interface SequenceStep {
@@ -120,6 +150,10 @@ export interface Sequence {
   reentryPolicy?: SequenceReentryPolicy
   // Operational guardrail for simultaneous enrollments in this sequence.
   maxActiveEnrollments?: number
+  quietHours?: SequenceQuietHours
+  activeWorkflowVersion?: number
+  activeWorkflowVersionId?: string
+  activeWorkflowSnapshot?: SequenceWorkflowSnapshot
   approvalState?: {
     status: 'pending' | 'approved' | 'rejected' | 'revoked'
     approvedBy?: string | null
@@ -135,7 +169,7 @@ export interface Sequence {
 
 export type SequenceInput = Omit<Sequence, 'id' | 'createdAt' | 'updatedAt'>
 
-export type EnrollmentStatus = 'active' | 'completed' | 'paused' | 'exited'
+export type EnrollmentStatus = 'active' | 'completed' | 'paused' | 'exited' | 'dead_letter'
 export type ExitReason =
   | 'replied'
   | 'unsubscribed'
@@ -164,6 +198,7 @@ export interface EnrollmentPathEntry {
   goalHit?: {
     goalId: string
     label: string
+    outcome?: 'complete' | 'exit'
   }
   at: Timestamp | null
 }
@@ -196,6 +231,39 @@ export interface SequenceEnrollment {
   processingLeaseUntil?: Timestamp | null
   deliveryAttempts?: number
   lastDeliveryError?: string
+  lastDeliveryAttemptAt?: Timestamp | null
+  workflowVersionId?: string
+  workflowVersion?: number
+  workflowContentHash?: string
+  workflowSnapshot?: SequenceWorkflowSnapshot
+  completedGoalId?: string
+  completedGoalLabel?: string
+  goalOutcome?: 'complete' | 'exit'
+  deadLetter?: {
+    stepNumber: number
+    attempts: number
+    reason: string
+    channel: 'email' | 'sms'
+    replayable: boolean
+    failedAt: Timestamp | null
+  }
+  deadLetterHistory?: Array<NonNullable<SequenceEnrollment['deadLetter']> & {
+    replayKey: string
+    replayedAt: Timestamp | null
+    replayedByRef: MemberRef
+  }>
+  replayKey?: string
+  replayedAt?: Timestamp | null
+  replayedByRef?: MemberRef
+  lastScheduleDecision?: {
+    reason: 'quiet-hours'
+    timezone: string
+    evaluatedAt: Timestamp | null
+    nextAllowedAt: Timestamp | null
+  }
+  pausedReason?: string
+  workflowValidationError?: string
+  workflowValidationFailedAt?: Timestamp | null
 }
 
 export type EnrollmentInput = Omit<SequenceEnrollment, 'id' | 'enrolledAt'>

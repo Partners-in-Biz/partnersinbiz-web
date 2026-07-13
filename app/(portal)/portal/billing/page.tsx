@@ -53,22 +53,22 @@ export default function PortalBillingPage() {
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {BILLING_METRICS.map((metric) => (
-          <div key={metric.label} className="pib-card p-5">
-            <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant">{metric.label}</p>
-            <p className="mt-3 text-2xl font-semibold text-on-surface">{metric.value}</p>
-            <p className="mt-2 text-xs text-on-surface-variant">{metric.helper}</p>
+          <div key={metric.label} className="pib-stat-card">
+            <p className="pib-label">{metric.label}</p>
+            <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">{metric.value}</p>
+            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{metric.helper}</p>
           </div>
         ))}
       </section>
 
       <section className="grid gap-4 md:grid-cols-2">
         {BILLING_SECTIONS.map((section) => (
-          <Link key={section.href} href={section.href} className="pib-card group p-5 transition hover:border-[var(--color-pib-accent)]/60">
+          <Link key={section.href} href={section.href} className="pib-card group transition hover:border-[var(--color-pib-line-strong)]">
             <div className="flex items-start gap-4">
-              <span className="material-symbols-outlined text-[28px] text-[var(--color-pib-accent)]">{section.icon}</span>
+              <span className="pib-icon-tint-cyan material-symbols-outlined">{section.icon}</span>
               <div>
-                <h2 className="text-lg font-semibold text-on-surface group-hover:text-[var(--color-pib-accent)]">{section.title}</h2>
-                <p className="mt-2 text-sm text-on-surface-variant">{section.body}</p>
+                <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">{section.title}</h2>
+                <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{section.body}</p>
               </div>
             </div>
           </Link>

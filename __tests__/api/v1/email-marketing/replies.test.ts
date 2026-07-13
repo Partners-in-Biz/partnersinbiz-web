@@ -20,10 +20,10 @@ jest.mock('@/lib/email-marketing/reply-queue', () => ({
 import * as repliesRoute from '@/app/api/v1/email-marketing/replies/route'
 import * as correctionRoute from '@/app/api/v1/email-marketing/replies/[id]/classification/route'
 
-function request(path: string, method = 'GET', body?: unknown) {
+function request(path: string, method = 'GET', body?: unknown, headers?: Record<string, string>) {
   return new NextRequest(`http://localhost${path}`, {
     method,
-    headers: body === undefined ? undefined : { 'content-type': 'application/json' },
+    headers: body === undefined ? headers : { 'content-type': 'application/json', ...headers },
     body: body === undefined ? undefined : JSON.stringify(body),
   })
 }
@@ -49,12 +49,12 @@ it('rejects unsupported filters instead of broadening the query', async () => {
 it('corrects classification in the authenticated tenant and records the actor', async () => {
   correctReplyClassification.mockResolvedValue({ id: 'reply-1', classification: 'negative', corrected: true })
   const response = await correctionRoute.PATCH(
-    request('/api/v1/email-marketing/replies/reply-1/classification', 'PATCH', { classification: 'negative', reason: 'Contact declined' }),
+    request('/api/v1/email-marketing/replies/reply-1/classification', 'PATCH', { classification: 'negative', reason: 'Contact declined' }, { 'idempotency-key': 'correction-1' }),
     { params: Promise.resolve({ id: 'reply-1' }) },
   )
 
   expect(response.status).toBe(200)
-  expect(correctReplyClassification).toHaveBeenCalledWith('org-1', 'reply-1', 'negative', 'user-1', 'Contact declined')
+  expect(correctReplyClassification).toHaveBeenCalledWith('org-1', 'reply-1', 'negative', 'user-1', 'Contact declined', 'correction-1')
 })
 
 it('does not expose a reply from another tenant during correction', async () => {
@@ -75,5 +75,5 @@ it('uses the empty reply id when dynamic route context is malformed', async () =
   )
 
   expect(response.status).toBe(404)
-  expect(correctReplyClassification).toHaveBeenCalledWith('org-1', '', 'neutral', 'user-1', '')
+  expect(correctReplyClassification).toHaveBeenCalledWith('org-1', '', 'neutral', 'user-1', '', expect.any(String))
 })

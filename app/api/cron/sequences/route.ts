@@ -29,6 +29,10 @@ import { resolveSenderForRecipient } from '@/lib/email-marketing/sender-resoluti
 import { buildSenderRecipientContext } from '@/lib/email-marketing/sender-context'
 import { resolveCanonicalEmailConsent } from '@/lib/consent-ledger/decision'
 import { assertEmailMarketingDispatchApproval } from '@/lib/email-marketing/agent-governance'
+import { approvalResourceForSequenceRuntime, runtimeSequenceForEnrollment } from '@/lib/sequences/workflow-version'
+import { evaluateQuietHours } from '@/lib/sequences/scheduling'
+import { deliveryFailureState } from '@/lib/sequences/delivery'
+import { goalCompletionState } from '@/lib/sequences/goals'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,7 +41,6 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://partnersinbiz.onli
 const HOUR_MS = 60 * 60 * 1000
 const DAY_MS = 24 * HOUR_MS
 const LEASE_MS = 10 * 60 * 1000
-const MAX_DELIVERY_ATTEMPTS = 5
 
 export async function GET(req: NextRequest) {
   const auth = req.headers.get('authorization')
@@ -65,10 +68,42 @@ export async function GET(req: NextRequest) {
 
       const seqSnap = await adminDb.collection('sequences').doc(enrollment.sequenceId).get()
       if (!seqSnap.exists) continue
-      const seq = seqSnap.data()!
-      if (seq.orgId !== enrollmentOrgId) throw new Error('Sequence organisation mismatch')
+      const editableSequence = { ...(seqSnap.data() ?? {}), id: enrollment.sequenceId } as import('@/lib/sequences/types').Sequence
+      if (editableSequence.orgId !== enrollmentOrgId) throw new Error('Sequence organisation mismatch')
+      if (editableSequence.deleted || editableSequence.status !== 'active') {
+        await enrollDoc.ref.update({
+          status: 'paused',
+          pausedReason: editableSequence.deleted ? 'sequence-deleted' : 'sequence-not-active',
+          nextSendAt: null,
+          updatedAt: FieldValue.serverTimestamp(),
+        })
+        continue
+      }
+      let seq: ReturnType<typeof runtimeSequenceForEnrollment>
       try {
-        await assertEmailMarketingDispatchApproval(seq, {
+        seq = runtimeSequenceForEnrollment(editableSequence, enrollment)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Invalid workflow pin'
+        await enrollDoc.ref.update({
+          status: 'paused',
+          pausedReason: 'invalid-workflow-pin',
+          workflowValidationError: message.slice(0, 500),
+          workflowValidationFailedAt: now,
+          nextSendAt: null,
+          updatedAt: FieldValue.serverTimestamp(),
+        })
+        await adminDb.collection('activities').add({
+          orgId: enrollmentOrgId,
+          contactId: enrollment.contactId,
+          type: 'sequence_workflow_validation_failed',
+          summary: 'Sequence enrollment paused because its immutable workflow pin failed validation',
+          metadata: { sequenceId: enrollment.sequenceId, enrollmentId: enrollDoc.id, reason: message.slice(0, 500) },
+          createdAt: FieldValue.serverTimestamp(),
+        })
+        continue
+      }
+      try {
+        await assertEmailMarketingDispatchApproval(approvalResourceForSequenceRuntime(seq), {
           orgId: enrollmentOrgId, resourceType: 'email_sequence', resourceId: enrollment.sequenceId,
         })
       } catch (error) {
@@ -340,6 +375,30 @@ export async function GET(req: NextRequest) {
       const preferredHourLocal = orgMeta.preferredHourLocal
       const preferredDaysOfWeek = orgMeta.preferredDaysOfWeek
 
+      const quietHoursDecision = evaluateQuietHours({
+        nowUtc: nowDate,
+        orgTimezone: orgTimezone || 'UTC',
+        contactTimezone:
+          typeof contact.timezone === 'string' && contact.timezone.trim()
+            ? contact.timezone.trim()
+            : undefined,
+        quietHours: seq.quietHours,
+      })
+      if (!quietHoursDecision.allowed) {
+        const nextAllowedAt = quietHoursDecision.nextAllowedAt ?? new Date(nowDate.getTime() + DAY_MS)
+        await enrollDoc.ref.update({
+          nextSendAt: Timestamp.fromDate(nextAllowedAt),
+          lastScheduleDecision: {
+            reason: 'quiet-hours',
+            timezone: quietHoursDecision.timezone,
+            evaluatedAt: now,
+            nextAllowedAt: Timestamp.fromDate(nextAllowedAt),
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        })
+        continue
+      }
+
       // Look up the campaign if linked. Honor pause / completed / deleted states.
       type CampaignLite = {
         orgId?: string
@@ -488,6 +547,27 @@ export async function GET(req: NextRequest) {
           variantId: variantPick.variant?.id ?? '',
         })
 
+        if (outcome.status !== 'sent') {
+          const failure = deliveryFailureState({
+            attemptsBefore: Number(enrollment.deliveryAttempts ?? 0),
+            error: outcome.reason ?? `SMS dispatch ${outcome.status}`,
+            stepNumber: enrollment.currentStep,
+            channel: 'sms',
+            nowMs: nowDate.getTime(),
+          })
+          await enrollDoc.ref.update(deliveryFailureUpdate(failure))
+          continue
+        }
+
+        if (enrollment.deliveryAttempts || enrollment.lastDeliveryError || enrollment.deadLetter) {
+          await enrollDoc.ref.update({
+            deliveryAttempts: 0,
+            lastDeliveryError: FieldValue.delete(),
+            deadLetter: FieldValue.delete(),
+            updatedAt: FieldValue.serverTimestamp(),
+          })
+        }
+
         // Variant-level sent-stat increment (best-effort).
         if (outcome.status === 'sent' && variantPick.variant?.id) {
           try {
@@ -511,12 +591,6 @@ export async function GET(req: NextRequest) {
           })
         }
 
-        // Skipped outcomes (no phone, suppressed, prefs gate) leave the
-        // enrollment in place and the cron will retry next tick. Note: we
-        // still advance because the step has been attempted; otherwise a
-        // contact with no phone would loop on the same SMS step forever.
-        // The activity log / failure reason already lives on the sms doc.
-        void outcome
         // Fall through to the shared post-send progression block below.
       } else {
         // ── Email path ───────────────────────────────────────────────────
@@ -649,17 +723,14 @@ export async function GET(req: NextRequest) {
         })
 
         if (!sendResult.ok) {
-          const attempts = Number(enrollment.deliveryAttempts ?? 0) + 1
-          const terminalFailure = attempts >= MAX_DELIVERY_ATTEMPTS
-          const retryDelayMs = Math.min(24 * HOUR_MS, 2 ** attempts * 15 * 60 * 1000)
-          await enrollDoc.ref.update({
-            status: terminalFailure ? 'exited' : 'active',
-            exitReason: terminalFailure ? 'delivery-failed' : FieldValue.delete(),
-            deliveryAttempts: attempts,
-            lastDeliveryError: sendResult.error ?? 'Email provider rejected the send',
-            nextSendAt: terminalFailure ? null : Timestamp.fromMillis(nowDate.getTime() + retryDelayMs),
-            updatedAt: FieldValue.serverTimestamp(),
+          const failure = deliveryFailureState({
+            attemptsBefore: Number(enrollment.deliveryAttempts ?? 0),
+            error: sendResult.error ?? 'Email provider rejected the send',
+            stepNumber: enrollment.currentStep,
+            channel: 'email',
+            nowMs: nowDate.getTime(),
           })
+          await enrollDoc.ref.update(deliveryFailureUpdate(failure))
           continue
         }
 
@@ -780,7 +851,7 @@ export async function GET(req: NextRequest) {
             continue
           }
           const nextDelayMs = steps[nextStepIdx].delayDays * DAY_MS
-          const baseNext = new Date(Date.now() + nextDelayMs)
+          const baseNext = new Date(nowDate.getTime() + nextDelayMs)
           const sendCtx: SendTimeContext = {
             orgTimezone: orgTimezone || 'UTC',
             contactTimezone:
@@ -912,15 +983,17 @@ async function exitWithGoal(
   existingPath: EnrollmentPathEntry[] | undefined,
 ): Promise<void> {
   const now = Timestamp.now()
+  const completion = goalCompletionState(goal)
   await adminDb.collection('sequence_enrollments').doc(enrollmentId).update({
-    status: 'exited',
-    exitReason: 'goal-hit',
+    ...completion,
+    completedGoalId: goal.id,
+    completedGoalLabel: goal.label,
     completedAt: FieldValue.serverTimestamp(),
     pendingBranchEvalAt: null,
     waitingSince: null,
     path: appendPath(existingPath, {
       stepNumber: -1,
-      goalHit: { goalId: goal.id, label: goal.label },
+      goalHit: { goalId: goal.id, label: goal.label, outcome: completion.goalOutcome },
       at: now,
     }),
     updatedAt: FieldValue.serverTimestamp(),
@@ -930,7 +1003,7 @@ async function exitWithGoal(
     contactId,
     type: 'sequence_goal_hit',
     summary: `Goal hit: ${goal.label}`,
-    metadata: { goalId: goal.id, exitReason: goal.exitReason ?? 'goal-hit' },
+    metadata: { goalId: goal.id, exitReason: goal.exitReason ?? 'goal-hit', outcome: completion.goalOutcome },
     createdAt: FieldValue.serverTimestamp(),
   })
 }
@@ -941,4 +1014,26 @@ function appendPath(
 ): EnrollmentPathEntry[] {
   const prev = Array.isArray(existing) ? existing : []
   return [...prev, entry]
+}
+
+function deliveryFailureUpdate(failure: ReturnType<typeof deliveryFailureState>): Record<string, unknown> {
+  return {
+    status: failure.status,
+    exitReason: failure.exitReason ?? FieldValue.delete(),
+    deliveryAttempts: failure.deliveryAttempts,
+    lastDeliveryError: failure.lastDeliveryError,
+    lastDeliveryAttemptAt: Timestamp.fromMillis(failure.lastDeliveryAttemptAtMs),
+    nextSendAt: failure.retryAtMs === null ? null : Timestamp.fromMillis(failure.retryAtMs),
+    deadLetter: failure.deadLetter
+      ? {
+          stepNumber: failure.deadLetter.stepNumber,
+          attempts: failure.deadLetter.attempts,
+          reason: failure.deadLetter.reason,
+          channel: failure.deadLetter.channel,
+          replayable: failure.deadLetter.replayable,
+          failedAt: Timestamp.fromMillis(failure.deadLetter.failedAtMs),
+        }
+      : FieldValue.delete(),
+    updatedAt: FieldValue.serverTimestamp(),
+  }
 }

@@ -131,7 +131,7 @@ export function CampaignAnalyticsWorkspace({
         className={
           surface === 'portal'
             ? 'pib-skeleton h-40 rounded-xl'
-            : 'p-6 h-40 rounded-xl bg-surface-container animate-pulse'
+            : 'pib-skeleton h-40 rounded-xl'
         }
       />
     )
@@ -141,7 +141,7 @@ export function CampaignAnalyticsWorkspace({
     return (
       <div className={surface === 'portal' ? 'mx-auto max-w-5xl space-y-4' : 'p-6 max-w-3xl mx-auto space-y-4'}>
         <BackLink href={backHref} surface={surface} />
-        <p className={surface === 'portal' ? 'text-sm text-[var(--color-pib-text-muted)]' : 'text-sm text-on-surface-variant'}>
+        <p className={surface === 'portal' ? 'text-sm text-[var(--color-pib-text-muted)]' : 'text-sm text-[var(--color-pib-text-muted)]'}>
           {error ?? 'Campaign analytics not found.'}
         </p>
       </div>
@@ -162,7 +162,7 @@ export function CampaignAnalyticsWorkspace({
           className={
             surface === 'portal'
               ? 'rounded-lg border border-[var(--color-pib-line)] bg-white/[0.04] px-3 py-1.5 text-sm text-[var(--color-pib-text)] hover:bg-white/[0.08] disabled:opacity-40'
-              : 'rounded-lg bg-surface-container px-3 py-1.5 text-sm text-on-surface hover:bg-surface-container-high disabled:opacity-40'
+              : 'rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-1.5 text-sm text-[var(--color-pib-text)] hover:bg-[var(--color-pib-surface-2)] disabled:opacity-40'
           }
         >
           {exporting ? 'Exporting…' : 'Export CSV'}
@@ -171,10 +171,10 @@ export function CampaignAnalyticsWorkspace({
 
       <header>
         {surface === 'portal' && <p className="eyebrow">Email campaign</p>}
-        <h1 className={surface === 'portal' ? 'pib-page-title mt-2' : 'text-2xl font-semibold text-on-surface'}>
+        <h1 className={surface === 'portal' ? 'pib-page-title mt-2' : 'text-2xl font-semibold text-[var(--color-pib-text)]'}>
           {data.name}
         </h1>
-        <p className={surface === 'portal' ? 'mt-2 text-xs text-[var(--color-pib-text-muted)]' : 'mt-2 text-xs text-on-surface-variant'}>
+        <p className={surface === 'portal' ? 'mt-2 text-xs text-[var(--color-pib-text-muted)]' : 'mt-2 text-xs text-[var(--color-pib-text-muted)]'}>
           ID: {id}
         </p>
       </header>
@@ -222,7 +222,7 @@ export function CampaignAnalyticsWorkspace({
             <Empty surface={surface}>No recipient domains recorded.</Empty>
           ) : (
             <table className="w-full text-sm">
-              <thead className={surface === 'portal' ? 'text-left text-[var(--color-pib-text-muted)]' : 'text-left text-on-surface-variant'}>
+              <thead className={surface === 'portal' ? 'text-left text-[var(--color-pib-text-muted)]' : 'text-left text-[var(--color-pib-text-muted)]'}>
                 <tr>
                   <th className="py-2">Domain</th>
                   <th className="py-2 text-right">Sent</th>
@@ -233,9 +233,9 @@ export function CampaignAnalyticsWorkspace({
                 {topDomains.map((d) => (
                   <tr
                     key={d.domain}
-                    className={surface === 'portal' ? 'border-t border-[var(--color-pib-line)]' : 'border-t border-outline-variant'}
+                    className={surface === 'portal' ? 'border-t border-[var(--color-pib-line)]' : 'border-t border-[var(--color-pib-line)]'}
                   >
-                    <td className={surface === 'portal' ? 'py-2 text-[var(--color-pib-text)]' : 'py-2 text-on-surface'}>
+                    <td className={surface === 'portal' ? 'py-2 text-[var(--color-pib-text)]' : 'py-2 text-[var(--color-pib-text)]'}>
                       {d.domain}
                     </td>
                     <td className="py-2 text-right tabular-nums">{d.sent}</td>
@@ -254,7 +254,7 @@ export function CampaignAnalyticsWorkspace({
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className={surface === 'portal' ? 'text-left text-[var(--color-pib-text-muted)]' : 'text-left text-on-surface-variant'}>
+              <thead className={surface === 'portal' ? 'text-left text-[var(--color-pib-text-muted)]' : 'text-left text-[var(--color-pib-text-muted)]'}>
                 <tr>
                   <th className="py-2">Contact</th>
                   <th className="py-2 text-right">Sent</th>
@@ -268,12 +268,12 @@ export function CampaignAnalyticsWorkspace({
                 {contactActivity.slice(0, 250).map((r) => (
                   <tr
                     key={r.contactId}
-                    className={surface === 'portal' ? 'border-t border-[var(--color-pib-line)]' : 'border-t border-outline-variant'}
+                    className={surface === 'portal' ? 'border-t border-[var(--color-pib-line)]' : 'border-t border-[var(--color-pib-line)]'}
                   >
-                    <td className={surface === 'portal' ? 'py-2 text-[var(--color-pib-text)]' : 'py-2 text-on-surface'}>
+                    <td className={surface === 'portal' ? 'py-2 text-[var(--color-pib-text)]' : 'py-2 text-[var(--color-pib-text)]'}>
                       <div className="font-medium">{r.name || r.email || r.contactId}</div>
                       {r.name && r.email && (
-                        <div className={surface === 'portal' ? 'text-xs text-[var(--color-pib-text-muted)]' : 'text-xs text-on-surface-variant'}>
+                        <div className={surface === 'portal' ? 'text-xs text-[var(--color-pib-text-muted)]' : 'text-xs text-[var(--color-pib-text-muted)]'}>
                           {r.email}
                         </div>
                       )}
@@ -288,7 +288,7 @@ export function CampaignAnalyticsWorkspace({
               </tbody>
             </table>
             {contactActivity.length > 250 && (
-              <p className={surface === 'portal' ? 'mt-2 text-xs text-[var(--color-pib-text-muted)]' : 'mt-2 text-xs text-on-surface-variant'}>
+              <p className={surface === 'portal' ? 'mt-2 text-xs text-[var(--color-pib-text-muted)]' : 'mt-2 text-xs text-[var(--color-pib-text-muted)]'}>
                 Showing first 250 of {contactActivity.length}. Export CSV for the full list.
               </p>
             )}
@@ -303,7 +303,7 @@ function BackLink({ href, surface }: { href: string; surface: 'admin' | 'portal'
   return (
     <Link
       href={href}
-      className={surface === 'portal' ? 'text-sm text-[var(--color-pib-accent)] hover:underline' : 'text-sm text-amber-500 hover:underline'}
+      className={surface === 'portal' ? 'text-sm text-[var(--color-pib-accent)] hover:underline' : 'text-sm text-[var(--color-pib-blue)] hover:underline'}
     >
       Back to campaigns
     </Link>
@@ -324,8 +324,8 @@ function Kpi({
   surface: 'admin' | 'portal'
 }) {
   return (
-    <div className={surface === 'portal' ? 'rounded-xl border border-[var(--color-pib-line)] bg-white/[0.03] p-4' : 'rounded-xl bg-surface-container p-4'}>
-      <div className={surface === 'portal' ? 'text-xs text-[var(--color-pib-text-muted)]' : 'text-xs text-on-surface-variant'}>
+    <div className={surface === 'portal' ? 'rounded-xl border border-[var(--color-pib-line)] bg-white/[0.03] p-4' : 'rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4'}>
+      <div className={surface === 'portal' ? 'text-xs text-[var(--color-pib-text-muted)]' : 'text-xs text-[var(--color-pib-text-muted)]'}>
         {label}
       </div>
       <div
@@ -334,13 +334,13 @@ function Kpi({
             ? 'text-2xl font-semibold text-red-400'
             : surface === 'portal'
               ? 'text-2xl font-semibold text-[var(--color-pib-text)]'
-              : 'text-2xl font-semibold text-on-surface'
+              : 'text-2xl font-semibold text-[var(--color-pib-text)]'
         }
       >
         {value.toLocaleString()}
       </div>
       {sub && (
-        <div className={surface === 'portal' ? 'mt-1 text-xs text-[var(--color-pib-text-muted)]' : 'mt-1 text-xs text-on-surface-variant'}>
+        <div className={surface === 'portal' ? 'mt-1 text-xs text-[var(--color-pib-text-muted)]' : 'mt-1 text-xs text-[var(--color-pib-text-muted)]'}>
           {sub}
         </div>
       )}
@@ -359,10 +359,10 @@ function Section({
 }) {
   return (
     <section>
-      <h2 className={surface === 'portal' ? 'mb-2 text-sm font-medium text-[var(--color-pib-text-muted)]' : 'mb-2 text-sm font-medium text-on-surface-variant'}>
+      <h2 className={surface === 'portal' ? 'mb-2 text-sm font-medium text-[var(--color-pib-text-muted)]' : 'mb-2 text-sm font-medium text-[var(--color-pib-text-muted)]'}>
         {title}
       </h2>
-      <div className={surface === 'portal' ? 'rounded-xl border border-[var(--color-pib-line)] bg-white/[0.03] p-4' : 'rounded-xl bg-surface-container p-4'}>
+      <div className={surface === 'portal' ? 'rounded-xl border border-[var(--color-pib-line)] bg-white/[0.03] p-4' : 'rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4'}>
         {children}
       </div>
     </section>
@@ -371,7 +371,7 @@ function Section({
 
 function Empty({ children, surface }: { children: ReactNode; surface: 'admin' | 'portal' }) {
   return (
-    <div className={surface === 'portal' ? 'text-sm text-[var(--color-pib-text-muted)]' : 'text-sm text-on-surface-variant'}>
+    <div className={surface === 'portal' ? 'text-sm text-[var(--color-pib-text-muted)]' : 'text-sm text-[var(--color-pib-text-muted)]'}>
       {children}
     </div>
   )

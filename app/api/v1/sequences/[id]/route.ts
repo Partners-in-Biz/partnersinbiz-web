@@ -9,6 +9,8 @@ import type { ApiUser } from '@/lib/api/types'
 import type { SequenceInput } from '@/lib/sequences/types'
 import { mergeSequenceForActivationValidation, validateSequenceActivation } from '@/lib/sequences/validation'
 import { assertEmailMarketingAgentActionWithTask } from '@/lib/email-marketing/agent-governance'
+import { persistSequenceUpdateWithVersion } from '@/lib/sequences/workflow-version-store'
+import { sanitizeSequenceQuietHours } from '@/lib/sequences/quiet-hours'
 
 export const dynamic = 'force-dynamic'
 
@@ -54,13 +56,24 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
   if (Array.isArray(body.goals)) update.goals = body.goals
   if (body.reentryPolicy && typeof body.reentryPolicy === 'object') update.reentryPolicy = body.reentryPolicy
   if (typeof body.maxActiveEnrollments === 'number') update.maxActiveEnrollments = Math.max(0, Math.floor(body.maxActiveEnrollments))
-  if (snap.data()?.approvalState?.status === 'approved' && (body.steps !== undefined || body.topicId !== undefined || body.goals !== undefined)) {
+  if (body.quietHours && typeof body.quietHours === 'object') {
+    try {
+      update.quietHours = sanitizeSequenceQuietHours(body.quietHours)
+    } catch (error) {
+      return apiError(error instanceof Error ? error.message : 'Invalid quiet hours', 400)
+    }
+  }
+  if (snap.data()?.approvalState?.status === 'approved' && (body.steps !== undefined || body.topicId !== undefined || body.goals !== undefined || body.quietHours !== undefined)) {
     update.approvalState = {
       status: 'revoked', approvedBy: null, approvedByType: null, approvedAt: null, approvalTaskId: null,
     }
   }
-  await adminDb.collection('sequences').doc(id).update({ ...update, updatedAt: FieldValue.serverTimestamp() })
-  return apiSuccess({ id, ...update })
+  const persistedUpdate = await persistSequenceUpdateWithVersion({
+    sequenceId: id,
+    existing: { ...(snap.data() as SequenceInput), id } as import('@/lib/sequences/types').Sequence,
+    patch: { ...update, updatedAt: FieldValue.serverTimestamp() },
+  })
+  return apiSuccess({ id, ...persistedUpdate })
 })
 
 export const DELETE = withAuth('client', async (req: NextRequest, user: ApiUser, context?: unknown) => {

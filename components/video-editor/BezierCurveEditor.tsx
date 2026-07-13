@@ -65,7 +65,7 @@ export function BezierCurveEditor({ value, onChange }: { value: BezierTuple; onC
         <circle cx={p1.cx} cy={p1.cy} r={6} fill="#fbbf24" className="cursor-grab" onPointerDown={() => { dragging.current = 0 }} />
         <circle cx={p2.cx} cy={p2.cy} r={6} fill="#60a5fa" className="cursor-grab" onPointerDown={() => { dragging.current = 1 }} />
       </svg>
-      <div className="grid grid-cols-4 gap-1 text-xs text-on-surface-variant">
+      <div className="grid grid-cols-4 gap-1 text-xs text-[var(--color-pib-text-muted)]">
         {(['P1 x', 'P1 y', 'P2 x', 'P2 y'] as const).map((label, index) => (
           <label key={label} className="block">
             {label}
