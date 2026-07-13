@@ -44,7 +44,7 @@ import { useChatContexts } from '@/components/chat/context/useChatContexts'
 import { ChatContextExperience } from '@/components/chat/context/ChatContextExperience'
 import { ContextArtifactBundle } from '@/components/chat/context/ContextArtifactBundle'
 import type { ProjectChatTaskItem } from '@/lib/projects/chatProgress'
-import RuntimeInspectorRail from '@/components/messages/hermes/RuntimeInspectorRail'
+import type { RuntimeExecution } from '@/components/messages/hermes/RuntimeInspectorRail'
 
 type AgentId = string
 
@@ -396,7 +396,7 @@ export default function UnifiedChat({
   const [composerHistory, setComposerHistory] = useState<string[]>([])
   const [historyCursor, setHistoryCursor] = useState<number | null>(null)
   const [queuedDraftsByConversation, setQueuedDraftsByConversation] = useState<Record<string, QueuedComposerDraft[]>>({})
-  const [runtimeInspectorOpen, setRuntimeInspectorOpen] = useState(false)
+  const [executionDockRequest, setExecutionDockRequest] = useState(0)
   const [contextArtifactRequest, setContextArtifactRequest] = useState<{ id: string; nonce: number }>()
   const [pinnedConversationIds, setPinnedConversationIds] = useState<string[]>(() => readPinnedConversationIds(orgId))
 
@@ -1989,7 +1989,19 @@ export default function UnifiedChat({
       activeRuntimeMessage?.status === 'streaming' ||
       activeRuntimeMessage?.status === 'waiting_approval'),
   )
-  const showRuntimeInspectorRail = !compact
+  const retryRuntimeAction = activeRuntimeMessage?.uiActions?.find((action) =>
+    String(action.type).toLowerCase() === 'retry' && !action.disabled,
+  )
+  const runtimeExecution: RuntimeExecution | undefined = activeRuntimeMessage?.runId ? {
+    activeMessage: activeRuntimeMessage,
+    events: activeRuntimeEvents,
+    selectedRuntime,
+    catalog: modelCatalog,
+    canStop: canStopActiveRun,
+    onStop: activeRuntimeMessage.id && activeId ? () => stopAgentRun(activeId, activeRuntimeMessage.id) : undefined,
+    canRetry: Boolean(retryRuntimeAction),
+    onRetry: retryRuntimeAction ? () => { void handleUiAction(activeRuntimeMessage, retryRuntimeAction) } : undefined,
+  } : undefined
   const showComposerContextToolbar = Boolean(
     currentPageContext ||
     contextRefs.length > 0 ||
@@ -2005,10 +2017,8 @@ export default function UnifiedChat({
         compact
           ? 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden'
           : hermesLayout
-            ? runtimeInspectorOpen
-              ? 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-2 lg:grid-cols-[236px_minmax(0,1fr)] xl:grid-cols-[236px_minmax(0,1fr)_260px]'
-              : 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-2 lg:grid-cols-[236px_minmax(0,1fr)] xl:grid-cols-[236px_minmax(0,1fr)_44px]'
-            : 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-4 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_280px]'
+            ? 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-2 lg:grid-cols-[236px_minmax(0,1fr)]'
+            : 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-4 lg:grid-cols-[280px_minmax(0,1fr)]'
       }
     >
       {/* ── Left: conversation list ─────────────────────────────────────── */}
@@ -2431,7 +2441,7 @@ export default function UnifiedChat({
             onOpen={() => setProjectLensOpen(true)}
           />
         )}
-        {useGenericContext && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} />}
+        {(useGenericContext || runtimeExecution) && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} execution={runtimeExecution} executionRequest={executionDockRequest} />}
 
         {/* Messages */}
         <div
@@ -3004,16 +3014,16 @@ export default function UnifiedChat({
                     Stop
                   </button>
                 )}
-                <button
+                {runtimeExecution && <button
                   type="button"
                   data-testid="hermes-runtime-inspector-toggle"
-                  aria-expanded={runtimeInspectorOpen}
-                  onClick={() => setRuntimeInspectorOpen((value) => !value)}
+                  aria-label="Open execution in context dock"
+                  onClick={() => setExecutionDockRequest((value) => value + 1)}
                   className="inline-flex h-7 items-center gap-1 rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-2 text-[11px] font-medium text-on-surface-variant hover:bg-white/[0.08] hover:text-on-surface"
                 >
                   <span className="material-symbols-outlined text-[13px]">developer_board</span>
                   Inspector
-                </button>
+                </button>}
               </div>
             </div>
           )}
@@ -3024,24 +3034,6 @@ export default function UnifiedChat({
         )}
 
       </section>
-
-      {showRuntimeInspectorRail && (
-        <RuntimeInspectorRail
-          activeMessage={activeRuntimeMessage}
-          events={activeRuntimeEvents}
-          selectedRuntime={selectedRuntime}
-          catalog={modelCatalog}
-          canStop={canStopActiveRun}
-          onStop={
-            activeRuntimeMessage?.id && activeId
-              ? () => stopAgentRun(activeId, activeRuntimeMessage.id)
-              : undefined
-          }
-          collapsed={hermesLayout && !runtimeInspectorOpen}
-          onCollapsedChange={hermesLayout ? (collapsed) => setRuntimeInspectorOpen(!collapsed) : undefined}
-          variant={hermesLayout ? 'hermes' : 'classic'}
-        />
-      )}
 
       {accessConversation && (
         <ConversationAccessDialog

@@ -578,7 +578,7 @@ describe('UnifiedChat message scrolling', () => {
     expect(window.localStorage.getItem('pib.messages.pinnedConversations.v1:org-1')).toBeNull()
   })
 
-  it('shows the Hermes bottom runtime bar and collapsed inspector in the dense layout', async () => {
+  it('keeps idle Hermes chat on the two-column grid without a competing runtime rail', async () => {
     render(
       <UnifiedChat
         orgId="org-1"
@@ -592,13 +592,55 @@ describe('UnifiedChat message scrolling', () => {
 
     expect(screen.getByTestId('hermes-runtime-control-bar')).toHaveTextContent('0 queued')
     expect(screen.getByLabelText('Runtime thinking effort')).toBeInTheDocument()
-    expect(screen.getByTestId('runtime-inspector-rail')).toHaveAttribute('data-collapsed', 'true')
+    expect(screen.queryByTestId('runtime-inspector-rail')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('hermes-runtime-inspector-toggle')).not.toBeInTheDocument()
+    expect(screen.getByTestId('unified-chat-root')).not.toHaveClass('xl:grid-cols-[236px_minmax(0,1fr)_260px]')
+  })
 
-    const toggle = screen.getByTestId('hermes-runtime-inspector-toggle')
-    expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    fireEvent.click(toggle)
-    expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    expect(screen.getByTestId('runtime-inspector-rail')).toHaveAttribute('data-collapsed', 'false')
+  it('opens active execution in the shared context dock instead of a third rail', async () => {
+    const defaultFetch = global.fetch as jest.Mock
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input) === '/api/v1/conversations/conv-1/messages') return jsonResponse({ data: { messages: [{
+        id: 'msg-run', conversationId: 'conv-1', role: 'assistant', content: 'Working', authorKind: 'agent',
+        authorId: 'pip', authorDisplayName: 'Pip', status: 'failed', runId: 'run-live', createdAt: '2026-06-08T09:05:00.000Z',
+        uiActions: [{ id: 'retry-run', type: 'retry', label: 'Retry' }],
+      }] } })
+      if (String(input) === '/api/v1/admin/agents/pip/runs/run-live/actions') return errorResponse(500, { error: 'retry unavailable' })
+      return defaultFetch(input, init)
+    })
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" layoutVariant="hermes" initialConvId="conv-1" />)
+    await screen.findByText('Working')
+    expect(screen.queryByTestId('runtime-inspector-rail')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('hermes-runtime-inspector-toggle'))
+    expect(screen.getByRole('dialog', { name: 'Conversation context' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Execution' })).toHaveAttribute('data-emphasized', 'true')
+    fireEvent.click(screen.getByRole('button', { name: 'Retry run' }))
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/admin/agents/pip/runs/run-live/actions', expect.objectContaining({ method: 'POST' })))
+  })
+
+  it('opens execution in the same modal sheet used by compact Briefings chat', async () => {
+    const originalMatchMedia = window.matchMedia
+    const matchMedia = jest.fn(() => ({ matches: true, addEventListener: jest.fn(), removeEventListener: jest.fn() }))
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: matchMedia })
+    const defaultFetch = global.fetch as jest.Mock
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input) === '/api/v1/conversations/conv-1/messages') return jsonResponse({ data: { messages: [{
+        id: 'msg-run-compact', conversationId: 'conv-1', role: 'assistant', content: 'Compact run', authorKind: 'agent',
+        authorId: 'pip', authorDisplayName: 'Pip', status: 'waiting_approval', runId: 'run-compact', createdAt: '2026-06-08T09:05:00.000Z',
+      }] } })
+      return defaultFetch(input, init)
+    })
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" compact initialConvId="conv-1" />)
+    await screen.findByText('Compact run')
+    fireEvent.click(screen.getByTestId('execution-context-trigger'))
+    const sheet = screen.getByRole('dialog', { name: 'Conversation context' })
+    expect(sheet).toHaveAttribute('data-presentation', 'sheet')
+    expect(sheet).toHaveAttribute('aria-modal', 'true')
+    expect(screen.getByRole('region', { name: 'Execution' })).toBeInTheDocument()
+    expect(matchMedia).toHaveBeenCalledWith('(max-width: 1023px)')
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalMatchMedia })
   })
 })
 

@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from 'react'
 import type { ChatContextReadModel, ChatArtifactSummary, ChatContextAction } from '@/lib/chat-context/types'
 import { ContextArtifactCard } from './ContextArtifactCard'
 import { ContextAttentionMoment } from './ContextAttentionMoment'
+import { RuntimeExecutionSection, type RuntimeExecution } from '@/components/messages/hermes/RuntimeInspectorRail'
 
-export function ContextDock({ model, open, onClose, compact = false, activeArtifactId, onArtifactActivate, onAction, actionError, pendingActionId }: { model: ChatContextReadModel; open: boolean; onClose: () => void; compact?: boolean; activeArtifactId?: string; onArtifactActivate?: (artifact: ChatArtifactSummary) => void; onAction?: (action: ChatContextAction) => void; actionError?: string | null; pendingActionId?: string }) {
+export function ContextDock({ model, open, onClose, compact = false, activeArtifactId, onArtifactActivate, onAction, actionError, pendingActionId, execution }: { model: ChatContextReadModel; open: boolean; onClose: () => void; compact?: boolean; activeArtifactId?: string; onArtifactActivate?: (artifact: ChatArtifactSummary) => void; onAction?: (action: ChatContextAction) => void; actionError?: string | null; pendingActionId?: string; execution?: RuntimeExecution }) {
   const [mobile, setMobile] = useState(() => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 1023px)').matches)
   const sheet = compact || mobile
   const dialogRef = useRef<HTMLElement>(null)
@@ -42,6 +43,7 @@ export function ContextDock({ model, open, onClose, compact = false, activeArtif
     <header className="flex items-start gap-2 border-b border-[var(--color-card-border)] p-3"><div className="min-w-0 flex-1"><h2 className="truncate text-sm font-semibold text-on-surface">{model.context.label}</h2>{model.pulse.headline && <p className="mt-1 text-[11px] text-on-surface-variant">{model.pulse.headline}</p>}</div><button ref={closeRef} type="button" aria-label="Close context dock" onClick={onClose} className="grid h-7 w-7 place-items-center rounded-md text-on-surface-variant"><span className="material-symbols-outlined text-[17px]" aria-hidden="true">close</span></button></header>
     <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3">
       {actionError && <div role="alert" className="rounded-md border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">{actionError}</div>}
+      {execution?.activeMessage?.runId && <RuntimeExecutionSection {...execution} />}
       {model.attention.length > 0 && <section aria-label="Attention" className="space-y-2">{model.attention.map((item) => <ContextAttentionMoment key={item.id} attention={item} onAction={onAction} pendingActionId={pendingActionId} />)}</section>}
       {groups.map((group) => <section key={group.id}><h3 className="mb-2 text-[10px] font-label uppercase tracking-[0.18em] text-on-surface-variant">{group.label}</h3><ul>{group.items.map((item) => <li key={item.id} className="border-b border-white/[0.06] py-2 text-xs text-on-surface">{item.label}</li>)}</ul></section>)}
       {model.artifacts.length > 0 && <section><h3 className="mb-2 text-[10px] font-label uppercase tracking-[0.18em] text-on-surface-variant">Artifacts</h3><div className="space-y-2">{model.artifacts.map((artifact) => <div key={artifact.id} data-active={artifact.id === activeArtifactId || undefined}><ContextArtifactCard artifact={artifact} selected={artifact.id === activeArtifactId} onActivate={onArtifactActivate} onAction={onAction} pendingActionId={pendingActionId} /></div>)}</div></section>}

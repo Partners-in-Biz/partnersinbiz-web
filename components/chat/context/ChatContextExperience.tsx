@@ -5,8 +5,15 @@ import type { ChatArtifactSummary, ChatContextAction } from '@/lib/chat-context/
 import { ContextDock } from './ContextDock'
 import { ContextPulse } from './ContextPulse'
 import type { ReturnTypeOfUseChatContexts } from './internalTypes'
+import type { RuntimeExecution } from '@/components/messages/hermes/RuntimeInspectorRail'
+import type { ChatContextReadModel } from '@/lib/chat-context/types'
 
-export function ChatContextExperience({ context, compact = false, artifactRequest }: { context: ReturnTypeOfUseChatContexts; compact?: boolean; artifactRequest?: { id: string; nonce: number } }) {
+const executionOnlyModel: ChatContextReadModel = {
+  context: { kind: 'studio', id: 'execution', orgId: '', label: 'Conversation', icon: 'developer_board' },
+  pulse: { label: 'Execution', metrics: [] }, groups: [], artifacts: [], attention: [], activity: [], capabilities: [], asOf: '',
+}
+
+export function ChatContextExperience({ context, compact = false, artifactRequest, execution, executionRequest }: { context: ReturnTypeOfUseChatContexts; compact?: boolean; artifactRequest?: { id: string; nonce: number }; execution?: RuntimeExecution; executionRequest?: number }) {
   const [open, setOpen] = useState(false)
   const [activeArtifactId, setActiveArtifactId] = useState<string>()
   const [actionError, setActionError] = useState<string | null>(null)
@@ -17,7 +24,10 @@ export function ChatContextExperience({ context, compact = false, artifactReques
     setActiveArtifactId(artifactRequest.id)
     setOpen(true)
   }, [artifactRequest])
-  if (!context.model || !context.activeContext) return context.error ? <div role="alert" className="border-b border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">Unable to load context. <button type="button" aria-label="Retry context" onClick={() => { void context.refresh() }} className="underline">Retry</button></div> : null
+  useEffect(() => { if (executionRequest) setOpen(true) }, [executionRequest])
+  const hasExecution = Boolean(execution?.activeMessage?.runId)
+  if ((!context.model || !context.activeContext) && !hasExecution) return context.error ? <div role="alert" className="border-b border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">Unable to load context. <button type="button" aria-label="Retry context" onClick={() => { void context.refresh() }} className="underline">Retry</button></div> : null
+  const model = context.model ?? executionOnlyModel
   const activateArtifact = (artifact: ChatArtifactSummary) => { setActiveArtifactId(artifact.id); setOpen(true) }
   const executeAction = async (action: ChatContextAction) => {
     if (!action.href || !action.method) return
@@ -40,7 +50,7 @@ export function ChatContextExperience({ context, compact = false, artifactReques
     }
   }
   return <>
-    <ContextPulse model={context.model} contexts={context.contexts} activeContext={context.activeContext} onContextChange={context.setActiveContext} onOpen={() => setOpen(true)} />
-    <ContextDock model={context.model} open={open} compact={compact} activeArtifactId={activeArtifactId} onArtifactActivate={activateArtifact} onAction={(action) => { void executeAction(action) }} actionError={actionError} pendingActionId={pendingActionId} onClose={() => setOpen(false)} />
+    {context.model && context.activeContext ? <ContextPulse model={context.model} contexts={context.contexts} activeContext={context.activeContext} onContextChange={context.setActiveContext} onOpen={() => setOpen(true)} /> : <button type="button" data-testid="execution-context-trigger" onClick={() => setOpen(true)} className="mx-3 mt-2 inline-flex h-8 items-center gap-2 self-start rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-xs text-on-surface"><span aria-hidden="true" className="material-symbols-outlined text-[15px]">developer_board</span>Execution <span className="text-on-surface-variant">{execution?.activeMessage?.status}</span></button>}
+    <ContextDock model={model} open={open} compact={compact} activeArtifactId={activeArtifactId} onArtifactActivate={activateArtifact} onAction={(action) => { void executeAction(action) }} actionError={actionError} pendingActionId={pendingActionId} execution={execution} onClose={() => setOpen(false)} />
   </>
 }
