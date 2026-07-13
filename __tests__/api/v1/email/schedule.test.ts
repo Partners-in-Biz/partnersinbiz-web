@@ -21,6 +21,15 @@ jest.mock('@/lib/email/resend', () => ({
   htmlToPlainText: jest.fn((h: string) => h),
 }))
 
+// Canonical consent enforcement has its own focused send-gate suite. These
+// scheduling tests exercise queue lifecycle behaviour with consent allowed.
+jest.mock('@/lib/consent-ledger/decision', () => ({
+  resolveCanonicalEmailConsent: jest.fn().mockResolvedValue({
+    allowed: true,
+    precedence: 'default-allow',
+  }),
+}))
+
 import { adminDb } from '@/lib/firebase/admin'
 process.env.AI_API_KEY = 'test-key'
 process.env.CRON_SECRET = 'cron-secret'
