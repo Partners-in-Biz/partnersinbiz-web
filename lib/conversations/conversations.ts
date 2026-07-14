@@ -13,7 +13,7 @@ import type { AgentId, Conversation, ConversationMessage, Participant } from './
 import type { ContextReference } from '@/lib/context-references/types'
 import type { ConversationWorkspaceContext } from '@/lib/client-provisioning/workspace-context'
 import type { ApiUser } from '@/lib/api/types'
-import { canAccessConversation } from './access'
+import { authorizeConversationProject, canAccessConversation } from './access'
 import {
   CONVERSATION_RUN_DISPATCH_GRACE_MS,
 } from './run-policy'
@@ -41,6 +41,7 @@ export async function createConversation(input: {
   startedBy: string
   participants: Participant[]
   orchestration?: Conversation['orchestration']
+  lineage?: Conversation['lineage']
   title?: string
   scope?: Conversation['scope']
   scopeRefId?: string
@@ -64,6 +65,7 @@ export async function createConversation(input: {
     participantAgentIds,
     accessVersion: 0,
     ...(input.orchestration ? { orchestration: input.orchestration } : {}),
+    ...(input.lineage ? { lineage: input.lineage } : {}),
     startedBy: input.startedBy,
     title: input.title?.trim() || 'New conversation',
     messageCount: 0,
@@ -120,7 +122,7 @@ export async function listConversations(
     snap = await orgQuery.get()
   }
 
-  return snap.docs
+  const candidates = snap.docs
     .map((d) => ({ id: d.id, ...d.data() }) as Conversation)
     .sort((left, right) => {
       const leftMs = left.updatedAt?.toMillis?.() ?? 0
@@ -134,6 +136,13 @@ export async function listConversations(
       if (filters?.projectId && conversation.scopeRefId !== filters.projectId) return false
       return true
     })
+
+  const projectAuthorizations = await Promise.all(
+    candidates.map((conversation) => authorizeConversationProject(user, conversation)),
+  )
+
+  return candidates
+    .filter((_conversation, index) => projectAuthorizations[index]?.ok)
     .slice(0, limit)
 }
 

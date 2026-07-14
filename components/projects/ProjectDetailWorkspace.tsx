@@ -1,8 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-import { collection, onSnapshot } from 'firebase/firestore'
-import { getClientDb } from '@/lib/firebase/config'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 import { KanbanBoard } from '@/components/kanban/KanbanBoard'
@@ -62,13 +60,6 @@ function upsertTaskById(existingTasks: Task[], task: Task) {
   ]
 }
 
-function mergeLiveTasks(restTasks: Task[], currentTasks: Task[]) {
-  const merged = new Map<string, Task>()
-  restTasks.forEach(task => merged.set(task.id, task))
-  currentTasks.forEach(task => merged.set(task.id, task))
-  return Array.from(merged.values())
-}
-
 const DEFAULT_COLUMNS: Column[] = [
   { id: 'backlog',     name: 'Backlog',     color: 'var(--color-outline)',    order: 0 },
   { id: 'todo',        name: 'To Do',       color: '#60a5fa',                 order: 1 },
@@ -77,7 +68,7 @@ const DEFAULT_COLUMNS: Column[] = [
   { id: 'review',      name: 'Review',      color: '#c084fc',                 order: 4 },
   { id: 'done',        name: 'Done',        color: '#4ade80',                 order: 5 },
 ]
-const TASK_REFRESH_INTERVAL_MS = 60_000
+const TASK_REFRESH_INTERVAL_MS = 15_000
 
 function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`pib-skeleton ${className}`} />
@@ -217,6 +208,7 @@ export function ProjectDetailWorkspace({
   const [settingsSaved, setSettingsSaved] = useState(false)
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [userLoadError, setUserLoadError] = useState<string | null>(null)
+  const taskMutationVersionRef = useRef(0)
 
   useEffect(() => {
     if (!isAdmin) return
@@ -231,11 +223,16 @@ export function ProjectDetailWorkspace({
     setTargetOrgId(project.clientOrgId ?? project.orgId ?? '')
   }, [project])
 
-  const refreshTasks = useCallback(async ({ preserveLiveChanges = false }: { preserveLiveChanges?: boolean } = {}) => {
+  const refreshTasks = useCallback(async () => {
+    const mutationVersionAtRequest = taskMutationVersionRef.current
     const res = await fetch(`/api/v1/projects/${projectId}/tasks`)
+    if (!res.ok) throw new Error(`Task refresh failed (${res.status})`)
     const body = await res.json()
     const nextTasks = (body.data ?? []) as Task[]
-    setTasks(prev => preserveLiveChanges ? mergeLiveTasks(nextTasks, prev) : nextTasks)
+    // Do not let a response started before a local create/update/delete erase
+    // the mutation. The next 15-second refresh reconciles the server result.
+    if (taskMutationVersionRef.current !== mutationVersionAtRequest) return
+    setTasks(nextTasks)
     setSelectedTask(prev => {
       if (!prev) return prev
       const freshTask = nextTasks.find(task => task.id === prev.id)
@@ -268,58 +265,29 @@ export function ProjectDetailWorkspace({
   useEffect(() => {
     let cancelled = false
     let refreshInFlight = false
-    let listenerHealthy = false
 
-    const refresh = async (options?: { preserveLiveChanges?: boolean }) => {
+    const refresh = async ({ force = false }: { force?: boolean } = {}) => {
       if (cancelled || refreshInFlight) return
-      if (!options?.preserveLiveChanges && listenerHealthy) return
-      if (!options?.preserveLiveChanges && document.visibilityState !== 'visible') return
+      if (!force && document.visibilityState !== 'visible') return
       refreshInFlight = true
       try {
-        await refreshTasks(options)
+        await refreshTasks()
       } catch {
-        // Keep the last known board state if the REST fallback misses a tick.
+        // Keep the last known board state if an API refresh misses a tick.
       } finally {
         refreshInFlight = false
       }
     }
 
-    // Initial tasks load via REST — always reliable regardless of client auth.
-    // Preserve any listener events that win the race before the first REST response returns.
-    refresh({ preserveLiveChanges: true })
+    refresh({ force: true })
 
-    // Poll as a safety net for browsers/sessions where the Firestore listener is denied,
-    // disconnected, or not delivering changes; this keeps the open Kanban board moving.
     const refreshInterval = window.setInterval(() => {
       refresh()
     }, TASK_REFRESH_INTERVAL_MS)
 
-    // Live patches via Firestore — applies incremental changes immediately when available.
-    const unsubscribe = onSnapshot(
-      collection(getClientDb(), 'projects', projectId, 'tasks'),
-      (snap) => {
-        listenerHealthy = true
-        snap.docChanges().forEach(change => {
-          const taskData = { id: change.doc.id, ...change.doc.data() } as Task
-          if (change.type === 'added' || change.type === 'modified') {
-            setTasks(prev => upsertTaskById(prev, taskData))
-            setSelectedTask(prev => prev?.id === taskData.id ? taskData : prev)
-          }
-          if (change.type === 'removed') {
-            setTasks(prev => prev.filter(t => t.id !== change.doc.id))
-          }
-        })
-      },
-      (error) => {
-        listenerHealthy = false
-        console.warn('Project task live listener unavailable; using REST refresh fallback.', error)
-      },
-    )
-
     return () => {
       cancelled = true
       window.clearInterval(refreshInterval)
-      unsubscribe()
     }
   }, [projectId, refreshTasks])
 
@@ -390,6 +358,7 @@ export function ProjectDetailWorkspace({
     if (!res.ok || body?.success === false) {
       throw new Error(typeof body?.error === 'string' ? body.error : `Task move failed (${res.status})`)
     }
+    taskMutationVersionRef.current += 1
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, columnId: newColumnId, order: newOrder } : t))
   }, [projectId])
 
@@ -403,11 +372,13 @@ export function ProjectDetailWorkspace({
     if (!res.ok || body?.success === false) {
       throw new Error(typeof body?.error === 'string' ? body.error : `Task update failed (${res.status})`)
     }
+    taskMutationVersionRef.current += 1
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t))
     setSelectedTask(prev => prev?.id === taskId ? { ...prev, ...updates } as Task : prev)
   }, [projectId])
 
   const handleTaskDelete = useCallback(async (taskId: string) => {
+    taskMutationVersionRef.current += 1
     setTasks(prev => prev.filter(t => t.id !== taskId))
     await fetch(`/api/v1/projects/${projectId}/tasks/${taskId}`, { method: 'DELETE' })
   }, [projectId])
@@ -535,6 +506,7 @@ export function ProjectDetailWorkspace({
   }
 
   function handleTaskCreated(task: Task) {
+    taskMutationVersionRef.current += 1
     setTasks(prev => upsertTaskById(prev, task))
   }
 

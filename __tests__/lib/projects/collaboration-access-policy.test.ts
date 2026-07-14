@@ -40,4 +40,22 @@ describe('project legacy org access policy gating', () => {
       expect.objectContaining({ source: 'legacy_org' }),
     )
   })
+
+  it('recognizes multi-organisation project arrays for legacy full-scope access', () => {
+    const user: ApiUser = {
+      uid: 'uid-1',
+      role: 'client',
+      orgId: 'org-1',
+      orgIds: ['org-1'],
+      memberAccessPolicy: normalizeMemberAccessPolicy({
+        preset: 'custom',
+        modules: { projects: true },
+        recordScopes: { projects: 'all' },
+      }),
+    }
+
+    expect(legacyProjectAccessForUser(user, { clientOrgIds: ['org-2', 'org-1'] })).toEqual(
+      expect.objectContaining({ source: 'legacy_org' }),
+    )
+  })
 })

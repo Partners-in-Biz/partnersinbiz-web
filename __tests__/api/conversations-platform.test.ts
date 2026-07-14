@@ -14,6 +14,9 @@ const mockCreateConversation = jest.fn()
 const mockListConversations = jest.fn()
 const mockOrgChatConfigGet = jest.fn()
 const mockResolveVisibleAgents = jest.fn()
+const mockAuthorizeWorkspaceRuntime = jest.fn()
+const mockRequireProjectRuntimeReplica = jest.fn()
+const mockGetProjectForUser = jest.fn()
 
 let mockUser: MockUser = { uid: 'admin-1', role: 'admin' }
 let organizationMembers: Array<{ userId: string; role: string }> = []
@@ -36,6 +39,19 @@ jest.mock('@/lib/conversations/conversations', () => ({
   resolveVisibleAgents: mockResolveVisibleAgents,
 }))
 
+jest.mock('@/lib/workspaces/runtime-authorization', () => ({
+  authorizeWorkspaceRuntime: mockAuthorizeWorkspaceRuntime,
+  workspaceRuntimeSupportsOrganizationSharing: (runtime: { organizationAccessible?: boolean; accessMode?: string }) => (
+    runtime.organizationAccessible === true || runtime.accessMode === 'organization'
+  ),
+}))
+jest.mock('@/lib/project-locations/runtime-binding', () => ({
+  requireProjectRuntimeReplica: mockRequireProjectRuntimeReplica,
+}))
+jest.mock('@/lib/projects/access', () => ({
+  getProjectForUser: mockGetProjectForUser,
+}))
+
 beforeEach(() => {
   jest.resetModules()
   jest.clearAllMocks()
@@ -50,6 +66,21 @@ beforeEach(() => {
   mockResolveVisibleAgents.mockReturnValue(['pip', 'theo', 'maya', 'sage', 'nora', 'ads', 'qa-release', 'support', 'data', 'docs', 'seo'])
   mockCreateConversation.mockImplementation(async (input) => ({ id: 'conv-1', ...input }))
   mockListConversations.mockResolvedValue([{ id: 'conv-1', orgId: 'pib-platform-owner' }])
+  mockAuthorizeWorkspaceRuntime.mockImplementation(async ({ runtimeTargetId }: { runtimeTargetId: string }) => {
+    if (runtimeTargetId === 'local') return { kind: 'execution-location', locationId: 'peets-mac-mini', runtimeTargetId, machineLabel: "Local: Peet's Mac", locationKind: 'computer', organizationAccessible: false }
+    if (runtimeTargetId === 'vps') return { kind: 'execution-location', locationId: 'partners-vps', runtimeTargetId, machineLabel: 'VPS', locationKind: 'vps', organizationAccessible: true }
+    throw new Error('Execution location not authorized')
+  })
+  mockRequireProjectRuntimeReplica.mockResolvedValue({ replicaId: 'replica-project-runtime' })
+  mockGetProjectForUser.mockResolvedValue({
+    ok: true,
+    doc: {
+      id: 'project-1',
+      exists: true,
+      data: () => ({ orgId: 'org-1', name: 'Website launch' }),
+    },
+    projectAccess: { role: 'manager', source: 'legacy_org', canViewInternal: true },
+  })
 
   const usersById: Record<string, Record<string, unknown>> = {
     'admin-1': { role: 'admin', orgId: 'pib-platform-owner', allowedOrgIds: [], email: 'peet@example.com', displayName: 'Peet' },
@@ -193,6 +224,18 @@ beforeEach(() => {
         }),
       }
     }
+    if (name === 'project_location_replicas') {
+      return { where: () => ({ get: async () => ({ docs: [] }) }) }
+    }
+    if (name === 'projectOrganizations') {
+      return {
+        doc: () => ({ get: async () => ({ exists: false, data: () => undefined }) }),
+        where: () => ({ get: async () => ({ docs: [] }) }),
+      }
+    }
+    if (name === 'projectMembers') {
+      return { where: () => ({ get: async () => ({ docs: [] }) }) }
+    }
     throw new Error(`Unexpected collection: ${name}`)
   })
 })
@@ -277,6 +320,22 @@ describe('platform-scoped unified conversations', () => {
         expect.objectContaining({ kind: 'user', uid: 'admin-2' }),
       ]),
     }))
+  })
+
+  it('rejects a project session on a Workspace computer that is not linked to that project', async () => {
+    mockRequireProjectRuntimeReplica.mockRejectedValueOnce(new Error('Project is not linked to this computer'))
+    const { POST } = await import('@/app/api/v1/conversations/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/conversations', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1', scope: 'project', scopeRefId: 'project-1', workspaceId: 'acme',
+        runtimeTarget: 'vps', participants: [{ kind: 'agent', agentId: 'pip' }],
+      }),
+    }))
+
+    expect(res.status).toBe(409)
+    expect((await readJson(res)).error).toBe('Project is not linked to this computer')
+    expect(mockCreateConversation).not.toHaveBeenCalled()
   })
 
   it('blocks client conversation starts when the messages start policy denies their org role', async () => {
@@ -368,6 +427,9 @@ describe('platform-scoped unified conversations', () => {
     }))
 
     expect(res.status).toBe(201)
+    expect(mockAuthorizeWorkspaceRuntime).toHaveBeenCalledWith({
+      userId: 'admin-1', orgId: 'org-1', workspaceId: 'acme', runtimeTargetId: 'local', agentId: 'pip',
+    })
     expect(mockCreateConversation).toHaveBeenCalledWith(expect.objectContaining({
       orgId: 'org-1',
       scope: 'workspace',
@@ -384,6 +446,10 @@ describe('platform-scoped unified conversations', () => {
   })
 
   it('binds a project conversation to its concrete Workspace project folder', async () => {
+    mockRequireProjectRuntimeReplica.mockResolvedValueOnce({
+      replicaId: 'replica-project-runtime',
+      relativePath: 'clients/acme/website-launch',
+    })
     const { POST } = await import('@/app/api/v1/conversations/route')
     const res = await POST(new NextRequest('http://localhost/api/v1/conversations', {
       method: 'POST',
@@ -398,18 +464,39 @@ describe('platform-scoped unified conversations', () => {
     }))
 
     expect(res.status).toBe(201)
+    expect(mockRequireProjectRuntimeReplica).toHaveBeenCalledWith(expect.objectContaining({
+      projectId: 'project-1', orgId: 'org-1', workspaceId: 'acme', actorUserId: 'admin-1',
+      runtime: expect.objectContaining({ kind: 'execution-location', locationId: 'partners-vps' }),
+    }))
     expect(mockCreateConversation).toHaveBeenCalledWith(expect.objectContaining({
       scope: 'project',
       scopeRefId: 'project-1',
       workspaceContext: expect.objectContaining({
         folderScope: 'project',
-        folderRelativePath: 'projects/project-1',
+        folderRelativePath: 'clients/acme/website-launch',
         projectId: 'project-1',
         projectName: 'Website launch',
-        vpsWorkingPath: '/var/lib/hermes/Cowork/Acme/projects/project-1',
-        localWorkingPath: '~/Cowork/Acme/projects/project-1',
+        vpsWorkingPath: '/var/lib/hermes/Cowork/Acme/clients/acme/website-launch',
+        localWorkingPath: '~/Cowork/Acme/clients/acme/website-launch',
       }),
     }))
+  })
+
+  it('rejects a project session when the caller lacks project-level access', async () => {
+    mockGetProjectForUser.mockResolvedValueOnce({ ok: false, status: 403, error: 'Forbidden' })
+    const { POST } = await import('@/app/api/v1/conversations/route')
+
+    const res = await POST(new NextRequest('http://localhost/api/v1/conversations', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1', scope: 'project', scopeRefId: 'project-1', workspaceId: 'acme',
+        runtimeTarget: 'vps', participants: [{ kind: 'agent', agentId: 'pip' }],
+      }),
+    }))
+
+    expect(res.status).toBe(403)
+    expect(mockAuthorizeWorkspaceRuntime).not.toHaveBeenCalled()
+    expect(mockCreateConversation).not.toHaveBeenCalled()
   })
 
   it('rejects workspace-scoped conversations without an explicit workspace id', async () => {
@@ -443,6 +530,40 @@ describe('platform-scoped unified conversations', () => {
       }),
     }))
     expect(res.status).toBe(400)
+    expect(mockCreateConversation).not.toHaveBeenCalled()
+  })
+
+  it('rejects an organisation-shared session on a private computer', async () => {
+    const { POST } = await import('@/app/api/v1/conversations/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/conversations', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1', scope: 'workspace', workspaceId: 'acme', runtimeTarget: 'local',
+        shareMode: 'org', participants: [{ kind: 'agent', agentId: 'pip' }],
+      }),
+    }))
+
+    expect(res.status).toBe(400)
+    expect((await readJson(res)).error).toBe('Organisation-shared sessions require an organisation-available computer')
+    expect(mockCreateConversation).not.toHaveBeenCalled()
+  })
+
+  it('rejects a participant-shared session on a private computer', async () => {
+    const { POST } = await import('@/app/api/v1/conversations/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/conversations', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1', scope: 'workspace', workspaceId: 'acme', runtimeTarget: 'local',
+        shareMode: 'shared',
+        participants: [
+          { kind: 'agent', agentId: 'pip' },
+          { kind: 'user', uid: 'admin-2' },
+        ],
+      }),
+    }))
+
+    expect(res.status).toBe(400)
+    expect((await readJson(res)).error).toBe('Shared sessions require an organisation-available computer')
     expect(mockCreateConversation).not.toHaveBeenCalled()
   })
 

@@ -5,10 +5,43 @@ import { createPairing } from '@/lib/linked-computers/crypto'
 export const dynamic = 'force-dynamic'
 
 type CreatePairingFn = typeof createPairing
+type PairingCreateInput = {
+  deviceKind?: 'computer' | 'vps'
+  ownerType?: 'user' | 'organization'
+  ownerOrgId?: string
+  adoptLocationId?: string
+}
 
-export async function handlePairingCreate(user: { uid: string }, create: CreatePairingFn = createPairing): Promise<Response> {
+export async function handlePairingCreate(
+  user: { uid: string },
+  inputOrCreate: PairingCreateInput | CreatePairingFn = {},
+  create: CreatePairingFn = createPairing,
+): Promise<Response> {
   try {
-    const pairing = await create({ actorUserId: user.uid })
+    const input = typeof inputOrCreate === 'function' ? {} : inputOrCreate
+    const createFn = typeof inputOrCreate === 'function' ? inputOrCreate : create
+    const deviceKind = input.deviceKind ?? 'computer'
+    const ownerType = input.ownerType ?? 'user'
+    if (!['computer', 'vps'].includes(deviceKind) || !['user', 'organization'].includes(ownerType)) {
+      return NextResponse.json({ success: false, error: 'Invalid pairing options' }, { status: 400 })
+    }
+    const ownerOrgId = ownerType === 'organization' && typeof input.ownerOrgId === 'string'
+      ? input.ownerOrgId.trim()
+      : undefined
+    if (ownerType === 'organization' && !ownerOrgId) {
+      return NextResponse.json({ success: false, error: 'Organisation is required' }, { status: 400 })
+    }
+    const adoptLocationId = typeof input.adoptLocationId === 'string' ? input.adoptLocationId.trim() : undefined
+    if (adoptLocationId && !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(adoptLocationId)) {
+      return NextResponse.json({ success: false, error: 'Invalid project location' }, { status: 400 })
+    }
+    const pairing = await createFn({
+      actorUserId: user.uid,
+      deviceKind,
+      ownerType,
+      ...(ownerOrgId ? { ownerOrgId } : {}),
+      ...(adoptLocationId ? { adoptLocationId } : {}),
+    })
     return NextResponse.json({ success: true, data: pairing }, {
       status: 201,
       headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' },
@@ -21,4 +54,7 @@ export async function handlePairingCreate(user: { uid: string }, create: CreateP
   }
 }
 
-export const POST = withAuth('client', async (_req: NextRequest, user) => handlePairingCreate(user))
+export const POST = withAuth('client', async (req: NextRequest, user) => {
+  const body = await req.json().catch(() => ({})) as PairingCreateInput
+  return handlePairingCreate(user, body)
+})

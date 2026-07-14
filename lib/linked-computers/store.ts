@@ -1,14 +1,17 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
-import { assertDeviceOrgAccess, assertGrantAdministrator } from './policy'
+import { assertDeviceManager, assertDeviceOrgAccess, assertGrantAdministrator, effectiveGrantAccessMode, isActiveOrgMembershipRow, linkedDeviceActorUserId, linkedDeviceOwnerType } from './policy'
 import type {
   ActiveOrgMembership,
+  DeviceGrantAccessMode,
   DeviceGrantStatus,
   LinkedDevice,
   LinkedDeviceArchitecture,
   LinkedDeviceCapability,
   LinkedDeviceGrant,
+  LinkedDeviceKind,
+  LinkedDeviceOwnerType,
   LinkedDevicePlatform,
   LinkedDeviceStatus,
   WorkspaceMappingStatus,
@@ -47,35 +50,68 @@ interface DbLike {
   collection(name: string): { doc(id: string): RefLike }
   runTransaction<T>(fn: (tx: TransactionLike) => Promise<T>): Promise<T>
 }
+interface ReadDocumentLike {
+  id: string
+  data(): Record<string, unknown>
+}
+interface ReadQuerySnapshotLike { docs: ReadDocumentLike[] }
+interface ReadQueryLike {
+  where(field: string, op: string, value: unknown): ReadQueryLike
+  get(): Promise<ReadQuerySnapshotLike>
+}
+interface ReadDbLike { collection(name: string): ReadQueryLike }
 interface StoreOptions { db?: DbLike; now?: () => unknown; nowMs?: () => number }
 
 export interface SafeLinkedDeviceDto {
   deviceId: string; label: string; platform: LinkedDevicePlatform; architecture: LinkedDeviceArchitecture
+  deviceKind: LinkedDeviceKind; ownerType: LinkedDeviceOwnerType
   runtimeVersion: string; capabilities: LinkedDeviceCapability[]; status: LinkedDeviceStatus
   credentialVersion: number; createdAt: unknown; updatedAt: unknown; lastSeenAt: unknown | null
   health: 'ok' | 'degraded' | null
-  grants: Array<{ orgId: string; status: DeviceGrantStatus }>
+  grants: Array<{ orgId: string; status: DeviceGrantStatus; accessMode: DeviceGrantAccessMode }>
   mappings: Array<{ mappingId: string; orgId: string; workspaceId: string; label: string; status: WorkspaceMappingStatus }>
 }
 
 export function toSafeLinkedDeviceDto(row: LinkedDevice): SafeLinkedDeviceDto {
   const { deviceId, label, platform, architecture, runtimeVersion, capabilities, status, credentialVersion, createdAt, updatedAt, lastSeenAt } = row
   const health = (row as LinkedDevice & { health?: unknown }).health
-  return { deviceId, label, platform, architecture, runtimeVersion, capabilities, status, credentialVersion, createdAt, updatedAt, lastSeenAt,
+  return { deviceId, label, platform, architecture, deviceKind: row.deviceKind === 'vps' ? 'vps' : 'computer', ownerType: linkedDeviceOwnerType(row), runtimeVersion, capabilities, status, credentialVersion, createdAt, updatedAt, lastSeenAt,
     health: health === 'ok' || health === 'degraded' ? health : null, grants: [], mappings: [] }
 }
 
 export async function listOwnedDevices(actorUserId: string, options: StoreOptions = {}): Promise<SafeLinkedDeviceDto[]> {
-  const db = (options.db ?? adminDb) as any
-  const snapshot = await db.collection(DEVICES).where('ownerUserId', '==', required(actorUserId, 'actorUserId')).get()
-  return Promise.all(snapshot.docs.map(async (doc: any) => {
-    const dto = toSafeLinkedDeviceDto(doc.data() as LinkedDevice)
+  const db = (options.db ?? adminDb) as unknown as ReadDbLike
+  const userId = required(actorUserId, 'actorUserId')
+  const [owned, uidMemberships, userIdMemberships] = await Promise.all([
+    db.collection(DEVICES).where('ownerUserId', '==', userId).get(),
+    db.collection(MEMBERS).where('uid', '==', userId).get(),
+    db.collection(MEMBERS).where('userId', '==', userId).get(),
+  ])
+  const manageableOrgIds = [...uidMemberships.docs, ...userIdMemberships.docs]
+    .map((doc) => doc.data())
+    .filter((row) => isActiveOrgMembershipRow(row) && (row.role === 'owner' || row.role === 'admin') && typeof row.orgId === 'string')
+    .map((row) => row.orgId as string)
+  const organizationSnapshots = await Promise.all([...new Set(manageableOrgIds)].map((orgId) => db.collection(DEVICES).where('ownerOrgId', '==', orgId).get()))
+  const docs = [...owned.docs, ...organizationSnapshots.flatMap((snapshot) => snapshot.docs)]
+    .filter((doc, index, all) => all.findIndex((candidate) => candidate.id === doc.id) === index)
+  return Promise.all(docs.map(async (doc) => {
+    const dto = toSafeLinkedDeviceDto(doc.data() as unknown as LinkedDevice)
     const [grants, mappings] = await Promise.all([
       db.collection(GRANTS).where('deviceId', '==', dto.deviceId).get(),
       db.collection(MAPPINGS).where('deviceId', '==', dto.deviceId).get(),
     ])
-    dto.grants = grants.docs.map((grant: any) => { const row = grant.data(); return { orgId: String(row.orgId), status: row.status as DeviceGrantStatus } })
-    dto.mappings = mappings.docs.map((mapping: any) => { const row = mapping.data(); return { mappingId: String(row.mappingId), orgId: String(row.orgId), workspaceId: String(row.workspaceId), label: String(row.label), status: row.status as WorkspaceMappingStatus } })
+    dto.grants = grants.docs.map((grant) => {
+      const row = grant.data()
+      return {
+        orgId: String(row.orgId),
+        status: row.status as DeviceGrantStatus,
+        accessMode: effectiveGrantAccessMode({
+          accessMode: typeof row.accessMode === 'string' ? row.accessMode as DeviceGrantAccessMode : undefined,
+          allowedUserIds: Array.isArray(row.allowedUserIds) ? row.allowedUserIds : [],
+        }),
+      }
+    })
+    dto.mappings = mappings.docs.map((mapping) => { const row = mapping.data(); return { mappingId: String(row.mappingId), orgId: String(row.orgId), workspaceId: String(row.workspaceId), label: String(row.label), status: row.status as WorkspaceMappingStatus } })
     return dto
   }))
 }
@@ -88,12 +124,12 @@ export async function updateOwnedDevice(input: { deviceId: string; actorUserId: 
     const snap = await tx.get(ref)
     if (!snap.exists) throw new Error('linked computers: device not found')
     const device = snap.data() as unknown as LinkedDevice
-    if (device.ownerUserId !== input.actorUserId) throw new Error('linked computers: device owner required')
+    await assertStoreDeviceManager(tx, db, device, input.actorUserId)
     tx.update(ref, { label: required(input.label ?? '', 'label'), updatedAt: timestamp(options) })
   })
 }
 
-export async function recordDeviceHeartbeat(input: { deviceId: string; runtimeVersion: string; capabilities: LinkedDeviceCapability[]; health: 'ok' | 'degraded' }, options: StoreOptions = {}): Promise<void> {
+export async function recordDeviceHeartbeat(input: { deviceId: string; runtimeVersion: string; capabilities: LinkedDeviceCapability[]; health: 'ok' | 'degraded'; syncProtocolVersion?: 1 | null }, options: StoreOptions = {}): Promise<void> {
   const db = options.db ?? (adminDb as unknown as DbLike)
   await db.runTransaction(async (tx) => {
     const ref = db.collection(DEVICES).doc(input.deviceId)
@@ -102,7 +138,14 @@ export async function recordDeviceHeartbeat(input: { deviceId: string; runtimeVe
     const device = snap.data() as unknown as LinkedDevice
     if (device.status !== 'active') throw new Error('linked computers: active device required')
     const at = timestamp(options)
-    tx.update(ref, { runtimeVersion: required(input.runtimeVersion, 'runtimeVersion'), capabilities: input.capabilities, health: input.health, lastSeenAt: at, updatedAt: at })
+    tx.update(ref, {
+      runtimeVersion: required(input.runtimeVersion, 'runtimeVersion'),
+      capabilities: input.capabilities,
+      syncProtocolVersion: input.syncProtocolVersion === 1 ? 1 : null,
+      health: input.health,
+      lastSeenAt: at,
+      updatedAt: at,
+    })
   })
 }
 
@@ -134,9 +177,19 @@ function membershipFrom(row: Record<string, unknown> | undefined, orgId: string,
   return {
     orgId,
     userId,
-    active: Boolean(row) && row?.orgId === orgId && (row.uid === userId || row.userId === userId) && row.status === 'active',
+    active: isActiveOrgMembershipRow(row) && row?.orgId === orgId && (row.uid === userId || row.userId === userId),
     role: typeof row?.role === 'string' ? row.role : undefined,
   }
+}
+
+async function assertStoreDeviceManager(tx: TransactionLike, db: DbLike, device: LinkedDevice, actorUserId: string): Promise<void> {
+  if (linkedDeviceOwnerType(device) === 'user') {
+    assertDeviceManager({ actorUserId, device })
+    return
+  }
+  const ownerOrgId = String(device.ownerOrgId)
+  const membershipSnap = await tx.get(db.collection(MEMBERS).doc(`${ownerOrgId}_${actorUserId}`))
+  assertDeviceManager({ actorUserId, device, ownerOrgMembership: membershipFrom(membershipSnap.data(), ownerOrgId, actorUserId) })
 }
 
 export async function createDevice(input: {
@@ -159,7 +212,9 @@ export async function createDevice(input: {
     if ((await tx.get(deviceRef)).exists) throw new Error('linked computers: device already exists')
     tx.create(deviceRef, {
       deviceId,
+      ownerType: 'user',
       ownerUserId,
+      createdByUserId: ownerUserId,
       runtimeTargetId: required(input.runtimeTargetId, 'runtimeTargetId'),
       publicKeyFingerprint: required(input.publicKeyFingerprint, 'publicKeyFingerprint'),
       label: required(input.label, 'label'),
@@ -192,11 +247,12 @@ export async function createPairingChallenge(input: {
     const deviceSnap = await tx.get(db.collection(DEVICES).doc(deviceId))
     if (!deviceSnap.exists) throw new Error('linked computers: device not found')
     const device = deviceSnap.data() as unknown as LinkedDevice
-    if (device.ownerUserId !== actorUserId) throw new Error('linked computers: device owner required')
+    await assertStoreDeviceManager(tx, db, device, actorUserId)
+    const deviceActorUserId = required(linkedDeviceActorUserId(device), 'device creator')
     const ref = db.collection(CHALLENGES).doc(required(input.challengeId, 'challengeId'))
     if ((await tx.get(ref)).exists) throw new Error('linked computers: pairing challenge already exists')
     tx.create(ref, {
-      challengeId: input.challengeId, deviceId, ownerUserId: device.ownerUserId,
+      challengeId: input.challengeId, deviceId, ownerUserId: deviceActorUserId,
       secretHash: hashSecret(input.secret), expiresAt, cleanupAt: Timestamp.fromMillis(Date.parse(expiresAt)), attempts: 0,
       maxAttempts: PAIRING_MAX_ATTEMPTS, createdAt: at,
     })
@@ -221,7 +277,8 @@ export async function consumePairingChallenge(input: {
     const deviceSnap = await tx.get(db.collection(DEVICES).doc(deviceId))
     if (!deviceSnap.exists) throw new Error('linked computers: paired device not found')
     const device = deviceSnap.data() as unknown as LinkedDevice
-    if (row.ownerUserId !== device.ownerUserId) throw new Error('linked computers: persisted pairing owner mismatch')
+    const deviceActorUserId = required(linkedDeviceActorUserId(device), 'device creator')
+    if (row.ownerUserId !== deviceActorUserId) throw new Error('linked computers: persisted pairing owner mismatch')
     if (row.consumedAt) throw new Error('linked computers: pairing challenge already consumed')
     if ((options.nowMs?.() ?? Date.now()) >= Date.parse(String(row.expiresAt))) throw new Error('linked computers: pairing challenge expired')
     if (Number(row.attempts ?? 0) >= Number(row.maxAttempts ?? 5)) throw new Error('linked computers: pairing attempts exhausted')
@@ -232,7 +289,7 @@ export async function consumePairingChallenge(input: {
     const at = timestamp(options)
     tx.update(ref, { consumedAt: at })
     tx.create(auditRef(db), {
-      eventId: randomUUID(), action: 'pairing.consumed', actorUserId: device.ownerUserId,
+      eventId: randomUUID(), action: 'pairing.consumed', actorUserId: deviceActorUserId,
       challengeId: input.challengeId, deviceId, createdAt: at,
     })
     return 'consumed'
@@ -244,7 +301,9 @@ const TRANSITIONS: Record<LinkedDeviceStatus, LinkedDeviceStatus[]> = {
   active: ['paused', 'revoked'], paused: ['active', 'revoked'], revoked: ['removed'], removed: [],
 }
 const GRANT_TRANSITIONS: Record<DeviceGrantStatus, DeviceGrantStatus[]> = {
-  active: ['paused', 'revoked'], paused: ['active', 'revoked'], revoked: [],
+  // Active-to-active is an intentional metadata update (for example changing
+  // Only me to Everyone in organisation). Revoked remains terminal.
+  active: ['active', 'paused', 'revoked'], paused: ['active', 'revoked'], revoked: [],
 }
 const MAPPING_TRANSITIONS: Record<WorkspaceMappingStatus, WorkspaceMappingStatus[]> = {
   pending: ['active','paused','removed'],
@@ -268,7 +327,7 @@ export async function transitionDeviceStatus(input: {
     const [snapshot, credentialSnap, deliverySnap] = await Promise.all([tx.get(ref), tx.get(credentialRef), tx.get(deliveryRef)])
     if (!snapshot.exists) throw new Error('linked computers: device not found')
     const device = snapshot.data() as unknown as LinkedDevice
-    if (device.ownerUserId !== input.actorUserId) throw new Error('linked computers: device owner required')
+    await assertStoreDeviceManager(tx, db, device, input.actorUserId)
     if (!TRANSITIONS[device.status].includes(input.status)) throw new Error('linked computers: invalid status transition')
     const at = timestamp(options)
     const statusAt = input.status === 'paused' ? { pausedAt: at }
@@ -303,7 +362,7 @@ export async function rotateDeviceCredential(input: {
     if (!deviceSnap.exists || !credentialSnap.exists) throw new Error('linked computers: device credential not found')
     const device = deviceSnap.data() as unknown as LinkedDevice
     const old = credentialSnap.data() ?? {}
-    if (device.ownerUserId !== input.actorUserId) throw new Error('linked computers: device owner required')
+    await assertStoreDeviceManager(tx, db, device, input.actorUserId)
     if (device.status !== 'active') throw new Error('linked computers: active device required')
     if (old.revokedAt) throw new Error('linked computers: device credential revoked')
     const credentialVersion = Number(device.credentialVersion) + 1
@@ -375,7 +434,7 @@ export async function revokeDeviceCredential(input: {
     const [deviceSnap, credentialSnap, deliverySnap] = await Promise.all([tx.get(deviceRef), tx.get(credentialRef), tx.get(deliveryRef)])
     if (!deviceSnap.exists || !credentialSnap.exists) throw new Error('linked computers: device credential not found')
     const device = deviceSnap.data() as unknown as LinkedDevice
-    if (device.ownerUserId !== input.actorUserId) throw new Error('linked computers: device owner required')
+    await assertStoreDeviceManager(tx, db, device, input.actorUserId)
     const at = timestamp(options)
     tx.update(deviceRef, { status: 'revoked', revokedAt: at, updatedAt: at })
     tx.update(credentialRef, { revokedAt: at, previousCredentialHash: null, previousCredentialVersion: null, previousCredentialExpiresAt: null })
@@ -398,7 +457,7 @@ export async function removeOwnedDevice(input: { deviceId: string; actorUserId: 
     ])
     if (!deviceSnap.exists) throw new Error('linked computers: device not found')
     const device = deviceSnap.data() as unknown as LinkedDevice
-    if (device.ownerUserId !== input.actorUserId) throw new Error('linked computers: device owner required')
+    await assertStoreDeviceManager(tx as unknown as TransactionLike, db as unknown as DbLike, device, input.actorUserId)
     if (device.status === 'removed') throw new Error('linked computers: invalid status transition')
     const at = timestamp(options)
     tx.update(deviceRef, { status: 'removed', removedAt: at, revokedAt: device.revokedAt ?? at, updatedAt: at })
@@ -502,31 +561,50 @@ export async function putDeviceGrant(input: {
   status: DeviceGrantStatus
   capabilities: LinkedDeviceCapability[]
   allowedUserIds?: string[]
+  accessMode?: DeviceGrantAccessMode
 }, options: StoreOptions = {}): Promise<void> {
   const db = options.db ?? (adminDb as unknown as DbLike)
   await db.runTransaction(async (tx) => {
     const deviceSnap = await tx.get(db.collection(DEVICES).doc(input.deviceId))
     if (!deviceSnap.exists) throw new Error('linked computers: device not found')
     const device = deviceSnap.data() as unknown as LinkedDevice
-    const [actorSnap, ownerSnap] = await Promise.all([
-      tx.get(db.collection(MEMBERS).doc(`${input.orgId}_${input.actorUserId}`)),
-      tx.get(db.collection(MEMBERS).doc(`${input.orgId}_${device.ownerUserId}`)),
-    ])
+    const ownerType = linkedDeviceOwnerType(device)
+    const ownerOrgId = ownerType === 'organization' ? String(device.ownerOrgId) : null
     const ref = db.collection(GRANTS).doc(`${input.orgId}_${input.deviceId}`)
-    const existing = await tx.get(ref)
+    const [actorSnap, ownerOrgActorSnap, existing] = await Promise.all([
+      tx.get(db.collection(MEMBERS).doc(`${input.orgId}_${input.actorUserId}`)),
+      tx.get(db.collection(MEMBERS).doc(`${ownerOrgId ?? input.orgId}_${input.actorUserId}`)),
+      tx.get(ref),
+    ])
     const fromStatus = existing.exists ? existing.data()?.status as DeviceGrantStatus : undefined
-    assertGrantAdministrator(membershipFrom(actorSnap.data(), input.orgId, input.actorUserId), input.orgId, input.actorUserId)
-    if (input.status === 'active' && !membershipFrom(ownerSnap.data(), input.orgId, device.ownerUserId).active) {
-      throw new Error('linked computers: owner membership required')
-    }
     if (fromStatus ? !GRANT_TRANSITIONS[fromStatus]?.includes(input.status) : input.status !== 'active') {
       throw new Error('linked computers: invalid grant status transition')
     }
+    const actorMembership = membershipFrom(actorSnap.data(), input.orgId, input.actorUserId)
+    if (ownerType === 'organization') {
+      assertGrantAdministrator(actorMembership, input.orgId, input.actorUserId)
+      assertGrantAdministrator(membershipFrom(ownerOrgActorSnap.data(), ownerOrgId!, input.actorUserId), ownerOrgId!, input.actorUserId)
+    } else if (input.status === 'active') {
+      if (input.actorUserId !== device.ownerUserId) throw new Error('linked computers: device owner required')
+      if (!actorMembership.active) {
+        throw new Error('linked computers: owner membership required')
+      }
+    } else if (input.actorUserId !== device.ownerUserId) {
+      // A current organisation administrator may contain an existing personal
+      // device grant, while only the device owner may activate or broaden it.
+      assertGrantAdministrator(actorMembership, input.orgId, input.actorUserId)
+    }
     const at = timestamp(options)
+    const existingGrant = existing.data() as Partial<LinkedDeviceGrant> | undefined
+    const accessMode = input.accessMode
+      ?? (input.allowedUserIds !== undefined ? 'selected_users' : existingGrant ? effectiveGrantAccessMode({ accessMode: existingGrant.accessMode, allowedUserIds: existingGrant.allowedUserIds ?? [] }) : 'owner')
+    if (!['owner', 'organization', 'selected_users'].includes(accessMode)) throw new Error('linked computers: invalid grant access mode')
+    const selectedUserIds = [...new Set((input.allowedUserIds ?? existingGrant?.allowedUserIds ?? []).filter((value) => typeof value === 'string' && value.trim()).map((value) => value.trim()))]
+    const allowedUserIds = accessMode === 'selected_users' ? selectedUserIds : []
     const statusAt = input.status === 'paused' ? { pausedAt: at } : input.status === 'revoked' ? { revokedAt: at } : {}
     tx.set(ref, {
       deviceId: input.deviceId, orgId: input.orgId, grantedByUserId: input.actorUserId,
-      allowedUserIds: input.allowedUserIds ?? [], capabilities: input.capabilities, status: input.status,
+      accessMode, allowedUserIds, capabilities: input.capabilities, status: input.status,
       ...(!existing.exists ? { createdAt: at } : {}), updatedAt: at, ...statusAt,
     }, { merge: true })
     tx.create(auditRef(db), {
@@ -560,7 +638,7 @@ export async function putWorkspaceMapping(input: {
     }
     const device = deviceSnap.data() as unknown as LinkedDevice
     const grant = grantSnap.data() as unknown as LinkedDeviceGrant
-    if (device.ownerUserId !== input.actorUserId) throw new Error('linked computers: device owner required')
+    await assertStoreDeviceManager(tx, db, device, input.actorUserId)
     assertDeviceOrgAccess({
       actorUserId: input.actorUserId, orgId: input.orgId, device, grant,
       membership: membershipFrom(memberSnap.data(), input.orgId, input.actorUserId),
@@ -599,15 +677,20 @@ export async function confirmDeviceMappingPresence(input: { deviceId: string; ma
     const [deviceSnap, mappingSnap, credentialSnap] = await Promise.all([tx.get(deviceRef), tx.get(mappingRef), tx.get(credentialRef)])
     if (!deviceSnap.exists || !mappingSnap.exists || !credentialSnap.exists) throw new Error('linked computers: mapping not found')
     const device = deviceSnap.data() ?? {}; const mapping = mappingSnap.data() ?? {}; const credential = credentialSnap.data() ?? {}
+    const deviceActorUserId = linkedDeviceActorUserId(device as unknown as LinkedDevice)
     const [grantSnap, memberSnap] = await Promise.all([
       tx.get(db.collection(GRANTS).doc(`${mapping.orgId}_${input.deviceId}`)),
-      tx.get(db.collection(MEMBERS).doc(`${mapping.orgId}_${input.ownerUserId}`)),
+      tx.get(db.collection(MEMBERS).doc(`${mapping.orgId}_${deviceActorUserId || '__organization_device__'}`)),
     ])
     const grant = grantSnap.data() ?? {}; const member = memberSnap.data() ?? {}
-    if (device.deviceId !== input.deviceId || device.ownerUserId !== input.ownerUserId || device.status !== 'active'
+    const ownerType = linkedDeviceOwnerType(device as unknown as LinkedDevice)
+    const validDeviceIdentity = deviceActorUserId === input.ownerUserId
+    const validOwnerMembership = ownerType === 'organization' || (memberSnap.exists && isActiveOrgMembershipRow(member) && member.orgId === mapping.orgId
+      && (member.uid === deviceActorUserId || member.userId === deviceActorUserId))
+    if (device.deviceId !== input.deviceId || !validDeviceIdentity || !validOwnerMembership || device.status !== 'active'
       || Number(device.credentialVersion) !== input.authenticatedCredentialVersion || Number(credential.credentialVersion) !== input.authenticatedCredentialVersion || credential.revokedAt
       || mapping.deviceId !== input.deviceId || !mapping.workspaceId || !mapping.orgId || !grantSnap.exists || grant.status !== 'active'
-      || !Array.isArray(grant.capabilities) || !grant.capabilities.includes('workspace.execute') || !memberSnap.exists || member.status !== 'active') throw new Error('linked computers: mapping confirmation denied')
+      || !Array.isArray(grant.capabilities) || !grant.capabilities.includes('workspace.execute')) throw new Error('linked computers: mapping confirmation denied')
     if (mapping.status === 'removed') throw new Error('linked computers: mapping removed')
     const next = input.present ? 'active' : 'paused'
     if (!(input.present ? ['pending', 'paused', 'active'] : ['pending', 'active', 'paused']).includes(String(mapping.status))) throw new Error('linked computers: invalid mapping transition')

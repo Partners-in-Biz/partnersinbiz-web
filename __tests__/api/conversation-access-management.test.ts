@@ -7,6 +7,8 @@ const mockResolveHumans = jest.fn()
 const mockCanAccess = jest.fn(() => true)
 const mockCanManage = jest.fn()
 const mockLogActivity = jest.fn()
+const mockAuthorizeWorkspaceRuntime = jest.fn()
+const mockAuthorizeConversationProject = jest.fn()
 
 let mockUser = { uid: 'owner-1', role: 'client' as 'client' | 'admin' | 'ai', orgId: 'org-1' }
 type MockHandler = (req: NextRequest, user: typeof mockUser, context?: unknown) => Promise<Response>
@@ -26,6 +28,7 @@ jest.mock('@/lib/conversations/conversations', () => ({
 jest.mock('@/lib/conversations/access', () => ({
   canAccessConversation: mockCanAccess,
   canManageConversationAccess: mockCanManage,
+  authorizeConversationProject: (...args: unknown[]) => mockAuthorizeConversationProject(...args),
   publicConversationView: (conversation: unknown) => conversation,
 }))
 jest.mock('@/lib/conversations/participant-access', () => {
@@ -39,6 +42,12 @@ jest.mock('@/lib/organizations/module-policy-access', () => ({
 }))
 jest.mock('@/lib/api/platformAdmin', () => ({ canAccessOrg: jest.fn(() => true) }))
 jest.mock('@/lib/activity/log', () => ({ logActivity: mockLogActivity }))
+jest.mock('@/lib/workspaces/runtime-authorization', () => ({
+  authorizeWorkspaceRuntime: (...args: unknown[]) => mockAuthorizeWorkspaceRuntime(...args),
+  workspaceRuntimeSupportsOrganizationSharing: (runtime: { organizationAccessible?: boolean; accessMode?: string }) => (
+    runtime.organizationAccessible === true || runtime.accessMode === 'organization'
+  ),
+}))
 
 const baseConversation = {
   id: 'conv-1', orgId: 'org-1', startedBy: 'owner-1', title: 'Workspace planning',
@@ -73,6 +82,10 @@ describe('PATCH conversation Workspace access', () => {
     mockUpdateConversationAccess.mockResolvedValue(1)
     mockCanManage.mockImplementation((user: typeof mockUser) => user.role === 'admin' || user.uid === 'owner-1')
     mockLogActivity.mockResolvedValue(undefined)
+    mockAuthorizeWorkspaceRuntime.mockResolvedValue({
+      kind: 'execution-location', organizationAccessible: true, machineLabel: 'Acme VPS',
+    })
+    mockAuthorizeConversationProject.mockResolvedValue({ ok: true, projectId: null })
     mockResolveHumans.mockImplementation(async ({ requestedUids }: { requestedUids: string[] }) =>
       requestedUids.map((uid) => ({ kind: 'user', uid, role: 'client' })),
     )
@@ -98,7 +111,32 @@ describe('PATCH conversation Workspace access', () => {
     const { PATCH } = await import('@/app/api/v1/conversations/[convId]/route')
     const response = await PATCH(request(accessBody({ shareMode: 'org', participantUids: ['member-2'] })), context())
     expect(response.status).toBe(200)
+    expect(mockAuthorizeWorkspaceRuntime).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'admin-1', orgId: 'org-1', workspaceId: 'acme', runtimeTargetId: 'vps', agentId: 'pip',
+    }))
     expect(mockUpdateConversationAccess).toHaveBeenCalledWith(expect.objectContaining({ shareMode: 'org' }))
+  })
+
+  it('rejects changing a private-computer session to organisation visibility', async () => {
+    mockAuthorizeWorkspaceRuntime.mockResolvedValueOnce({
+      kind: 'execution-location', organizationAccessible: false, machineLabel: "Owner's Mac",
+    })
+    const { PATCH } = await import('@/app/api/v1/conversations/[convId]/route')
+    const response = await PATCH(request(accessBody({ shareMode: 'org' })), context())
+
+    expect(response.status).toBe(400)
+    expect(mockUpdateConversationAccess).not.toHaveBeenCalled()
+  })
+
+  it('rejects changing a private-computer session to participant sharing', async () => {
+    mockAuthorizeWorkspaceRuntime.mockResolvedValueOnce({
+      kind: 'execution-location', organizationAccessible: false, machineLabel: "Owner's Mac",
+    })
+    const { PATCH } = await import('@/app/api/v1/conversations/[convId]/route')
+    const response = await PATCH(request(accessBody({ shareMode: 'shared', participantUids: ['member-2'] })), context())
+
+    expect(response.status).toBe(400)
+    expect(mockUpdateConversationAccess).not.toHaveBeenCalled()
   })
 
   it('rejects access changes from a participant who is not the owner', async () => {
@@ -142,5 +180,22 @@ describe('PATCH conversation Workspace access', () => {
     const { PATCH } = await import('@/app/api/v1/conversations/[convId]/route')
     const response = await PATCH(request(accessBody({ shareMode: 'org' })), context())
     expect(response.status).toBe(403)
+  })
+
+  it('rejects access promotion after the project link is revoked', async () => {
+    mockGetConversation.mockResolvedValueOnce({
+      ...baseConversation,
+      scope: 'project',
+      scopeRefId: 'project-1',
+      workspaceContext: { ...baseConversation.workspaceContext, projectId: 'project-1' },
+    })
+    mockAuthorizeConversationProject.mockResolvedValueOnce({
+      ok: false, status: 403, error: 'Project is outside this organisation',
+    })
+    const { PATCH } = await import('@/app/api/v1/conversations/[convId]/route')
+    const response = await PATCH(request(accessBody({ shareMode: 'org' })), context())
+
+    expect(response.status).toBe(403)
+    expect(mockUpdateConversationAccess).not.toHaveBeenCalled()
   })
 })

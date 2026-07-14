@@ -3,16 +3,37 @@
  * POST /api/v1/organizations — create a new organization
  */
 import { FieldValue } from 'firebase-admin/firestore'
+import type * as FirebaseFirestore from 'firebase-admin/firestore'
+import { NextRequest } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { buildClientProvisioningPayload, inferAgentName } from '@/lib/client-provisioning/provisioner'
 import { upsertOrgWorkspace } from '@/lib/client-provisioning/workspace-context'
 import { provisionFullClientOnVps } from '@/lib/client-provisioning/vps'
-import { slugify, isMember } from '@/lib/organizations/helpers'
+import { slugify } from '@/lib/organizations/helpers'
 import type { Organization, OrgMember, OrganizationSummary } from '@/lib/organizations/types'
+import type { ApiUser } from '@/lib/api/types'
 
 export const dynamic = 'force-dynamic'
+
+export interface TrustedOrganizationCreateOptions {
+  documentId: string
+  setupOperationId: string
+}
+
+function isAlreadyExistsError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const code = (error as { code?: unknown }).code
+  return code === 6 || code === 'already-exists'
+}
+
+function validTrustedOrganizationCreateOptions(value: TrustedOrganizationCreateOptions): boolean {
+  return /^setup_org_[a-f0-9]{40}$/.test(value.documentId)
+    && Boolean(value.setupOperationId.trim())
+    && value.setupOperationId.length <= 256
+}
 
 function timestampSeconds(value: unknown): number {
   if (!value || typeof value !== 'object') return 0
@@ -49,8 +70,10 @@ export const GET = withAuth('client', async (req, user) => {
         if (org.id === user.orgId) return true
         return allowed.includes(org.id!)
       }
-      // Clients: only orgs they are a member of.
-      return isMember(org.members ?? [], user.uid)
+      // Clients: canonical, revocable orgMembers scope is already resolved
+      // into the authenticated user's org IDs. Embedded member arrays are a
+      // legacy display cache and must not resurrect a revoked membership.
+      return canAccessOrg(user, org.id)
     })
     .map((org): OrganizationSummary => ({
       id: org.id!,
@@ -69,20 +92,57 @@ export const GET = withAuth('client', async (req, user) => {
   return apiSuccess(orgs)
 })
 
-export const POST = withAuth('admin', async (req, user) => {
+export async function handleOrganizationCreate(
+  req: NextRequest,
+  user: ApiUser,
+  trustedSetup?: TrustedOrganizationCreateOptions,
+) {
   const body = await req.json().catch(() => ({}))
+  if (trustedSetup && !validTrustedOrganizationCreateOptions(trustedSetup)) {
+    return apiError('Organisation setup resource identity is invalid', 500)
+  }
 
   const name = typeof body.name === 'string' ? body.name.trim() : ''
   if (!name) return apiError('name is required', 400)
 
-  const slug = slugify(name)
+  const requestedDomain = typeof body.domainSlug === 'string'
+    ? body.domainSlug.trim()
+    : typeof body.slug === 'string' ? body.slug.trim() : ''
+  if (requestedDomain && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(requestedDomain)) {
+    return apiError('domainSlug must be kebab-case', 400)
+  }
+  const slug = requestedDomain || slugify(name)
+
+  let trustedRef: FirebaseFirestore.DocumentReference | null = null
+  let trustedExisting: FirebaseFirestore.DocumentSnapshot | null = null
+  if (trustedSetup) {
+    trustedRef = adminDb.collection('organizations').doc(trustedSetup.documentId)
+    const snapshot = await trustedRef.get()
+    if (snapshot.exists) {
+      const existing = snapshot.data() ?? {}
+      if (existing.setupOperationId !== trustedSetup.setupOperationId
+        || existing.name !== name || existing.slug !== slug) {
+        return apiError('Organisation setup resource conflict', 409)
+      }
+      const provisioning = existing.provisioning && typeof existing.provisioning === 'object'
+        ? existing.provisioning as Record<string, unknown>
+        : {}
+      if (existing.setupCreationStatus === 'complete'
+        || provisioning.status === 'complete' || provisioning.status === 'skipped') {
+        return apiSuccess({ id: trustedRef.id, slug, provisioning }, 200)
+      }
+      trustedExisting = snapshot
+    }
+  }
 
   // Check slug uniqueness
-  const existing = await adminDb
-    .collection('organizations')
-    .where('slug', '==', slug)
-    .get()
-  if (!existing.empty) return apiError(`An organisation with slug "${slug}" already exists`, 409)
+  if (!trustedExisting) {
+    const existing = await adminDb
+      .collection('organizations')
+      .where('slug', '==', slug)
+      .get()
+    if (!existing.empty) return apiError(`An organisation with slug "${slug}" already exists`, 409)
+  }
 
   // Only real human/admin users should be seeded into an org's member list.
   // AI/API-key provisioning creates client workspaces on behalf of the platform;
@@ -123,15 +183,74 @@ export const POST = withAuth('admin', async (req, user) => {
     },
     linkedClientId: '',
     active: true,
+    ...(trustedSetup ? {
+      setupOperationId: trustedSetup.setupOperationId,
+      setupCreationStatus: 'creating',
+    } : {}),
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   }
 
-  const docRef = await adminDb.collection('organizations').add(doc)
+  let setupReplay = Boolean(trustedExisting)
+  let docRef: FirebaseFirestore.DocumentReference
+  if (trustedSetup && trustedRef) {
+    docRef = trustedRef
+    if (!trustedExisting) {
+      try {
+        await docRef.create(doc)
+      } catch (error) {
+        if (!isAlreadyExistsError(error)) throw error
+        const raced = await docRef.get()
+        const existing = raced.data() ?? {}
+        if (!raced.exists || existing.setupOperationId !== trustedSetup.setupOperationId
+          || existing.name !== name || existing.slug !== slug) {
+          return apiError('Organisation setup resource conflict', 409)
+        }
+        setupReplay = true
+        const provisioning = existing.provisioning && typeof existing.provisioning === 'object'
+          ? existing.provisioning as Record<string, unknown>
+          : {}
+        if (existing.setupCreationStatus === 'complete'
+          || provisioning.status === 'complete' || provisioning.status === 'skipped') {
+          return apiSuccess({ id: docRef.id, slug, provisioning }, 200)
+        }
+      }
+    }
+  } else {
+    docRef = await adminDb.collection('organizations').add(doc)
+  }
+
+  // `orgMembers` is the canonical, revocable membership source used by the
+  // workspace switcher, project access, and shared execution locations. Keep
+  // it in step with the embedded organisation member created for a human.
+  if (user.role !== 'ai') {
+    await adminDb.collection('orgMembers').doc(`${docRef.id}_${user.uid}`).set(
+      {
+        orgId: docRef.id,
+        uid: user.uid,
+        firstName: '',
+        lastName: '',
+        avatarUrl: '',
+        role: 'owner',
+        status: 'active',
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    )
+  }
 
   const shouldProvisionWorkspace = doc.type === 'client' && body.provisionWorkspace !== false
   if (!shouldProvisionWorkspace) {
-    return apiSuccess({ id: docRef.id, slug, provisioning: { status: 'skipped' } }, 201)
+    const provisioning = { status: 'skipped' }
+    if (trustedSetup) {
+      await docRef.set({
+        setupCreationStatus: 'complete',
+        provisioning,
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true })
+    }
+    return apiSuccess({ id: docRef.id, slug, provisioning }, setupReplay ? 200 : 201)
   }
 
   const agentName = typeof body.agentName === 'string' && body.agentName.trim()
@@ -176,10 +295,11 @@ export const POST = withAuth('admin', async (req, user) => {
         updatedAt: FieldValue.serverTimestamp(),
         result: provisioning,
       },
+      ...(trustedSetup ? { setupCreationStatus: 'complete' } : {}),
       updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true })
 
-    return apiSuccess({ id: docRef.id, slug, provisioning }, 201)
+    return apiSuccess({ id: docRef.id, slug, provisioning }, setupReplay ? 200 : 201)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Client workspace provisioning failed'
     await docRef.set({
@@ -193,9 +313,12 @@ export const POST = withAuth('admin', async (req, user) => {
         error: message,
         updatedAt: FieldValue.serverTimestamp(),
       },
+      ...(trustedSetup ? { setupCreationStatus: 'retryable' } : {}),
       updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true })
 
     return apiError(`Organization created, but workspace provisioning failed: ${message}`, 500, { id: docRef.id, slug })
   }
-})
+}
+
+export const POST = withAuth('admin', handleOrganizationCreate)

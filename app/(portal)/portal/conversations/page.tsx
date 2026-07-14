@@ -172,6 +172,7 @@ export default function ConversationsPage() {
         allowStartConversations={capabilities.canStart}
         allowSendMessages={capabilities.canReply}
         allowArchiveConversations={capabilities.canArchive}
+        layoutVariant="hermes"
       />
     </div>
   )

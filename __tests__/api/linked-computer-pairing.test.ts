@@ -133,6 +133,66 @@ describe('linked computer one-time pairing', () => {
     await expect(exchangePairing(input, { db, now, nowMs: () => nowMs + 2 })).rejects.toThrow('already consumed')
   })
 
+  it('pairs a Linux runtime with explicit backward-compatible user ownership metadata', async () => {
+    const { db, rows } = fakeDb()
+    const pairing = await createPairing({ actorUserId: 'user-a' }, { db, now, nowMs: () => nowMs })
+    const m = machine()
+    const input = { challengeId: pairing.challengeId, secret: pairing.secret, deviceId: 'vps-a', publicKey: m.publicKey,
+      proof: proof(m.privateKey, pairing.challengeId, pairing.secret, 'vps-a', m.publicKey), label: 'Partners VPS', platform: 'linux' as const,
+      architecture: 'x64' as const, runtimeVersion: '1.0.0' }
+
+    await expect(exchangePairing(input, { db, now, nowMs: () => nowMs + 1 })).resolves.toMatchObject({ deviceId: 'vps-a' })
+    expect(rows.get('linked_devices/vps-a')).toMatchObject({
+      ownerType: 'user', ownerUserId: 'user-a', createdByUserId: 'user-a', platform: 'linux', status: 'active',
+    })
+  })
+
+  it('pairs an organisation-owned VPS with sync capability and an organisation-wide grant', async () => {
+    const { db, rows } = fakeDb({
+      'orgMembers/org-a_admin-a': { orgId: 'org-a', uid: 'admin-a', role: 'admin', status: 'active' },
+    })
+    const pairing = await createPairing({
+      actorUserId: 'admin-a', ownerType: 'organization', ownerOrgId: 'org-a', deviceKind: 'vps',
+    }, { db, now, nowMs: () => nowMs })
+    expect(rows.get(`linked_device_pairing_challenges/${pairing.challengeId}`)).toMatchObject({
+      ownerType: 'organization', ownerOrgId: 'org-a', deviceKind: 'vps', ownerUserId: 'admin-a',
+    })
+
+    const m = machine()
+    const input = { challengeId: pairing.challengeId, secret: pairing.secret, deviceId: 'org-vps-a', publicKey: m.publicKey,
+      proof: proof(m.privateKey, pairing.challengeId, pairing.secret, 'org-vps-a', m.publicKey), label: 'Organisation VPS', platform: 'linux' as const,
+      architecture: 'x64' as const, runtimeVersion: '1.1.0' }
+    await expect(exchangePairing(input, { db, now, nowMs: () => nowMs + 1 })).resolves.toMatchObject({ deviceId: 'org-vps-a' })
+    expect(rows.get('linked_devices/org-vps-a')).toMatchObject({
+      ownerType: 'organization', ownerOrgId: 'org-a', createdByUserId: 'admin-a', deviceKind: 'vps',
+      capabilities: ['workspace.execute', 'workspace.sync'],
+    })
+    expect(rows.get('linked_device_grants/org-a_org-vps-a')).toMatchObject({
+      deviceId: 'org-vps-a', orgId: 'org-a', status: 'active', accessMode: 'organization',
+      capabilities: ['workspace.execute', 'workspace.sync'],
+    })
+  })
+
+  it('denies organisation ownership without an active administrator membership and requires Linux for a VPS', async () => {
+    const { db } = fakeDb({
+      'orgMembers/org-a_member-a': { orgId: 'org-a', uid: 'member-a', role: 'member', status: 'active' },
+      'orgMembers/org-a_admin-a': { orgId: 'org-a', uid: 'admin-a', role: 'owner', status: 'active' },
+    })
+    await expect(createPairing({
+      actorUserId: 'member-a', ownerType: 'organization', ownerOrgId: 'org-a', deviceKind: 'vps',
+    }, { db, now, nowMs: () => nowMs })).rejects.toThrow('organisation administrator required')
+
+    const pairing = await createPairing({
+      actorUserId: 'admin-a', ownerType: 'organization', ownerOrgId: 'org-a', deviceKind: 'vps',
+    }, { db, now, nowMs: () => nowMs })
+    const m = machine()
+    await expect(exchangePairing({
+      challengeId: pairing.challengeId, secret: pairing.secret, deviceId: 'not-a-vps', publicKey: m.publicKey,
+      proof: proof(m.privateKey, pairing.challengeId, pairing.secret, 'not-a-vps', m.publicKey), label: 'Not a VPS', platform: 'macos',
+      architecture: 'arm64', runtimeVersion: '1.1.0',
+    }, { db, now, nowMs: () => nowMs + 1 })).rejects.toThrow('pairing exchange denied')
+  })
+
   it('rejects legacy endpoint and transport-token fields without creating device state', async () => {
     const { db, rows } = fakeDb()
     const pairing = await createPairing({ actorUserId: 'user-a' }, { db, now, nowMs: () => nowMs })
@@ -197,6 +257,19 @@ describe('linked computer device authentication', () => {
     base.signature = sign(null, Buffer.from(deviceRequestPayload(base)), m.privateKey).toString('base64url')
     return { db, rows, base, m }
   }
+
+  it('authenticates an organisation-owned device using its immutable creator identity for legacy route compatibility', async () => {
+    const m = machine(); const credential = 'right-credential'
+    const { db } = fakeDb({
+      'linked_devices/vps-a': { deviceId: 'vps-a', ownerType: 'organization', ownerOrgId: 'org-a', createdByUserId: 'creator-a', status: 'active', credentialVersion: 3, publicKey: m.publicKey },
+      'linked_device_credentials/vps-a': { deviceId: 'vps-a', credentialHash: hashLinkedComputerSecret(credential), credentialVersion: 3, revokedAt: null },
+    })
+    const input = { deviceId: 'vps-a', credential, credentialVersion: 3, timestamp: String(nowMs), requestId: 'request-org-vps-1234',
+      method: 'POST', path: '/api/v1/linked-computers/vps-a/heartbeat', body: '{"health":"ok"}', signature: '' }
+    input.signature = sign(null, Buffer.from(deviceRequestPayload(input)), m.privateKey).toString('base64url')
+
+    await expect(authenticateDeviceRequest(input, { db, nowMs: () => nowMs })).resolves.toMatchObject({ deviceId: 'vps-a', ownerUserId: 'creator-a' })
+  })
 
   it('authenticates once and atomically denies an identical signed request replay', async () => {
     const { db, rows, base } = authFixture()

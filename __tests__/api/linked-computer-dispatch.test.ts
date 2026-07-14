@@ -58,11 +58,77 @@ describe('linked computer runtime authorization', () => {
     expect(linkedRuntimeUpdateRequired('invalid', '2.0.0')).toBe(true)
     expect(linkedRuntimeUpdateRequired('2.0.0', 'invalid')).toBe(true)
   })
-  it('discovers only owned or explicitly shared, granted, fresh, healthy and mapped devices', async () => {
+  it('keeps authorized stale devices visible but unavailable', async () => {
     const targets = await discoverAuthorizedRuntimeTargets({ userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a' }, { db: fakeDb(base), nowMs: () => now })
-    expect(targets.map((target) => target.deviceId)).toEqual(['owned', 'shared'])
-    expect(targets[0]).toEqual(expect.objectContaining({ id: 'target-owned', workspaceId: 'workspace-a', mappingId: 'map-owned', selectable: true }))
+    expect(targets.map((target) => target.deviceId)).toEqual(['owned', 'shared', 'stale'])
+    expect(targets[0]).toEqual(expect.objectContaining({
+      id: 'target-owned', locationId: 'linked-device:owned', workspaceId: 'workspace-a',
+      mappingId: 'map-owned', selectable: true,
+    }))
+    expect(targets[2]).toEqual(expect.objectContaining({ id: 'target-stale', selectable: false, unavailableReason: 'stale' }))
     expect(JSON.stringify(targets)).not.toMatch(/credentialVersion|ownerUserId|baseUrl|apiKey|publicKey|path/i)
+  })
+
+  it('authorizes every current and future active organisation member without copying user ids into the grant', async () => {
+    const rows = structuredClone(base) as any
+    rows.linked_devices.vps = { deviceId: 'vps', deviceKind: 'vps', ownerType: 'organization', ownerOrgId: 'org-a', createdByUserId: 'admin-a', runtimeTargetId: 'target-vps', label: 'Partners VPS', platform: 'linux', runtimeVersion: '2.0.0', status: 'active', health: 'ok', capabilities: ['workspace.execute'], credentialVersion: 9, lastSeenAt: new Date(now - 30_000).toISOString() }
+    rows.linked_device_grants['org-a_vps'] = { deviceId: 'vps', orgId: 'org-a', status: 'active', accessMode: 'organization', allowedUserIds: [], capabilities: ['workspace.execute'] }
+    rows.linked_device_workspace_mappings['map-vps'] = { mappingId: 'map-vps', deviceId: 'vps', orgId: 'org-a', workspaceId: 'workspace-a', status: 'active' }
+    rows.linked_device_credentials.vps = { credentialVersion: 9, revokedAt: null }
+    rows.orgMembers['org-a_future-member'] = { orgId: 'org-a', uid: 'future-member' }
+
+    const targets = await discoverAuthorizedRuntimeTargets({ userId: 'future-member', orgId: 'org-a', workspaceId: 'workspace-a' }, { db: fakeDb(rows), nowMs: () => now })
+    expect(targets).toContainEqual(expect.objectContaining({
+      id: 'target-vps', platform: 'linux', selectable: true,
+      deviceKind: 'vps', ownerType: 'organization', visibility: 'organization',
+    }))
+    expect(JSON.stringify(targets)).not.toMatch(/ownerOrgId|createdByUserId/)
+  })
+
+  it('preserves selected-user grants and denies unselected organisation members', async () => {
+    const rows = structuredClone(base) as any
+    rows.linked_device_grants['org-a_shared'].accessMode = 'selected_users'
+    rows.orgMembers['org-a_user-c'] = { orgId: 'org-a', uid: 'user-c', status: 'active' }
+
+    await expect(authorizeLinkedComputerDispatch({ userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a', runtimeTargetId: 'target-shared' }, { db: fakeDb(rows), nowMs: () => now }))
+      .resolves.toEqual(expect.objectContaining({ deviceId: 'shared', locationId: 'linked-device:shared' }))
+    await expect(authorizeLinkedComputerDispatch({ userId: 'user-c', orgId: 'org-a', workspaceId: 'workspace-a', runtimeTargetId: 'target-shared' }, { db: fakeDb(rows), nowMs: () => now }))
+      .rejects.toMatchObject({ code: 'linked_device_not_authorized' })
+  })
+
+  it('never leaks an organisation-owned runtime across tenant boundaries', async () => {
+    const rows = structuredClone(base) as any
+    rows.linked_devices.vps = { deviceId: 'vps', ownerType: 'organization', ownerOrgId: 'org-a', createdByUserId: 'admin-a', runtimeTargetId: 'target-vps', label: 'Partners VPS', platform: 'linux', runtimeVersion: '2.0.0', status: 'active', health: 'ok', capabilities: ['workspace.execute'], credentialVersion: 9, lastSeenAt: new Date(now - 30_000).toISOString() }
+    rows.linked_device_grants['org-a_vps'] = { deviceId: 'vps', orgId: 'org-a', status: 'active', accessMode: 'organization', allowedUserIds: [], capabilities: ['workspace.execute'] }
+    rows.linked_device_workspace_mappings['map-vps'] = { mappingId: 'map-vps', deviceId: 'vps', orgId: 'org-a', workspaceId: 'workspace-a', status: 'active' }
+    rows.linked_device_credentials.vps = { credentialVersion: 9, revokedAt: null }
+    rows.orgMembers['org-b_user-b'] = { orgId: 'org-b', uid: 'user-b', status: 'active' }
+
+    await expect(authorizeLinkedComputerDispatch({ userId: 'user-b', orgId: 'org-b', workspaceId: 'workspace-a', runtimeTargetId: 'target-vps' }, { db: fakeDb(rows), nowMs: () => now }))
+      .rejects.toMatchObject({ code: 'linked_device_not_authorized' })
+  })
+
+  it('returns offline and update-required runtimes with stable unavailable reasons', async () => {
+    const rows = structuredClone(base) as any
+    rows.linked_devices.offline = { ...rows.linked_devices.owned, deviceId: 'offline', runtimeTargetId: 'target-offline', label: 'Offline Mac', health: 'degraded', credentialVersion: 4 }
+    rows.linked_devices.update = { ...rows.linked_devices.owned, deviceId: 'update', runtimeTargetId: 'target-update', label: 'Update Mac', runtimeVersion: '1.0.0', credentialVersion: 5 }
+    for (const [deviceId, version] of [['offline', 4], ['update', 5]] as const) {
+      rows.linked_device_grants[`org-a_${deviceId}`] = { deviceId, orgId: 'org-a', status: 'active', accessMode: 'owner', allowedUserIds: [], capabilities: ['workspace.execute'] }
+      rows.linked_device_workspace_mappings[`map-${deviceId}`] = { mappingId: `map-${deviceId}`, deviceId, orgId: 'org-a', workspaceId: 'workspace-a', status: 'active' }
+      rows.linked_device_credentials[deviceId] = { credentialVersion: version, revokedAt: null }
+    }
+    const previousMinimum = process.env.LINKED_RUNTIME_MIN_VERSION
+    process.env.LINKED_RUNTIME_MIN_VERSION = '2.0.0'
+    try {
+      const targets = await discoverAuthorizedRuntimeTargets({ userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a' }, { db: fakeDb(rows), nowMs: () => now })
+      expect(targets).toContainEqual(expect.objectContaining({ id: 'target-offline', selectable: false, unavailableReason: 'offline' }))
+      expect(targets).toContainEqual(expect.objectContaining({ id: 'target-update', selectable: false, unavailableReason: 'update_required', updateRequired: true }))
+      await expect(authorizeLinkedComputerDispatch({ userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a', runtimeTargetId: 'target-offline' }, { db: fakeDb(rows), nowMs: () => now }))
+        .rejects.toMatchObject({ code: 'linked_device_offline' })
+    } finally {
+      if (previousMinimum === undefined) delete process.env.LINKED_RUNTIME_MIN_VERSION
+      else process.env.LINKED_RUNTIME_MIN_VERSION = previousMinimum
+    }
   })
 
   it('denies guessed runtime or device identifiers', async () => {

@@ -5,6 +5,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { ensureClaimableRelationship } from '@/lib/claimable-relationships/store'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { getProjectForUser } from '@/lib/projects/access'
 import {
   canProjectRole,
@@ -13,6 +14,7 @@ import {
   projectOrganizationDocId,
   type ProjectMemberRole,
 } from '@/lib/projects/collaboration'
+import { isActiveOrgMembershipRow } from '@/lib/linked-computers/policy'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,11 +37,11 @@ function inviteDocId(projectId: string, invite: { contactId?: string; recipientE
   return `${projectId}_${raw.replace(/[/.#?[\]]/g, '_')}`
 }
 
-async function requireProjectManager(projectId: string, user: Parameters<typeof getProjectForUser>[1]) {
-  const access = await getProjectForUser(projectId, user)
+async function requireProjectManager(projectId: string, user: Parameters<typeof getProjectForUser>[1], orgId?: string) {
+  const access = await getProjectForUser(projectId, user, orgId)
   if (!access.ok) return access
   const role = access.projectAccess?.role ?? 'viewer'
-  if (!canProjectRole(role, 'manage_access')) {
+  if (!canProjectRole(role, 'manage_access') || access.projectAccess?.canViewInternal !== true) {
     return { ok: false as const, status: 403, error: 'Project manager access is required' }
   }
   return access
@@ -66,7 +68,7 @@ async function listOwnerMemberCandidates(project: Record<string, unknown>, role?
     snap.docs.map(async (doc: { id: string; data: () => Record<string, unknown> }) => {
       const member = doc.data() ?? {}
       const uid = cleanString(member.uid) || cleanString(member.userId)
-      if (!uid) return null
+      if (!uid || cleanString(member.orgId) !== sourceOrgId || !isActiveOrgMembershipRow(member)) return null
 
       const userSnap = await adminDb.collection('users').doc(uid).get()
       const userData = userSnap.exists ? userSnap.data() ?? {} : {}
@@ -112,9 +114,10 @@ async function writeAccessAudit(input: {
     .add(Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined)))
 }
 
-export const GET = withAuth('client', async (_req: NextRequest, user, ctx) => {
+export const GET = withAuth('client', async (req: NextRequest, user, ctx) => {
   const { projectId } = await (ctx as RouteContext).params
-  const access = await getProjectForUser(projectId, user)
+  const orgId = cleanString(req.nextUrl.searchParams.get('orgId'))
+  const access = await requireProjectManager(projectId, user, orgId || undefined)
   if (!access.ok) return apiError(access.error, access.status)
 
   const project = (access.doc.data() ?? {}) as Record<string, unknown>
@@ -137,7 +140,8 @@ export const GET = withAuth('client', async (_req: NextRequest, user, ctx) => {
 export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   const { projectId } = await (ctx as RouteContext).params
   const body = await req.json().catch(() => ({})) as Record<string, unknown>
-  const access = await requireProjectManager(projectId, user)
+  const orgId = cleanString(body.orgId) || cleanString(req.nextUrl.searchParams.get('orgId'))
+  const access = await requireProjectManager(projectId, user, orgId || undefined)
   if (!access.ok) return apiError(access.error, access.status)
 
   const project = (access.doc.data() ?? {}) as Record<string, unknown>
@@ -149,7 +153,12 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
     if (!uid) return apiError('uid is required', 400)
 
     const memberSnap = await adminDb.collection('orgMembers').doc(`${sourceOrgId}_${uid}`).get()
-    if (!memberSnap.exists) {
+    const member = memberSnap.data() ?? {}
+    const memberUid = cleanString(member.uid) || cleanString(member.userId)
+    if (!memberSnap.exists
+      || !isActiveOrgMembershipRow(member)
+      || cleanString(member.orgId) !== sourceOrgId
+      || memberUid !== uid) {
       return apiError('User must belong to the project owner organisation before they can be added to the project', 400)
     }
 
@@ -186,6 +195,72 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
       },
     })
     return apiSuccess(payload, 201)
+  }
+
+  if (body.action === 'link_organization') {
+    const targetOrgId = cleanString(body.targetOrgId)
+    if (!targetOrgId) return apiError('targetOrgId is required', 400)
+    if (targetOrgId === sourceOrgId) return apiError('The project already belongs to this organisation', 409)
+    if (!canAccessOrg(user, targetOrgId)) return apiError('Target organisation access is required', 403)
+    if (user.role === 'client') {
+      const membershipSnap = await adminDb.collection('orgMembers').doc(`${targetOrgId}_${user.uid}`).get()
+      const membership = membershipSnap.data() ?? {}
+      const membershipOrgId = cleanString(membership.orgId)
+      const membershipUid = cleanString(membership.uid ?? membership.userId)
+      if (!membershipSnap.exists
+        || !isActiveOrgMembershipRow(membership)
+        || membershipOrgId !== targetOrgId
+        || membershipUid !== user.uid) {
+        return apiError('Active target organisation membership is required', 403)
+      }
+    }
+    const targetOrgSnap = await adminDb.collection('organizations').doc(targetOrgId).get()
+    if (!targetOrgSnap.exists) return apiError('Target organisation not found', 404)
+    const targetOrg = targetOrgSnap.data() ?? {}
+    if (targetOrg.active === false || targetOrg.deleted === true) {
+      return apiError('Target organisation is not active', 409)
+    }
+
+    const role = normalizeProjectRole(body.role)
+    const targetOrgName = cleanString(targetOrg.name) || targetOrgId
+    const now = FieldValue.serverTimestamp()
+    const payload = {
+      projectId,
+      orgId: targetOrgId,
+      role,
+      status: 'active',
+      recipientCompanyName: targetOrgName,
+      linkedBy: user.uid,
+      createdAt: now,
+      updatedAt: now,
+    }
+
+    await adminDb
+      .collection('projectOrganizations')
+      .doc(projectOrganizationDocId(projectId, targetOrgId))
+      .set(payload, { merge: true })
+    await writeAccessAudit({
+      projectId,
+      eventType: 'access_org_linked',
+      itemType: 'projectOrganization',
+      itemId: targetOrgId,
+      title: `Linked ${targetOrgName} as ${role}`,
+      actorUid: user.uid,
+      metadata: {
+        orgId: targetOrgId,
+        role,
+        status: 'active',
+        linkMethod: 'existing_organization',
+      },
+    })
+
+    return apiSuccess({
+      projectId,
+      orgId: targetOrgId,
+      recipientCompanyName: targetOrgName,
+      role,
+      status: 'active',
+    }, 201)
   }
 
   if (body.action === 'invite_organizations') {

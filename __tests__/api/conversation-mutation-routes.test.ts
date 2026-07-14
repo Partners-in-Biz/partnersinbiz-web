@@ -15,6 +15,7 @@ const mockLogActivity = jest.fn()
 const mockMessageGet = jest.fn()
 const mockMessageUpdate = jest.fn()
 const mockCallAgentPath = jest.fn()
+const mockCancelLinkedRun = jest.fn()
 
 let mockUser: MockUser = { uid: 'owner-1', role: 'client', orgId: 'org-1' }
 
@@ -44,6 +45,7 @@ jest.mock('@/lib/conversations/conversations', () => ({
 
 jest.mock('@/lib/activity/log', () => ({ logActivity: mockLogActivity }))
 jest.mock('@/lib/agents/team', () => ({ callAgentPath: mockCallAgentPath }))
+jest.mock('@/lib/linked-computers/run-queue-store', () => ({ cancelLinkedRun: mockCancelLinkedRun }))
 jest.mock('@/lib/organizations/module-policy-access', () => ({
   assertUserCanPerformOrganizationModuleAction: jest.fn(),
 }))
@@ -85,6 +87,7 @@ beforeEach(() => {
     response: new Response(null, { status: 200 }),
     data: {},
   })
+  mockCancelLinkedRun.mockResolvedValue({ won: true, status: 'cancelled' })
 })
 
 describe('conversation mutation route policies', () => {
@@ -120,7 +123,31 @@ describe('conversation mutation route policies', () => {
     }))
   })
 
-  it('denies an org-visible nonparticipant through both mutation routes', async () => {
+  it('stops an ordinary Hermes run on the conversation-bound runtime target', async () => {
+    mockGetConversation.mockResolvedValue({
+      ...conversation('private'),
+      workspaceContext: {
+        ...conversation('private').workspaceContext,
+        runtimeTarget: 'local',
+      },
+    })
+
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/[msgId]/stop/route')
+    const response = await POST(new NextRequest(
+      'http://localhost/api/v1/conversations/conv-1/messages/msg-1/stop',
+      { method: 'POST' },
+    ), ctx)
+
+    expect(response.status).toBe(200)
+    expect(mockCallAgentPath).toHaveBeenCalledWith(
+      'pip',
+      '/v1/runs/run-1/stop',
+      { method: 'POST' },
+      { runtimeTarget: 'local' },
+    )
+  })
+
+  it('denies org-wide readers from deleting while allowing them to stop shared work', async () => {
     mockUser = { uid: 'member-2', role: 'client', orgId: 'org-1' }
     mockGetConversation.mockResolvedValue(conversation('org'))
     const [{ DELETE }, { POST }] = await Promise.all([
@@ -137,8 +164,86 @@ describe('conversation mutation route policies', () => {
     ), ctx)
 
     expect(deleteResponse.status).toBe(403)
-    expect(stopResponse.status).toBe(403)
+    expect(stopResponse.status).toBe(200)
     expect(mockDeleteConversation).not.toHaveBeenCalled()
+    expect(mockCallAgentPath).toHaveBeenCalled()
+  })
+
+  it('cancels a linked-computer job without calling the default Hermes runtime', async () => {
+    mockMessageGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        role: 'assistant',
+        runId: 'linked-job-1',
+        authorId: 'pip',
+        dispatchAgentId: 'pip',
+        linkedDeviceId: 'device-a',
+      }),
+    })
+
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/[msgId]/stop/route')
+    const response = await POST(new NextRequest(
+      'http://localhost/api/v1/conversations/conv-1/messages/msg-1/stop',
+      { method: 'POST' },
+    ), ctx)
+
+    expect(response.status).toBe(200)
+    expect(mockCancelLinkedRun).toHaveBeenCalledWith(
+      'linked-job-1',
+      'Agent run stopped by an authorised conversation actor',
+      { deviceId: 'device-a', conversationId: 'conv-1', assistantMessageId: 'msg-1' },
+    )
     expect(mockCallAgentPath).not.toHaveBeenCalled()
+    expect(mockMessageUpdate).not.toHaveBeenCalled()
+    await expect(response.json()).resolves.toMatchObject({
+      data: { id: 'msg-1', runId: 'linked-job-1', status: 'cancelled', stopped: true },
+    })
+  })
+
+  it('does not overwrite a linked run that completed before cancellation won', async () => {
+    mockMessageGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        role: 'assistant',
+        runId: 'linked-job-completed',
+        authorId: 'pip',
+        dispatchAgentId: 'pip',
+        linkedDeviceId: 'device-a',
+      }),
+    })
+    mockCancelLinkedRun.mockResolvedValueOnce({ won: false, status: 'completed' })
+
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/[msgId]/stop/route')
+    const response = await POST(new NextRequest(
+      'http://localhost/api/v1/conversations/conv-1/messages/msg-1/stop',
+      { method: 'POST' },
+    ), ctx)
+
+    expect(response.status).toBe(200)
+    expect(mockCallAgentPath).not.toHaveBeenCalled()
+    expect(mockMessageUpdate).not.toHaveBeenCalled()
+    await expect(response.json()).resolves.toMatchObject({
+      data: { id: 'msg-1', runId: 'linked-job-completed', status: 'completed', stopped: false },
+    })
+  })
+
+  it('fails closed when a linked job does not match the authorised message binding', async () => {
+    mockMessageGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        role: 'assistant', runId: 'linked-job-other', authorId: 'pip', dispatchAgentId: 'pip', linkedDeviceId: 'device-a',
+      }),
+    })
+    mockCancelLinkedRun.mockResolvedValueOnce({ won: false, status: 'binding_mismatch' })
+
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/[msgId]/stop/route')
+    const response = await POST(new NextRequest(
+      'http://localhost/api/v1/conversations/conv-1/messages/msg-1/stop',
+      { method: 'POST' },
+    ), ctx)
+
+    expect(response.status).toBe(404)
+    expect(mockCallAgentPath).not.toHaveBeenCalled()
+    expect(mockMessageUpdate).not.toHaveBeenCalled()
   })
 })

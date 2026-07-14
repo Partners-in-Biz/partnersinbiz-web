@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
-import { canManageConversationContext } from '@/lib/conversations/access'
+import { authorizeConversationProject, canManageConversationContext } from '@/lib/conversations/access'
 import { patchConversationContextRefs } from '@/lib/context-references/registry'
 import { sanitizeContextReferenceSeeds } from '@/lib/context-references/types'
 import { getConversation } from '@/lib/conversations/conversations'
@@ -24,6 +24,8 @@ export const PATCH = withAuth(
     const conversation = await getConversation(convId)
     if (!conversation) return apiError('Conversation not found', 404)
     if (!canManageConversationContext(user, conversation)) return apiError('Forbidden', 403)
+    const projectAuthorization = await authorizeConversationProject(user, conversation)
+    if (!projectAuthorization.ok) return apiError(projectAuthorization.error, projectAuthorization.status)
 
     const body = await req.json().catch(() => null)
     if (!body || typeof body !== 'object') return apiError('Invalid JSON body', 400)

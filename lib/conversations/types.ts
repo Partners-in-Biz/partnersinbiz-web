@@ -76,6 +76,12 @@ export interface Conversation {
     dispatcherAgentId: AgentId
     requestedAgentIds: AgentId[]
   }
+  /** Immutable ancestry for sessions intentionally continued on another computer. */
+  lineage?: {
+    kind: 'runtime_continuation'
+    parentConversationId: string
+    rootConversationId: string
+  }
   startedBy: string
   title: string
   scope?: ConversationScope

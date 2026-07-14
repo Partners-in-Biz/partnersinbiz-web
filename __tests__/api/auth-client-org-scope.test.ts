@@ -40,7 +40,11 @@ function makeReq(opts: { query?: string; headers?: Record<string, string> } = {}
 }
 
 /** Stub the Firestore users/{uid} doc and canonical orgMembers memberships for the caller. */
-function mockUserDoc(data: Record<string, unknown>, memberOrgIds: string[] = []) {
+function mockUserDoc(
+  data: Record<string, unknown>,
+  memberOrgIds: string[] = [],
+  memberRows: Record<string, Record<string, unknown>> = {},
+) {
   ;(adminAuth.verifyIdToken as jest.Mock).mockResolvedValue({ uid: 'caller-1' })
   const memberDocIds = new Set(memberOrgIds.map((orgId) => `${orgId}_caller-1`))
   ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => ({
@@ -48,7 +52,10 @@ function mockUserDoc(data: Record<string, unknown>, memberOrgIds: string[] = [])
       get: jest.fn().mockResolvedValue(
         name === 'users'
           ? { exists: true, data: () => data }
-          : { exists: name === 'orgMembers' && memberDocIds.has(docId), data: () => ({}) },
+          : {
+              exists: name === 'orgMembers' && memberDocIds.has(docId),
+              data: () => memberRows[docId.replace(/_caller-1$/, '')] ?? {},
+            },
       ),
     })),
     where: jest.fn().mockReturnValue({
@@ -98,6 +105,18 @@ describe('withAuth — client scoped-orgId enforcement', () => {
     mockUserDoc({ role: 'client', orgId: 'org-a', activeOrgId: 'org-c' }, ['org-a', 'org-c'])
     const res = await handler(makeReq({ query: '?orgId=org-c' }))
     expect(res.status).toBe(200)
+  })
+
+  it.each(['revoked', 'disabled', 'removed'])('rejects a client whose canonical membership is %s', async (status) => {
+    mockUserDoc(
+      { role: 'client', orgId: 'org-a', orgIds: ['org-a', 'org-b'] },
+      ['org-a', 'org-b'],
+      { 'org-b': { orgId: 'org-b', uid: 'caller-1', status } },
+    )
+
+    const res = await handler(makeReq({ query: '?orgId=org-b' }))
+
+    expect(res.status).toBe(403)
   })
 
   it('rejects an org outside orgIds even when others are valid', async () => {

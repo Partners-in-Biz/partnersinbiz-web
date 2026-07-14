@@ -1,7 +1,28 @@
-import type { ActiveOrgMembership, LinkedDevice, LinkedDeviceGrant } from './types'
+import type { ActiveOrgMembership, DeviceGrantAccessMode, LinkedDevice, LinkedDeviceGrant } from './types'
 
-type DeviceAccessView = Pick<LinkedDevice, 'deviceId' | 'ownerUserId' | 'status'>
-type GrantAccessView = Pick<LinkedDeviceGrant, 'deviceId' | 'orgId' | 'status' | 'allowedUserIds'>
+type DeviceAccessView = Pick<LinkedDevice, 'deviceId' | 'ownerType' | 'ownerUserId' | 'ownerOrgId' | 'createdByUserId' | 'status'>
+type GrantAccessView = Pick<LinkedDeviceGrant, 'deviceId' | 'orgId' | 'status' | 'accessMode' | 'allowedUserIds'>
+
+export function isActiveOrgMembershipRow(row: Record<string, unknown> | undefined): boolean {
+  if (!row || row.disabled === true || row.deleted === true || row.deletedAt) return false
+  const status = typeof row.status === 'string' ? row.status.trim().toLowerCase() : ''
+  return status === '' || status === 'active' || status === 'enabled'
+}
+
+export function linkedDeviceOwnerType(device: Pick<LinkedDevice, 'ownerType' | 'ownerUserId' | 'ownerOrgId'>): 'user' | 'organization' {
+  if (device.ownerType === 'organization' && device.ownerOrgId) return 'organization'
+  if ((device.ownerType === 'user' || device.ownerType == null) && device.ownerUserId) return 'user'
+  throw new Error('linked computers: invalid device ownership')
+}
+
+export function linkedDeviceActorUserId(device: Pick<LinkedDevice, 'ownerType' | 'ownerUserId' | 'ownerOrgId' | 'createdByUserId'>): string {
+  return linkedDeviceOwnerType(device) === 'user' ? String(device.ownerUserId) : String(device.createdByUserId ?? '')
+}
+
+export function effectiveGrantAccessMode(grant: Pick<LinkedDeviceGrant, 'accessMode' | 'allowedUserIds'>): DeviceGrantAccessMode {
+  if (grant.accessMode === 'owner' || grant.accessMode === 'organization' || grant.accessMode === 'selected_users') return grant.accessMode
+  return Array.isArray(grant.allowedUserIds) && grant.allowedUserIds.length > 0 ? 'selected_users' : 'owner'
+}
 
 export function assertActiveMembership(membership: ActiveOrgMembership, orgId: string, userId: string): void {
   if (!membership.active || membership.orgId !== orgId || membership.userId !== userId) {
@@ -14,6 +35,19 @@ export function assertGrantAdministrator(membership: ActiveOrgMembership, orgId:
   if (membership.role !== 'owner' && membership.role !== 'admin') {
     throw new Error('linked computers: organisation administrator required')
   }
+}
+
+export function assertDeviceManager(input: {
+  actorUserId: string
+  device: Pick<LinkedDevice, 'ownerType' | 'ownerUserId' | 'ownerOrgId'>
+  ownerOrgMembership?: ActiveOrgMembership
+}): void {
+  if (linkedDeviceOwnerType(input.device) === 'user') {
+    if (input.device.ownerUserId !== input.actorUserId) throw new Error('linked computers: device owner required')
+    return
+  }
+  const orgId = String(input.device.ownerOrgId)
+  assertGrantAdministrator(input.ownerOrgMembership ?? { orgId, userId: input.actorUserId, active: false }, orgId, input.actorUserId)
 }
 
 export function assertDeviceOrgAccess(input: {
@@ -30,7 +64,15 @@ export function assertDeviceOrgAccess(input: {
   if (input.device.status !== 'active' || input.grant.status !== 'active') {
     throw new Error('linked computers: device grant is not active')
   }
-  if (input.device.ownerUserId !== input.actorUserId && !input.grant.allowedUserIds.includes(input.actorUserId)) {
+  const ownerType = linkedDeviceOwnerType(input.device)
+  const personallyOwned = ownerType === 'user' && input.device.ownerUserId === input.actorUserId
+  const organizationManager = ownerType === 'organization'
+    && input.device.ownerOrgId === input.orgId
+    && (input.membership.role === 'owner' || input.membership.role === 'admin')
+  const accessMode = effectiveGrantAccessMode(input.grant)
+  const permitted = personallyOwned || organizationManager || accessMode === 'organization'
+    || (accessMode === 'selected_users' && input.grant.allowedUserIds.includes(input.actorUserId))
+  if (!permitted) {
     throw new Error('linked computers: device is not owned or explicitly shared')
   }
 }

@@ -11,9 +11,10 @@ import {
   messagesCollection,
 } from '@/lib/conversations/conversations'
 import { callAgentPath } from '@/lib/agents/team'
+import { cancelLinkedRun } from '@/lib/linked-computers/run-queue-store'
 import { AGENT_IDS, type AgentId } from '@/lib/agents/types'
 import type { ApiUser } from '@/lib/api/types'
-import { canStopConversationRun } from '@/lib/conversations/access'
+import { authorizeConversationProject, canStopConversationRun } from '@/lib/conversations/access'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,6 +26,8 @@ export const POST = withAuth('client', async (_req: NextRequest, user: ApiUser, 
   const conversation = await getConversation(convId)
   if (!conversation) return apiError('Conversation not found', 404)
   if (!canStopConversationRun(user, conversation)) return apiError('Forbidden', 403)
+  const projectAuthorization = await authorizeConversationProject(user, conversation)
+  if (!projectAuthorization.ok) return apiError(projectAuthorization.error, projectAuthorization.status)
 
   const msgRef = messagesCollection(convId).doc(msgId)
   const msgDoc = await msgRef.get()
@@ -34,6 +37,27 @@ export const POST = withAuth('client', async (_req: NextRequest, user: ApiUser, 
   const runId = typeof msg.runId === 'string' ? msg.runId : ''
   if (!runId) return apiError('Message has no agent run id', 400)
 
+  if (typeof msg.linkedDeviceId === 'string' && msg.linkedDeviceId.trim()) {
+    const cancellation = await cancelLinkedRun(
+      runId,
+      'Agent run stopped by an authorised conversation actor',
+      {
+        deviceId: msg.linkedDeviceId.trim(),
+        conversationId: convId,
+        assistantMessageId: msgId,
+      },
+    )
+    if (cancellation.status === 'missing' || cancellation.status === 'binding_mismatch') {
+      return apiError('Linked computer run not found', 404)
+    }
+    return apiSuccess({
+      id: msgId,
+      runId,
+      status: cancellation.status,
+      stopped: cancellation.won,
+    })
+  }
+
   const agentId = typeof msg.authorId === 'string' && AGENT_IDS.includes(msg.authorId as AgentId)
     ? msg.authorId as AgentId
     : null
@@ -41,6 +65,10 @@ export const POST = withAuth('client', async (_req: NextRequest, user: ApiUser, 
 
   const upstream = await callAgentPath(agentId, `/v1/runs/${encodeURIComponent(runId)}/stop`, {
     method: 'POST',
+  }, {
+    runtimeTarget: typeof msg.dispatchRuntimeTargetId === 'string' && msg.dispatchRuntimeTargetId.trim()
+      ? msg.dispatchRuntimeTargetId.trim()
+      : conversation.workspaceContext?.runtimeTarget ?? null,
   }).catch((err) => ({
     response: new Response(null, { status: 502 }),
     data: { error: err instanceof Error ? err.message : 'Failed to reach agent gateway' },

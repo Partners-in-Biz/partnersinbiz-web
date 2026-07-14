@@ -5,6 +5,8 @@ import {
   constantTimeSecretMatch,
   type LinkedComputerPairingDb,
 } from './crypto'
+import { linkedDeviceActorUserId } from './policy'
+import type { LinkedDevice } from './types'
 
 const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000
 
@@ -80,7 +82,9 @@ export async function authenticateDeviceRequest(
       credentialVersion: input.credentialVersion, requestTimestamp: requestTime,
       expiresAt: Timestamp.fromMillis(Math.max(currentTime, requestTime) + MAX_CLOCK_SKEW_MS),
     })
-    return { deviceId: input.deviceId, ownerUserId: String(device.ownerUserId), credentialVersion: input.credentialVersion }
+    const deviceActorUserId = linkedDeviceActorUserId(device as unknown as LinkedDevice)
+    if (!deviceActorUserId) throw new Error('linked computers: device authentication failed')
+    return { deviceId: input.deviceId, ownerUserId: deviceActorUserId, credentialVersion: input.credentialVersion }
   })
 }
 
@@ -102,6 +106,8 @@ export async function authenticateDeviceRevocationRequest(input: DeviceAuthInput
     try { valid = verify(null, Buffer.from(deviceRequestPayload(input)), String(device.publicKey ?? ''), Buffer.from(input.signature, 'base64url')) } catch { valid = false }
     if (!valid) throw new Error('linked computers: revocation authentication failed')
     tx.create(nonceRef, { deviceId: input.deviceId, requestIdHash: createHash('sha256').update(input.requestId).digest('hex'), credentialVersion: input.credentialVersion, requestTimestamp: requestTime, expiresAt: Timestamp.fromMillis(Math.max(now, requestTime) + MAX_CLOCK_SKEW_MS) })
-    return { deviceId: input.deviceId, ownerUserId: String(device.ownerUserId), credentialVersion: input.credentialVersion, status: String(device.status) }
+    const deviceActorUserId = linkedDeviceActorUserId(device as unknown as LinkedDevice)
+    if (!deviceActorUserId) throw new Error('linked computers: revocation authentication failed')
+    return { deviceId: input.deviceId, ownerUserId: deviceActorUserId, credentialVersion: input.credentialVersion, status: String(device.status) }
   })
 }

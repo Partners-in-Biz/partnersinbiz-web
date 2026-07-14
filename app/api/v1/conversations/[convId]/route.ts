@@ -19,6 +19,7 @@ import {
 } from '@/lib/conversations/conversations'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import {
+  authorizeConversationProject,
   canAccessConversation,
   canDeleteConversation,
   canManageConversationAccess,
@@ -28,8 +29,13 @@ import {
   ConversationParticipantError,
   resolveHumanConversationParticipants,
 } from '@/lib/conversations/participant-access'
+import { resolveConversationDispatchAgentId } from '@/lib/conversations/dispatch-agent'
 import type { ApiUser } from '@/lib/api/types'
 import type { Conversation } from '@/lib/conversations/types'
+import {
+  authorizeWorkspaceRuntime,
+  workspaceRuntimeSupportsOrganizationSharing,
+} from '@/lib/workspaces/runtime-authorization'
 
 export const dynamic = 'force-dynamic'
 
@@ -45,6 +51,8 @@ export const GET = withAuth(
     if (!canAccessConversation(user, conversation)) {
       return apiError('Forbidden', 403)
     }
+    const projectAuthorization = await authorizeConversationProject(user, conversation)
+    if (!projectAuthorization.ok) return apiError(projectAuthorization.error, projectAuthorization.status)
 
     return apiSuccess({ conversation: publicConversationView(conversation) })
   },
@@ -60,6 +68,8 @@ export const PATCH = withAuth(
     if (!canAccessConversation(user, conversation)) {
       return apiError('Forbidden', 403)
     }
+    const projectAuthorization = await authorizeConversationProject(user, conversation)
+    if (!projectAuthorization.ok) return apiError(projectAuthorization.error, projectAuthorization.status)
 
     const body = await req.json().catch(() => null)
     if (!body || typeof body !== 'object') return apiError('Invalid JSON body', 400)
@@ -106,6 +116,28 @@ export const PATCH = withAuth(
       const shareMode = body.shareMode ?? conversation.workspaceContext.shareMode
       if (shareMode !== 'private' && shareMode !== 'shared' && shareMode !== 'org') {
         return apiError('shareMode must be private, shared, or org', 400)
+      }
+      if (shareMode === 'org' || shareMode === 'shared') {
+        try {
+          const dispatchAgentId = await resolveConversationDispatchAgentId(conversation)
+          const runtime = await authorizeWorkspaceRuntime({
+            userId: user.uid,
+            orgId: conversation.orgId,
+            workspaceId: conversation.workspaceContext.workspaceId,
+            runtimeTargetId: conversation.workspaceContext.runtimeTarget,
+            ...(dispatchAgentId ? { agentId: dispatchAgentId } : {}),
+          })
+          if (!workspaceRuntimeSupportsOrganizationSharing(runtime)) {
+            return apiError(
+              shareMode === 'shared'
+                ? 'Shared sessions require an organisation-available computer'
+                : 'Organisation-shared sessions require an organisation-available computer',
+              400,
+            )
+          }
+        } catch {
+          return apiError('Computer unavailable', 409)
+        }
       }
 
       const ownerUid = conversation.workspaceContext.ownerUserId ?? conversation.startedBy
@@ -192,6 +224,8 @@ export const DELETE = withAuth(
     if (!canDeleteConversation(user, conversation)) {
       return apiError('Forbidden', 403)
     }
+    const projectAuthorization = await authorizeConversationProject(user, conversation)
+    if (!projectAuthorization.ok) return apiError(projectAuthorization.error, projectAuthorization.status)
 
     await logActivity({
       orgId: conversation.orgId,

@@ -1,26 +1,11 @@
 import React from 'react'
 import { fireEvent, render, screen, waitFor, act } from '@testing-library/react'
 import ProjectsPage from '@/app/(portal)/portal/projects/page'
-import { collection, onSnapshot } from 'firebase/firestore'
 
-let snapshotCallback: ((snap: { docChanges: () => Array<{ type: 'added' | 'modified' | 'removed'; doc: { id: string; data: () => Record<string, unknown> } }> }) => void) | null = null
-const unsubscribe = jest.fn()
 let mockSearchParams = new URLSearchParams()
 
 jest.mock('next/navigation', () => ({
   useSearchParams: () => mockSearchParams,
-}))
-
-jest.mock('firebase/firestore', () => ({
-  collection: jest.fn((...segments: string[]) => segments),
-  onSnapshot: jest.fn((_ref, onNext) => {
-    snapshotCallback = onNext
-    return unsubscribe
-  }),
-}))
-
-jest.mock('@/lib/firebase/config', () => ({
-  getClientDb: jest.fn(() => ({})),
 }))
 
 jest.mock('@/components/projects/CrossProjectBoard', () => ({
@@ -31,26 +16,9 @@ jest.mock('@/components/projects/CrossProjectBoard', () => ({
   ),
 }))
 
-function mockSnapshotChange(type: 'added' | 'modified' | 'removed', id: string, data: Record<string, unknown>) {
-  act(() => {
-    snapshotCallback?.({
-      docChanges: () => [
-        {
-          type,
-          doc: { id, data: () => data },
-        },
-      ],
-    })
-  })
-}
-
 describe('Portal projects board live data', () => {
   beforeEach(() => {
     mockSearchParams = new URLSearchParams()
-    snapshotCallback = null
-    unsubscribe.mockClear()
-    ;(collection as jest.Mock).mockClear()
-    ;(onSnapshot as jest.Mock).mockClear()
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
       if (url === '/api/v1/projects?view=received') {
@@ -62,7 +30,9 @@ describe('Portal projects board live data', () => {
       if (url === '/api/v1/projects/project-1/tasks') {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ data: [] }),
+          json: async () => ({
+            data: [{ id: 'task-api-1', title: 'Task from project API', columnId: 'todo', order: 1 }],
+          }),
         } as Response)
       }
       if (url === '/api/v1/projects/reporting') {
@@ -120,22 +90,14 @@ describe('Portal projects board live data', () => {
     expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects?view=received&orgId=lumen-org')
   })
 
-  it('updates the cross-project kanban board when Firestore task snapshots change', async () => {
+  it('loads the cross-project kanban board through the scoped project task API', async () => {
     render(<ProjectsPage />)
 
     await waitFor(() => expect(screen.getByRole('button', { name: /board/i })).toBeInTheDocument())
     fireEvent.click(screen.getByRole('button', { name: /board/i }))
 
-    await waitFor(() => expect(snapshotCallback).toBeTruthy())
-
-    mockSnapshotChange('added', 'task-live-1', {
-      title: 'Live task from Firestore',
-      columnId: 'todo',
-      order: 1,
-      projectId: 'project-1',
-    })
-
-    expect(screen.getByText('Live task from Firestore — Launch Site')).toBeInTheDocument()
+    expect(await screen.findByText('Task from project API — Launch Site')).toBeInTheDocument()
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/tasks')
     await waitFor(() => expect(screen.getByRole('button', { name: /manual order/i })).toBeInTheDocument())
     const boardButton = screen.getByRole('button', { name: /view_kanban\s+board/i })
     const manualOrderButton = screen.getByRole('button', { name: /manual order/i })
@@ -167,7 +129,7 @@ describe('Portal projects board live data', () => {
     expect(screen.queryByText('Active Launch')).not.toBeInTheDocument()
   })
 
-  it('keeps live task changes that arrive before the REST fallback finishes', async () => {
+  it('renders a task after an in-flight API refresh completes', async () => {
     let resolveTasks: (response: Response) => void = () => {}
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
@@ -188,28 +150,15 @@ describe('Portal projects board live data', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: /board/i })).toBeInTheDocument())
     fireEvent.click(screen.getByRole('button', { name: /board/i }))
 
-    await waitFor(() => expect(snapshotCallback).toBeTruthy())
-    mockSnapshotChange('added', 'task-live-1', {
-      title: 'Live task survives fallback',
-      columnId: 'todo',
-      order: 1,
-      projectId: 'project-1',
-    })
-
     await act(async () => {
-      resolveTasks({ ok: true, json: async () => ({ data: [] }) } as Response)
+      resolveTasks({
+        ok: true,
+        json: async () => ({
+          data: [{ id: 'task-rest-1', title: 'Task after refresh', columnId: 'todo', order: 1 }],
+        }),
+      } as Response)
     })
 
-    expect(screen.getByText('Live task survives fallback — Launch Site')).toBeInTheDocument()
-  })
-
-
-  it('does not subscribe to the unscoped top-level projects collection', async () => {
-    render(<ProjectsPage />)
-
-    await waitFor(() => expect(screen.getAllByText('Launch Site').length).toBeGreaterThan(0))
-
-    expect(onSnapshot).not.toHaveBeenCalled()
-    expect(collection).not.toHaveBeenCalledWith(expect.anything(), 'projects')
+    expect(await screen.findByText('Task after refresh — Launch Site')).toBeInTheDocument()
   })
 })

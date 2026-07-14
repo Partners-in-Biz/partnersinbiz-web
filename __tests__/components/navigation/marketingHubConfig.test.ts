@@ -53,8 +53,8 @@ describe('marketing hub config', () => {
     expect(hrefs.get('Approval queues')).toBe('/admin/org/lumen-speeds/social')
     expect(hrefs.get('Account connections')).toBe('/admin/org/lumen-speeds/social')
     expect(hrefs.get('Profile links')).toBe('/admin/org/lumen-speeds/social')
-    expect(hrefs.get('Email permissions')).toBe('/admin/org/lumen-speeds/messages')
-    expect(hrefs.get('Email analytics access')).toBe('/admin/org/lumen-speeds/messages')
+    expect(hrefs.get('Email permissions')).toBe('/admin/org/lumen-speeds/messages?view=governance')
+    expect(hrefs.get('Email analytics access')).toBe('/admin/org/lumen-speeds/messages?view=governance')
     expect(hrefs.get('Sequence rules')).toBe('/admin/org/lumen-speeds/capture-sources')
     expect(hrefs.get('Audience access')).toBe('/admin/org/lumen-speeds/capture-sources')
 

@@ -1,6 +1,8 @@
 import crypto from 'node:crypto'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
+import { projectLinkedOrgIds } from '@/lib/project-locations/model'
+import { projectOrganizationDocId } from '@/lib/projects/collaboration'
 import {
   decryptLinkedRunPayload,
   encryptLinkedRunPayload,
@@ -12,6 +14,8 @@ import {
   type LinkedRunPayload,
   type LinkedRunReceipt,
 } from './run-queue'
+import { assertDeviceOrgAccess, isActiveOrgMembershipRow, linkedDeviceActorUserId, linkedDeviceOwnerType } from './policy'
+import type { ActiveOrgMembership, LinkedDevice, LinkedDeviceGrant } from './types'
 
 export const LINKED_RUN_JOBS = 'linked_device_run_jobs'
 export const LINKED_RUN_QUEUES = 'linked_device_run_queues'
@@ -46,11 +50,118 @@ function toStored(job: LinkedRunJob): Record<string, unknown> {
   }
 }
 
+type ClaimAuthorizationRow = Record<string, unknown> | undefined
+
+export function isLinkedRunClaimAuthorized(input: {
+  authenticatedDeviceUserId: string
+  credentialVersion: number
+  device: ClaimAuthorizationRow
+  grant: ClaimAuthorizationRow
+  mapping: ClaimAuthorizationRow
+  deviceMember: ClaimAuthorizationRow
+  actorMember: ClaimAuthorizationRow
+  project?: ClaimAuthorizationRow
+  projectOrganization?: ClaimAuthorizationRow
+  projectReplica?: ClaimAuthorizationRow
+  job: Pick<LinkedRunJob, 'deviceId' | 'orgId' | 'actorUserId' | 'workspaceId' | 'mappingId' | 'projectId' | 'projectReplicaId' | 'relativeFolder'> | Record<string, unknown>
+}): boolean {
+  const device = input.device ?? {}
+  const grant = input.grant ?? {}
+  const mapping = input.mapping ?? {}
+  const job = input.job
+  try {
+    const typedDevice = device as unknown as LinkedDevice
+    if (device.deviceId !== job.deviceId || device.status !== 'active' || Number(device.credentialVersion) !== input.credentialVersion
+      || linkedDeviceActorUserId(typedDevice) !== input.authenticatedDeviceUserId
+      || !Array.isArray(device.capabilities) || !device.capabilities.includes('workspace.execute')) return false
+    if (grant.status !== 'active' || grant.orgId !== job.orgId || grant.deviceId !== job.deviceId
+      || !Array.isArray(grant.capabilities) || !grant.capabilities.includes('workspace.execute')) return false
+    if (mapping.status !== 'active' || mapping.deviceId !== job.deviceId || mapping.orgId !== job.orgId
+      || mapping.workspaceId !== job.workspaceId || mapping.mappingId !== job.mappingId
+      || (job.projectId && mapping.projectId && mapping.projectId !== job.projectId)) return false
+    const projectId = typeof job.projectId === 'string' ? job.projectId.trim() : ''
+    const projectReplicaId = typeof job.projectReplicaId === 'string' ? job.projectReplicaId.trim() : ''
+    if (!projectId && projectReplicaId) return false
+    if (projectId) {
+      const project = input.project
+      const projectOrganization = input.projectOrganization
+      const projectReplica = input.projectReplica
+      if (!project || !projectReplicaId || !projectReplica) return false
+      const organizationLinked = projectOrganization !== undefined
+        ? projectOrganization.projectId === projectId
+          && projectOrganization.orgId === job.orgId
+          && projectOrganization.status === 'active'
+        : projectLinkedOrgIds(project).includes(String(job.orgId))
+      if (!organizationLinked
+        || projectReplica.replicaId !== projectReplicaId
+        || projectReplica.active !== true
+        || projectReplica.projectId !== projectId
+        || projectReplica.orgId !== job.orgId
+        || projectReplica.workspaceId !== job.workspaceId
+        || projectReplica.mappingId !== job.mappingId
+        || projectReplica.locationId !== `linked-device:${String(job.deviceId)}`
+        || projectReplica.relativePath !== job.relativeFolder) return false
+    }
+    const actorMember = input.actorMember
+    const actorIdentityMatches = Boolean(actorMember && (actorMember.uid === job.actorUserId || actorMember.userId === job.actorUserId))
+    const actorMembership: ActiveOrgMembership = {
+      orgId: String(job.orgId), userId: String(job.actorUserId),
+      active: isActiveOrgMembershipRow(actorMember) && actorMember?.orgId === job.orgId
+        && actorIdentityMatches,
+      role: typeof actorMember?.role === 'string' ? actorMember.role : undefined,
+    }
+    if (linkedDeviceOwnerType(typedDevice) === 'user') {
+      const member = input.deviceMember
+      const ownerIdentityMatches = Boolean(member && (member.uid === typedDevice.ownerUserId || member.userId === typedDevice.ownerUserId))
+      if (!isActiveOrgMembershipRow(member) || member?.orgId !== job.orgId
+        || !ownerIdentityMatches) return false
+    }
+    assertDeviceOrgAccess({ actorUserId: String(job.actorUserId), orgId: String(job.orgId), device: typedDevice, grant: grant as unknown as LinkedDeviceGrant, membership: actorMembership })
+    return true
+  } catch { return false }
+}
+
+async function loadLinkedRunAuthorization(
+  tx: FirebaseFirestore.Transaction,
+  job: LinkedRunJob,
+  authenticatedDeviceUserId: string,
+): Promise<Omit<Parameters<typeof isLinkedRunClaimAuthorized>[0], 'authenticatedDeviceUserId' | 'credentialVersion' | 'job'>> {
+  const [device, grant, mapping, deviceMember, actorMember] = await Promise.all([
+    tx.get(adminDb.collection('linked_devices').doc(job.deviceId)),
+    tx.get(adminDb.collection('linked_device_grants').doc(`${job.orgId}_${job.deviceId}`)),
+    tx.get(adminDb.collection('linked_device_workspace_mappings').doc(job.mappingId)),
+    tx.get(adminDb.collection('orgMembers').doc(`${job.orgId}_${authenticatedDeviceUserId}`)),
+    tx.get(adminDb.collection('orgMembers').doc(`${job.orgId}_${job.actorUserId}`)),
+  ])
+  const projectId = typeof job.projectId === 'string' ? job.projectId.trim() : ''
+  const projectReplicaId = typeof job.projectReplicaId === 'string' ? job.projectReplicaId.trim() : ''
+  const [project, projectOrganization, projectReplica] = projectId && projectReplicaId
+    ? await Promise.all([
+        tx.get(adminDb.collection('projects').doc(projectId)),
+        tx.get(adminDb.collection('projectOrganizations').doc(projectOrganizationDocId(projectId, job.orgId))),
+        tx.get(adminDb.collection('project_location_replicas').doc(projectReplicaId)),
+      ])
+    : [null, null, null]
+  return {
+    device: device.exists ? device.data() ?? {} : undefined,
+    grant: grant.exists ? grant.data() ?? {} : undefined,
+    mapping: mapping.exists ? mapping.data() ?? {} : undefined,
+    deviceMember: deviceMember.exists ? deviceMember.data() ?? {} : undefined,
+    actorMember: actorMember.exists ? actorMember.data() ?? {} : undefined,
+    project: project?.exists ? project.data() ?? {} : undefined,
+    projectOrganization: projectOrganization?.exists ? projectOrganization.data() ?? {} : undefined,
+    projectReplica: projectReplica?.exists ? projectReplica.data() ?? {} : undefined,
+  }
+}
+
 export async function enqueueLinkedRun(input: {
-  requestId: string; deviceId: string; runtimeTargetId: string; orgId: string; actorUserId: string; workspaceId: string; projectId?: string
+  requestId: string; deviceId: string; runtimeTargetId: string; orgId: string; actorUserId: string; workspaceId: string; projectId?: string; projectReplicaId?: string
   mappingId: string; relativeFolder: string; credentialVersion: number; payload: LinkedRunPayload
   conversationId: string; assistantMessageId: string; agentId: string
 }, options: { nowMs?: number; ttlMs?: number } = {}): Promise<LinkedRunJob> {
+  if (Boolean(input.projectId?.trim()) !== Boolean(input.projectReplicaId?.trim())) {
+    throw new Error('linked computers: project runs require an active replica')
+  }
   const nowMs = options.nowMs ?? Date.now()
   const id = jobId(input.deviceId, input.requestId)
   const job: LinkedRunJob = {
@@ -101,25 +212,11 @@ export async function claimOldestLinkedRun(input: { deviceId: string; ownerUserI
       if (current.deviceId !== input.deviceId || ['completed', 'failed', 'cancelled', 'expired'].includes(current.status)) continue
       if (current.expiresAtMs <= nowMs) { expiredRefs.push({ ref, job: current }); continue }
       if (!selected && (current.status === 'queued' || (['claimed', 'running'].includes(current.status) && (current.leaseExpiresAtMs ?? 0) <= nowMs))) {
-        const [device, grant, mapping, member, actorMember] = await Promise.all([
-          tx.get(adminDb.collection('linked_devices').doc(current.deviceId)),
-          tx.get(adminDb.collection('linked_device_grants').doc(`${current.orgId}_${current.deviceId}`)),
-          tx.get(adminDb.collection('linked_device_workspace_mappings').doc(current.mappingId)),
-          tx.get(adminDb.collection('orgMembers').doc(`${current.orgId}_${input.ownerUserId}`)),
-          tx.get(adminDb.collection('orgMembers').doc(`${current.orgId}_${current.actorUserId}`)),
-        ])
-        const d = device.data() ?? {}; const g = grant.data() ?? {}; const m = mapping.data() ?? {}; const u = member.data() ?? {}; const a = actorMember.data() ?? {}
-        if (!device.exists || d.status !== 'active' || Number(d.credentialVersion) !== input.credentialVersion
-          || d.ownerUserId !== input.ownerUserId || !member.exists || u.status !== 'active' || u.orgId !== current.orgId
-          || (u.uid !== input.ownerUserId && u.userId !== input.ownerUserId)
-          || !actorMember.exists || a.status !== 'active' || a.orgId !== current.orgId
-          || (a.uid !== current.actorUserId && a.userId !== current.actorUserId)
-          || (current.actorUserId !== input.ownerUserId && (!Array.isArray(g.allowedUserIds) || !g.allowedUserIds.includes(current.actorUserId)))
-          || !Array.isArray(d.capabilities) || !d.capabilities.includes('workspace.execute')
-          || !grant.exists || g.status !== 'active' || g.orgId !== current.orgId || g.deviceId !== current.deviceId
-          || !Array.isArray(g.capabilities) || !g.capabilities.includes('workspace.execute')
-          || !mapping.exists || m.status !== 'active' || m.deviceId !== current.deviceId || m.orgId !== current.orgId
-          || m.workspaceId !== current.workspaceId || (current.projectId && m.projectId && m.projectId !== current.projectId)) {
+        const authorization = await loadLinkedRunAuthorization(tx, current, input.ownerUserId)
+        if (!isLinkedRunClaimAuthorized({
+          authenticatedDeviceUserId: input.ownerUserId, credentialVersion: input.credentialVersion,
+          ...authorization, job: current,
+        })) {
           expiredRefs.push({ ref, job: current }); continue
         }
         selected = transitionLinkedRun(current, { type: 'claim', ...input, nowMs, leaseMs: options.leaseMs ?? DEFAULT_LEASE_MS })
@@ -143,7 +240,7 @@ export async function claimOldestLinkedRun(input: { deviceId: string; ownerUserI
 }
 
 export async function updateLinkedRunFromDevice(input: {
-  deviceId: string; credentialVersion: number; jobId: string; receipt: LinkedRunReceipt
+  deviceId: string; ownerUserId: string; credentialVersion: number; jobId: string; receipt: LinkedRunReceipt
   event: 'progress' | 'complete'; outcome?: 'completed' | 'failed' | 'cancelled'; output?: string; error?: string
 }, options: { nowMs?: number } = {}) {
   const nowMs = options.nowMs ?? Date.now()
@@ -153,12 +250,18 @@ export async function updateLinkedRunFromDevice(input: {
   if (!validReceiptEvent) throw new Error('linked computers: run receipt event mismatch')
   const result = await adminDb.runTransaction(async (tx) => {
     const jobRef = adminDb.collection(LINKED_RUN_JOBS).doc(input.jobId)
-    const deviceRef = adminDb.collection('linked_devices').doc(input.deviceId)
     const credentialRef = adminDb.collection('linked_device_credentials').doc(input.deviceId)
-    const [jobSnap, deviceSnap, credentialSnap] = await Promise.all([tx.get(jobRef), tx.get(deviceRef), tx.get(credentialRef)])
-    if (!jobSnap.exists || !deviceSnap.exists || !credentialSnap.exists) throw new Error('linked computers: run not found')
+    const [jobSnap, credentialSnap] = await Promise.all([tx.get(jobRef), tx.get(credentialRef)])
+    if (!jobSnap.exists || !credentialSnap.exists) throw new Error('linked computers: run not found')
     const storedJob = fromStored(jobSnap.data() ?? {})
-    const device = deviceSnap.data() ?? {}
+    const authorization = await loadLinkedRunAuthorization(tx, storedJob, input.ownerUserId)
+    if (!isLinkedRunClaimAuthorized({
+      authenticatedDeviceUserId: input.ownerUserId,
+      credentialVersion: input.credentialVersion,
+      ...authorization,
+      job: storedJob,
+    })) throw new Error('linked computers: run grant or project access revoked')
+    const device = authorization.device ?? {}
     const credential = credentialSnap.data() ?? {}
     const issuedMs = timestampMs(credential.issuedAt)
     const acceptedMs = Date.parse(String(storedJob.acceptanceReceipt?.acceptedAt ?? ''))
@@ -215,12 +318,86 @@ export async function waitForLinkedRunClaim(job: LinkedRunJob, options: { timeou
   throw new Error('linked computers: claim timeout')
 }
 
-export async function cancelLinkedRun(jobIdValue: string, reason = 'cancelled') {
+export type LinkedRunResult = {
+  status: 'running' | 'completed' | 'failed'
+  runId: string
+  linkedStatus: LinkedRunJob['status']
+  content?: string
+  error?: string
+}
+
+/**
+ * Read linked-computer run state only after the caller has authorized access to
+ * the containing conversation. Every durable binding is checked so a message
+ * can never be finalized from an unrelated device job with a reused id.
+ */
+export async function getLinkedRunResult(input: {
+  jobId: string
+  deviceId: string
+  conversationId: string
+  assistantMessageId: string
+}): Promise<LinkedRunResult | null> {
+  const snapshot = await adminDb.collection(LINKED_RUN_JOBS).doc(input.jobId).get()
+  if (!snapshot.exists) return null
+  const job = fromStored(snapshot.data() ?? {})
+  if (job.jobId !== input.jobId
+    || job.deviceId !== input.deviceId
+    || job.conversationId !== input.conversationId
+    || job.assistantMessageId !== input.assistantMessageId) {
+    throw new Error('linked computers: run binding mismatch')
+  }
+
+  const stored = snapshot.data() ?? {}
+  const content = typeof stored.output === 'string' ? stored.output : ''
+  const error = typeof stored.error === 'string' ? stored.error : ''
+  if (job.status === 'completed') {
+    return { status: 'completed', runId: job.jobId, linkedStatus: job.status, content }
+  }
+  if (job.status === 'failed' || job.status === 'cancelled' || job.status === 'expired') {
+    const fallback = job.status === 'cancelled'
+      ? 'The linked computer run was cancelled.'
+      : job.status === 'expired'
+        ? 'The linked computer run expired.'
+        : 'The linked computer run failed.'
+    return {
+      status: 'failed',
+      runId: job.jobId,
+      linkedStatus: job.status,
+      content: '',
+      error: error || fallback,
+    }
+  }
+  return { status: 'running', runId: job.jobId, linkedStatus: job.status }
+}
+
+export interface LinkedRunCancellationBinding {
+  deviceId: string
+  conversationId: string
+  assistantMessageId: string
+}
+
+export function isLinkedRunCancellationBound(
+  job: Pick<LinkedRunJob, 'deviceId' | 'conversationId' | 'assistantMessageId'>,
+  binding: LinkedRunCancellationBinding,
+): boolean {
+  return job.deviceId === binding.deviceId
+    && job.conversationId === binding.conversationId
+    && job.assistantMessageId === binding.assistantMessageId
+}
+
+export async function cancelLinkedRun(
+  jobIdValue: string,
+  reason = 'cancelled',
+  binding?: LinkedRunCancellationBinding,
+) {
   const ref = adminDb.collection(LINKED_RUN_JOBS).doc(jobIdValue)
   return adminDb.runTransaction(async (tx) => {
     const snap = await tx.get(ref)
     if (!snap.exists) return { won: false, status: 'missing' as const }
     const job = fromStored(snap.data() ?? {})
+    if (binding && !isLinkedRunCancellationBound(job, binding)) {
+      return { won: false, status: 'binding_mismatch' as const }
+    }
     if (['completed', 'failed', 'cancelled', 'expired'].includes(job.status)) return { won: false, status: job.status }
     const queueRef = adminDb.collection(LINKED_RUN_QUEUES).doc(job.deviceId)
     const queue = await tx.get(queueRef)

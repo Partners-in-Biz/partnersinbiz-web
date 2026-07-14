@@ -17,9 +17,9 @@ export default async function MessagesPage({ params, searchParams }: PageProps) 
   const initialRunId = typeof sp.runId === 'string' ? sp.runId : undefined
   const initialTaskId = typeof sp.taskId === 'string' ? sp.taskId : undefined
   const initialTaskTitle = typeof sp.taskTitle === 'string' ? sp.taskTitle : undefined
-  const shouldOpenConversationWorkspace = Boolean(initialConvId || initialAgentId || initialRunId || initialTaskId)
+  const showGovernance = sp.view === 'governance'
 
-  if (!shouldOpenConversationWorkspace) {
+  if (showGovernance) {
     return <AdminMessagesGovernanceWorkspace orgSlug={slug} />
   }
 

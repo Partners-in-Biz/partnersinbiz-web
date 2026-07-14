@@ -14,6 +14,7 @@ describe('agent runtime targets', () => {
       source: 'legacy',
       runtimeKind: 'legacy',
       machineLabel: 'Legacy Hermes',
+      transportIdentity: 'V5mnM3yPfrHOY62GQCRQOSXKCNr5-k0BakcHxGd8Qv0',
     })
   })
 

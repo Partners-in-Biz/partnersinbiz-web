@@ -45,6 +45,8 @@ import { ChatContextExperience } from '@/components/chat/context/ChatContextExpe
 import { ContextArtifactBundle } from '@/components/chat/context/ContextArtifactBundle'
 import type { ProjectChatTaskItem } from '@/lib/projects/chatProgress'
 import type { RuntimeExecution } from '@/components/messages/hermes/RuntimeInspectorRail'
+import { ProjectPeopleAccessPanel } from '@/components/projects/ProjectPeopleAccessPanel'
+import { AccessibleDialog } from '@/components/linked-computers/AccessibleOverlay'
 
 type AgentId = string
 
@@ -93,12 +95,15 @@ export interface UnifiedChatProps {
 const POLL_INTERVAL = 1500
 const MAX_RUN_POLL_ATTEMPTS = Math.ceil((90 * 60 * 1000) / POLL_INTERVAL)
 const HUMAN_CHAT_REFRESH_INTERVAL = 3000
+const WORKSPACE_CATALOGUE_REFRESH_INTERVAL = 30_000
+const PROJECT_SYNC_STATUS_REFRESH_INTERVAL = 5_000
 const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
 const MAX_PENDING_ATTACHMENTS = 5
 const MAX_COMPOSER_HISTORY_ENTRIES = 30
 const MAX_QUEUED_COMPOSER_DRAFTS = 8
 const COMPOSER_HISTORY_STORAGE_PREFIX = 'pib.messages.composerHistory.v1'
 const PINNED_CONVERSATIONS_STORAGE_PREFIX = 'pib.messages.pinnedConversations.v1'
+const PROJECT_SETUP_IDEMPOTENCY_PREFIX = 'pib-project-setup'
 const ALLOWED_ATTACHMENT_MIME = new Set([
   'image/jpeg',
   'image/png',
@@ -136,12 +141,39 @@ interface OrgWorkspaceSummary {
 interface WorkspaceProjectSummary {
   id: string
   name: string
+  locations?: WorkspaceProjectLocationSummary[]
+}
+
+interface WorkspaceProjectLocationSummary {
+  replicaId?: string
+  locationId: string
+  workspaceId?: string
+  label: string
+  availability: 'online' | 'unavailable'
+  syncStatus?: string
+  visibility?: 'private' | 'organization'
+  kind?: 'vps' | 'computer'
+  platform?: string
+  canonical?: boolean
+  authenticatedRuntime?: boolean
 }
 
 interface WorkspaceRuntimePresence {
   id: string
   label: string
   hostId?: string
+  deviceId?: string
+  mappingId?: string
+  workspaceId?: string
+  locationId?: string
+  locationLabel?: string
+  location?: { id?: string; label?: string }
+  platform?: string
+  kind?: string
+  deviceKind?: 'vps' | 'computer'
+  ownerType?: 'user' | 'organization'
+  visibility?: 'private' | 'organization'
+  unavailableReason?: string
   enabled: boolean
   isLocal: boolean
   isFresh: boolean
@@ -150,6 +182,227 @@ interface WorkspaceRuntimePresence {
   lastSeenAt: string | null
   ageSeconds: number | null
   lastHealthStatus: string | null
+}
+
+interface WorkspaceCatalogueSnapshot {
+  workspaces: OrgWorkspaceSummary[]
+  projects: WorkspaceProjectSummary[]
+  runtimeTargetsByWorkspace: Record<string, WorkspaceRuntimePresence[]>
+}
+
+interface RegisteredWorkspaceFolder {
+  id: string
+  name: string
+  syncStatus?: string
+}
+
+type ProjectSetupMode = 'existing_folder' | 'standard' | 'full_client'
+
+interface ProjectSetupPlanView {
+  state: string
+  completed?: boolean
+  syncCompleted?: boolean
+  actions?: Array<{ type?: string; status?: string; [key: string]: unknown }>
+}
+
+interface ProjectSetupResultView {
+  mode: ProjectSetupMode
+  projectId: string
+  projectName: string
+  plan: ProjectSetupPlanView
+  linkedLocationIds: string[]
+  organizationId?: string
+  organizationSlug?: string
+}
+
+interface ProjectLocationOption {
+  key: string
+  runtimeTargetId: string
+  locationId: string
+  mappingId?: string
+  workspaceId: string
+  workspaceLabel: string
+  label: string
+  kind?: 'vps' | 'computer'
+  ownerType?: 'user' | 'organization'
+  selectable: boolean
+  unavailableReason?: string
+}
+
+interface ProjectLocationManagementCandidate {
+  key: string
+  runtimeTargetId: string
+  locationId: string
+  mappingId?: string
+  workspaceId: string
+  workspaceLabel: string
+  label: string
+  selectable: boolean
+}
+
+interface ManagedProjectLocation {
+  replicaId: string
+  locationId: string
+  label: string
+  availability: 'online' | 'unavailable'
+  syncStatus?: string
+  visibility?: 'private' | 'organization'
+  kind?: 'vps' | 'computer'
+  platform?: string
+  canonical?: boolean
+  authenticatedRuntime: boolean
+}
+
+interface ManagedProjectSyncState {
+  projectId: string
+  status: string | null
+  conflictKind: string | null
+  blocker: string | null
+  notice: string | null
+  noticeTone: 'neutral' | 'success' | 'blocker' | 'error'
+}
+
+function managedProjectCanSync(locations: ManagedProjectLocation[]): boolean {
+  if (locations.length < 2) return false
+  return locations.every((location) => location.authenticatedRuntime)
+    && locations.some((location) => location.kind === 'vps' && location.visibility === 'organization')
+}
+
+function projectSyncStatusLabel(status: string | null): string {
+  if (!status) return 'Not started'
+  return humanizeProjectSetupValue(status)
+}
+
+function projectSyncBlockerMessage(blocker: string): string {
+  if (blocker === 'project_sync_storage_lifecycle_unverified') {
+    return 'disabled until the project-sync retention controls are verified: all five Firestore TTL policies and the Storage lifecycle rule must be read back live.'
+  }
+  if (blocker === 'native_sync_worker_unavailable') {
+    return 'waiting for every linked computer and VPS to install and authenticate its sync worker.'
+  }
+  if (blocker === 'native_sync_replica_offline') {
+    return 'waiting for an unavailable computer to reconnect.'
+  }
+  return `blocked by ${humanizeProjectSetupValue(blocker).toLowerCase()}.`
+}
+
+function projectSyncConflictMessage(kind: string | null): string {
+  if (kind === 'target_drift') return 'Files changed on a destination after the transfer was planned.'
+  if (kind === 'non_destructive_apply_required') return 'A deletion or file/folder type change needs manual reconciliation.'
+  if (kind === 'competing_revisions') return 'Different linked machines contain competing edits.'
+  if (kind === 'unsupported_scale') return 'This project exceeds the safe v1 sync limits.'
+  if (kind === 'unsupported_path') return 'A project path is not portable across the linked machines.'
+  return 'The linked machines contain versions that cannot be reconciled automatically.'
+}
+
+function humanizeProjectSetupValue(value: string): string {
+  const normalized = value.replace(/[_-]+/g, ' ').trim()
+  return normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : 'Pending'
+}
+
+function projectSetupStateLabel(state: string): string {
+  const normalized = state.trim().toLowerCase()
+  if (normalized === 'ready' || normalized === 'completed') return 'Ready'
+  if (normalized.includes('conflict')) return 'Conflict'
+  if (normalized.includes('offline') || normalized.includes('computer_unavailable')) return 'Computer unavailable'
+  if (normalized.includes('mapping')) return 'Pending mapping'
+  if (normalized.includes('sync') || normalized.includes('standard_provision')) return 'Pending sync'
+  if (normalized.includes('client') || normalized.includes('provision')) return 'Pending client provisioning'
+  return humanizeProjectSetupValue(normalized)
+}
+
+function projectRuntimeLocationId(runtime: WorkspaceRuntimePresence): string {
+  return runtime.locationId || runtime.location?.id || runtime.id
+}
+
+function projectRuntimeLabel(runtime: WorkspaceRuntimePresence): string {
+  return runtime.locationLabel || runtime.location?.label || runtime.label
+}
+
+function newProjectSetupIdempotencyKey(): string {
+  if (typeof globalThis.crypto?.randomUUID === 'function') {
+    return `${PROJECT_SETUP_IDEMPOTENCY_PREFIX}:${globalThis.crypto.randomUUID()}`
+  }
+  if (typeof globalThis.crypto?.getRandomValues === 'function') {
+    const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16))
+    return `${PROJECT_SETUP_IDEMPOTENCY_PREFIX}:${Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')}`
+  }
+  return `${PROJECT_SETUP_IDEMPOTENCY_PREFIX}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2)}`
+}
+
+function normalizeWorkspaceProjectLocations(value: unknown): WorkspaceProjectLocationSummary[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object') return []
+    const row = entry as Record<string, unknown>
+    if (row.active === false) return []
+    const locationId = typeof row.locationId === 'string' ? row.locationId.trim() : ''
+    const label = typeof row.label === 'string' && row.label.trim()
+      ? row.label.trim()
+      : typeof row.locationLabel === 'string' ? row.locationLabel.trim() : ''
+    if (!locationId || !label) return []
+    const rawAvailability = typeof row.availability === 'string' ? row.availability.toLowerCase() : ''
+    // A live catalogue result is more current than the replica's persisted
+    // availability snapshot. In particular, `selectable: false` must make an
+    // otherwise-online computer visibly unavailable.
+    const availability = row.selectable === false
+      ? 'unavailable'
+      : row.selectable === true || rawAvailability === 'online'
+        ? 'online'
+        : 'unavailable'
+    const visibility = row.visibility === 'private' || row.locationVisibility === 'private'
+      ? 'private' as const
+      : row.visibility === 'organization' || row.locationVisibility === 'organization'
+        ? 'organization' as const
+        : undefined
+    const kind = row.kind === 'vps' || row.locationKind === 'vps'
+      ? 'vps' as const
+      : row.kind === 'computer' || row.locationKind === 'computer'
+        ? 'computer' as const
+        : undefined
+    return [{
+      ...(typeof row.replicaId === 'string' && row.replicaId.trim() ? { replicaId: row.replicaId.trim() } : {}),
+      locationId,
+      ...(typeof row.workspaceId === 'string' && row.workspaceId.trim() ? { workspaceId: row.workspaceId.trim() } : {}),
+      label,
+      availability,
+      ...(typeof row.syncStatus === 'string' && row.syncStatus.trim() ? { syncStatus: row.syncStatus.trim() } : {}),
+      ...(visibility ? { visibility } : {}),
+      ...(kind ? { kind } : {}),
+      ...(typeof row.platform === 'string' && row.platform.trim() ? { platform: row.platform.trim() } : {}),
+      ...(row.canonical === true || row.isCanonical === true ? { canonical: true } : {}),
+      authenticatedRuntime: row.authenticatedRuntime === true,
+    }]
+  })
+}
+
+function normalizeWorkspaceProjectSummaries(value: unknown): WorkspaceProjectSummary[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object') return []
+    const row = entry as Record<string, unknown>
+    const id = typeof row.id === 'string' ? row.id.trim() : ''
+    const name = typeof row.name === 'string' ? row.name.trim() : ''
+    if (!id || !name) return []
+    const locations = normalizeWorkspaceProjectLocations(row.locations)
+    return [{ id, name, ...(locations ? { locations } : {}) }]
+  })
+}
+
+function normalizeManagedProjectLocations(value: unknown): ManagedProjectLocation[] {
+  const locations = normalizeWorkspaceProjectLocations(value) ?? []
+  return locations.flatMap((location) => location.replicaId ? [{
+    replicaId: location.replicaId,
+    locationId: location.locationId,
+    label: location.label,
+    availability: location.availability,
+    ...(location.syncStatus ? { syncStatus: location.syncStatus } : {}),
+    ...(location.visibility ? { visibility: location.visibility } : {}),
+    ...(location.kind ? { kind: location.kind } : {}),
+    ...(location.platform ? { platform: location.platform } : {}),
+    ...(location.canonical ? { canonical: true } : {}),
+    authenticatedRuntime: location.authenticatedRuntime === true,
+  }] : [])
 }
 
 type ConversationScope = 'general' | 'project' | 'workspace' | 'task' | 'campaign' | 'company' | 'contact'
@@ -214,7 +467,19 @@ function writePinnedConversationIds(orgId: string, ids: string[]): void {
 }
 
 function isProjectConversation(conversation: Conversation): boolean {
-  return conversation.scope === 'project' || conversation.scope === 'workspace' || conversation.contextRefs?.some((ref) => ref.type === 'project') === true
+  return Boolean(conversationProjectIdentity(conversation))
+}
+
+function conversationProjectIdentity(conversation: Conversation): { id: string; name: string } | null {
+  const workspaceProjectId = conversation.workspaceContext?.projectId?.trim()
+  const scopeProjectId = conversation.scope === 'project' ? conversation.scopeRefId?.trim() : ''
+  const contextProject = conversation.contextRefs?.find((ref) => ref.type === 'project')
+  const id = workspaceProjectId || scopeProjectId || contextProject?.id?.trim()
+  if (!id) return null
+  return {
+    id,
+    name: conversation.workspaceContext?.projectName?.trim() || contextProject?.label?.trim() || 'Project',
+  }
 }
 
 function isAgentConversation(conversation: Conversation): boolean {
@@ -223,21 +488,58 @@ function isAgentConversation(conversation: Conversation): boolean {
 
 function buildHermesSessionSections(conversations: Conversation[], pinnedIds: string[]) {
   const pinnedSet = new Set(pinnedIds)
-  const visible = conversations.filter((conversation) => !conversation.archived)
+  const visible = conversations.filter((conversation) => !conversation.archived && !isProjectConversation(conversation))
   const pinned = visible.filter((conversation) => pinnedSet.has(conversation.id))
   const unpinned = visible.filter((conversation) => !pinnedSet.has(conversation.id))
-  const projects = unpinned.filter(isProjectConversation)
-  const projectIds = new Set(projects.map((conversation) => conversation.id))
-  const agents = unpinned.filter((conversation) => !projectIds.has(conversation.id) && isAgentConversation(conversation))
+  const workspaces = unpinned.filter((conversation) => conversation.scope === 'workspace')
+  const workspaceIds = new Set(workspaces.map((conversation) => conversation.id))
+  const agents = unpinned.filter((conversation) => !workspaceIds.has(conversation.id) && isAgentConversation(conversation))
   const agentIds = new Set(agents.map((conversation) => conversation.id))
-  const recent = unpinned.filter((conversation) => !projectIds.has(conversation.id) && !agentIds.has(conversation.id))
+  const recent = unpinned.filter((conversation) => !workspaceIds.has(conversation.id) && !agentIds.has(conversation.id))
 
   return [
     { id: 'pinned', label: 'Pinned', conversations: pinned },
-    { id: 'projects', label: 'Workspaces', conversations: projects },
+    { id: 'workspaces', label: 'Workspaces', conversations: workspaces },
     { id: 'agents', label: 'Agents', conversations: agents },
     { id: 'recent', label: 'Recent', conversations: recent },
   ].filter((section) => section.conversations.length > 0)
+}
+
+function buildHermesProjectGroups(
+  conversations: Conversation[],
+  projects: WorkspaceProjectSummary[],
+  filter: string,
+) {
+  const groups = new Map<string, { id: string; name: string; locations?: WorkspaceProjectLocationSummary[]; conversations: Conversation[] }>()
+  for (const project of projects) {
+    groups.set(project.id, {
+      id: project.id,
+      name: project.name,
+      ...(project.locations ? { locations: project.locations } : {}),
+      conversations: [],
+    })
+  }
+  for (const conversation of conversations) {
+    if (conversation.archived) continue
+    const project = conversationProjectIdentity(conversation)
+    if (!project) continue
+    const group = groups.get(project.id) ?? { ...project, conversations: [] }
+    group.conversations.push(conversation)
+    groups.set(project.id, group)
+  }
+
+  const query = filter.trim().toLocaleLowerCase()
+  if (!query) return Array.from(groups.values())
+  return Array.from(groups.values()).flatMap((group) => {
+    if (group.name.toLocaleLowerCase().includes(query)
+      || group.locations?.some((location) => location.label.toLocaleLowerCase().includes(query))) return [group]
+    const conversations = group.conversations.filter((conversation) => [
+      conversation.title,
+      conversation.lastMessagePreview,
+      conversation.workspaceContext?.runtimeLabel,
+    ].some((value) => value?.toLocaleLowerCase().includes(query)))
+    return conversations.length > 0 ? [{ ...group, conversations }] : []
+  })
 }
 
 function validateConversationAttachment(file: File): string | null {
@@ -447,11 +749,42 @@ export default function UnifiedChat({
   const [workspaceProjects, setWorkspaceProjects] = useState<WorkspaceProjectSummary[]>([])
   const [workspaceRuntimeTargetsByWorkspace, setWorkspaceRuntimeTargetsByWorkspace] = useState<Record<string, WorkspaceRuntimePresence[]>>({})
   const [workspacesLoading, setWorkspacesLoading] = useState(false)
+  const [workspaceCatalogueLoaded, setWorkspaceCatalogueLoaded] = useState(false)
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('')
   const [selectedProjectId, setSelectedProjectId] = useState(projectId ?? '')
-  const [selectedWorkspaceRuntime, setSelectedWorkspaceRuntime] = useState<string>('vps')
+  const [selectedWorkspaceRuntime, setSelectedWorkspaceRuntime] = useState<string>('')
   const workspaceRuntimeExplicitRef = useRef(false)
   const [selectedWorkspaceShareMode, setSelectedWorkspaceShareMode] = useState<'private' | 'shared' | 'org'>('private')
+  const [showProjectSetupWizard, setShowProjectSetupWizard] = useState(false)
+  const [projectSetupMode, setProjectSetupMode] = useState<ProjectSetupMode>('existing_folder')
+  const [projectSetupName, setProjectSetupName] = useState('')
+  const [projectSetupWorkspaceId, setProjectSetupWorkspaceId] = useState('')
+  const [projectSetupWorkspaceFolderId, setProjectSetupWorkspaceFolderId] = useState('')
+  const [projectSetupLocationId, setProjectSetupLocationId] = useState('')
+  const [projectSetupLocationIds, setProjectSetupLocationIds] = useState<string[]>([])
+  const [projectSetupClientName, setProjectSetupClientName] = useState('')
+  const [projectSetupDomainSlug, setProjectSetupDomainSlug] = useState('')
+  const [projectSetupAgentName, setProjectSetupAgentName] = useState('Pip')
+  const [registeredWorkspaceFolders, setRegisteredWorkspaceFolders] = useState<RegisteredWorkspaceFolder[]>([])
+  const [registeredWorkspaceFoldersLoading, setRegisteredWorkspaceFoldersLoading] = useState(false)
+  const [projectSetupSubmitting, setProjectSetupSubmitting] = useState(false)
+  const [projectSetupError, setProjectSetupError] = useState<string | null>(null)
+  const [projectSetupResult, setProjectSetupResult] = useState<ProjectSetupResultView | null>(null)
+  const projectSetupIdempotencyKeyRef = useRef('')
+  const refreshWorkspaceCatalogueRef = useRef<() => Promise<WorkspaceCatalogueSnapshot | null>>(async () => null)
+  const [managedProject, setManagedProject] = useState<{ id: string; name: string } | null>(null)
+  const [accessProject, setAccessProject] = useState<{ id: string; name: string } | null>(null)
+  const [managedProjectLocations, setManagedProjectLocations] = useState<ManagedProjectLocation[]>([])
+  const [selectedManagedProjectLocationKeys, setSelectedManagedProjectLocationKeys] = useState<string[]>([])
+  const [projectLocationsLoading, setProjectLocationsLoading] = useState(false)
+  const [projectLocationsMutating, setProjectLocationsMutating] = useState(false)
+  const [projectLocationsError, setProjectLocationsError] = useState<string | null>(null)
+  const [projectSyncLoading, setProjectSyncLoading] = useState(false)
+  const [projectSyncSubmitting, setProjectSyncSubmitting] = useState(false)
+  const [projectSyncResetting, setProjectSyncResetting] = useState(false)
+  const [managedProjectSync, setManagedProjectSync] = useState<ManagedProjectSyncState | null>(null)
+  const projectSyncInFlightRef = useRef(false)
+  const projectSyncRefreshInFlightRef = useRef(false)
   const [creatingConv, setCreatingConv] = useState(false)
 
   // Attachment state
@@ -494,7 +827,7 @@ export default function UnifiedChat({
     if (!preferCurrentPageContext || !currentPageContext) return
     const relatedId = findRelatedConversationId(conversations, currentPageContext)
     setActiveId((current) => current === relatedId ? current : relatedId)
-  }, [conversations, currentPageContext?.id, currentPageContext?.type, preferCurrentPageContext])
+  }, [conversations, currentPageContext, preferCurrentPageContext])
   const hasDockContext = Boolean(activeConversation && (
     (activeConversation.scope === 'project' && activeConversation.scopeRefId) ||
     (activeConversation.contextRefs ?? []).some((ref) => ref.type === 'project' || ref.type === 'studio' || ref.type === 'studio_artifact')
@@ -505,6 +838,7 @@ export default function UnifiedChat({
     activeConversation,
     false,
   )
+  const refreshProjectChat = projectChat.refresh
   const projectBundleRefreshRef = useRef<{ contextKey: string; refreshedAt: number; messageSignal: string }>({ contextKey: '', refreshedAt: 0, messageSignal: '' })
   useEffect(() => {
     if (chatContexts.activeContext?.kind !== 'project' || !chatContexts.model) return
@@ -513,8 +847,8 @@ export default function UnifiedChat({
     const previous = projectBundleRefreshRef.current
     if (previous.contextKey === contextKey && now - previous.refreshedAt < 30_000) return
     projectBundleRefreshRef.current = { ...previous, contextKey, refreshedAt: now }
-    void projectChat.refresh().catch(() => undefined)
-  }, [chatContexts.activeContext?.id, chatContexts.activeContext?.kind, chatContexts.model?.asOf, projectChat.refresh])
+    void refreshProjectChat().catch(() => undefined)
+  }, [chatContexts.activeContext?.id, chatContexts.activeContext?.kind, chatContexts.model, refreshProjectChat])
   const projectBundleMessageSignal = useMemo(() => {
     const latest = messages[messages.length - 1]
     const eventCount = Object.values(liveEvents).reduce((total, events) => total + events.length, 0)
@@ -530,15 +864,15 @@ export default function UnifiedChat({
     }
     if (previous.messageSignal === projectBundleMessageSignal) return
     projectBundleRefreshRef.current = { contextKey, refreshedAt: Date.now(), messageSignal: projectBundleMessageSignal }
-    void projectChat.refresh().catch(() => undefined)
-  }, [chatContexts.activeContext?.id, chatContexts.activeContext?.kind, chatContexts.model, projectBundleMessageSignal, projectChat.refresh])
+    void refreshProjectChat().catch(() => undefined)
+  }, [chatContexts.activeContext?.id, chatContexts.activeContext?.kind, chatContexts.model, projectBundleMessageSignal, refreshProjectChat])
   const handleContextActionResolved = useCallback(() => {
     if (chatContexts.activeContext?.kind === 'project') {
       projectBundleRefreshRef.current = { ...projectBundleRefreshRef.current, refreshedAt: Date.now() }
-      void projectChat.refresh().catch(() => undefined)
+      void refreshProjectChat().catch(() => undefined)
     }
     onContextActionResolved?.()
-  }, [chatContexts.activeContext?.kind, onContextActionResolved, projectChat.refresh])
+  }, [chatContexts.activeContext?.kind, onContextActionResolved, refreshProjectChat])
   const activeModelAgentId = useMemo<AgentId | null>(() => {
     const agentIds = activeConversation?.participantAgentIds ?? []
     if (agentIds.length === 0) return null
@@ -566,35 +900,198 @@ export default function UnifiedChat({
     ),
     [messages],
   )
-  const canUseComposer = allowSendMessages && (Boolean(activeConversation) || allowStartConversations)
   const activeQueuedDrafts = activeId ? (queuedDraftsByConversation[activeId] ?? []) : []
   const selectedWorkspace = useMemo(
     () => workspaces.find((workspace) => workspace.workspaceId === selectedWorkspaceId) ?? null,
     [workspaces, selectedWorkspaceId],
   )
+  const selectedWorkspaceProject = useMemo(
+    () => workspaceProjects.find((project) => project.id === selectedProjectId) ?? null,
+    [selectedProjectId, workspaceProjects],
+  )
+  useEffect(() => {
+    if (newScope !== 'project') return
+    const linkedWorkspaceIds = Array.from(new Set((selectedWorkspaceProject?.locations ?? [])
+      .map((location) => location.workspaceId)
+      .filter((workspaceId): workspaceId is string => Boolean(workspaceId))))
+    if (linkedWorkspaceIds.length === 0 || linkedWorkspaceIds.includes(selectedWorkspaceId)) return
+    const nextWorkspaceId = linkedWorkspaceIds.find((workspaceId) => workspaces.some((workspace) => workspace.workspaceId === workspaceId))
+    if (!nextWorkspaceId) return
+    workspaceRuntimeExplicitRef.current = false
+    setSelectedWorkspaceId(nextWorkspaceId)
+    setSelectedWorkspaceRuntime('')
+  }, [newScope, selectedWorkspaceId, selectedWorkspaceProject, workspaces])
   const workspaceRuntimeTargets = useMemo(
-    () => workspaceRuntimeTargetsByWorkspace[selectedWorkspaceId] ?? [],
-    [workspaceRuntimeTargetsByWorkspace, selectedWorkspaceId],
+    () => {
+      const catalogue = workspaceRuntimeTargetsByWorkspace[selectedWorkspaceId] ?? []
+      if (newScope !== 'project') return catalogue
+      const linkedLocations = new Map((selectedWorkspaceProject?.locations ?? [])
+        .filter((location) => !location.workspaceId || location.workspaceId === selectedWorkspaceId)
+        .map((location) => [location.locationId, location]))
+      return catalogue.flatMap((runtime) => {
+        const location = linkedLocations.get(projectRuntimeLocationId(runtime))
+        if (!location) return []
+        const selectable = runtime.selectable && location.availability === 'online'
+        return [{
+          ...runtime,
+          selectable,
+          ...(!selectable && !runtime.unavailableReason ? { unavailableReason: 'project_sync_pending' } : {}),
+        }]
+      })
+    },
+    [newScope, selectedWorkspaceId, selectedWorkspaceProject, workspaceRuntimeTargetsByWorkspace],
   )
   const selectedWorkspaceRuntimeIsValid = workspaceRuntimeTargets.some(runtime => runtime.id === selectedWorkspaceRuntime && runtime.selectable)
   useEffect(() => {
-    if (workspaceRuntimeTargets.length === 0) return
-    if (!workspaceRuntimeExplicitRef.current && !workspaceRuntimeTargets.some((runtime) => runtime.id === selectedWorkspaceRuntime && runtime.selectable)) {
-      setSelectedWorkspaceRuntime(workspaceRuntimeTargets.find((runtime) => runtime.selectable)?.id ?? 'vps')
+    if (workspaceRuntimeTargets.length === 0) {
+      if (newScope === 'project' && selectedWorkspaceRuntime) {
+        workspaceRuntimeExplicitRef.current = false
+        setSelectedWorkspaceRuntime('')
+      }
+      return
     }
-  }, [selectedWorkspaceRuntime, workspaceRuntimeTargets])
+    if (!workspaceRuntimeExplicitRef.current && !workspaceRuntimeTargets.some((runtime) => runtime.id === selectedWorkspaceRuntime && runtime.selectable)) {
+      setSelectedWorkspaceRuntime(workspaceRuntimeTargets.find((runtime) => runtime.selectable)?.id ?? '')
+    }
+  }, [newScope, selectedWorkspaceRuntime, workspaceRuntimeTargets])
+  const projectLocationOptions = useMemo<ProjectLocationOption[]>(() => workspaces.flatMap((workspace) => (
+    workspaceRuntimeTargetsByWorkspace[workspace.workspaceId] ?? []
+  ).map((runtime) => ({
+    key: `${workspace.workspaceId}:${runtime.id}`,
+    runtimeTargetId: runtime.id,
+    locationId: projectRuntimeLocationId(runtime),
+    ...(runtime.mappingId ? { mappingId: runtime.mappingId } : {}),
+    workspaceId: workspace.workspaceId,
+    workspaceLabel: workspace.orgName,
+    label: projectRuntimeLabel(runtime),
+    ...(runtime.kind === 'vps' || runtime.deviceKind === 'vps'
+      ? { kind: 'vps' as const }
+      : { kind: 'computer' as const }),
+    ...(runtime.ownerType ? { ownerType: runtime.ownerType } : {}),
+    selectable: runtime.selectable,
+    ...(runtime.unavailableReason ? { unavailableReason: runtime.unavailableReason } : {}),
+  }))), [workspaces, workspaceRuntimeTargetsByWorkspace])
+  const projectLocationManagementCandidates = useMemo<ProjectLocationManagementCandidate[]>(() => {
+    const candidates = workspaces.flatMap((workspace) => (
+      workspaceRuntimeTargetsByWorkspace[workspace.workspaceId] ?? []
+    ).flatMap((runtime) => {
+      const locationId = runtime.locationId?.trim() ?? ''
+      const runtimeWorkspaceId = runtime.workspaceId?.trim() ?? ''
+      if (!locationId || !runtimeWorkspaceId || runtimeWorkspaceId !== workspace.workspaceId) return []
+      return [{
+        key: `${runtimeWorkspaceId}:${locationId}`,
+        runtimeTargetId: runtime.id,
+        locationId,
+        ...(runtime.mappingId ? { mappingId: runtime.mappingId } : {}),
+        workspaceId: runtimeWorkspaceId,
+        workspaceLabel: workspace.orgName,
+        label: projectRuntimeLabel(runtime),
+        selectable: runtime.selectable,
+      }]
+    }))
+    return Array.from(new Map(candidates.map((candidate) => [candidate.key, candidate])).values())
+  }, [workspaces, workspaceRuntimeTargetsByWorkspace])
+  const managedLinkedLocationIds = useMemo(
+    () => new Set(managedProjectLocations.map((location) => location.locationId)),
+    [managedProjectLocations],
+  )
+  const managedUnlinkedLocationCandidates = useMemo(
+    () => projectLocationManagementCandidates.filter((candidate) => !managedLinkedLocationIds.has(candidate.locationId)),
+    [managedLinkedLocationIds, projectLocationManagementCandidates],
+  )
+  const managedProjectHasLegacyLocations = useMemo(
+    () => managedProjectLocations.some((location) => !location.authenticatedRuntime),
+    [managedProjectLocations],
+  )
+  const managedProjectSyncHardBlocked = managedProjectSync?.projectId === managedProject?.id
+    && Boolean(managedProjectSync?.blocker && managedProjectSync.blocker !== 'native_sync_replica_offline')
+  const managedProjectSyncEligible = useMemo(
+    () => managedProjectCanSync(managedProjectLocations) && !managedProjectSyncHardBlocked,
+    [managedProjectLocations, managedProjectSyncHardBlocked],
+  )
+  const projectSetupLocationOptions = useMemo(
+    () => projectLocationOptions.filter((location) => location.workspaceId === projectSetupWorkspaceId),
+    [projectLocationOptions, projectSetupWorkspaceId],
+  )
+  const projectSetupCanonicalVps = useMemo(
+    () => projectSetupLocationOptions.find((location) => (
+      location.kind === 'vps'
+      && location.ownerType === 'organization'
+      && location.selectable
+    )),
+    [projectSetupLocationOptions],
+  )
+  const projectSetupHasAvailableLocation = Boolean(projectSetupResult?.linkedLocationIds.some((locationId) =>
+    projectLocationOptions.some((location) => location.locationId === locationId && location.selectable),
+  ))
+  const projectSetupBlocksSession = Boolean(
+    projectSetupResult
+    && selectedProjectId === projectSetupResult.projectId
+    && !projectSetupHasAvailableLocation,
+  )
+  const projectSetupCanSubmit = Boolean(
+    projectSetupName.trim()
+    && !projectSetupSubmitting
+    && (projectSetupMode === 'existing_folder'
+      ? projectSetupWorkspaceId
+        && projectSetupWorkspaceFolderId
+        && projectSetupLocationId
+        && projectSetupLocationOptions.some((location) => (
+          location.locationId === projectSetupLocationId && location.selectable
+        ))
+      : projectSetupMode === 'standard'
+        ? projectSetupWorkspaceId
+          && projectSetupCanonicalVps
+          && projectSetupLocationIds.includes(projectSetupCanonicalVps.locationId)
+          && projectSetupLocationIds.length > 0
+          && projectSetupLocationIds.every((locationId) => projectSetupLocationOptions.some((location) => (
+            location.locationId === locationId && location.selectable
+          )))
+        : projectSetupClientName.trim() && projectSetupDomainSlug.trim() && projectSetupAgentName.trim()),
+  )
+  useEffect(() => {
+    if (!showProjectSetupWizard || projectSetupWorkspaceId) return
+    setProjectSetupWorkspaceId(selectedWorkspaceId || workspaces[0]?.workspaceId || '')
+  }, [projectSetupWorkspaceId, selectedWorkspaceId, showProjectSetupWizard, workspaces])
+  useEffect(() => {
+    if (!showProjectSetupWizard || projectSetupMode !== 'existing_folder') return
+    if (!projectSetupWorkspaceFolderId && registeredWorkspaceFolders[0]) {
+      setProjectSetupWorkspaceFolderId(registeredWorkspaceFolders[0].id)
+    }
+    if (!projectSetupLocationOptions.some((location) => (
+      location.locationId === projectSetupLocationId && location.selectable
+    ))) {
+      setProjectSetupLocationId(projectSetupLocationOptions.find((location) => location.selectable)?.locationId ?? '')
+    }
+  }, [projectSetupLocationId, projectSetupLocationOptions, projectSetupMode, projectSetupWorkspaceFolderId, registeredWorkspaceFolders, showProjectSetupWizard])
+  useEffect(() => {
+    if (!showProjectSetupWizard || projectSetupMode !== 'standard' || !projectSetupCanonicalVps) return
+    setProjectSetupLocationIds((current) => current.includes(projectSetupCanonicalVps.locationId)
+      ? current
+      : [projectSetupCanonicalVps.locationId, ...current])
+  }, [projectSetupCanonicalVps, projectSetupMode, showProjectSetupWizard])
   const activeWorkspaceContext = activeConversation?.workspaceContext
-  const unavailableActiveRuntime = activeWorkspaceContext
-    ? (workspaceRuntimeTargetsByWorkspace[activeWorkspaceContext.workspaceId] ?? []).find(
-        runtime => runtime.id === activeWorkspaceContext.runtimeTarget && !runtime.selectable,
-      )
-    : undefined
   const activeRuntimeLabel = activeWorkspaceContext?.runtimeLabel
     ?? (activeWorkspaceContext?.runtimeTarget === 'local'
       ? 'Local'
       : activeWorkspaceContext?.runtimeTarget === 'vps'
         ? 'VPS'
         : activeWorkspaceContext?.runtimeTarget)
+  const activeRuntimePresence = activeWorkspaceContext
+    ? (workspaceRuntimeTargetsByWorkspace[activeWorkspaceContext.workspaceId] ?? []).find(
+        runtime => runtime.id === activeWorkspaceContext.runtimeTarget,
+      )
+    : undefined
+  const unavailableActiveRuntime = useMemo(
+    () => activeWorkspaceContext && workspaceCatalogueLoaded && (!activeRuntimePresence || !activeRuntimePresence.selectable)
+      ? {
+          label: activeRuntimePresence?.label || activeRuntimeLabel || 'This computer',
+          offline: !activeRuntimePresence || !activeRuntimePresence.isFresh || !activeRuntimePresence.isHealthy,
+        }
+      : undefined,
+    [activeRuntimeLabel, activeRuntimePresence, activeWorkspaceContext, workspaceCatalogueLoaded],
+  )
+  const canUseComposer = allowSendMessages && (Boolean(activeConversation) || allowStartConversations) && !unavailableActiveRuntime
   const visibleConversations = useMemo(
     () => conversations.filter((conversation) => !conversation.archived),
     [conversations],
@@ -614,6 +1111,11 @@ export default function UnifiedChat({
     () => buildHermesSessionSections(filteredConversations, pinnedConversationIds),
     [filteredConversations, pinnedConversationIds],
   )
+  const hermesProjectGroups = useMemo(
+    () => buildHermesProjectGroups(visibleConversations, workspaceProjects, conversationFilter),
+    [conversationFilter, visibleConversations, workspaceProjects],
+  )
+  const hasHermesRailItems = hermesProjectGroups.length > 0 || hermesSessionSections.length > 0
   const menuConversation = useMemo(
     () => conversations.find((conversation) => conversation.id === menuOpenId) ?? null,
     [conversations, menuOpenId],
@@ -664,48 +1166,103 @@ export default function UnifiedChat({
 
   useEffect(() => {
     let cancelled = false
-    setWorkspacesLoading(true)
-    fetch(`/api/v1/workspaces?${new URLSearchParams({ orgId }).toString()}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((body) => {
-        if (cancelled) return
-        const next = Array.isArray(body?.data?.workspaces)
+    let hasLoaded = false
+    setWorkspaceCatalogueLoaded(false)
+
+    const loadWorkspaceCatalogue = async (showLoading: boolean): Promise<WorkspaceCatalogueSnapshot | null> => {
+      if (showLoading) setWorkspacesLoading(true)
+      try {
+        const response = await fetch(`/api/v1/workspaces?${new URLSearchParams({ orgId }).toString()}`)
+        const body = response.ok ? await response.json() : null
+        if (cancelled || !body?.data) return null
+        const next = Array.isArray(body.data.workspaces)
           ? (body.data.workspaces as OrgWorkspaceSummary[])
           : []
-        const runtimes = Array.isArray(body?.data?.runtimeTargets)
+        const runtimes = Array.isArray(body.data.runtimeTargets)
           ? (body.data.runtimeTargets as WorkspaceRuntimePresence[])
           : []
-        const runtimeTargetsByWorkspace = body?.data?.runtimeTargetsByWorkspace && typeof body.data.runtimeTargetsByWorkspace === 'object'
+        const runtimeTargetsByWorkspace = body.data.runtimeTargetsByWorkspace && typeof body.data.runtimeTargetsByWorkspace === 'object'
           ? body.data.runtimeTargetsByWorkspace as Record<string, WorkspaceRuntimePresence[]>
           : Object.fromEntries(next.map((workspace) => [workspace.workspaceId, runtimes]))
-        const projects = Array.isArray(body?.data?.projects)
-          ? (body.data.projects as WorkspaceProjectSummary[])
-          : []
+        const projects = normalizeWorkspaceProjectSummaries(body.data.projects)
+        const snapshot = { workspaces: next, projects, runtimeTargetsByWorkspace }
+        hasLoaded = true
         setWorkspaces(next)
         setWorkspaceProjects(projects)
         setWorkspaceRuntimeTargetsByWorkspace(runtimeTargetsByWorkspace)
+        setWorkspaceCatalogueLoaded(true)
         const initialWorkspaceId = next[0]?.workspaceId || ''
         setSelectedWorkspaceId((current) => current || initialWorkspaceId)
         setSelectedProjectId((current) => current || projectId || projects[0]?.id || '')
         setSelectedWorkspaceRuntime((current) => {
+          if (workspaceRuntimeExplicitRef.current) return current
           const initialRuntimes = runtimeTargetsByWorkspace[initialWorkspaceId] ?? runtimes
           const currentTarget = initialRuntimes.find((runtime) => runtime.id === current)
           if (currentTarget?.selectable) return current
-          return initialRuntimes.find((runtime) => runtime.selectable)?.id ?? current
+          return initialRuntimes.find((runtime) => runtime.selectable)?.id ?? ''
         })
-      })
-      .catch(() => {
-        if (!cancelled) {
+        return snapshot
+      } catch {
+        if (!cancelled && !hasLoaded) {
           setWorkspaces([])
           setWorkspaceProjects([])
           setWorkspaceRuntimeTargetsByWorkspace({})
         }
+        return null
+      } finally {
+        if (!cancelled && showLoading) setWorkspacesLoading(false)
+      }
+    }
+
+    refreshWorkspaceCatalogueRef.current = () => loadWorkspaceCatalogue(false)
+    void loadWorkspaceCatalogue(true)
+    const interval = window.setInterval(() => {
+      void loadWorkspaceCatalogue(false)
+    }, WORKSPACE_CATALOGUE_REFRESH_INTERVAL)
+    return () => {
+      cancelled = true
+      refreshWorkspaceCatalogueRef.current = async () => null
+      window.clearInterval(interval)
+    }
+  }, [orgId, projectId])
+
+  useEffect(() => {
+    if (!showProjectSetupWizard) return
+    let cancelled = false
+    setRegisteredWorkspaceFoldersLoading(true)
+    fetch(`/api/v1/workspace-folders?${new URLSearchParams({ orgId }).toString()}`)
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error(`workspace folders: ${response.status}`)))
+      .then((body) => {
+        if (cancelled) return
+        const safeFolders = (Array.isArray(body?.data) ? body.data : []).flatMap((folder: unknown) => {
+          if (!folder || typeof folder !== 'object') return []
+          const row = folder as Record<string, unknown>
+          const id = typeof row.id === 'string' ? row.id.trim() : ''
+          const name = typeof row.name === 'string' ? row.name.trim() : ''
+          if (!id || !name) return []
+          const syncState = row.syncState && typeof row.syncState === 'object'
+            ? row.syncState as Record<string, unknown>
+            : undefined
+          return [{
+            id,
+            name,
+            ...(typeof syncState?.status === 'string' ? { syncStatus: syncState.status } : {}),
+          }]
+        })
+        setRegisteredWorkspaceFolders(safeFolders)
+        setProjectSetupWorkspaceFolderId(safeFolders[0]?.id ?? '')
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRegisteredWorkspaceFolders([])
+          setProjectSetupWorkspaceFolderId('')
+        }
       })
       .finally(() => {
-        if (!cancelled) setWorkspacesLoading(false)
+        if (!cancelled) setRegisteredWorkspaceFoldersLoading(false)
       })
     return () => { cancelled = true }
-  }, [orgId, projectId])
+  }, [orgId, showProjectSetupWizard])
 
   useEffect(() => {
     setPinnedConversationIds(readPinnedConversationIds(orgId))
@@ -720,6 +1277,308 @@ export default function UnifiedChat({
       return next
     })
   }, [orgId])
+
+  const openNewConversation = useCallback((forProjectId?: string) => {
+    if (!allowStartConversations) {
+      setError('Starting new conversations is disabled for your organisation role.')
+      return
+    }
+    if (forProjectId) {
+      setNewScope('project')
+      setSelectedProjectId(forProjectId)
+    }
+    setShowNewModal(true)
+  }, [allowStartConversations])
+
+  const closeNewConversation = useCallback(() => {
+    setShowNewModal(false)
+    setShowProjectSetupWizard(false)
+  }, [])
+
+  const openProjectSetupWizard = useCallback(() => {
+    projectSetupIdempotencyKeyRef.current = newProjectSetupIdempotencyKey()
+    setProjectSetupMode('existing_folder')
+    setProjectSetupName('')
+    setProjectSetupWorkspaceId(selectedWorkspaceId || workspaces[0]?.workspaceId || '')
+    setProjectSetupWorkspaceFolderId('')
+    setProjectSetupLocationId('')
+    setProjectSetupLocationIds([])
+    setProjectSetupClientName('')
+    setProjectSetupDomainSlug('')
+    setProjectSetupAgentName('Pip')
+    setRegisteredWorkspaceFolders([])
+    setProjectSetupError(null)
+    setProjectSetupResult(null)
+    setShowProjectSetupWizard(true)
+  }, [selectedWorkspaceId, workspaces])
+
+  const openNewProject = useCallback(() => {
+    if (!allowStartConversations) {
+      setError('Creating projects is disabled for your organisation role.')
+      return
+    }
+    setNewScope('project')
+    setShowNewModal(true)
+    openProjectSetupWizard()
+  }, [allowStartConversations, openProjectSetupWizard])
+
+  const loadManagedProjectLocations = useCallback(async (projectIdToLoad: string, showLoading = true): Promise<ManagedProjectLocation[]> => {
+    if (showLoading) setProjectLocationsLoading(true)
+    setProjectLocationsError(null)
+    try {
+      const query = new URLSearchParams({ orgId }).toString()
+      const response = await fetch(`/api/v1/projects/${encodeURIComponent(projectIdToLoad)}/locations?${query}`)
+      const body = await readApiResponse(response)
+      if (!response.ok) throw new Error(typeof body.error === 'string' ? body.error : `Project locations: ${response.status}`)
+      const data = body.data && typeof body.data === 'object' ? body.data as Record<string, unknown> : null
+      const locations = normalizeManagedProjectLocations(data?.locations)
+      setManagedProjectLocations(locations)
+      return locations
+    } catch (locationError) {
+      setManagedProjectLocations([])
+      setProjectLocationsError(locationError instanceof Error ? locationError.message : 'Failed to load project locations')
+      return []
+    } finally {
+      if (showLoading) setProjectLocationsLoading(false)
+    }
+  }, [orgId])
+
+  const loadManagedProjectSync = useCallback(async (projectIdToLoad: string, showLoading = true) => {
+    if (showLoading) setProjectSyncLoading(true)
+    try {
+      const query = new URLSearchParams({ orgId }).toString()
+      const response = await fetch(`/api/v1/projects/${encodeURIComponent(projectIdToLoad)}/sync?${query}`)
+      const body = await readApiResponse(response)
+      if (!response.ok) throw new Error(typeof body.error === 'string' ? body.error : `Project sync: ${response.status}`)
+      const data = body.data && typeof body.data === 'object' ? body.data as Record<string, unknown> : null
+      const request = data?.request && typeof data.request === 'object'
+        ? data.request as Record<string, unknown>
+        : null
+      const conflict = request?.conflict && typeof request.conflict === 'object'
+        ? request.conflict as Record<string, unknown>
+        : null
+      setManagedProjectSync({
+        projectId: projectIdToLoad,
+        status: typeof request?.status === 'string' ? request.status : null,
+        conflictKind: typeof conflict?.kind === 'string' ? conflict.kind : null,
+        blocker: typeof data?.blocker === 'string' ? data.blocker : null,
+        notice: null,
+        noticeTone: 'neutral',
+      })
+    } catch (syncError) {
+      setManagedProjectSync({
+        projectId: projectIdToLoad,
+        status: null,
+        conflictKind: null,
+        blocker: null,
+        notice: syncError instanceof Error ? syncError.message : 'Failed to load project sync status',
+        noticeTone: 'error',
+      })
+    } finally {
+      if (showLoading) setProjectSyncLoading(false)
+    }
+  }, [orgId])
+
+  const openProjectLocationManager = useCallback((project: { id: string; name: string }) => {
+    setManagedProject(project)
+    setManagedProjectLocations([])
+    setSelectedManagedProjectLocationKeys([])
+    setProjectLocationsError(null)
+    setManagedProjectSync(null)
+    void Promise.all([
+      loadManagedProjectLocations(project.id),
+      loadManagedProjectSync(project.id),
+    ])
+  }, [loadManagedProjectLocations, loadManagedProjectSync])
+
+  useEffect(() => {
+    if (!managedProject) return
+    const projectIdToRefresh = managedProject.id
+    const interval = window.setInterval(() => {
+      if (projectSyncInFlightRef.current || projectSyncRefreshInFlightRef.current || document.visibilityState === 'hidden') return
+      projectSyncRefreshInFlightRef.current = true
+      void Promise.all([
+        loadManagedProjectLocations(projectIdToRefresh, false),
+        loadManagedProjectSync(projectIdToRefresh, false),
+      ]).finally(() => { projectSyncRefreshInFlightRef.current = false })
+    }, PROJECT_SYNC_STATUS_REFRESH_INTERVAL)
+    return () => window.clearInterval(interval)
+  }, [loadManagedProjectLocations, loadManagedProjectSync, managedProject])
+
+  const requestManagedProjectSync = useCallback(async (
+    project: { id: string; name: string },
+    locations: ManagedProjectLocation[],
+  ) => {
+    if (projectSyncInFlightRef.current || !managedProjectCanSync(locations)) return
+    projectSyncInFlightRef.current = true
+    setProjectSyncSubmitting(true)
+    setManagedProjectSync((current) => ({
+      projectId: project.id,
+      status: current?.projectId === project.id ? current.status : null,
+      conflictKind: current?.projectId === project.id ? current.conflictKind : null,
+      blocker: null,
+      notice: null,
+      noticeTone: 'neutral',
+    }))
+    try {
+      const response = await fetch(`/api/v1/projects/${encodeURIComponent(project.id)}/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orgId }),
+      })
+      const body = await readApiResponse(response)
+      if (!response.ok) throw new Error(typeof body.error === 'string' ? body.error : `Project sync: ${response.status}`)
+      const data = body.data && typeof body.data === 'object' ? body.data as Record<string, unknown> : null
+      const request = data?.request && typeof data.request === 'object'
+        ? data.request as Record<string, unknown>
+        : null
+      const conflict = request?.conflict && typeof request.conflict === 'object'
+        ? request.conflict as Record<string, unknown>
+        : null
+      const blocker = typeof data?.blocker === 'string' ? data.blocker : null
+      const message = typeof data?.message === 'string' ? data.message.trim() : ''
+      const transferStarted = data?.transferStarted === true
+      setManagedProjectSync({
+        projectId: project.id,
+        status: typeof request?.status === 'string' ? request.status : null,
+        conflictKind: typeof conflict?.kind === 'string' ? conflict.kind : null,
+        blocker,
+        notice: transferStarted
+          ? `Sync started.${message ? ` ${message}` : ''}`
+          : blocker
+            ? `Sync requested, but file transfer is ${projectSyncBlockerMessage(blocker)}`
+            : `Sync request recorded.${message ? ` ${message}` : ''}`,
+        noticeTone: transferStarted ? 'success' : blocker ? 'blocker' : 'neutral',
+      })
+      await Promise.all([
+        loadManagedProjectLocations(project.id, false),
+        refreshWorkspaceCatalogueRef.current(),
+      ])
+    } catch (syncError) {
+      setManagedProjectSync((current) => ({
+        projectId: project.id,
+        status: current?.projectId === project.id ? current.status : null,
+        conflictKind: current?.projectId === project.id ? current.conflictKind : null,
+        blocker: null,
+        notice: syncError instanceof Error ? syncError.message : 'Failed to start project sync',
+        noticeTone: 'error',
+      }))
+      await Promise.all([
+        loadManagedProjectLocations(project.id, false),
+        refreshWorkspaceCatalogueRef.current(),
+      ])
+    } finally {
+      projectSyncInFlightRef.current = false
+      setProjectSyncSubmitting(false)
+    }
+  }, [loadManagedProjectLocations, orgId])
+
+  const resetManagedProjectSync = useCallback(async (project: { id: string; name: string }) => {
+    if (projectSyncInFlightRef.current) return
+    projectSyncInFlightRef.current = true
+    setProjectSyncResetting(true)
+    try {
+      const response = await fetch(`/api/v1/projects/${encodeURIComponent(project.id)}/sync`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orgId }),
+      })
+      const body = await readApiResponse(response)
+      if (!response.ok) throw new Error(typeof body.error === 'string' ? body.error : `Project sync: ${response.status}`)
+      const data = body.data && typeof body.data === 'object' ? body.data as Record<string, unknown> : null
+      const request = data?.request && typeof data.request === 'object'
+        ? data.request as Record<string, unknown>
+        : null
+      setManagedProjectSync({
+        projectId: project.id,
+        status: typeof request?.status === 'string' ? request.status : 'cancelled',
+        conflictKind: null,
+        blocker: null,
+        notice: 'The sync request was reset without overwriting either version. After reconciling the files on the linked machines, select Sync now to begin fresh inventory.',
+        noticeTone: 'success',
+      })
+      await Promise.all([
+        loadManagedProjectLocations(project.id, false),
+        refreshWorkspaceCatalogueRef.current(),
+      ])
+    } catch (syncError) {
+      setManagedProjectSync((current) => ({
+        projectId: project.id,
+        status: current?.projectId === project.id ? current.status : null,
+        conflictKind: current?.projectId === project.id ? current.conflictKind : null,
+        blocker: current?.projectId === project.id ? current.blocker : null,
+        notice: syncError instanceof Error ? syncError.message : 'Failed to reset project sync',
+        noticeTone: 'error',
+      }))
+    } finally {
+      projectSyncInFlightRef.current = false
+      setProjectSyncResetting(false)
+    }
+  }, [loadManagedProjectLocations, orgId])
+
+  const handleLinkManagedProjectLocations = useCallback(async () => {
+    if (!managedProject || projectLocationsMutating) return
+    const selectedCandidates = managedUnlinkedLocationCandidates.filter((candidate) =>
+      candidate.selectable && selectedManagedProjectLocationKeys.includes(candidate.key),
+    )
+    if (selectedCandidates.length === 0) return
+    setProjectLocationsMutating(true)
+    setProjectLocationsError(null)
+    let mutationError: string | null = null
+    try {
+      for (const candidate of selectedCandidates) {
+        const payload: Record<string, unknown> = {
+          orgId,
+          workspaceId: candidate.workspaceId,
+          locationId: candidate.locationId,
+          ...(candidate.mappingId ? { mappingId: candidate.mappingId } : {}),
+        }
+        const response = await fetch(`/api/v1/projects/${encodeURIComponent(managedProject.id)}/locations`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+        const body = await readApiResponse(response)
+        if (!response.ok) throw new Error(typeof body.error === 'string' ? body.error : `Link location: ${response.status}`)
+      }
+    } catch (linkError) {
+      mutationError = linkError instanceof Error ? linkError.message : 'Failed to link project location'
+    }
+    const [nextLocations] = await Promise.all([
+      loadManagedProjectLocations(managedProject.id, false),
+      refreshWorkspaceCatalogueRef.current(),
+    ])
+    setSelectedManagedProjectLocationKeys([])
+    if (mutationError) setProjectLocationsError(mutationError)
+    if (!mutationError && !managedProjectCanSync(managedProjectLocations) && managedProjectCanSync(nextLocations)) {
+      await requestManagedProjectSync(managedProject, nextLocations)
+    }
+    setProjectLocationsMutating(false)
+  }, [loadManagedProjectLocations, managedProject, managedProjectLocations, managedUnlinkedLocationCandidates, orgId, projectLocationsMutating, requestManagedProjectSync, selectedManagedProjectLocationKeys])
+
+  const handleUnlinkManagedProjectLocation = useCallback(async (location: ManagedProjectLocation) => {
+    if (!managedProject || projectLocationsMutating) return
+    setProjectLocationsMutating(true)
+    setProjectLocationsError(null)
+    let mutationError: string | null = null
+    try {
+      const query = new URLSearchParams({ orgId }).toString()
+      const response = await fetch(
+        `/api/v1/projects/${encodeURIComponent(managedProject.id)}/locations/${encodeURIComponent(location.replicaId)}?${query}`,
+        { method: 'DELETE' },
+      )
+      const body = await readApiResponse(response)
+      if (!response.ok) throw new Error(typeof body.error === 'string' ? body.error : `Unlink location: ${response.status}`)
+    } catch (unlinkError) {
+      mutationError = unlinkError instanceof Error ? unlinkError.message : 'Failed to unlink project location'
+    }
+    await Promise.all([
+      loadManagedProjectLocations(managedProject.id, false),
+      refreshWorkspaceCatalogueRef.current(),
+    ])
+    if (mutationError) setProjectLocationsError(mutationError)
+    setProjectLocationsMutating(false)
+  }, [loadManagedProjectLocations, managedProject, orgId, projectLocationsMutating])
 
   const loadModelCatalog = useCallback(async () => {
     if (!activeId || !activeModelAgentId) {
@@ -1746,6 +2605,151 @@ export default function UnifiedChat({
   )
 
   // ── Create new conversation (from modal) ──────────────────────────────────
+  const handleProjectSetup = useCallback(async () => {
+    if (!projectSetupCanSubmit || projectSetupSubmitting) return
+    setProjectSetupSubmitting(true)
+    setProjectSetupError(null)
+    try {
+      const payload: Record<string, unknown> = {
+        mode: projectSetupMode,
+        orgId,
+        projectName: projectSetupName.trim(),
+      }
+      if (projectSetupMode === 'existing_folder') {
+        const location = projectSetupLocationOptions.find((candidate) => candidate.locationId === projectSetupLocationId)
+        if (!location) throw new Error('Select an authorised project location.')
+        payload.workspaceId = projectSetupWorkspaceId
+        payload.workspaceFolderId = projectSetupWorkspaceFolderId
+        payload.locationId = location.locationId
+        payload.locationIds = [location.locationId]
+        if (location.mappingId) payload.mappingId = location.mappingId
+      } else if (projectSetupMode === 'standard') {
+        payload.workspaceId = projectSetupWorkspaceId
+        payload.locationIds = Array.from(new Set([
+          ...(projectSetupCanonicalVps ? [projectSetupCanonicalVps.locationId] : []),
+          ...projectSetupLocationIds,
+        ]))
+      } else {
+        payload.clientName = projectSetupClientName.trim()
+        payload.domainSlug = projectSetupDomainSlug.trim()
+        payload.agentName = projectSetupAgentName.trim()
+      }
+
+      const idempotencyKey = projectSetupIdempotencyKeyRef.current || newProjectSetupIdempotencyKey()
+      projectSetupIdempotencyKeyRef.current = idempotencyKey
+      const response = await fetch('/api/v1/project-setups', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey,
+        },
+        body: JSON.stringify(payload),
+      })
+      const body = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(body?.error ?? `Project setup failed: ${response.status}`)
+      const data = body?.data && typeof body.data === 'object'
+        ? body.data as Record<string, unknown>
+        : null
+      const projectIdFromResponse = typeof data?.projectId === 'string' ? data.projectId.trim() : ''
+      const plan = data?.plan && typeof data.plan === 'object'
+        ? data.plan as ProjectSetupPlanView
+        : null
+      if (!projectIdFromResponse || !plan || typeof plan.state !== 'string') {
+        throw new Error('Project setup returned an incomplete project contract.')
+      }
+      const project = data?.project && typeof data.project === 'object'
+        ? data.project as Record<string, unknown>
+        : null
+      const projectNameFromResponse = typeof project?.name === 'string' && project.name.trim()
+        ? project.name.trim()
+        : projectSetupName.trim()
+      const directLocationIds = Array.isArray(project?.locationIds)
+        ? project.locationIds.filter((value): value is string => typeof value === 'string' && Boolean(value.trim())).map((value) => value.trim())
+        : []
+      const nestedLocationIds = Array.isArray(project?.locations)
+        ? project.locations.flatMap((value) => {
+            if (typeof value === 'string' && value.trim()) return [value.trim()]
+            if (!value || typeof value !== 'object') return []
+            const location = value as Record<string, unknown>
+            const id = typeof location.locationId === 'string'
+              ? location.locationId
+              : typeof location.id === 'string' ? location.id : ''
+            return id.trim() ? [id.trim()] : []
+          })
+        : []
+      const topLevelLocationIds = Array.isArray(data?.locationIds)
+        ? data.locationIds.filter((value): value is string => typeof value === 'string' && Boolean(value.trim())).map((value) => value.trim())
+        : []
+      const replicaLocationIds = Array.isArray(data?.replicas)
+        ? data.replicas.flatMap((value) => {
+            if (!value || typeof value !== 'object') return []
+            const replica = value as Record<string, unknown>
+            return typeof replica.locationId === 'string' && replica.locationId.trim()
+              ? [replica.locationId.trim()]
+              : []
+          })
+        : []
+      const linkedLocationIds = Array.from(new Set([
+        ...directLocationIds,
+        ...nestedLocationIds,
+        ...topLevelLocationIds,
+        ...replicaLocationIds,
+      ]))
+
+      const setupResult: ProjectSetupResultView = {
+        mode: projectSetupMode,
+        projectId: projectIdFromResponse,
+        projectName: projectNameFromResponse,
+        plan,
+        linkedLocationIds,
+        ...(typeof data?.organizationId === 'string' && data.organizationId.trim()
+          ? { organizationId: data.organizationId.trim() }
+          : {}),
+        ...(typeof data?.organizationSlug === 'string' && data.organizationSlug.trim()
+          ? { organizationSlug: data.organizationSlug.trim() }
+          : {}),
+      }
+      if (projectSetupMode === 'full_client') {
+        // The project belongs to the newly provisioned client organisation.
+        // Keep the current organisation catalogue untouched and hand the user
+        // into that client's Messages workspace explicitly.
+        setProjectSetupResult(setupResult)
+        return
+      }
+
+      const refreshed = await refreshWorkspaceCatalogueRef.current()
+      const catalogueProjects = refreshed?.projects ?? workspaceProjects
+      if (!catalogueProjects.some((candidate) => candidate.id === projectIdFromResponse)) {
+        setWorkspaceProjects((current) => [
+          ...current.filter((candidate) => candidate.id !== projectIdFromResponse),
+          { id: projectIdFromResponse, name: projectNameFromResponse },
+        ].sort((left, right) => left.name.localeCompare(right.name)))
+      }
+      setNewScope('project')
+      setSelectedProjectId(projectIdFromResponse)
+
+      const refreshedTargets = refreshed?.runtimeTargetsByWorkspace ?? workspaceRuntimeTargetsByWorkspace
+      let availableLocation: { workspaceId: string; runtimeTargetId: string } | undefined
+      for (const [workspaceId, targets] of Object.entries(refreshedTargets)) {
+        const runtime = targets.find((candidate) => candidate.selectable && linkedLocationIds.includes(projectRuntimeLocationId(candidate)))
+        if (runtime) {
+          availableLocation = { workspaceId, runtimeTargetId: runtime.id }
+          break
+        }
+      }
+      if (availableLocation) {
+        workspaceRuntimeExplicitRef.current = true
+        setSelectedWorkspaceId(availableLocation.workspaceId)
+        setSelectedWorkspaceRuntime(availableLocation.runtimeTargetId)
+      }
+      setProjectSetupResult(setupResult)
+    } catch (projectError) {
+      setProjectSetupError(projectError instanceof Error ? projectError.message : 'Project setup failed')
+    } finally {
+      setProjectSetupSubmitting(false)
+    }
+  }, [orgId, projectSetupAgentName, projectSetupCanSubmit, projectSetupCanonicalVps, projectSetupClientName, projectSetupDomainSlug, projectSetupLocationId, projectSetupLocationIds, projectSetupLocationOptions, projectSetupMode, projectSetupName, projectSetupSubmitting, projectSetupWorkspaceFolderId, projectSetupWorkspaceId, workspaceProjects, workspaceRuntimeTargetsByWorkspace])
+
   const handleCreateConversation = useCallback(async () => {
     if (creatingConv) return
     if (!allowStartConversations) {
@@ -1754,6 +2758,10 @@ export default function UnifiedChat({
     }
     if ((newScope === 'workspace' || newScope === 'project') && !selectedWorkspaceRuntimeIsValid) {
       setError('Select an available runtime for this Workspace before starting the conversation.')
+      return
+    }
+    if (newScope === 'project' && projectSetupBlocksSession) {
+      setError('This project does not yet have an available linked location.')
       return
     }
     setCreatingConv(true)
@@ -1803,6 +2811,7 @@ export default function UnifiedChat({
       setMobilePane('conversation')
       setMessages([])
       setShowNewModal(false)
+      setShowProjectSetupWizard(false)
       setNewTitle('')
       setNewParticipants([])
       setNewScope(scope ?? (projectId ? 'project' : 'general'))
@@ -1811,7 +2820,7 @@ export default function UnifiedChat({
     } finally {
       setCreatingConv(false)
     }
-  }, [allowStartConversations, creatingConv, newParticipants, newTitle, newScope, orgId, projectId, scope, scopeRefId, contextRefs, selectedWorkspaceId, selectedWorkspaceRuntime, selectedWorkspaceRuntimeIsValid, selectedWorkspaceShareMode, selectedProjectId])
+  }, [allowStartConversations, creatingConv, newParticipants, newTitle, newScope, orgId, projectId, projectSetupBlocksSession, scope, scopeRefId, contextRefs, selectedWorkspaceId, selectedWorkspaceRuntime, selectedWorkspaceRuntimeIsValid, selectedWorkspaceShareMode, selectedProjectId])
 
   const send = useCallback(
     async (e: FormEvent) => {
@@ -1821,6 +2830,10 @@ export default function UnifiedChat({
 	      if (sending) return
 	      if (!allowSendMessages) {
 	        setError('Replies are disabled for your organisation role.')
+	        return
+	      }
+	      if (unavailableActiveRuntime) {
+	        setError('Computer unavailable')
 	        return
 	      }
 	      if (hasInFlightAgentRun) {
@@ -2015,6 +3028,7 @@ export default function UnifiedChat({
 	      allowAgentParticipants,
 	      allowStartConversations,
 	      allowSendMessages,
+	      unavailableActiveRuntime,
 	      orgId,
       currentUserUid,
       currentUserDisplayName,
@@ -2037,7 +3051,7 @@ export default function UnifiedChat({
   const availableConversationContexts = [
     { value: 'general' as const, label: `General conversation${orgName ? `: ${orgName}` : ''}` },
     ...(workspaces.length > 0 ? [{ value: 'workspace' as const, label: 'Organisation Workspace folder' }] : []),
-    ...(workspaceProjects.length > 0 || projectId ? [{ value: 'project' as const, label: 'Project inside organisation' }] : []),
+    { value: 'project' as const, label: 'Project inside organisation' },
     ...(scope && scope !== 'general' && scope !== 'project' && scope !== 'workspace'
       ? [{ value: scope, label: `Current ${scope}: ${scopeRefId ?? 'selected item'}` }]
       : []),
@@ -2096,21 +3110,28 @@ export default function UnifiedChat({
       >
         <button
           type="button"
-          onClick={() => {
-            if (!allowStartConversations) {
-              setError('Starting new conversations is disabled for your organisation role.')
-              return
-            }
-            setShowNewModal(true)
-          }}
+          onClick={() => openNewConversation()}
           disabled={!allowStartConversations}
           className={hermesLayout
             ? 'flex h-8 items-center justify-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-white/[0.05] px-2 text-xs font-medium text-[var(--color-pib-text)] hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-45'
             : 'rounded-lg bg-primary px-3 py-2 text-sm font-medium text-on-primary hover:opacity-90 flex items-center justify-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-45'}
         >
-          <span className={`material-symbols-outlined ${hermesLayout ? 'text-[14px]' : 'text-[16px]'}`}>add</span>
+          <span className={`material-symbols-outlined ${hermesLayout ? 'text-[14px]' : 'text-[16px]'}`} aria-hidden="true">add</span>
           New conversation
         </button>
+
+        {hermesLayout && (
+          <button
+            type="button"
+            aria-label="Create new project"
+            onClick={openNewProject}
+            disabled={!allowStartConversations}
+            className="flex h-9 items-center justify-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-3 text-sm font-semibold text-primary hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">create_new_folder</span>
+            New project
+          </button>
+        )}
 
         <div className={hermesLayout ? 'mt-1.5 px-1 text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]' : 'text-xs text-[var(--color-pib-text-muted)] mt-2 px-1'}>
           {hermesLayout ? 'Sessions' : 'Conversations'}
@@ -2131,19 +3152,325 @@ export default function UnifiedChat({
         </label>
 
         <div className={hermesLayout ? 'flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-0.5' : 'flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto'}>
-          {filteredConversations.length === 0 && (
+          {(hermesLayout ? !hasHermesRailItems : filteredConversations.length === 0) && (
             <div className="text-xs text-[var(--color-pib-text-muted)] px-2 py-3">
               {conversationFilter.trim()
-                ? 'No conversations match your filter.'
-                : allowStartConversations ? 'No conversations yet. Start one.' : 'No conversations yet.'}
+                ? 'No projects or conversations match your filter.'
+                : allowStartConversations
+                  ? workspaceProjects.length === 0
+                    ? 'No projects yet. Use New project above to create your first project, then start its sessions.'
+                    : 'No projects or conversations yet. Start one.'
+                  : 'No projects or conversations yet.'}
+            </div>
+          )}
+          {hermesLayout && hermesProjectGroups.length > 0 && (
+            <div data-testid="hermes-projects" className="min-w-0">
+              <div className="mb-1 flex items-center justify-between px-1 text-xs font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]/75">
+                <span>Projects</span>
+                <span className="font-mono text-xs tracking-normal text-[var(--color-pib-text-muted)]/55">{hermesProjectGroups.length}</span>
+              </div>
+              <div className="flex min-w-0 flex-col gap-1">
+                {hermesProjectGroups.map((project) => (
+                  <div
+                    key={project.id}
+                    data-testid={`hermes-project-${project.id}`}
+                    className="min-w-0 rounded-lg border border-white/[0.06] bg-white/[0.025] p-1"
+                  >
+                    <div className="flex min-w-0 items-center gap-1 px-1 py-1">
+                      <span className="material-symbols-outlined shrink-0 text-[16px] text-primary" aria-hidden="true">folder_managed</span>
+                      <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--color-pib-text)]">{project.name}</span>
+                      <span className="font-mono text-xs text-[var(--color-pib-text-muted)]/70">{project.conversations.length}</span>
+                      <button
+                        type="button"
+                        aria-label={`Manage locations for ${project.name}`}
+                        title={`Manage locations for ${project.name}`}
+                        onClick={() => managedProject?.id === project.id
+                          ? setManagedProject(null)
+                          : openProjectLocationManager({ id: project.id, name: project.name })}
+                        className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 ${managedProject?.id === project.id ? 'bg-white/[0.08] text-primary' : 'text-[var(--color-pib-text-muted)]'}`}
+                      >
+                        <span className="material-symbols-outlined text-[16px]" aria-hidden="true">devices</span>
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Start session for ${project.name}`}
+                        title={`Start session for ${project.name}`}
+                        disabled={!allowStartConversations}
+                        onClick={() => openNewConversation(project.id)}
+                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Link client organisation to ${project.name}`}
+                        title={`Link client organisation to ${project.name}`}
+                        onClick={() => setAccessProject({ id: project.id, name: project.name })}
+                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60"
+                      >
+                        <span className="material-symbols-outlined text-[16px]" aria-hidden="true">group_add</span>
+                      </button>
+                    </div>
+                    {(project.locations?.length ?? 0) > 0 && (
+                      <div data-testid={`project-location-badges-${project.id}`} className="flex min-w-0 flex-wrap gap-1 px-1 pb-1">
+                        {project.locations?.map((location) => {
+                          const machineType = location.kind === 'vps' ? 'VPS' : 'Computer'
+                          const runtimeStatus = !location.authenticatedRuntime
+                            ? 'Pairing required'
+                            : location.availability === 'online' ? 'online' : 'Computer unavailable'
+                          const runtimeReady = location.authenticatedRuntime && location.availability === 'online'
+                          return (
+                            <span
+                              key={location.locationId}
+                              data-testid={`project-location-badge-${project.id}-${location.locationId}`}
+                              aria-label={`${machineType} ${location.label}: ${runtimeStatus}`}
+                              className={`inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-1 text-xs ${runtimeReady
+                                ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-200'
+                                : 'border-amber-400/20 bg-amber-500/10 text-amber-100'}`}
+                            >
+                              <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${runtimeReady ? 'bg-emerald-300' : 'bg-amber-300'}`} aria-hidden="true" />
+                              <span className="truncate">
+                                {machineType} · {location.label} · {runtimeStatus}
+                              </span>
+                            </span>
+                          )
+                        })}
+                      </div>
+                    )}
+                    {managedProject?.id === project.id && (
+                      <section
+                        role="region"
+                        aria-label={`Manage locations for ${project.name}`}
+                        className="mx-1 mb-1 space-y-2 rounded-md border border-primary/20 bg-black/10 p-2"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">Project locations</span>
+                          <button
+                            type="button"
+                            aria-label={`Close location manager for ${project.name}`}
+                            onClick={() => setManagedProject(null)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60"
+                          >
+                            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">close</span>
+                          </button>
+                        </div>
+
+                        {projectLocationsLoading ? (
+                          <div className="py-1 text-xs text-[var(--color-pib-text-muted)]">Loading locations…</div>
+                        ) : (
+                          <>
+                            {managedProjectLocations.length > 0 && (
+                              <div className="space-y-1">
+                                <div className="text-xs font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]/70">Linked</div>
+                                {managedProjectLocations.map((location) => (
+                                  <div key={location.replicaId} className="flex min-w-0 flex-wrap items-center gap-1 rounded border border-white/[0.06] px-2 py-2 text-xs">
+                                    <span className="min-w-0 flex-1 truncate text-[var(--color-pib-text)]">
+                                      {location.label} · {!location.authenticatedRuntime
+                                        ? 'Pairing required'
+                                        : location.availability === 'online' ? 'online' : 'Computer unavailable'}
+                                    </span>
+                                    {!location.authenticatedRuntime && (
+                                      <span className="rounded bg-amber-500/10 px-1.5 py-1 text-xs text-amber-100">Legacy · pairing required</span>
+                                    )}
+                                    {location.visibility === 'private' && (
+                                      <span className="rounded bg-white/[0.06] px-1.5 py-1 text-xs text-[var(--color-pib-text-muted)]">Private</span>
+                                    )}
+                                    <button
+                                      type="button"
+                                      aria-label={`Unlink ${location.label}`}
+                                      disabled={projectLocationsMutating}
+                                      onClick={() => void handleUnlinkManagedProjectLocation(location)}
+                                      className="min-h-8 rounded px-2 py-1 text-xs text-red-200 hover:bg-red-500/10 focus-visible:ring-2 focus-visible:ring-red-300/60 disabled:opacity-40"
+                                    >
+                                      Unlink
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            <div className="space-y-1">
+                              <div className="text-xs font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]/70">Available to link</div>
+                              {projectLocationManagementCandidates.length === 0 ? (
+                                <p className="rounded border border-amber-400/15 bg-amber-500/[0.08] px-2 py-2 text-xs leading-5 text-amber-100">
+                                  A device must first be shared with and mapped to this organisation before it can be linked to the project.
+                                </p>
+                              ) : managedUnlinkedLocationCandidates.length === 0 ? (
+                                <p className="text-xs text-[var(--color-pib-text-muted)]">Every available location is already linked.</p>
+                              ) : (
+                                managedUnlinkedLocationCandidates.map((candidate) => (
+                                  <label key={candidate.key} className="flex min-w-0 items-center gap-2 rounded border border-white/[0.06] px-2 py-2 text-xs text-[var(--color-pib-text)]">
+                                    <input
+                                      type="checkbox"
+                                      aria-label={`${candidate.label} · ${candidate.selectable ? 'online' : 'Computer unavailable'}`}
+                                      checked={selectedManagedProjectLocationKeys.includes(candidate.key)}
+                                      disabled={!candidate.selectable || projectLocationsMutating}
+                                      onChange={(event) => setSelectedManagedProjectLocationKeys((current) => event.target.checked
+                                        ? [...current, candidate.key]
+                                        : current.filter((key) => key !== candidate.key))}
+                                    />
+                                    <span className="min-w-0 flex-1 truncate">{candidate.label}</span>
+                                    <span className={candidate.selectable ? 'text-emerald-200' : 'text-amber-100'}>
+                                      {candidate.selectable ? 'Online' : 'Computer unavailable'}
+                                    </span>
+                                  </label>
+                                ))
+                              )}
+                            </div>
+
+                            <div className="space-y-1 rounded border border-primary/15 bg-primary/[0.04] p-1.5">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-xs font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]/70">Keep synced</span>
+                                <span className="text-xs text-[var(--color-pib-text-muted)]">
+                                  Current status: {projectSyncLoading && managedProjectSync?.projectId !== project.id
+                                    ? 'Loading…'
+                                    : projectSyncStatusLabel(managedProjectSync?.projectId === project.id ? managedProjectSync.status : null)}
+                                </span>
+                              </div>
+                              <p className={`text-xs leading-5 ${managedProjectSyncEligible ? 'text-[var(--color-pib-text-muted)]' : 'text-amber-100'}`}>
+                                {managedProjectHasLegacyLocations
+                                  ? 'Pair every legacy location with an authenticated runtime before enabling sync.'
+                                  : managedProjectSyncEligible
+                                    ? 'Keep this project synced continuously across its linked locations.'
+                                    : 'Link at least two locations, including an organisation VPS, to keep this project synced.'}
+                              </p>
+                              {managedProjectSync?.projectId === project.id && managedProjectSync.blocker && !managedProjectSync.notice && (
+                                <p className="rounded border border-amber-400/15 bg-amber-500/[0.08] px-2 py-2 text-xs leading-5 text-amber-100">
+                                  File transfer is {projectSyncBlockerMessage(managedProjectSync.blocker)}
+                                </p>
+                              )}
+                              {managedProjectSync?.projectId === project.id
+                                && ['conflict', 'failed'].includes(managedProjectSync.status ?? '') && (
+                                <p className="rounded border border-amber-400/20 bg-amber-500/10 px-2 py-2 text-xs leading-5 text-amber-100">
+                                  {projectSyncConflictMessage(managedProjectSync.conflictKind)} Both versions were preserved. Reconcile the files on the linked machines before resetting and re-inventorying.
+                                </p>
+                              )}
+                              {managedProjectSync?.projectId === project.id && managedProjectSync.notice && (
+                                <p
+                                  role={managedProjectSync.noticeTone === 'error' ? 'alert' : 'status'}
+                                  className={`rounded border px-2 py-2 text-xs leading-5 ${managedProjectSync.noticeTone === 'error'
+                                    ? 'border-red-400/20 bg-red-500/10 text-red-200'
+                                    : managedProjectSync.noticeTone === 'success'
+                                      ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-100'
+                                      : managedProjectSync.noticeTone === 'blocker'
+                                        ? 'border-amber-400/20 bg-amber-500/10 text-amber-100'
+                                        : 'border-white/[0.08] bg-white/[0.04] text-[var(--color-pib-text-muted)]'}`}
+                                >
+                                  {managedProjectSync.notice}
+                                </p>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => void requestManagedProjectSync({ id: project.id, name: project.name }, managedProjectLocations)}
+                                disabled={projectLocationsMutating || projectSyncLoading || projectSyncSubmitting || projectSyncResetting || !managedProjectSyncEligible}
+                                className="min-h-9 w-full rounded border border-primary/30 bg-primary/10 px-2 py-2 text-xs font-medium text-primary hover:bg-primary/15 focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                {projectSyncSubmitting ? 'Syncing…' : 'Sync now'}
+                              </button>
+                              {managedProjectSync?.projectId === project.id
+                                && ['conflict', 'failed'].includes(managedProjectSync.status ?? '') && (
+                                <button
+                                  type="button"
+                                  onClick={() => void resetManagedProjectSync({ id: project.id, name: project.name })}
+                                  disabled={projectLocationsMutating || projectSyncLoading || projectSyncSubmitting || projectSyncResetting}
+                                  className="min-h-9 w-full rounded border border-amber-400/30 bg-amber-500/10 px-2 py-2 text-xs font-medium text-amber-100 hover:bg-amber-500/15 focus-visible:ring-2 focus-visible:ring-amber-300/60 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  {projectSyncResetting ? 'Resetting…' : 'Reset sync safely'}
+                                </button>
+                              )}
+                            </div>
+
+                            {projectLocationsError && (
+                              <p role="alert" className="rounded border border-red-400/20 bg-red-500/10 px-2 py-2 text-xs text-red-200">{projectLocationsError}</p>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => void handleLinkManagedProjectLocations()}
+                              disabled={projectLocationsMutating || !managedUnlinkedLocationCandidates.some((candidate) =>
+                                candidate.selectable && selectedManagedProjectLocationKeys.includes(candidate.key))}
+                              className="min-h-9 w-full rounded bg-primary px-2 py-2 text-xs font-medium text-on-primary hover:opacity-90 focus-visible:ring-2 focus-visible:ring-primary/60 disabled:opacity-40"
+                            >
+                              {projectLocationsMutating ? 'Updating…' : 'Link selected locations'}
+                            </button>
+                          </>
+                        )}
+                      </section>
+                    )}
+                    {project.conversations.length === 0 ? (
+                      <div className="px-6 py-1 text-xs text-[var(--color-pib-text-muted)]/70">No sessions yet</div>
+                    ) : (
+                      <div className="ml-2 flex min-w-0 flex-col gap-0.5 border-l border-white/[0.06] pl-1">
+                        {project.conversations.map((c) => (
+                          <div key={c.id} className="relative group/conv">
+                            {renamingId === c.id ? (
+                              <div className="flex items-center gap-1 rounded-lg px-2 py-1.5">
+                                <input
+                                  autoFocus
+                                  value={renameValue}
+                                  onChange={(e) => setRenameValue(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') renameConversation(c.id, renameValue)
+                                    if (e.key === 'Escape') {
+                                      renameCancelledRef.current = true
+                                      setRenamingId(null)
+                                    }
+                                  }}
+                                  onBlur={() => {
+                                    if (!renameCancelledRef.current) renameConversation(c.id, renameValue)
+                                    renameCancelledRef.current = false
+                                  }}
+                                  className="min-w-0 flex-1 border-b border-primary bg-transparent text-sm text-[var(--color-pib-text)] outline-none"
+                                />
+                              </div>
+                            ) : (
+                              <ConversationListItem
+                                conversation={c}
+                                active={c.id === activeId}
+                                onClick={() => {
+                                  setActiveId(c.id)
+                                  setMobilePane('conversation')
+                                }}
+                                currentUserUid={currentUserUid}
+                                density="compact"
+                                pinned={pinnedConversationIdSet.has(c.id)}
+                              />
+                            )}
+                            {renamingId !== c.id && (
+                              <button
+                                type="button"
+                                data-conv-menu
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (menuOpenId === c.id) {
+                                    setMenuOpenId(null)
+                                    setMenuPosition(null)
+                                  } else {
+                                    const rect = e.currentTarget.getBoundingClientRect()
+                                    setMenuPosition({ top: rect.bottom + 4, left: rect.right - 176 })
+                                    setMenuOpenId(c.id)
+                                  }
+                                }}
+                                className={`absolute right-1 top-1/2 hidden h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-[11px] text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:flex focus-visible:ring-2 focus-visible:ring-primary/60 group-hover/conv:flex ${menuOpenId === c.id ? '!flex' : ''}`}
+                                aria-label={`Conversation options for ${c.title || 'Untitled'}`}
+                              >
+                                ⋯
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
           {hermesLayout
             ? hermesSessionSections.map((section) => (
               <div key={section.id} data-testid={`hermes-session-section-${section.id}`} className="min-w-0">
-                <div className="mb-1 flex items-center justify-between px-1 text-[9px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]/75">
+                <div className="mb-1 flex items-center justify-between px-1 text-xs font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]/75">
                   <span>{section.label}</span>
-                  <span className="font-mono text-[9px] tracking-normal text-[var(--color-pib-text-muted)]/55">{section.conversations.length}</span>
+                  <span className="font-mono text-xs tracking-normal text-[var(--color-pib-text-muted)]/55">{section.conversations.length}</span>
                 </div>
                 <div className="flex min-w-0 flex-col gap-0.5">
                   {section.conversations.map((c) => (
@@ -2648,8 +3975,11 @@ export default function UnifiedChat({
 
         {/* Error bar */}
         {unavailableActiveRuntime && (
-          <div role="alert" className="border-t border-red-500/30 bg-red-500/10 px-4 py-2 text-xs text-red-300">
-            {unavailableActiveRuntime.label} is unavailable. Select another computer or try again when it is online. No other runtime was selected.
+          <div role="alert" className="border-t border-red-500/35 bg-red-500/10 px-4 py-2.5 text-xs text-red-200">
+            <div className="font-semibold text-red-100">Computer unavailable</div>
+            <div className="mt-0.5">
+              {unavailableActiveRuntime.label} is {unavailableActiveRuntime.offline ? 'offline' : 'unavailable'}. This session remains linked to {unavailableActiveRuntime.label}. Try again when it is online.
+            </div>
           </div>
         )}
         {error && (
@@ -2960,7 +4290,7 @@ export default function UnifiedChat({
             </label>
 
             <VoiceInputButton
-              disabled={!allowSendMessages || sending || !activeConversation}
+              disabled={!canUseComposer || sending || !activeConversation}
               onTranscript={addVoiceTranscriptToComposer}
               className="self-end"
             />
@@ -2992,7 +4322,9 @@ export default function UnifiedChat({
                 }
               }}
               placeholder={
-                !allowSendMessages
+                unavailableActiveRuntime
+                  ? 'Computer unavailable'
+                  : !allowSendMessages
                   ? 'Replies disabled for your role'
                   : hasInFlightAgentRun
                     ? 'Queue a follow-up while Pip is running'
@@ -3118,24 +4450,17 @@ export default function UnifiedChat({
 
       {/* ── New conversation modal ──────────────────────────────────────── */}
       {showNewModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center overflow-hidden bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowNewModal(false)
-          }}
+        <AccessibleDialog
+          label="New conversation"
+          onClose={closeNewConversation}
+          className="flex max-h-[100dvh] w-full max-w-md flex-col overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] shadow-2xl sm:max-h-[calc(100dvh-2rem)]"
         >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="new-conversation-title"
-            className="flex max-h-[100dvh] w-full max-w-md flex-col overflow-hidden rounded-t-xl border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-xl"
-          >
             {/* Modal header */}
             <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-card-border)] px-4 py-3 sm:px-5 sm:py-4">
               <h2 id="new-conversation-title" className="text-sm font-medium text-[var(--color-pib-text)]">New conversation</h2>
               <button
                 type="button"
-                onClick={() => setShowNewModal(false)}
+                onClick={closeNewConversation}
                 className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
                 aria-label="Close"
               >
@@ -3198,18 +4523,28 @@ export default function UnifiedChat({
                       {newScope === 'project' ? 'Project folder' : 'Organisation Workspace'}
                     </label>
                     {newScope === 'project' ? (
-                      <select
-                        value={selectedProjectId}
-                        onChange={(e) => setSelectedProjectId(e.target.value)}
-                        disabled={workspacesLoading || workspaceProjects.length === 0}
-                        className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-pib-text)] outline-none focus:border-primary/60 disabled:opacity-60"
-                      >
-                        {workspaceProjects.length === 0 ? (
-                          <option value="">{workspacesLoading ? 'Loading projects…' : 'No projects available'}</option>
-                        ) : workspaceProjects.map((project) => (
-                          <option key={project.id} value={project.id}>{project.name}</option>
-                        ))}
-                      </select>
+                      <div className="flex items-center gap-2">
+                        <select
+                          aria-label="Project folder"
+                          value={selectedProjectId}
+                          onChange={(e) => setSelectedProjectId(e.target.value)}
+                          disabled={workspacesLoading || workspaceProjects.length === 0}
+                          className="min-w-0 flex-1 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-pib-text)] outline-none focus:border-primary/60 disabled:opacity-60"
+                        >
+                          {workspaceProjects.length === 0 ? (
+                            <option value="">{workspacesLoading ? 'Loading projects…' : 'No projects available'}</option>
+                          ) : workspaceProjects.map((project) => (
+                            <option key={project.id} value={project.id}>{project.name}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={openProjectSetupWizard}
+                          className="shrink-0 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-2 text-xs font-medium text-primary hover:bg-primary/15"
+                        >
+                          New project
+                        </button>
+                      </div>
                     ) : (
                       <select
                         value={selectedWorkspaceId}
@@ -3243,23 +4578,28 @@ export default function UnifiedChat({
                       onChange={(e) => { workspaceRuntimeExplicitRef.current = true; setSelectedWorkspaceRuntime(e.target.value) }}
                       className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-pib-text)] outline-none focus:border-primary/60"
                     >
-                      {(workspaceRuntimeTargets.length > 0
-                        ? workspaceRuntimeTargets
-                        : [{ id: 'vps', label: 'VPS', selectable: true, isLocal: false, isFresh: true, isHealthy: true, enabled: true, lastSeenAt: null, ageSeconds: null, lastHealthStatus: null }]
-                      ).filter((runtime) => runtime.selectable || runtime.id === selectedWorkspaceRuntime).map((runtime) => {
-                        const status = runtime.isLocal
-                          ? runtime.isFresh && runtime.isHealthy
-                            ? runtime.ageSeconds != null
-                              ? ` · online ${runtime.ageSeconds < 60 ? 'now' : `${Math.floor(runtime.ageSeconds / 60)}m ago`}`
-                              : ' · online'
-                            : ' · offline'
-                          : ''
-                        return (
-                          <option key={runtime.id} value={runtime.id} disabled={!runtime.selectable}>
-                            {runtime.label}{status}
-                          </option>
-                        )
-                      })}
+                      {!workspaceRuntimeTargets.some((runtime) => runtime.selectable || runtime.id === selectedWorkspaceRuntime) ? (
+                        <option value="" disabled>{newScope === 'project'
+                          ? workspaceRuntimeTargets.length > 0
+                            ? 'No ready project computers available'
+                            : 'No linked computers available'
+                          : 'No computers available'}</option>
+                      ) : workspaceRuntimeTargets
+                        .filter((runtime) => runtime.selectable || runtime.id === selectedWorkspaceRuntime)
+                        .map((runtime) => {
+                          const status = runtime.isLocal
+                            ? runtime.isFresh && runtime.isHealthy
+                              ? runtime.ageSeconds != null
+                                ? ` · online ${runtime.ageSeconds < 60 ? 'now' : `${Math.floor(runtime.ageSeconds / 60)}m ago`}`
+                                : ' · online'
+                              : ' · Computer unavailable'
+                            : ''
+                          return (
+                            <option key={runtime.id} value={runtime.id} disabled={!runtime.selectable}>
+                              {runtime.label}{status}
+                            </option>
+                          )
+                        })}
                     </select>
                     {workspaceRuntimeExplicitRef.current && workspaceRuntimeTargets.some(runtime => runtime.id === selectedWorkspaceRuntime && !runtime.selectable) && (
                       <p role="alert" className="mt-2 text-xs text-red-300">
@@ -3269,6 +4609,17 @@ export default function UnifiedChat({
                     <div className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">
                       Only healthy computers mapped to this Workspace can run files here.
                     </div>
+                    {newScope === 'project' && selectedProjectId && workspaceRuntimeTargets.length === 0 && (
+                      <p role="status" className="mt-2 text-xs text-amber-200">
+                        Link a location to this project before starting a session.
+                      </p>
+                    )}
+                    {newScope === 'project' && selectedProjectId && workspaceRuntimeTargets.length > 0
+                      && !workspaceRuntimeTargets.some((runtime) => runtime.selectable) && (
+                      <p role="status" className="mt-2 text-xs text-amber-200">
+                        No linked computer currently has a ready project folder. Wait for sync to finish or bring a linked computer online.
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
@@ -3287,6 +4638,252 @@ export default function UnifiedChat({
                       Private is the default. Organisation conversations are visible to every member with Workspace access.
                     </div>
                   </div>
+                  {newScope === 'project' && showProjectSetupWizard && (
+                    <section
+                      role="region"
+                      aria-label="New project"
+                      className="space-y-3 rounded-lg border border-primary/25 bg-[var(--color-card)] p-3 sm:col-span-2"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">New project</h3>
+                          <p className="mt-0.5 text-[11px] text-[var(--color-pib-text-muted)]">Choose the project first, then link its approved locations.</p>
+                        </div>
+                        <button
+                          type="button"
+                          aria-label="Close project setup"
+                          onClick={() => setShowProjectSetupWizard(false)}
+                          className="rounded p-1 text-[var(--color-pib-text-muted)] hover:bg-white/5 hover:text-[var(--color-pib-text)]"
+                        >
+                          <span className="material-symbols-outlined text-[17px]">close</span>
+                        </button>
+                      </div>
+
+                      {!projectSetupResult ? (
+                        <>
+                          <fieldset className="grid gap-1.5">
+                            <legend className="sr-only">Project setup type</legend>
+                            {([
+                              ['existing_folder', 'Link existing folder'],
+                              ['standard', 'Standard PiB project'],
+                              ['full_client', 'Full client workspace'],
+                            ] as const).map(([mode, label]) => (
+                              <label key={mode} className="flex cursor-pointer items-center gap-2 rounded-md border border-[var(--color-card-border)] px-2.5 py-2 text-xs text-[var(--color-pib-text)]">
+                                <input
+                                  type="radio"
+                                  name="project-setup-mode"
+                                  value={mode}
+                                  checked={projectSetupMode === mode}
+                                  onChange={() => {
+                                    setProjectSetupMode(mode)
+                                    setProjectSetupError(null)
+                                  }}
+                                />
+                                {label}
+                              </label>
+                            ))}
+                          </fieldset>
+
+                          <label className="block text-xs text-[var(--color-pib-text)]">
+                            <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Project name</span>
+                            <input
+                              type="text"
+                              value={projectSetupName}
+                              onChange={(event) => setProjectSetupName(event.target.value)}
+                              className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] px-3 py-2 text-sm outline-none focus:border-primary/60"
+                            />
+                          </label>
+
+                          {projectSetupMode !== 'full_client' && (
+                            <label className="block text-xs text-[var(--color-pib-text)]">
+                              <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Mapped Workspace</span>
+                              <select
+                                value={projectSetupWorkspaceId}
+                                onChange={(event) => {
+                                  setProjectSetupWorkspaceId(event.target.value)
+                                  setProjectSetupLocationId('')
+                                  setProjectSetupLocationIds([])
+                                }}
+                                disabled={workspaces.length === 0}
+                                className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] px-3 py-2 text-sm outline-none focus:border-primary/60 disabled:opacity-60"
+                              >
+                                {workspaces.length === 0 ? <option value="">No mapped Workspaces</option> : workspaces.map((workspace) => (
+                                  <option key={workspace.workspaceId} value={workspace.workspaceId}>{workspace.orgName}</option>
+                                ))}
+                              </select>
+                            </label>
+                          )}
+
+                          {projectSetupMode === 'existing_folder' && (
+                            <>
+                              <label className="block text-xs text-[var(--color-pib-text)]">
+                                <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Registered folder</span>
+                                <select
+                                  value={projectSetupWorkspaceFolderId}
+                                  onChange={(event) => setProjectSetupWorkspaceFolderId(event.target.value)}
+                                  disabled={registeredWorkspaceFoldersLoading || registeredWorkspaceFolders.length === 0}
+                                  className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] px-3 py-2 text-sm outline-none focus:border-primary/60 disabled:opacity-60"
+                                >
+                                  {registeredWorkspaceFolders.length === 0 ? (
+                                    <option value="">{registeredWorkspaceFoldersLoading ? 'Loading registered folders…' : 'No registered folders'}</option>
+                                  ) : registeredWorkspaceFolders.map((folder) => (
+                                    <option key={folder.id} value={folder.id}>
+                                      {folder.name}{folder.syncStatus ? ` · ${humanizeProjectSetupValue(folder.syncStatus)}` : ''}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              {!registeredWorkspaceFoldersLoading && registeredWorkspaceFolders.length === 0 && (
+                                <p className="rounded-md border border-amber-400/20 bg-amber-500/10 px-2.5 py-2 text-xs text-amber-100">
+                                  A folder must first be registered and mapped to this organisation Workspace.
+                                </p>
+                              )}
+                              <label className="block text-xs text-[var(--color-pib-text)]">
+                                <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Project location</span>
+                                <select
+                                  value={projectSetupLocationId}
+                                  onChange={(event) => setProjectSetupLocationId(event.target.value)}
+                                  disabled={!projectSetupLocationOptions.some((location) => location.selectable)}
+                                  className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] px-3 py-2 text-sm outline-none focus:border-primary/60 disabled:opacity-60"
+                                >
+                                  {!projectSetupLocationOptions.some((location) => location.selectable) && <option value="">No available locations</option>}
+                                  {projectSetupLocationOptions.map((location) => (
+                                    <option key={location.key} value={location.locationId} disabled={!location.selectable}>
+                                      {location.label} · {location.selectable ? 'online' : 'Computer unavailable'}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                            </>
+                          )}
+
+                          {projectSetupMode === 'standard' && (
+                            <fieldset className="space-y-1.5">
+                              <legend className="mb-1 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Project locations</legend>
+                              {projectSetupLocationOptions.length === 0 ? (
+                                <p className="text-xs text-amber-100">No authorised computers are mapped to this Workspace.</p>
+                              ) : projectSetupLocationOptions.map((location) => {
+                                const isCanonicalVps = location.locationId === projectSetupCanonicalVps?.locationId
+                                return (
+                                  <label key={location.key} className={`flex items-center justify-between gap-2 rounded-md border border-[var(--color-card-border)] px-2.5 py-2 text-xs text-[var(--color-pib-text)] ${location.selectable && !isCanonicalVps ? 'cursor-pointer' : 'cursor-not-allowed'} ${location.selectable ? '' : 'opacity-60'}`}>
+                                    <span className="flex items-center gap-2">
+                                      <input
+                                        type="checkbox"
+                                        aria-label={`${location.label} · ${isCanonicalVps ? 'Canonical VPS' : location.selectable ? 'online' : 'Computer unavailable'}`}
+                                        checked={projectSetupLocationIds.includes(location.locationId)}
+                                        disabled={!location.selectable || isCanonicalVps}
+                                        onChange={(event) => setProjectSetupLocationIds((current) => event.target.checked
+                                          ? [...current, location.locationId]
+                                          : current.filter((locationId) => locationId !== location.locationId))}
+                                      />
+                                      {location.label}
+                                    </span>
+                                    <span className={location.selectable ? 'text-emerald-300' : 'text-amber-200'}>
+                                      {isCanonicalVps ? 'Canonical VPS · Online' : location.selectable ? 'Online' : 'Computer unavailable'}
+                                    </span>
+                                  </label>
+                                )
+                              })}
+                              {!projectSetupCanonicalVps && (
+                                <p className="rounded-md border border-amber-400/20 bg-amber-500/10 px-2.5 py-2 text-xs text-amber-100">
+                                  A verified online organisation VPS is required before creating a standard project.
+                                </p>
+                              )}
+                              <p className="text-[11px] text-[var(--color-pib-text-muted)]">The organisation VPS is always linked. Select every additional computer that should keep this project in sync.</p>
+                            </fieldset>
+                          )}
+
+                          {projectSetupMode === 'full_client' && (
+                            <div className="space-y-2.5">
+                              <p className="rounded-md border border-primary/20 bg-primary/5 px-2.5 py-2 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">
+                                Client Manager will create the PiB client organisation, Cowork workspace, Obsidian knowledge domain, standard folders, project instructions, and mappings. It uses PiB&apos;s fixed named agents and does not create a per-client Hermes profile.
+                              </p>
+                              <label className="block text-xs text-[var(--color-pib-text)]">
+                                <span className="mb-1 block">Client name</span>
+                                <input type="text" value={projectSetupClientName} onChange={(event) => setProjectSetupClientName(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] px-3 py-2 text-sm outline-none focus:border-primary/60" />
+                              </label>
+                              <label className="block text-xs text-[var(--color-pib-text)]">
+                                <span className="mb-1 block">Client domain</span>
+                                <input type="text" value={projectSetupDomainSlug} onChange={(event) => setProjectSetupDomainSlug(event.target.value)} placeholder="client-name" className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] px-3 py-2 text-sm outline-none focus:border-primary/60" />
+                              </label>
+                              <label className="block text-xs text-[var(--color-pib-text)]">
+                                <span className="mb-1 block">Agent name</span>
+                                <input type="text" value={projectSetupAgentName} onChange={(event) => setProjectSetupAgentName(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] px-3 py-2 text-sm outline-none focus:border-primary/60" />
+                              </label>
+                            </div>
+                          )}
+
+                          {projectSetupError && (
+                            <p role="alert" className="rounded-md border border-red-400/25 bg-red-500/10 px-2.5 py-2 text-xs text-red-200">{projectSetupError}</p>
+                          )}
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => void handleProjectSetup()}
+                              disabled={!projectSetupCanSubmit}
+                              className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+                            >
+                              {projectSetupSubmitting ? 'Creating project…' : 'Create project'}
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="rounded-md border border-[var(--color-card-border)] bg-white/[0.03] p-3">
+                            <div className="text-sm font-medium text-[var(--color-pib-text)]">{projectSetupResult.projectName}</div>
+                            <div className="mt-1 text-xs font-semibold text-primary">{projectSetupStateLabel(projectSetupResult.plan.state)}</div>
+                          </div>
+                          {(projectSetupResult.plan.actions?.length ?? 0) > 0 && (
+                            <ul className="space-y-1.5" aria-label="Project setup actions">
+                              {projectSetupResult.plan.actions?.map((action, index) => (
+                                <li key={`${action.type ?? 'action'}-${index}`} className="flex items-center justify-between gap-2 rounded-md border border-[var(--color-card-border)] px-2.5 py-2 text-xs">
+                                  <span className="text-[var(--color-pib-text)]">{humanizeProjectSetupValue(action.type ?? 'pending action')}</span>
+                                  {action.status && <span className="text-[var(--color-pib-text-muted)]">{humanizeProjectSetupValue(action.status)}</span>}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          <p className="text-xs text-[var(--color-pib-text-muted)]">
+                            {projectSetupResult.mode === 'full_client'
+                              ? 'The client workspace was created in its own organisation. Open it to link locations and start sessions.'
+                              : projectSetupResult.plan.syncCompleted === true
+                                ? 'Sync is confirmed.'
+                                : 'Sync is not yet confirmed. The canonical online location can be used while secondary computers finish syncing.'}
+                          </p>
+                          {projectSetupResult.mode !== 'full_client' && !projectSetupHasAvailableLocation && (
+                            <p className="rounded-md border border-amber-400/20 bg-amber-500/10 px-2.5 py-2 text-xs text-amber-100">
+                              No linked location is currently available. A session can start after a linked computer comes online and the Workspace refreshes.
+                            </p>
+                          )}
+                          <div className="flex justify-end">
+                            {projectSetupResult.mode === 'full_client' ? (
+                              projectSetupResult.organizationSlug ? (
+                                <a
+                                  href={`/admin/org/${encodeURIComponent(projectSetupResult.organizationSlug)}/messages`}
+                                  className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-on-primary hover:opacity-90"
+                                >
+                                  Open client Messages
+                                </a>
+                              ) : (
+                                <button type="button" disabled className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-on-primary opacity-50">
+                                  Client Messages unavailable
+                                </button>
+                              )
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setShowProjectSetupWizard(false)}
+                                disabled={!projectSetupHasAvailableLocation}
+                                className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
+                              >
+                                Continue to session
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </section>
+                  )}
                 </div>
               )}
 
@@ -3301,7 +4898,7 @@ export default function UnifiedChat({
             <div className="flex shrink-0 items-center justify-end gap-2 border-t border-[var(--color-card-border)] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-5 sm:py-4">
               <button
                 type="button"
-                onClick={() => setShowNewModal(false)}
+                onClick={closeNewConversation}
                 className="rounded-lg px-4 py-2 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/5 transition-colors"
               >
                 Cancel
@@ -3309,14 +4906,29 @@ export default function UnifiedChat({
               <button
                 type="button"
                 onClick={handleCreateConversation}
-                disabled={!allowStartConversations || creatingConv || newParticipants.length === 0 || ((newScope === 'workspace' || newScope === 'project') && !selectedWorkspaceRuntimeIsValid) || (newScope === 'workspace' && !selectedWorkspaceId) || (newScope === 'project' && (!selectedProjectId || !selectedWorkspaceId))}
+                disabled={!allowStartConversations || creatingConv || newParticipants.length === 0 || ((newScope === 'workspace' || newScope === 'project') && !selectedWorkspaceRuntimeIsValid) || (newScope === 'workspace' && !selectedWorkspaceId) || (newScope === 'project' && (!selectedProjectId || !selectedWorkspaceId || projectSetupBlocksSession))}
                 className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary disabled:opacity-50 hover:opacity-90"
               >
                 {creatingConv ? 'Creating…' : 'Start conversation'}
               </button>
             </div>
+        </AccessibleDialog>
+      )}
+      {accessProject && (
+        <AccessibleDialog
+          label={`Project access for ${accessProject.name}`}
+          onClose={() => setAccessProject(null)}
+          className="w-full max-w-6xl rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-background)] p-4 shadow-2xl sm:p-6"
+        >
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <p className="pib-label">Messages project</p>
+              <h2 className="mt-1 text-lg font-semibold text-[var(--color-pib-text)]">Link client organisation to {accessProject.name}</h2>
+            </div>
+            <button type="button" autoFocus onClick={() => setAccessProject(null)} className="pib-btn-secondary text-xs">Close</button>
           </div>
-        </div>
+          <ProjectPeopleAccessPanel projectId={accessProject.id} orgId={orgId} />
+        </AccessibleDialog>
       )}
     </div>
   )

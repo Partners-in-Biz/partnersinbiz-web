@@ -8,8 +8,12 @@ export async function handleDeviceGrant(req: NextRequest, user: { uid: string },
   try {
     const body = await req.json()
     if (typeof body.orgId !== 'string' || !['active', 'paused', 'revoked'].includes(body.status)) throw new Error('linked computers: invalid grant')
-    const allowedUserIds = Array.isArray(body.allowedUserIds) ? body.allowedUserIds.filter((value: unknown): value is string => typeof value === 'string') : []
-    await put({ deviceId, orgId: body.orgId, actorUserId: user.uid, status: body.status, capabilities: ['workspace.execute'], allowedUserIds })
+    const requestedAccessMode = body.accessMode
+    if (requestedAccessMode !== undefined && !['owner', 'organization', 'selected_users'].includes(requestedAccessMode)) throw new Error('linked computers: invalid access mode')
+    const requestedUserIds = Array.isArray(body.allowedUserIds) ? body.allowedUserIds.filter((value: unknown): value is string => typeof value === 'string') : []
+    const accessMode = requestedAccessMode ?? (requestedUserIds.length > 0 ? 'selected_users' : 'owner')
+    const allowedUserIds = accessMode === 'selected_users' ? requestedUserIds : []
+    await put({ deviceId, orgId: body.orgId, actorUserId: user.uid, status: body.status, capabilities: ['workspace.execute', 'workspace.sync'], accessMode, allowedUserIds })
     return NextResponse.json({ success: true }, { headers: noStoreHeaders })
   } catch (error) { return lifecycleError(error) }
 }

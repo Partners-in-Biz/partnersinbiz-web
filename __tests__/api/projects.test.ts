@@ -9,11 +9,15 @@ const mockProjectDoc = jest.fn()
 const mockProjectUpdate = jest.fn()
 const mockProjectGetById = jest.fn()
 const mockProjectDelete = jest.fn()
+const mockProjectCreate = jest.fn()
+const mockProjectSet = jest.fn()
 const mockProjectMemberDoc = jest.fn()
 const mockProjectMemberSet = jest.fn()
 const mockProjectMemberGet = jest.fn()
 const mockProjectOrganizationDoc = jest.fn()
 const mockProjectOrganizationGet = jest.fn()
+const mockProjectOrganizationWhere = jest.fn()
+const mockProjectOrganizationListGet = jest.fn()
 const mockCollection = jest.fn()
 const mockRecursiveDelete = jest.fn()
 const mockActivityAdd = jest.fn()
@@ -94,6 +98,8 @@ beforeEach(() => {
   mockProjectOrderBy.mockReturnValue(scopedProjectQuery)
   mockProjectDoc.mockReturnValue({
     get: mockProjectGetById,
+    create: mockProjectCreate,
+    set: mockProjectSet,
     update: mockProjectUpdate,
     delete: mockProjectDelete,
   })
@@ -102,6 +108,8 @@ beforeEach(() => {
     data: () => ({ orgId: 'platform', name: 'Project to delete' }),
   })
   mockProjectDelete.mockResolvedValue(undefined)
+  mockProjectCreate.mockResolvedValue(undefined)
+  mockProjectSet.mockResolvedValue(undefined)
   mockRecursiveDelete.mockResolvedValue(undefined)
   mockActivityAdd.mockResolvedValue({ id: 'activity-1' })
   mockProjectUpdate.mockResolvedValue(undefined)
@@ -110,6 +118,8 @@ beforeEach(() => {
   mockProjectMemberGet.mockResolvedValue({ exists: false, data: () => undefined })
   mockProjectOrganizationDoc.mockReturnValue({ get: mockProjectOrganizationGet })
   mockProjectOrganizationGet.mockResolvedValue({ exists: false, data: () => undefined })
+  mockProjectOrganizationWhere.mockReturnValue({ get: mockProjectOrganizationListGet })
+  mockProjectOrganizationListGet.mockResolvedValue({ docs: [] })
   mockCompanyDoc.mockReturnValue({ get: mockCompanyGet })
   mockContactDoc.mockReturnValue({ get: mockContactGet })
   mockCompanyGet.mockResolvedValue({ exists: false, data: () => undefined })
@@ -133,7 +143,7 @@ beforeEach(() => {
     if (name === 'orgMembers') return { doc: mockOrgMemberDoc }
     if (name === 'projects') return projectCollection
     if (name === 'projectMembers') return { doc: mockProjectMemberDoc }
-    if (name === 'projectOrganizations') return { doc: mockProjectOrganizationDoc }
+    if (name === 'projectOrganizations') return { doc: mockProjectOrganizationDoc, where: mockProjectOrganizationWhere }
     if (name === 'companies') return { doc: mockCompanyDoc }
     if (name === 'contacts') return { doc: mockContactDoc }
     if (name === 'activity') return { add: mockActivityAdd }
@@ -230,6 +240,84 @@ describe('GET /api/v1/projects', () => {
     expect(body.data.map((project) => project.id)).toEqual(['received'])
   })
 
+  it('discovers an active canonical organisation share without legacy project link fields', async () => {
+    mockUser = { uid: 'client-1', role: 'client', orgId: 'recipient-org' }
+    mockProjectGet.mockResolvedValue({ docs: [] })
+    mockProjectOrganizationListGet.mockResolvedValue({
+      docs: [{
+        id: 'direct-share_recipient-org',
+        data: () => ({ projectId: 'direct-share', orgId: 'recipient-org', status: 'active' }),
+      }],
+    })
+    mockProjectGetById.mockResolvedValue({
+      exists: true,
+      id: 'direct-share',
+      data: () => ({ name: 'Direct share', orgId: 'source-org', createdAt: { seconds: 20 } }),
+    })
+
+    const { GET } = await import('@/app/api/v1/projects/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/projects?view=received'))
+
+    expect(res.status).toBe(200)
+    expect((await res.json()).data).toEqual([
+      expect.objectContaining({ id: 'direct-share', name: 'Direct share' }),
+    ])
+  })
+
+  it('does not resurrect a canonically revoked share through legacy project fields', async () => {
+    mockUser = { uid: 'client-1', role: 'client', orgId: 'recipient-org' }
+    const legacyProject = {
+      id: 'revoked-share',
+      data: () => ({ name: 'Revoked share', recipientOrgId: 'recipient-org' }),
+    }
+    mockProjectGet
+      .mockResolvedValueOnce({ docs: [legacyProject] })
+      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({ docs: [] })
+    mockProjectOrganizationListGet.mockResolvedValue({
+      docs: [
+        {
+          id: 'revoked-share_legacy-company',
+          data: () => ({ projectId: 'revoked-share', orgId: 'recipient-org', status: 'active' }),
+        },
+        {
+          id: 'revoked-share_recipient-org',
+          data: () => ({ projectId: 'revoked-share', orgId: 'recipient-org', status: 'revoked' }),
+        },
+      ],
+    })
+
+    const { GET } = await import('@/app/api/v1/projects/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/projects?view=received'))
+
+    expect(res.status).toBe(200)
+    expect((await res.json()).data).toEqual([])
+  })
+
+  it('does not expose claim credentials or filesystem/runtime bindings in project lists', async () => {
+    mockUser = { uid: 'client-1', role: 'client', orgId: 'recipient-org' }
+    mockProjectGet.mockResolvedValue({
+      docs: [{
+        id: 'safe-project',
+        data: () => ({
+          name: 'Safe project', recipientOrgId: 'recipient-org', claimToken: 'bearer-secret',
+          projectFolderRelativePath: 'projects/safe-project', workspaceFolderId: 'folder-secret',
+          executionLocationIds: ['partners-vps'], canonicalLocationId: 'partners-vps',
+        }),
+      }],
+    })
+
+    const { GET } = await import('@/app/api/v1/projects/route')
+    const body = await (await GET(new NextRequest('http://localhost/api/v1/projects?view=received'))).json()
+
+    expect(body.data).toEqual([expect.objectContaining({ id: 'safe-project', name: 'Safe project' })])
+    expect(JSON.stringify(body)).not.toContain('bearer-secret')
+    expect(JSON.stringify(body)).not.toContain('projects/safe-project')
+    expect(JSON.stringify(body)).not.toContain('folder-secret')
+    expect(JSON.stringify(body)).not.toContain('partners-vps')
+  })
+
   it('lists received client workspace projects by org slug across new and legacy ownership fields', async () => {
     mockOrgGet.mockResolvedValue({
       empty: false,
@@ -296,6 +384,54 @@ describe('GET /api/v1/projects', () => {
 })
 
 describe('POST /api/v1/projects', () => {
+  it('uses and replays a trusted setup-derived project id instead of creating duplicates', async () => {
+    mockUser = { uid: 'admin-1', role: 'admin', orgId: 'pib-org', orgIds: ['pib-org'] }
+    mockOrgDocGet.mockResolvedValue({ exists: true, data: () => ({ name: 'PiB' }) })
+    mockProjectDoc.mockImplementation((id: string) => ({
+      id,
+      get: mockProjectGetById,
+      create: mockProjectCreate,
+      set: mockProjectSet,
+      update: mockProjectUpdate,
+      delete: mockProjectDelete,
+    }))
+    mockProjectGetById
+      .mockResolvedValueOnce({ exists: false, data: () => undefined })
+      .mockResolvedValueOnce({
+        exists: true,
+        data: () => ({
+          name: 'Durable setup project',
+          orgId: 'pib-org',
+          setupOperationId: 'setup_operation_1',
+          setupCreationStatus: 'complete',
+        }),
+      })
+    const { handleProjectCreate } = await import('@/app/api/v1/projects/route')
+    const makeRequest = () => new NextRequest('http://localhost/api/v1/projects', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Durable setup project', orgId: 'pib-org' }),
+    })
+    const options = {
+      documentId: 'setup_project_0123456789abcdef0123456789abcdef01234567',
+      setupOperationId: 'setup_operation_1',
+    }
+
+    const first = await handleProjectCreate(makeRequest(), mockUser, options)
+    const replay = await handleProjectCreate(makeRequest(), mockUser, options)
+
+    expect(first.status).toBe(201)
+    expect(replay.status).toBe(200)
+    expect((await first.json()).data.id).toBe(options.documentId)
+    expect((await replay.json()).data.id).toBe(options.documentId)
+    expect(mockAdd).not.toHaveBeenCalled()
+    expect(mockProjectCreate).toHaveBeenCalledTimes(1)
+    expect(mockProjectCreate).toHaveBeenCalledWith(expect.objectContaining({
+      setupOperationId: 'setup_operation_1',
+      setupCreationStatus: 'creating',
+    }))
+  })
+
   it('blocks client project requests when organisation governance denies create for their role', async () => {
     mockUser = { uid: 'client-1', role: 'client', orgId: 'client-org' }
     mockOrgDocGet.mockResolvedValue({

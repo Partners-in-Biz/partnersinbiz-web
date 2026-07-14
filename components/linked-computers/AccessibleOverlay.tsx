@@ -9,9 +9,35 @@ export function AccessibleDialog({ label, onClose, children, className = 'w-full
   const opener = useRef<HTMLElement | null>(null)
   useEffect(() => {
     opener.current = document.activeElement as HTMLElement | null
-    const first = ref.current?.querySelector<HTMLElement>('[autofocus], ' + FOCUSABLE)
-    first?.focus()
-    return () => opener.current?.focus()
+    const overlay = ref.current
+    const first = overlay?.querySelector<HTMLElement>('[autofocus], ' + FOCUSABLE)
+    if (first) first.focus()
+    else overlay?.focus()
+    const background: Array<{ element: HTMLElement; inert: boolean; ariaHidden: string | null }> = []
+    let current: HTMLElement | null = overlay
+    while (current?.parentElement) {
+      const parent: HTMLElement = current.parentElement
+      for (const sibling of Array.from(parent.children)) {
+        if (sibling === current || !(sibling instanceof HTMLElement)) continue
+        background.push({
+          element: sibling,
+          inert: sibling.hasAttribute('inert'),
+          ariaHidden: sibling.getAttribute('aria-hidden'),
+        })
+        sibling.setAttribute('inert', '')
+        sibling.setAttribute('aria-hidden', 'true')
+      }
+      if (parent === document.body) break
+      current = parent
+    }
+    return () => {
+      for (const state of background) {
+        if (!state.inert) state.element.removeAttribute('inert')
+        if (state.ariaHidden == null) state.element.removeAttribute('aria-hidden')
+        else state.element.setAttribute('aria-hidden', state.ariaHidden)
+      }
+      opener.current?.focus()
+    }
   }, [])
   function keyDown(event: React.KeyboardEvent) {
     if (event.key === 'Escape') { event.preventDefault(); onClose(); return }
@@ -22,7 +48,7 @@ export function AccessibleDialog({ label, onClose, children, className = 'w-full
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
   }
-  return <div ref={ref} role="dialog" aria-modal="true" aria-label={label} onKeyDown={keyDown} onMouseDown={event => { if (event.target === event.currentTarget) onClose() }} className="fixed inset-0 z-50 grid place-items-center overflow-hidden bg-black/60 p-4"><div data-testid="accessible-dialog-panel" className={`max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain ${className}`}>{children}</div></div>
+  return <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={label} onKeyDown={keyDown} onMouseDown={event => { if (event.target === event.currentTarget) onClose() }} className="fixed inset-0 z-50 grid place-items-center overflow-hidden bg-black/60 p-4"><div data-testid="accessible-dialog-panel" className={`max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain ${className}`}>{children}</div></div>
 }
 
 export function AccessibleMenu({ id, label, onClose, children }: { id: string; label: string; onClose(): void; children: ReactNode }) {

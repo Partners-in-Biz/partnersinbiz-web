@@ -1,6 +1,6 @@
 // __tests__/api/v1/organizations/organizations.test.ts
 import { NextRequest } from 'next/server'
-import { GET, POST } from '@/app/api/v1/organizations/route'
+import { GET, POST, handleOrganizationCreate } from '@/app/api/v1/organizations/route'
 import { GET as getById, PUT, DELETE } from '@/app/api/v1/organizations/[id]/route'
 import { POST as addMember } from '@/app/api/v1/organizations/[id]/members/route'
 import { GET as searchClientMembers, POST as addClientMember } from '@/app/api/v1/organizations/[id]/members/client/route'
@@ -32,6 +32,9 @@ const mockSet = jest.fn()
 const mockWhere = jest.fn()
 const mockOrderBy = jest.fn()
 const mockCollection = jest.fn()
+const mockTrustedOrgCreate = jest.fn()
+const mockTrustedOrgGet = jest.fn()
+const mockTrustedOrgSet = jest.fn()
 
 jest.mock('@/lib/client-provisioning/vps', () => ({
   provisionFullClientOnVps: jest.fn(),
@@ -129,6 +132,86 @@ describe('POST /api/v1/organizations', () => {
     }))
   })
 
+  it('uses and replays a trusted setup-derived organisation id without a second create', async () => {
+    const memberSet = jest.fn().mockResolvedValue(undefined)
+    mockTrustedOrgCreate.mockResolvedValue(undefined)
+    mockTrustedOrgSet.mockResolvedValue(undefined)
+    mockTrustedOrgGet
+      .mockResolvedValueOnce({ exists: false, data: () => undefined })
+      .mockResolvedValueOnce({
+        exists: true,
+        data: () => ({
+          name: 'Durable Client',
+          slug: 'durable-client',
+          setupOperationId: 'setup_operation_1',
+          provisioning: { status: 'skipped' },
+        }),
+      })
+    mockCollection.mockImplementation((name: string) => {
+      if (name === 'organizations') return {
+        where: mockWhere,
+        doc: (id: string) => ({
+          id,
+          get: mockTrustedOrgGet,
+          create: mockTrustedOrgCreate,
+          set: mockTrustedOrgSet,
+        }),
+      }
+      if (name === 'orgMembers') return { doc: () => ({ set: memberSet }) }
+      return { where: mockWhere, add: mockAdd, orderBy: mockOrderBy, get: mockGet }
+    })
+    const options = {
+      documentId: 'setup_org_0123456789abcdef0123456789abcdef01234567',
+      setupOperationId: 'setup_operation_1',
+    }
+    const user = { uid: 'admin-1', role: 'admin' as const, orgId: 'pib-platform-owner' }
+
+    const first = await handleOrganizationCreate(
+      adminReq('POST', { name: 'Durable Client', provisionWorkspace: false }), user, options,
+    )
+    const replay = await handleOrganizationCreate(
+      adminReq('POST', { name: 'Durable Client', provisionWorkspace: false }), user, options,
+    )
+
+    expect(first.status).toBe(201)
+    expect(replay.status).toBe(200)
+    expect((await first.json()).data.id).toBe(options.documentId)
+    expect((await replay.json()).data.id).toBe(options.documentId)
+    expect(mockAdd).not.toHaveBeenCalled()
+    expect(mockTrustedOrgCreate).toHaveBeenCalledTimes(1)
+    expect(mockTrustedOrgCreate).toHaveBeenCalledWith(expect.objectContaining({
+      setupOperationId: 'setup_operation_1',
+    }))
+  })
+
+  it('creates the canonical owner membership for a human organisation creator', async () => {
+    const memberSet = jest.fn().mockResolvedValue(undefined)
+    const memberDoc = jest.fn().mockReturnValue({ set: memberSet })
+    mockCollection.mockImplementation((name: string) => {
+      if (name === 'orgMembers') return { doc: memberDoc }
+      return { where: mockWhere, add: mockAdd, orderBy: mockOrderBy, get: mockGet }
+    })
+
+    const res = await handleOrganizationCreate(
+      adminReq('POST', { name: 'Human-owned client', provisionWorkspace: false }),
+      { uid: 'admin-1', role: 'admin', orgId: 'pib-platform-owner' },
+    )
+
+    expect(res.status).toBe(201)
+    expect(memberDoc).toHaveBeenCalledWith('new-org-id_admin-1')
+    expect(memberSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: 'new-org-id',
+        uid: 'admin-1',
+        role: 'owner',
+        status: 'active',
+        createdAt: '__SERVER_TS__',
+        updatedAt: '__SERVER_TS__',
+      }),
+      { merge: true },
+    )
+  })
+
   it('requests full VPS client provisioning by default for client orgs', async () => {
     const res = await POST(adminReq('POST', { name: 'Velox', agentName: 'Vee' }))
     expect(res.status).toBe(201)
@@ -149,6 +232,20 @@ describe('POST /api/v1/organizations', () => {
       { merge: true },
     )
     expect(upsertOrgWorkspace).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 'velox' }))
+  })
+
+  it('uses a validated explicit client domain for the organisation slug and Workspace provisioning', async () => {
+    const res = await POST(adminReq('POST', { name: 'Velox Holdings', domainSlug: 'velox' }))
+    expect(res.status).toBe(201)
+    expect((await res.json()).data.slug).toBe('velox')
+    expect(mockWhere).toHaveBeenCalledWith('slug', '==', 'velox')
+    expect(provisionFullClientOnVps).toHaveBeenCalledWith(expect.objectContaining({ domain: 'velox' }))
+  })
+
+  it('rejects an unsafe explicit client domain', async () => {
+    const res = await POST(adminReq('POST', { name: 'Velox', domainSlug: '../velox' }))
+    expect(res.status).toBe(400)
+    expect(provisionFullClientOnVps).not.toHaveBeenCalled()
   })
 
   it('can skip workspace provisioning for Firebase-only org creation', async () => {

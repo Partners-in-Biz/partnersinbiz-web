@@ -227,6 +227,7 @@ export async function getAgentDispatchHermesProfileLink(
     runtimeTargetId: target.targetId,
     runtimeKind: target.runtimeKind,
     machineLabel: target.machineLabel,
+    transportIdentity: target.transportIdentity,
     capabilities: { runs: true, dashboard: false, cron: false, models: false, tools: true, files: false, terminal: false },
     permissions: { superAdmin: false, restrictedAdmin: false, client: true, allowedUserIds: [] },
   }

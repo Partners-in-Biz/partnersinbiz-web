@@ -1,6 +1,43 @@
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import type { ApiUser } from '@/lib/api/types'
+import { getProjectForUser } from '@/lib/projects/access'
+import { selectActiveProjectId } from '@/lib/projects/chatProgress'
+import { projectLinkedToOrganization } from '@/lib/projects/organization-link'
 import type { Conversation, ConversationAttachment, ConversationMessage } from './types'
+
+type ProjectConversationAuthorization =
+  | { ok: true; projectId: string | null }
+  | { ok: false; status: number; error: string }
+
+type ProjectConversationAuthorizationOptions = {
+  getProjectForUser?: typeof getProjectForUser
+  projectLinkedToOrganization?: typeof projectLinkedToOrganization
+}
+
+export function conversationProjectId(conversation: Conversation): string | null {
+  const value = conversation.workspaceContext?.projectId
+    ?? selectActiveProjectId(conversation)
+  return typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
+/** Revalidates the mutable project/org relationship behind a durable thread. */
+export async function authorizeConversationProject(
+  user: ApiUser,
+  conversation: Conversation,
+  options: ProjectConversationAuthorizationOptions = {},
+): Promise<ProjectConversationAuthorization> {
+  const projectId = conversationProjectId(conversation)
+  if (!projectId) return { ok: true, projectId: null }
+  const projectAccess = await (options.getProjectForUser ?? getProjectForUser)(projectId, user, conversation.orgId)
+  if (!projectAccess.ok) return { ok: false, status: projectAccess.status, error: projectAccess.error }
+  const linked = await (options.projectLinkedToOrganization ?? projectLinkedToOrganization)({
+    projectId,
+    project: projectAccess.doc.data() ?? {},
+    orgId: conversation.orgId,
+  })
+  if (!linked) return { ok: false, status: 403, error: 'Project is outside this organisation' }
+  return { ok: true, projectId }
+}
 
 /**
  * Conversation access semantics:
@@ -27,19 +64,18 @@ export function canAccessConversation(user: ApiUser, conversation: Conversation)
 export function publicConversationView(conversation: Conversation): Conversation {
   const participants = (conversation.participants ?? []).map((participant) => {
     if (participant.kind !== 'user') return participant
-    const { email: _email, ...publicParticipant } = participant
+    const publicParticipant = { ...participant }
+    delete publicParticipant.email
     return publicParticipant
   }) as Conversation['participants']
   if (!conversation.workspaceContext) return { ...conversation, participants }
-  const {
-    vpsPath: _vpsPath,
-    localPath: _localPath,
-    vpsWorkingPath: _vpsWorkingPath,
-    localWorkingPath: _localWorkingPath,
-    agentDomainPath: _agentDomainPath,
-    localAgentDomainPath: _localAgentDomainPath,
-    ...workspaceContext
-  } = conversation.workspaceContext
+  const workspaceContext: Partial<Conversation['workspaceContext']> = { ...conversation.workspaceContext }
+  delete workspaceContext.vpsPath
+  delete workspaceContext.localPath
+  delete workspaceContext.vpsWorkingPath
+  delete workspaceContext.localWorkingPath
+  delete workspaceContext.agentDomainPath
+  delete workspaceContext.localAgentDomainPath
   return { ...conversation, participants, workspaceContext: workspaceContext as Conversation['workspaceContext'] }
 }
 
@@ -92,10 +128,11 @@ export function canManageConversationAccess(user: ApiUser, conversation: Convers
   return user.uid === ownerUid
 }
 
-/** Mutation access excludes organisation-wide readers who are not explicit participants. */
+/** Organisation sessions are collaborative: every scoped org member may reply. */
 export function canReplyConversation(user: ApiUser, conversation: Conversation): boolean {
   if (!canAccessConversation(user, conversation)) return false
   if (user.role === 'ai') return true // AI read access already requires explicit agent participation.
+  if (conversation.workspaceContext?.shareMode === 'org') return true
   return (conversation.participantUids ?? []).includes(user.uid)
 }
 

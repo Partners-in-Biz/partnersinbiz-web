@@ -8,7 +8,7 @@ function source(relativePath: string) {
 }
 
 describe('messages shared workspace standard', () => {
-  it('keeps portal messages on shared chat and top-level admin messages on governance controls', () => {
+  it('opens shared chat by default on both surfaces and keeps admin governance explicitly addressable', () => {
     const sharedWorkspacePath = path.join(root, 'components/messages/MessagesWorkspace.tsx')
     const adminRoute = source('app/(admin)/admin/org/[slug]/messages/page.tsx')
     const adminGovernance = source('components/messages/AdminMessagesGovernanceWorkspace.tsx')
@@ -21,7 +21,8 @@ describe('messages shared workspace standard', () => {
     expect(adminRoute).toContain('@/components/messages/AdminMessagesGovernanceWorkspace')
     expect(adminRoute).toContain('<AdminMessagesGovernanceWorkspace')
     expect(adminRoute).toContain('@/components/messages/MessagesWorkspace')
-    expect(adminRoute).toContain('shouldOpenConversationWorkspace')
+    expect(adminRoute).toContain("sp.view === 'governance'")
+    expect(adminRoute).not.toContain('shouldOpenConversationWorkspace')
     expect(adminRoute).toContain('surface="admin"')
     expect(adminGovernance).toContain('Messages governance')
     expect(adminGovernance).toContain('Who can use Messages')

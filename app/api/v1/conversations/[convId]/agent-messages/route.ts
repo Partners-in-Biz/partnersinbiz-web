@@ -10,7 +10,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { AGENT_IDS, type AgentId } from '@/lib/agents/types'
 import { getConversation, createMessage, touchConversation } from '@/lib/conversations/conversations'
-import { canAppendAgentMessage } from '@/lib/conversations/access'
+import { authorizeConversationProject, canAppendAgentMessage } from '@/lib/conversations/access'
 import { normalizeRichParts, normalizeUiActions } from '@/lib/hermes/rich-messages'
 import type { ApiUser } from '@/lib/api/types'
 
@@ -62,6 +62,8 @@ export const POST = withAuth(
     const conversation = await getConversation(convId)
     if (!conversation) return apiError('Conversation not found', 404)
     if (!canAppendAgentMessage(user, conversation)) return apiError('Forbidden', 403)
+    const projectAuthorization = await authorizeConversationProject(user, conversation)
+    if (!projectAuthorization.ok) return apiError(projectAuthorization.error, projectAuthorization.status)
 
     const body = await req.json().catch(() => null)
     if (!body || typeof body !== 'object') return apiError('Invalid JSON body', 400)

@@ -86,7 +86,10 @@ describe.each(['private', 'shared', 'org'] as const)('%s conversation mutation p
 
   for (const action of Object.keys(policy) as Array<keyof typeof policy>) {
     it.each(Object.keys(actors) as Array<keyof typeof actors>)(`${action}: %s`, (actor) => {
-      expect(policy[action](actors[actor], conversation(visibility))).toBe(expectations[action][actor])
+      const expected = action === 'stop' && actor === 'orgMember'
+        ? visibility === 'org'
+        : expectations[action][actor]
+      expect(policy[action](actors[actor], conversation(visibility))).toBe(expected)
     })
   }
 })

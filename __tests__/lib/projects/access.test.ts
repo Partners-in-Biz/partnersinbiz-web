@@ -43,5 +43,6 @@ describe('canAccessProject', () => {
     }
 
     expect(canAccessProject(user, { clientOrgId: 'org-b' })).toBe(true)
+    expect(canAccessProject(user, { clientOrgIds: ['org-c', 'org-b'] })).toBe(true)
   })
 })

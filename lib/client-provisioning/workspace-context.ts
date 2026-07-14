@@ -165,6 +165,7 @@ export async function resolveConversationWorkspaceContext(input: {
   shareMode?: ConversationWorkspaceContext['shareMode'] | null
   projectId?: string | null
   projectName?: string | null
+  folderRelativePath?: string | null
 }): Promise<ConversationWorkspaceContext | null> {
   const workspace = input.workspaceId
     ? await getOrgWorkspaceById(input.workspaceId)
@@ -173,7 +174,17 @@ export async function resolveConversationWorkspaceContext(input: {
   const runtimeTarget = (input.runtimeTarget || workspace.defaultRuntimeTarget || 'vps') as WorkspaceRuntimeTarget
   const projectId = cleanString(input.projectId)
   const projectName = cleanString(input.projectName)
-  const folderRelativePath = projectId ? `projects/${projectId}` : ''
+  const requestedFolderRelativePath = cleanString(input.folderRelativePath)
+  const folderRelativePath = projectId
+    ? requestedFolderRelativePath || `projects/${projectId}`
+    : ''
+  if (folderRelativePath) {
+    const segments = folderRelativePath.split('/')
+    if (folderRelativePath.startsWith('/') || folderRelativePath.startsWith('~')
+      || folderRelativePath.includes('\\') || segments.some((segment) => !segment || segment === '.' || segment === '..')) {
+      return null
+    }
+  }
   return {
     workspaceId: workspace.workspaceId,
     orgId: workspace.orgId,

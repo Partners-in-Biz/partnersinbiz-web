@@ -63,9 +63,30 @@ gcloud firestore fields ttls update expiresAt \
   --project="$PROJECT" \
   --async
 
+# Project replica sync — bounded coordinator/runtime working state. The durable
+# request/audit rows are intentionally excluded. Writers stamp expiresAt at 30d
+# for manifests/readiness/jobs and 35d for the verified CAS object ledger.
+for collection in \
+  project_sync_manifest_chunks \
+  project_sync_manifest_heads \
+  project_sync_cas_readiness \
+  project_sync_objects \
+  project_sync_runtime_jobs
+do
+  echo "→ ${collection}.expiresAt"
+  gcloud firestore fields ttls update expiresAt \
+    --collection-group="$collection" \
+    --enable-ttl \
+    --project="$PROJECT" \
+    --async
+done
+
 echo ""
 echo "TTL policies enqueued. Firestore applies them asynchronously (minutes to hours)."
 echo "Check status in GCP Console → Firestore → TTL."
+echo ""
+echo "Do not set PROJECT_SYNC_STORAGE_LIFECYCLE_VERIFIED from this script alone."
+echo "Set it only after all five project-sync TTL policies AND the Storage lifecycle rule have both been read back live."
 echo ""
 echo "Each collection's writer is responsible for stamping expiresAt on create."
 echo "See docs/firestore-indexes.needed.md for per-collection retention and the code refs."
