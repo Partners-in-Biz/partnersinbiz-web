@@ -231,7 +231,9 @@ export default function ContentAnalyticsPage() {
 
       {!loading && data && !data.hasProperty && (
         <div className="pib-card flex items-center gap-2 px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">
-          <span className="material-symbols-outlined text-base">info</span>
+          <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet !h-7 !w-7 !rounded-md">
+            <span className="material-symbols-outlined text-[15px]">info</span>
+          </span>
           <span>
             No analytics property connected — metrics show zero. Enter a propertyId to join live traffic.
           </span>

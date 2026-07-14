@@ -521,11 +521,7 @@ export default function CouponsPage() {
                             <button
                               onClick={() => toggleActive(coupon)}
                               disabled={busy}
-                              className="text-xs font-label px-2.5 py-1 rounded-full"
-                              style={{
-                                background: coupon.active ? 'rgba(34,197,94,0.12)' : 'rgba(148,163,184,0.12)',
-                                color: coupon.active ? '#4ade80' : '#94a3b8',
-                              }}
+                              className={`pib-pill ${coupon.active ? 'pib-pill-success' : ''}`}
                               title="Toggle active"
                             >
                               {coupon.active ? 'Active' : 'Inactive'}

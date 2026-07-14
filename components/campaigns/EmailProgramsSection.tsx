@@ -153,7 +153,7 @@ export function EmailProgramsSection({
 
       {filtered.length === 0 ? (
         <div className="pib-card p-8 text-center">
-          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">forward_to_inbox</span>
+          <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-rose mx-auto"><span className="material-symbols-outlined text-[20px]">forward_to_inbox</span></span>
           <h3 className="font-headline text-lg font-semibold mt-3">
             {items.length === 0 ? 'No email programs yet' : 'Nothing matches this filter'}
           </h3>
@@ -221,7 +221,7 @@ function EmailCampaignCard({
           <span className={`text-[10px] px-2 py-1 rounded uppercase tracking-wide ${statusPill(campaign.status)}`}>
             {campaign.status ?? 'draft'}
           </span>
-          <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">forward_to_inbox</span>
+          <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-rose"><span className="material-symbols-outlined text-[15px]">forward_to_inbox</span></span>
         </div>
         <h3 className="font-headline text-lg font-semibold mt-4 leading-tight">{campaignTitle(campaign)}</h3>
         <p className="text-xs text-[var(--color-pib-text-muted)] mt-2">

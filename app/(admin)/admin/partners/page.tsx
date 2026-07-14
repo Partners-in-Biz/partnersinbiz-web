@@ -47,20 +47,13 @@ function Skeleton({ className = '' }: { className?: string }) {
 }
 
 function StatusBadge({ status }: { status: PartnerStatus }) {
-  const colors: Record<PartnerStatus, string> = {
-    pending: '#d97706',
-    approved: '#16a34a',
-    rejected: '#dc2626',
-    suspended: '#6b7280',
+  const tones: Record<PartnerStatus, string> = {
+    pending: 'pib-pill-warn',
+    approved: 'pib-pill-success',
+    rejected: 'pib-pill-danger',
+    suspended: 'pib-pill-cyan',
   }
-  return (
-    <span
-      className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full"
-      style={{ background: `${colors[status]}20`, color: colors[status] }}
-    >
-      {status}
-    </span>
-  )
+  return <span className={`pib-pill ${tones[status]}`}>{status}</span>
 }
 
 export default function AdminPartnersPage() {

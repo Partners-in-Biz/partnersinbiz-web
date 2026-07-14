@@ -368,12 +368,12 @@ export default async function PortalBroadcastPage({
               Excluded:
             </span>
             {audience.excludeUnsubscribed && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-2.5 py-0.5 text-[11px] text-[var(--color-pib-text-muted)]">
+              <span className="pib-pill pib-pill-rose !text-[11px] !px-2.5 !py-0.5">
                 Unsubscribed
               </span>
             )}
             {audience.excludeBouncedAt && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-2.5 py-0.5 text-[11px] text-[var(--color-pib-text-muted)]">
+              <span className="pib-pill pib-pill-rose !text-[11px] !px-2.5 !py-0.5">
                 Recently bounced
               </span>
             )}
@@ -411,7 +411,7 @@ export default async function PortalBroadcastPage({
                 {domain.status === 'verified' ? 'Verified' : domain.status.replace('_', ' ')}
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-2.5 py-1 text-xs text-[var(--color-pib-text-muted)] font-label">
+              <span className="pib-pill pib-pill-rose !text-xs !px-2.5 !py-1">
                 Sending via shared partnersinbiz.online
               </span>
             )}
@@ -434,7 +434,7 @@ export default async function PortalBroadcastPage({
             </p>
             <div className="flex items-center gap-2">
               {ab.autoPromote && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-2.5 py-0.5 text-[11px] text-[var(--color-pib-text-muted)] font-label">
+                <span className="pib-pill pib-pill-rose !text-[11px] !px-2.5 !py-0.5">
                   <span className="material-symbols-outlined text-xs">auto_awesome</span>
                   Auto-promotes winner
                 </span>

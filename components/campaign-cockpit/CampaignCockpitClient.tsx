@@ -541,7 +541,7 @@ function ResearchPanel({ research }: { research: AnyObj }) {
                       {a.language.map((p: string, i: number) => (
                         <span
                           key={i}
-                          className="text-xs px-2 py-1 rounded bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)]"
+                          className="pib-pill pib-pill-rose normal-case tracking-normal"
                         >
                           {p}
                         </span>

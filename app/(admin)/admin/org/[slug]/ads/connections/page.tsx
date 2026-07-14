@@ -18,7 +18,7 @@ export default async function ConnectionsPage({
   const { slug } = await params
   const orgId = await resolveOrgIdBySlug(slug)
   if (!orgId) {
-    return <div className="text-white/60">Org not found.</div>
+    return <p className="pib-page-sub">Org not found.</p>
   }
   const connections = await listConnections({ orgId })
   // Strip secrets AND serialize Firestore Timestamps to plain values before
@@ -44,7 +44,12 @@ export default async function ConnectionsPage({
       }) as any,
   )
   return (
-    <div className="space-y-4">
+    <div className="space-y-8">
+      <header>
+        <p className="eyebrow">Ads · Connections</p>
+        <h1 className="pib-page-title mt-2">Connections</h1>
+        <p className="pib-page-sub">Link ad-platform accounts to enable campaign management for this client.</p>
+      </header>
       <ConnectionsPanel orgSlug={slug} orgId={orgId} connections={safe} />
       <GoogleConnectionsPanel orgSlug={slug} orgId={orgId} connections={safe} />
       <LinkedinConnectionsPanel orgSlug={slug} orgId={orgId} connections={safe} />

@@ -73,7 +73,7 @@ function scopedUrl(path: string, orgId?: string): string {
 
 function StatusPill({ value }: { value?: string }) {
   return (
-    <span className="pib-pill">
+    <span className="pib-pill pib-pill-cyan">
       {value || 'active'}
     </span>
   )

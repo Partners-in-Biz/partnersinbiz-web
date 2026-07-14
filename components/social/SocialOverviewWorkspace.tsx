@@ -542,9 +542,9 @@ function ApprovalPosts({
         </div>
       ) : displayPosts.length === 0 ? (
         <div className="bento-card p-10 text-center">
-          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]">
+          <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-rose mx-auto"><span className="material-symbols-outlined text-[20px]">
             {tab === 'pending' ? 'check_circle' : tab === 'scheduled' ? 'schedule' : 'rocket_launch'}
-          </span>
+          </span></span>
           <p className="text-[var(--color-pib-text-muted)] mt-4">
             {tab === 'pending'
               ? 'All caught up - no posts waiting for your approval.'

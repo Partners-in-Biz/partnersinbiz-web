@@ -303,10 +303,10 @@ export function AuditLogManager() {
                   </td>
                   <td className="px-3 py-2 align-top">
                     <span
-                      className={`inline-block rounded px-1.5 py-0.5 text-xs whitespace-nowrap ${
+                      className={`whitespace-nowrap ${
                         row.sensitive
-                          ? 'bg-amber-500/15 text-amber-300'
-                          : 'bg-[var(--color-pib-surface-soft)] text-[var(--color-pib-text-muted)]'
+                          ? 'inline-block rounded px-1.5 py-0.5 text-xs bg-amber-500/15 text-amber-300'
+                          : 'pib-pill pib-pill-cyan'
                       }`}
                     >
                       {row.type}

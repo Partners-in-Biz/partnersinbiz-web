@@ -61,7 +61,7 @@ function StatTile({ label, value, icon }: { label: string; value: string; icon: 
     <div className="pib-stat-card">
       <div className="flex items-start justify-between">
         <p className="eyebrow !text-[10px]">{label}</p>
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
+        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">{icon}</span></span>
       </div>
       <p className="mt-3 font-display tracking-tight leading-none text-3xl md:text-4xl">{value}</p>
     </div>
@@ -73,7 +73,7 @@ function TaskList({ title, icon, tasks, empty, showDate }: { title: string; icon
   return (
     <div className="pib-card p-5 space-y-4">
       <h3 className="font-headline text-lg font-semibold flex items-center gap-2">
-        <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">{icon}</span>
+        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">{icon}</span></span>
         {title}
       </h3>
       {tasks.length === 0 ? (

@@ -105,7 +105,7 @@ export function AdminYouTubeStudioGovernanceWorkspace({ orgSlug }: AdminYouTubeS
               Every action exposes the same role choices so each organisation can choose its own YouTube Studio rules.
             </p>
           </div>
-          <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-[var(--color-card-border)] text-[var(--color-pib-accent)]">
+          <span className="pib-icon-tint pib-icon-tint-rose shrink-0" aria-hidden="true">
             <span className="material-symbols-outlined text-[20px] leading-none">smart_display</span>
           </span>
         </div>
@@ -157,7 +157,7 @@ export function AdminYouTubeStudioGovernanceWorkspace({ orgSlug }: AdminYouTubeS
                   <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{template.label}</h3>
                   <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{template.description}</p>
                 </div>
-                <span className="rounded-full border border-[var(--color-card-border)] px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+                <span className="pib-pill pib-pill-rose">
                   {template.locked ? 'Default' : 'Custom'}
                 </span>
               </div>

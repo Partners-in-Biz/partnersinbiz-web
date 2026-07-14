@@ -72,7 +72,7 @@ export function InsightsChart({ orgId, level, pibEntityId, daysBack = 7 }: Props
               <XAxis dataKey="date" stroke="rgba(255,255,255,0.5)" tick={{ fontSize: 11 }} />
               <YAxis stroke="rgba(255,255,255,0.5)" tick={{ fontSize: 11 }} />
               <Tooltip contentStyle={{ backgroundColor: '#0A0A0B', border: '1px solid rgba(255,255,255,0.1)' }} />
-              <Line type="monotone" dataKey="value" stroke="#F5A623" strokeWidth={2} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="value" stroke="var(--color-pib-rose)" strokeWidth={2} dot={{ r: 3 }} />
             </LineChart>
           </ResponsiveContainer>
         )}

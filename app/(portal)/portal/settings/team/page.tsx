@@ -293,7 +293,7 @@ export default function TeamPage() {
             <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Members</p>
             <h2 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">Workspace access</h2>
           </div>
-          <span className="inline-flex w-fit items-center rounded-full border border-[var(--color-pib-line)] bg-white/[0.03] px-3 py-1 text-xs text-[var(--color-pib-text-muted)]">
+          <span className="pib-pill pib-pill-cyan w-fit">
             {members.length} member{members.length === 1 ? '' : 's'}
           </span>
         </div>
@@ -493,8 +493,8 @@ export default function TeamPage() {
       {canInvite && (
         <section className="pib-card space-y-5">
           <div className="flex items-start gap-3">
-            <span className="material-symbols-outlined flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-accent-soft)] text-[18px] text-[var(--color-pib-accent)]" aria-hidden="true">
-              person_add
+            <span className="pib-icon-tint pib-icon-tint-cyan" aria-hidden="true">
+              <span className="material-symbols-outlined text-[18px]">person_add</span>
             </span>
             <div>
               <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Invite access</p>

@@ -62,7 +62,7 @@ function CopyButton({ value }: { value: string }) {
 function SslBadge({ status, verified }: { status: SslStatus; verified: boolean }) {
   const map: Record<SslStatus, { label: string; cls: string; icon: string }> = {
     active: { label: 'SSL active', cls: 'pib-pill-success', icon: 'lock' },
-    pending: { label: verified ? 'SSL provisioning' : 'SSL pending', cls: 'pib-pill', icon: 'hourglass_top' },
+    pending: { label: verified ? 'SSL provisioning' : 'SSL pending', cls: 'pib-pill pib-pill-cyan', icon: 'hourglass_top' },
     failed: { label: 'SSL failed', cls: 'pib-pill pib-pill-danger', icon: 'error' },
   }
   const v = map[status]
@@ -190,7 +190,7 @@ export default function DomainSettingsPage() {
             Domain verified
           </span>
         ) : (
-          <span className="pib-pill inline-flex items-center gap-1.5">
+          <span className="pib-pill pib-pill-cyan inline-flex items-center gap-1.5">
             <span className="material-symbols-outlined text-[14px]">pending</span>
             Awaiting verification
           </span>

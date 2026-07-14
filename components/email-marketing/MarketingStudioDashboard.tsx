@@ -46,7 +46,7 @@ export function MarketingStudioDashboard({ scope }: MarketingStudioDashboardProp
       <div className="min-w-0 overflow-hidden rounded-[22px] border border-[var(--color-card-border)] bg-[var(--color-card)]/55 shadow-[0_24px_80px_rgba(0,0,0,0.2)]">
         <header className="flex min-h-14 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black/[0.08] px-3 py-2 sm:px-4">
           <div className="flex min-w-0 items-center gap-2.5">
-            <span className="material-symbols-outlined grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-[18px] text-primary" aria-hidden="true">
+            <span className="pib-icon-tint pib-icon-tint-blue shrink-0 text-[18px]" aria-hidden="true">
               stacked_email
             </span>
             <div className="min-w-0">
@@ -111,7 +111,7 @@ export function MarketingStudioDashboard({ scope }: MarketingStudioDashboardProp
                     href={scopedPortalPath(item.href, scope)}
                     className="group flex items-center gap-2 rounded-md px-2 py-2 hover:bg-white/[0.025]"
                   >
-                    <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)] group-hover:text-primary" aria-hidden="true">{item.icon}</span>
+                    <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)] group-hover:text-[var(--color-pib-blue)]" aria-hidden="true">{item.icon}</span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-xs font-medium text-[var(--color-pib-text)]">{item.label}</span>
                       <span className="block truncate text-[11px] text-[var(--color-pib-text-muted)]">{item.detail}</span>

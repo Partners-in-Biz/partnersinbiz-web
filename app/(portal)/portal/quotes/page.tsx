@@ -19,13 +19,13 @@ interface Quote {
 
 type DateLike = string | number | Date | { _seconds?: number; seconds?: number } | null | undefined
 
-const STATUS_MAP: Record<QuoteStatus, { label: string; color: string }> = {
-  draft:     { label: 'Draft',     color: 'var(--color-outline)' },
-  sent:      { label: 'Sent',      color: '#60a5fa' },
-  accepted:  { label: 'Accepted',  color: '#4ade80' },
-  declined:  { label: 'Declined',  color: '#ef4444' },
-  expired:   { label: 'Expired',   color: 'var(--color-outline)' },
-  converted: { label: 'Converted', color: '#c084fc' },
+const STATUS_MAP: Record<QuoteStatus, { label: string; pill: string }> = {
+  draft:     { label: 'Draft',     pill: 'pib-pill' },
+  sent:      { label: 'Sent',      pill: 'pib-pill pib-pill-info' },
+  accepted:  { label: 'Accepted',  pill: 'pib-pill pib-pill-success' },
+  declined:  { label: 'Declined',  pill: 'pib-pill pib-pill-danger' },
+  expired:   { label: 'Expired',   pill: 'pib-pill' },
+  converted: { label: 'Converted', pill: 'pib-pill pib-pill-accent' },
 }
 
 function formatCurrency(amount: number, currency: string) {
@@ -135,7 +135,7 @@ export default function QuotesPage() {
         ) : (
           <div className="divide-y divide-[var(--color-pib-line)]">
             {filtered.map(q => {
-              const status = STATUS_MAP[q.status] ?? { label: q.status, color: 'var(--color-outline)' }
+              const status = STATUS_MAP[q.status] ?? { label: q.status, pill: 'pib-pill' }
               return (
                 <div key={q.id} className="grid grid-cols-12 gap-4 items-center px-5 py-3 hover:bg-[var(--color-row-hover)] transition-colors">
                   <div className="col-span-2">
@@ -145,7 +145,7 @@ export default function QuotesPage() {
                     <p className="text-sm text-[var(--color-pib-text)] truncate">{orgMap[q.orgId] ?? q.orgId}</p>
                   </div>
                   <div className="col-span-2">
-                    <span className="pib-pill" style={{ background: `${status.color}20`, color: status.color, borderColor: `${status.color}40` }}>
+                    <span className={status.pill}>
                       {status.label}
                     </span>
                   </div>

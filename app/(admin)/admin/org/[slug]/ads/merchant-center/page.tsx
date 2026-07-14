@@ -9,12 +9,13 @@ interface Params { slug: string }
 export default async function MerchantCenterPage({ params }: { params: Promise<Params> }) {
   const { slug } = await params
   const orgId = await resolveOrgIdBySlug(slug)
-  if (!orgId) return <div className="text-white/60">Org not found.</div>
+  if (!orgId) return <p className="pib-page-sub">Org not found.</p>
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <header>
-        <h1 className="text-2xl font-semibold">Google Merchant Center</h1>
-        <p className="text-sm text-white/50">
+        <p className="eyebrow">Ads · Merchant Center</p>
+        <h1 className="pib-page-title mt-2">Google Merchant Center</h1>
+        <p className="pib-page-sub">
           Connect the client Merchant Center account to enable Google Shopping campaigns. Admin setup only; campaign spend remains approval-gated.
         </p>
       </header>

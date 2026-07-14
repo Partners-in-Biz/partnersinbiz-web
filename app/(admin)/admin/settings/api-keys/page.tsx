@@ -147,7 +147,7 @@ export default function ApiKeysPage() {
                   <p className="text-sm font-medium text-[var(--color-pib-text)]">{key.name}</p>
                   <div className="flex items-center gap-3 mt-0.5">
                     <code className="text-[10px] font-mono text-[var(--color-pib-text-muted)]">{key.keyPrefix}••••••••</code>
-                    <span className="text-[9px] font-label uppercase tracking-wide px-1.5 py-0.5 rounded" style={{ background: 'var(--color-pib-surface-2)', color: 'var(--color-pib-text-muted)' }}>{key.role}</span>
+                    <span className="pib-pill pib-pill-cyan text-[9px]">{key.role}</span>
                     {key.orgId && <span className="text-[9px] text-[var(--color-pib-text-muted)]">org: {key.orgId}</span>}
                   </div>
                 </div>

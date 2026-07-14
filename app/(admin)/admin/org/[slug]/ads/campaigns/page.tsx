@@ -18,7 +18,7 @@ export default async function CampaignsListPage({
   const { slug } = await params
   const orgId = await resolveOrgIdBySlug(slug)
   if (!orgId) {
-    return <div className="text-white/60">Org not found.</div>
+    return <p className="pib-page-sub">Org not found.</p>
   }
   const [campaigns, connections] = await Promise.all([
     listCampaigns({ orgId }),
@@ -36,7 +36,7 @@ export default async function CampaignsListPage({
       actions={
         <Link
           href={`/admin/org/${slug}/ads/campaigns/new`}
-          className="btn-pib-accent text-sm"
+          className="btn-pib-primary text-sm"
         >
           New campaign
         </Link>
@@ -46,7 +46,7 @@ export default async function CampaignsListPage({
       emptyAction={
         <Link
           href={`/admin/org/${slug}/ads/campaigns/new`}
-          className="btn-pib-accent text-sm"
+          className="btn-pib-primary text-sm"
         >
           Create an admin draft campaign
         </Link>

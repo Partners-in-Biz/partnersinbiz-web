@@ -87,7 +87,7 @@ export function RuntimeExecutionSection({
   return (
     <section role="region" aria-label="Execution" data-emphasized={important || undefined} className="rounded-xl border border-[var(--color-card-border)] bg-black/10">
       <button type="button" aria-label={expanded ? 'Collapse execution' : 'Expand execution'} aria-expanded={expanded} onClick={() => setExpanded((value) => !value)} className="flex w-full items-center justify-between gap-2 p-2.5 text-left">
-        <span className="flex items-center gap-2 text-xs font-semibold text-[var(--color-pib-text)]"><span className="material-symbols-outlined text-[16px]">developer_board</span>Execution</span>
+        <span className="flex items-center gap-2 text-xs font-semibold text-[var(--color-pib-text)]"><span className="material-symbols-outlined text-[16px] text-[var(--color-pib-blue)]">developer_board</span>Execution</span>
         <span className="flex items-center gap-1.5"><span className="rounded-full bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">{status}</span><span className="material-symbols-outlined text-[15px] text-[var(--color-pib-text-muted)]">{expanded ? 'expand_less' : 'expand_more'}</span></span>
       </button>
       {expanded && <div className="space-y-3 border-t border-[var(--color-card-border)] p-2.5 text-xs">
@@ -138,7 +138,7 @@ export function RuntimeInspectorRail({
           aria-label="Expand runtime inspector"
           title="Expand runtime inspector"
         >
-          <span className="material-symbols-outlined text-[17px]">developer_board</span>
+          <span className="material-symbols-outlined text-[17px] text-[var(--color-pib-blue)]">developer_board</span>
         </button>
         <span
           className={[
@@ -174,7 +174,7 @@ export function RuntimeInspectorRail({
       <div className="border-b border-[var(--color-card-border)] px-3 py-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-xs font-semibold text-[var(--color-pib-text)]">
-            <span className="material-symbols-outlined text-[16px]">developer_board</span>
+            <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-blue)]">developer_board</span>
             Runtime inspector
           </div>
           {onCollapsedChange && (

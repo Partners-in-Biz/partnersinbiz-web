@@ -347,7 +347,7 @@ export function BudgetDetailClient({ budget, events, orgSlug }: Props) {
           <ul className="divide-y divide-white/5 rounded-lg border border-white/10">
             {events.map((ev) => (
               <li key={ev.id} className="flex items-start gap-3 px-4 py-3 text-sm">
-                <span className="text-base leading-tight" aria-hidden>
+                <span className="pib-icon-tint pib-icon-tint-rose !h-7 !w-7 text-sm leading-tight" aria-hidden>
                   {EVENT_ICON[ev.type] ?? '•'}
                 </span>
                 <div className="min-w-0 flex-1">

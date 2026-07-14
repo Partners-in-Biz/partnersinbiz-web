@@ -69,19 +69,19 @@ export function CustomAudienceDetailClient({ orgId, orgSlug, caId }: Props) {
           role="alertdialog"
           aria-modal="true"
           aria-label={`Delete custom audience ${caId} for ${orgSlug}?`}
-          className="rounded-lg border border-red-400/30 bg-red-400/10 p-4"
+          className="rounded-2xl border border-[var(--color-error)]/30 bg-[var(--color-error-container)] p-4"
         >
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
-              <h2 className="font-semibold text-red-100">Delete custom audience?</h2>
-              <p className="mt-1 text-sm text-red-100/80">
+              <h2 className="font-semibold text-[var(--color-pib-text)]">Delete custom audience?</h2>
+              <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
                 This removes the audience from PiB and requests best-effort removal from connected ad platforms. Campaign history stays in PiB.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                className="rounded-md border border-red-100/30 px-3 py-2 text-xs font-medium text-red-50 hover:bg-red-50/10 disabled:cursor-not-allowed disabled:opacity-50"
+                className="btn-pib-secondary text-xs"
                 onClick={() => setConfirmDelete(false)}
                 disabled={busy === 'delete'}
               >
@@ -89,7 +89,7 @@ export function CustomAudienceDetailClient({ orgId, orgSlug, caId }: Props) {
               </button>
               <button
                 type="button"
-                className="rounded-md bg-red-300 px-3 py-2 text-xs font-medium text-red-950 hover:bg-red-200 disabled:cursor-not-allowed disabled:opacity-60"
+                className="btn-pib-danger text-xs"
                 onClick={doDelete}
                 disabled={busy === 'delete'}
               >
@@ -102,10 +102,10 @@ export function CustomAudienceDetailClient({ orgId, orgSlug, caId }: Props) {
 
       {(message || actionError) && (
         <div
-          className={`rounded-lg border px-4 py-3 text-sm ${
+          className={`rounded-2xl border px-4 py-3 text-sm ${
             actionError
-              ? 'border-red-400/30 bg-red-400/10 text-red-200'
-              : 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200'
+              ? 'border-[var(--color-error)]/30 bg-[var(--color-error-container)] text-[var(--color-error)]'
+              : 'border-[var(--color-pib-success)]/30 bg-[var(--color-pib-success)]/10 text-[var(--color-pib-success)]'
           }`}
         >
           {actionError ?? message}
@@ -122,7 +122,7 @@ export function CustomAudienceDetailClient({ orgId, orgSlug, caId }: Props) {
           {busy === 'refresh' ? 'Refreshing…' : 'Refresh size'}
         </button>
         <button
-          className="btn-pib-ghost text-sm text-red-300"
+          className="btn-pib-ghost text-sm text-[var(--color-error)]"
           onClick={requestDelete}
           disabled={busy !== null}
           aria-label={`Delete custom audience ${caId} for ${orgSlug}`}

@@ -18,7 +18,7 @@ export default async function NewCampaignPage({
 }) {
   const { slug } = await params
   const orgId = await resolveOrgIdBySlug(slug)
-  if (!orgId) return <div className="text-white/60">Org not found.</div>
+  if (!orgId) return <div className="pib-empty-state-description">Org not found.</div>
 
   const [meta, google] = await Promise.all([
     getConnection({ orgId, platform: 'meta' }),
@@ -28,10 +28,10 @@ export default async function NewCampaignPage({
   // At least one platform must be connected to create a campaign.
   if (!meta && !google) {
     return (
-      <div className="rounded-lg border border-white/10 p-6">
-        <p className="text-white/60">
+      <div className="pib-card">
+        <p className="text-sm text-[var(--color-pib-text-muted)]">
           No ad platform connected. Connect Meta or Google Ads first under{' '}
-          <a href={`/admin/org/${slug}/ads/connections`} className="text-[#F5A623] underline">
+          <a href={`/admin/org/${slug}/ads/connections`} className="text-[var(--color-pib-rose)] underline">
             Connections
           </a>
           .

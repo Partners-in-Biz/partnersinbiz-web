@@ -71,7 +71,7 @@ export default async function PortalPagesTab({ params }: { params: Promise<{ id:
                     Top query: {page.topQuery || '-'}
                   </p>
                 </div>
-                <span className="material-symbols-outlined text-[24px] text-[var(--color-pib-accent)]">open_in_new</span>
+                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green"><span className="material-symbols-outlined text-[18px]">open_in_new</span></span>
               </div>
               <div className="grid grid-cols-4 gap-2 mt-5">
                 <MiniMetric label="Best" value={page.bestPosition < 999 ? `#${page.bestPosition.toFixed(1)}` : '-'} />
@@ -101,7 +101,7 @@ function StatTile({ label, value, icon }: { label: string; value: string; icon: 
     <div className="pib-stat-card">
       <div className="flex items-start justify-between">
         <p className="eyebrow !text-[10px]">{label}</p>
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
+        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">{icon}</span></span>
       </div>
       <p className="mt-3 font-display tracking-tight leading-none text-3xl md:text-4xl">{value}</p>
     </div>

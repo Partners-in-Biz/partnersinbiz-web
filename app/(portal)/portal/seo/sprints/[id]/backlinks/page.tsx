@@ -51,7 +51,7 @@ export default async function BacklinksTab({ params }: { params: Promise<{ id: s
               </h3>
               <p className="text-xs text-[var(--color-pib-text-muted)]">{items.length} opportunities</p>
             </div>
-            <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">hub</span>
+            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">hub</span></span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

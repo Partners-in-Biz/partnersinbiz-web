@@ -12,11 +12,11 @@ interface Props {
 }
 
 const STATUS_TINT: Record<string, string> = {
-  UPLOADING: 'bg-sky-500/10 text-sky-300',
-  PROCESSING: 'bg-[#F5A623]/10 text-[#F5A623]',
-  READY: 'bg-emerald-500/10 text-emerald-300',
-  FAILED: 'bg-red-500/10 text-red-300',
-  ARCHIVED: 'bg-white/5 text-white/40',
+  UPLOADING: 'pib-pill-info',
+  PROCESSING: 'pib-pill-warn',
+  READY: 'pib-pill-success',
+  FAILED: 'pib-pill-danger',
+  ARCHIVED: '',
 }
 
 export function CreativesPanelClient({ orgId, orgSlug, initialCreatives }: Props) {
@@ -78,7 +78,7 @@ export function CreativesPanelClient({ orgId, orgSlug, initialCreatives }: Props
               )}
               <div className="mt-2 flex items-center justify-between">
                 <div className="truncate text-sm" title={c.name}>{c.name}</div>
-                <span className={`rounded px-1.5 py-0.5 text-[10px] uppercase ${STATUS_TINT[c.status]}`}>
+                <span className={`pib-pill ${STATUS_TINT[c.status]}`}>
                   {c.status.toLowerCase()}
                 </span>
               </div>

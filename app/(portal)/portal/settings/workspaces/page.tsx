@@ -206,7 +206,7 @@ export default function WorkspacesPage() {
           >
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
               <div className="flex min-w-0 flex-1 items-center gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--color-pib-accent-soft)] text-sm font-bold text-[var(--color-pib-accent-hover)]">
+                <div className="pib-icon-tint pib-icon-tint-cyan text-sm font-bold">
                   {orgInitial(org)}
                 </div>
                 <div className="min-w-0">
@@ -217,7 +217,7 @@ export default function WorkspacesPage() {
                 </div>
               </div>
               {org.id === activeOrgId ? (
-                <span className="inline-flex w-fit items-center gap-1 rounded-full border border-[var(--color-pib-accent)]/30 px-3 py-1 text-xs text-[var(--color-pib-accent)]">
+                <span className="pib-pill pib-pill-success w-fit inline-flex items-center gap-1">
                   <span className="material-symbols-outlined text-[14px]" aria-hidden="true">check_circle</span>
                   Active workspace
                 </span>

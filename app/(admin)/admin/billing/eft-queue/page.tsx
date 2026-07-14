@@ -181,10 +181,7 @@ export default function EftQueuePage() {
                   <div className="flex-1 min-w-0 space-y-3">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h2 className="text-base font-semibold text-[var(--color-pib-text)]">{item.invoiceNumber}</h2>
-                      <span
-                        className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full"
-                        style={{ background: 'var(--color-pib-accent)20', color: 'var(--color-pib-accent)' }}
-                      >
+                      <span className="pib-pill pib-pill-cyan">
                         Pending verification
                       </span>
                     </div>

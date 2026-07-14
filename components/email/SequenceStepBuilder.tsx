@@ -151,7 +151,7 @@ export default function SequenceStepBuilder({ steps, onChange }: Props) {
           <div key={idx} className="bento-card !p-0 overflow-hidden">
             {/* Header: timing + channel + controls */}
             <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-pib-line)] bg-black/10 px-4 py-3">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-[var(--color-pib-line)] text-xs">
+              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-blue !h-7 !w-7 text-xs font-medium">
                 {idx + 1}
               </span>
               <div className="flex items-center gap-1.5">

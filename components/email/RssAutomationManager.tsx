@@ -366,7 +366,9 @@ export default function RssAutomationManager({ orgScope }: Props) {
       {/* List */}
       {list.length === 0 && !draft ? (
         <div className="mt-3 border-t border-[var(--color-card-border)] p-3 text-center">
-          <span className="material-symbols-outlined mb-2 block text-[18px] text-[var(--color-pib-text-muted)]">rss_feed</span>
+          <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-blue !h-8 !w-8 mx-auto mb-2">
+            <span className="material-symbols-outlined text-[16px]">rss_feed</span>
+          </span>
           <p className="text-sm text-[var(--color-pib-text-muted)]">No RSS digests yet. Create one to auto-email new posts.</p>
         </div>
       ) : (
@@ -386,7 +388,7 @@ export default function RssAutomationManager({ orgScope }: Props) {
                     >
                       {item.enabled ? 'Active' : 'Paused'}
                     </span>
-                    <span className="rounded-full border border-[var(--color-card-border)] px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">
+                    <span className="pib-pill pib-pill-blue !px-2 !py-0.5 !text-[10px]">
                       {item.schedule.cadence === 'weekly'
                         ? `Weekly ${DAYS[item.schedule.dayOfWeek ?? 1]} ${item.schedule.hourLocal}:00`
                         : `Daily ${item.schedule.hourLocal}:00`}{' '}

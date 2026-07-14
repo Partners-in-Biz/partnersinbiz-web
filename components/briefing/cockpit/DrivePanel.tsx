@@ -69,11 +69,8 @@ export function DrivePanel({ status, files, loading }: Props) {
           rel="noopener noreferrer"
           className="flex items-center gap-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)] p-2 transition-colors hover:bg-[var(--color-card-hover)]"
         >
-          <span
-            className="material-symbols-outlined shrink-0 text-[18px] text-[var(--color-pib-text-muted)]"
-            aria-hidden="true"
-          >
-            {mimeIcon(f.mimeType)}
+          <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan shrink-0">
+            <span className="material-symbols-outlined text-[15px]">{mimeIcon(f.mimeType)}</span>
           </span>
           <div className="min-w-0 flex-1">
             <div className="truncate text-xs font-medium text-[var(--color-pib-text)]">{f.name}</div>
@@ -83,7 +80,7 @@ export function DrivePanel({ status, files, loading }: Props) {
             </div>
           </div>
           {f.shared && (
-            <span className="shrink-0 rounded bg-blue-500/20 px-1 text-[9px] font-medium text-blue-400">
+            <span className="pib-pill pib-pill-cyan shrink-0 !py-0 !px-1.5 !text-[9px]">
               shared
             </span>
           )}

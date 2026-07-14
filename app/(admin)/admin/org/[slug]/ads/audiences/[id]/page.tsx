@@ -9,9 +9,9 @@ interface Params { slug: string; id: string }
 export default async function CustomAudienceDetailPage({ params }: { params: Promise<Params> }) {
   const { slug, id } = await params
   const orgId = await resolveOrgIdBySlug(slug)
-  if (!orgId) return <div className="text-white/60">Org not found.</div>
+  if (!orgId) return <div className="pib-empty-state-description">Org not found.</div>
   const ca = await getCustomAudience(id)
-  if (!ca || ca.orgId !== orgId) return <div className="text-white/60">Custom audience not found.</div>
+  if (!ca || ca.orgId !== orgId) return <div className="pib-empty-state-description">Custom audience not found.</div>
   const allAdSets = await listAdSets({ orgId })
   const usingAdSets = allAdSets.filter((s) => {
     const include = s.targeting?.customAudiences?.include ?? []
@@ -20,16 +20,16 @@ export default async function CustomAudienceDetailPage({ params }: { params: Pro
   })
 
   return (
-    <article className="space-y-6">
+    <article className="space-y-8">
       <header>
-        <Link href={`/admin/org/${slug}/ads/audiences`} className="text-xs text-white/40 hover:text-white/60">
+        <Link href={`/admin/org/${slug}/ads/audiences`} className="eyebrow hover:text-[var(--color-pib-text)]">
           ← Custom audiences
         </Link>
-        <h1 className="mt-1 text-2xl font-semibold">{ca.name}</h1>
-        <div className="mt-1 text-sm text-white/50">
+        <h1 className="pib-page-title mt-2">{ca.name}</h1>
+        <p className="pib-page-sub">
           {ca.type.toLowerCase().replace('_', ' ')} · {ca.status.toLowerCase()}
           {ca.approximateSize != null && ` · ~${ca.approximateSize.toLocaleString()} users`}
-        </div>
+        </p>
       </header>
 
       <CustomAudienceDetailClient
@@ -39,24 +39,24 @@ export default async function CustomAudienceDetailPage({ params }: { params: Pro
         currentStatus={ca.status}
       />
 
-      <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-white/40">Source</h2>
-        <pre className="mt-2 rounded border border-white/10 bg-white/5 p-3 text-xs overflow-x-auto">
+      <section className="space-y-2">
+        <h2 className="pib-label">Source</h2>
+        <pre className="pib-surface pib-surface-table p-3 text-xs overflow-x-auto">
 {JSON.stringify(ca.source, null, 2)}
         </pre>
       </section>
 
-      <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-white/40">
+      <section className="space-y-2">
+        <h2 className="pib-label">
           Used in {usingAdSets.length} ad {usingAdSets.length === 1 ? 'set' : 'sets'}
         </h2>
         {usingAdSets.length === 0 ? (
-          <p className="mt-2 text-sm text-white/40">Not yet referenced.</p>
+          <p className="text-sm text-[var(--color-pib-text-muted)]">Not yet referenced.</p>
         ) : (
-          <ul className="mt-2 divide-y divide-white/5 rounded border border-white/10">
+          <ul className="pib-surface pib-surface-list divide-y divide-[var(--color-pib-line)]">
             {usingAdSets.map((s) => (
               <li key={s.id} className="px-4 py-3 text-sm">
-                <Link href={`/admin/org/${slug}/ads/ad-sets/${s.id}`} className="hover:text-[#F5A623]">
+                <Link href={`/admin/org/${slug}/ads/ad-sets/${s.id}`} className="hover:text-[var(--color-pib-rose)]">
                   {s.name}
                 </Link>
               </li>
@@ -66,9 +66,9 @@ export default async function CustomAudienceDetailPage({ params }: { params: Pro
       </section>
 
       {ca.lastError && (
-        <section className="rounded border border-red-500/30 bg-red-500/5 p-4 text-sm">
-          <div className="font-medium text-red-300">Last error</div>
-          <div className="mt-1 text-xs text-white/60">{ca.lastError}</div>
+        <section className="rounded-2xl border border-[var(--color-error)]/30 bg-[var(--color-error-container)] p-4 text-sm">
+          <div className="font-medium text-[var(--color-error)]">Last error</div>
+          <div className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{ca.lastError}</div>
         </section>
       )}
     </article>

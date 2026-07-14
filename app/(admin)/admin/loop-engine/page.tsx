@@ -376,7 +376,9 @@ export default async function AdminLoopEnginePage() {
                 <p className="pib-label">{loop.status} · {loop.riskLevel} risk</p>
                 <h2 className="mt-2 text-xl font-semibold text-[var(--color-pib-text)]">{loop.name}</h2>
               </div>
-              <span className="material-symbols-outlined text-[var(--color-pib-accent)]" aria-hidden>all_inclusive</span>
+              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan">
+                <span className="material-symbols-outlined text-[18px]">all_inclusive</span>
+              </span>
             </div>
             <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">{loop.whyItMatters}</p>
             <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">

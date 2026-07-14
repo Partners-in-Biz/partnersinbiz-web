@@ -21,9 +21,9 @@ interface NewKwForm {
 }
 
 const MATCH_COLORS: Record<AdKeywordMatchType | 'NEGATIVE', string> = {
-  EXACT: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-  PHRASE: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-  BROAD: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
+  EXACT: 'bg-[var(--color-pib-rose-soft)] text-[#FDA4AF] border-[rgba(251,113,133,0.35)]',
+  PHRASE: 'bg-[var(--color-pib-rose-soft)] text-[#FDA4AF] border-[rgba(251,113,133,0.35)]',
+  BROAD: 'bg-[var(--color-pib-rose-soft)] text-[#FDA4AF] border-[rgba(251,113,133,0.35)]',
   NEGATIVE: 'bg-red-500/15 text-red-300 border-red-500/30',
 }
 

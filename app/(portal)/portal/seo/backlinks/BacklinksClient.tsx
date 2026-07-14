@@ -194,7 +194,7 @@ export function BacklinksClient({
               </div>
               <div className="flex flex-wrap gap-2 p-4">
                 {profile.topAnchors.map((a) => (
-                  <span key={a.anchor} className="pib-pill text-xs">
+                  <span key={a.anchor} className="pib-pill pib-pill-success text-xs">
                     {a.anchor} <span className="text-[var(--color-pib-text-muted)]">· {a.count}</span>
                   </span>
                 ))}
@@ -257,7 +257,7 @@ export function BacklinksClient({
                         <td className="px-5 py-3 text-right tabular-nums">{l.domainAuthority != null ? l.domainAuthority.toFixed(0) : '—'}</td>
                         <td className="px-5 py-3 tabular-nums text-[var(--color-pib-text-muted)]">{l.firstSeen.slice(0, 10) || '—'}</td>
                         <td className="px-5 py-3">
-                          <span className="pib-pill text-[10px]">{l.status}</span>
+                          <span className="pib-pill pib-pill-success text-[10px]">{l.status}</span>
                         </td>
                       </tr>
                     ))}
@@ -283,7 +283,7 @@ function StatCard({ label, value, icon, highlight }: { label: string; value: str
     <div className="pib-stat-card">
       <div className="flex items-start justify-between">
         <p className="eyebrow !text-[10px]">{label}</p>
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
+        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">{icon}</span></span>
       </div>
       <p className={`mt-3 font-display text-2xl leading-none tracking-tight md:text-3xl ${highlight === 'good' ? 'text-emerald-300' : highlight === 'bad' ? 'text-red-300' : ''}`}>{value}</p>
     </div>

@@ -90,7 +90,7 @@ function ProjectCard({ project }: { project: BookStudioProject }) {
           <h2 className="text-xl font-semibold text-[var(--color-pib-text)]">{project.title}</h2>
           <p className="text-sm text-[var(--color-pib-text-muted)]">{project.nextAction}</p>
         </div>
-        <span className="rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+        <span className="pib-pill pib-pill-rose">
           {stages.find((stage) => stage.id === project.stage)?.label ?? project.stage}
         </span>
       </div>
@@ -170,7 +170,7 @@ export function BookStudioAdminWorkspace({ orgId, orgName, orgSlug, projects = [
               {stages.map((stage, index) => (
                 <li key={stage.id} className="rounded-[var(--radius-lg-card)] bg-[var(--color-pib-surface-muted)] p-4">
                   <div className="flex items-center gap-3">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-pib-accent-soft)] text-xs font-semibold text-[var(--color-pib-accent-text)]">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-pib-rose-soft)] text-xs font-semibold text-[var(--color-pib-rose)]">
                       {index + 1}
                     </span>
                     <h3 className="font-semibold text-[var(--color-pib-text)]">{stage.label}</h3>

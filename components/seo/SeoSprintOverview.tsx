@@ -116,9 +116,9 @@ export function SeoSprintOverview({
   if (sprints.length === 0) {
     return (
       <div className="pib-card p-12 text-center max-w-xl mx-auto">
-        <span className="material-symbols-outlined text-[48px] text-[var(--color-pib-text-muted)] mb-3">
+        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green mx-auto mb-3"><span className="material-symbols-outlined text-[22px]">
           trending_up
-        </span>
+        </span></span>
         <h1 className="text-2xl font-semibold mb-3">{emptyTitle}</h1>
         <p className="text-sm text-[var(--color-pib-text-muted)]">
           {emptyDescription}
@@ -256,7 +256,7 @@ export function SeoSprintOverview({
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="pib-card p-5 space-y-3 lg:col-span-1">
           <h3 className="font-semibold text-sm flex items-center gap-2">
-            <span className="material-symbols-outlined text-[18px]">today</span>
+            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green"><span className="material-symbols-outlined text-[15px]">today</span></span>
             Today&apos;s focus
           </h3>
           <div className="space-y-2 text-sm">
@@ -275,7 +275,7 @@ export function SeoSprintOverview({
 
         <div className="pib-card p-5 space-y-3 lg:col-span-1">
           <h3 className="font-semibold text-sm flex items-center gap-2">
-            <span className="material-symbols-outlined text-[18px]">trending_up</span>
+            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green"><span className="material-symbols-outlined text-[15px]">trending_up</span></span>
             Top movers
           </h3>
           {stats.movers.length === 0 ? (
@@ -305,7 +305,7 @@ export function SeoSprintOverview({
 
         <div className="pib-card p-5 space-y-3 lg:col-span-1">
           <h3 className="font-semibold text-sm flex items-center gap-2">
-            <span className="material-symbols-outlined text-[18px]">check_circle</span>
+            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green"><span className="material-symbols-outlined text-[15px]">check_circle</span></span>
             Recent wins
           </h3>
           {stats.recentWins.length === 0 ? (
@@ -388,7 +388,7 @@ function DeepLink({ href, icon, label }: { href: string; icon: string; label: st
       href={href}
       className="pib-card pib-card-hover p-3 flex items-center gap-2 transition-colors"
     >
-      <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
+      <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green"><span className="material-symbols-outlined text-[15px]">{icon}</span></span>
       <span className="text-sm font-medium">{label}</span>
     </Link>
   )

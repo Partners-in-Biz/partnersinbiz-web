@@ -246,7 +246,9 @@ export default function AgentsBoardClient() {
             <div key={item.label} className="pib-card p-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="pib-label">{item.label}</span>
-                <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-faint)]">{item.icon}</span>
+                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan !h-6 !w-6 !rounded-md">
+                  <span className="material-symbols-outlined text-[14px]">{item.icon}</span>
+                </span>
               </div>
               <div className="mt-2 text-xl font-semibold text-[var(--color-pib-text)]">{item.value}</div>
             </div>

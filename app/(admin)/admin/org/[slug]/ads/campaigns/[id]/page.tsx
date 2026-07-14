@@ -18,10 +18,10 @@ export default async function CampaignDetailPage({
 }) {
   const { slug, id } = await params
   const orgId = await resolveOrgIdBySlug(slug)
-  if (!orgId) return <div className="text-white/60">Org not found.</div>
+  if (!orgId) return <div className="pib-empty-state-description">Org not found.</div>
   const campaign = await getCampaign(id)
   if (!campaign || campaign.orgId !== orgId) {
-    return <div className="text-white/60">Campaign not found.</div>
+    return <div className="pib-empty-state-description">Campaign not found.</div>
   }
   const [adSets, ads] = await Promise.all([
     listAdSets({ orgId, campaignId: id }),

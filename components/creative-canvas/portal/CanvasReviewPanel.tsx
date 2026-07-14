@@ -70,9 +70,9 @@ function initialChip(node: CanvasReviewPanelNode): ReviewChipState {
 }
 
 const CHIP_CLASSES: Record<ReviewChipState['tone'], string> = {
-  approved: 'bg-emerald-500/15 text-emerald-500',
-  changes: 'bg-amber-500/15 text-amber-500',
-  pending: 'bg-[var(--color-pib-surface)] text-[var(--color-pib-text-muted)]',
+  approved: 'pib-pill-success',
+  changes: 'pib-pill-warn',
+  pending: 'pib-pill-rose',
 }
 
 export function CanvasReviewPanel({ canvasId, orgId, nodes, onReviewed }: CanvasReviewPanelProps) {
@@ -155,7 +155,7 @@ export function CanvasReviewPanel({ canvasId, orgId, nodes, onReviewed }: Canvas
                 <div className="text-sm font-medium text-[var(--color-pib-text)] truncate" title={node.title || node.id}>
                   {node.title || node.id}
                 </div>
-                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${CHIP_CLASSES[chip.tone]}`}>
+                <span className={`pib-pill shrink-0 ${CHIP_CLASSES[chip.tone]}`}>
                   {chip.label}
                 </span>
               </div>

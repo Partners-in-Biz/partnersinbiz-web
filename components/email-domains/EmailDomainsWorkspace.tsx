@@ -181,7 +181,7 @@ function DomainCard({
     <div className="bento-card !p-5">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3 min-w-0">
-          <span className="material-symbols-outlined text-[var(--color-pib-text-muted)] text-[20px]">dns</span>
+          <span className="pib-icon-tint pib-icon-tint-blue text-[18px]">dns</span>
           <div className="min-w-0">
             <p className="font-medium truncate">{domain.name}</p>
             <p className="text-xs text-[var(--color-pib-text-muted)] font-mono">
@@ -400,7 +400,7 @@ export function EmailDomainsWorkspace({ surface = 'portal', orgId, orgSlug, orgN
         </div>
       ) : domains.length === 0 ? (
         <div className="bento-card p-10 text-center">
-          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]">dns</span>
+          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-blue)]">dns</span>
           <h2 className="font-display text-2xl mt-4">No domains yet.</h2>
           <p className="text-sm text-[var(--color-pib-text-muted)] max-w-md mx-auto mt-2 text-pretty">
             Add a domain you own above to start the verification process. Until then, campaigns

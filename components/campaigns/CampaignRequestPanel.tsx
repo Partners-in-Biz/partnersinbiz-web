@@ -155,7 +155,7 @@ export function CampaignRequestPanel({ orgId, sourceCompanyId, sourceCompanyName
                     : 'border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] hover:bg-[var(--color-pib-surface-2)]',
                 ].join(' ')}
               >
-                <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">{option.icon}</span>
+                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-rose"><span className="material-symbols-outlined text-[15px]">{option.icon}</span></span>
                 <span className="block font-semibold text-sm mt-2">{option.label}</span>
                 <span className="block text-xs text-[var(--color-pib-text-muted)] mt-1 leading-relaxed">{option.hint}</span>
               </button>

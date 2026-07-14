@@ -913,7 +913,7 @@ export default function OrganizationSettingsPage() {
                   {domain.customDomain || `${domain.subdomain}.partnersinbiz.online`}
                   {domain.verified
                     ? <span className="ml-2 pib-pill pib-pill-success">Verified</span>
-                    : <span className="ml-2 pib-pill">Pending</span>}
+                    : <span className="ml-2 pib-pill pib-pill-warn">Pending</span>}
                 </p>
               ) : (
                 <p className="text-sm text-[var(--color-pib-text-muted)]">No subdomain or custom domain configured yet.</p>

@@ -17,11 +17,11 @@ export default async function BudgetDetailPage({
 }) {
   const { slug, id } = await params
   const orgId = await resolveOrgIdBySlug(slug)
-  if (!orgId) return <div className="text-white/60">Org not found.</div>
+  if (!orgId) return <div className="pib-empty-state-description">Org not found.</div>
 
   const budget = await getBudget(id)
   if (!budget || budget.orgId !== orgId) {
-    return <div className="text-white/60">Budget not found.</div>
+    return <div className="pib-empty-state-description">Budget not found.</div>
   }
 
   const events = await listEvents({ budgetId: id, limit: 100 })
@@ -57,17 +57,17 @@ export default async function BudgetDetailPage({
   }))
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-8">
       <header>
         <Link
           href={`/admin/org/${slug}/ads/budgets`}
-          className="text-xs text-white/40 hover:text-white/60"
+          className="eyebrow hover:text-[var(--color-pib-text)]"
         >
           ← Budgets
         </Link>
-        <h1 className="mt-1 text-2xl font-semibold">{budget.name}</h1>
+        <h1 className="pib-page-title mt-2">{budget.name}</h1>
         {budget.description && (
-          <p className="mt-1 text-sm text-white/50">{budget.description}</p>
+          <p className="pib-page-sub">{budget.description}</p>
         )}
       </header>
 

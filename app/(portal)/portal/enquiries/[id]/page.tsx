@@ -17,10 +17,10 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 const STATUS_PILL: Record<string, string> = {
-  new: 'pib-pill',
+  new: 'pib-pill pib-pill-cyan',
   reviewing: 'pib-pill pib-pill-info',
   active: 'pib-pill pib-pill-success',
-  closed: 'pib-pill',
+  closed: 'pib-pill pib-pill-cyan',
 }
 
 interface Message {
@@ -130,7 +130,9 @@ export default function EnquiryDetailPage({ params }: { params: Promise<{ id: st
                 <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</p>
                 <p className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">{value}</p>
               </div>
-              <span className="material-symbols-outlined text-lg text-[var(--color-pib-accent)]" aria-hidden="true">{icon}</span>
+              <span className="pib-icon-tint pib-icon-tint-cyan" aria-hidden="true">
+                <span className="material-symbols-outlined text-lg">{icon}</span>
+              </span>
             </div>
             <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{sub}</p>
           </div>

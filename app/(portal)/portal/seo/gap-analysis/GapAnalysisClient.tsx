@@ -209,7 +209,7 @@ function StatCard({ label, value, icon }: { label: string; value: string; icon: 
     <div className="pib-stat-card">
       <div className="flex items-start justify-between">
         <p className="eyebrow !text-[10px]">{label}</p>
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
+        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">{icon}</span></span>
       </div>
       <p className="mt-3 font-display text-3xl leading-none tracking-tight md:text-4xl">{value}</p>
     </div>

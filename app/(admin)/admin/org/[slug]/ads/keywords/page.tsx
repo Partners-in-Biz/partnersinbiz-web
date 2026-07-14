@@ -23,7 +23,7 @@ export default async function KeywordsPage({
 }) {
   const { slug } = await params
   const orgId = await resolveOrgIdBySlug(slug)
-  if (!orgId) return <div className="text-white/60">Org not found.</div>
+  if (!orgId) return <p className="pib-page-sub">Org not found.</p>
 
   const [campaigns, adSets] = await Promise.all([
     listCampaigns({ orgId, platform: 'google' as AdPlatform }),
@@ -33,48 +33,54 @@ export default async function KeywordsPage({
   const googleAdSets = adSets.filter((a) => a.platform === 'google')
 
   return (
-    <article className="space-y-6">
+    <article className="space-y-8">
       <header>
-        <h1 className="text-2xl font-semibold">Keywords</h1>
-        <p className="mt-1 text-sm text-white/50">
+        <p className="eyebrow">Ads · Keywords</p>
+        <h1 className="pib-page-title mt-2">Keywords</h1>
+        <p className="pib-page-sub">
           Keywords are managed per ad group. Select an ad group below to view and edit its keywords.
         </p>
       </header>
 
       {googleAdSets.length === 0 ? (
-        <div className="rounded border border-white/10 p-6 text-sm text-white/50">
-          No Google ad groups yet.{' '}
-          <Link
-            href={`/admin/org/${slug}/ads/campaigns/new`}
-            className="text-[#F5A623] underline"
-          >
-            Create a Google Search campaign
-          </Link>{' '}
-          to get started.
+        <div className="pib-empty-state">
+          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">key</span>
+          <p className="pib-empty-state-description">
+            No Google ad groups yet.{' '}
+            <Link
+              href={`/admin/org/${slug}/ads/campaigns/new`}
+              className="text-[var(--color-pib-rose)] hover:underline"
+            >
+              Create a Google Search campaign
+            </Link>{' '}
+            to get started.
+          </p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-6">
           {campaigns.map((campaign) => {
             const sets = googleAdSets.filter((a) => a.campaignId === campaign.id)
             if (sets.length === 0) return null
             return (
-              <section key={campaign.id}>
-                <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/40">
+              <section key={campaign.id} className="space-y-2">
+                <h2 className="pib-label">
                   {campaign.name}
                 </h2>
-                <ul className="divide-y divide-white/5 rounded border border-white/10">
-                  {sets.map((adSet) => (
-                    <li key={adSet.id}>
-                      <Link
-                        href={`/admin/org/${slug}/ads/ad-sets/${adSet.id}`}
-                        className="flex items-center justify-between px-4 py-3 text-sm hover:bg-white/5 transition-colors"
-                      >
-                        <span className="font-medium">{adSet.name}</span>
-                        <span className="text-xs text-[#F5A623]">Manage keywords →</span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
+                <div className="pib-surface pib-surface-list">
+                  <ul className="divide-y divide-[var(--color-pib-line)]">
+                    {sets.map((adSet) => (
+                      <li key={adSet.id}>
+                        <Link
+                          href={`/admin/org/${slug}/ads/ad-sets/${adSet.id}`}
+                          className="flex items-center justify-between px-4 py-3 text-sm hover:bg-[var(--color-row-hover)] transition-colors"
+                        >
+                          <span className="font-medium text-[var(--color-pib-text)]">{adSet.name}</span>
+                          <span className="text-xs text-[var(--color-pib-rose)]">Manage keywords →</span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </section>
             )
           })}

@@ -59,19 +59,19 @@ export function LinkedinAudienceBuilders(props: Props) {
   if (!subtype) {
     return (
       <div className="space-y-4">
-        <p className="text-sm text-white/60">Choose a LinkedIn audience type to create.</p>
+        <p className="text-sm text-[var(--color-pib-text-muted)]">Choose a LinkedIn audience type to create.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {SUBTYPES.map((t) => (
             <button
               key={t.value}
               type="button"
               onClick={() => setSubtype(t.value)}
-              className="rounded-lg border border-white/10 bg-white/5 p-4 text-left hover:border-[#F5A623]/40 hover:bg-white/10 transition-colors group"
+              className="pib-card pib-card-hover text-left group"
             >
-              <p className="text-sm font-medium group-hover:text-[#F5A623] transition-colors">
+              <p className="text-sm font-medium text-[var(--color-pib-text)] group-hover:text-[var(--color-pib-rose)] transition-colors">
                 {t.label}
               </p>
-              <p className="text-xs text-white/50 mt-1">{t.description}</p>
+              <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">{t.description}</p>
             </button>
           ))}
         </div>
@@ -79,7 +79,7 @@ export function LinkedinAudienceBuilders(props: Props) {
           <div className="pt-2">
             <button
               type="button"
-              className="text-sm text-white/40 underline"
+              className="btn-pib-ghost text-sm"
               onClick={props.onCancel}
             >
               ← Back
@@ -97,12 +97,12 @@ export function LinkedinAudienceBuilders(props: Props) {
       <div className="flex items-center gap-3">
         <button
           type="button"
-          className="text-sm text-white/40 underline"
+          className="btn-pib-ghost text-sm"
           onClick={() => setSubtype(null)}
         >
           ← All types
         </button>
-        <span className="text-sm font-medium">
+        <span className="text-sm font-medium text-[var(--color-pib-text)]">
           {SUBTYPES.find((t) => t.value === subtype)?.label}
         </span>
       </div>

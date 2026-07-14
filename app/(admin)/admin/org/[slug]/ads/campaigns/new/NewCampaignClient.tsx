@@ -41,15 +41,15 @@ export function NewCampaignClient({ orgId, orgSlug, currency }: Props) {
     <div>
       {/* Platform picker */}
       <div className="mb-8 flex items-center gap-6">
-        <span className="text-sm font-medium text-white/60">Platform:</span>
-        <div className="flex gap-3">
+        <span className="pib-label">Platform:</span>
+        <div className="flex flex-wrap gap-2">
           {PLATFORM_OPTIONS.map((p) => (
             <label
               key={p.value}
-              className={`flex items-center gap-2 rounded border px-4 py-2 text-sm cursor-pointer transition-colors ${
+              className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm cursor-pointer transition-colors ${
                 platform === p.value
-                  ? 'border-[#F5A623] bg-[#F5A623]/5 text-[#F5A623]'
-                  : 'border-white/10 text-white/60 hover:bg-white/5'
+                  ? 'border-[var(--color-pib-rose)] bg-[var(--color-pib-rose-soft)] text-[var(--color-pib-rose)]'
+                  : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:bg-[var(--color-pib-surface-2)]'
               }`}
             >
               <input

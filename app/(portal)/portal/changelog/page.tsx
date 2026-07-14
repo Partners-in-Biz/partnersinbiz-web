@@ -79,10 +79,10 @@ export default function ChangelogPage() {
             return (
               <article key={release.id} className="pib-card p-5">
                 <div className="flex items-center gap-3 mb-3 flex-wrap">
-                  <span className="pib-pill">{release.version}</span>
+                  <span className="pib-pill pib-pill-cyan">{release.version}</span>
                   <h2 className="text-base font-semibold text-[var(--color-pib-text)]">{release.title}</h2>
                   {isUnread && (
-                    <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent-hover)]">
+                    <span className="pib-pill pib-pill-cyan !text-[10px] normal-case">
                       New
                     </span>
                   )}
@@ -91,7 +91,7 @@ export default function ChangelogPage() {
                 <ul className="space-y-1.5">
                   {release.notes.map((note, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-[var(--color-pib-text-muted)]">
-                      <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-accent)] mt-0.5">check</span>
+                      <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-cyan)] mt-0.5">check</span>
                       <span>{note}</span>
                     </li>
                   ))}

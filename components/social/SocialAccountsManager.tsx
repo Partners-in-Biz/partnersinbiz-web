@@ -808,7 +808,7 @@ export default function SocialAccountsManager({
       <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]/35 p-4" aria-label={scopeCard.title}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
-            <span className="material-symbols-outlined mt-0.5 text-[20px] text-[var(--color-pib-accent)]" aria-hidden="true">{scopeCard.icon}</span>
+            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-rose mt-0.5"><span className="material-symbols-outlined text-[18px]">{scopeCard.icon}</span></span>
             <div>
               <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">{scopeCard.title}</h2>
               <p className="mt-1 max-w-3xl text-xs leading-5 text-[var(--color-pib-text-muted)]">{scopeCard.body}</p>
@@ -915,7 +915,7 @@ export default function SocialAccountsManager({
           </div>
         ) : Object.keys(grouped).length === 0 ? (
           <div className="pib-card py-14 text-center">
-            <span className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">hub</span>
+            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-rose mx-auto"><span className="material-symbols-outlined text-[20px]">hub</span></span>
             <h3 className="mt-3 font-headline text-xl font-bold text-[var(--color-pib-text)]">No accounts connected yet</h3>
             <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{emptyDescription}</p>
           </div>

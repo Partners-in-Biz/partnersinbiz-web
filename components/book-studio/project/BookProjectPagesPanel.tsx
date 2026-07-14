@@ -83,7 +83,7 @@ function PageRow({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={page.imageUrl} alt="" className="h-14 w-14 rounded-lg border border-[var(--color-pib-border)] object-cover" />
           ) : (
-            <span className="material-symbols-outlined flex h-14 w-14 items-center justify-center rounded-lg bg-[var(--color-pib-surface-muted)] text-[var(--color-pib-text-muted)]">
+            <span className="material-symbols-outlined flex h-14 w-14 items-center justify-center rounded-lg bg-[var(--color-pib-rose-soft)] text-[var(--color-pib-rose)]">
               {pageKindIcons[page.kind ?? 'text']}
             </span>
           )}

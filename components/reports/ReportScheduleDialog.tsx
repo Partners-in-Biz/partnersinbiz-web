@@ -167,7 +167,7 @@ export function ReportScheduleDialog({ report, orgId, onClose, onMutated }: Prop
                 {s.recipients.length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {s.recipients.map((r) => (
-                      <span key={r} className="pib-pill !text-[10px] inline-flex items-center gap-1">
+                      <span key={r} className="pib-pill pib-pill-cyan !text-[10px] inline-flex items-center gap-1">
                         {r}
                         <button type="button" onClick={() => unsubscribe(s.id, r)} aria-label={`Unsubscribe ${r}`} title="Unsubscribe">
                           <span className="material-symbols-outlined text-[12px] leading-none">close</span>

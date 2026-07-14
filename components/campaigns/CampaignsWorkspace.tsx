@@ -298,7 +298,9 @@ function StatTile({
     <div className="pib-stat-card">
       <div className="flex items-start justify-between">
         <p className="eyebrow !text-[10px]">{label}</p>
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
+        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-rose !h-7 !w-7">
+          <span className="material-symbols-outlined text-[16px]">{icon}</span>
+        </span>
       </div>
       <p
         className={[
@@ -444,8 +446,10 @@ function BroadcastRow({ broadcast, href }: { broadcast: CampaignWorkspaceRecord;
       className="grid grid-cols-2 md:grid-cols-12 gap-3 md:gap-4 items-center px-5 py-4 hover:bg-[var(--color-pib-surface-2)] transition-colors"
     >
       <div className="col-span-2 md:col-span-5 min-w-0 flex items-center gap-3">
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)] shrink-0">
-          {channel === 'sms' ? 'sms' : 'mail'}
+        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-rose !h-8 !w-8 shrink-0">
+          <span className="material-symbols-outlined text-[16px]">
+            {channel === 'sms' ? 'sms' : 'mail'}
+          </span>
         </span>
         <div className="min-w-0">
           <p className="font-semibold text-[var(--color-pib-text)] truncate flex items-center gap-2">

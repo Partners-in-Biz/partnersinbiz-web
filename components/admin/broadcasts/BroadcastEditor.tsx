@@ -11,13 +11,13 @@ import { countSmsSegments } from '@/lib/sms/segments'
 type Tab = 'audience' | 'content' | 'schedule' | 'preflight' | 'stats'
 
 const STATUS_COLORS: Record<BroadcastStatus, string> = {
-  draft: 'bg-[var(--color-pib-surface-soft)] text-[var(--color-pib-text-muted)]',
-  scheduled: 'bg-blue-100 text-blue-800',
-  sending: 'bg-amber-100 text-amber-800',
-  sent: 'bg-green-100 text-green-800',
-  paused: 'bg-yellow-100 text-yellow-800',
-  failed: 'bg-red-100 text-red-800',
-  canceled: 'bg-[var(--color-pib-surface-soft)] text-[var(--color-pib-text-muted)] line-through',
+  draft: 'pib-pill',
+  scheduled: 'pib-pill pib-pill-blue',
+  sending: 'pib-pill pib-pill-warn',
+  sent: 'pib-pill pib-pill-success',
+  paused: 'pib-pill pib-pill-warn',
+  failed: 'pib-pill pib-pill-danger',
+  canceled: 'pib-pill line-through',
 }
 
 interface DomainOption {
@@ -343,7 +343,7 @@ export default function BroadcastEditor({ id, initial, onBack, onDeleted }: Prop
           ← Broadcasts
         </button>
         <div className="flex items-center gap-2">
-          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[broadcast.status] ?? ''}`}>
+          <span className={STATUS_COLORS[broadcast.status] ?? 'pib-pill'}>
             {broadcast.status}
           </span>
           {savedAt && <span className="text-xs text-[var(--color-pib-text-muted)]">Saved</span>}

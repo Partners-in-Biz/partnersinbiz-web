@@ -21,11 +21,11 @@ export default async function ExperimentDetailPage({
 }) {
   const { slug, id } = await params
   const orgId = await resolveOrgIdBySlug(slug)
-  if (!orgId) return <div className="text-white/60">Org not found.</div>
+  if (!orgId) return <div className="pib-empty-state-description">Org not found.</div>
 
   const experiment = await getExperiment(id)
   if (!experiment || experiment.orgId !== orgId) {
-    return <div className="text-white/60">Experiment not found.</div>
+    return <div className="pib-empty-state-description">Experiment not found.</div>
   }
 
   const results = await listResults({ experimentId: id })
@@ -86,7 +86,7 @@ export default async function ExperimentDetailPage({
   }))
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-8">
       <ExperimentDetailClient
         experiment={expPlain}
         results={resultsPlain}

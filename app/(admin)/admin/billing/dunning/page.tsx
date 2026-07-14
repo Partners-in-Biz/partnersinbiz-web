@@ -68,9 +68,9 @@ function money(amount: number, currency: string): string {
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  active: 'bg-blue-500/15 text-blue-400',
-  resolved: 'bg-green-500/15 text-green-400',
-  suspended: 'bg-red-500/15 text-red-400',
+  active: 'pib-pill-cyan',
+  resolved: 'pib-pill-success',
+  suspended: 'pib-pill-danger',
 }
 
 function emptyStage(): Stage {
@@ -358,11 +358,7 @@ export default function DunningPage() {
                     <td className="py-2 pr-4">{s.invoiceNumber}</td>
                     <td className="py-2 pr-4">{s.currentStage}</td>
                     <td className="py-2 pr-4">
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-xs ${
-                          STATUS_STYLES[s.status] ?? 'bg-white/10 text-on-surface/70'
-                        }`}
-                      >
+                      <span className={`pib-pill ${STATUS_STYLES[s.status] ?? ''}`}>
                         {s.status}
                       </span>
                     </td>

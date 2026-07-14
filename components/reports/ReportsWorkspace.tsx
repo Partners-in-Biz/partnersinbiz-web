@@ -219,7 +219,7 @@ export function ReportsWorkspace({
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="text-base font-medium text-[var(--color-pib-text)]">{title}</h3>
                     <span className={STATUS_PILL[report.status] ?? 'pib-pill'}>{report.status}</span>
-                    <span className="pib-pill !text-[10px] uppercase tracking-wider">
+                    <span className="pib-pill pib-pill-cyan !text-[10px] uppercase tracking-wider">
                       {REPORT_CATEGORY_LABELS[category]}
                     </span>
                     {report.scheduleId ? (

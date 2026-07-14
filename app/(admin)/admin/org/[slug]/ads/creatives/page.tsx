@@ -13,7 +13,7 @@ export default async function CreativesLibraryPage({
 }) {
   const { slug } = await params
   const orgId = await resolveOrgIdBySlug(slug)
-  if (!orgId) return <div className="text-white/60">Org not found.</div>
+  if (!orgId) return <p className="pib-page-sub">Org not found.</p>
 
   const creatives = await listCreatives({ orgId })
 

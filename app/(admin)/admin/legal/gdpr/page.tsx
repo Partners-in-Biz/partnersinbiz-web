@@ -27,13 +27,13 @@ const STATUSES = ['open', 'in_progress', 'completed', 'rejected'] as const
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    open: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-    in_progress: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-    completed: 'bg-green-500/10 text-green-400 border-green-500/20',
-    rejected: 'bg-red-500/10 text-red-300 border-red-500/20',
+    open: 'pib-pill-blue',
+    in_progress: 'pib-pill-warn',
+    completed: 'pib-pill-success',
+    rejected: 'pib-pill-danger',
   }
   return (
-    <span className={`text-[10px] font-label uppercase tracking-widest px-2.5 py-1 rounded-full border ${map[status] ?? map.open}`}>
+    <span className={`pib-pill ${map[status] ?? map.open}`}>
       {status.replace('_', ' ')}
     </span>
   )

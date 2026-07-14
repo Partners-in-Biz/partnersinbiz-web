@@ -28,10 +28,10 @@ function Skeleton({ className = '' }: { className?: string }) {
 const MERGE_TAGS = ['{{firstName}}', '{{name}}', '{{email}}']
 
 const STATUS_CLS: Record<string, string> = {
-  sent: 'bg-green-500/10 text-green-400',
-  sending: 'bg-sky-500/10 text-sky-400',
-  scheduled: 'bg-amber-500/10 text-amber-400',
-  draft: 'bg-[var(--color-pib-text)]/10 text-[var(--color-pib-text-muted)]',
+  sent: 'pib-pill-success',
+  sending: 'pib-pill-blue',
+  scheduled: 'pib-pill-warn',
+  draft: '',
 }
 
 function fmtTime(iso: string | null): string {
@@ -385,7 +385,7 @@ export default function EmailBroadcastPage() {
                   <tr key={b.id} className="border-b border-[var(--color-pib-line)]/50">
                     <td className="py-2 pr-3 text-[var(--color-pib-text)] max-w-[220px] truncate">{b.subject}</td>
                     <td className="py-2 pr-3">
-                      <span className={`text-[11px] font-label px-2 py-0.5 rounded-full ${STATUS_CLS[b.status] ?? 'bg-[var(--color-pib-text)]/10 text-[var(--color-pib-text-muted)]'}`}>
+                      <span className={`pib-pill ${STATUS_CLS[b.status] ?? ''}`}>
                         {b.status}
                       </span>
                     </td>

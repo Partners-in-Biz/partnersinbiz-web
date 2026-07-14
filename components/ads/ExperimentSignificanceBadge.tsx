@@ -14,7 +14,7 @@ interface Props {
 export function ExperimentSignificanceBadge({ significance }: Props) {
   if (!significance) {
     return (
-      <span className="rounded-full bg-white/5 px-2 py-0.5 text-xs text-white/40">
+      <span className="pib-pill pib-pill-rose">
         Awaiting data
       </span>
     )
@@ -47,7 +47,7 @@ export function ExperimentSignificanceBadge({ significance }: Props) {
   }
 
   return (
-    <span className="rounded-full bg-white/5 px-2 py-0.5 text-xs text-white/40">
+    <span className="pib-pill pib-pill-rose">
       Not significant (p={pValue.toFixed(3)})
     </span>
   )

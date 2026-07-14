@@ -123,7 +123,7 @@ function DomainAuthCard({ domain }: { domain: DomainAuthStatus }) {
     <div className="bento-card !p-4">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="material-symbols-outlined text-[var(--color-pib-text-muted)] text-[18px]">dns</span>
+          <span className="pib-icon-tint pib-icon-tint-blue !w-7 !h-7 text-[16px]">dns</span>
           <p className="font-medium truncate">{domain.domain}</p>
           {domain.verified ? (
             <span className="pib-pill pib-pill-success !text-[10px]">

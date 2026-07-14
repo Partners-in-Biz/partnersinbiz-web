@@ -51,7 +51,7 @@ export default async function TasksTab({ params }: { params: Promise<{ id: strin
               <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">Week {week}</h3>
               <p className="text-xs text-[var(--color-pib-text-muted)]">{items.length} sprint tasks</p>
             </div>
-            <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">view_list</span>
+            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">view_list</span></span>
           </div>
           <div className="divide-y divide-[var(--color-pib-line)]">
             {items.map((t) => (

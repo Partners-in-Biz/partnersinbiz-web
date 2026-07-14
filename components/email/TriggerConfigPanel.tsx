@@ -141,7 +141,9 @@ export default function TriggerConfigPanel({ value, onChange, endpoint }: Props)
                 : 'border-[var(--color-pib-line)] hover:bg-white/[0.03]',
             ].join(' ')}
           >
-            <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-accent)]">{t.icon}</span>
+            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-blue !h-8 !w-8">
+              <span className="material-symbols-outlined text-[16px]">{t.icon}</span>
+            </span>
             <p className="mt-1 text-xs font-medium">{t.label}</p>
             <p className="text-[10px] text-[var(--color-pib-text-muted)] leading-tight">{t.sub}</p>
           </button>

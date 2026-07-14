@@ -16,7 +16,7 @@ export default async function BudgetsListPage({
   const { slug } = await params
   const orgId = await resolveOrgIdBySlug(slug)
   if (!orgId) {
-    return <div className="text-white/60">Org not found.</div>
+    return <p className="pib-page-sub">Org not found.</p>
   }
 
   const budgets = await listBudgets({ orgId, includeArchived: true })

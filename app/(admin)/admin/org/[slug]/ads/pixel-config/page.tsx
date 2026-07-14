@@ -9,7 +9,7 @@ interface Params { slug: string }
 export default async function PixelConfigPage({ params }: { params: Promise<Params> }) {
   const { slug } = await params
   const orgId = await resolveOrgIdBySlug(slug)
-  if (!orgId) return <div className="text-white/60">Org not found.</div>
+  if (!orgId) return <p className="pib-page-sub">Org not found.</p>
   const rawConfigs = await listPixelConfigs({ orgId })
   // Strip secrets before passing to client
   const configs = rawConfigs.map((c) => {
@@ -25,6 +25,11 @@ export default async function PixelConfigPage({ params }: { params: Promise<Para
 
   return (
     <div className="space-y-8">
+      <header>
+        <p className="eyebrow">Ads · Pixel &amp; CAPI</p>
+        <h1 className="pib-page-title mt-2">Pixel &amp; Conversions API</h1>
+        <p className="pib-page-sub">Configure server-side and browser tracking for this client's ad accounts.</p>
+      </header>
       <PixelConfigPanel orgId={orgId} orgSlug={slug} initialConfigs={configs} />
 
       {orgWideConfig && (

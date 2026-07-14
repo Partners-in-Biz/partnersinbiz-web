@@ -229,7 +229,9 @@ export default function StorageClient() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-semibold">
-            <span className="material-symbols-outlined">database</span>
+            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan">
+              <span className="material-symbols-outlined text-[20px]">database</span>
+            </span>
             Storage Usage
           </h1>
           <p className="text-sm text-[var(--color-pib-text-muted)]">
@@ -465,7 +467,9 @@ export default function StorageClient() {
           </div>
         ) : orphans && !orphans.storageAvailable ? (
           <div className="flex items-start gap-2 rounded-lg border border-[var(--color-pib-line-strong)] bg-surface-variant px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">
-            <span className="material-symbols-outlined text-base">info</span>
+            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan !h-7 !w-7 !rounded-md">
+              <span className="material-symbols-outlined text-[15px]">info</span>
+            </span>
             <div>
               <div className="font-medium">Storage enumeration unavailable</div>
               <div>{orphans.note || 'Requires Storage admin access.'}</div>

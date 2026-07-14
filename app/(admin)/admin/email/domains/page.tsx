@@ -142,7 +142,7 @@ export default function EmailDomainRulesPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-mono text-sm text-[var(--color-pib-text)]">{r.domain}</span>
                     {r.autoApprove && (
-                      <span className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400">
+                      <span className="pib-pill pib-pill-blue">
                         Auto-approve
                       </span>
                     )}

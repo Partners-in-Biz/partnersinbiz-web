@@ -49,15 +49,8 @@ function methodLabel(method: 'eft' | 'paypal' | null): string {
 
 function MethodBadge({ method }: { method: 'eft' | 'paypal' | null }) {
   if (!method) return <span className="text-[var(--color-pib-text-muted)]">—</span>
-  const style =
-    method === 'eft'
-      ? { bg: 'rgba(59,130,246,0.12)', color: '#60a5fa' }
-      : { bg: 'rgba(34,197,94,0.12)', color: '#4ade80' }
   return (
-    <span
-      className="text-xs font-label px-2.5 py-1 rounded-full"
-      style={{ background: style.bg, color: style.color }}
-    >
+    <span className={`pib-pill ${method === 'eft' ? 'pib-pill-blue' : 'pib-pill-cyan'}`}>
       {methodLabel(method)}
     </span>
   )

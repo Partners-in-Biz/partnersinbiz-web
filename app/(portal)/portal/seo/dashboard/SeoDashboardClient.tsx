@@ -101,7 +101,7 @@ export function SeoDashboardClient({
             <h3 className="text-sm font-semibold">90-day traffic trend</h3>
             <p className="text-xs text-[var(--color-pib-text-muted)]">Impressions and clicks from Search Console pulls.</p>
           </div>
-          {d.lastUpdatedAt && <span className="pib-pill text-[10px]">Updated {d.lastUpdatedAt}</span>}
+          {d.lastUpdatedAt && <span className="pib-pill pib-pill-success text-[10px]">Updated {d.lastUpdatedAt}</span>}
         </div>
         <div className="p-4">
           <TrendChart
@@ -168,7 +168,7 @@ function Card({ label, value, icon, sub, delta }: { label: string; value: string
     <div className="pib-stat-card">
       <div className="flex items-start justify-between">
         <p className="eyebrow !text-[10px]">{label}</p>
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
+        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">{icon}</span></span>
       </div>
       <p className="mt-3 font-display text-3xl leading-none tracking-tight md:text-4xl">{value}</p>
       <div className="mt-2 flex items-center gap-2">

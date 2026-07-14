@@ -775,21 +775,21 @@ export default function DesignPage() {
   const selectedLayer = layers.find(l => l.id === selectedLayerId)
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col">
+    <div className="min-h-screen bg-[var(--color-pib-bg)] text-[var(--color-pib-text)] flex flex-col">
       {/* Header */}
-      <div className="border-b border-gray-700 bg-gray-950 px-6 py-4">
-        <h1 className="text-2xl font-bold">Design Editor</h1>
-        <p className="text-sm text-gray-400 mt-1">Create stunning social media designs</p>
+      <div className="border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-6 py-4">
+        <h1 className="pib-page-title text-2xl">Design Editor</h1>
+        <p className="pib-page-sub mt-1">Create stunning social media designs</p>
       </div>
 
       {/* Alerts */}
       {errorMsg && (
-        <div className="bg-red-900 border border-red-700 text-red-100 px-6 py-3">
+        <div className="bg-[var(--color-error-container)] border border-[var(--color-error)]/30 text-[var(--color-error)] px-6 py-3">
           {errorMsg}
         </div>
       )}
       {successMsg && (
-        <div className="bg-green-900 border border-green-700 text-green-100 px-6 py-3">
+        <div className="bg-[var(--color-pib-success)]/10 border border-[var(--color-pib-success)]/30 text-[var(--color-pib-success)] px-6 py-3">
           {successMsg}
         </div>
       )}
@@ -797,11 +797,11 @@ export default function DesignPage() {
       {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left sidebar - Templates */}
-        <div className="w-64 border-r border-gray-700 bg-gray-950 overflow-y-auto">
+        <div className="w-64 border-r border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] overflow-y-auto">
           <div className="p-4 space-y-6">
             {Object.entries(TEMPLATES).map(([category, templates]) => (
               <div key={category}>
-                <h3 className="text-sm font-semibold text-amber-500 mb-3 uppercase tracking-wider">
+                <h3 className="text-sm font-semibold text-[var(--color-pib-rose)] mb-3 uppercase tracking-wider">
                   {category === 'social'
                     ? 'Social Posts'
                     : category === 'story'
@@ -817,12 +817,12 @@ export default function DesignPage() {
                       onClick={() => loadTemplate(category as keyof typeof TEMPLATES, template.name)}
                       className={`w-full text-left text-sm px-3 py-2 rounded border transition-colors ${
                         activeTemplate === template.name
-                          ? 'border-amber-500 bg-amber-500 bg-opacity-10 text-white'
-                          : 'border-gray-700 hover:border-gray-600 text-gray-300'
+                          ? 'border-[var(--color-pib-rose)] bg-[var(--color-pib-rose-soft)] text-[var(--color-pib-text)]'
+                          : 'border-[var(--color-pib-line)] hover:border-[var(--color-pib-line-strong)] text-[var(--color-pib-text-muted)]'
                       }`}
                     >
                       <div className="font-medium">{template.name}</div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-[var(--color-pib-text-faint)]">
                         {template.width}x{template.height}
                       </div>
                     </button>
@@ -834,9 +834,9 @@ export default function DesignPage() {
         </div>
 
         {/* Center - Canvas */}
-        <div className="flex-1 flex flex-col overflow-hidden bg-gray-900">
+        <div className="flex-1 flex flex-col overflow-hidden bg-[var(--color-pib-bg)]">
           {/* Toolbar */}
-          <div className="border-b border-gray-700 bg-gray-950 px-4 py-3 flex items-center gap-3 flex-wrap">
+          <div className="border-b border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-4 py-3 flex items-center gap-3 flex-wrap">
             <button
               onClick={addText}
               className="pib-btn-secondary text-sm px-3 py-2"
@@ -862,7 +862,7 @@ export default function DesignPage() {
               + Circle
             </button>
 
-            <div className="border-l border-gray-700 h-6" />
+            <div className="border-l border-[var(--color-pib-line)] h-6" />
 
             <button
               onClick={undo}
@@ -879,7 +879,7 @@ export default function DesignPage() {
               ↷ Redo
             </button>
 
-            <div className="border-l border-gray-700 h-6" />
+            <div className="border-l border-[var(--color-pib-line)] h-6" />
 
             <select
               value={`${canvas.width}x${canvas.height}`}
@@ -887,7 +887,7 @@ export default function DesignPage() {
                 const [w, h] = e.target.value.split('x').map(Number)
                 setCanvas(prev => ({ ...prev, width: w, height: h }))
               }}
-              className="pib-btn-secondary text-sm px-3 py-2 bg-gray-800 border border-gray-700 rounded"
+              className="pib-btn-secondary text-sm px-3 py-2 bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] rounded"
             >
               {CANVAS_PRESETS.map(p => (
                 <option key={`${p.width}x${p.height}`} value={`${p.width}x${p.height}`}>
@@ -906,7 +906,7 @@ export default function DesignPage() {
               </button>
               <button
                 onClick={() => router.push('/portal/social/compose')}
-                className="pib-btn-primary text-sm px-4 py-2 bg-amber-500 hover:bg-amber-600"
+                className="pib-btn-primary text-sm px-4 py-2 bg-[var(--color-pib-rose)] hover:opacity-90"
               >
                 Use in Post
               </button>
@@ -914,7 +914,7 @@ export default function DesignPage() {
           </div>
 
           {/* Canvas area */}
-          <div className="flex-1 overflow-auto flex items-center justify-center bg-gray-800 p-8">
+          <div className="flex-1 overflow-auto flex items-center justify-center bg-[var(--color-pib-surface-2)] p-8">
             <div
               style={{
                 width: canvas.width,
@@ -928,43 +928,43 @@ export default function DesignPage() {
                 onMouseMove={handleCanvasMouseMove}
                 onMouseUp={handleCanvasMouseUp}
                 onMouseLeave={handleCanvasMouseUp}
-                className="border border-gray-700 cursor-move w-full h-full"
+                className="border border-[var(--color-pib-line)] cursor-move w-full h-full"
               />
             </div>
           </div>
         </div>
 
         {/* Right sidebar - Properties */}
-        <div className="w-80 border-l border-gray-700 bg-gray-950 overflow-y-auto">
+        <div className="w-80 border-l border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] overflow-y-auto">
           <div className="p-4 space-y-4">
             {/* Canvas properties */}
-            <div className="pib-card p-4 bg-gray-900 border border-gray-700">
-              <h3 className="text-sm font-semibold text-amber-500 mb-4">Canvas</h3>
+            <div className="pib-card p-4 bg-[var(--color-pib-bg)] border border-[var(--color-pib-line)]">
+              <h3 className="text-sm font-semibold text-[var(--color-pib-rose)] mb-4">Canvas</h3>
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs text-gray-400">Width</label>
+                  <label className="text-xs text-[var(--color-pib-text-muted)]">Width</label>
                   <input
                     type="number"
                     value={canvas.width}
                     onChange={e =>
                       setCanvas(prev => ({ ...prev, width: parseInt(e.target.value) }))
                     }
-                    className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm mt-1"
+                    className="w-full bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] rounded px-2 py-1 text-sm mt-1"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-400">Height</label>
+                  <label className="text-xs text-[var(--color-pib-text-muted)]">Height</label>
                   <input
                     type="number"
                     value={canvas.height}
                     onChange={e =>
                       setCanvas(prev => ({ ...prev, height: parseInt(e.target.value) }))
                     }
-                    className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm mt-1"
+                    className="w-full bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] rounded px-2 py-1 text-sm mt-1"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-400">Background Color</label>
+                  <label className="text-xs text-[var(--color-pib-text-muted)]">Background Color</label>
                   <div className="flex gap-2 mt-1">
                     <input
                       type="color"
@@ -972,7 +972,7 @@ export default function DesignPage() {
                       onChange={e =>
                         setCanvas(prev => ({ ...prev, backgroundColor: e.target.value }))
                       }
-                      className="w-12 h-8 rounded border border-gray-700 cursor-pointer"
+                      className="w-12 h-8 rounded border border-[var(--color-pib-line)] cursor-pointer"
                     />
                     <input
                       type="text"
@@ -980,7 +980,7 @@ export default function DesignPage() {
                       onChange={e =>
                         setCanvas(prev => ({ ...prev, backgroundColor: e.target.value }))
                       }
-                      className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm"
+                      className="flex-1 bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] rounded px-2 py-1 text-sm"
                     />
                   </div>
                 </div>
@@ -990,9 +990,9 @@ export default function DesignPage() {
             {/* Layer properties */}
             {selectedLayer ? (
               <>
-                <div className="pib-card p-4 bg-gray-900 border border-gray-700">
+                <div className="pib-card p-4 bg-[var(--color-pib-bg)] border border-[var(--color-pib-line)]">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-semibold text-amber-500">
+                    <h3 className="text-sm font-semibold text-[var(--color-pib-rose)]">
                       {selectedLayer.type === 'text'
                         ? 'Text Layer'
                         : selectedLayer.type === 'image'
@@ -1001,7 +1001,7 @@ export default function DesignPage() {
                     </h3>
                     <button
                       onClick={deleteLayer}
-                      className="text-xs px-2 py-1 bg-red-900 hover:bg-red-800 rounded text-red-200"
+                      className="text-xs px-2 py-1 bg-[var(--color-error-container)] hover:opacity-80 rounded text-[var(--color-error)]"
                     >
                       Delete
                     </button>
@@ -1010,47 +1010,47 @@ export default function DesignPage() {
                   <div className="space-y-3">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-xs text-gray-400">X</label>
+                        <label className="text-xs text-[var(--color-pib-text-muted)]">X</label>
                         <input
                           type="number"
                           value={selectedLayer.x}
                           onChange={e =>
                             updateSelectedLayer({ x: parseInt(e.target.value) })
                           }
-                          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm mt-1"
+                          className="w-full bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] rounded px-2 py-1 text-sm mt-1"
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-gray-400">Y</label>
+                        <label className="text-xs text-[var(--color-pib-text-muted)]">Y</label>
                         <input
                           type="number"
                           value={selectedLayer.y}
                           onChange={e =>
                             updateSelectedLayer({ y: parseInt(e.target.value) })
                           }
-                          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm mt-1"
+                          className="w-full bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] rounded px-2 py-1 text-sm mt-1"
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-gray-400">Width</label>
+                        <label className="text-xs text-[var(--color-pib-text-muted)]">Width</label>
                         <input
                           type="number"
                           value={selectedLayer.width}
                           onChange={e =>
                             updateSelectedLayer({ width: parseInt(e.target.value) })
                           }
-                          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm mt-1"
+                          className="w-full bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] rounded px-2 py-1 text-sm mt-1"
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-gray-400">Height</label>
+                        <label className="text-xs text-[var(--color-pib-text-muted)]">Height</label>
                         <input
                           type="number"
                           value={selectedLayer.height}
                           onChange={e =>
                             updateSelectedLayer({ height: parseInt(e.target.value) })
                           }
-                          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm mt-1"
+                          className="w-full bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] rounded px-2 py-1 text-sm mt-1"
                         />
                       </div>
                     </div>
@@ -1059,29 +1059,29 @@ export default function DesignPage() {
                     {selectedLayer.type === 'text' && (
                       <>
                         <div>
-                          <label className="text-xs text-gray-400">Text</label>
+                          <label className="text-xs text-[var(--color-pib-text-muted)]">Text</label>
                           <textarea
                             value={selectedLayer.content}
                             onChange={e =>
                               updateSelectedLayer({ content: e.target.value })
                             }
-                            className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm mt-1 resize-none h-20"
+                            className="w-full bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] rounded px-2 py-1 text-sm mt-1 resize-none h-20"
                           />
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="text-xs text-gray-400">Font Size</label>
+                            <label className="text-xs text-[var(--color-pib-text-muted)]">Font Size</label>
                             <input
                               type="number"
                               value={selectedLayer.fontSize}
                               onChange={e =>
                                 updateSelectedLayer({ fontSize: parseInt(e.target.value) })
                               }
-                              className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm mt-1"
+                              className="w-full bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] rounded px-2 py-1 text-sm mt-1"
                             />
                           </div>
                           <div>
-                            <label className="text-xs text-gray-400">Font Weight</label>
+                            <label className="text-xs text-[var(--color-pib-text-muted)]">Font Weight</label>
                             <select
                               value={selectedLayer.fontWeight}
                               onChange={e =>
@@ -1089,7 +1089,7 @@ export default function DesignPage() {
                                   fontWeight: e.target.value as any,
                                 })
                               }
-                              className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm mt-1"
+                              className="w-full bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] rounded px-2 py-1 text-sm mt-1"
                             >
                               <option value="normal">Normal</option>
                               <option value="600">Semi Bold</option>
@@ -1099,13 +1099,13 @@ export default function DesignPage() {
                           </div>
                         </div>
                         <div>
-                          <label className="text-xs text-gray-400">Font Family</label>
+                          <label className="text-xs text-[var(--color-pib-text-muted)]">Font Family</label>
                           <select
                             value={selectedLayer.fontFamily}
                             onChange={e =>
                               updateSelectedLayer({ fontFamily: e.target.value })
                             }
-                            className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm mt-1"
+                            className="w-full bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] rounded px-2 py-1 text-sm mt-1"
                           >
                             {FONT_FAMILIES.map(f => (
                               <option key={f} value={f}>
@@ -1116,7 +1116,7 @@ export default function DesignPage() {
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="text-xs text-gray-400">Color</label>
+                            <label className="text-xs text-[var(--color-pib-text-muted)]">Color</label>
                             <div className="flex gap-2 mt-1">
                               <input
                                 type="color"
@@ -1124,7 +1124,7 @@ export default function DesignPage() {
                                 onChange={e =>
                                   updateSelectedLayer({ color: e.target.value })
                                 }
-                                className="w-10 h-8 rounded border border-gray-700 cursor-pointer"
+                                className="w-10 h-8 rounded border border-[var(--color-pib-line)] cursor-pointer"
                               />
                               <input
                                 type="text"
@@ -1132,12 +1132,12 @@ export default function DesignPage() {
                                 onChange={e =>
                                   updateSelectedLayer({ color: e.target.value })
                                 }
-                                className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm"
+                                className="flex-1 bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] rounded px-2 py-1 text-sm"
                               />
                             </div>
                           </div>
                           <div>
-                            <label className="text-xs text-gray-400">Align</label>
+                            <label className="text-xs text-[var(--color-pib-text-muted)]">Align</label>
                             <select
                               value={selectedLayer.alignment}
                               onChange={e =>
@@ -1145,7 +1145,7 @@ export default function DesignPage() {
                                   alignment: e.target.value as any,
                                 })
                               }
-                              className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm mt-1"
+                              className="w-full bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] rounded px-2 py-1 text-sm mt-1"
                             >
                               <option value="left">Left</option>
                               <option value="center">Center</option>
@@ -1160,7 +1160,7 @@ export default function DesignPage() {
                     {selectedLayer.type === 'image' && (
                       <>
                         <div>
-                          <label className="text-xs text-gray-400">Opacity</label>
+                          <label className="text-xs text-[var(--color-pib-text-muted)]">Opacity</label>
                           <input
                             type="range"
                             min="0"
@@ -1174,12 +1174,12 @@ export default function DesignPage() {
                             }
                             className="w-full"
                           />
-                          <div className="text-xs text-gray-500 mt-1">
+                          <div className="text-xs text-[var(--color-pib-text-faint)] mt-1">
                             {Math.round(selectedLayer.opacity * 100)}%
                           </div>
                         </div>
                         <div>
-                          <label className="text-xs text-gray-400">Border Radius</label>
+                          <label className="text-xs text-[var(--color-pib-text-muted)]">Border Radius</label>
                           <input
                             type="range"
                             min="0"
@@ -1192,7 +1192,7 @@ export default function DesignPage() {
                             }
                             className="w-full"
                           />
-                          <div className="text-xs text-gray-500 mt-1">
+                          <div className="text-xs text-[var(--color-pib-text-faint)] mt-1">
                             {selectedLayer.borderRadius}px
                           </div>
                         </div>
@@ -1203,7 +1203,7 @@ export default function DesignPage() {
                     {selectedLayer.type === 'shape' && (
                       <>
                         <div>
-                          <label className="text-xs text-gray-400">Shape Type</label>
+                          <label className="text-xs text-[var(--color-pib-text-muted)]">Shape Type</label>
                           <select
                             value={selectedLayer.shapeType}
                             onChange={e =>
@@ -1211,7 +1211,7 @@ export default function DesignPage() {
                                 shapeType: e.target.value as any,
                               })
                             }
-                            className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm mt-1"
+                            className="w-full bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] rounded px-2 py-1 text-sm mt-1"
                           >
                             <option value="rectangle">Rectangle</option>
                             <option value="circle">Circle</option>
@@ -1219,7 +1219,7 @@ export default function DesignPage() {
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="text-xs text-gray-400">Fill Color</label>
+                            <label className="text-xs text-[var(--color-pib-text-muted)]">Fill Color</label>
                             <div className="flex gap-2 mt-1">
                               <input
                                 type="color"
@@ -1227,7 +1227,7 @@ export default function DesignPage() {
                                 onChange={e =>
                                   updateSelectedLayer({ fillColor: e.target.value })
                                 }
-                                className="w-10 h-8 rounded border border-gray-700 cursor-pointer"
+                                className="w-10 h-8 rounded border border-[var(--color-pib-line)] cursor-pointer"
                               />
                               <input
                                 type="text"
@@ -1235,12 +1235,12 @@ export default function DesignPage() {
                                 onChange={e =>
                                   updateSelectedLayer({ fillColor: e.target.value })
                                 }
-                                className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm"
+                                className="flex-1 bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] rounded px-2 py-1 text-sm"
                               />
                             </div>
                           </div>
                           <div>
-                            <label className="text-xs text-gray-400">Stroke Color</label>
+                            <label className="text-xs text-[var(--color-pib-text-muted)]">Stroke Color</label>
                             <div className="flex gap-2 mt-1">
                               <input
                                 type="color"
@@ -1248,7 +1248,7 @@ export default function DesignPage() {
                                 onChange={e =>
                                   updateSelectedLayer({ strokeColor: e.target.value })
                                 }
-                                className="w-10 h-8 rounded border border-gray-700 cursor-pointer"
+                                className="w-10 h-8 rounded border border-[var(--color-pib-line)] cursor-pointer"
                               />
                               <input
                                 type="text"
@@ -1256,13 +1256,13 @@ export default function DesignPage() {
                                 onChange={e =>
                                   updateSelectedLayer({ strokeColor: e.target.value })
                                 }
-                                className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm"
+                                className="flex-1 bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] rounded px-2 py-1 text-sm"
                               />
                             </div>
                           </div>
                         </div>
                         <div>
-                          <label className="text-xs text-gray-400">Stroke Width</label>
+                          <label className="text-xs text-[var(--color-pib-text-muted)]">Stroke Width</label>
                           <input
                             type="number"
                             value={selectedLayer.strokeWidth}
@@ -1271,11 +1271,11 @@ export default function DesignPage() {
                                 strokeWidth: parseInt(e.target.value),
                               })
                             }
-                            className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm mt-1"
+                            className="w-full bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] rounded px-2 py-1 text-sm mt-1"
                           />
                         </div>
                         <div>
-                          <label className="text-xs text-gray-400">Opacity</label>
+                          <label className="text-xs text-[var(--color-pib-text-muted)]">Opacity</label>
                           <input
                             type="range"
                             min="0"
@@ -1289,7 +1289,7 @@ export default function DesignPage() {
                             }
                             className="w-full"
                           />
-                          <div className="text-xs text-gray-500 mt-1">
+                          <div className="text-xs text-[var(--color-pib-text-faint)] mt-1">
                             {Math.round(selectedLayer.opacity * 100)}%
                           </div>
                         </div>
@@ -1299,22 +1299,22 @@ export default function DesignPage() {
                 </div>
               </>
             ) : (
-              <div className="pib-card p-4 bg-gray-900 border border-gray-700 text-center text-gray-400">
+              <div className="pib-card p-4 bg-[var(--color-pib-bg)] border border-[var(--color-pib-line)] text-center text-[var(--color-pib-text-muted)]">
                 <p className="text-sm">Select a layer to edit properties</p>
               </div>
             )}
 
             {/* Export settings */}
-            <div className="pib-card p-4 bg-gray-900 border border-gray-700">
-              <h3 className="text-sm font-semibold text-amber-500 mb-4">Export</h3>
+            <div className="pib-card p-4 bg-[var(--color-pib-bg)] border border-[var(--color-pib-line)]">
+              <h3 className="text-sm font-semibold text-[var(--color-pib-rose)] mb-4">Export</h3>
               <div>
-                <label className="text-xs text-gray-400">File Name</label>
+                <label className="text-xs text-[var(--color-pib-text-muted)]">File Name</label>
                 <input
                   type="text"
                   value={exportName}
                   onChange={e => setExportName(e.target.value)}
                   placeholder="design"
-                  className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm mt-1"
+                  className="w-full bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] rounded px-2 py-1 text-sm mt-1"
                 />
               </div>
             </div>

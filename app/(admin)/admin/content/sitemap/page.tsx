@@ -389,8 +389,10 @@ export default function SitemapManagerPage() {
                     key={entry.id ?? `${entry.at}-${i}`}
                     className="flex items-start gap-3 rounded-md border border-[var(--color-pib-line)] px-3 py-2"
                   >
-                    <span className="material-symbols-outlined text-base text-[var(--color-pib-text-muted)] mt-0.5">
-                      {entry.action === 'regenerate' ? 'sync' : 'send'}
+                    <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7 !rounded-md">
+                      <span className="material-symbols-outlined text-[15px]">
+                        {entry.action === 'regenerate' ? 'sync' : 'send'}
+                      </span>
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">

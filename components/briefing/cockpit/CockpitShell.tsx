@@ -46,7 +46,7 @@ export function CockpitShell({
     >
       <header className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-pib-line)] bg-black/[0.08] px-3">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="material-symbols-outlined grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-[15px] text-primary">checklist</span>
+          <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan shrink-0"><span className="material-symbols-outlined text-[15px]">checklist</span></span>
           <div className="min-w-0">
             <div className="truncate text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">
               {mode === 'admin' ? 'Workspace / Briefings' : 'Client portal / Briefings'}
@@ -58,8 +58,8 @@ export function CockpitShell({
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="hidden h-6 items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2 text-[11px] text-primary sm:inline-flex">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+          <span className="pib-pill pib-pill-cyan hidden sm:inline-flex">
+            <span className="pib-status-dot pib-status-dot-cyan" />
             {itemCount} open
           </span>
           {updatedLabel && <span className="hidden text-[11px] text-[var(--color-pib-text-muted)] lg:inline">Updated {updatedLabel}</span>}

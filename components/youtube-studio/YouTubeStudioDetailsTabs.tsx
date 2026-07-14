@@ -156,7 +156,7 @@ function ProductionDraftsTabContent({
           {draft.outline?.length ? (
             <div className="flex flex-wrap gap-2">
               {draft.outline.slice(0, 6).map((item) => (
-                <span key={item} className="max-w-full break-words rounded-full bg-white/[0.04] px-2 py-1 text-xs text-[var(--color-pib-text-muted)]">
+                <span key={item} className="pib-pill pib-pill-rose max-w-full break-words">
                   {item}
                 </span>
               ))}
@@ -316,7 +316,7 @@ function PacketsTabContent({
                 Version {packet.versionNumber || 1} / {formatToken(packet.status)} / {formatToken(packet.visibility)}
               </p>
             </div>
-            <span className="shrink-0 rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+            <span className="pib-pill pib-pill-rose shrink-0">
               {packet.chapters?.length ?? 0} chapters
             </span>
           </div>
@@ -326,7 +326,7 @@ function PacketsTabContent({
           {packet.tags?.length ? (
             <div className="flex flex-wrap gap-2">
               {packet.tags.slice(0, 8).map((tag) => (
-                <span key={tag} className="max-w-full break-words rounded-full bg-white/[0.04] px-2 py-1 text-xs text-[var(--color-pib-text-muted)]">
+                <span key={tag} className="pib-pill pib-pill-rose max-w-full break-words">
                   {tag}
                 </span>
               ))}
@@ -396,7 +396,7 @@ function ReleasePlansTabContent({ plans }: { plans: YouTubeReleasePlan[] }) {
               </p>
             </div>
             {plan.scheduledPublishAt ? (
-              <span className="shrink-0 rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+              <span className="pib-pill pib-pill-rose shrink-0">
                 scheduled
               </span>
             ) : null}
@@ -429,7 +429,7 @@ function AnalyticsTabContent({ analytics }: { analytics: YouTubeAnalyticsSnapsho
                 {snapshot.periodStart} to {snapshot.periodEnd} / {formatToken(snapshot.sourceFreshness)}
               </p>
             </div>
-            <span className="shrink-0 rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+            <span className="pib-pill pib-pill-rose shrink-0">
               {formatToken(snapshot.source)}
             </span>
           </div>
