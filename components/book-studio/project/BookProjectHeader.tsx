@@ -39,17 +39,17 @@ type BookProjectHeaderProps = {
   onTransitioned?: (result: { from: string; to: string }) => void
 }
 
-function statusTone(status?: string): 'neutral' | 'accent' | 'success' | 'warn' | 'danger' | 'info' {
+function statusTone(status?: string): 'rose' | 'accent' | 'success' | 'warn' | 'danger' | 'info' {
   if (status === 'approved') return 'success'
   if (status === 'blocked') return 'danger'
   if (status === 'internal_review' || status === 'client_review' || status === 'needs_review') return 'warn'
-  return 'neutral'
+  return 'rose'
 }
 
-function lifecycleTone(state: string): 'neutral' | 'accent' | 'success' | 'warn' | 'danger' | 'info' {
+function lifecycleTone(state: string): 'rose' | 'accent' | 'success' | 'warn' | 'danger' | 'info' {
   if (state === 'live') return 'success'
-  if (state === 'archived') return 'neutral'
-  if (state === 'draft') return 'neutral'
+  if (state === 'archived') return 'rose'
+  if (state === 'draft') return 'rose'
   return 'accent'
 }
 
@@ -108,11 +108,11 @@ export function BookProjectHeader({
                 className="h-10 w-8 rounded-md border border-[var(--color-pib-border)] object-cover"
               />
             ) : null}
-            {format ? <StatusPill tone="neutral">{format.label}</StatusPill> : null}
-            {trimLabel ? <StatusPill tone="neutral">{trimLabel}</StatusPill> : null}
+            {format ? <StatusPill tone="rose">{format.label}</StatusPill> : null}
+            {trimLabel ? <StatusPill tone="rose">{trimLabel}</StatusPill> : null}
             <StatusPill tone={lifecycleTone(lifecycleState)}>{humanizeToken(lifecycleState)}</StatusPill>
             {project.status ? <StatusPill tone={statusTone(project.status)}>{humanizeToken(project.status)}</StatusPill> : null}
-            {project.stage ? <StatusPill tone="neutral">{humanizeToken(project.stage)}</StatusPill> : null}
+            {project.stage ? <StatusPill tone="rose">{humanizeToken(project.stage)}</StatusPill> : null}
             {project.seriesVolumeNumber ? (
               <StatusPill tone="accent">Volume {project.seriesVolumeNumber}</StatusPill>
             ) : null}

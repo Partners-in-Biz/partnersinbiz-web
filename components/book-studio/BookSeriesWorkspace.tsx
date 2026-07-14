@@ -50,11 +50,11 @@ function formatLabel(formatId?: string) {
   return FORMAT_LABELS[formatId] ?? formatId
 }
 
-function statusTone(status?: string): 'neutral' | 'success' | 'warn' | 'danger' {
+function statusTone(status?: string): 'rose' | 'success' | 'warn' | 'danger' {
   if (status === 'approved') return 'success'
   if (status === 'blocked') return 'danger'
   if (status === 'needs_review' || status === 'internal_review' || status === 'client_review') return 'warn'
-  return 'neutral'
+  return 'rose'
 }
 
 function statusLabel(status?: string) {

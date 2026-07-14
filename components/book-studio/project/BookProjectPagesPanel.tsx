@@ -89,7 +89,7 @@ function PageRow({
           )}
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <StatusPill tone="neutral">{humanizeToken(page.kind)}</StatusPill>
+              <StatusPill tone="rose">{humanizeToken(page.kind)}</StatusPill>
               {page.status ? <StatusPill tone={page.status === 'approved' ? 'success' : 'neutral'}>{humanizeToken(page.status)}</StatusPill> : null}
             </div>
             <p className="mt-1 text-sm font-medium text-[var(--color-pib-text)]">{page.title || page.caption || `Page ${index + 1}`}</p>
