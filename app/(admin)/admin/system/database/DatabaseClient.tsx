@@ -271,7 +271,9 @@ export default function DatabaseClient() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <span className="material-symbols-outlined text-3xl text-[var(--color-pib-text-muted)]">database</span>
+        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan">
+          <span className="material-symbols-outlined text-[20px]">database</span>
+        </span>
         <div>
           <h1 className="text-2xl font-semibold">Database</h1>
           <p className="text-sm text-[var(--color-pib-text-muted)]">

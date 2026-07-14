@@ -11,8 +11,13 @@ export async function handleDeviceHeartbeat(req: NextRequest, deviceId: string, 
     const body = JSON.parse(rawBody)
     if (typeof body.runtimeVersion !== 'string' || !['ok', 'degraded'].includes(body.health)) throw new Error('linked computers: invalid heartbeat')
     if (body.runtimeEndpoint !== undefined || body.bootstrapTransport !== undefined || body.transportToken !== undefined) throw new Error('linked computers: legacy transport fields are not accepted')
-    const capabilities = Array.isArray(body.capabilities) && body.capabilities.includes('workspace.execute') ? ['workspace.execute'] as const : []
-    await record({ deviceId, runtimeVersion: body.runtimeVersion, health: body.health, capabilities: [...capabilities] })
+    const advertisedCapabilities = Array.isArray(body.capabilities) ? body.capabilities : []
+    const syncProtocolVersion = body.syncProtocolVersion === 1 ? 1 : null
+    const capabilities = [
+      ...(advertisedCapabilities.includes('workspace.execute') ? ['workspace.execute' as const] : []),
+      ...(advertisedCapabilities.includes('workspace.sync') && syncProtocolVersion === 1 ? ['workspace.sync' as const] : []),
+    ]
+    await record({ deviceId, runtimeVersion: body.runtimeVersion, health: body.health, capabilities, syncProtocolVersion })
     const rotation = body.claimRotation === true
       ? await claimRotation({ deviceId, authenticatedCredentialVersion: identity.credentialVersion })
       : null

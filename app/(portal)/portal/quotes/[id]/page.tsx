@@ -26,13 +26,13 @@ interface Quote {
 
 type DateLike = string | number | Date | { _seconds?: number; seconds?: number } | null | undefined
 
-const STATUS_MAP: Record<QuoteStatus, { label: string; color: string }> = {
-  draft:     { label: 'Draft',     color: 'var(--color-outline)' },
-  sent:      { label: 'Sent',      color: '#60a5fa' },
-  accepted:  { label: 'Accepted',  color: '#4ade80' },
-  declined:  { label: 'Declined',  color: '#ef4444' },
-  expired:   { label: 'Expired',   color: 'var(--color-outline)' },
-  converted: { label: 'Converted', color: '#c084fc' },
+const STATUS_MAP: Record<QuoteStatus, { label: string; pill: string }> = {
+  draft:     { label: 'Draft',     pill: 'pib-pill' },
+  sent:      { label: 'Sent',      pill: 'pib-pill pib-pill-info' },
+  accepted:  { label: 'Accepted',  pill: 'pib-pill pib-pill-success' },
+  declined:  { label: 'Declined',  pill: 'pib-pill pib-pill-danger' },
+  expired:   { label: 'Expired',   pill: 'pib-pill' },
+  converted: { label: 'Converted', pill: 'pib-pill pib-pill-accent' },
 }
 
 const CURRENCY_LOCALES: Record<string, string> = { USD: 'en-US', EUR: 'de-DE', ZAR: 'en-ZA' }
@@ -122,7 +122,7 @@ export default function QuoteDetailPage() {
           <Link href="/portal/quotes" className="eyebrow hover:text-[var(--color-pib-text)] transition-colors">← Quotes</Link>
           <h1 className="pib-page-title mt-2">{quote.quoteNumber}</h1>
         </div>
-        <span className="pib-pill self-start sm:self-auto" style={{ background: `${status.color}20`, color: status.color, borderColor: `${status.color}40` }}>
+        <span className={`${status.pill} self-start sm:self-auto`}>
           {status.label}
         </span>
       </header>

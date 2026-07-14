@@ -49,8 +49,10 @@ export function OrgActivityPanel({ slug }: { slug: string }) {
         <ol className="space-y-0">
           {entries.map((e) => (
             <li key={e.id} className="flex items-start gap-3 border-b border-white/5 py-3 last:border-0">
-              <span className="material-symbols-outlined mt-0.5 text-[18px] text-[var(--color-pib-accent)]">
-                {ACTION_ICON[e.action] ?? 'bolt'}
+              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan mt-0.5">
+                <span className="material-symbols-outlined text-[18px]">
+                  {ACTION_ICON[e.action] ?? 'bolt'}
+                </span>
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-sm text-[var(--color-pib-text)]">{e.summary || e.action}</p>

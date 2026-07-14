@@ -1,7 +1,16 @@
 import { adminDb } from '@/lib/firebase/admin'
 import { verify } from 'node:crypto'
 import { timestampToMs } from '@/lib/agents/runtime-targets'
-import type { LinkedDevice, LinkedDeviceGrant, LinkedDeviceWorkspaceMapping } from './types'
+import { assertDeviceOrgAccess, effectiveGrantAccessMode, isActiveOrgMembershipRow, linkedDeviceOwnerType } from './policy'
+import type {
+  ActiveOrgMembership,
+  DeviceGrantAccessMode,
+  LinkedDevice,
+  LinkedDeviceKind,
+  LinkedDeviceGrant,
+  LinkedDevicePlatform,
+  LinkedDeviceWorkspaceMapping,
+} from './types'
 
 const DEVICE_STALE_AFTER_MS = 5 * 60 * 1000
 
@@ -22,20 +31,52 @@ export interface CompatibilityRuntimeTarget {
 
 export interface PublicAuthorizedRuntimeTarget {
   id: string
+  locationId: string
   deviceId: string
   label: string
-  platform: 'macos' | 'windows'
+  platform: LinkedDevicePlatform
   runtimeVersion: string
   mappingId: string
   workspaceId: string
   kind: 'linked-computer'
+  deviceKind: LinkedDeviceKind
+  ownerType: AuthorizedProjectRuntimeOwner['type']
+  visibility: 'private' | 'organization'
   selectable: boolean
   updateRequired?: boolean
-  lastSeenAt: string
+  unavailableReason?: LinkedRuntimeUnavailableReason
+  lastSeenAt: string | null
 }
+
+export type AuthorizedProjectRuntimeOwner =
+  | { type: 'user'; userId: string }
+  | { type: 'organization'; orgId: string }
+
+/**
+ * Server-only view used to adapt a paired runtime into a project execution
+ * location. Ownership is deliberately excluded from the public runtime DTO.
+ */
+export interface AuthorizedProjectRuntimeTarget {
+  id: string
+  locationId: string
+  deviceId: string
+  label: string
+  platform: LinkedDevicePlatform
+  deviceKind?: LinkedDeviceKind
+  mappingId: string
+  workspaceId: string
+  owner: AuthorizedProjectRuntimeOwner
+  accessMode: DeviceGrantAccessMode
+  selectable: boolean
+  unavailableReason?: LinkedRuntimeUnavailableReason
+  lastSeenAt: string | null
+}
+
+export type LinkedRuntimeUnavailableReason = 'offline' | 'stale' | 'update_required'
 
 export interface AuthorizedLinkedComputerDispatch {
   kind: 'linked-computer'
+  locationId: string
   deviceId: string
   runtimeTargetId: string
   machineLabel: string
@@ -43,9 +84,10 @@ export interface AuthorizedLinkedComputerDispatch {
   workspaceId: string
   credentialVersion: number
   runtimeVersion: string
-  platform: 'macos' | 'windows'
+  platform: LinkedDevicePlatform
   lastSeenAt: string
   publicKey: string
+  accessMode: DeviceGrantAccessMode
   updateRequired?: boolean
 }
 
@@ -92,8 +134,13 @@ interface ResolveOptions {
   compatibilityTargets?: CompatibilityRuntimeTarget[]
 }
 
-function activeMembership(row: Record<string, unknown> | undefined, orgId: string, userId: string): boolean {
-  return Boolean(row) && row?.orgId === orgId && (row.uid === userId || row.userId === userId) && row.status === 'active'
+function membershipFrom(row: Record<string, unknown> | undefined, orgId: string, userId: string): ActiveOrgMembership {
+  return {
+    orgId,
+    userId,
+    active: isActiveOrgMembershipRow(row) && row?.orgId === orgId && (row.uid === userId || row.userId === userId),
+    role: typeof row?.role === 'string' ? row.role : undefined,
+  }
 }
 
 async function allRows<T>(db: DbLike, collection: string): Promise<T[]> {
@@ -101,14 +148,28 @@ async function allRows<T>(db: DbLike, collection: string): Promise<T[]> {
   return snap.docs.map((doc) => ({ ...(doc.data() ?? {}), ...(doc.id ? { __id: doc.id } : {}) }) as T)
 }
 
-async function membership(db: DbLike, orgId: string, userId: string): Promise<boolean> {
+async function membership(db: DbLike, orgId: string, userId: string): Promise<ActiveOrgMembership> {
   const snap = await db.collection('orgMembers').doc(`${orgId}_${userId}`).get()
-  return snap.exists && activeMembership(snap.data(), orgId, userId)
+  return membershipFrom(snap.exists ? snap.data() : undefined, orgId, userId)
 }
 
-async function resolveCandidates(input: ResolveInput, options: ResolveOptions): Promise<AuthorizedLinkedComputerDispatch[]> {
+type ResolvedAuthorizedRuntimeTarget = Omit<AuthorizedLinkedComputerDispatch, 'lastSeenAt'> & {
+  lastSeenAt: string | null
+  unavailableReason?: LinkedRuntimeUnavailableReason
+  owner: AuthorizedProjectRuntimeOwner
+  accessMode: DeviceGrantAccessMode
+  deviceKind: LinkedDeviceKind
+}
+
+export function linkedDeviceProjectLocationId(deviceId: string): string {
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(deviceId)) throw new Error('linked computers: invalid device id')
+  return `linked-device:${deviceId}`
+}
+
+async function resolveCandidates(input: ResolveInput, options: ResolveOptions): Promise<ResolvedAuthorizedRuntimeTarget[]> {
   const db = options.db ?? (adminDb as unknown as DbLike)
-  if (!await membership(db, input.orgId, input.userId)) throw new LinkedComputerDispatchError('linked_device_membership_required')
+  const actorMembership = await membership(db, input.orgId, input.userId)
+  if (!actorMembership.active) throw new LinkedComputerDispatchError('linked_device_membership_required')
   const [devices, grants, mappings, credentials] = await Promise.all([
     allRows<LinkedDevice & { health?: string }>(db, 'linked_devices'),
     allRows<LinkedDeviceGrant>(db, 'linked_device_grants'),
@@ -117,27 +178,44 @@ async function resolveCandidates(input: ResolveInput, options: ResolveOptions): 
   ])
   const credentialById = new Map(credentials.map((row) => [String(row.__id ?? row.deviceId ?? ''), row]))
   const now = options.nowMs?.() ?? Date.now()
-  const candidates: AuthorizedLinkedComputerDispatch[] = []
+  const candidates: ResolvedAuthorizedRuntimeTarget[] = []
   for (const device of devices) {
     const grant = grants.find((row) => row.deviceId === device.deviceId && row.orgId === input.orgId)
-    const mapping = mappings.find((row) => row.deviceId === device.deviceId && row.orgId === input.orgId && row.workspaceId === input.workspaceId && row.status === 'active')
+    const mapping = mappings
+      .filter((row) => row.deviceId === device.deviceId && row.orgId === input.orgId && row.workspaceId === input.workspaceId && row.status === 'active')
+      .sort((left, right) => left.mappingId.localeCompare(right.mappingId))[0]
     const credential = credentialById.get(device.deviceId)
-    const owner = device.ownerUserId === input.userId
-    const shared = grant?.allowedUserIds?.includes(input.userId) === true
-    if (!owner && !shared) continue
-    if (!await membership(db, input.orgId, device.ownerUserId)) continue
     if (!grant || grant.status !== 'active' || !grant.capabilities.includes('workspace.execute')) continue
-    if (device.status !== 'active' || device.health !== 'ok' || !device.capabilities.includes('workspace.execute')) continue
-    const seen = timestampToMs(device.lastSeenAt)
-    if (seen == null || now - seen > (options.staleAfterMs ?? DEVICE_STALE_AFTER_MS)) continue
+    if (device.status !== 'active' || !Array.isArray(device.capabilities) || !device.capabilities.includes('workspace.execute')) continue
+    const ownerType = linkedDeviceOwnerType(device)
+    if (ownerType === 'user') {
+      const ownerMembership = await membership(db, input.orgId, String(device.ownerUserId))
+      if (!ownerMembership.active) continue
+    }
+    try { assertDeviceOrgAccess({ actorUserId: input.userId, orgId: input.orgId, device, grant, membership: actorMembership }) }
+    catch { continue }
     if (!mapping) continue
     if (!credential || credential.revokedAt || Number(credential.credentialVersion) !== device.credentialVersion) continue
+    const seen = timestampToMs(device.lastSeenAt)
+    const updateRequired = linkedRuntimeUpdateRequired(device.runtimeVersion)
+    const unavailableReason: LinkedRuntimeUnavailableReason | undefined = device.health !== 'ok' || seen == null
+      ? 'offline'
+      : now - seen > (options.staleAfterMs ?? DEVICE_STALE_AFTER_MS)
+        ? 'stale'
+        : updateRequired ? 'update_required' : undefined
     candidates.push({
-      kind: 'linked-computer', deviceId: device.deviceId, runtimeTargetId: device.runtimeTargetId,
+      kind: 'linked-computer', locationId: linkedDeviceProjectLocationId(device.deviceId),
+      deviceId: device.deviceId, runtimeTargetId: device.runtimeTargetId,
       machineLabel: device.label, mappingId: mapping.mappingId, credentialVersion: device.credentialVersion,
-      runtimeVersion: device.runtimeVersion, platform: device.platform, lastSeenAt: new Date(seen).toISOString(),
+      runtimeVersion: device.runtimeVersion, platform: device.platform, lastSeenAt: seen == null ? null : new Date(seen).toISOString(),
+      deviceKind: device.deviceKind === 'vps' ? 'vps' : 'computer',
       workspaceId: mapping.workspaceId, publicKey: String((device as LinkedDevice & { publicKey?: string }).publicKey ?? ''),
-      updateRequired: linkedRuntimeUpdateRequired(device.runtimeVersion),
+      owner: ownerType === 'user'
+        ? { type: 'user', userId: String(device.ownerUserId) }
+        : { type: 'organization', orgId: String(device.ownerOrgId) },
+      accessMode: effectiveGrantAccessMode(grant),
+      ...(updateRequired ? { updateRequired: true } : {}),
+      ...(unavailableReason ? { unavailableReason } : {}),
     })
   }
   return candidates
@@ -146,11 +224,39 @@ async function resolveCandidates(input: ResolveInput, options: ResolveOptions): 
 export async function discoverAuthorizedRuntimeTargets(input: ResolveInput, options: ResolveOptions = {}): Promise<PublicAuthorizedRuntimeTarget[]> {
   const candidates = await resolveCandidates(input, options)
   return candidates.map((target) => ({
-    id: target.runtimeTargetId, deviceId: target.deviceId, label: target.machineLabel,
+    id: target.runtimeTargetId, locationId: target.locationId,
+    deviceId: target.deviceId, label: target.machineLabel,
     platform: target.platform, runtimeVersion: target.runtimeVersion, mappingId: target.mappingId,
     workspaceId: target.workspaceId,
-    kind: 'linked-computer', selectable: !target.updateRequired,
+    kind: 'linked-computer',
+    deviceKind: target.deviceKind,
+    ownerType: target.owner.type,
+    visibility: target.accessMode === 'organization' ? 'organization' : 'private',
+    selectable: !target.unavailableReason,
     ...(target.updateRequired ? { updateRequired: true } : {}),
+    ...(target.unavailableReason ? { unavailableReason: target.unavailableReason } : {}),
+    lastSeenAt: target.lastSeenAt,
+  }))
+}
+
+export async function discoverAuthorizedProjectRuntimeTargets(
+  input: ResolveInput,
+  options: ResolveOptions = {},
+): Promise<AuthorizedProjectRuntimeTarget[]> {
+  const candidates = await resolveCandidates(input, options)
+  return candidates.map((target) => ({
+    id: target.runtimeTargetId,
+    locationId: target.locationId,
+    deviceId: target.deviceId,
+    label: target.machineLabel,
+    platform: target.platform,
+    deviceKind: target.deviceKind,
+    mappingId: target.mappingId,
+    workspaceId: target.workspaceId,
+    owner: target.owner,
+    accessMode: target.accessMode,
+    selectable: !target.unavailableReason,
+    ...(target.unavailableReason ? { unavailableReason: target.unavailableReason } : {}),
     lastSeenAt: target.lastSeenAt,
   }))
 }
@@ -159,23 +265,39 @@ export async function authorizeLinkedComputerDispatch(input: ResolveInput & { ru
   const candidates = await resolveCandidates(input, options)
   const selected = candidates.find((target) => target.runtimeTargetId === input.runtimeTargetId || target.deviceId === input.runtimeTargetId)
   if (selected) {
-    if (selected.updateRequired) throw new LinkedComputerDispatchError('linked_device_update_required')
-    return selected
+    if (selected.unavailableReason) throw new LinkedComputerDispatchError(`linked_device_${selected.unavailableReason}`)
+    return {
+      kind: selected.kind, locationId: selected.locationId,
+      deviceId: selected.deviceId, runtimeTargetId: selected.runtimeTargetId,
+      machineLabel: selected.machineLabel, mappingId: selected.mappingId, workspaceId: selected.workspaceId,
+      credentialVersion: selected.credentialVersion, runtimeVersion: selected.runtimeVersion, platform: selected.platform,
+      lastSeenAt: selected.lastSeenAt!, publicKey: selected.publicKey,
+      accessMode: selected.accessMode,
+      ...(selected.updateRequired ? { updateRequired: true } : {}),
+    }
   }
   const db = options.db ?? (adminDb as unknown as DbLike)
   const devices = await allRows<LinkedDevice & { health?: string }>(db, 'linked_devices')
   const device = devices.find((row) => row.runtimeTargetId === input.runtimeTargetId || row.deviceId === input.runtimeTargetId)
   if (!device) throw new LinkedComputerDispatchError('linked_device_not_authorized')
-  if (device.ownerUserId !== input.userId) {
-    const ownerIsMember = await membership(db, input.orgId, device.ownerUserId)
-    if (!ownerIsMember) throw new LinkedComputerDispatchError('linked_device_membership_required')
+  const grants = await allRows<LinkedDeviceGrant>(db, 'linked_device_grants')
+  const grant = grants.find((row) => row.deviceId === device.deviceId && row.orgId === input.orgId)
+  if (!grant) throw new LinkedComputerDispatchError('linked_device_not_authorized')
+  if (linkedDeviceOwnerType(device) === 'user') {
+    const ownerMembership = await membership(db, input.orgId, String(device.ownerUserId))
+    if (!ownerMembership.active) throw new LinkedComputerDispatchError('linked_device_membership_required')
   }
-  const seen = timestampToMs(device.lastSeenAt)
-  if (seen == null || (options.nowMs?.() ?? Date.now()) - seen > (options.staleAfterMs ?? DEVICE_STALE_AFTER_MS)) throw new LinkedComputerDispatchError('linked_device_stale')
+  const actorMembership = await membership(db, input.orgId, input.userId)
+  try { assertDeviceOrgAccess({ actorUserId: input.userId, orgId: input.orgId, device, grant, membership: actorMembership }) }
+  catch { throw new LinkedComputerDispatchError('linked_device_not_authorized') }
   const mappings = await allRows<LinkedDeviceWorkspaceMapping>(db, 'linked_device_workspace_mappings')
   if (!mappings.some((row) => row.deviceId === device.deviceId && row.orgId === input.orgId && row.workspaceId === input.workspaceId && row.status === 'active')) {
     throw new LinkedComputerDispatchError('linked_device_mapping_required')
   }
+  const seen = timestampToMs(device.lastSeenAt)
+  if (device.health !== 'ok' || seen == null) throw new LinkedComputerDispatchError('linked_device_offline')
+  if ((options.nowMs?.() ?? Date.now()) - seen > (options.staleAfterMs ?? DEVICE_STALE_AFTER_MS)) throw new LinkedComputerDispatchError('linked_device_stale')
+  if (linkedRuntimeUpdateRequired(device.runtimeVersion)) throw new LinkedComputerDispatchError('linked_device_update_required')
   throw new LinkedComputerDispatchError('linked_device_not_authorized')
 }
 

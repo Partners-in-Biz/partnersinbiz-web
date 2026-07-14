@@ -28,17 +28,15 @@ export function AudiencesPlatformTabs({ orgId, orgSlug, metaContent }: Props) {
   return (
     <div className="space-y-6">
       {/* Platform tabs */}
-      <div className="flex gap-2">
+      <div role="tablist" aria-label="Audience platform" className="pib-tabs pib-tabs-segmented">
         {(['meta', 'google', 'linkedin'] as Platform[]).map((p) => (
           <button
             key={p}
             type="button"
+            role="tab"
+            aria-selected={platform === p}
             onClick={() => setPlatform(p)}
-            className={`rounded px-4 py-2 text-sm font-medium transition-colors ${
-              platform === p
-                ? 'bg-[#F5A623] text-black'
-                : 'border border-white/10 text-white/60 hover:text-white hover:border-white/30'
-            }`}
+            className={`pib-tab ${platform === p ? 'pib-tab-active' : ''}`}
           >
             {PLATFORM_LABELS[p]}
           </button>
@@ -50,8 +48,8 @@ export function AudiencesPlatformTabs({ orgId, orgSlug, metaContent }: Props) {
       {platform === 'google' && (
         <div className="space-y-4">
           <div>
-            <h2 className="text-lg font-semibold">New Google audience</h2>
-            <p className="text-sm text-white/60 mt-1">
+            <h2 className="pib-page-title text-lg">New Google audience</h2>
+            <p className="pib-page-sub mt-1">
               Choose a Google audience type and configure it below.
             </p>
           </div>
@@ -61,8 +59,8 @@ export function AudiencesPlatformTabs({ orgId, orgSlug, metaContent }: Props) {
       {platform === 'linkedin' && (
         <div className="space-y-4">
           <div>
-            <h2 className="text-lg font-semibold">New LinkedIn audience</h2>
-            <p className="text-sm text-white/60 mt-1">
+            <h2 className="pib-page-title text-lg">New LinkedIn audience</h2>
+            <p className="pib-page-sub mt-1">
               Choose a LinkedIn audience type and configure it below.
             </p>
           </div>

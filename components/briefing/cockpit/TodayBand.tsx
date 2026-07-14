@@ -43,9 +43,9 @@ export function TodayBand({ status, meetings, loading, mode }: Props) {
       status === 'needs_reconnect' ? 'Reconnect Google Calendar' : 'Connect Google Calendar'
     return (
       <div className="flex items-center gap-2 border-b border-[var(--color-pib-line)] px-4 py-2 text-xs text-[var(--color-pib-text-muted)]">
-        <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
+        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan"><span className="material-symbols-outlined text-[14px]">
           calendar_today
-        </span>
+        </span></span>
         <a href={href} className="text-[var(--color-pib-accent)] hover:underline">
           {label}
         </a>

@@ -15,6 +15,7 @@ export interface LinkedRunJob {
   actorUserId: string
   workspaceId: string
   projectId?: string
+  projectReplicaId?: string
   mappingId: string
   relativeFolder: string
   credentialVersion: number

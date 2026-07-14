@@ -320,8 +320,8 @@ export default function PermissionsPage() {
                 <tr key={feature} className="border-b border-[var(--color-pib-line)] last:border-0">
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
-                      <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-accent)]" aria-hidden="true">
-                        {FEATURE_LABELS[feature].icon}
+                      <span className="pib-icon-tint pib-icon-tint-cyan" aria-hidden="true">
+                        <span className="material-symbols-outlined text-[18px]">{FEATURE_LABELS[feature].icon}</span>
                       </span>
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-[var(--color-pib-text)]">{FEATURE_LABELS[feature].label}</p>
@@ -376,7 +376,7 @@ export default function PermissionsPage() {
         <div className="overflow-hidden rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03]">
           {GUARDRAILS.map((item) => (
             <div key={item.key} className="flex items-center gap-4 border-b border-[var(--color-pib-line)] px-5 py-4 last:border-0">
-              <span className="material-symbols-outlined hidden text-[18px] text-[var(--color-pib-accent)] sm:inline" aria-hidden="true">{item.icon}</span>
+              <span className="pib-icon-tint pib-icon-tint-cyan hidden sm:inline-flex" aria-hidden="true"><span className="material-symbols-outlined text-[18px]">{item.icon}</span></span>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-[var(--color-pib-text)]">{item.label}</p>
                 <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{item.description}</p>

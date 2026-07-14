@@ -129,7 +129,7 @@ export default function ConversationsPage() {
           <h1 className="pib-page-title mt-2">Conversations</h1>
         </header>
         <div className="bento-card p-10 text-center">
-          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]">forum</span>
+          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-blue)]">forum</span>
           <p className="text-[var(--color-pib-text-muted)] mt-4">
             {error ?? 'Could not load your workspace. Please try again.'}
           </p>
@@ -172,6 +172,7 @@ export default function ConversationsPage() {
         allowStartConversations={capabilities.canStart}
         allowSendMessages={capabilities.canReply}
         allowArchiveConversations={capabilities.canArchive}
+        layoutVariant="hermes"
       />
     </div>
   )

@@ -132,14 +132,14 @@ function IssueRow({ issue }: { issue: AuditIssue }) {
               {issue.affectedPages.slice(0, 5).map((p) => (
                 <span
                   key={p}
-                  className="pib-pill text-[10px] truncate max-w-[220px]"
+                  className="pib-pill pib-pill-success text-[10px] truncate max-w-[220px]"
                   title={p}
                 >
                   {p.replace(/^https?:\/\//, '')}
                 </span>
               ))}
               {issue.affectedPages.length > 5 && (
-                <span className="pib-pill text-[10px]">+{issue.affectedPages.length - 5} more</span>
+                <span className="pib-pill pib-pill-success text-[10px]">+{issue.affectedPages.length - 5} more</span>
               )}
             </div>
           )}
@@ -288,7 +288,7 @@ export function AuditRunnerClient({
                 >
                   <div className="flex items-center gap-3 flex-wrap">
                     <span className="font-semibold text-sm">{cat.category}</span>
-                    <span className="pib-pill text-[10px]">{cat.issues.length} issues</span>
+                    <span className="pib-pill pib-pill-success text-[10px]">{cat.issues.length} issues</span>
                     {catCritical > 0 && (
                       <span className="pib-pill text-[10px] border-red-500/30 bg-red-500/10 text-red-300">
                         {catCritical} critical

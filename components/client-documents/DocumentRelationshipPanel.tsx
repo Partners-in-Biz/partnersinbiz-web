@@ -211,7 +211,7 @@ export function DocumentRelationshipChips({ document }: { document: Pick<ClientD
       {chips.map(([label, id]) => (
         <span
           key={`${label}:${id}`}
-          className="rounded-full border border-[var(--color-pib-line)] px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]"
+          className="pib-pill pib-pill-cyan !text-[10px]"
           title={id}
         >
           {label}: {id}
@@ -279,7 +279,7 @@ function RelationshipField({
       {values.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1">
           {values.map((id) => (
-            <span key={id} className="inline-flex items-center gap-1 rounded-full bg-[var(--color-pib-accent-soft)] px-2 py-1 text-xs text-[var(--color-pib-accent)]">
+            <span key={id} className="inline-flex items-center gap-1 rounded-full bg-[var(--color-pib-cyan-soft)] px-2 py-1 text-xs text-[#5EEAD4]">
               {labels[id] ?? id}
               <button type="button" aria-label={`Remove ${config.title} ${id}`} onClick={() => remove(id)} className="text-[10px]">×</button>
             </span>

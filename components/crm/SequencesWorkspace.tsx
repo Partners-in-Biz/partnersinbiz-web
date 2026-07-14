@@ -23,17 +23,17 @@ const STATUS_META: Record<SequenceStatus, { label: string; icon: string; classNa
   draft: {
     label: 'Draft',
     icon: 'draft',
-    className: 'border-[var(--color-card-border)] bg-transparent text-[var(--color-pib-text-muted)]',
+    className: '',
   },
   active: {
     label: 'Active',
     icon: 'play_arrow',
-    className: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300',
+    className: 'pib-pill-success',
   },
   paused: {
     label: 'Paused',
     icon: 'pause',
-    className: 'border-amber-400/20 bg-amber-400/10 text-amber-300',
+    className: 'pib-pill-warn',
   },
 }
 
@@ -105,7 +105,7 @@ function firstStepPreview(sequence: Sequence) {
 function StatusBadge({ status }: { status: SequenceStatus }) {
   const meta = STATUS_META[status] ?? STATUS_META.draft
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-medium ${meta.className}`}>
+    <span className={`pib-pill ${meta.className}`}>
       <span className="material-symbols-outlined text-[13px]">{meta.icon}</span>
       {meta.label}
     </span>
@@ -655,13 +655,13 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
                       <div className="min-w-0">
                         <div className="mb-2 flex flex-wrap items-center gap-2">
                           <StatusBadge status={seq.status} />
-                          <span className="rounded-full border border-[var(--color-card-border)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)]">
+                          <span className="pib-pill pib-pill-accent">
                             {seq.steps.length} step{seq.steps.length === 1 ? '' : 's'}
                           </span>
-                          <span className="rounded-full border border-[var(--color-card-border)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)]">
+                          <span className="pib-pill pib-pill-accent">
                             {cadenceLabel(seq)}
                           </span>
-                          <span className={score >= 80 ? 'rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[10px] text-emerald-300' : 'rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-1 text-[10px] text-amber-300'}>
+                          <span className={`pib-pill ${score >= 80 ? 'pib-pill-success' : 'pib-pill-warn'}`}>
                             {score}% ready
                           </span>
                         </div>
@@ -693,7 +693,7 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
                                   {stepChannel(step).toUpperCase()} · day {Math.max(0, Number(step.delayDays) || 0)}
                                 </p>
                               </div>
-                              <span className={stepReady(step) ? 'h-2 w-2 rounded-full bg-emerald-400' : 'h-2 w-2 rounded-full bg-amber-400'} />
+                              <span className={`pib-status-dot ${stepReady(step) ? 'pib-status-dot-success' : 'pib-status-dot-warn'}`} />
                             </div>
                           ))}
                         </div>
@@ -701,15 +701,15 @@ export function SequencesWorkspace({ surface, orgScope = {} }: SequencesWorkspac
                           <p className="mt-2 text-[11px] text-[var(--color-pib-text-muted)]">+{seq.steps.length - 4} more steps</p>
                         )}
                         <div className="mt-3 flex flex-wrap gap-1.5">
-                          <span className="rounded-full border border-[var(--color-card-border)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)]">
+                          <span className="pib-pill pib-pill-accent">
                             {channel === 'mixed' ? 'Email + SMS' : channel.toUpperCase()}
                           </span>
                           {seq.goals?.length ? (
-                            <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[10px] text-emerald-300">
+                            <span className="pib-pill pib-pill-success">
                               {seq.goals.length} goal{seq.goals.length === 1 ? '' : 's'}
                             </span>
                           ) : (
-                            <span className="rounded-full border border-[var(--color-card-border)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)]">
+                            <span className="pib-pill">
                               No exit goal
                             </span>
                           )}

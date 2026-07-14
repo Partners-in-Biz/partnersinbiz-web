@@ -28,8 +28,8 @@ export function DocumentBlockEditor({
     <div className="rounded border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <span className="pill !text-[10px] !py-0.5 !px-2">{block.type}</span>
-          <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-0.5 text-[10px] text-white/60">
+          <span className="pib-pill pib-pill-cyan !text-[10px] !py-0.5 !px-2">{block.type}</span>
+          <span className="pib-pill !text-[10px] !py-0.5 !px-2">
             {visibility.replace('-', ' ')}
           </span>
           {block.locked && <span className="text-[10px] text-amber-400">Locked</span>}

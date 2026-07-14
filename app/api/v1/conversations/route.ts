@@ -22,10 +22,17 @@ import { sanitizeContextReferenceSeeds } from '@/lib/context-references/types'
 import { isSuperAdmin } from '@/lib/api/platformAdmin'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import { resolveConversationWorkspaceContext } from '@/lib/client-provisioning/workspace-context'
-import { publicRuntimeTargetPresence } from '@/lib/agents/runtime-targets'
-import { authorizeLinkedComputerDispatch } from '@/lib/linked-computers/runtime-targets'
+import {
+  authorizeWorkspaceRuntime,
+  workspaceRuntimeSupportsOrganizationSharing,
+} from '@/lib/workspaces/runtime-authorization'
+import type { AuthorizedWorkspaceRuntime } from '@/lib/workspaces/runtime-authorization'
+import { requireProjectRuntimeReplica } from '@/lib/project-locations/runtime-binding'
+import { getProjectForUser } from '@/lib/projects/access'
+import { projectLinkedToOrganization } from '@/lib/projects/organization-link'
 import { publicConversationView } from '@/lib/conversations/access'
 import { organizationMemberUids } from '@/lib/conversations/participant-access'
+import { resolveConversationDispatchAgentId } from '@/lib/conversations/dispatch-agent'
 import type { AgentId, Participant, Conversation, ConversationScope } from '@/lib/conversations/types'
 import type { ApiUser } from '@/lib/api/types'
 
@@ -200,6 +207,10 @@ export const POST = withAuth(
         requestedAgentIds: selectedAgentIds,
       }
     }
+    const dispatchAgentId = await resolveConversationDispatchAgentId({
+      participantAgentIds: Array.from(seenAgents),
+      orchestration,
+    })
 
     // Optional fields
     const title = typeof body.title === 'string' ? body.title.trim() : undefined
@@ -228,41 +239,62 @@ export const POST = withAuth(
       return apiError('workspaceId is required for workspace conversations', 400)
     }
     let projectName: string | undefined
+    let projectFolderRelativePath: string | undefined
     if (convScope === 'project') {
       if (!scopeRefId) return apiError('scopeRefId is required for project conversations', 400)
-      const projectDoc = await adminDb.collection('projects').doc(scopeRefId).get()
-      if (!projectDoc.exists) return apiError('Project not found', 404)
-      const projectData = projectDoc.data() ?? {}
-      const projectOrgIds = [
-        projectData.orgId,
-        projectData.clientOrgId,
-        projectData.targetOrgId,
-        projectData.recipientOrgId,
-      ].filter((value): value is string => typeof value === 'string' && value.length > 0)
-      if (!projectOrgIds.includes(scope.orgId)) return apiError('Project is outside this organisation', 403)
+      if (!requestedWorkspaceId || !runtimeTarget) {
+        return apiError('workspaceId and runtimeTarget are required for project conversations', 400)
+      }
+      const projectAccess = await getProjectForUser(scopeRefId, user, scope.orgId)
+      if (!projectAccess.ok) return apiError(projectAccess.error, projectAccess.status)
+      const projectData = projectAccess.doc.data() ?? {}
+      if (!await projectLinkedToOrganization({ projectId: scopeRefId, project: projectData, orgId: scope.orgId })) {
+        return apiError('Project is outside this organisation', 403)
+      }
       projectName = typeof projectData.name === 'string' ? projectData.name.trim() : undefined
     }
     const shouldBindWorkspace = convScope === 'workspace' || convScope === 'project' || Boolean(requestedWorkspaceId)
     let runtimeLabel: string | undefined
+    let authorizedWorkspaceRuntime: AuthorizedWorkspaceRuntime | null = null
     if (shouldBindWorkspace && runtimeTarget) {
-      const dispatchDoc = await adminDb.collection('agent_dispatch_configs').doc('pip').get()
-      const target = publicRuntimeTargetPresence(dispatchDoc.data()?.runtimeTargets)
-        .find((candidate) => candidate.id === runtimeTarget)
-      if (target) {
-        // Existing platform VPS/operator-local records are explicit compatibility
-        // adapters. Linked computers never enter this fallback path.
-        if (!target.selectable) return apiError(`Runtime target ${target.label} is currently unavailable`, 409)
-        runtimeLabel = target.label
-      } else {
-        if (!requestedWorkspaceId) return apiError('workspaceId is required for linked computer dispatch', 400)
-        try {
-          const linked = await authorizeLinkedComputerDispatch({
-            userId: user.uid, orgId: scope.orgId, workspaceId: requestedWorkspaceId, runtimeTargetId: runtimeTarget,
-          })
-          runtimeLabel = linked.machineLabel
-        } catch {
-          return apiError('Linked computer is unavailable or not authorized', 400)
+      if (!requestedWorkspaceId) return apiError('workspaceId is required for computer dispatch', 400)
+      try {
+        authorizedWorkspaceRuntime = await authorizeWorkspaceRuntime({
+          userId: user.uid,
+          orgId: scope.orgId,
+          workspaceId: requestedWorkspaceId,
+          runtimeTargetId: runtimeTarget,
+          ...(dispatchAgentId ? { agentId: dispatchAgentId } : {}),
+        })
+        runtimeLabel = authorizedWorkspaceRuntime.machineLabel
+      } catch (error) {
+        if (error instanceof Error && error.message === 'Computer unavailable') {
+          return apiError('Computer unavailable', 409)
         }
+        return apiError('Computer is unavailable or not authorized', 400)
+      }
+    }
+    if ((shareMode === 'org' || shareMode === 'shared') && authorizedWorkspaceRuntime
+      && !workspaceRuntimeSupportsOrganizationSharing(authorizedWorkspaceRuntime)) {
+      return apiError(
+        shareMode === 'shared'
+          ? 'Shared sessions require an organisation-available computer'
+          : 'Organisation-shared sessions require an organisation-available computer',
+        400,
+      )
+    }
+    if (convScope === 'project' && scopeRefId && requestedWorkspaceId && authorizedWorkspaceRuntime) {
+      try {
+        const projectReplica = await requireProjectRuntimeReplica({
+          projectId: scopeRefId,
+          orgId: scope.orgId,
+          workspaceId: requestedWorkspaceId,
+          actorUserId: user.uid,
+          runtime: authorizedWorkspaceRuntime,
+        })
+        projectFolderRelativePath = projectReplica.relativePath
+      } catch {
+        return apiError('Project is not linked to this computer', 409)
       }
     }
     const workspaceContext = shouldBindWorkspace
@@ -275,6 +307,7 @@ export const POST = withAuth(
           shareMode,
           projectId: convScope === 'project' ? scopeRefId : undefined,
           projectName,
+          folderRelativePath: projectFolderRelativePath,
         })
       : null
     if (shouldBindWorkspace && !workspaceContext) return apiError('Workspace not found for this organisation', 404)

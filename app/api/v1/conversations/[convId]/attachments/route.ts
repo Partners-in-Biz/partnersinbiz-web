@@ -8,7 +8,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { actorFrom } from '@/lib/api/actor'
 import { getConversation } from '@/lib/conversations/conversations'
 import type { ApiUser } from '@/lib/api/types'
-import { canReplyConversation } from '@/lib/conversations/access'
+import { authorizeConversationProject, canReplyConversation } from '@/lib/conversations/access'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,6 +47,8 @@ export const POST = withAuth(
     const conversation = await getConversation(convId)
     if (!conversation) return apiError('Conversation not found', 404)
     if (!canReplyConversation(user, conversation)) return apiError('Forbidden', 403)
+    const projectAuthorization = await authorizeConversationProject(user, conversation)
+    if (!projectAuthorization.ok) return apiError(projectAuthorization.error, projectAuthorization.status)
 
     const contentLengthHeader = req.headers.get('content-length')
     if (contentLengthHeader) {

@@ -19,10 +19,10 @@ export default async function AdSetDetailPage({
 }) {
   const { slug, id } = await params
   const orgId = await resolveOrgIdBySlug(slug)
-  if (!orgId) return <div className="text-white/60">Org not found.</div>
+  if (!orgId) return <div className="pib-empty-state-description">Org not found.</div>
   const adSet = await getAdSet(id)
   if (!adSet || adSet.orgId !== orgId) {
-    return <div className="text-white/60">Ad set not found.</div>
+    return <div className="pib-empty-state-description">Ad set not found.</div>
   }
   const [parent, ads] = await Promise.all([
     getCampaign(adSet.campaignId),
@@ -31,7 +31,7 @@ export default async function AdSetDetailPage({
   const metaId = (adSet.providerData?.meta as { id?: string } | undefined)?.id
 
   return (
-    <article className="space-y-6">
+    <article className="space-y-8">
       <header>
         <Link
           href={
@@ -39,37 +39,37 @@ export default async function AdSetDetailPage({
               ? `/admin/org/${slug}/ads/campaigns/${parent.id}`
               : `/admin/org/${slug}/ads/campaigns`
           }
-          className="text-xs text-white/40 hover:text-white/60"
+          className="eyebrow hover:text-[var(--color-pib-text)]"
         >
           ← {parent ? parent.name : 'Campaigns'}
         </Link>
-        <h1 className="mt-1 text-2xl font-semibold">{adSet.name}</h1>
-        <div className="mt-1 text-sm text-white/50">
+        <h1 className="pib-page-title mt-2">{adSet.name}</h1>
+        <p className="pib-page-sub">
           {adSet.optimizationGoal.toLowerCase()} · {adSet.billingEvent.toLowerCase()} · {adSet.status.toLowerCase()}
-          {metaId && <> · Meta id <code className="text-white/30">{metaId}</code></>}
-        </div>
+          {metaId && <> · Meta id <code className="text-[var(--color-pib-text-faint)]">{metaId}</code></>}
+        </p>
       </header>
 
       {adSet.platform !== 'google' && (
-        <section>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-white/40">Targeting</h2>
-          <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+        <section className="space-y-2">
+          <h2 className="pib-label">Targeting</h2>
+          <dl className="pib-card grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
             <div>
-              <dt className="text-white/40">Countries</dt>
+              <dt className="text-[var(--color-pib-text-muted)]">Countries</dt>
               <dd>{adSet.targeting.geo.countries?.join(', ') ?? '—'}</dd>
             </div>
             <div>
-              <dt className="text-white/40">Age range</dt>
+              <dt className="text-[var(--color-pib-text-muted)]">Age range</dt>
               <dd>
                 {adSet.targeting.demographics.ageMin}-{adSet.targeting.demographics.ageMax}
               </dd>
             </div>
             <div>
-              <dt className="text-white/40">Genders</dt>
+              <dt className="text-[var(--color-pib-text-muted)]">Genders</dt>
               <dd>{adSet.targeting.demographics.genders?.join(', ') ?? 'All'}</dd>
             </div>
             <div>
-              <dt className="text-white/40">Placements</dt>
+              <dt className="text-[var(--color-pib-text-muted)]">Placements</dt>
               <dd>
                 {Object.entries(adSet.placements)
                   .filter(([, v]) => v)
@@ -90,18 +90,18 @@ export default async function AdSetDetailPage({
         />
       )}
 
-      <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-white/40">Ads ({ads.length})</h2>
-        <ul className="mt-2 divide-y divide-white/5 rounded border border-white/10">
+      <section className="space-y-2">
+        <h2 className="pib-label">Ads ({ads.length})</h2>
+        <ul className="pib-surface pib-surface-list divide-y divide-[var(--color-pib-line)]">
           {ads.map((a) => (
             <li key={a.id} className="flex items-center justify-between px-4 py-3 text-sm">
               <Link
                 href={`/admin/org/${slug}/ads/ads/${a.id}`}
-                className="font-medium hover:text-[#F5A623]"
+                className="font-medium hover:text-[var(--color-pib-rose)]"
               >
-                {a.name} <span className="text-xs text-white/30">{a.format.toLowerCase()}</span>
+                {a.name} <span className="text-xs text-[var(--color-pib-text-faint)]">{a.format.toLowerCase()}</span>
               </Link>
-              <span className="text-xs uppercase tracking-wide text-white/50">{a.status.toLowerCase()}</span>
+              <span className="pib-pill pib-pill-rose">{a.status.toLowerCase()}</span>
             </li>
           ))}
         </ul>

@@ -40,7 +40,7 @@ function StatusPill({ status }: { status: string }) {
       <span className="material-symbols-outlined text-[14px]">error</span>Failed
     </span>
   }
-  return <span className="pib-pill inline-flex items-center gap-1">
+  return <span className="pib-pill pib-pill-cyan inline-flex items-center gap-1">
     <span className="material-symbols-outlined text-[14px] animate-pulse">hourglass_top</span>Processing
   </span>
 }

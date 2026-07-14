@@ -248,7 +248,7 @@ export function SocialCredentialsManager() {
                   {p.scopes.length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-1">
                       {p.scopes.map((s) => (
-                        <span key={s} className="rounded bg-[var(--color-pib-surface-2)] px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">{s}</span>
+                        <span key={s} className="pib-pill pib-pill-cyan text-[10px]">{s}</span>
                       ))}
                     </div>
                   )}

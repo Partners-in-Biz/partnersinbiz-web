@@ -11,7 +11,7 @@ interface Params { slug: string }
 export default async function OfflineConversionsPage({ params }: { params: Promise<Params> }) {
   const { slug } = await params
   const orgId = await resolveOrgIdBySlug(slug)
-  if (!orgId) return <div className="text-white/60">Org not found.</div>
+  if (!orgId) return <div className="pib-empty-state-description">Org not found.</div>
 
   const [batches, actions] = await Promise.all([
     listBatches({ orgId }),
@@ -19,10 +19,11 @@ export default async function OfflineConversionsPage({ params }: { params: Promi
   ])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <header>
-        <h1 className="text-2xl font-semibold">Offline Conversions</h1>
-        <p className="text-sm text-white/50">
+        <p className="eyebrow">Ads · Conversions</p>
+        <h1 className="pib-page-title mt-2">Offline Conversions</h1>
+        <p className="pib-page-sub">
           Upload an operator-vetted CSV of offline conversion events to reconcile against the client Conversion Actions.
         </p>
       </header>

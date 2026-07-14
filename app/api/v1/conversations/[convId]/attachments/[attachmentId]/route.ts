@@ -4,7 +4,7 @@ import { getStorage } from 'firebase-admin/storage'
 import { withAuth } from '@/lib/api/auth'
 import { apiError } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
-import { canAccessConversation } from '@/lib/conversations/access'
+import { authorizeConversationProject, canAccessConversation } from '@/lib/conversations/access'
 import { getConversation } from '@/lib/conversations/conversations'
 import { adminDb, getAdminApp } from '@/lib/firebase/admin'
 
@@ -19,6 +19,8 @@ export const GET = withAuth(
     const conversation = await getConversation(convId)
     if (!conversation) return apiError('Conversation not found', 404)
     if (!canAccessConversation(user, conversation)) return apiError('Forbidden', 403)
+    const projectAuthorization = await authorizeConversationProject(user, conversation)
+    if (!projectAuthorization.ok) return apiError(projectAuthorization.error, projectAuthorization.status)
 
     const attachmentDoc = await adminDb.collection('conversation_attachments').doc(attachmentId).get()
     if (!attachmentDoc.exists) return apiError('Attachment not found', 404)

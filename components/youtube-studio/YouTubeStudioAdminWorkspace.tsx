@@ -1711,7 +1711,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">Source assets</h2>
-              <span className="rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+              <span className="pib-pill pib-pill-rose">
                 {visibleSourceAssets.length} asset{visibleSourceAssets.length === 1 ? '' : 's'}
               </span>
             </div>
@@ -1761,7 +1761,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">Clip candidates</h2>
-              <span className="rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+              <span className="pib-pill pib-pill-rose">
                 {visibleClipCandidates.length} clip{visibleClipCandidates.length === 1 ? '' : 's'}
               </span>
             </div>
@@ -1816,7 +1816,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">Production drafts</h2>
-              <span className="rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+              <span className="pib-pill pib-pill-rose">
                 {visibleProductionDrafts.length} draft{visibleProductionDrafts.length === 1 ? '' : 's'}
               </span>
             </div>
@@ -1919,7 +1919,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">Render jobs</h2>
-              <span className="rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+              <span className="pib-pill pib-pill-rose">
                 {visibleRenderJobs.length} render{visibleRenderJobs.length === 1 ? '' : 's'}
               </span>
             </div>
@@ -2022,7 +2022,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">Publishing packets</h2>
-              <span className="rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+              <span className="pib-pill pib-pill-rose">
                 {visiblePackets.length} packet{visiblePackets.length === 1 ? '' : 's'}
               </span>
             </div>
@@ -2113,7 +2113,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">Release plans</h2>
-              <span className="rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+              <span className="pib-pill pib-pill-rose">
                 {visibleReleasePlans.length} plan{visibleReleasePlans.length === 1 ? '' : 's'}
               </span>
             </div>
@@ -2156,7 +2156,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">Hermes production jobs</h2>
-              <span className="rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+              <span className="pib-pill pib-pill-rose">
                 {visibleJobs.length} job packet{visibleJobs.length === 1 ? '' : 's'}
               </span>
             </div>
@@ -2171,7 +2171,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                         <h3 className="break-words font-semibold text-[var(--color-pib-text)]">{job.title}</h3>
                         <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{skillLabel(job.skillKey)}</p>
                       </div>
-                      <span className="shrink-0 rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                      <span className="pib-pill pib-pill-rose shrink-0">
                         {formatToken(job.status)}
                       </span>
                     </div>
@@ -2190,7 +2190,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-headline text-xl font-semibold text-[var(--color-pib-text)]">Analytics feedback</h2>
-              <span className="rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+              <span className="pib-pill pib-pill-rose">
                 {visibleAnalytics.length} snapshot{visibleAnalytics.length === 1 ? '' : 's'}
               </span>
             </div>
@@ -2207,7 +2207,7 @@ export function YouTubeStudioAdminWorkspace({ orgId, orgName }: YouTubeStudioAdm
                           {snapshot.periodStart} to {snapshot.periodEnd} / {formatToken(snapshot.sourceFreshness)}
                         </p>
                       </div>
-                      <span className="shrink-0 rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                      <span className="pib-pill pib-pill-rose shrink-0">
                         {formatToken(snapshot.source)}
                       </span>
                     </div>

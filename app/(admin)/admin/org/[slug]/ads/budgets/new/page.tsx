@@ -15,21 +15,21 @@ export default async function NewBudgetPage({
   const { slug } = await params
   const orgId = await resolveOrgIdBySlug(slug)
   if (!orgId) {
-    return <div className="text-white/60">Org not found.</div>
+    return <div className="pib-empty-state-description">Org not found.</div>
   }
 
   return (
-    <section className="max-w-2xl space-y-4">
+    <section className="max-w-2xl space-y-8">
       <header>
         <a
           href={`/admin/org/${slug}/ads/budgets`}
-          className="text-xs text-white/40 hover:text-white/60"
+          className="eyebrow hover:text-[var(--color-pib-text)]"
         >
           ← Budgets
         </a>
-        <h1 className="mt-1 text-2xl font-semibold">New budget</h1>
+        <h1 className="pib-page-title mt-2">New budget</h1>
       </header>
-      <div className="rounded-lg border border-white/10 p-5">
+      <div className="pib-card">
         <BudgetCapEditor orgId={orgId} orgSlug={slug} />
       </div>
     </section>

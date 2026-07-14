@@ -58,7 +58,7 @@ export default async function HealthTab({ params }: { params: Promise<{ id: stri
             <h3 className="font-semibold text-sm text-[var(--color-pib-text)]">Active signals</h3>
             <p className="text-xs text-[var(--color-pib-text-muted)]">{signals.length} open health signals</p>
           </div>
-          <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">health_and_safety</span>
+          <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">health_and_safety</span></span>
         </div>
         {signals.length === 0 ? (
           <p className="px-4 py-5 text-sm text-[var(--color-pib-text-muted)]">No active health signals.</p>

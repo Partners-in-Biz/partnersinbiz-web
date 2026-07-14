@@ -286,14 +286,7 @@ export default function ChurnPage() {
                     <tr key={row.orgId} className="border-b border-[var(--color-pib-text)]/5 last:border-0">
                       <td className="py-3 pr-4 text-[var(--color-pib-text)] font-medium">{row.name}</td>
                       <td className="py-3 pr-4">
-                        <span
-                          className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full"
-                          style={{
-                            background:
-                              row.reason === 'past_due' ? '#ef444420' : '#f59e0b20',
-                            color: row.reason === 'past_due' ? '#ef4444' : '#f59e0b',
-                          }}
-                        >
+                        <span className={`pib-pill ${row.reason === 'past_due' ? 'pib-pill-danger' : 'pib-pill-warn'}`}>
                           {reasonBadge(row.reason)}
                         </span>
                       </td>
@@ -363,7 +356,7 @@ export default function ChurnPage() {
                   <Line
                     type="monotone"
                     dataKey="retentionPct"
-                    stroke="var(--color-pib-accent)"
+                    stroke="var(--color-pib-cyan)"
                     strokeWidth={2}
                     dot={{ r: 3 }}
                   />

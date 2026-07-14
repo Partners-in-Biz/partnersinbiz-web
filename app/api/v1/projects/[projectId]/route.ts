@@ -8,6 +8,8 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { getProjectForUser } from '@/lib/projects/access'
+import { canProjectRole } from '@/lib/projects/collaboration'
+import { publicProjectView } from '@/lib/projects/public'
 import { logActivity } from '@/lib/activity/log'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { normalizeProjectLinks, pickProjectLinkFields, type ProjectLinkSet } from '@/lib/client-documents/linkedValidation'
@@ -83,7 +85,7 @@ export const GET = withAuth('client', async (req: NextRequest, user, ctx) => {
 
   if (!access.ok) return apiError(access.error, access.status)
   const doc = access.doc
-  return apiSuccess({ id: doc.id, ...doc.data() })
+  return apiSuccess(publicProjectView({ id: doc.id, ...doc.data() }))
 })
 
 export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
@@ -91,6 +93,22 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const body = await req.json().catch(() => ({}))
   const access = await getProjectForUser(projectId, user)
   if (!access.ok) return apiError(access.error, access.status)
+  if (!canProjectRole(access.projectAccess?.role, 'write')) {
+    return apiError('Project contributor access required', 403)
+  }
+  const requestedLinks = pickProjectLinkFields(body)
+  const requiresProjectManagement = body.name !== undefined
+    || body.status !== undefined
+    || body.archived !== undefined
+    || body.targetDate !== undefined
+    || body.dueDate !== undefined
+    || Object.keys(requestedLinks).length > 0
+  if (requiresProjectManagement && !canProjectRole(access.projectAccess?.role, 'manage_project')) {
+    return apiError('Project manager access required', 403)
+  }
+  if (Object.keys(requestedLinks).length > 0 && access.projectAccess?.canViewInternal !== true) {
+    return apiError('Project owner-organisation access required to change sharing links', 403)
+  }
 
   const updates: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp() }
 
@@ -128,7 +146,6 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
 
   const orgId = access.doc.data()?.orgId as string | undefined
   const sourceOrgId = (access.doc.data()?.sourceOrgId as string | undefined) || orgId
-  const requestedLinks = pickProjectLinkFields(body)
   if (Object.keys(requestedLinks).length > 0) {
     const existing = access.doc.data() ?? {}
     const requestedProjectLinks = { ...requestedLinks }

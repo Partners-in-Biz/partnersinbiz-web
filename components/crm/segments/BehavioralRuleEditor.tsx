@@ -96,7 +96,7 @@ export function BehavioralRuleEditor({
               counting…
             </span>
           ) : typeof liveCount === 'number' ? (
-            <span className="flex h-7 shrink-0 items-center rounded-full border border-primary/30 bg-primary/10 px-2.5 text-[11px] text-primary">{liveCount} match{liveCount === 1 ? '' : 'es'}</span>
+            <span className="pib-pill pib-pill-accent shrink-0">{liveCount} match{liveCount === 1 ? '' : 'es'}</span>
           ) : null}
           <button
             type="button"

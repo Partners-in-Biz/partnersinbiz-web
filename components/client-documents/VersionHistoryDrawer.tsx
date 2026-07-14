@@ -187,8 +187,8 @@ export function VersionHistoryDrawer({
       <div className="flex h-full w-full max-w-3xl flex-col border-l border-white/10 bg-[var(--color-pib-surface,#0A0A0B)] shadow-2xl">
         <header className="flex items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
           <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-[var(--color-pib-accent)]" aria-hidden>
-              history
+            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan">
+              <span className="material-symbols-outlined text-[18px]">history</span>
             </span>
             <h2 className="font-display text-lg">Version history</h2>
           </div>
@@ -237,7 +237,7 @@ export function VersionHistoryDrawer({
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-sm font-medium text-[var(--color-pib-text)]">v{version.versionNumber}</span>
                           {isCurrent ? (
-                            <span className="rounded-full bg-[var(--color-pib-accent)] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-black">
+                            <span className="pib-pill pib-pill-cyan !text-[9px]">
                               Current
                             </span>
                           ) : null}

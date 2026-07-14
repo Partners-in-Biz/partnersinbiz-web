@@ -140,12 +140,12 @@ export function DocumentEditorShell({
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-xs text-white/50">
               <span
-                className={`inline-flex h-2 w-2 rounded-full ${
+                className={`pib-status-dot ${
                   saveState === 'saved'
-                    ? 'bg-emerald-400'
+                    ? 'pib-status-dot-success'
                     : saveState === 'saving'
-                      ? 'bg-amber-400'
-                      : 'bg-white/40'
+                      ? 'pib-status-dot-warn'
+                      : 'pib-status-dot-cyan'
                 }`}
               />
               {saveLabel}

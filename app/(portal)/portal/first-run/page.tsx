@@ -317,7 +317,7 @@ export default function FirstRunGrowthWizard() {
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={logoUrl} alt="Workspace logo" className="h-full w-full object-contain" />
                 ) : (
-                  <span className="material-symbols-outlined text-[24px] text-[var(--color-pib-text-muted)]">image</span>
+                  <span className="pib-icon-tint" aria-hidden="true"><span className="material-symbols-outlined text-[24px]">image</span></span>
                 )}
               </div>
               <label className="pib-btn-secondary cursor-pointer text-sm font-label">

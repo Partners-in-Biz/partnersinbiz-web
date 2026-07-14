@@ -7,7 +7,7 @@ interface Params { slug: string }
 export default async function InsightsRollupPage({ params }: { params: Promise<Params> }) {
   const { slug } = await params
   const orgId = await resolveOrgIdBySlug(slug)
-  if (!orgId) return <div className="text-white/60">Org not found.</div>
+  if (!orgId) return <p className="pib-page-sub">Org not found.</p>
 
   const { adminDb } = await import('@/lib/firebase/admin')
   const today = new Date().toISOString().slice(0, 10)
@@ -37,40 +37,46 @@ export default async function InsightsRollupPage({ params }: { params: Promise<P
   const campaigns = await listCampaigns({ orgId, status: 'ACTIVE' })
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-8">
       <header>
-        <h1 className="text-2xl font-semibold">Insights</h1>
-        <p className="mt-1 text-sm text-white/60">Meta paid ad performance across this workspace.</p>
+        <p className="eyebrow">Ads · Insights</p>
+        <h1 className="pib-page-title mt-2">Insights</h1>
+        <p className="pib-page-sub">Meta paid ad performance across this workspace.</p>
       </header>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Kpi label="Today&apos;s spend" value={`$${todaySpend.toFixed(2)}`} />
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <Kpi label="Today's spend" value={`$${todaySpend.toFixed(2)}`} />
         <Kpi label="7d spend" value={`$${weekSpend.toFixed(2)}`} />
         <Kpi label="30d spend" value={`$${monthSpend.toFixed(2)}`} />
         <Kpi label="7d impressions" value={weekImpressions.toLocaleString()} />
         <Kpi label="7d conversions" value={weekConversions.toLocaleString()} />
       </div>
 
-      <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-white/40">
+      <section className="space-y-3">
+        <h2 className="pib-label">
           Active campaigns ({campaigns.length})
         </h2>
         {campaigns.length === 0 ? (
-          <p className="mt-2 text-sm text-white/40">No active campaigns. Client-approved campaigns can be launched from the admin Campaigns tab after spend gates pass.</p>
+          <div className="pib-empty-state">
+            <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">insights</span>
+            <p className="pib-empty-state-description">No active campaigns. Client-approved campaigns can be launched from the admin Campaigns tab after spend gates pass.</p>
+          </div>
         ) : (
-          <ul className="mt-2 divide-y divide-white/5 rounded border border-white/10">
-            {campaigns.map((c) => (
-              <li key={c.id} className="px-4 py-3 text-sm">
-                <a
-                  href={`/admin/org/${slug}/ads/campaigns/${c.id}/insights`}
-                  className="hover:text-[#F5A623]"
-                >
-                  {c.name}
-                </a>
-                <span className="ml-2 text-xs text-white/40">{c.objective.toLowerCase()}</span>
-              </li>
-            ))}
-          </ul>
+          <div className="pib-surface pib-surface-list">
+            <ul className="divide-y divide-[var(--color-pib-line)]">
+              {campaigns.map((c) => (
+                <li key={c.id} className="px-4 py-3 text-sm">
+                  <a
+                    href={`/admin/org/${slug}/ads/campaigns/${c.id}/insights`}
+                    className="text-[var(--color-pib-text)] hover:text-[var(--color-pib-rose)]"
+                  >
+                    {c.name}
+                  </a>
+                  <span className="ml-2 text-xs text-[var(--color-pib-text-muted)]">{c.objective.toLowerCase()}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </section>
     </section>
@@ -79,9 +85,9 @@ export default async function InsightsRollupPage({ params }: { params: Promise<P
 
 function Kpi({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-white/10 p-4">
-      <div className="text-xs uppercase tracking-wide text-white/40">{label}</div>
-      <div className="mt-1 text-2xl font-semibold">{value}</div>
+    <div className="pib-stat-card">
+      <div className="pib-label mb-0">{label}</div>
+      <div className="mt-1 pib-page-title text-2xl">{value}</div>
     </div>
   )
 }

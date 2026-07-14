@@ -529,17 +529,11 @@ export function SocialPostReviewWorkspace({
           <h1 className="font-headline text-2xl md:text-3xl text-[var(--color-pib-text)] mt-1">{title}</h1>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <span
-            className="text-[10px] font-label uppercase tracking-widest border px-2 py-1 rounded"
-            style={{
-              borderColor: 'rgba(245, 158, 11, 0.4)',
-              color: 'var(--color-accent-v2, var(--color-pib-accent))',
-            }}
-          >
+          <span className="pib-pill pib-pill-rose">
             {resolvedStatus}
           </span>
           {regenerationCount > 0 ? (
-            <span className="text-[10px] uppercase tracking-wider text-[var(--color-pib-text-muted)] bg-[var(--color-pib-surface-2)] px-2 py-1 rounded">
+            <span className="pib-pill">
               Revision {regenerationCount}
             </span>
           ) : null}

@@ -120,7 +120,7 @@ describe('linked computer lifecycle HTTP boundaries', () => {
     } as never)
     const response = await handleLinkedComputerList({ uid: 'user-a' }, async () => [safe])
     const json = await response.json()
-    expect(Object.keys(json.data[0]).sort()).toEqual(['architecture', 'capabilities', 'createdAt', 'credentialVersion', 'deviceId', 'grants', 'health', 'label', 'lastSeenAt', 'mappings', 'platform', 'runtimeVersion', 'status', 'updatedAt'].sort())
+    expect(Object.keys(json.data[0]).sort()).toEqual(['architecture', 'capabilities', 'createdAt', 'credentialVersion', 'deviceId', 'deviceKind', 'grants', 'health', 'label', 'lastSeenAt', 'mappings', 'ownerType', 'platform', 'runtimeVersion', 'status', 'updatedAt'].sort())
     expect(JSON.stringify(json)).not.toMatch(/\/Users|private-target|fingerprint|secret|internalUrl/i)
   })
 
@@ -128,12 +128,22 @@ describe('linked computer lifecycle HTTP boundaries', () => {
     const grantPut = jest.fn(async () => undefined)
     const grantReq = new NextRequest('https://test/api/v1/linked-computers/device-a/grants', { method: 'PUT', body: JSON.stringify({ deviceId: 'device-b', orgId: 'org-a', status: 'active', allowedUserIds: ['user-b'] }) })
     expect((await handleDeviceGrant(grantReq, { uid: 'admin-a' }, 'device-a', grantPut)).status).toBe(200)
-    expect(grantPut).toHaveBeenCalledWith(expect.objectContaining({ deviceId: 'device-a', actorUserId: 'admin-a', orgId: 'org-a' }))
+    expect(grantPut).toHaveBeenCalledWith(expect.objectContaining({ deviceId: 'device-a', actorUserId: 'admin-a', orgId: 'org-a', accessMode: 'selected_users', allowedUserIds: ['user-b'] }))
 
     const mappingPut = jest.fn(async () => undefined)
     const mappingReq = new NextRequest('https://test/api/v1/linked-computers/device-a/mappings', { method: 'PUT', body: JSON.stringify({ deviceId: 'device-b', mappingId: 'map-a', orgId: 'org-a', workspaceId: 'ws-a', label: 'Workspace', status: 'active', localPath: '/Users/escape' }) })
     expect((await handleDeviceMapping(mappingReq, { uid: 'user-a' }, 'device-a', mappingPut)).status).toBe(200)
     expect(mappingPut).toHaveBeenCalledWith(expect.not.objectContaining({ localPath: expect.anything() }))
+  })
+
+  it('accepts explicit organisation-wide grants and rejects unknown access modes', async () => {
+    const put = jest.fn(async () => undefined)
+    const shared = new NextRequest('https://test/api/v1/linked-computers/device-a/grants', { method: 'PUT', body: JSON.stringify({ orgId: 'org-a', status: 'active', accessMode: 'organization', allowedUserIds: ['ignored-user'] }) })
+    expect((await handleDeviceGrant(shared, { uid: 'admin-a' }, 'device-a', put)).status).toBe(200)
+    expect(put).toHaveBeenCalledWith(expect.objectContaining({ accessMode: 'organization', allowedUserIds: [] }))
+
+    const invalid = new NextRequest('https://test/api/v1/linked-computers/device-a/grants', { method: 'PUT', body: JSON.stringify({ orgId: 'org-a', status: 'active', accessMode: 'public' }) })
+    expect((await handleDeviceGrant(invalid, { uid: 'admin-a' }, 'device-a', put)).status).toBe(400)
   })
 
   it.each(['paused', 'active', 'revoked'] as const)('binds the %s device lifecycle transition to its owner', async (status) => {
@@ -173,12 +183,30 @@ describe('linked computer lifecycle HTTP boundaries', () => {
     const req = new NextRequest('https://test/api/v1/linked-computers/device-a/heartbeat', { method: 'POST', body: '{"runtimeVersion":"1.2.3","health":"ok","capabilities":["workspace.execute"],"localPath":"/Users/private"}' })
     expect((await handleDeviceHeartbeat(req, 'device-a', auth as never, record)).status).toBe(200)
     expect(auth).toHaveBeenCalledWith(expect.anything(), 'device-a', expect.stringContaining('"localPath"'))
-    expect(record).toHaveBeenCalledWith({ deviceId: 'device-a', runtimeVersion: '1.2.3', health: 'ok', capabilities: ['workspace.execute'] })
+    expect(record).toHaveBeenCalledWith({ deviceId: 'device-a', runtimeVersion: '1.2.3', health: 'ok', capabilities: ['workspace.execute'], syncProtocolVersion: null })
     expect(record.mock.calls[0][0]).not.toHaveProperty('localPath')
 
     const denied = new NextRequest('https://test/api/v1/linked-computers/device-a/heartbeat', { method: 'POST', body: '{"runtimeVersion":"1","health":"ok"}' })
     const response = await handleDeviceHeartbeat(denied, 'device-a', async () => ({ deviceId: 'device-b', ownerUserId: 'user-b', credentialVersion: 1 }), record)
     expect(response.status).toBe(403)
+  })
+
+  it('attests workspace.sync independently only with the installed executor protocol version', async () => {
+    const record = jest.fn(async () => undefined)
+    const auth = async () => ({ deviceId: 'device-a', ownerUserId: 'user-a', credentialVersion: 1 })
+    const verified = new NextRequest('https://test/api/v1/linked-computers/device-a/heartbeat', {
+      method: 'POST',
+      body: JSON.stringify({ runtimeVersion: '2.0.0', health: 'ok', capabilities: ['workspace.sync'], syncProtocolVersion: 1 }),
+    })
+    expect((await handleDeviceHeartbeat(verified, 'device-a', auth, record)).status).toBe(200)
+    expect(record).toHaveBeenLastCalledWith(expect.objectContaining({ capabilities: ['workspace.sync'], syncProtocolVersion: 1 }))
+
+    const legacyClaim = new NextRequest('https://test/api/v1/linked-computers/device-a/heartbeat', {
+      method: 'POST',
+      body: JSON.stringify({ runtimeVersion: '1.9.0', health: 'ok', capabilities: ['workspace.sync'] }),
+    })
+    expect((await handleDeviceHeartbeat(legacyClaim, 'device-a', auth, record)).status).toBe(200)
+    expect(record).toHaveBeenLastCalledWith(expect.objectContaining({ capabilities: [], syncProtocolVersion: null }))
   })
 
   it('redelivers a pending rotation without a transport token to a signed previous-version heartbeat', async () => {

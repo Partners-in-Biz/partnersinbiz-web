@@ -272,7 +272,7 @@ export function GoogleConnectionsPanel({ orgSlug, orgId, connections }: Props) {
             Customer {customerId}
           </span>
           {loginCustomerId && (
-            <span className="ml-2 inline-flex items-center rounded-full bg-white/5 px-3 py-1 text-xs font-medium uppercase tracking-wide text-white/50">
+            <span className="pib-pill pib-pill-rose ml-2">
               Manager {loginCustomerId}
             </span>
           )}

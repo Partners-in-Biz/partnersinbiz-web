@@ -310,14 +310,14 @@ export function buildMarketingHubProps(config: MarketingHubSurface): HubPageProp
         section('Email and capture controls', [
           {
             label: 'Email permissions',
-            href: orgPath(slug, '/messages'),
+            href: orgPath(slug, '/messages?view=governance'),
             icon: 'mail',
             description: 'Set who can create email drafts, approve broadcasts, schedule sends, and inspect failures.',
             eyebrow: 'Comms',
           },
           {
             label: 'Email analytics access',
-            href: orgPath(slug, '/messages'),
+            href: orgPath(slug, '/messages?view=governance'),
             icon: 'query_stats',
             description: 'Set who can view delivery, opens, clicks, source performance, and engagement reports.',
             eyebrow: 'Reporting',

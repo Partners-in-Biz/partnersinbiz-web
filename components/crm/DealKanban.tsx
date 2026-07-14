@@ -160,7 +160,7 @@ function DealCard({
             <Link
               href={contactHref}
               onClick={e => e.stopPropagation()}
-              className="pib-pill px-2 py-0.5 text-[10px] truncate max-w-[120px]"
+              className="pib-pill pib-pill-accent px-2 py-0.5 text-[10px] truncate max-w-[120px]"
               title="View contact"
             >
               {readableContactLabel}
@@ -227,7 +227,7 @@ function DealColumn({
           <span className="pib-label mb-0">
             {stage.label}
           </span>
-          <span className="pib-pill ml-auto px-1.5 py-0.5 text-[9px]">
+          <span className="pib-pill pib-pill-accent ml-auto px-1.5 py-0.5 text-[9px]">
             {deals.length}
           </span>
         </div>

@@ -85,13 +85,13 @@ interface SegmentOption {
 function StatusBadge({ status }: { status: ContactStatus }) {
   const tone =
     status === 'active'
-      ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-100'
+      ? 'pib-pill-success'
       : status === 'bounced'
-      ? 'border-red-400/40 bg-red-400/10 text-red-100'
-      : 'border-primary/30 bg-primary/10 text-primary'
+      ? 'pib-pill-danger'
+      : 'pib-pill-warn'
   const label = status.charAt(0).toUpperCase() + status.slice(1)
   return (
-    <span className={`inline-flex h-6 items-center rounded-full border px-2 text-[10px] font-mono uppercase tracking-wider ${tone}`}>
+    <span className={`pib-pill ${tone}`}>
       {label}
     </span>
   )
@@ -154,12 +154,12 @@ function StageBadge({ stage }: { stage: string }) {
   const win = ['won', 'demo', 'replied']
   const lost = ['lost']
   const tone = lost.includes(stage)
-    ? 'border-red-400/40 bg-red-400/10 text-red-100'
+    ? 'pib-pill-danger'
     : win.includes(stage)
-    ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-100'
-    : 'border-primary/30 bg-primary/10 text-primary'
+    ? 'pib-pill-success'
+    : 'pib-pill-accent'
   return (
-    <span className={`inline-flex h-6 items-center rounded-full border px-2 text-[10px] font-mono uppercase tracking-wider ${tone}`}>
+    <span className={`pib-pill ${tone}`}>
       {readableContactLabel(stage)}
     </span>
   )
@@ -168,12 +168,12 @@ function StageBadge({ stage }: { stage: string }) {
 function TypeBadge({ type }: { type: string }) {
   const tone =
     type === 'client'
-      ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-100'
+      ? 'pib-pill-success'
       : type === 'churned'
-      ? 'border-red-400/40 bg-red-400/10 text-red-100'
-      : 'border-primary/30 bg-primary/10 text-primary'
+      ? 'pib-pill-danger'
+      : 'pib-pill-accent'
   return (
-    <span className={`inline-flex h-6 items-center rounded-full border px-2 text-[10px] font-mono uppercase tracking-wider ${tone}`}>
+    <span className={`pib-pill ${tone}`}>
       {readableContactLabel(type)}
     </span>
   )
@@ -751,8 +751,8 @@ export function ContactsWorkspace({
 
       <header className="flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 px-3 py-1.5">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="material-symbols-outlined grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-[15px] text-primary" aria-hidden="true">
-            contacts
+          <span className="pib-icon-tint shrink-0" aria-hidden="true">
+            <span className="material-symbols-outlined text-[15px]">contacts</span>
           </span>
           <div className="min-w-0">
             <p className="truncate text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">CRM</p>

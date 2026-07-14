@@ -31,6 +31,7 @@ jest.mock('@/components/chat/UnifiedChat', () => ({
     allowSendMessages,
     allowAgentParticipants,
     allowArchiveConversations,
+    layoutVariant,
   }: {
     initialConvId?: string
     orgId: string
@@ -39,6 +40,7 @@ jest.mock('@/components/chat/UnifiedChat', () => ({
     allowSendMessages?: boolean
     allowAgentParticipants?: boolean
     allowArchiveConversations?: boolean
+    layoutVariant?: 'classic' | 'hermes'
   }) => (
     <div
       data-testid="unified-chat"
@@ -48,6 +50,7 @@ jest.mock('@/components/chat/UnifiedChat', () => ({
       data-allow-send={String(allowSendMessages)}
       data-allow-agent={String(allowAgentParticipants)}
       data-allow-archive={String(allowArchiveConversations)}
+      data-layout-variant={layoutVariant ?? 'classic'}
     >
       {orgName}
     </div>
@@ -123,6 +126,7 @@ describe('ConversationsPage', () => {
     expect(chat).toHaveAttribute('data-allow-send', 'false')
     expect(chat).toHaveAttribute('data-allow-agent', 'false')
     expect(chat).toHaveAttribute('data-allow-archive', 'false')
+    expect(chat).toHaveAttribute('data-layout-variant', 'hermes')
     expect(screen.getByText('Lumen workspace')).toBeInTheDocument()
   })
 

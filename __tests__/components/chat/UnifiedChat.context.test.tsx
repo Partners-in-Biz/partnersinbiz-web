@@ -122,12 +122,53 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     })
 
     render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" />)
-    fireEvent.click(await screen.findByRole('button', { name: /new conversation/i }))
+    const trigger = await screen.findByRole('button', { name: /new conversation/i })
+    const background = trigger.closest('aside')
+    trigger.focus()
+    fireEvent.click(trigger)
 
     const dialog = screen.getByRole('dialog', { name: 'New conversation' })
-    expect(dialog).toHaveClass('max-h-[100dvh]', 'flex-col', 'overflow-hidden')
+    expect(screen.getByTestId('accessible-dialog-panel')).toHaveClass('max-h-[100dvh]', 'flex-col', 'overflow-hidden')
     expect(screen.getByTestId('new-conversation-scroll-body')).toHaveClass('min-h-0', 'flex-1', 'overflow-y-auto')
     expect(screen.getByRole('button', { name: 'Start conversation' }).parentElement).toHaveClass('shrink-0')
+    expect(dialog).toContainElement(document.activeElement as HTMLElement)
+    expect(background).toHaveAttribute('inert')
+
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: 'New conversation' })).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
+    expect(background).not.toHaveAttribute('inert')
+  })
+
+  it('offers a prominent first-project path even when the organisation has no projects yet', async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/visible-agents') || url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: {
+        workspaces: [], runtimeTargetsByWorkspace: {}, projects: [],
+      } })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" layoutVariant="hermes" />)
+
+    expect(await screen.findByText(/Use New project above to create your first project/i)).toBeInTheDocument()
+    const createProject = screen.getByRole('button', { name: 'Create new project' })
+    expect(createProject).toBeEnabled()
+    fireEvent.click(createProject)
+
+    const dialog = screen.getByRole('dialog', { name: 'New conversation' })
+    expect(within(dialog).getByLabelText('Conversation context')).toHaveValue('project')
+    expect(within(dialog).getByRole('combobox', { name: 'Project folder' })).toHaveTextContent('No projects available')
+    const projectSetup = within(dialog).getByRole('region', { name: 'New project' })
+    expect(within(projectSetup).getByRole('radio', { name: 'Link existing folder' })).toBeChecked()
+    expect(within(projectSetup).getByRole('radio', { name: 'Standard PiB project' })).toBeEnabled()
+    expect(within(projectSetup).getByRole('radio', { name: 'Full client workspace' })).toBeEnabled()
+
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    fireEvent.click(screen.getByRole('button', { name: /^New conversation$/i }))
+    expect(screen.queryByRole('region', { name: 'New project' })).not.toBeInTheDocument()
   })
 
   it('renders friendly VPS-canonical scope copy without raw filesystem paths', async () => {
@@ -193,7 +234,7 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     expect(screen.queryByText(/~\/Cowork/i)).not.toBeInTheDocument()
   })
 
-  it('keeps an unavailable explicit target visible as an error and never falls back', async () => {
+  it('shows Computer unavailable and disables the bound session composer without changing runtime', async () => {
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
       if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
@@ -210,9 +251,134 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
       throw new Error(`Unhandled fetch: ${url}`)
     })
     render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" initialConvId="conv-1" />)
-    expect(await screen.findByRole('alert')).toHaveTextContent('Studio Mac is unavailable. Select another computer or try again when it is online.')
-    expect(screen.getByRole('alert')).toHaveTextContent('No other runtime was selected.')
+    const alert = await screen.findByRole('alert')
+    expect(within(alert).getByText('Computer unavailable')).toBeInTheDocument()
+    expect(alert).toHaveTextContent('Studio Mac is offline. This session remains linked to Studio Mac.')
+    expect(screen.queryByText(/select another computer/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/Office PC was selected/i)).not.toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Computer unavailable')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled()
+  })
+
+  it('does not invent a selectable VPS when a project has no available computer', async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents') || url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: {
+        workspaces: [{ workspaceId: 'acme', orgId: 'org-1', orgSlug: 'acme', orgName: 'Acme', agentDomain: 'acme', sourceOfTruth: 'vps', syncMode: 'hybrid', defaultRuntimeTarget: 'vps', folderVersion: 1 }],
+        runtimeTargetsByWorkspace: { acme: [] },
+        projects: [{ id: 'project-1', name: 'Launch Project' }],
+      } })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [baseConversation] } })
+      if (url === '/api/v1/conversations/conv-1/messages') return jsonResponse({ data: { messages: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" initialConvId="conv-1" />)
+    fireEvent.click(await screen.findByRole('button', { name: /new conversation/i }))
+    fireEvent.change(screen.getByLabelText('Conversation context'), { target: { value: 'project' } })
+
+    const runtimeSelect = screen.getByRole('combobox', { name: 'Runtime' })
+    expect(within(runtimeSelect).getByRole('option', { name: 'No linked computers available' })).toBeDisabled()
+    expect(within(runtimeSelect).queryByRole('option', { name: 'VPS' })).not.toBeInTheDocument()
+    expect(runtimeSelect).toHaveValue('')
+    expect(screen.getByRole('button', { name: 'Start conversation' })).toBeDisabled()
+  })
+
+  it('offers only computers linked to the selected project and blocks an unlinked project', async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents') || url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: {
+        workspaces: [{ workspaceId: 'acme', orgId: 'org-1', orgSlug: 'acme', orgName: 'Acme', agentDomain: 'acme', sourceOfTruth: 'vps', syncMode: 'hybrid', defaultRuntimeTarget: 'runtime-vps', folderVersion: 1 }],
+        runtimeTargetsByWorkspace: { acme: [{
+          id: 'runtime-vps', locationId: 'location-vps', workspaceId: 'acme', label: 'Client VPS',
+          selectable: true, enabled: true, isLocal: false, isFresh: true, isHealthy: true, lastSeenAt: null,
+        }, {
+          id: 'runtime-mac', locationId: 'location-mac', workspaceId: 'acme', label: 'Studio Mac',
+          selectable: true, enabled: true, isLocal: true, isFresh: true, isHealthy: true, lastSeenAt: null,
+        }] },
+        projects: [{
+          id: 'project-mac', name: 'Mac project', locations: [{
+            replicaId: 'replica-mac', locationId: 'location-mac', label: 'Studio Mac',
+            workspaceId: 'acme', availability: 'online', syncStatus: 'synced', selectable: true,
+          }],
+        }, {
+          id: 'project-pending', name: 'Pending project', locations: [{
+            replicaId: 'replica-vps', locationId: 'location-vps', label: 'Client VPS',
+            workspaceId: 'acme', availability: 'online', syncStatus: 'pending', selectable: false,
+          }],
+        }, { id: 'project-unlinked', name: 'Unlinked project', locations: [] }],
+      } })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [baseConversation] } })
+      if (url === '/api/v1/conversations/conv-1/messages') return jsonResponse({ data: { messages: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" initialConvId="conv-1" />)
+    fireEvent.click(await screen.findByRole('button', { name: /new conversation/i }))
+    fireEvent.change(screen.getByLabelText('Conversation context'), { target: { value: 'project' } })
+
+    const projectSelect = screen.getByRole('combobox', { name: 'Project folder' })
+    fireEvent.change(projectSelect, { target: { value: 'project-mac' } })
+    const runtimeSelect = screen.getByRole('combobox', { name: 'Runtime' })
+    await waitFor(() => expect(runtimeSelect).toHaveValue('runtime-mac'))
+    expect(within(runtimeSelect).getByRole('option', { name: /Studio Mac/ })).toBeInTheDocument()
+    expect(within(runtimeSelect).queryByRole('option', { name: /Client VPS/ })).not.toBeInTheDocument()
+
+    fireEvent.change(projectSelect, { target: { value: 'project-pending' } })
+    await waitFor(() => expect(runtimeSelect).toHaveValue(''))
+    expect(within(runtimeSelect).getByRole('option', { name: 'No ready project computers available' })).toBeDisabled()
+    expect(screen.getByText(/no linked computer currently has a ready project folder/i)).toBeInTheDocument()
+
+    fireEvent.change(projectSelect, { target: { value: 'project-unlinked' } })
+    await waitFor(() => expect(runtimeSelect).toHaveValue(''))
+    expect(within(runtimeSelect).getByRole('option', { name: 'No linked computers available' })).toBeDisabled()
+    expect(screen.getByText(/link a location to this project before starting a session/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Start conversation' })).toBeDisabled()
+  })
+
+  it('refreshes computer availability every 30 seconds and clears that poll on unmount', async () => {
+    let workspaceRequests = 0
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) {
+        workspaceRequests += 1
+        return jsonResponse({ data: { workspaces: [], runtimeTargetsByWorkspace: {}, projects: [] } })
+      }
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [baseConversation] } })
+      if (url === '/api/v1/conversations/conv-1/messages') return jsonResponse({ data: { messages: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    const setIntervalSpy = jest.spyOn(window, 'setInterval')
+    const clearIntervalSpy = jest.spyOn(window, 'clearInterval')
+    const view = render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" initialConvId="conv-1" />)
+
+    try {
+      await waitFor(() => expect(workspaceRequests).toBe(1))
+      const pollIndex = setIntervalSpy.mock.calls.findIndex(([, delay]) => delay === 30_000)
+      expect(pollIndex).toBeGreaterThanOrEqual(0)
+
+      await act(async () => {
+        const refresh = setIntervalSpy.mock.calls[pollIndex][0] as TimerHandler
+        if (typeof refresh === 'function') refresh()
+        await Promise.resolve()
+      })
+      await waitFor(() => expect(workspaceRequests).toBe(2))
+
+      const pollHandle = setIntervalSpy.mock.results[pollIndex].value
+      view.unmount()
+      expect(clearIntervalSpy).toHaveBeenCalledWith(pollHandle)
+    } finally {
+      view.unmount()
+      setIntervalSpy.mockRestore()
+      clearIntervalSpy.mockRestore()
+    }
   })
 
   it('renders the accepted computer receipt instead of the requested target echo', async () => {
@@ -232,6 +398,344 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     expect(await screen.findByText('Accepted by Actual Office PC')).toBeInTheDocument()
     expect(screen.getByText(/Runtime 2.4.1/)).toBeInTheDocument()
     expect(screen.queryByText('Accepted by Requested Mac')).not.toBeInTheDocument()
+  })
+})
+
+describe('UnifiedChat new project setup', () => {
+  const workspace = {
+    workspaceId: 'acme',
+    orgId: 'org-1',
+    orgSlug: 'acme',
+    orgName: 'Acme',
+    agentDomain: 'acme',
+    sourceOfTruth: 'vps',
+    syncMode: 'hybrid',
+    defaultRuntimeTarget: 'runtime-mac',
+    folderVersion: 1,
+  }
+  const runtimes = [{
+    id: 'runtime-vps',
+    label: 'Partners VPS',
+    hostId: 'host-vps',
+    mappingId: 'mapping-vps',
+    workspaceId: 'acme',
+    locationId: 'location-vps',
+    locationLabel: 'Partners VPS',
+    platform: 'linux',
+    kind: 'linked-computer',
+    deviceKind: 'vps',
+    ownerType: 'organization',
+    visibility: 'organization',
+    selectable: true,
+    enabled: true,
+    isLocal: false,
+    isFresh: true,
+    isHealthy: true,
+    lastSeenAt: '2026-07-13T18:00:00.000Z',
+    ageSeconds: 8,
+    lastHealthStatus: 'ok',
+  }, {
+    id: 'runtime-mac',
+    label: 'Studio Mac',
+    deviceId: 'device-mac',
+    mappingId: 'mapping-mac',
+    workspaceId: 'acme',
+    locationId: 'location-mac',
+    locationLabel: 'Studio Mac',
+    platform: 'macos',
+    kind: 'linked-computer',
+    selectable: true,
+    enabled: true,
+    isLocal: true,
+    isFresh: true,
+    isHealthy: true,
+    lastSeenAt: '2026-07-13T18:00:00.000Z',
+    ageSeconds: 12,
+    lastHealthStatus: 'ok',
+  }, {
+    id: 'runtime-office',
+    label: 'Office PC',
+    deviceId: 'device-office',
+    mappingId: 'mapping-office',
+    workspaceId: 'acme',
+    locationId: 'location-office',
+    platform: 'windows',
+    kind: 'linked-computer',
+    selectable: false,
+    enabled: true,
+    isLocal: true,
+    isFresh: false,
+    isHealthy: false,
+    unavailableReason: 'offline',
+    lastSeenAt: null,
+    ageSeconds: null,
+    lastHealthStatus: 'offline',
+  }]
+
+  async function openProjectWizard() {
+    fireEvent.click(await screen.findByRole('button', { name: /new conversation/i }))
+    fireEvent.change(screen.getByLabelText('Conversation context'), { target: { value: 'project' } })
+    fireEvent.click(screen.getByRole('button', { name: 'New project' }))
+    return screen.getByRole('region', { name: 'New project' })
+  }
+
+  it('links a registered folder without exposing raw paths and selects the returned project', async () => {
+    let workspaceRequests = 0
+    let setupPayload: Record<string, unknown> | undefined
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/visible-agents') || url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) {
+        workspaceRequests += 1
+        return jsonResponse({ data: {
+          workspaces: [workspace],
+          runtimeTargetsByWorkspace: { acme: runtimes },
+          projects: [
+            { id: 'project-existing', name: 'Existing project' },
+            ...(workspaceRequests > 1 ? [{ id: 'project-new', name: 'Website Refresh' }] : []),
+          ],
+        } })
+      }
+      if (url.startsWith('/api/v1/workspace-folders?')) return jsonResponse({ data: [{
+        id: 'folder-briefs',
+        name: 'Client Briefs',
+        paths: { vpsPath: '/srv/clients/acme/private', localPathHint: '/Users/peet/private' },
+        syncState: { status: 'synced' },
+      }] })
+      if (url === '/api/v1/project-setups' && init?.method === 'POST') {
+        setupPayload = JSON.parse(String(init.body)) as Record<string, unknown>
+        return jsonResponse({ data: {
+          projectId: 'project-new',
+          project: { id: 'project-new', name: 'Website Refresh' },
+          replicas: [{ locationId: 'location-mac', syncStatus: 'pending' }],
+          plan: {
+            state: 'awaiting_mapping_confirmation',
+            completed: false,
+            syncCompleted: false,
+            actions: [{ type: 'confirm_existing_folder', status: 'required' }],
+          },
+        } })
+      }
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [baseConversation] } })
+      if (url.includes('/messages')) return jsonResponse({ data: { messages: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" />)
+    const wizard = await openProjectWizard()
+
+    expect(within(wizard).getByRole('radio', { name: 'Link existing folder' })).toBeChecked()
+    expect(within(wizard).getByRole('radio', { name: 'Standard PiB project' })).toBeInTheDocument()
+    expect(within(wizard).getByRole('radio', { name: 'Full client workspace' })).toBeInTheDocument()
+    fireEvent.change(within(wizard).getByLabelText('Project name'), { target: { value: 'Website Refresh' } })
+    fireEvent.change(await within(wizard).findByLabelText('Registered folder'), { target: { value: 'folder-briefs' } })
+    fireEvent.change(within(wizard).getByLabelText('Project location'), { target: { value: 'location-mac' } })
+    fireEvent.click(within(wizard).getByRole('button', { name: 'Create project' }))
+
+    await waitFor(() => expect(setupPayload).toEqual({
+      mode: 'existing_folder',
+      orgId: 'org-1',
+      projectName: 'Website Refresh',
+      workspaceId: 'acme',
+      workspaceFolderId: 'folder-briefs',
+      locationId: 'location-mac',
+      locationIds: ['location-mac'],
+      mappingId: 'mapping-mac',
+    }))
+    expect(await within(wizard).findByText('Pending mapping')).toBeInTheDocument()
+    expect(within(wizard).getByText('Confirm existing folder')).toBeInTheDocument()
+    expect(within(wizard).getByText(/Sync is not yet confirmed/)).toBeInTheDocument()
+    expect(within(wizard).getByRole('button', { name: 'Continue to session' })).toBeEnabled()
+    expect(screen.getByRole('combobox', { name: 'Project folder' })).toHaveValue('project-new')
+    expect(document.body).not.toHaveTextContent('/srv/clients/acme/private')
+    expect(document.body).not.toHaveTextContent('/Users/peet/private')
+  })
+
+  it('requires an authorised registered folder instead of accepting a raw server path', async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/visible-agents') || url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: {
+        workspaces: [workspace], runtimeTargetsByWorkspace: { acme: runtimes },
+        projects: [{ id: 'project-existing', name: 'Existing project' }],
+      } })
+      if (url.startsWith('/api/v1/workspace-folders?')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [baseConversation] } })
+      if (url.includes('/messages')) return jsonResponse({ data: { messages: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" />)
+    const wizard = await openProjectWizard()
+    expect(await within(wizard).findByText(/must first be registered and mapped/i)).toBeInTheDocument()
+    expect(within(wizard).queryByRole('textbox', { name: /path/i })).not.toBeInTheDocument()
+    expect(within(wizard).getByRole('button', { name: 'Create project' })).toBeDisabled()
+  })
+
+  it('creates a standard PiB project on multiple selected computers and reports pending sync truthfully', async () => {
+    let setupPayload: Record<string, unknown> | undefined
+    const onlineRuntimes = runtimes.map((runtime) => runtime.id === 'runtime-office'
+      ? { ...runtime, selectable: true, isFresh: true, isHealthy: true, unavailableReason: undefined }
+      : runtime)
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/visible-agents') || url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: {
+        workspaces: [workspace], runtimeTargetsByWorkspace: { acme: onlineRuntimes },
+        projects: [{ id: 'project-existing', name: 'Existing project' }],
+      } })
+      if (url.startsWith('/api/v1/workspace-folders?')) return jsonResponse({ data: [] })
+      if (url === '/api/v1/project-setups' && init?.method === 'POST') {
+        setupPayload = JSON.parse(String(init.body)) as Record<string, unknown>
+        return jsonResponse({ data: {
+          projectId: 'project-standard',
+          project: { id: 'project-standard', name: 'Growth Sprint', locationIds: ['location-vps', 'location-mac', 'location-office'] },
+          plan: {
+            state: 'awaiting_standard_provisioning', completed: false, syncCompleted: false,
+            actions: [{ type: 'create_standard_project_folder', status: 'required' }],
+          },
+        } })
+      }
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [baseConversation] } })
+      if (url.includes('/messages')) return jsonResponse({ data: { messages: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" />)
+    const wizard = await openProjectWizard()
+    fireEvent.click(within(wizard).getByRole('radio', { name: 'Standard PiB project' }))
+    fireEvent.change(within(wizard).getByLabelText('Project name'), { target: { value: 'Growth Sprint' } })
+    const canonicalVps = within(wizard).getByRole('checkbox', { name: /Partners VPS · Canonical VPS/ })
+    await waitFor(() => expect(canonicalVps).toBeChecked())
+    expect(canonicalVps).toBeDisabled()
+    fireEvent.click(within(wizard).getByRole('checkbox', { name: /Studio Mac/ }))
+    fireEvent.click(within(wizard).getByRole('checkbox', { name: /Office PC/ }))
+    fireEvent.click(within(wizard).getByRole('button', { name: 'Create project' }))
+
+    await waitFor(() => expect(setupPayload).toEqual({
+      mode: 'standard', orgId: 'org-1', projectName: 'Growth Sprint', workspaceId: 'acme',
+      locationIds: ['location-vps', 'location-mac', 'location-office'],
+    }))
+    expect(await within(wizard).findByText('Pending sync')).toBeInTheDocument()
+    expect(within(wizard).getByText(/Sync is not yet confirmed/)).toBeInTheDocument()
+    expect(within(wizard).queryByText(/^Sync complete/i)).not.toBeInTheDocument()
+    expect(within(wizard).getByRole('button', { name: 'Continue to session' })).toBeEnabled()
+  })
+
+  it('shows an unavailable computer but prevents selecting it for project setup', async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/visible-agents') || url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: {
+        workspaces: [workspace], runtimeTargetsByWorkspace: { acme: runtimes },
+        projects: [{ id: 'project-existing', name: 'Existing project' }],
+      } })
+      if (url.startsWith('/api/v1/workspace-folders?')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [baseConversation] } })
+      if (url.includes('/messages')) return jsonResponse({ data: { messages: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" />)
+    const wizard = await openProjectWizard()
+    fireEvent.click(within(wizard).getByRole('radio', { name: 'Standard PiB project' }))
+
+    expect(within(wizard).getByRole('checkbox', { name: /Office PC · Computer unavailable/ })).toBeDisabled()
+  })
+
+  it('reuses one setup idempotency key when a failed request is retried', async () => {
+    const setupKeys: Array<string | null> = []
+    let setupAttempts = 0
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/visible-agents') || url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: {
+        workspaces: [workspace], runtimeTargetsByWorkspace: { acme: runtimes },
+        projects: [{ id: 'project-existing', name: 'Existing project' }],
+      } })
+      if (url.startsWith('/api/v1/workspace-folders?')) return jsonResponse({ data: [{
+        id: 'folder-briefs', name: 'Client Briefs', syncState: { status: 'synced' },
+      }] })
+      if (url === '/api/v1/project-setups' && init?.method === 'POST') {
+        setupKeys.push(new Headers(init.headers).get('Idempotency-Key'))
+        setupAttempts += 1
+        if (setupAttempts === 1) return errorResponse(500, { error: 'Temporary setup failure' })
+        return jsonResponse({ data: {
+          projectId: 'project-retried',
+          project: { id: 'project-retried', name: 'Retried project', locationIds: ['location-mac'] },
+          plan: { state: 'awaiting_mapping_confirmation', completed: false, syncCompleted: false },
+        } })
+      }
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [baseConversation] } })
+      if (url.includes('/messages')) return jsonResponse({ data: { messages: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" />)
+    const wizard = await openProjectWizard()
+    fireEvent.change(within(wizard).getByLabelText('Project name'), { target: { value: 'Retried project' } })
+    fireEvent.change(await within(wizard).findByLabelText('Registered folder'), { target: { value: 'folder-briefs' } })
+    fireEvent.change(within(wizard).getByLabelText('Project location'), { target: { value: 'location-mac' } })
+    fireEvent.click(within(wizard).getByRole('button', { name: 'Create project' }))
+
+    expect(await within(wizard).findByRole('alert')).toHaveTextContent('Temporary setup failure')
+    fireEvent.click(within(wizard).getByRole('button', { name: 'Create project' }))
+    expect(await within(wizard).findByText('Pending mapping')).toBeInTheDocument()
+    expect(setupKeys).toHaveLength(2)
+    expect(setupKeys[0]).toEqual(expect.any(String))
+    expect(setupKeys[0]).not.toBe('')
+    expect(setupKeys[1]).toBe(setupKeys[0])
+  })
+
+  it('keeps full Client Manager provisioning in the new organisation and links to its Messages workspace', async () => {
+    let setupPayload: Record<string, unknown> | undefined
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/visible-agents') || url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: {
+        workspaces: [workspace], runtimeTargetsByWorkspace: { acme: runtimes },
+        projects: [{ id: 'project-existing', name: 'Existing project' }],
+      } })
+      if (url.startsWith('/api/v1/workspace-folders?')) return jsonResponse({ data: [] })
+      if (url === '/api/v1/project-setups' && init?.method === 'POST') {
+        setupPayload = JSON.parse(String(init.body)) as Record<string, unknown>
+        return jsonResponse({ data: {
+          organizationId: 'north-star-org',
+          organizationSlug: 'north-star',
+          projectId: 'project-client',
+          project: { id: 'project-client', name: 'North Star Launch', locationIds: [] },
+          plan: {
+            state: 'location_selection_pending', completed: false, syncCompleted: false,
+            actions: [{ type: 'create_client_organization', status: 'completed' }],
+          },
+        } })
+      }
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [baseConversation] } })
+      if (url.includes('/messages')) return jsonResponse({ data: { messages: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" />)
+    const wizard = await openProjectWizard()
+    fireEvent.click(within(wizard).getByRole('radio', { name: 'Full client workspace' }))
+    expect(within(wizard).getByText(/Client Manager will create the PiB client organisation/i)).toBeInTheDocument()
+    expect(within(wizard).getByText(/does not create a per-client Hermes profile/i)).toBeInTheDocument()
+    fireEvent.change(within(wizard).getByLabelText('Project name'), { target: { value: 'North Star Launch' } })
+    fireEvent.change(within(wizard).getByLabelText('Client name'), { target: { value: 'North Star' } })
+    fireEvent.change(within(wizard).getByLabelText('Client domain'), { target: { value: 'north-star' } })
+    fireEvent.change(within(wizard).getByLabelText('Agent name'), { target: { value: 'Pip' } })
+    fireEvent.click(within(wizard).getByRole('button', { name: 'Create project' }))
+
+    await waitFor(() => expect(setupPayload).toEqual({
+      mode: 'full_client', orgId: 'org-1', projectName: 'North Star Launch',
+      clientName: 'North Star', domainSlug: 'north-star', agentName: 'Pip',
+    }))
+    expect(await within(wizard).findByText('Location selection pending')).toBeInTheDocument()
+    expect(within(wizard).getByText(/client workspace was created in its own organisation/i)).toBeInTheDocument()
+    expect(within(wizard).getByRole('link', { name: 'Open client Messages' })).toHaveAttribute(
+      'href', '/admin/org/north-star/messages',
+    )
+    expect(screen.getByRole('combobox', { name: 'Project folder' })).not.toHaveValue('project-client')
   })
 })
 
@@ -513,7 +1017,7 @@ describe('UnifiedChat message scrolling', () => {
     expect(screen.getByText('Sessions')).toBeInTheDocument()
   })
 
-  it('groups Hermes sessions into pinned, projects, agents, and recent without changing the classic rail', async () => {
+  it('groups Hermes sessions into pinned, project, agent, and recent areas without changing the classic rail', async () => {
     window.localStorage.setItem('pib.messages.pinnedConversations.v1:org-1', JSON.stringify(['conv-pinned']))
     const conversations = [
       {
@@ -577,7 +1081,7 @@ describe('UnifiedChat message scrolling', () => {
 
     expect(await screen.findByTestId('hermes-session-section-pinned')).toBeInTheDocument()
     expect(within(screen.getByTestId('hermes-session-section-pinned')).getByText('Pinned launch')).toBeInTheDocument()
-    expect(within(screen.getByTestId('hermes-session-section-projects')).getByText('Website project')).toBeInTheDocument()
+    expect(within(screen.getByTestId('hermes-project-project-1')).getByText('Website project')).toBeInTheDocument()
     expect(within(screen.getByTestId('hermes-session-section-agents')).getByText('Pip agent run')).toBeInTheDocument()
     expect(within(screen.getByTestId('hermes-session-section-recent')).getByText('General inbox')).toBeInTheDocument()
     unmount()
@@ -595,7 +1099,255 @@ describe('UnifiedChat message scrolling', () => {
     expect(screen.getByTestId('conversation-row-conv-pinned')).toBeInTheDocument()
   })
 
-  it('keeps the Hermes left rail conversation-only while filtering sessions and showing one compact context glyph', async () => {
+  it('renders catalogue projects first, nests multiple sessions, and preselects an empty project from its add action', async () => {
+    window.localStorage.setItem('pib.messages.pinnedConversations.v1:org-1', JSON.stringify(['conv-general']))
+    const conversations = [
+      {
+        ...baseConversation,
+        id: 'conv-project-one',
+        title: 'Homepage implementation',
+        scope: 'project',
+        scopeRefId: 'project-1',
+        contextRefs: [projectRef],
+        workspaceContext: {
+          workspaceId: 'acme', orgName: 'Acme', runtimeTarget: 'device-mac', runtimeLabel: 'Studio Mac',
+          projectId: 'project-1', projectName: 'Launch Project',
+        },
+      },
+      {
+        ...baseConversation,
+        id: 'conv-project-two',
+        title: 'Launch checklist',
+        scope: 'project',
+        scopeRefId: 'project-1',
+        contextRefs: [projectRef],
+        workspaceContext: {
+          workspaceId: 'acme', orgName: 'Acme', runtimeTarget: 'partners-vps', runtimeLabel: 'Partners VPS',
+          projectId: 'project-1', projectName: 'Launch Project',
+        },
+      },
+      {
+        ...baseConversation,
+        id: 'conv-general',
+        title: 'Direct check-in',
+        participants: [{ kind: 'user' as const, uid: 'client-1', role: 'client' as const, displayName: 'Client One' }],
+        participantAgentIds: [],
+      },
+    ]
+
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents') || url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: {
+        workspaces: [{ workspaceId: 'acme', orgId: 'org-1', orgSlug: 'acme', orgName: 'Acme', agentDomain: 'acme', sourceOfTruth: 'vps', syncMode: 'hybrid', defaultRuntimeTarget: 'device-mac', folderVersion: 1 }],
+        runtimeTargetsByWorkspace: { acme: [
+          { id: 'device-mac', label: 'Studio Mac', selectable: true, enabled: true, isLocal: true, isFresh: true, isHealthy: true, lastSeenAt: null },
+          { id: 'partners-vps', label: 'Partners VPS', selectable: true, enabled: true, isLocal: false, isFresh: true, isHealthy: true, lastSeenAt: null },
+        ] },
+        projects: [
+          { id: 'project-1', name: 'Launch Project' },
+          { id: 'project-empty', name: 'Empty Project' },
+        ],
+      } })
+      if (url === '/api/v1/projects/project-1/access?orgId=org-1') return jsonResponse({ data: {
+        members: [], memberCandidates: [], organizations: [], invites: [],
+      } })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations } })
+      if (url.includes('/messages')) return jsonResponse({ data: { messages: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" layoutVariant="hermes" />)
+
+    const launchProject = await screen.findByTestId('hermes-project-project-1')
+    expect(within(launchProject).getByText('Launch Project')).toBeInTheDocument()
+    expect(within(launchProject).getByTestId('conversation-row-conv-project-one')).toHaveTextContent('Homepage implementation')
+    expect(within(launchProject).getByTestId('conversation-row-conv-project-one')).toHaveTextContent('Studio Mac')
+    expect(within(launchProject).getByTestId('conversation-row-conv-project-two')).toHaveTextContent('Launch checklist')
+    expect(within(launchProject).getByTestId('conversation-row-conv-project-two')).toHaveTextContent('Partners VPS')
+
+    fireEvent.click(within(launchProject).getByRole('button', { name: 'Link client organisation to Launch Project' }))
+    const accessDialog = await screen.findByRole('dialog', { name: 'Project access for Launch Project' })
+    expect(within(accessDialog).getByRole('heading', { name: 'Link client organisation to Launch Project' })).toBeInTheDocument()
+    expect(within(accessDialog).getByRole('heading', { name: 'External organisations' })).toBeInTheDocument()
+    fireEvent.click(within(accessDialog).getByRole('button', { name: 'Close' }))
+
+    const emptyProject = screen.getByTestId('hermes-project-project-empty')
+    expect(within(emptyProject).getByText('No sessions yet')).toBeInTheDocument()
+    expect(within(screen.getByTestId('hermes-session-section-pinned')).getByText('Direct check-in')).toBeInTheDocument()
+
+    fireEvent.click(within(emptyProject).getByRole('button', { name: 'Start session for Empty Project' }))
+    expect(screen.getByRole('dialog', { name: 'New conversation' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Conversation context')).toHaveValue('project')
+    expect(screen.getByRole('combobox', { name: 'Project folder' })).toHaveValue('project-empty')
+  })
+
+  it('renders only server-summary project location badges and never exposes path metadata', async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/visible-agents')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: {
+        workspaces: [],
+        runtimeTargetsByWorkspace: {},
+        projects: [{
+          id: 'project-1',
+          name: 'Launch Project',
+          locations: [{
+            replicaId: 'replica-vps', locationId: 'location-vps', label: 'Partners VPS',
+            kind: 'vps', platform: 'linux', availability: 'online', selectable: true, authenticatedRuntime: true,
+            syncStatus: 'synced', relativePath: 'clients/private/project',
+          }, {
+            replicaId: 'replica-mac', locationId: 'location-mac', locationLabel: 'Studio Mac',
+            kind: 'computer', platform: 'macos', authenticatedRuntime: true,
+            // The persisted replica can still say online after a heartbeat goes
+            // stale. Explicit catalogue presence must win for the badge.
+            availability: 'online', selectable: false, syncStatus: 'offline', localPath: '/Users/peet/private/project',
+          }, {
+            replicaId: 'replica-legacy', locationId: 'legacy-mac', label: 'Old Mac',
+            kind: 'computer', platform: 'macos', availability: 'online', selectable: true,
+          }],
+        }, { id: 'project-empty', name: 'No locations project' }],
+      } })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" layoutVariant="hermes" />)
+
+    const project = await screen.findByTestId('hermes-project-project-1')
+    expect(within(project).getByTestId('project-location-badge-project-1-location-vps')).toHaveTextContent('VPS · Partners VPS · online')
+    expect(within(project).getByTestId('project-location-badge-project-1-location-mac')).toHaveTextContent('Computer · Studio Mac · Computer unavailable')
+    expect(within(project).getByTestId('project-location-badge-project-1-legacy-mac')).toHaveTextContent('Computer · Old Mac · Pairing required')
+    expect(within(project).getByTestId('project-location-badge-project-1-location-mac')).toHaveAccessibleName('Computer Studio Mac: Computer unavailable')
+    expect(within(screen.getByTestId('hermes-project-project-empty')).queryByTestId(/project-location-badge/)).not.toBeInTheDocument()
+    expect(document.body).not.toHaveTextContent('clients/private/project')
+    expect(document.body).not.toHaveTextContent('/Users/peet/private/project')
+  })
+
+  it('links mapped catalogue locations and unlinks replicas without changing project sessions', async () => {
+    let workspaceRequests = 0
+    let locationReads = 0
+    const locationPosts: Record<string, unknown>[] = []
+    const locationDeletes: string[] = []
+    const projectConversation = {
+      ...baseConversation,
+      id: 'conv-project',
+      title: 'Immutable launch session',
+      scope: 'project' as const,
+      scopeRefId: 'project-1',
+      contextRefs: [projectRef],
+    }
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) {
+        workspaceRequests += 1
+        return jsonResponse({ data: {
+          workspaces: [{ workspaceId: 'acme', orgId: 'org-1', orgSlug: 'acme', orgName: 'Acme', agentDomain: 'acme', sourceOfTruth: 'vps', syncMode: 'hybrid', defaultRuntimeTarget: 'runtime-mac', folderVersion: 1 }],
+          runtimeTargetsByWorkspace: { acme: [{
+            id: 'runtime-mac', label: 'Studio Mac', locationId: 'location-mac', mappingId: 'mapping-mac', workspaceId: 'acme',
+            selectable: true, enabled: true, isLocal: true, isFresh: true, isHealthy: true, lastSeenAt: null,
+            privatePath: '/Users/peet/private/mac',
+          }, {
+            id: 'runtime-vps', label: 'Client VPS', locationId: 'location-vps', workspaceId: 'acme',
+            selectable: true, enabled: true, isLocal: false, isFresh: true, isHealthy: true, lastSeenAt: null,
+            serverPath: '/srv/private/client',
+          }, {
+            id: 'runtime-offline', label: 'Offline PC', locationId: 'location-offline', workspaceId: 'acme',
+            selectable: false, enabled: true, isLocal: true, isFresh: false, isHealthy: false, lastSeenAt: null,
+          }] },
+          projects: [{ id: 'project-1', name: 'Launch Project' }],
+        } })
+      }
+      if (url === '/api/v1/projects/project-1/locations?orgId=org-1' && (!init?.method || init.method === 'GET')) {
+        locationReads += 1
+        const added = locationReads > 1 ? [{
+          replicaId: 'replica-mac', locationId: 'location-mac', locationLabel: 'Studio Mac',
+          availability: 'online', syncStatus: 'pending', locationVisibility: 'organization', active: true,
+        }, {
+          replicaId: 'replica-vps', locationId: 'location-vps', locationLabel: 'Client VPS',
+          availability: 'online', syncStatus: 'pending', locationVisibility: 'organization', active: true,
+        }] : []
+        const archive = locationDeletes.length === 0 ? [{
+          replicaId: 'replica-archive', locationId: 'location-archive', locationLabel: 'Archive PC',
+          availability: 'offline', syncStatus: 'offline', locationVisibility: 'private', authenticatedRuntime: true, active: true,
+          relativePath: 'projects/private/archive',
+        }] : []
+        return jsonResponse({ data: { locations: [...archive, ...added] } })
+      }
+      if (url === '/api/v1/projects/project-1/locations' && init?.method === 'POST') {
+        locationPosts.push(JSON.parse(String(init.body)) as Record<string, unknown>)
+        return jsonResponse({ data: { replica: { replicaId: `replica-${locationPosts.length}`, syncStatus: 'pending' } } })
+      }
+      if (url.startsWith('/api/v1/projects/project-1/locations/') && init?.method === 'DELETE') {
+        locationDeletes.push(url)
+        return jsonResponse({ data: { replica: { active: false } } })
+      }
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [projectConversation] } })
+      if (url === '/api/v1/conversations/conv-project/messages') return jsonResponse({ data: { messages: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" layoutVariant="hermes" />)
+    const project = await screen.findByTestId('hermes-project-project-1')
+    expect(within(project).queryByTestId(/project-location-badge/)).not.toBeInTheDocument()
+    fireEvent.click(within(project).getByRole('button', { name: 'Manage locations for Launch Project' }))
+
+    const manager = await within(project).findByRole('region', { name: 'Manage locations for Launch Project' })
+    expect(within(manager).getByText('Archive PC · Computer unavailable')).toBeInTheDocument()
+    expect(within(manager).getByText('Private')).toBeInTheDocument()
+    expect(within(manager).getByRole('checkbox', { name: 'Studio Mac · online' })).toBeEnabled()
+    expect(within(manager).getByRole('checkbox', { name: 'Client VPS · online' })).toBeEnabled()
+    expect(within(manager).getByRole('checkbox', { name: 'Offline PC · Computer unavailable' })).toBeDisabled()
+    expect(within(manager).queryByText('/Users/peet/private/mac')).not.toBeInTheDocument()
+    expect(within(manager).queryByText('/srv/private/client')).not.toBeInTheDocument()
+    expect(within(manager).queryByText('projects/private/archive')).not.toBeInTheDocument()
+
+    fireEvent.click(within(manager).getByRole('checkbox', { name: 'Studio Mac · online' }))
+    fireEvent.click(within(manager).getByRole('checkbox', { name: 'Client VPS · online' }))
+    fireEvent.click(within(manager).getByRole('button', { name: 'Link selected locations' }))
+    await waitFor(() => expect(locationPosts).toEqual([{
+      orgId: 'org-1', workspaceId: 'acme', locationId: 'location-mac', mappingId: 'mapping-mac',
+    }, {
+      orgId: 'org-1', workspaceId: 'acme', locationId: 'location-vps',
+    }]))
+    await waitFor(() => expect(workspaceRequests).toBeGreaterThanOrEqual(2))
+    expect(within(project).getByTestId('conversation-row-conv-project')).toHaveTextContent('Immutable launch session')
+
+    fireEvent.click(await within(manager).findByRole('button', { name: 'Unlink Archive PC' }))
+    await waitFor(() => expect(locationDeletes).toEqual([
+      '/api/v1/projects/project-1/locations/replica-archive?orgId=org-1',
+    ]))
+    await waitFor(() => expect(workspaceRequests).toBeGreaterThanOrEqual(3))
+    expect(within(project).getByTestId('conversation-row-conv-project')).toHaveTextContent('Immutable launch session')
+  })
+
+  it('explains organisation sharing and mapping when a project has no eligible location candidates', async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/visible-agents')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: {
+        workspaces: [{ workspaceId: 'client', orgId: 'org-1', orgSlug: 'client', orgName: 'Client', agentDomain: 'client', sourceOfTruth: 'vps', syncMode: 'hybrid', defaultRuntimeTarget: '', folderVersion: 1 }],
+        runtimeTargetsByWorkspace: { client: [{ id: 'unmapped-device', label: 'Unmapped Mac', selectable: true }] },
+        projects: [{ id: 'project-client', name: 'New client project' }],
+      } })
+      if (url === '/api/v1/projects/project-client/locations?orgId=org-1') return jsonResponse({ data: { locations: [] } })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" layoutVariant="hermes" />)
+    const project = await screen.findByTestId('hermes-project-project-client')
+    fireEvent.click(within(project).getByRole('button', { name: 'Manage locations for New client project' }))
+    const manager = await within(project).findByRole('region', { name: 'Manage locations for New client project' })
+
+    expect(await within(manager).findByText(/must first be shared with and mapped to this organisation/i)).toBeInTheDocument()
+    expect(within(manager).getByRole('button', { name: 'Link selected locations' })).toBeDisabled()
+  })
+
+  it('filters non-project Hermes sessions while showing their compact context glyph', async () => {
     const studioRef: ContextReference = {
       type: 'studio',
       id: 'marketing:org-1',

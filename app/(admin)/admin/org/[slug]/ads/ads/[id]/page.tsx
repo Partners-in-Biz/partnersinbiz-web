@@ -15,9 +15,9 @@ export default async function AdDetailPage({
 }) {
   const { slug, id } = await params
   const orgId = await resolveOrgIdBySlug(slug)
-  if (!orgId) return <div className="text-white/60">Org not found.</div>
+  if (!orgId) return <div className="pib-empty-state-description">Org not found.</div>
   const ad = await getAd(id)
-  if (!ad || ad.orgId !== orgId) return <div className="text-white/60">Ad not found.</div>
+  if (!ad || ad.orgId !== orgId) return <div className="pib-empty-state-description">Ad not found.</div>
   const adSet = await getAdSet(ad.adSetId)
 
   return (

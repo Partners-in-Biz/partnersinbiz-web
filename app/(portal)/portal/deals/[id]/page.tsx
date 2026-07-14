@@ -719,11 +719,11 @@ export default function DealDetailPage() {
               <span className={`rounded-full border px-2.5 py-1 text-[10px] font-label uppercase tracking-wide ${probTone}`}>
                 {prob}% probability
               </span>
-              <span className="rounded-full bg-[var(--color-pib-surface-soft)] px-2.5 py-1 text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+              <span className="pib-pill pib-pill-accent">
                 {normalizeStageName(stageDisplay)}
               </span>
               {pipelineName && (
-                <span className="rounded-full bg-[var(--color-pib-surface-soft)] px-2.5 py-1 text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+                <span className="pib-pill pib-pill-accent">
                   {pipelineName}
                 </span>
               )}
@@ -1135,9 +1135,9 @@ export default function DealDetailPage() {
                   <div className="flex gap-3">
                     <span
                       aria-hidden="true"
-                      className="material-symbols-outlined flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] text-[20px] text-[var(--color-accent-v2)]"
+                      className="pib-icon-tint shrink-0"
                     >
-                      timeline
+                      <span className="material-symbols-outlined text-[20px]">timeline</span>
                     </span>
                     <div>
                       <p className="pib-label">
@@ -1238,9 +1238,9 @@ export default function DealDetailPage() {
                 <div className="mx-auto flex max-w-lg flex-col items-center gap-3 text-center">
                   <span
                     aria-hidden="true"
-                    className="material-symbols-outlined flex h-10 w-10 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] text-[20px] text-[var(--color-accent-v2)]"
+                    className="pib-icon-tint"
                   >
-                    request_quote
+                    <span className="material-symbols-outlined text-[20px]">request_quote</span>
                   </span>
                   <div>
                     <p className="pib-label">
@@ -1285,9 +1285,9 @@ export default function DealDetailPage() {
                 <div className="mx-auto flex max-w-lg flex-col items-center gap-3 text-center">
                   <span
                     aria-hidden="true"
-                    className="material-symbols-outlined flex h-10 w-10 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] text-[20px] text-[var(--color-accent-v2)]"
+                    className="pib-icon-tint"
                   >
-                    history
+                    <span className="material-symbols-outlined text-[20px]">history</span>
                   </span>
                   <div>
                     <p className="pib-label">

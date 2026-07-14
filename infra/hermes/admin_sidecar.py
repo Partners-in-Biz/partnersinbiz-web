@@ -1031,6 +1031,161 @@ def _safe_workspace_folders(value) -> tuple[list[str], list[str]]:
     return folders, warnings
 
 
+def _safe_project_identity(value, label: str) -> str:
+    identity = str(value or "").strip()
+    if (
+        not identity
+        or len(identity) > 128
+        or identity in {".", ".."}
+        or not SAFE_NAME.fullmatch(identity)
+    ):
+        raise HTTPException(status_code=400, detail=f"invalid {label}")
+    return identity
+
+
+def _resolved_child(root: Path, candidate: Path, label: str) -> Path:
+    try:
+        resolved_root = root.resolve()
+        resolved_candidate = candidate.resolve()
+    except OSError as exc:
+        raise HTTPException(status_code=400, detail=f"invalid {label}: {exc}")
+    if resolved_candidate == resolved_root or resolved_root not in resolved_candidate.parents:
+        raise HTTPException(status_code=400, detail=f"{label} must stay under {resolved_root}")
+    return resolved_candidate
+
+
+def _provision_project_folder(body: dict, *, cowork_root: Path = COWORK_ROOT) -> dict:
+    """Create the idempotent client-manager project contract on the canonical VPS.
+
+    Browser callers never supply a project relative path or template. The path is
+    derived from the server-validated project id and is always
+    ``projects/<projectId>`` under an already registered Cowork workspace.
+    """
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="body must be an object")
+
+    project_id = _safe_project_identity(body.get("projectId"), "projectId")
+    org_id = _safe_project_identity(body.get("orgId"), "orgId")
+    workspace_id = _safe_project_identity(body.get("workspaceId"), "workspaceId")
+    raw_workspace = str(body.get("workspacePath") or "").strip()
+    workspace_candidate = Path(raw_workspace)
+    if not raw_workspace or not workspace_candidate.is_absolute():
+        raise HTTPException(status_code=400, detail="workspacePath must be absolute")
+
+    root = cowork_root.resolve()
+    workspace = _resolved_child(root, workspace_candidate, "workspacePath")
+    if not workspace.exists() or not workspace.is_dir():
+        raise HTTPException(status_code=404, detail="Workspace does not exist")
+
+    workspace_manifest_path = workspace / ".pib-workspace.json"
+    if not workspace_manifest_path.exists() or workspace_manifest_path.is_symlink():
+        raise HTTPException(status_code=409, detail="registered Workspace manifest is required")
+    try:
+        workspace_manifest = json.loads(workspace_manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=409, detail=f"registered Workspace manifest is invalid: {exc}")
+    manifest_vps_path = workspace_manifest.get("vpsPath") if isinstance(workspace_manifest, dict) else None
+    try:
+        manifest_workspace = Path(manifest_vps_path).resolve() if isinstance(manifest_vps_path, str) else None
+    except OSError:
+        manifest_workspace = None
+    if (
+        not isinstance(workspace_manifest, dict)
+        or workspace_manifest.get("orgId") != org_id
+        or workspace_manifest.get("workspaceId") != workspace_id
+        or manifest_workspace != workspace
+    ):
+        raise HTTPException(status_code=409, detail="registered Workspace manifest identity conflict")
+
+    projects_candidate = workspace / "projects"
+    projects = _resolved_child(workspace, projects_candidate, "projects path")
+    if projects_candidate.exists() and projects_candidate.is_symlink():
+        # Even an in-root symlink makes the canonical ownership boundary unclear.
+        raise HTTPException(status_code=400, detail="projects path must not be a symlink")
+    projects.mkdir(parents=True, exist_ok=True)
+
+    project_candidate = projects / project_id
+    project = _resolved_child(workspace, project_candidate, "project path")
+    if project_candidate.exists() and project_candidate.is_symlink():
+        raise HTTPException(status_code=400, detail="project path must not be a symlink")
+
+    directories_created: list[str] = []
+    directories_preserved: list[str] = []
+    for directory in [project, *(project / subdir for subdir in WORKSPACE_SUBDIRS)]:
+        resolved_directory = _resolved_child(workspace, directory, "project directory")
+        if directory.exists() and directory.is_symlink():
+            raise HTTPException(status_code=400, detail="project directories must not be symlinks")
+        existed = directory.exists()
+        directory.mkdir(parents=True, exist_ok=True)
+        if not directory.is_dir() or directory.resolve() != resolved_directory:
+            raise HTTPException(status_code=409, detail="project directory verification failed")
+        relative = directory.relative_to(workspace).as_posix()
+        (directories_preserved if existed else directories_created).append(relative)
+
+    manifest_path = project / ".pib-project.json"
+    expected_identity = {
+        "projectId": project_id,
+        "orgId": org_id,
+        "workspaceId": workspace_id,
+    }
+    manifest_written = False
+    manifest_preserved = False
+    if manifest_path.exists():
+        if manifest_path.is_symlink():
+            raise HTTPException(status_code=400, detail="project manifest must not be a symlink")
+        try:
+            existing_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise HTTPException(status_code=409, detail=f"project manifest is invalid: {exc}")
+        if not isinstance(existing_manifest, dict) or any(
+            existing_manifest.get(key) != expected for key, expected in expected_identity.items()
+        ):
+            raise HTTPException(status_code=409, detail="project manifest identity conflict")
+        manifest_preserved = True
+    else:
+        manifest = {
+            **expected_identity,
+            "relativePath": f"projects/{project_id}",
+            "folderTemplate": "client-manager-standard",
+            "folderVersion": 1,
+            "sourceOfTruth": "vps",
+            "syncStatus": "pending",
+            "workspaceFolders": WORKSPACE_SUBDIRS,
+        }
+        try:
+            with manifest_path.open("x", encoding="utf-8") as handle:
+                json.dump(manifest, handle, indent=2, sort_keys=True)
+                handle.write("\n")
+            os.chmod(manifest_path, 0o660)
+            manifest_written = True
+        except FileExistsError:
+            # A concurrent identical request may have won. Re-enter once so its
+            # identity is validated instead of overwriting it.
+            return _provision_project_folder(body, cowork_root=cowork_root)
+
+    return {
+        "projectId": project_id,
+        "orgId": org_id,
+        "workspaceId": workspace_id,
+        "relativePath": f"projects/{project_id}",
+        "folderStatus": "provisioned",
+        # Creation on the VPS is not evidence of replica sync on other machines.
+        "syncStatus": "pending",
+        "folderTemplate": "client-manager-standard",
+        "directoriesCreated": directories_created,
+        "directoriesPreserved": directories_preserved,
+        "manifestWritten": manifest_written,
+        "manifestPreserved": manifest_preserved,
+    }
+
+
+@app.post("/profiles/{profile}/admin/project-folders")
+async def provision_project_folder(profile: str, request: Request, x_api_key: Optional[str] = Header(default=None), authorization: Optional[str] = Header(default=None)):
+    _require_auth(profile, x_api_key, authorization)
+    body = await request.json()
+    return _provision_project_folder(body)
+
+
 @app.post("/profiles/{profile}/admin/client-workspaces")
 async def provision_client_workspace(profile: str, request: Request, x_api_key: Optional[str] = Header(default=None), authorization: Optional[str] = Header(default=None)):
     _require_auth(profile, x_api_key, authorization)

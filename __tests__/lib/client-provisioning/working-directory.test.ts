@@ -7,8 +7,11 @@ const mockProjectGet = jest.fn()
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: {
     collection: (name: string) => {
-      if (name !== 'projects') throw new Error(`Unexpected collection: ${name}`)
-      return { doc: () => ({ get: mockProjectGet }) }
+      if (name === 'projects') return { doc: () => ({ get: mockProjectGet }) }
+      if (name === 'projectOrganizations') {
+        return { doc: () => ({ get: async () => ({ exists: false, data: () => undefined }) }) }
+      }
+      throw new Error(`Unexpected collection: ${name}`)
     },
   },
 }))
@@ -57,6 +60,51 @@ it('authorizes an existing active project directory', async () => {
   mockProjectGet.mockResolvedValue({
     exists: true,
     data: () => ({ orgId: 'org-1', archived: false, status: 'active' }),
+  })
+  const canonicalProject = await realpath(project)
+
+  await expect(resolveAuthorizedWorkingDirectory({
+    workspaceContext: context({ folderScope: 'project', projectId: 'project-1', localWorkingPath: project }),
+  })).resolves.toEqual({ ok: true, directory: canonicalProject, pathClass: 'project' })
+})
+
+it('authorizes a registered project folder selected by the runtime replica', async () => {
+  const project = join(root, 'clients', 'acme', 'website-launch')
+  await mkdir(project, { recursive: true })
+  mockProjectGet.mockResolvedValue({
+    exists: true,
+    data: () => ({ orgId: 'org-1', archived: false, status: 'active' }),
+  })
+  const canonicalProject = await realpath(project)
+
+  await expect(resolveAuthorizedWorkingDirectory({
+    workspaceContext: context({ folderScope: 'project', projectId: 'project-1', localWorkingPath: project }),
+    projectRelativePath: 'clients/acme/website-launch',
+  })).resolves.toEqual({ ok: true, directory: canonicalProject, pathClass: 'project' })
+})
+
+it('forces a legacy organisation-scoped context into its server-authorized project replica', async () => {
+  const project = join(root, 'clients', 'acme', 'website-launch')
+  await mkdir(project, { recursive: true })
+  mockProjectGet.mockResolvedValue({
+    exists: true,
+    data: () => ({ orgId: 'org-1', archived: false, status: 'active' }),
+  })
+  const canonicalProject = await realpath(project)
+
+  await expect(resolveAuthorizedWorkingDirectory({
+    workspaceContext: context({ folderScope: 'organisation', projectId: undefined, localWorkingPath: root }),
+    projectId: 'project-1',
+    projectRelativePath: 'clients/acme/website-launch',
+  })).resolves.toEqual({ ok: true, directory: canonicalProject, pathClass: 'project' })
+})
+
+it('authorizes a project linked to the active client organisation', async () => {
+  const project = join(root, 'projects', 'project-1')
+  await mkdir(project, { recursive: true })
+  mockProjectGet.mockResolvedValue({
+    exists: true,
+    data: () => ({ orgId: 'pib-platform-owner', clientOrgId: 'org-1', archived: false, status: 'active' }),
   })
   const canonicalProject = await realpath(project)
 

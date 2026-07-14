@@ -15,57 +15,58 @@ export default async function CreativeDetailPage({
 }) {
   const { slug, id } = await params
   const orgId = await resolveOrgIdBySlug(slug)
-  if (!orgId) return <div className="text-white/60">Org not found.</div>
+  if (!orgId) return <p className="pib-page-sub">Org not found.</p>
   const c = await getCreative(id)
-  if (!c || c.orgId !== orgId) return <div className="text-white/60">Creative not found.</div>
+  if (!c || c.orgId !== orgId) return <p className="pib-page-sub">Creative not found.</p>
   const allAds = await listAds({ orgId })
   const usingAds = allAds.filter((a) => a.creativeIds.includes(id))
 
   return (
-    <article className="space-y-6">
+    <article className="space-y-8">
       <header>
         <Link
           href={`/admin/org/${slug}/ads/creatives`}
-          className="text-xs text-white/40 hover:text-white/60"
+          className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]"
         >
           ← Creative library
         </Link>
-        <h1 className="mt-1 text-2xl font-semibold">{c.name}</h1>
-        <div className="mt-1 text-sm text-white/50">
+        <p className="eyebrow mt-3">Ads · Creative</p>
+        <h1 className="pib-page-title mt-2">{c.name}</h1>
+        <p className="pib-page-sub">
           {c.type} · {c.status.toLowerCase()} · {(c.fileSize / 1024).toFixed(0)} KB
           {c.width != null && c.height != null && ` · ${c.width}×${c.height}`}
           {c.duration != null && c.duration > 0 && ` · ${c.duration}s`}
-        </div>
+        </p>
       </header>
 
-      <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-white/40">Preview</h2>
-        <div className="mt-2">
+      <section className="space-y-2">
+        <h2 className="pib-label">Preview</h2>
+        <div>
           {c.type === 'video' ? (
-            <video src={c.sourceUrl} controls className="max-h-96 rounded border border-white/10" />
+            <video src={c.sourceUrl} controls className="max-h-96 rounded-[10px] border border-[var(--color-pib-line)]" />
           ) : c.previewUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={c.previewUrl} alt={c.name} className="max-h-96 rounded border border-white/10" />
+            <img src={c.previewUrl} alt={c.name} className="max-h-96 rounded-[10px] border border-[var(--color-pib-line)]" />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={c.sourceUrl} alt={c.name} className="max-h-96 rounded border border-white/10" />
+            <img src={c.sourceUrl} alt={c.name} className="max-h-96 rounded-[10px] border border-[var(--color-pib-line)]" />
           )}
         </div>
       </section>
 
-      <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-white/40">Platform sync</h2>
-        <dl className="mt-2 space-y-1 text-sm">
+      <section className="space-y-2">
+        <h2 className="pib-label">Platform sync</h2>
+        <dl className="space-y-1 text-sm">
           {(['meta', 'google', 'linkedin', 'tiktok'] as const).map((p) => {
             const ref = c.platformRefs[p]
             return (
               <div key={p} className="flex items-center gap-2">
-                <dt className="capitalize w-24 text-white/50">{p}</dt>
+                <dt className="capitalize w-24 text-[var(--color-pib-text-muted)]">{p}</dt>
                 <dd>
                   {ref ? (
-                    <code className="text-xs text-white/70">{ref.creativeId}</code>
+                    <code className="text-xs text-[var(--color-pib-text)]">{ref.creativeId}</code>
                   ) : (
-                    <span className="text-xs text-white/30">not synced</span>
+                    <span className="text-xs text-[var(--color-pib-text-muted)] opacity-70">not synced</span>
                   )}
                 </dd>
               </div>
@@ -74,33 +75,35 @@ export default async function CreativeDetailPage({
         </dl>
       </section>
 
-      <section>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-white/40">
+      <section className="space-y-2">
+        <h2 className="pib-label">
           Used by {usingAds.length} {usingAds.length === 1 ? 'ad' : 'ads'}
         </h2>
         {usingAds.length === 0 ? (
-          <p className="mt-2 text-sm text-white/40">Not yet referenced by any ad.</p>
+          <p className="text-sm text-[var(--color-pib-text-muted)]">Not yet referenced by any ad.</p>
         ) : (
-          <ul className="mt-2 divide-y divide-white/5 rounded border border-white/10">
-            {usingAds.map((a) => (
-              <li key={a.id} className="flex items-center justify-between px-4 py-3 text-sm">
-                <Link
-                  href={`/admin/org/${slug}/ads/ads/${a.id}`}
-                  className="hover:text-[#F5A623]"
-                >
-                  {a.name}
-                </Link>
-                <span className="text-xs uppercase tracking-wide text-white/50">{a.status.toLowerCase()}</span>
-              </li>
-            ))}
-          </ul>
+          <div className="pib-surface pib-surface-list">
+            <ul className="divide-y divide-[var(--color-pib-line)]">
+              {usingAds.map((a) => (
+                <li key={a.id} className="flex items-center justify-between px-4 py-3 text-sm">
+                  <Link
+                    href={`/admin/org/${slug}/ads/ads/${a.id}`}
+                    className="text-[var(--color-pib-text)] hover:text-[var(--color-pib-rose)]"
+                  >
+                    {a.name}
+                  </Link>
+                  <span className="pib-pill">{a.status.toLowerCase()}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </section>
 
       {c.lastError && (
-        <section className="rounded border border-red-500/30 bg-red-500/5 p-4 text-sm">
-          <div className="font-medium text-red-300">Last error</div>
-          <div className="mt-1 text-xs text-white/60">{c.lastError}</div>
+        <section className="pib-card border-[var(--color-error)]/30">
+          <div className="font-medium text-[var(--color-error)]">Last error</div>
+          <div className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{c.lastError}</div>
         </section>
       )}
     </article>

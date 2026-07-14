@@ -22,7 +22,7 @@ export function ContextArtifactCard({ artifact, selected = false, onActivate, on
   return <article data-selected={selected || undefined} className={`overflow-hidden rounded-lg border transition-colors ${selected ? 'border-primary/55 bg-primary/[0.08] ring-1 ring-primary/20' : 'border-white/10 bg-black/15'}`}>
     <Preview artifact={artifact} />
     <button type="button" aria-label={`Inspect ${artifact.title}`} aria-current={selected ? 'true' : undefined} onClick={() => onActivate?.(artifact)} className="flex w-full items-center gap-2 px-3 py-2.5 text-left outline-none hover:bg-white/[0.035] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/60">
-      <span className="material-symbols-outlined text-[16px] text-primary" aria-hidden="true">draft</span>
+      <span className="pib-icon-tint pib-icon-tint-blue" aria-hidden="true"><span className="material-symbols-outlined text-[16px]">draft</span></span>
       <span className="min-w-0 flex-1"><span className="block truncate text-xs font-medium text-[var(--color-pib-text)]">{artifact.title}</span><span className="text-[10px] text-[var(--color-pib-text-muted)]">{artifact.statusLabel}</span></span>
     </button>
     <div className="flex flex-wrap gap-x-2 gap-y-1 border-t border-white/[0.06] px-3 py-2 text-[10px] text-[var(--color-pib-text-muted)]">

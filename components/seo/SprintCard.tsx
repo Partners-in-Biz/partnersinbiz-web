@@ -70,7 +70,7 @@ export function SprintCard({ sprint }: { sprint: any }) {
         </button>
       </div>
       {result && (
-        <p className="pib-pill">
+        <p className="pib-pill pib-pill-success">
           {result.done} done · {result.queued} queued · {result.blocked} blocked
         </p>
       )}

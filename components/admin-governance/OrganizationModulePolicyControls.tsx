@@ -320,10 +320,14 @@ export function OrganizationModulePolicySaveBar({
 }) {
   const label = useMemo(() => statusLabel(saveState, loading, saving, error), [error, loading, saveState, saving])
   const tone = error ? 'text-red-200' : saveState === 'saved' ? 'text-emerald-200' : 'text-[var(--color-pib-text-muted)]'
+  const dotTone = error ? 'pib-status-dot-danger' : saveState === 'saved' ? 'pib-status-dot-success' : 'pib-status-dot-cyan'
 
   return (
     <div className="mt-5 flex flex-col gap-3 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3 sm:flex-row sm:items-center sm:justify-between">
-      <p className={`text-xs ${tone}`}>{label}</p>
+      <p className={`inline-flex items-center gap-2 text-xs ${tone}`}>
+        <span aria-hidden="true" className={`pib-status-dot ${dotTone}`} />
+        {label}
+      </p>
       <button
         type="button"
         onClick={onSave}

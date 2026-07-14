@@ -2,26 +2,12 @@ import React from 'react'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import ProjectDetailPage from '@/app/(admin)/admin/org/[slug]/projects/[projectId]/page'
 
-let snapshotCallback: ((snap: { docChanges: () => Array<{ type: 'added' | 'modified' | 'removed'; doc: { id: string; data: () => Record<string, unknown> } }> }) => void) | null = null
-const unsubscribe = jest.fn()
 const mockSearchParamsGet = jest.fn(() => null)
 
 jest.mock('next/navigation', () => ({
   useParams: () => ({ slug: 'acme-client', projectId: 'project-1' }),
   useRouter: () => ({ push: jest.fn() }),
   useSearchParams: () => ({ get: mockSearchParamsGet }),
-}))
-
-jest.mock('firebase/firestore', () => ({
-  collection: jest.fn((...segments: string[]) => segments),
-  onSnapshot: jest.fn((_ref, onNext) => {
-    snapshotCallback = onNext
-    return unsubscribe
-  }),
-}))
-
-jest.mock('@/lib/firebase/config', () => ({
-  getClientDb: jest.fn(() => ({})),
 }))
 
 jest.mock('@/components/kanban/KanbanBoard', () => ({
@@ -55,19 +41,6 @@ jest.mock('@/components/hermes/Chat', () => ({
 
 const longDocContent = `Intro ${'context '.repeat(40)}Unique full ending`
 
-
-function mockSnapshotChange(type: 'added' | 'modified' | 'removed', id: string, data: Record<string, unknown>) {
-  act(() => {
-    snapshotCallback?.({
-      docChanges: () => [
-        {
-          type,
-          doc: { id, data: () => data },
-        },
-      ],
-    })
-  })
-}
 
 function mockFetch() {
   global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
@@ -289,8 +262,6 @@ function mockFetch() {
 
 describe('Admin project docs and settings tabs', () => {
   beforeEach(() => {
-    snapshotCallback = null
-    unsubscribe.mockClear()
     mockSearchParamsGet.mockReset()
     mockSearchParamsGet.mockReturnValue(null)
     Object.defineProperty(window, 'matchMedia', {
@@ -620,7 +591,7 @@ describe('Admin project docs and settings tabs', () => {
     expect(within(table).getAllByText('Done').length).toBeGreaterThan(0)
   })
 
-  it('keeps live kanban task changes that arrive before the REST fallback finishes', async () => {
+  it('renders kanban task changes after an in-flight API refresh finishes', async () => {
     let resolveTasks: (response: Response) => void = () => {}
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
@@ -638,18 +609,16 @@ describe('Admin project docs and settings tabs', () => {
 
     render(<ProjectDetailPage />)
 
-    await waitFor(() => expect(snapshotCallback).toBeTruthy())
-    mockSnapshotChange('added', 'task-live-1', {
-      title: 'Live kanban task survives fallback',
-      columnId: 'todo',
-      order: 1,
-    })
-
     await act(async () => {
-      resolveTasks({ ok: true, json: async () => ({ data: [] }) } as Response)
+      resolveTasks({
+        ok: true,
+        json: async () => ({
+          data: [{ id: 'task-api-1', title: 'Kanban task after refresh', columnId: 'todo', order: 1 }],
+        }),
+      } as Response)
     })
 
-    expect(screen.getByText('Live kanban task survives fallback')).toBeInTheDocument()
+    expect(await screen.findByText('Kanban task after refresh')).toBeInTheDocument()
   })
 
   it('polls project detail tasks so an open Kanban reflects moves when Firestore is quiet', async () => {
@@ -681,9 +650,9 @@ describe('Admin project docs and settings tabs', () => {
 
     await waitFor(() => expect(screen.getByText('Move me live')).toBeInTheDocument())
 
-    // The board polls tasks as a safety net on a 60s interval; advance past it.
+    // The board refreshes its server-scoped task view every 15 seconds.
     await act(async () => {
-      jest.advanceTimersByTime(60000)
+      jest.advanceTimersByTime(15000)
     })
 
     await waitFor(() => expect(screen.getByText('Move me live after poll')).toBeInTheDocument())
@@ -691,15 +660,8 @@ describe('Admin project docs and settings tabs', () => {
     jest.useRealTimers()
   })
 
-  it('deduplicates a created task when the Firestore listener wins the race before POST returns', async () => {
+  it('adds a newly created task exactly once to the API-backed board', async () => {
     render(<ProjectDetailPage />)
-
-    await waitFor(() => expect(snapshotCallback).toBeTruthy())
-    mockSnapshotChange('added', 'task-live-duplicate', {
-      title: 'Live-created task',
-      columnId: 'todo',
-      order: 1,
-    })
 
     fireEvent.click(screen.getByRole('button', { name: /New Task/i }))
     fireEvent.click(screen.getByTestId('task-composer'))

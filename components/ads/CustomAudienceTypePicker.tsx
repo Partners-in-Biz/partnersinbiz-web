@@ -66,7 +66,7 @@ export function CustomAudienceTypePicker({ onSelect, disabledTypes = [], disable
             }`}
             aria-label={label}
           >
-            <div className="text-2xl">{icon}</div>
+            <div aria-hidden="true" className="pib-icon-tint pib-icon-tint-rose text-lg">{icon}</div>
             <h3 className="mt-2 font-medium">{label}</h3>
             <p className="mt-1 text-xs text-white/60">{description}</p>
             {disabled && disabledReason[type] && (

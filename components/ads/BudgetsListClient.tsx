@@ -38,9 +38,9 @@ const SCOPE_BADGE: Record<BudgetScope, string> = {
 }
 
 const PERIOD_CHIP: Record<string, string> = {
-  daily: 'bg-white/5 text-white/50',
-  weekly: 'bg-white/5 text-white/50',
-  monthly: 'bg-white/5 text-white/50',
+  daily: 'pib-pill pib-pill-rose',
+  weekly: 'pib-pill pib-pill-rose',
+  monthly: 'pib-pill pib-pill-rose',
 }
 
 interface Props {
@@ -206,7 +206,7 @@ export function BudgetsListClient({ budgets, orgSlug }: Props) {
                       {b.scope}
                     </span>
                     {b.platform && (
-                      <span className="rounded bg-white/5 px-2 py-0.5 text-xs text-white/50">
+                      <span className="pib-pill pib-pill-rose">
                         {b.platform}
                       </span>
                     )}
@@ -216,7 +216,7 @@ export function BudgetsListClient({ budgets, orgSlug }: Props) {
                       </span>
                     )}
                     <span
-                      className={`rounded px-2 py-0.5 text-xs ${PERIOD_CHIP[b.period] ?? 'bg-white/5 text-white/50'}`}
+                      className={PERIOD_CHIP[b.period] ?? 'pib-pill pib-pill-rose'}
                     >
                       {b.period}
                     </span>

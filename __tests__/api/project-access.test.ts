@@ -25,12 +25,23 @@ const mockCompanyDoc = jest.fn()
 const mockCompanyGet = jest.fn()
 const mockContactDoc = jest.fn()
 const mockContactGet = jest.fn()
+const mockOrganizationDoc = jest.fn()
+const mockOrganizationGet = jest.fn()
 const mockProjectRootDoc = jest.fn()
 const mockProjectRootCollection = jest.fn()
 const mockProjectAuditAdd = jest.fn()
 const mockEnsureClaimableRelationship = jest.fn()
 
-let mockUser = { uid: 'owner-1', role: 'admin' as const, orgId: 'owner-org' }
+type MockUser = {
+  uid: string
+  role: 'admin' | 'client'
+  orgId?: string
+  activeOrgId?: string
+  orgIds?: string[]
+  allowedOrgIds?: string[]
+}
+
+let mockUser: MockUser = { uid: 'owner-1', role: 'admin', orgId: 'owner-org' }
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
@@ -95,7 +106,7 @@ beforeEach(() => {
   }))
   mockOrgMemberGet.mockImplementation(async (id: string) => ({
     exists: id === 'owner-org_user-2',
-    data: () => ({ uid: 'user-2', role: 'member' }),
+    data: () => ({ uid: 'user-2', orgId: 'owner-org', role: 'member', status: 'active' }),
   }))
   mockOwnerOrgMemberWhere.mockReturnValue({ get: mockOwnerOrgMemberListGet })
   mockOwnerOrgMemberListGet.mockResolvedValue({
@@ -134,6 +145,15 @@ beforeEach(() => {
       ? { orgId: 'owner-org', name: 'Linked Contact', email: 'linked@example.com', linkedUserId: 'contact-user' }
       : { orgId: 'owner-org', name: 'Pending Contact', email: 'pending@example.com' },
   }))
+  mockOrganizationDoc.mockImplementation((id: string) => ({
+    get: () => mockOrganizationGet(id),
+  }))
+  mockOrganizationGet.mockImplementation(async (id: string) => ({
+    exists: id === 'client-org',
+    data: () => id === 'client-org'
+      ? { name: 'Client Organisation', active: true, status: 'active' }
+      : undefined,
+  }))
   mockProjectAuditAdd.mockResolvedValue({ id: 'audit-1' })
   mockProjectRootCollection.mockImplementation((name: string) => {
     if (name === 'audit') return { add: mockProjectAuditAdd }
@@ -157,6 +177,7 @@ beforeEach(() => {
     if (name === 'users') return { doc: mockUserDoc }
     if (name === 'companies') return { doc: mockCompanyDoc }
     if (name === 'contacts') return { doc: mockContactDoc }
+    if (name === 'organizations') return { doc: mockOrganizationDoc }
     if (name === 'projects') return { doc: mockProjectRootDoc }
     throw new Error(`Unexpected collection ${name}`)
   })
@@ -190,6 +211,56 @@ describe('project access API', () => {
       expect.objectContaining({ uid: 'owner-1', displayName: 'Peet Stander', email: 'peet@partners.example', role: 'owner' }),
       expect.objectContaining({ uid: 'user-2', displayName: 'User Two', email: 'user2@example.com', role: 'member' }),
     ])
+  })
+
+  it('uses the selected organisation when access management is opened from Messages', async () => {
+    const { GET } = await import('@/app/api/v1/projects/[projectId]/access/route')
+    const res = await GET(new NextRequest(
+      'http://localhost/api/v1/projects/project-1/access?orgId=owner-org',
+    ), { params: Promise.resolve({ projectId: 'project-1' }) })
+
+    expect(res.status).toBe(200)
+    expect(mockGetProjectForUser).toHaveBeenCalledWith('project-1', mockUser, 'owner-org')
+  })
+
+  it('does not expose the project access roster to roles below manager', async () => {
+    mockGetProjectForUser.mockResolvedValueOnce({
+      ok: true,
+      doc: {
+        id: 'project-1',
+        data: () => ({ ownerOrgId: 'owner-org', orgId: 'owner-org' }),
+      },
+      projectAccess: { role: 'viewer', source: 'project_organization', canViewInternal: false },
+    })
+    const { GET } = await import('@/app/api/v1/projects/[projectId]/access/route')
+    const res = await GET(getRequest(), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+
+    expect(res.status).toBe(403)
+    expect(mockProjectMemberListGet).not.toHaveBeenCalled()
+    expect(mockProjectOrgListGet).not.toHaveBeenCalled()
+    expect(mockProjectInviteListGet).not.toHaveBeenCalled()
+    expect(mockOwnerOrgMemberListGet).not.toHaveBeenCalled()
+  })
+
+  it('does not expose owner-organisation access administration to an external project manager', async () => {
+    mockGetProjectForUser.mockResolvedValueOnce({
+      ok: true,
+      doc: {
+        id: 'project-1',
+        data: () => ({ ownerOrgId: 'owner-org', orgId: 'owner-org' }),
+      },
+      projectAccess: { role: 'manager', source: 'project_organization', canViewInternal: false },
+    })
+    const { GET } = await import('@/app/api/v1/projects/[projectId]/access/route')
+    const res = await GET(getRequest(), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+
+    expect(res.status).toBe(403)
+    expect(mockProjectMemberListGet).not.toHaveBeenCalled()
+    expect(mockOwnerOrgMemberListGet).not.toHaveBeenCalled()
   })
 
   it('adds an owner-org member to a project with a project-scoped role', async () => {
@@ -229,6 +300,152 @@ describe('project access API', () => {
 
     expect(res.status).toBe(400)
     expect(mockProjectMemberSet).not.toHaveBeenCalled()
+  })
+
+  it.each(['revoked', 'disabled', 'removed'])('rejects a %s owner-org membership tombstone when adding a project member', async (status) => {
+    mockOrgMemberGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ uid: 'user-2', orgId: 'owner-org', status }),
+    })
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/access/route')
+    const res = await POST(request({ action: 'add_member', uid: 'user-2', role: 'contributor' }), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+
+    expect(res.status).toBe(400)
+    expect(mockProjectMemberSet).not.toHaveBeenCalled()
+  })
+
+  it('directly links an accessible existing organisation without requiring CRM or email records', async () => {
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/access/route')
+    const res = await POST(request({
+      action: 'link_organization',
+      targetOrgId: 'client-org',
+      role: 'reviewer',
+    }), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+
+    expect(res.status).toBe(201)
+    expect(mockOrganizationDoc).toHaveBeenCalledWith('client-org')
+    expect(mockProjectOrgDoc).toHaveBeenCalledWith('project-1_client-org')
+    expect(mockProjectOrgSet).toHaveBeenCalledWith(expect.objectContaining({
+      projectId: 'project-1',
+      orgId: 'client-org',
+      recipientCompanyName: 'Client Organisation',
+      role: 'reviewer',
+      status: 'active',
+      linkedBy: 'owner-1',
+    }), { merge: true })
+    expect(mockProjectAuditAdd).toHaveBeenCalledWith(expect.objectContaining({
+      eventType: 'access_org_linked',
+      itemType: 'projectOrganization',
+      itemId: 'client-org',
+      orgId: 'client-org',
+      role: 'reviewer',
+      status: 'active',
+      title: 'Linked Client Organisation as reviewer',
+    }))
+    expect(mockEnsureClaimableRelationship).not.toHaveBeenCalled()
+    expect(mockProjectInviteSet).not.toHaveBeenCalled()
+    expect(await res.json()).toEqual(expect.objectContaining({
+      success: true,
+      data: expect.objectContaining({ orgId: 'client-org', status: 'active' }),
+    }))
+  })
+
+  it('rejects direct organisation links from project roles below manager', async () => {
+    mockGetProjectForUser.mockResolvedValueOnce({
+      ok: true,
+      doc: {
+        id: 'project-1',
+        data: () => ({ ownerOrgId: 'owner-org', orgId: 'owner-org' }),
+      },
+      projectAccess: { role: 'reviewer', source: 'project_member', canViewInternal: true },
+    })
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/access/route')
+    const res = await POST(request({
+      action: 'link_organization',
+      targetOrgId: 'client-org',
+      role: 'reviewer',
+    }), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+
+    expect(res.status).toBe(403)
+    expect(mockOrganizationGet).not.toHaveBeenCalled()
+    expect(mockProjectOrgSet).not.toHaveBeenCalled()
+  })
+
+  it('rejects direct links to organisations outside the actor accessible organisation set', async () => {
+    mockUser = {
+      uid: 'owner-1',
+      role: 'client',
+      orgId: 'owner-org',
+      orgIds: ['owner-org'],
+    }
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/access/route')
+    const res = await POST(request({
+      action: 'link_organization',
+      targetOrgId: 'client-org',
+      role: 'reviewer',
+    }), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+
+    expect(res.status).toBe(403)
+    expect(mockOrganizationGet).not.toHaveBeenCalled()
+    expect(mockProjectOrgSet).not.toHaveBeenCalled()
+  })
+
+  it('allows a client to link an accessible organisation with an exact active membership row', async () => {
+    mockUser = {
+      uid: 'owner-1',
+      role: 'client',
+      orgId: 'owner-org',
+      orgIds: ['owner-org', 'client-org'],
+    }
+    mockOrgMemberGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ orgId: 'client-org', uid: 'owner-1', status: 'active' }),
+    })
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/access/route')
+    const res = await POST(request({
+      action: 'link_organization',
+      targetOrgId: 'client-org',
+      role: 'reviewer',
+    }), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+
+    expect(res.status).toBe(201)
+    expect(mockOrgMemberGet).toHaveBeenCalledWith('client-org_owner-1')
+    expect(mockProjectOrgSet).toHaveBeenCalled()
+  })
+
+  it.each(['revoked', 'disabled', 'removed'])('rejects direct links through a %s target membership tombstone', async (status) => {
+    mockUser = {
+      uid: 'owner-1',
+      role: 'client',
+      orgId: 'owner-org',
+      orgIds: ['owner-org', 'client-org'],
+    }
+    mockOrgMemberGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ orgId: 'client-org', uid: 'owner-1', status }),
+    })
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/access/route')
+    const res = await POST(request({
+      action: 'link_organization',
+      targetOrgId: 'client-org',
+      role: 'reviewer',
+    }), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+
+    expect(res.status).toBe(403)
+    expect(mockOrganizationGet).not.toHaveBeenCalled()
+    expect(mockProjectOrgSet).not.toHaveBeenCalled()
   })
 
   it('invites multiple CRM organisations and auto-links existing PiB orgs/users', async () => {

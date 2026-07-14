@@ -12,6 +12,7 @@ const mockTouchConversation = jest.fn()
 const mockCallHermesJson = jest.fn()
 const mockGetAgentDispatchHermesProfileLink = jest.fn()
 const mockRunDocSet = jest.fn()
+const mockGetLinkedRunResult = jest.fn()
 
 let mockUser: MockUser = { uid: 'client-1', role: 'client', orgIds: ['org-1'] }
 
@@ -37,6 +38,10 @@ jest.mock('@/lib/hermes/server', () => ({
 
 jest.mock('@/lib/agents/team', () => ({
   getAgentDispatchHermesProfileLink: (...args: unknown[]) => mockGetAgentDispatchHermesProfileLink(...args),
+}))
+
+jest.mock('@/lib/linked-computers/run-queue-store', () => ({
+  getLinkedRunResult: (...args: unknown[]) => mockGetLinkedRunResult(...args),
 }))
 
 jest.mock('@/lib/api/response', () => ({
@@ -97,6 +102,7 @@ beforeEach(() => {
     permissions: { superAdmin: false, restrictedAdmin: false, client: true, allowedUserIds: [] },
   })
   mockRunDocSet.mockResolvedValue(undefined)
+  mockGetLinkedRunResult.mockResolvedValue(null)
   mockCollection.mockImplementation((name: string) => {
     if (name === 'agent_team') {
       return {
@@ -121,6 +127,59 @@ beforeEach(() => {
 })
 
 describe('POST /api/v1/conversations/[convId]/messages/[msgId]/finalize', () => {
+  it('reads linked-computer state without polling the default Hermes runtime', async () => {
+    mockMessageGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        role: 'assistant',
+        status: 'pending',
+        runId: 'linked-job-1',
+        dispatchAgentId: 'pip',
+        linkedDeviceId: 'device-a',
+      }),
+    })
+    mockGetLinkedRunResult.mockResolvedValueOnce({
+      status: 'running',
+      runId: 'linked-job-1',
+    })
+
+    const res = await callFinalize({ runId: 'linked-job-1', agentId: 'pip', events: [] })
+
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toMatchObject({
+      data: { status: 'running', runId: 'linked-job-1' },
+    })
+    expect(mockGetLinkedRunResult).toHaveBeenCalledWith({
+      jobId: 'linked-job-1',
+      deviceId: 'device-a',
+      conversationId: 'conv-1',
+      assistantMessageId: 'msg-1',
+    })
+    expect(mockGetAgentDispatchHermesProfileLink).not.toHaveBeenCalled()
+    expect(mockCallHermesJson).not.toHaveBeenCalled()
+    expect(mockMessageUpdate).not.toHaveBeenCalled()
+  })
+
+  it('polls an ordinary run on its conversation-bound runtime target', async () => {
+    mockGetConversation.mockResolvedValue({
+      ...baseConv,
+      workspaceContext: { runtimeTarget: 'local' },
+    })
+    mockCallHermesJson.mockResolvedValueOnce({
+      response: { ok: true, status: 200 },
+      data: { status: 'running' },
+    })
+
+    const res = await callFinalize({ runId: 'run-local', agentId: 'pip', events: [] })
+
+    expect(res.status).toBe(200)
+    expect(mockGetAgentDispatchHermesProfileLink).toHaveBeenCalledWith(
+      'pip',
+      'org-1',
+      { runtimeTarget: 'local' },
+    )
+  })
+
   it('updates a started ledger row when the message is already completed and the gateway reports completed output', async () => {
     mockMessageGet.mockResolvedValue({
       exists: true,

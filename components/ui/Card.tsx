@@ -42,8 +42,10 @@ export function MetricCard({ label, value, sub, trend, accent, icon, onClick }: 
       <div className="flex items-start justify-between">
         <p className="eyebrow !text-[10px]">{label}</p>
         {icon && (
-          <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">
-            {icon}
+          <span aria-hidden="true" className="pib-icon-tint !h-8 !w-8">
+            <span className="material-symbols-outlined text-[16px]">
+              {icon}
+            </span>
           </span>
         )}
       </div>

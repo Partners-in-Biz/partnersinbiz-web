@@ -1,3 +1,5 @@
+import crypto from 'node:crypto'
+
 export type AgentRuntimeTargetId = string
 
 export interface AgentRuntimeTarget {
@@ -36,6 +38,7 @@ export interface AgentDispatchTarget {
   source: 'runtimeTargets' | 'legacy'
   runtimeKind: 'local' | 'vps' | 'remote' | 'legacy'
   machineLabel: string
+  transportIdentity: string
 }
 
 export type RuntimeTargetSelectionErrorCode =
@@ -45,6 +48,7 @@ export type RuntimeTargetSelectionErrorCode =
   | 'runtime_target_stale'
   | 'runtime_target_unhealthy'
   | 'runtime_target_missing_api_key'
+  | 'runtime_target_binding_mismatch'
 
 export interface RuntimeTargetSelectionError {
   ok: false
@@ -68,6 +72,13 @@ export interface PublicRuntimeTargetPresence {
   lastSeenAt: string | null
   ageSeconds: number | null
   lastHealthStatus: string | null
+}
+
+/** Stable opaque identity for the concrete transport behind a target id. */
+export function runtimeTargetTransportIdentity(target: { baseUrl: string; hostId?: string }): string {
+  const baseUrl = target.baseUrl.trim().replace(/\/+$/, '').toLowerCase()
+  const hostId = target.hostId?.trim().toLowerCase() ?? ''
+  return crypto.createHash('sha256').update(`${hostId}\n${baseUrl}`).digest('base64url')
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -235,6 +246,7 @@ function toDispatchTarget(target: AgentRuntimeTarget): AgentDispatchTarget {
     apiKey: target.apiKey ?? '',
     source: 'runtimeTargets',
     runtimeKind,
+    transportIdentity: runtimeTargetTransportIdentity(target),
     machineLabel: target.hostId
       ? humanizeHostId(target.hostId)
       : target.label?.trim() || (runtimeKind === 'local' ? 'Local' : runtimeKind === 'vps' ? 'VPS' : target.id),
@@ -321,6 +333,7 @@ export function selectAgentRuntimeTarget(input: RuntimeTargetSelectionInput): Ru
       source: 'legacy',
       runtimeKind: 'legacy',
       machineLabel: 'Legacy Hermes',
+      transportIdentity: runtimeTargetTransportIdentity({ baseUrl: legacyBaseUrl }),
     }
   }
 

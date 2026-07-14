@@ -4,6 +4,8 @@ const mockIndexedLimit = jest.fn(() => ({ get: mockIndexedGet }))
 const mockOrderBy = jest.fn(() => ({ limit: mockIndexedLimit }))
 const mockWhere = jest.fn()
 const mockCollection = jest.fn(() => ({ where: mockWhere }))
+const mockGetProjectForUser = jest.fn()
+const mockProjectLinkedToOrganization = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
@@ -21,11 +23,21 @@ jest.mock('firebase-admin/storage', () => ({
   getStorage: jest.fn(),
 }))
 
+jest.mock('@/lib/projects/access', () => ({ getProjectForUser: mockGetProjectForUser }))
+jest.mock('@/lib/projects/organization-link', () => ({
+  projectLinkedToOrganization: mockProjectLinkedToOrganization,
+}))
+
 function timestamp(ms: number) {
   return { toMillis: () => ms }
 }
 
-function conversationDoc(id: string, updatedAtMs: number, participantUids = ['admin-1']) {
+function conversationDoc(
+  id: string,
+  updatedAtMs: number,
+  participantUids = ['admin-1'],
+  extra: Record<string, unknown> = {},
+) {
   return {
     id,
     data: () => ({
@@ -38,6 +50,7 @@ function conversationDoc(id: string, updatedAtMs: number, participantUids = ['ad
       archived: false,
       messageCount: 0,
       updatedAt: timestamp(updatedAtMs),
+      ...extra,
     }),
   }
 }
@@ -49,6 +62,11 @@ beforeEach(() => {
     orderBy: mockOrderBy,
     get: mockFallbackGet,
   })
+  mockGetProjectForUser.mockResolvedValue({
+    ok: true,
+    doc: { data: () => ({ orgId: 'pib-platform-owner' }) },
+  })
+  mockProjectLinkedToOrganization.mockResolvedValue(true)
 })
 
 describe('listConversations', () => {
@@ -106,5 +124,24 @@ describe('listConversations', () => {
       30,
     )).rejects.toThrow('permission denied')
     expect(mockFallbackGet).not.toHaveBeenCalled()
+  })
+
+  it('drops project conversations when current project access has been revoked', async () => {
+    mockIndexedGet.mockResolvedValue({
+      docs: [conversationDoc('project-chat', 3000, ['admin-1'], {
+        scope: 'project',
+        scopeRefId: 'project-1',
+      })],
+    })
+    mockGetProjectForUser.mockResolvedValueOnce({ ok: false, status: 403, error: 'Forbidden' })
+
+    const { listConversations } = await import('@/lib/conversations/conversations')
+    const conversations = await listConversations(
+      'pib-platform-owner',
+      { uid: 'admin-1', role: 'admin' },
+      30,
+    )
+
+    expect(conversations).toEqual([])
   })
 })

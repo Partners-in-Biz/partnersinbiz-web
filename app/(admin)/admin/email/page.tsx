@@ -57,16 +57,16 @@ function Skeleton({ className = '' }: { className?: string }) {
 }
 
 const AUTH_BADGE: Record<AuthState, { label: string; cls: string }> = {
-  verified: { label: 'Pass', cls: 'bg-green-500/10 text-green-400 border-green-500/30' },
-  pending: { label: 'Pending', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/30' },
-  failed: { label: 'Fail', cls: 'bg-red-500/10 text-red-400 border-red-500/30' },
-  missing: { label: 'Missing', cls: 'bg-[var(--color-pib-text)]/10 text-[var(--color-pib-text-muted)] border-[var(--color-pib-text)]/20' },
+  verified: { label: 'Pass', cls: 'pib-pill-success' },
+  pending: { label: 'Pending', cls: 'pib-pill-warn' },
+  failed: { label: 'Fail', cls: 'pib-pill-danger' },
+  missing: { label: 'Missing', cls: '' },
 }
 
 function AuthBadge({ state }: { state: AuthState }) {
   const b = AUTH_BADGE[state]
   return (
-    <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-label ${b.cls}`}>
+    <span className={`pib-pill ${b.cls}`}>
       {b.label}
     </span>
   )
@@ -223,19 +223,18 @@ export default function EmailDeliverabilityPage() {
       >
         <div>
           <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-[var(--color-pib-text-muted)]">
-              {data?.controls.pauseOutbound ? 'pause_circle' : 'play_circle'}
+            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-blue">
+              <span className="material-symbols-outlined text-[18px]">
+                {data?.controls.pauseOutbound ? 'pause_circle' : 'play_circle'}
+              </span>
             </span>
             <h2 className="text-lg font-headline font-bold text-[var(--color-pib-text)]">Outbound email</h2>
             {data?.controls.pauseOutbound ? (
-              <span className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full bg-red-500/10 text-red-400">
+              <span className="pib-pill pib-pill-danger">
                 Paused
               </span>
             ) : (
-              <span
-                className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full"
-                style={{ background: 'var(--color-pib-accent)20', color: 'var(--color-pib-accent)' }}
-              >
+              <span className="pib-pill pib-pill-blue">
                 Sending
               </span>
             )}

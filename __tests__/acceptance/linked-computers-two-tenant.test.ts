@@ -48,7 +48,7 @@ describe('linked computers two-user/two-organisation acceptance', () => {
     const db = readDb(rows)
     await expect(authorizeLinkedComputerDispatch({
       userId: 'user-b', orgId: 'org-b', workspaceId: 'workspace-b', runtimeTargetId: 'linked-device:device-a',
-    }, { db: db as never, nowMs: () => now })).rejects.toMatchObject({ code: 'linked_device_membership_required' })
+    }, { db: db as never, nowMs: () => now })).rejects.toMatchObject({ code: 'linked_device_not_authorized' })
 
     expect(await discoverAuthorizedRuntimeTargets({ userId: 'user-b', orgId: 'org-a', workspaceId: 'workspace-a' }, {
       db: db as never, nowMs: () => now,

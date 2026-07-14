@@ -1,0 +1,15 @@
+{
+  "rule": [
+    {
+      "action": {
+        "type": "Delete"
+      },
+      "condition": {
+        "daysSinceCustomTime": 35,
+        "matchesPrefix": [
+          "project-sync/"
+        ]
+      }
+    }
+  ]
+}

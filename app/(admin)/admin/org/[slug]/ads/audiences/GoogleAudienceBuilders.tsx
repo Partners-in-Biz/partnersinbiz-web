@@ -41,17 +41,15 @@ export function GoogleAudienceBuilders({ orgId, orgSlug }: Props) {
   return (
     <div className="space-y-6">
       {/* Subtype tabs */}
-      <div className="flex flex-wrap gap-2 border-b border-white/10 pb-4">
+      <div role="tablist" aria-label="Google audience subtype" className="pib-tabs">
         {SUBTYPES.map((t) => (
           <button
             key={t.value}
             type="button"
+            role="tab"
+            aria-selected={subtype === t.value}
             onClick={() => setSubtype(t.value)}
-            className={`rounded px-3 py-1.5 text-xs font-medium transition-colors ${
-              subtype === t.value
-                ? 'bg-[#F5A623] text-black'
-                : 'border border-white/10 text-white/60 hover:text-white hover:border-white/30'
-            }`}
+            className={`pib-tab ${subtype === t.value ? 'pib-tab-active' : ''}`}
           >
             {t.label}
           </button>

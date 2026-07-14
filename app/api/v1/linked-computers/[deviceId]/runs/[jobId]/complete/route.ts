@@ -12,7 +12,7 @@ export async function handleLinkedRunComplete(req: NextRequest, deviceId: string
     if (identity.deviceId !== deviceId) throw new Error('linked computers: tenant scope mismatch')
     const body = JSON.parse(rawBody) as { receipt?: LinkedRunReceipt; outcome?: unknown; output?: unknown; error?: unknown }
     if (!body.receipt || body.receipt.jobId !== jobId || !['completed', 'failed', 'cancelled'].includes(String(body.outcome))) throw new Error('linked computers: invalid run completion')
-    await update({ deviceId, credentialVersion: identity.credentialVersion, jobId, receipt: body.receipt, event: 'complete', outcome: body.outcome as 'completed' | 'failed' | 'cancelled', ...(typeof body.output === 'string' ? { output: body.output } : {}), ...(typeof body.error === 'string' ? { error: body.error } : {}) })
+    await update({ deviceId, ownerUserId: identity.ownerUserId, credentialVersion: identity.credentialVersion, jobId, receipt: body.receipt, event: 'complete', outcome: body.outcome as 'completed' | 'failed' | 'cancelled', ...(typeof body.output === 'string' ? { output: body.output } : {}), ...(typeof body.error === 'string' ? { error: body.error } : {}) })
     return NextResponse.json({ success: true, data: { accepted: true } }, { headers: noStoreHeaders })
   } catch (error) { return lifecycleError(error) }
 }

@@ -1,0 +1,99 @@
+#!/bin/bash
+set -euo pipefail
+
+PYTHON="${PIB_PYTHON3:-python3}"
+command -v "$PYTHON" >/dev/null || { echo 'Python 3 is required.' >&2; exit 1; }
+
+# CPython refuses to initialise when stdin itself is a directory. Preserve the
+# caller-approved descriptor across exec, give Python a harmless stdin while it
+# starts, then restore the approved directory as fd 0 before any operation.
+exec 3<&0
+exec 0</dev/null
+
+exec "$PYTHON" -c '
+import os
+import ctypes
+import errno
+import platform
+import stat
+import sys
+
+RENAME_NOREPLACE = 1
+
+os.dup2(3, 0)
+os.close(3)
+
+def fail(message, code=2):
+    print(message, file=sys.stderr)
+    raise SystemExit(code)
+
+def basename(value):
+    if not value or value in (".", "..") or "/" in value or "\\" in value or "\x00" in value:
+        fail("unsafe descriptor-relative name")
+    if len(value.encode("utf-8")) > 255:
+        fail("descriptor-relative name is too long")
+    return value
+
+def directory_fd():
+    if not stat.S_ISDIR(os.fstat(0).st_mode):
+        fail("stdin descriptor must be a directory")
+
+def sync_directory():
+    try:
+        os.fsync(0)
+    except OSError:
+        pass
+
+def renameat2_noreplace(source, target):
+    if sys.platform != "linux":
+        fail("rename-excl requires Linux", 1)
+    libc = ctypes.CDLL(None, use_errno=True)
+    encoded_source, encoded_target = os.fsencode(source), os.fsencode(target)
+    renameat2 = getattr(libc, "renameat2", None)
+    if renameat2 is not None:
+        renameat2.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+        renameat2.restype = ctypes.c_int
+        result = renameat2(0, encoded_source, 0, encoded_target, RENAME_NOREPLACE)
+    else:
+        syscall_number = {"x86_64": 316, "amd64": 316, "aarch64": 276, "arm64": 276}.get(platform.machine().lower())
+        if syscall_number is None:
+            fail("renameat2 syscall is unsupported on this architecture", 1)
+        libc.syscall.restype = ctypes.c_long
+        result = libc.syscall(ctypes.c_long(syscall_number), ctypes.c_int(0), ctypes.c_char_p(encoded_source), ctypes.c_int(0), ctypes.c_char_p(encoded_target), ctypes.c_uint(RENAME_NOREPLACE))
+    if result != 0:
+        error = ctypes.get_errno()
+        raise OSError(error, os.strerror(error), target)
+
+args = sys.argv[1:]
+if args == ["resolved-path"]:
+    os.fstat(0)
+    link = "/proc/self/fd/0" if os.path.exists("/proc/self/fd/0") else "/dev/fd/0"
+    resolved = os.path.realpath(link)
+    if not os.path.isabs(resolved):
+        fail("descriptor path is unavailable", 1)
+    print(resolved)
+elif len(args) == 3 and args[0] == "rename":
+    directory_fd()
+    source, target = basename(args[1]), basename(args[2])
+    os.rename(source, target, src_dir_fd=0, dst_dir_fd=0)
+    sync_directory()
+elif len(args) == 3 and args[0] == "rename-excl":
+    directory_fd()
+    source, target = basename(args[1]), basename(args[2])
+    renameat2_noreplace(source, target)
+    sync_directory()
+elif len(args) == 2 and args[0] == "mkdir":
+    directory_fd()
+    os.mkdir(basename(args[1]), mode=0o700, dir_fd=0)
+    sync_directory()
+elif len(args) == 2 and args[0] == "unlink":
+    directory_fd()
+    os.unlink(basename(args[1]), dir_fd=0)
+    sync_directory()
+elif len(args) == 2 and args[0] == "rmdir":
+    directory_fd()
+    os.rmdir(basename(args[1]), dir_fd=0)
+    sync_directory()
+else:
+    fail("usage: pib-file-helper resolved-path|rename SOURCE TARGET|rename-excl SOURCE TARGET|mkdir NAME|unlink NAME|rmdir NAME")
+' "$@"

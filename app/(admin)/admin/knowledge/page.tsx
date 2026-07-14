@@ -8,7 +8,7 @@ function AdminStubCard({ icon, title, desc, cta }: { icon: string; title: string
   return (
     <div className="flex items-start justify-between p-4 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-card)]/70">
       <div className="flex items-start gap-3">
-        <span className="material-symbols-outlined text-[20px] mt-0.5 shrink-0" style={{ color: 'var(--color-pib-accent)' }}>{icon}</span>
+        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan shrink-0"><span className="material-symbols-outlined text-[18px]">{icon}</span></span>
         <div>
           <p className="text-sm font-medium text-[var(--color-pib-text)]">{title}</p>
           <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">{desc}</p>

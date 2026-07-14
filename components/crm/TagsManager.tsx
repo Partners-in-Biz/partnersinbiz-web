@@ -294,7 +294,7 @@ export function TagsManager({ apiPath }: TagsManagerProps) {
                         />
                       ) : (
                         <span className="inline-flex items-center gap-2">
-                          <span className="rounded-full border border-[var(--color-card-border)] px-2 py-0.5 text-[11px] text-[var(--color-pib-text)]">
+                          <span className="pib-pill pib-pill-accent">
                             {row.tag}
                           </span>
                           {row.registered && row.count === 0 && (

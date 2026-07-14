@@ -18,7 +18,8 @@ import {
   resolvePlatformOwnerOrgId,
 } from '@/lib/platform-owner/relationships'
 import { canAccessProject } from '@/lib/projects/access'
-import { ensureProjectOwnerMembership } from '@/lib/projects/collaboration'
+import { ensureProjectOwnerMembership, projectOrganizationDocId } from '@/lib/projects/collaboration'
+import { publicProjectView } from '@/lib/projects/public'
 import { normalizeProjectLinks, pickProjectLinkFields, type ProjectLinkSet } from '@/lib/client-documents/linkedValidation'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import { touchPortalDashboardSummary } from '@/lib/portal/dashboard-summary'
@@ -42,8 +43,25 @@ type ProjectListItem = {
 
 type ProjectArchiveMode = 'active' | 'only' | 'include'
 
+export interface TrustedProjectCreateOptions {
+  documentId: string
+  setupOperationId: string
+}
+
 function cleanString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
+}
+
+function isAlreadyExistsError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const code = (error as { code?: unknown }).code
+  return code === 6 || code === 'already-exists'
+}
+
+function validTrustedProjectCreateOptions(value: TrustedProjectCreateOptions): boolean {
+  return /^setup_project_[a-f0-9]{40}$/.test(value.documentId)
+    && Boolean(value.setupOperationId.trim())
+    && value.setupOperationId.length <= 256
 }
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
@@ -219,17 +237,37 @@ function withOptionalLimit(query: FirebaseFirestore.Query, limit: number | null)
 }
 
 async function loadClientVisibleProjectsForOrg(orgId: string, limit: number | null = null): Promise<ProjectListItem[]> {
-  const [receivedSnap, targetSnap, clientSnap, legacySnap] = await Promise.all([
+  const [receivedSnap, targetSnap, clientSnap, legacySnap, organizationAccessSnap] = await Promise.all([
     withOptionalLimit(adminDb.collection('projects').where('recipientOrgId', '==', orgId), limit).get(),
     withOptionalLimit(adminDb.collection('projects').where('targetOrgId', '==', orgId), limit).get(),
     withOptionalLimit(adminDb.collection('projects').where('clientOrgId', '==', orgId), limit).get(),
     withOptionalLimit(adminDb.collection('projects').where('orgId', '==', orgId), limit).get(),
+    adminDb.collection('projectOrganizations').where('orgId', '==', orgId).get(),
   ])
+  const canonicalAccess = new Map<string, Record<string, unknown>>()
+  for (const doc of organizationAccessSnap.docs) {
+    const row = doc.data() as Record<string, unknown>
+    const projectId = cleanString(row.projectId)
+    if (!projectId || cleanString(row.orgId) !== orgId) continue
+    const canonical = doc.id === projectOrganizationDocId(projectId, orgId)
+    if (!canonicalAccess.has(projectId) || canonical) canonicalAccess.set(projectId, row)
+  }
   const byId = new Map<string, ProjectListItem>()
   for (const snap of [receivedSnap, targetSnap, clientSnap, legacySnap]) {
     for (const doc of snap.docs) {
+      const access = canonicalAccess.get(doc.id)
+      if (access && access.status !== 'active') continue
       byId.set(doc.id, { id: doc.id, ...doc.data() })
     }
+  }
+  const activeAccessProjectIds = Array.from(canonicalAccess.entries())
+    .filter(([, access]) => access.status === 'active')
+    .map(([projectId]) => projectId)
+  const activeAccessProjects = await Promise.all(activeAccessProjectIds.map((projectId) => (
+    adminDb.collection('projects').doc(projectId).get()
+  )))
+  for (const doc of activeAccessProjects) {
+    if (doc.exists) byId.set(doc.id, { id: doc.id, ...doc.data() })
   }
   return Array.from(byId.values())
 }
@@ -264,7 +302,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
         .filter((project) => filterProjectByArchiveMode(project, archives))
         .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
         .slice(0, listLimit ?? undefined)
-      return apiSuccess(projects)
+      return apiSuccess(projects.map(publicProjectView))
     }
     query = query.where(view === 'received' ? 'recipientOrgId' : 'orgId', '==', orgId)
   }
@@ -291,7 +329,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
         .filter((project) => filterProjectByArchiveMode(project, archives))
         .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
         .slice(0, listLimit ?? undefined)
-      return apiSuccess(projects)
+      return apiSuccess(projects.map(publicProjectView))
     }
     query = query.where('orgId', '==', orgId)
   } else if (user.role === 'admin') {
@@ -304,7 +342,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
         .filter((project) => filterProjectByArchiveMode(project, archives))
         .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
         .slice(0, listLimit ?? undefined)
-      return apiSuccess(projects)
+      return apiSuccess(projects.map(publicProjectView))
     }
     if (allowedOrgIds.length > 0) {
       query = query.where('orgId', 'in', allowedOrgIds.slice(0, 30))
@@ -320,11 +358,18 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
     .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
     .slice(0, listLimit ?? undefined)
 
-  return apiSuccess(projects)
+  return apiSuccess(projects.map(publicProjectView))
 })
 
-export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) => {
+export async function handleProjectCreate(
+  req: NextRequest,
+  user: ApiUser,
+  trustedSetup?: TrustedProjectCreateOptions,
+) {
   const body = await req.json()
+  if (trustedSetup && !validTrustedProjectCreateOptions(trustedSetup)) {
+    return apiError('Project setup resource identity is invalid', 500)
+  }
   const normalizedLinks = normalizeProjectLinks(pickProjectLinkFields(body))
   if (normalizedLinks.ok === false) return apiError(normalizedLinks.error, 400)
   Object.assign(body, normalizedLinks.value)
@@ -427,7 +472,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
   const name = body.name.trim()
   const ownerUid = user.uid
   const ownerOrgId = sourceOrgId
-  const docRef = await adminDb.collection('projects').add(stripUndefined({
+  const projectDocument = stripUndefined({
     ...finalLinks.value,
     name,
     ownerUid,
@@ -457,26 +502,59 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
       ? (crmTarget?.recipientOrgId ? 'claimed' : 'pending')
       : recipientOrgId ? 'claimed' : undefined,
     createdBy: user.uid,
+    ...(trustedSetup ? {
+      setupOperationId: trustedSetup.setupOperationId,
+      setupCreationStatus: 'creating',
+    } : {}),
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
-  }))
+  })
+  let setupReplay = false
+  let setupAlreadyComplete = false
+  let docRef: FirebaseFirestore.DocumentReference
+  if (trustedSetup) {
+    docRef = adminDb.collection('projects').doc(trustedSetup.documentId)
+    let existing = await docRef.get()
+    if (!existing.exists) {
+      try {
+        await docRef.create(projectDocument)
+      } catch (error) {
+        if (!isAlreadyExistsError(error)) throw error
+        existing = await docRef.get()
+      }
+    }
+    if (existing.exists) {
+      const existingProject = existing.data() ?? {}
+      if (existingProject.setupOperationId !== trustedSetup.setupOperationId
+        || cleanString(existingProject.name) !== name) {
+        return apiError('Project setup resource conflict', 409)
+      }
+      setupReplay = true
+      setupAlreadyComplete = existingProject.setupCreationStatus === 'complete'
+    }
+  } else {
+    docRef = await adminDb.collection('projects').add(projectDocument)
+  }
+  if (setupAlreadyComplete) return apiSuccess({ id: docRef.id }, 200)
   const summaryOrgIds = Array.from(new Set([
     sourceOrgId,
     recipientOrgId,
     cleanString(finalLinks.value.recipientOrgId),
     cleanString(finalLinks.value.clientOrgId),
   ].filter(Boolean)))
-  await Promise.all(summaryOrgIds.map((summaryOrgId) => touchPortalDashboardSummary({
-    orgId: summaryOrgId,
-    increments: {
-      'counts.projects': 1,
-      'projects.total': 1,
-      ...(dashboardActiveProjectStatus(body.status ?? 'discovery')
-        ? { 'counts.activeProjects': 1, 'projects.active': 1 }
-        : {}),
-    },
-    staleReason: 'project.created',
-  })))
+  await Promise.all(summaryOrgIds.map((summaryOrgId) => touchPortalDashboardSummary(trustedSetup
+    ? { orgId: summaryOrgId, staleReason: 'project.created' }
+    : {
+        orgId: summaryOrgId,
+        increments: {
+          'counts.projects': 1,
+          'projects.total': 1,
+          ...(dashboardActiveProjectStatus(body.status ?? 'discovery')
+            ? { 'counts.activeProjects': 1, 'projects.active': 1 }
+            : {}),
+        },
+        staleReason: 'project.created',
+      })))
   await ensureProjectOwnerMembership({
     projectId: docRef.id,
     ownerUid,
@@ -515,7 +593,14 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     }))
   }
 
-  logActivity({
+  if (trustedSetup) {
+    await docRef.set({
+      setupCreationStatus: 'complete',
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true })
+  }
+
+  if (!setupReplay) logActivity({
     orgId: sourceOrgId,
     type: 'project_created',
     actorId: user.uid,
@@ -527,8 +612,10 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     entityTitle: name,
   }).catch(() => {})
 
-  return apiSuccess(stripUndefined({ id: docRef.id, claimToken, claimStatus }), 201)
-})
+  return apiSuccess(stripUndefined({ id: docRef.id, claimToken, claimStatus }), setupReplay ? 200 : 201)
+}
+
+export const POST = withAuth('client', handleProjectCreate)
 
 export const DELETE = withAuth('admin', async (req: NextRequest, user: ApiUser) => {
   const { searchParams } = new URL(req.url)

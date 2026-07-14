@@ -79,7 +79,7 @@ function MetricCard({
       <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</p>
       <p
         className="text-2xl font-headline font-bold mt-1"
-        style={{ color: accent ? 'var(--color-pib-accent)' : undefined }}
+        style={{ color: accent ? 'var(--color-pib-cyan)' : undefined }}
       >
         {value}
       </p>
@@ -90,7 +90,7 @@ function MetricCard({
 
 function ActivationBar({ score }: { score: number }) {
   const color =
-    score >= 66 ? 'var(--color-pib-accent)' : score >= 33 ? '#eab308' : '#9ca3af'
+    score >= 66 ? 'var(--color-pib-cyan)' : score >= 33 ? '#eab308' : '#9ca3af'
   return (
     <div className="flex items-center gap-2 min-w-[120px]">
       <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
@@ -107,13 +107,10 @@ function DaysBadge({ days }: { days: number | null }) {
   }
   const expired = days < 0
   const urgent = days <= 3
-  const color = expired ? '#ef4444' : urgent ? '#ef4444' : days <= 7 ? '#eab308' : '#6b7280'
+  const tone = expired || urgent ? 'pib-pill-danger' : days <= 7 ? 'pib-pill-warn' : ''
   const label = expired ? `${Math.abs(days)}d overdue` : `${days}d left`
   return (
-    <span
-      className="text-[11px] font-label px-2 py-0.5 rounded-full whitespace-nowrap"
-      style={{ background: `${color}20`, color }}
-    >
+    <span className={`pib-pill whitespace-nowrap ${tone}`}>
       {label}
     </span>
   )
@@ -295,7 +292,7 @@ export default function TrialsPage() {
                 />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
                 <Bar dataKey="started" name="Started" fill="#6b7280" radius={[3, 3, 0, 0]} />
-                <Bar dataKey="converted" name="Converted" fill="var(--color-pib-accent)" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="converted" name="Converted" fill="var(--color-pib-cyan)" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

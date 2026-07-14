@@ -69,7 +69,7 @@ export function AdminMessagesGovernanceWorkspace({ orgSlug }: AdminMessagesGover
               Every action exposes the same role choices so each organisation can choose its own conversation rules.
             </p>
           </div>
-          <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-[var(--color-card-border)] text-[var(--color-pib-accent)]">
+          <span className="pib-icon-tint pib-icon-tint-blue shrink-0">
             <span className="material-symbols-outlined text-[20px] leading-none">forum</span>
           </span>
         </div>

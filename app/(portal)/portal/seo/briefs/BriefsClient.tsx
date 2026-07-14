@@ -221,7 +221,7 @@ export function BriefsClient({
             <div>
               <p className="eyebrow !text-[10px] mb-2">Semantic keywords</p>
               <div className="flex flex-wrap gap-2">
-                {brief.semanticKeywords.map((k) => <span key={k} className="pib-pill text-xs">{k}</span>)}
+                {brief.semanticKeywords.map((k) => <span key={k} className="pib-pill pib-pill-success text-xs">{k}</span>)}
               </div>
             </div>
 

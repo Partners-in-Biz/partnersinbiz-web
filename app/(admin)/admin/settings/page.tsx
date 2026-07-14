@@ -425,7 +425,7 @@ export default function SettingsPage() {
         ].map(item => (
           <div key={item.title} className="flex items-center justify-between p-3 rounded-lg hover:bg-[var(--color-row-hover)] transition-colors">
             <div className="flex items-start gap-3">
-              <span className="material-symbols-outlined text-[20px] mt-0.5" style={{ color: 'var(--color-accent-v2)' }}>{item.icon}</span>
+              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan"><span className="material-symbols-outlined text-[18px]">{item.icon}</span></span>
               <div>
                 <p className="text-sm font-medium text-[var(--color-pib-text)]">{item.title}</p>
                 <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">{item.desc}</p>
@@ -446,7 +446,7 @@ export default function SettingsPage() {
         ].map(item => (
           <Link key={item.title} href={item.href} className="flex items-center justify-between p-3 rounded-lg hover:bg-[var(--color-row-hover)] transition-colors">
             <div className="flex items-start gap-3">
-              <span className="material-symbols-outlined text-[20px] mt-0.5" style={{ color: 'var(--color-accent-v2)' }}>{item.icon}</span>
+              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan"><span className="material-symbols-outlined text-[18px]">{item.icon}</span></span>
               <div>
                 <p className="text-sm font-medium text-[var(--color-pib-text)]">{item.title}</p>
                 <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">{item.desc}</p>
@@ -468,7 +468,7 @@ export default function SettingsPage() {
         ].map(item => (
           <Link key={item.title} href={item.href} className="flex items-center justify-between p-3 rounded-lg hover:bg-[var(--color-row-hover)] transition-colors">
             <div className="flex items-start gap-3">
-              <span className="material-symbols-outlined text-[20px] mt-0.5" style={{ color: 'var(--color-accent-v2)' }}>{item.icon}</span>
+              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan"><span className="material-symbols-outlined text-[18px]">{item.icon}</span></span>
               <div>
                 <p className="text-sm font-medium text-[var(--color-pib-text)]">{item.title}</p>
                 <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">{item.desc}</p>
@@ -493,7 +493,7 @@ export default function SettingsPage() {
         ].map(item => (
           <Link key={item.title} href={item.href} className="flex items-center justify-between p-3 rounded-lg hover:bg-[var(--color-row-hover)] transition-colors">
             <div className="flex items-start gap-3">
-              <span className="material-symbols-outlined text-[20px] mt-0.5" style={{ color: 'var(--color-accent-v2)' }}>{item.icon}</span>
+              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan"><span className="material-symbols-outlined text-[18px]">{item.icon}</span></span>
               <div>
                 <p className="text-sm font-medium text-[var(--color-pib-text)]">{item.title}</p>
                 <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">{item.desc}</p>

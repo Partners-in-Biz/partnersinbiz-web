@@ -441,7 +441,9 @@ export default function BackupsClient() {
         <div className="pib-card p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-headline font-bold text-[var(--color-pib-text)] flex items-center gap-2">
-              <span className="material-symbols-outlined text-[16px]">difference</span>
+              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan !h-7 !w-7 !rounded-md">
+                <span className="material-symbols-outlined text-[15px]">difference</span>
+              </span>
               Diff vs live — <span className="font-mono text-xs">{diffFor}</span>
             </h2>
             <button onClick={() => { setDiffFor(null); setDiff(null) }} className="pib-btn-ghost text-xs font-label">

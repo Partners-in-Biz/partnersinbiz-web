@@ -421,11 +421,8 @@ export function SavedViewsBar({
         <div className="rounded-lg border border-dashed border-[var(--color-card-border)] bg-black/10 p-3">
           <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-2.5">
-              <span
-                className="material-symbols-outlined rounded-md border border-[var(--color-card-border)] bg-primary/10 p-1.5 text-[16px] text-primary"
-                aria-hidden="true"
-              >
-                saved_search
+              <span aria-hidden="true" className="pib-icon-tint">
+                <span className="material-symbols-outlined text-[18px]">saved_search</span>
               </span>
               <div>
                 <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Repeatable workflow</p>

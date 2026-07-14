@@ -27,9 +27,17 @@ function maybeText(value?: string) {
   return value && value.trim() ? value.trim() : null
 }
 
+function statusPillTone(status?: string): 'success' | 'danger' | 'rose' {
+  if (status === 'live') return 'success'
+  if (status === 'changes_requested') return 'danger'
+  return 'rose'
+}
+
 export function StatusPill({ status }: { status?: string }) {
+  const tone = statusPillTone(status)
+  const toneClassName = tone === 'success' ? 'pib-pill-success' : tone === 'danger' ? 'pib-pill-danger' : 'pib-pill-rose'
   return (
-    <span className="shrink-0 whitespace-nowrap rounded-full border border-[var(--color-pib-line)] px-2 py-1 text-[11px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+    <span className={`pib-pill ${toneClassName} shrink-0 whitespace-nowrap`}>
       {clientStatusLabel(status)}
     </span>
   )
@@ -89,7 +97,7 @@ export function YouTubeChannelCard({
       {channel.contentPillars?.length ? (
         <div className="flex flex-wrap gap-2">
           {channel.contentPillars.slice(0, 4).map((pillar) => (
-            <span key={pillar} className="max-w-full break-words rounded-full bg-white/[0.04] px-2 py-1 text-xs text-[var(--color-pib-text-muted)]">
+            <span key={pillar} className="pib-pill pib-pill-rose max-w-full break-words">
               {pillar}
             </span>
           ))}

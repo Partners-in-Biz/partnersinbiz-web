@@ -203,7 +203,7 @@ export function ConnectionsPanel({ orgSlug, orgId, connections }: Props) {
                     </div>
                   </div>
                   {meta.defaultAdAccountId === a.id ? (
-                    <span className="text-xs uppercase tracking-wide text-[#F5A623]">
+                    <span className="pib-pill pib-pill-rose">
                       Default
                     </span>
                   ) : (

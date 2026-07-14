@@ -50,7 +50,7 @@ export default async function PortalBlogTab({ params }: { params: Promise<{ id: 
                     {item.publishDate ? new Date(item.publishDate).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Date TBD'}
                   </p>
                 </div>
-                <span className="rounded-full bg-emerald-700/30 text-emerald-200 border border-emerald-600/30 px-2 py-1 text-[10px] uppercase tracking-wide">
+                <span className="pib-pill pib-pill-success">
                   live
                 </span>
               </div>
@@ -65,8 +65,8 @@ export default async function PortalBlogTab({ params }: { params: Promise<{ id: 
                     View post
                   </a>
                 )}
-                {item.liUrl && <span className="rounded-full border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)]">LinkedIn shared</span>}
-                {item.xUrl && <span className="rounded-full border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)]">X shared</span>}
+                {item.liUrl && <span className="pib-pill pib-pill-success">LinkedIn shared</span>}
+                {item.xUrl && <span className="pib-pill pib-pill-success">X shared</span>}
               </div>
             </article>
           ))}
@@ -81,7 +81,7 @@ function StatTile({ label, value, icon }: { label: string; value: string; icon: 
     <div className="pib-stat-card">
       <div className="flex items-start justify-between">
         <p className="eyebrow !text-[10px]">{label}</p>
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
+        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">{icon}</span></span>
       </div>
       <p className="mt-3 font-display tracking-tight leading-none text-3xl md:text-4xl">{value}</p>
     </div>

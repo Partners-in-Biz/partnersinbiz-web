@@ -29,6 +29,8 @@ export interface Conversation {
     orgName: string
     runtimeTarget: string
     runtimeLabel: string
+    projectId?: string
+    projectName?: string
     shareMode?: string
     ownerUserId?: string
   }
@@ -168,7 +170,7 @@ export default function ConversationListItem({
             </span>
           )}
           {workspaceRuntime && (
-            <span className="shrink-0 rounded border border-primary/25 bg-primary/10 px-1 font-mono text-[8px] uppercase leading-3 text-primary" title={`Workspace runtime: ${workspaceRuntime}`}>
+            <span className="shrink-0 pib-pill pib-pill-blue !px-1 !py-0 !text-[8px] !leading-3" title={`Workspace runtime: ${workspaceRuntime}`}>
               {workspaceRuntime}
             </span>
           )}
@@ -261,7 +263,7 @@ export default function ConversationListItem({
           )}
           {workspaceRuntime && (
             <span
-              className="inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-1.5 py-0.5 text-[10px] font-mono uppercase text-primary"
+              className="pib-pill pib-pill-blue !px-1.5 !py-0.5"
               title={`Workspace runtime: ${workspaceRuntime}`}
             >
               {workspaceRuntime}

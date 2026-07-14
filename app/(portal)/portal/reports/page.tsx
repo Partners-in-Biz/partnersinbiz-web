@@ -67,7 +67,7 @@ export default function PortalReports() {
             href={crmReportsHref}
             className="bento-card !p-4 flex items-center gap-3 hover:border-[var(--color-pib-accent)] transition-colors group min-w-[200px]"
           >
-            <span className="material-symbols-outlined text-[22px] text-[var(--color-pib-accent)]">contacts</span>
+            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">contacts</span></span>
             <div>
               <p className="text-sm font-medium text-[var(--color-pib-text)]">CRM Reports</p>
               <p className="text-xs text-[var(--color-pib-text-muted)]">Pipeline · Forecast · Activity</p>

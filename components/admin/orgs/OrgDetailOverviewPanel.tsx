@@ -14,7 +14,9 @@ function MetricCard({ icon, label, value }: { icon: string; label: string; value
   return (
     <div className="pib-stat-card">
       <div className="mb-2 flex items-center gap-2">
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-accent)]">{icon}</span>
+        <span className="pib-icon-tint pib-icon-tint-cyan !w-7 !h-7">
+          <span className="material-symbols-outlined text-[16px]">{icon}</span>
+        </span>
         <span className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</span>
       </div>
       <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">{value}</p>

@@ -34,7 +34,7 @@ interface Quote {
 }
 
 const INVOICE_STATUS_PILL: Record<string, string> = {
-  draft: 'pib-pill',
+  draft: 'pib-pill pib-pill-cyan',
   sent: 'pib-pill pib-pill-info',
   viewed: 'pib-pill pib-pill-info',
   payment_pending_verification: 'pib-pill pib-pill-info',
@@ -55,7 +55,7 @@ const INVOICE_STATUS_OPTIONS: InvoiceStatus[] = [
 ]
 
 const QUOTE_STATUS_PILL: Record<string, string> = {
-  draft: 'pib-pill',
+  draft: 'pib-pill pib-pill-cyan',
   sent: 'pib-pill pib-pill-info',
   accepted: 'pib-pill pib-pill-success',
   converted: 'pib-pill pib-pill-success',

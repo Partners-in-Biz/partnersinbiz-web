@@ -152,8 +152,10 @@ export default function JobsClient() {
             <div key={q.collection + q.name} className={`pib-card p-4 ${q.instrumented ? '' : 'opacity-70'}`}>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-label text-[var(--color-pib-text)]">{q.name}</span>
-                <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]/70">
-                  {q.instrumented ? 'queue' : 'do_not_disturb_on'}
+                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan !h-7 !w-7 !rounded-md">
+                  <span className="material-symbols-outlined text-[14px]">
+                    {q.instrumented ? 'queue' : 'do_not_disturb_on'}
+                  </span>
                 </span>
               </div>
               <p className="text-[10px] font-mono text-[var(--color-pib-text-muted)] mt-0.5">{q.collection}</p>

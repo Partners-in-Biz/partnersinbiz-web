@@ -1,4 +1,5 @@
 import {
+  authorizeConversationProject,
   canAccessConversation,
   canManageConversationAccess,
   canReplyConversation,
@@ -64,6 +65,12 @@ describe('Workspace conversation access', () => {
   it('allows authenticated organisation members into org-visible conversations', () => {
     expect(canAccessConversation(member, conversation('org'))).toBe(true)
     expect(canAccessConversation(outsider, conversation('org'))).toBe(false)
+  })
+
+  it('allows every authenticated organisation member to reply in organisation conversations', () => {
+    expect(conversation('org').participantUids).not.toContain(member.uid)
+    expect(canReplyConversation(member, conversation('org'))).toBe(true)
+    expect(canReplyConversation(outsider, conversation('org'))).toBe(false)
   })
 
   it('requires administrators and AI callers to be explicit participants in private conversations', () => {
@@ -158,5 +165,49 @@ describe('Workspace conversation access', () => {
     expect(conversationVisibilityLabel(conversation('private'))).toBe('Private')
     expect(conversationVisibilityLabel(conversation('shared'))).toBe('Shared')
     expect(conversationVisibilityLabel(conversation('org'))).toBe('Organisation')
+  })
+
+  it('fails closed when a project conversation is no longer linked to its organisation', async () => {
+    const projectConversation = conversation('org')
+    projectConversation.scope = 'project'
+    projectConversation.scopeRefId = 'project-1'
+    const getProject = jest.fn().mockResolvedValue({
+      ok: true,
+      doc: { data: () => ({ orgId: 'org-2' }) },
+      projectAccess: { role: 'viewer' },
+    })
+    const linked = jest.fn().mockResolvedValue(false)
+
+    await expect(authorizeConversationProject(owner, projectConversation, {
+      getProjectForUser: getProject,
+      projectLinkedToOrganization: linked,
+    })).resolves.toEqual({ ok: false, status: 403, error: 'Project is outside this organisation' })
+    expect(getProject).toHaveBeenCalledWith('project-1', owner, 'org-1')
+    expect(linked).toHaveBeenCalledWith(expect.objectContaining({
+      projectId: 'project-1', orgId: 'org-1',
+    }))
+  })
+
+  it('treats the active project linked inside chat as a mutable project authorization boundary', async () => {
+    const projectConversation = conversation('org')
+    projectConversation.contextRefs = [
+      { type: 'company', id: 'company-1', orgId: 'org-1', label: 'Acme', origin: 'manual' },
+      { type: 'project', id: 'project-context-1', orgId: 'org-1', label: 'Website', origin: 'manual' },
+    ]
+    const getProject = jest.fn().mockResolvedValue({
+      ok: true,
+      doc: { data: () => ({ clientOrgIds: ['org-1'] }) },
+      projectAccess: { role: 'contributor' },
+    })
+    const linked = jest.fn().mockResolvedValue(true)
+
+    await expect(authorizeConversationProject(owner, projectConversation, {
+      getProjectForUser: getProject,
+      projectLinkedToOrganization: linked,
+    })).resolves.toEqual({ ok: true, projectId: 'project-context-1' })
+    expect(getProject).toHaveBeenCalledWith('project-context-1', owner, 'org-1')
+    expect(linked).toHaveBeenCalledWith(expect.objectContaining({
+      projectId: 'project-context-1', orgId: 'org-1',
+    }))
   })
 })

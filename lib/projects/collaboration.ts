@@ -3,6 +3,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import type { ApiUser } from '@/lib/api/types'
 import { canAccessOrg, isSuperAdmin } from '@/lib/api/platformAdmin'
 import { canAccessModule, recordScopeFor } from '@/lib/orgMembers/access-policy'
+import { projectLinkedOrgIds } from '@/lib/project-locations/model'
 
 export const PROJECT_MEMBER_ROLES = ['owner', 'manager', 'contributor', 'reviewer', 'viewer'] as const
 export type ProjectMemberRole = (typeof PROJECT_MEMBER_ROLES)[number]
@@ -98,16 +99,7 @@ function projectOwnerOrgId(data: Record<string, unknown>): string {
 }
 
 function projectOrgIds(data: Record<string, unknown>): string[] {
-  return [
-    data.orgId,
-    data.sourceOrgId,
-    data.issuerOrgId,
-    data.ownerOrgId,
-    data.clientId,
-    data.clientOrgId,
-    data.recipientOrgId,
-    data.targetOrgId,
-  ].map(cleanString).filter(Boolean)
+  return projectLinkedOrgIds(data)
 }
 
 function userOrgIds(user: ApiUser): string[] {
@@ -249,13 +241,25 @@ export async function ensureProjectOwnerMembership(input: {
     }), { merge: true })
 }
 
-export function legacyProjectAccessForUser(user: ApiUser, data: Record<string, unknown>): ProjectAccessContext | null {
+export function legacyProjectAccessForUser(
+  user: ApiUser,
+  data: Record<string, unknown>,
+  requestedOrgId?: string,
+): ProjectAccessContext | null {
   if (user.role === 'ai') return { role: 'owner', source: 'ai', canViewInternal: true }
   if (isSuperAdmin(user)) return { role: 'owner', source: 'super_admin', canViewInternal: true }
   if (!legacyProjectPolicyAllows(user, data)) return null
   const ids = projectOrgIds(data)
-  if (!ids.some((id) => canAccessOrg(user, id))) return null
-  const canViewInternal = userCanViewInternalProjectItems(user, data)
+  const scopedOrgId = cleanString(requestedOrgId)
+  if (scopedOrgId) {
+    if (!ids.includes(scopedOrgId) || !canAccessOrg(user, scopedOrgId)) return null
+  } else if (!ids.some((id) => canAccessOrg(user, id))) {
+    return null
+  }
+  const ownerOrgId = projectOwnerOrgId(data)
+  const canViewInternal = scopedOrgId
+    ? scopedOrgId === ownerOrgId && canAccessOrg(user, ownerOrgId)
+    : userCanViewInternalProjectItems(user, data)
   return { role: canViewInternal ? 'manager' : 'contributor', source: 'legacy_org', canViewInternal }
 }
 
@@ -263,17 +267,19 @@ export async function resolveProjectAccessForUser(
   projectId: string,
   user: ApiUser,
   projectData: Record<string, unknown>,
+  requestedOrgId?: string,
 ): Promise<ProjectAccessContext | null> {
   if (user.role === 'ai') return { role: 'owner', source: 'ai', canViewInternal: true }
   if (isSuperAdmin(user)) return { role: 'owner', source: 'super_admin', canViewInternal: true }
 
+  const scopedOrgId = cleanString(requestedOrgId)
   const memberSnap = await adminDb.collection('projectMembers').doc(projectMemberDocId(projectId, user.uid)).get()
   if (memberSnap.exists) {
     const member = memberSnap.data() ?? {}
-    if (member.status !== 'revoked') {
+    const memberOrgId = cleanString(member.orgId)
+    if (member.status === 'active' && (!scopedOrgId || memberOrgId === scopedOrgId)) {
       const role = normalizeProjectRole(member.role)
       const ownerOrgId = projectOwnerOrgId(projectData)
-      const memberOrgId = cleanString(member.orgId)
       return {
         role,
         source: 'project_member',
@@ -282,19 +288,42 @@ export async function resolveProjectAccessForUser(
     }
   }
 
-  for (const orgId of userOrgIds(user)) {
-    const orgSnap = await adminDb.collection('projectOrganizations').doc(projectOrganizationDocId(projectId, orgId)).get()
-    if (!orgSnap.exists) continue
-    const orgAccess = orgSnap.data() ?? {}
-    if (orgAccess.status === 'revoked' || orgAccess.status === 'pending') continue
-    return {
-      role: normalizeProjectRole(orgAccess.role),
-      source: 'project_organization',
-      canViewInternal: false,
+  if (scopedOrgId) {
+    if (canAccessOrg(user, scopedOrgId)) {
+      const orgSnap = await adminDb.collection('projectOrganizations')
+        .doc(projectOrganizationDocId(projectId, scopedOrgId))
+        .get()
+      if (orgSnap.exists) {
+        const orgAccess = orgSnap.data() ?? {}
+        if (orgAccess.status === 'active') {
+          return {
+            role: normalizeProjectRole(orgAccess.role),
+            source: 'project_organization',
+            canViewInternal: false,
+          }
+        }
+        return null
+      }
     }
+    return legacyProjectAccessForUser(user, projectData, scopedOrgId)
   }
 
-  return legacyProjectAccessForUser(user, projectData)
+  for (const orgId of userOrgIds(user)) {
+    const orgSnap = await adminDb.collection('projectOrganizations').doc(projectOrganizationDocId(projectId, orgId)).get()
+    if (orgSnap.exists) {
+      const orgAccess = orgSnap.data() ?? {}
+      if (orgAccess.status !== 'active') continue
+      return {
+        role: normalizeProjectRole(orgAccess.role),
+        source: 'project_organization',
+        canViewInternal: false,
+      }
+    }
+    const legacy = legacyProjectAccessForUser(user, projectData, orgId)
+    if (legacy) return legacy
+  }
+
+  return null
 }
 
 function dateMillis(value: unknown): number {

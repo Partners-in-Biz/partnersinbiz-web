@@ -344,7 +344,7 @@ export default function AdminCompanyCommandCenterPage() {
   if (error || !center?.company) {
     return (
       <div className="bento-card p-10 text-center">
-        <span className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">error_outline</span>
+        <span className="material-symbols-outlined text-4xl text-[var(--color-error)]">error_outline</span>
         <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">{error ?? 'Company not found.'}</p>
         <Link href={`/admin/org/${slug}/dashboard`} className="btn-pib-secondary mt-5 inline-flex items-center gap-1.5">
           <span className="material-symbols-outlined text-sm">arrow_back</span>
@@ -380,7 +380,7 @@ export default function AdminCompanyCommandCenterPage() {
                 className="h-16 w-16 shrink-0 rounded-2xl object-cover"
               />
             ) : (
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-pib-surface-2)] text-xl font-label text-[var(--color-pib-text-muted)]">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-pib-accent-soft)] text-xl font-label text-[var(--color-pib-accent-hover)]">
                 {initials(company.name)}
               </div>
             )}

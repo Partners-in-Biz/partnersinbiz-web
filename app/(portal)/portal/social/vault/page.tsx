@@ -482,7 +482,7 @@ function VaultCard({ post, onCopy, onDownload, onPostAction, actionBusy }: {
           {hashtags.map(tag => (
             <span
               key={tag}
-              className="text-[10px] px-2 py-0.5 rounded bg-[var(--color-accent-subtle)] text-[var(--color-accent-v2)]"
+              className="pib-pill pib-pill-rose !text-[10px] !px-2 !py-0.5"
             >
               {tag.startsWith('#') ? tag : `#${tag}`}
             </span>
@@ -494,14 +494,14 @@ function VaultCard({ post, onCopy, onDownload, onPostAction, actionBusy }: {
       {(post.labels?.length || post.campaign) && (
         <div className="flex gap-1 flex-wrap text-[10px]">
           {post.campaign && (
-            <span className="px-2 py-0.5 rounded border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)]">
+            <span className="pib-pill pib-pill-rose !text-[10px] !px-2 !py-0.5">
               {post.campaign}
             </span>
           )}
           {(post.labels ?? []).map(label => (
             <span
               key={label}
-              className="px-2 py-0.5 rounded border border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)]"
+              className="pib-pill !text-[10px] !px-2 !py-0.5"
             >
               {label}
             </span>

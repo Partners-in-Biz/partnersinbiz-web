@@ -45,6 +45,11 @@ type CrmContact = {
   linkedUserId?: string
 }
 
+type AccessibleOrganization = {
+  id: string
+  name: string
+}
+
 interface AccessData {
   members: AccessMember[]
   memberCandidates: AccessMember[]
@@ -62,15 +67,19 @@ function labelForOrganization(org: AccessOrganization): string {
   return org.recipientCompanyName || org.recipientEmail || org.orgId || org.companyId || 'External organisation'
 }
 
+function scopedUrl(path: string, orgId?: string): string {
+  return orgId ? `${path}${path.includes('?') ? '&' : '?'}orgId=${encodeURIComponent(orgId)}` : path
+}
+
 function StatusPill({ value }: { value?: string }) {
   return (
-    <span className="pib-pill">
+    <span className="pib-pill pib-pill-cyan">
       {value || 'active'}
     </span>
   )
 }
 
-export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
+export function ProjectPeopleAccessPanel({ projectId, orgId }: { projectId: string; orgId?: string }) {
   const [data, setData] = useState<AccessData>({ members: [], memberCandidates: [], organizations: [], invites: [] })
   const [loading, setLoading] = useState(true)
   const [memberSearch, setMemberSearch] = useState('')
@@ -90,6 +99,10 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
   const [newContactEmail, setNewContactEmail] = useState('')
   const [contactCreating, setContactCreating] = useState(false)
   const [orgRole, setOrgRole] = useState('reviewer')
+  const [accessibleOrganizations, setAccessibleOrganizations] = useState<AccessibleOrganization[]>([])
+  const [accessibleOrganizationsLoading, setAccessibleOrganizationsLoading] = useState(true)
+  const [targetOrgId, setTargetOrgId] = useState('')
+  const [targetOrgRole, setTargetOrgRole] = useState('reviewer')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -117,11 +130,24 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
       })
       .slice(0, 8)
   }, [currentProjectMemberIds, data.memberCandidates, memberSearch])
+  const linkedOrganizationIds = useMemo(
+    () => new Set(data.organizations
+      .filter((organization) => organization.status !== 'pending' && organization.status !== 'revoked')
+      .map((organization) => organization.orgId)
+      .filter((id): id is string => Boolean(id))),
+    [data.organizations],
+  )
+  const organizationOptions = useMemo(
+    () => accessibleOrganizations.filter((organization) => (
+      organization.id !== orgId && !linkedOrganizationIds.has(organization.id)
+    )),
+    [accessibleOrganizations, linkedOrganizationIds, orgId],
+  )
 
   async function loadAccess() {
     setLoading(true)
     try {
-      const res = await fetch(`/api/v1/projects/${projectId}/access`)
+      const res = await fetch(scopedUrl(`/api/v1/projects/${projectId}/access`, orgId))
       const body = await res.json().catch(() => ({}))
       const next = body.data ?? {}
       setData({
@@ -141,7 +167,33 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
   useEffect(() => {
     loadAccess().catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId])
+  }, [orgId, projectId])
+
+  useEffect(() => {
+    let cancelled = false
+    setAccessibleOrganizationsLoading(true)
+    fetch('/api/v1/organizations')
+      .then(async (res) => {
+        const body = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(body.error || 'Failed to load organisations')
+        if (cancelled) return
+        const organizations = Array.isArray(body.data) ? body.data : []
+        setAccessibleOrganizations(organizations.flatMap((value: unknown) => {
+          if (!value || typeof value !== 'object') return []
+          const row = value as Record<string, unknown>
+          const id = typeof row.id === 'string' ? row.id.trim() : ''
+          const name = typeof row.name === 'string' ? row.name.trim() : ''
+          return id ? [{ id, name: name || id }] : []
+        }))
+      })
+      .catch(() => {
+        if (!cancelled) setAccessibleOrganizations([])
+      })
+      .finally(() => {
+        if (!cancelled) setAccessibleOrganizationsLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     const query = companySearch.trim()
@@ -153,7 +205,7 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
 
     let cancelled = false
     setCompanySearchLoading(true)
-    fetch(`/api/v1/crm/companies?search=${encodeURIComponent(query)}&limit=8`)
+    fetch(scopedUrl(`/api/v1/crm/companies?search=${encodeURIComponent(query)}&limit=8`, orgId))
       .then(async (res) => {
         const body = await res.json().catch(() => ({}))
         const companies = body.data?.companies
@@ -166,7 +218,7 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
         if (!cancelled) setCompanySearchLoading(false)
       })
     return () => { cancelled = true }
-  }, [companySearch])
+  }, [companySearch, orgId])
 
   useEffect(() => {
     if (!selectedCompany?.id) {
@@ -177,7 +229,7 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
 
     let cancelled = false
     setContactsLoading(true)
-    fetch(`/api/v1/crm/companies/${selectedCompany.id}/contacts?limit=20`)
+    fetch(scopedUrl(`/api/v1/crm/companies/${selectedCompany.id}/contacts?limit=20`, orgId))
       .then(async (res) => {
         const body = await res.json().catch(() => ({}))
         const contacts = body.data?.contacts
@@ -190,22 +242,24 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
         if (!cancelled) setContactsLoading(false)
       })
     return () => { cancelled = true }
-  }, [selectedCompany])
+  }, [orgId, selectedCompany])
 
-  async function postAccess(payload: Record<string, unknown>) {
+  async function postAccess(payload: Record<string, unknown>): Promise<boolean> {
     setSubmitting(true)
     setError(null)
     try {
-      const res = await fetch(`/api/v1/projects/${projectId}/access`, {
+      const res = await fetch(scopedUrl(`/api/v1/projects/${projectId}/access`, orgId), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, ...(orgId ? { orgId } : {}) }),
       })
       const body = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(body.error || 'Project access update failed')
       await loadAccess()
+      return true
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Project access update failed')
+      return false
     } finally {
       setSubmitting(false)
     }
@@ -217,7 +271,7 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
     setCompanyCreating(true)
     setError(null)
     try {
-      const res = await fetch('/api/v1/crm/companies', {
+      const res = await fetch(scopedUrl('/api/v1/crm/companies', orgId), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
@@ -262,7 +316,7 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
         type: 'prospect',
         stage: 'new',
       }
-      const res = await fetch('/api/v1/crm/contacts', {
+      const res = await fetch(scopedUrl('/api/v1/crm/contacts', orgId), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -394,8 +448,50 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
               </div>
             ))}
           </div>
+          <div className="mt-4 rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-3">
+            <h4 className="text-sm font-medium text-[var(--color-pib-text)]">Link an existing organisation</h4>
+            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Every member of the linked organisation can open this project from their own organisation workspace.</p>
+            <form
+              className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
+              onSubmit={async (event) => {
+                event.preventDefault()
+                if (!targetOrgId) return
+                if (await postAccess({ action: 'link_organization', targetOrgId, role: targetOrgRole })) {
+                  setTargetOrgId('')
+                }
+              }}
+            >
+              <label>
+                <span className="pib-label mb-1 block">Existing organisation</span>
+                <select
+                  value={targetOrgId}
+                  onChange={(event) => setTargetOrgId(event.target.value)}
+                  className="pib-select w-full"
+                  disabled={accessibleOrganizationsLoading || organizationOptions.length === 0}
+                >
+                  <option value="">{accessibleOrganizationsLoading ? 'Loading organisations...' : 'Select an organisation'}</option>
+                  {organizationOptions.map((organization) => (
+                    <option key={organization.id} value={organization.id}>{organization.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span className="pib-label mb-1 block">Role</span>
+                <select value={targetOrgRole} onChange={(event) => setTargetOrgRole(event.target.value)} className="pib-select w-full">
+                  {ROLE_OPTIONS.map((role) => <option key={role} value={role}>{role}</option>)}
+                </select>
+              </label>
+              <button type="submit" className="pib-btn-primary self-end text-xs font-label" disabled={submitting || !targetOrgId}>Link organisation</button>
+            </form>
+            {!accessibleOrganizationsLoading && organizationOptions.length === 0 ? (
+              <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">No other accessible organisations are available to link.</p>
+            ) : null}
+          </div>
+          <div className="mt-4 border-t border-[var(--color-card-border)] pt-4">
+            <h4 className="text-sm font-medium text-[var(--color-pib-text)]">Invite through CRM</h4>
+            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Use a CRM company and contact when the organisation does not yet have a Partners in Biz workspace.</p>
           <form
-            className="mt-4 grid gap-2 sm:grid-cols-[1fr_1fr_auto]"
+            className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]"
             onSubmit={(event) => {
               event.preventDefault()
               if (!companyId.trim()) return
@@ -538,6 +634,7 @@ export function ProjectPeopleAccessPanel({ projectId }: { projectId: string }) {
             </label>
             <button type="submit" className="pib-btn-primary self-end text-xs font-label" disabled={submitting || !companyId.trim()}>Invite</button>
           </form>
+          </div>
         </div>
       </div>
 

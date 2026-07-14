@@ -51,8 +51,8 @@ function Avatar({ name }: { name: string }) {
 
   return (
     <div
-      className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-[var(--color-pib-text)] flex-shrink-0"
-      style={{ backgroundColor: 'var(--color-pib-accent)' }}
+      className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+      style={{ backgroundColor: 'var(--color-pib-cyan-soft)', color: '#5EEAD4' }}
     >
       {initials || '?'}
     </div>
@@ -61,20 +61,7 @@ function Avatar({ name }: { name: string }) {
 
 function RoleBadge({ role }: { role?: OrgRole }) {
   if (!role) return null
-  const colors: Record<OrgRole, string> = {
-    owner: 'var(--color-pib-accent)',
-    admin: '#2563eb',
-    member: '#6b7280',
-    viewer: '#9ca3af',
-  }
-  return (
-    <span
-      className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full"
-      style={{ background: `${colors[role]}20`, color: colors[role] }}
-    >
-      {role}
-    </span>
-  )
+  return <span className="pib-pill pib-pill-cyan">{role}</span>
 }
 
 export default function PlatformMembersPage() {
@@ -481,12 +468,12 @@ export default function PlatformMembersPage() {
                           {member.displayName || '(no name)'}
                         </p>
                         {!member.authFound && (
-                          <span className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full bg-red-500/10 text-red-400">
+                          <span className="pib-pill pib-pill-danger">
                             Auth missing
                           </span>
                         )}
                         {member.disabled && (
-                          <span className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full bg-red-500/10 text-red-400">
+                          <span className="pib-pill pib-pill-danger">
                             Disabled
                           </span>
                         )}

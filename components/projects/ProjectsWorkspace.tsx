@@ -1,8 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { collection, onSnapshot, query, where } from 'firebase/firestore'
-import { getClientDb } from '@/lib/firebase/config'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CrossProjectBoard } from '@/components/projects/CrossProjectBoard'
 import { ProjectListCard } from '@/components/projects/ProjectListCard'
 import { ProjectPortfolioReportPanel } from '@/components/projects/ProjectPortfolioReportPanel'
@@ -54,18 +52,7 @@ const PROJECT_VIEW_TABS = [
   { value: 'active', label: 'Active' },
   { value: 'archive', label: 'Archive' },
 ]
-const PROJECT_REFRESH_INTERVAL_MS = 60_000
-
-function isHistoricalProject(project: Project): boolean {
-  return project.archived === true || project.status?.trim().toLowerCase() === 'completed'
-}
-
-function mergeLiveTasks(restTasks: BoardTask[], currentTasks: BoardTask[]) {
-  const merged = new Map<string, BoardTask>()
-  restTasks.forEach(task => merged.set(task.id, task))
-  currentTasks.forEach(task => merged.set(task.id, task))
-  return Array.from(merged.values())
-}
+const PROJECT_REFRESH_INTERVAL_MS = 15_000
 
 function receivedProjectsUrl({
   mode,
@@ -132,8 +119,6 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
   const [formLoading, setFormLoading] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [canRequestProject, setCanRequestProject] = useState(true)
-  const liveProjectListenerHealthy = useRef(false)
-
   const listUrl = useMemo(
     () => receivedProjectsUrl({ mode, orgSlug, orgScope, projectView }),
     [mode, orgScope, orgSlug, projectView],
@@ -176,7 +161,6 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
     const refresh = async (options?: { showSpinner?: boolean }) => {
       if (cancelled) return
       if (!options?.showSpinner && document.visibilityState !== 'visible') return
-      if (!options?.showSpinner && mode === 'admin' && liveProjectListenerHealthy.current) return
       await loadProjects(options)
     }
 
@@ -191,46 +175,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
       cancelled = true
       window.clearInterval(interval)
     }
-  }, [loadProjects, mode])
-
-  const liveOrgId = useMemo(() => projects.find(project => project.orgId)?.orgId, [projects])
-
-  useEffect(() => {
-    if (mode !== 'admin' || !liveOrgId) return
-    const unsubscribe = onSnapshot(
-      query(collection(getClientDb(), 'projects'), where('orgId', '==', liveOrgId)),
-      (snap) => {
-        liveProjectListenerHealthy.current = true
-        snap.docChanges().forEach(change => {
-          if (change.type === 'removed') {
-            setProjects(prev => prev.filter(project => project.id !== change.doc.id))
-            return
-          }
-
-          const liveProject = { id: change.doc.id, ...change.doc.data() } as Project
-          const visibleInView = projectView === 'archive' ? isHistoricalProject(liveProject) : !isHistoricalProject(liveProject)
-          setProjects(prev => {
-            if (!visibleInView) return prev.filter(project => project.id !== liveProject.id)
-            const idx = prev.findIndex(project => project.id === liveProject.id)
-            if (idx >= 0) {
-              const next = [...prev]
-              next[idx] = { ...next[idx], ...liveProject }
-              return next
-            }
-
-            return [liveProject, ...prev]
-          })
-        })
-      },
-      () => {
-        liveProjectListenerHealthy.current = false
-      },
-    )
-    return () => {
-      liveProjectListenerHealthy.current = false
-      unsubscribe()
-    }
-  }, [liveOrgId, mode, projectView])
+  }, [loadProjects])
 
   useEffect(() => {
     setFilter('all')
@@ -288,77 +233,61 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
     }
 
     let cancelled = false
-    const unsubscribers: Array<() => void> = []
-    setBoardLoading(true)
-    setFailedProjectIds([])
+    let refreshInFlight = false
 
-    for (const project of filtered) {
-      const unsubscribe = onSnapshot(
-        collection(getClientDb(), 'projects', project.id, 'tasks'),
-        (snap) => {
-          snap.docChanges().forEach(change => {
-            if (cancelled) return
-            const liveTask = {
-              id: change.doc.id,
-              ...change.doc.data(),
-              projectId: project.id,
-              projectName: project.name,
-            } as BoardTask
+    const refreshBoard = async ({ showSpinner = false }: { showSpinner?: boolean } = {}) => {
+      if (cancelled || refreshInFlight) return
+      if (!showSpinner && document.visibilityState !== 'visible') return
+      refreshInFlight = true
+      if (showSpinner) {
+        setBoardLoading(true)
+        setFailedProjectIds([])
+      }
 
-            if (change.type === 'removed') {
-              setBoardTasks(prev => prev.filter(task => task.id !== change.doc.id))
-              return
+      try {
+        const results = await Promise.all(filtered.map(async (project) => {
+          try {
+            const response = await fetch(`/api/v1/projects/${project.id}/tasks`)
+            if (!response.ok) throw new Error(`Task refresh failed (${response.status})`)
+            const body = await response.json()
+            return {
+              project,
+              tasks: (body.data ?? []).map((task: BoardTask) => ({
+                ...task,
+                projectId: project.id,
+                projectName: project.name,
+              })) as BoardTask[],
             }
+          } catch {
+            return { project, tasks: undefined }
+          }
+        }))
 
-            setBoardTasks(prev => {
-              const idx = prev.findIndex(task => task.id === liveTask.id)
-              if (idx >= 0) {
-                const next = [...prev]
-                next[idx] = liveTask
-                return next
-              }
-              return [...prev, liveTask]
-            })
-          })
-        },
-        () => {},
-      )
-      unsubscribers.push(unsubscribe)
+        if (cancelled) return
+        const failed: string[] = []
+        const all: BoardTask[] = []
+        for (const { project, tasks } of results) {
+          if (!tasks) failed.push(project.id)
+          else all.push(...tasks)
+        }
+        setBoardTasks(all)
+        setFailedProjectIds(failed)
+      } finally {
+        refreshInFlight = false
+        if (!cancelled) setBoardLoading(false)
+      }
     }
 
-    const fetches = filtered.map(project =>
-      fetch(`/api/v1/projects/${project.id}/tasks`)
-        .then(r => r.json())
-        .then((body): { project: Project; tasks: BoardTask[] } => ({
-          project,
-          tasks: (body.data ?? []).map((t: BoardTask) => ({
-            ...t,
-            projectId: project.id,
-            projectName: project.name,
-          })),
-        }))
-        .catch(() => ({ project, tasks: undefined as BoardTask[] | undefined })),
-    )
-
-    Promise.all(fetches).then(results => {
-      if (cancelled) return
-      const failed: string[] = []
-      const all: BoardTask[] = []
-      for (const { project, tasks } of results) {
-        if (!tasks) {
-          failed.push(project.id)
-        } else {
-          all.push(...tasks)
-        }
-      }
-      setBoardTasks(prev => mergeLiveTasks(all, prev))
-      setFailedProjectIds(failed)
-      setBoardLoading(false)
+    refreshBoard({ showSpinner: true }).catch(() => {
+      if (!cancelled) setBoardLoading(false)
     })
+    const interval = window.setInterval(() => {
+      refreshBoard().catch(() => {})
+    }, PROJECT_REFRESH_INTERVAL_MS)
 
     return () => {
       cancelled = true
-      unsubscribers.forEach(unsubscribe => unsubscribe())
+      window.clearInterval(interval)
     }
   }, [activeSection, viewMode, filtered])
 

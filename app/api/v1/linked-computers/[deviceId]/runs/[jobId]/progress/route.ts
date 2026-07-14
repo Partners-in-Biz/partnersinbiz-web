@@ -12,7 +12,7 @@ export async function handleLinkedRunProgress(req: NextRequest, deviceId: string
     if (identity.deviceId !== deviceId) throw new Error('linked computers: tenant scope mismatch')
     const body = JSON.parse(rawBody) as { receipt?: LinkedRunReceipt; message?: unknown }
     if (!body.receipt || body.receipt.jobId !== jobId) throw new Error('linked computers: run receipt mismatch')
-    await update({ deviceId, credentialVersion: identity.credentialVersion, jobId, receipt: body.receipt, event: 'progress' })
+    await update({ deviceId, ownerUserId: identity.ownerUserId, credentialVersion: identity.credentialVersion, jobId, receipt: body.receipt, event: 'progress' })
     return NextResponse.json({ success: true, data: { accepted: true } }, { headers: noStoreHeaders })
   } catch (error) { return lifecycleError(error) }
 }

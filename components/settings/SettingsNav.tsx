@@ -164,7 +164,7 @@ export function SettingsNav({ name, email, initials, role, collapsed }: Settings
                 </span>
                 <span className="font-medium flex-1">{link.label}</span>
                 {link.minRole && (
-                  <span className="text-[9px] bg-[var(--color-pib-line-strong)] text-[var(--color-pib-text-muted)] px-1.5 py-0.5 rounded-full" aria-hidden="true">
+                  <span className="text-[9px] bg-[var(--color-pib-cyan-soft)] text-[var(--color-pib-cyan)] px-1.5 py-0.5 rounded-full" aria-hidden="true">
                     {link.minRole}
                   </span>
                 )}

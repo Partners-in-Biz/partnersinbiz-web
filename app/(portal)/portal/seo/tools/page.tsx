@@ -73,13 +73,13 @@ function ToolCard({ tool, expanded, onToggle }: { tool: ToolDef; expanded: boole
     <div className="pib-card group p-5 space-y-4 transition-colors hover:border-[var(--color-pib-accent)] hover:bg-white/[0.03]">
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 items-start gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[var(--color-pib-line)] bg-[rgba(245,166,35,0.12)] text-[var(--color-pib-accent)]">
+          <span className="pib-icon-tint pib-icon-tint-green shrink-0">
             <span className="material-symbols-outlined text-[20px]">{tool.icon}</span>
           </span>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-sm font-semibold leading-tight">{tool.label}</h3>
-              <span className="pib-pill !px-2 !py-0.5">
+              <span className="pib-pill pib-pill-success !px-2 !py-0.5">
                 {tool.tag}
               </span>
             </div>

@@ -186,7 +186,7 @@ export default function AuditLogPage() {
                       {e.actorRole && <div className="text-xs text-[var(--color-pib-text-muted)]">{e.actorRole}</div>}
                     </td>
                     <td className="px-4 py-3">
-                      <span className="pib-pill">{humanAction(e.action)}</span>
+                      <span className="pib-pill pib-pill-cyan">{humanAction(e.action)}</span>
                     </td>
                     <td className="px-4 py-3 text-[var(--color-pib-text-muted)]">{e.target || '—'}</td>
                     <td className="px-4 py-3 text-[var(--color-pib-text)]">{e.details || '—'}</td>

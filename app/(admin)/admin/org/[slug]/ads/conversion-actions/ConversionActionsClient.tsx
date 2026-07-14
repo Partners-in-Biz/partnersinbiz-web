@@ -14,8 +14,8 @@ interface Props {
 }
 
 const PLATFORM_TINT: Record<string, string> = {
-  google: 'bg-sky-500/10 text-sky-300',
-  meta: 'bg-blue-500/10 text-blue-300',
+  google: 'pib-pill-info',
+  meta: 'pib-pill-blue',
 }
 
 export function ConversionActionsClient({ orgSlug, orgId, initialActions }: Props) {
@@ -51,13 +51,13 @@ export function ConversionActionsClient({ orgSlug, orgId, initialActions }: Prop
     <div className="space-y-6">
       {/* Toolbar */}
       <div className="flex items-center justify-between">
-        <p className="text-sm text-white/50">
+        <p className="text-sm text-[var(--color-pib-text-muted)]">
           {initialActions.length}{' '}
           {initialActions.length === 1 ? 'conversion action' : 'conversion actions'}
         </p>
         <button
           type="button"
-          className="btn-pib-accent text-sm"
+          className="btn-pib-primary text-sm"
           onClick={() => setShowForm((v) => !v)}
           aria-label={showForm ? 'Cancel' : 'New conversion action'}
         >
@@ -67,27 +67,28 @@ export function ConversionActionsClient({ orgSlug, orgId, initialActions }: Prop
 
       {/* Form */}
       {showForm && (
-        <div className="rounded-lg border border-white/10 bg-white/[0.02] p-5">
-          <h2 className="mb-4 text-base font-medium">New conversion action</h2>
+        <div className="pib-card">
+          <h2 className="pib-label mb-4">New conversion action</h2>
           <ConversionActionForm orgSlug={orgSlug} orgId={orgId} onCreated={handleCreated} />
         </div>
       )}
 
       {/* Error */}
       {deleteError && (
-        <p className="rounded border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+        <p className="pib-pill pib-pill-danger px-3 py-2 text-sm normal-case tracking-normal">
           {deleteError}
         </p>
       )}
 
       {/* List */}
       {initialActions.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-white/10 p-8 text-center">
-          <p className="text-white/60">No conversion actions yet.</p>
+        <div className="pib-empty-state">
+          <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">flag</span>
+          <p className="pib-empty-state-description">No conversion actions yet.</p>
           {!showForm && (
             <button
               type="button"
-              className="mt-3 text-sm text-[#F5A623] underline"
+              className="mt-3 text-sm text-[var(--color-pib-rose)] hover:underline"
               onClick={() => setShowForm(true)}
             >
               Create an admin conversion action →
@@ -95,40 +96,42 @@ export function ConversionActionsClient({ orgSlug, orgId, initialActions }: Prop
           )}
         </div>
       ) : (
-        <ul className="divide-y divide-white/5 rounded-lg border border-white/10">
-          {initialActions.map((action) => (
-            <li
-              key={action.id}
-              className="flex items-center justify-between gap-4 px-5 py-4"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium truncate">{action.name}</span>
-                  <span
-                    className={`shrink-0 rounded px-2 py-0.5 text-xs uppercase tracking-wide ${PLATFORM_TINT[action.platform] ?? PLATFORM_TINT.google}`}
-                  >
-                    {action.platform}
-                  </span>
-                </div>
-                <div className="mt-0.5 text-xs text-white/40">
-                  {action.category.replace(/_/g, ' ')}
-                  {action.countingType === 'MANY_PER_CLICK' && ' · many/click'}
-                  {action.valueSettings?.defaultValue != null &&
-                    ` · ${action.valueSettings.defaultCurrencyCode ?? ''} ${action.valueSettings.defaultValue}`}
-                </div>
-              </div>
-              <button
-                type="button"
-                className="shrink-0 text-xs text-white/40 hover:text-red-300 transition-colors disabled:opacity-40"
-                onClick={() => deleteAction(action.id)}
-                disabled={deleting === action.id}
-                aria-label={`Delete ${action.name}`}
+        <div className="pib-surface pib-surface-list">
+          <ul className="divide-y divide-[var(--color-pib-line)]">
+            {initialActions.map((action) => (
+              <li
+                key={action.id}
+                className="flex items-center justify-between gap-4 px-5 py-4"
               >
-                {deleting === action.id ? 'Deleting…' : 'Delete'}
-              </button>
-            </li>
-          ))}
-        </ul>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium truncate text-[var(--color-pib-text)]">{action.name}</span>
+                    <span
+                      className={`pib-pill shrink-0 ${PLATFORM_TINT[action.platform] ?? PLATFORM_TINT.google}`}
+                    >
+                      {action.platform}
+                    </span>
+                  </div>
+                  <div className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">
+                    {action.category.replace(/_/g, ' ')}
+                    {action.countingType === 'MANY_PER_CLICK' && ' · many/click'}
+                    {action.valueSettings?.defaultValue != null &&
+                      ` · ${action.valueSettings.defaultCurrencyCode ?? ''} ${action.valueSettings.defaultValue}`}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="shrink-0 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-error)] transition-colors disabled:opacity-40"
+                  onClick={() => deleteAction(action.id)}
+                  disabled={deleting === action.id}
+                  aria-label={`Delete ${action.name}`}
+                >
+                  {deleting === action.id ? 'Deleting…' : 'Delete'}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   )

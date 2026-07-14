@@ -888,7 +888,7 @@ function SubmissionsTab(props: { submissions: CaptureSubmission[] }) {
             <tr key={s.id} className="border-t border-[var(--color-pib-line)]">
               <td className="py-2 pr-4 font-medium text-[var(--color-pib-text)]">{s.email}</td>
               <td className="py-2 pr-4 text-[var(--color-pib-text-muted)]">{Object.entries(s.data || {}).map(([k, v]) => `${k}=${v}`).join(', ') || '—'}</td>
-              <td className="py-2 pr-4">{s.confirmedAt ? <span className="text-green-700">Yes</span> : <span className="text-yellow-700">Pending</span>}</td>
+              <td className="py-2 pr-4">{s.confirmedAt ? <span className="pib-pill pib-pill-success">Yes</span> : <span className="pib-pill pib-pill-warn">Pending</span>}</td>
               <td className="py-2 pr-4 text-[var(--color-pib-text-muted)] truncate max-w-[10ch]">{s.contactId}</td>
               <td className="py-2 pr-4 text-[var(--color-pib-text-muted)]">{tsToDate(s.createdAt)}</td>
             </tr>

@@ -232,18 +232,18 @@ function sumRows(rows: OverviewRow[], fieldNames: string[]): number {
 
 function statusTone(value: unknown): { label: string; className: string } {
   const status = stringValue(value).toLowerCase()
-  if (!status) return { label: 'Linked', className: 'border-white/10 bg-white/5 text-[var(--color-pib-text-muted)]' }
+  if (!status) return { label: 'Linked', className: 'pib-pill' }
   const label = readableStatusLabel(status)
   if (['active', 'approved', 'paid', 'fulfilled', 'live', 'completed', 'won'].includes(status)) {
-    return { label, className: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200' }
+    return { label, className: 'pib-pill pib-pill-success' }
   }
   if (['pending', 'pending_approval', 'client_review', 'qa_review', 'in_progress', 'open', 'draft', 'review'].includes(status)) {
-    return { label, className: 'border-amber-400/30 bg-amber-400/10 text-amber-200' }
+    return { label, className: 'pib-pill pib-pill-warn' }
   }
   if (['blocked', 'overdue', 'failed', 'cancelled', 'lost', 'out_of_stock', 'low_stock'].includes(status)) {
-    return { label, className: 'border-red-400/30 bg-red-400/10 text-red-200' }
+    return { label, className: 'pib-pill pib-pill-danger' }
   }
-  return { label, className: 'border-white/10 bg-white/5 text-[var(--color-pib-text-muted)]' }
+  return { label, className: 'pib-pill' }
 }
 
 function readableStatusLabel(value: string): string {
@@ -903,7 +903,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
             {riskSignals.length > 0 ? (
               <div className="mt-4 flex flex-wrap gap-2">
                 {riskSignals.map((signal) => (
-                  <span key={signal} className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-xs text-amber-200">
+                  <span key={signal} className="pib-pill pib-pill-warn">
                     {signal}
                   </span>
                 ))}
@@ -1063,7 +1063,7 @@ export function CompanyOverviewPanel({ company, center, loading, onSelectTab, on
                         <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{item.meta} · {formatDate(item.dateValue)}</p>
                       </div>
                     </div>
-                    <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-label uppercase tracking-wide ${tone.className}`}>
+                    <span className={`shrink-0 ${tone.className}`}>
                       {tone.label}
                     </span>
                   </div>

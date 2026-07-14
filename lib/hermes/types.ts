@@ -27,6 +27,8 @@ export interface HermesProfileLink {
   runtimeTargetId?: string
   runtimeKind?: 'local' | 'vps' | 'remote' | 'legacy' | 'linked-computer'
   machineLabel?: string
+  /** Opaque server-side binding to the concrete selected host/transport. */
+  transportIdentity?: string
   capabilities: HermesCapabilities
   permissions: HermesProfilePermissions
   createdAt?: unknown

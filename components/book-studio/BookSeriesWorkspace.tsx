@@ -50,11 +50,11 @@ function formatLabel(formatId?: string) {
   return FORMAT_LABELS[formatId] ?? formatId
 }
 
-function statusTone(status?: string): 'neutral' | 'success' | 'warn' | 'danger' {
+function statusTone(status?: string): 'rose' | 'success' | 'warn' | 'danger' {
   if (status === 'approved') return 'success'
   if (status === 'blocked') return 'danger'
   if (status === 'needs_review' || status === 'internal_review' || status === 'client_review') return 'warn'
-  return 'neutral'
+  return 'rose'
 }
 
 function statusLabel(status?: string) {
@@ -334,10 +334,10 @@ export function BookSeriesWorkspace({ orgId, seriesId }: BookSeriesWorkspaceProp
           <>
             <Surface header={<h2 className="text-lg font-semibold">Shared series metadata</h2>}>
               <div className="flex flex-wrap gap-2">
-                <span className="rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-semibold text-[var(--color-pib-text-muted)]">
+                <span className="pib-pill pib-pill-rose">
                   Author: {series.sharedMetadata?.authorName || 'Not set'}
                 </span>
-                <span className="rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-semibold text-[var(--color-pib-text-muted)]">
+                <span className="pib-pill pib-pill-rose">
                   Imprint: {series.sharedMetadata?.imprint || 'Not set'}
                 </span>
               </div>
@@ -404,7 +404,7 @@ export function BookSeriesWorkspace({ orgId, seriesId }: BookSeriesWorkspaceProp
                     return (
                       <li key={project.id} className="flex flex-col gap-2 rounded-2xl border border-[var(--color-pib-border)] p-4 md:flex-row md:items-center md:justify-between">
                         <div className="flex items-center gap-3">
-                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-pib-accent-soft)] text-xs font-semibold text-[var(--color-pib-accent-text)]">
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-pib-rose-soft)] text-xs font-semibold text-[var(--color-pib-rose)]">
                             {index + 1}
                           </span>
                           <div>
@@ -417,11 +417,11 @@ export function BookSeriesWorkspace({ orgId, seriesId }: BookSeriesWorkspaceProp
                         <div className="flex flex-wrap items-center gap-2">
                           <StatusPill tone={statusTone(project.status)}>{statusLabel(project.status)}</StatusPill>
                           {project.packageManifest?.version ? (
-                            <span className="rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-semibold text-[var(--color-pib-text-muted)]">
+                            <span className="pib-pill pib-pill-rose">
                               Files v{project.packageManifest.version} · {fileCount}
                             </span>
                           ) : fileCount > 0 ? (
-                            <span className="rounded-full bg-[var(--color-pib-surface-muted)] px-3 py-1 text-xs font-semibold text-[var(--color-pib-text-muted)]">
+                            <span className="pib-pill pib-pill-rose">
                               Files · {fileCount}
                             </span>
                           ) : null}

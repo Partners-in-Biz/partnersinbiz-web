@@ -52,7 +52,7 @@ export default async function PortalPerformanceTab({ params }: { params: Promise
               <h3 className="font-headline text-xl font-semibold mt-2">Core Web Vitals</h3>
               <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">Homepage health from the latest page check.</p>
             </div>
-            <span className="material-symbols-outlined text-[24px] text-[var(--color-pib-accent)]">speed</span>
+            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green"><span className="material-symbols-outlined text-[18px]">speed</span></span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <CWV label="LCP" value={homepage.lcp ? `${Math.round(homepage.lcp)}ms` : '-'} ok={homepage.lcp <= 2500} />
@@ -74,7 +74,7 @@ function Stat({ label, value, change, icon }: { label: string; value: number; ch
     <div className="pib-stat-card">
       <div className="flex items-start justify-between">
         <p className="eyebrow !text-[10px]">{label}</p>
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
+        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">{icon}</span></span>
       </div>
       <p className="mt-3 font-display tracking-tight leading-none text-3xl md:text-4xl tabular-nums">{Number(value).toLocaleString('en-ZA')}</p>
       {change != null && (

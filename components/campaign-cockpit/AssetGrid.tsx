@@ -162,7 +162,7 @@ export function AssetGrid({
                       (typeof post.content === 'string' ? post.content.slice(0, 80) : undefined) ??
                       'Untitled video'}
                   </h3>
-                  <span className="text-xs text-[var(--color-pib-text-muted)] uppercase tracking-wide">
+                  <span className="pib-pill pib-pill-rose">
                     {post.status ?? '—'}
                   </span>
                 </div>

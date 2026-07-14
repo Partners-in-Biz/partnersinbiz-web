@@ -24,7 +24,7 @@ export function CompanyRecordStatusChip({
     return <span className="text-xs text-[var(--color-pib-text-muted)]">{emptyLabel}</span>
   }
   return (
-    <span className="inline-flex rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-emerald-300">
+    <span className="pib-pill pib-pill-success">
       {readableCompanyStatusLabel(value)}
     </span>
   )

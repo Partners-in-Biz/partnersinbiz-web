@@ -213,8 +213,8 @@ function ActionRow({
       <div className="flex items-center gap-2 text-[11px] text-[var(--color-pib-text-muted)]">
         <span
           className={[
-            'h-2 w-2 rounded-full',
-            actionCompleteness(action) ? 'bg-emerald-400' : 'bg-amber-400',
+            'pib-status-dot',
+            actionCompleteness(action) ? 'pib-status-dot-success' : 'pib-status-dot-warn',
           ].join(' ')}
         />
         {actionCompleteness(action) ? 'Ready to execute' : 'Needs execution details'}
@@ -337,7 +337,9 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
             <p className="eyebrow !text-[10px]">Rule identity</p>
             <h2 id="automation-rule-name-label" className="mt-2 text-sm font-semibold">Name the business outcome</h2>
           </div>
-          <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">edit_note</span>
+          <span aria-hidden="true" className="pib-icon-tint">
+            <span className="material-symbols-outlined text-[18px]">edit_note</span>
+          </span>
         </div>
         <input
           type="text"
@@ -356,7 +358,9 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
             <p className="eyebrow !text-[10px]">Trigger</p>
             <h2 id="automation-trigger-label" className="mt-2 text-sm font-semibold">Choose the CRM moment</h2>
           </div>
-          <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">bolt</span>
+          <span aria-hidden="true" className="pib-icon-tint">
+            <span className="material-symbols-outlined text-[18px]">bolt</span>
+          </span>
         </div>
         <select
           aria-labelledby="automation-trigger-label"
@@ -403,7 +407,9 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
             <p className="eyebrow !text-[10px]">Timing</p>
             <h2 className="mt-2 text-sm font-semibold">Decide when it runs</h2>
           </div>
-          <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">schedule</span>
+          <span aria-hidden="true" className="pib-icon-tint">
+            <span className="material-symbols-outlined text-[18px]">schedule</span>
+          </span>
         </div>
         <div className="flex gap-3">
           <label className="flex items-center gap-2 cursor-pointer">
@@ -459,7 +465,9 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
             <p className="eyebrow !text-[10px]">Actions</p>
             <h2 className="mt-2 text-sm font-semibold">Build the execution chain</h2>
           </div>
-          <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">account_tree</span>
+          <span aria-hidden="true" className="pib-icon-tint">
+            <span className="material-symbols-outlined text-[18px]">account_tree</span>
+          </span>
         </div>
 
         {actions.length === 0 && (
@@ -573,7 +581,9 @@ export function AutomationRuleForm({ initial, onSave, onCancel, endpoint, sequen
                 const meta = ACTION_LABELS[action.type]
                 return (
                   <div key={`${action.type}-${index}`} className="flex items-center gap-3 rounded-md border border-[var(--color-card-border)] px-3 py-2">
-                    <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">{meta.icon}</span>
+                    <span aria-hidden="true" className="shrink-0 pib-icon-tint" style={{ width: '1.75rem', height: '1.75rem', borderRadius: '8px' }}>
+                      <span className="material-symbols-outlined text-[15px]">{meta.icon}</span>
+                    </span>
                     <div className="min-w-0">
                       <p className="truncate text-xs font-medium">{meta.label}</p>
                       <p className={actionCompleteness(action) ? 'text-[10px] text-emerald-300' : 'text-[10px] text-amber-300'}>

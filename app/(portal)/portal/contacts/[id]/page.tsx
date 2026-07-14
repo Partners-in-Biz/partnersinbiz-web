@@ -1703,7 +1703,7 @@ export default function PortalContactDetailPage() {
                 <p className="eyebrow !text-[10px]">Profile strength</p>
                 <p className="mt-1 text-lg font-semibold text-[var(--color-pib-text)]">{fmtPercent(profileStrength)}</p>
               </div>
-              <span className="material-symbols-outlined text-[18px] text-primary">account_circle</span>
+              <span className="pib-icon-tint" aria-hidden="true"><span className="material-symbols-outlined text-[18px]">account_circle</span></span>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-[var(--color-pib-surface-soft)]">
               <div
@@ -1815,9 +1815,9 @@ export default function PortalContactDetailPage() {
               </div>
               <span
                 aria-hidden="true"
-                className="material-symbols-outlined flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] text-[20px] text-primary"
+                className="pib-icon-tint shrink-0"
               >
-                crisis_alert
+                <span className="material-symbols-outlined text-[20px]">crisis_alert</span>
               </span>
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -1863,7 +1863,7 @@ export default function PortalContactDetailPage() {
               <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-3">
                 <p className="eyebrow !text-[10px] mb-3">Next best action</p>
                 <div className="flex items-start gap-3">
-                  <span className="material-symbols-outlined text-[20px] text-primary">tips_and_updates</span>
+                  <span className="pib-icon-tint" aria-hidden="true"><span className="material-symbols-outlined text-[20px]">tips_and_updates</span></span>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-[var(--color-pib-text)]">{suggestionActionLabel(nextSuggestion)}</p>
                     <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{suggestionReasonLabel(nextSuggestion)}</p>
@@ -2347,8 +2347,8 @@ export default function PortalContactDetailPage() {
               </div>
             ) : emails.length === 0 ? (
               <div className="p-4 text-center">
-                <span className="material-symbols-outlined inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] text-[20px] text-primary">
-                  mail
+                <span className="pib-icon-tint inline-flex mx-auto">
+                  <span className="material-symbols-outlined text-[20px]">mail</span>
                 </span>
                 <p className="mt-3 pib-label">
                   Email trail missing
@@ -2864,8 +2864,8 @@ export default function PortalContactDetailPage() {
             ) : enrollments.length === 0 ? (
               <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-4">
                 <div className="flex items-start gap-3">
-                  <span className="material-symbols-outlined mt-0.5 text-[20px] text-primary" aria-hidden="true">
-                    automation
+                  <span className="pib-icon-tint mt-0.5" aria-hidden="true">
+                    <span className="material-symbols-outlined text-[20px]">automation</span>
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="pib-label">
@@ -2975,8 +2975,8 @@ export default function PortalContactDetailPage() {
             {sequences.length === 0 && (
               <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] p-4">
                 <div className="flex items-start gap-3">
-                  <span className="material-symbols-outlined mt-0.5 text-[20px] text-primary" aria-hidden="true">
-                    route
+                  <span className="pib-icon-tint mt-0.5" aria-hidden="true">
+                    <span className="material-symbols-outlined text-[20px]">route</span>
                   </span>
                   <div className="min-w-0">
                     <p className="pib-label">

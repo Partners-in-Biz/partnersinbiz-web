@@ -158,7 +158,7 @@ export default function GlobalSearch() {
                       className="block px-3 py-2 hover:bg-white/[0.04] transition-colors"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-base">{typeIcons.contact}</span>
+                        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan text-base">{typeIcons.contact}</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-[var(--color-pib-text)] truncate">{result.title}</p>
                           {result.subtitle && (
@@ -187,7 +187,7 @@ export default function GlobalSearch() {
                       className="block px-3 py-2 hover:bg-white/[0.04] transition-colors"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-base">{typeIcons.project}</span>
+                        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan text-base">{typeIcons.project}</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-[var(--color-pib-text)] truncate">{result.title}</p>
                           {result.subtitle && (
@@ -216,7 +216,7 @@ export default function GlobalSearch() {
                       className="block px-3 py-2 hover:bg-white/[0.04] transition-colors"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-base">{typeIcons.task}</span>
+                        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan text-base">{typeIcons.task}</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-[var(--color-pib-text)] truncate">{result.title}</p>
                           {result.subtitle && (
@@ -245,7 +245,7 @@ export default function GlobalSearch() {
                       className="block px-3 py-2 hover:bg-white/[0.04] transition-colors"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-base">{typeIcons.invoice}</span>
+                        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan text-base">{typeIcons.invoice}</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-[var(--color-pib-text)] truncate">{result.title}</p>
                           {result.subtitle && (

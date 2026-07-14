@@ -20,9 +20,12 @@ import {
   messagesCollection,
 } from '@/lib/conversations/conversations'
 import { createHermesRun } from '@/lib/hermes/server'
-import { authorizeLinkedComputerDispatch, type AuthorizedLinkedComputerDispatch } from '@/lib/linked-computers/runtime-targets'
+import type { AuthorizedLinkedComputerDispatch } from '@/lib/linked-computers/runtime-targets'
 import { cancelLinkedRun, enqueueLinkedRun, waitForLinkedRunClaim } from '@/lib/linked-computers/run-queue-store'
-import { getAgentDispatchHermesProfileLink, isConfiguredCompatibilityRuntimeTarget } from '@/lib/agents/team'
+import { getAgentDispatchHermesProfileLink } from '@/lib/agents/team'
+import { authorizeWorkspaceRuntime, type AuthorizedWorkspaceRuntime } from '@/lib/workspaces/runtime-authorization'
+import { requireProjectRuntimeReplica } from '@/lib/project-locations/runtime-binding'
+import type { ProjectLocationReplica } from '@/lib/project-locations/model'
 import { safeRuntimeTargetId, type RuntimeTargetSelectionErrorCode } from '@/lib/agents/runtime-targets'
 import { cleanAgentEffort, VALID_AGENT_EFFORTS, type AgentEffort } from '@/lib/agents/runRouting'
 import { buildAttachedContextBlock, resolveContextReferences } from '@/lib/context-references/registry'
@@ -40,7 +43,13 @@ import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organization
 import { resolveAuthorizedWorkingDirectory } from '@/lib/client-provisioning/working-directory'
 import { classifyWorkspaceDispatchFailure } from '@/lib/workspaces/dispatch-errors'
 import type { ApiUser } from '@/lib/api/types'
-import { canAccessConversation, canReplyConversation, publicConversationMessageView } from '@/lib/conversations/access'
+import {
+  authorizeConversationProject,
+  canAccessConversation,
+  canReplyConversation,
+  publicConversationMessageView,
+} from '@/lib/conversations/access'
+import { resolveConversationDispatchAgentId } from '@/lib/conversations/dispatch-agent'
 import type { AgentTeamDoc } from '@/lib/agents/types'
 import type { AgentId, Conversation, ConversationAttachment, ConversationMessage } from '@/lib/conversations/types'
 import { selectActiveProjectId } from '@/lib/projects/chatProgress'
@@ -318,18 +327,6 @@ function buildDecisionDataOperatingRuleContext(): string {
   ].join('\n')
 }
 
-async function resolveDispatchAgentId(conversation: Conversation): Promise<AgentId | null> {
-  if (conversation.participantAgentIds.length === 0) return null
-  if (conversation.participantAgentIds.length === 1) return conversation.participantAgentIds[0]
-
-  const orchestrator = conversation.orchestration?.dispatcherAgentId ?? 'pip'
-  const orchestratorSnap = await adminDb.collection('agent_team').doc(orchestrator).get()
-  const orchestratorData = orchestratorSnap.data()
-  if (orchestratorSnap.exists && orchestratorData?.enabled) return orchestrator
-
-  return conversation.participantAgentIds[0]
-}
-
 export const POST = withAuth(
   'client',
   async (req: NextRequest, user: ApiUser, context?: unknown) => {
@@ -351,6 +348,9 @@ export const POST = withAuth(
       'Conversation replies are disabled for your organisation role',
     )
     if (!replyAccess.ok) return apiError(replyAccess.error, replyAccess.status)
+    const projectAuthorization = await authorizeConversationProject(user, conversation)
+    if (!projectAuthorization.ok) return apiError(projectAuthorization.error, projectAuthorization.status)
+    const boundProjectId = projectAuthorization.projectId ?? undefined
 
     const body = await req.json().catch(() => null)
     if (!body || typeof body !== 'object') return apiError('Invalid JSON body', 400)
@@ -393,7 +393,7 @@ export const POST = withAuth(
 
     // Resolve dispatch target before storing the message so unauthorized or
     // invalid model/provider overrides fail without creating a partial thread.
-    const dispatchAgentId = await resolveDispatchAgentId(conversation)
+    const dispatchAgentId = await resolveConversationDispatchAgentId(conversation)
     let modelSelection: { model: string; provider?: string } | undefined
     if (hasModelSelection) {
       const modelValidation = await validateMessageModelSelection({
@@ -407,6 +407,40 @@ export const POST = withAuth(
         return apiError(modelValidation.error ?? 'Invalid model selection', modelValidation.status ?? 400)
       }
       modelSelection = modelValidation.selection
+    }
+
+    // A session remains bound to its selected computer. Re-authorize that
+    // binding before persisting the user's message so an offline, revoked, or
+    // cross-tenant target cannot leave a misleading partial exchange behind.
+    const requestedRuntimeTarget = conversation.workspaceContext?.runtimeTarget?.trim() || null
+    let authorizedWorkspaceRuntime: AuthorizedWorkspaceRuntime | null = null
+    if (requestedRuntimeTarget && conversation.workspaceContext?.workspaceId && dispatchAgentId) {
+      try {
+        authorizedWorkspaceRuntime = await authorizeWorkspaceRuntime({
+          userId: user.uid,
+          orgId: conversation.orgId,
+          workspaceId: conversation.workspaceContext.workspaceId,
+          runtimeTargetId: requestedRuntimeTarget,
+          agentId: dispatchAgentId,
+        })
+      } catch {
+        return apiError('Computer unavailable', 409)
+      }
+    }
+
+    let boundProjectReplica: ProjectLocationReplica | null = null
+    if (authorizedWorkspaceRuntime && conversation.workspaceContext?.workspaceId && boundProjectId) {
+      try {
+        boundProjectReplica = await requireProjectRuntimeReplica({
+          projectId: boundProjectId,
+          orgId: conversation.orgId,
+          workspaceId: conversation.workspaceContext.workspaceId,
+          actorUserId: user.uid,
+          runtime: authorizedWorkspaceRuntime,
+        })
+      } catch {
+        return apiError('Project is not linked to this computer', 409)
+      }
     }
 
     // Store the user message
@@ -462,24 +496,33 @@ export const POST = withAuth(
       })
 
       let agentLink: Awaited<ReturnType<typeof getAgentDispatchHermesProfileLink>> | null = null
-      let linkedComputerBinding: AuthorizedLinkedComputerDispatch | null = null
+      let linkedComputerBinding: AuthorizedLinkedComputerDispatch | null =
+        authorizedWorkspaceRuntime?.kind === 'linked-computer' ? authorizedWorkspaceRuntime : null
       try {
-        const requestedTarget = conversation.workspaceContext?.runtimeTarget ?? null
-        const compatibilityTarget = requestedTarget
-          ? await isConfiguredCompatibilityRuntimeTarget(agentId, requestedTarget)
-          : true
-        if (requestedTarget && safeRuntimeTargetId(requestedTarget) && !compatibilityTarget) {
-          if (!conversation.workspaceContext) throw new Error('Linked computer dispatch requires a Workspace')
-          linkedComputerBinding = await authorizeLinkedComputerDispatch({
+        if (requestedRuntimeTarget && !authorizedWorkspaceRuntime) {
+          if (!conversation.workspaceContext) throw new Error('Computer dispatch requires a Workspace')
+          const authorizedRuntime = await authorizeWorkspaceRuntime({
             userId: user.uid,
             orgId: conversation.orgId,
             workspaceId: conversation.workspaceContext.workspaceId,
-            runtimeTargetId: requestedTarget!,
+            runtimeTargetId: requestedRuntimeTarget,
+            agentId,
           })
+          if (authorizedRuntime.kind === 'linked-computer') linkedComputerBinding = authorizedRuntime
         }
         if (!linkedComputerBinding) {
-          agentLink = await getAgentDispatchHermesProfileLink(agentId, conversation.orgId, { runtimeTarget: requestedTarget })
+          agentLink = await getAgentDispatchHermesProfileLink(agentId, conversation.orgId, { runtimeTarget: requestedRuntimeTarget })
           if (!agentLink) throw new Error(`No reachable runtime target configured for agent_team/${agentId}`)
+          if (authorizedWorkspaceRuntime?.kind === 'execution-location'
+            && (agentLink.runtimeTargetId !== authorizedWorkspaceRuntime.runtimeTargetId
+              || !agentLink.transportIdentity
+              || !authorizedWorkspaceRuntime.transportIdentity
+              || agentLink.transportIdentity !== authorizedWorkspaceRuntime.transportIdentity)) {
+            throw Object.assign(new Error('Authorized runtime transport changed before dispatch'), {
+              code: 'runtime_target_binding_mismatch',
+              requestedTargetId: requestedRuntimeTarget,
+            })
+          }
         }
       } catch (err) {
         const error = 'Agent dispatch is not configured for this Preview environment.'
@@ -489,6 +532,7 @@ export const POST = withAuth(
         const allowedFailureCodes: RuntimeTargetSelectionErrorCode[] = [
           'runtime_target_invalid_id', 'runtime_target_not_found', 'runtime_target_disabled',
           'runtime_target_stale', 'runtime_target_unhealthy', 'runtime_target_missing_api_key',
+          'runtime_target_binding_mismatch',
         ]
         const runtimeDispatchFailureCode = typeof runtimeFailure?.code === 'string'
           && allowedFailureCodes.includes(runtimeFailure.code as RuntimeTargetSelectionErrorCode)
@@ -542,7 +586,7 @@ export const POST = withAuth(
         : ''
       const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + projectChatOrchestrationContext + studioArtifactOrchestrationContext + agentSkillsContext + decisionDataRuleContext + attachedContext + conversationHistory + commandContext + content + attachmentContext
       if (linkedComputerBinding) {
-        const projectId = conversation.workspaceContext?.projectId
+        const projectId = boundProjectId
         const queued = await enqueueLinkedRun({
           requestId: assistantMessage.id,
           deviceId: linkedComputerBinding.deviceId,
@@ -550,9 +594,9 @@ export const POST = withAuth(
           orgId: conversation.orgId,
           actorUserId: user.uid,
           workspaceId: linkedComputerBinding.workspaceId,
-          ...(projectId ? { projectId } : {}),
+          ...(projectId && boundProjectReplica ? { projectId, projectReplicaId: boundProjectReplica.replicaId } : {}),
           mappingId: linkedComputerBinding.mappingId,
-          relativeFolder: projectId ? `Projects/${projectId}` : '.',
+          relativeFolder: boundProjectReplica?.relativePath ?? (projectId ? `projects/${projectId}` : '.'),
           credentialVersion: linkedComputerBinding.credentialVersion,
           payload: { prompt: hermesInput, ...(modelSelection?.model ? { model: modelSelection.model } : {}), ...(modelSelection?.provider ? { provider: modelSelection.provider } : {}) },
           conversationId: convId,
@@ -593,6 +637,10 @@ export const POST = withAuth(
       if (conversation.workspaceContext && !linkedComputerBinding) {
         const workingDirectory = await resolveAuthorizedWorkingDirectory({
           workspaceContext: conversation.workspaceContext,
+          ...(boundProjectReplica ? {
+            projectId: boundProjectId,
+            projectRelativePath: boundProjectReplica.relativePath,
+          } : {}),
         })
         if (!workingDirectory.ok) {
           const error = 'The selected workspace directory is unavailable or not authorized.'
@@ -689,6 +737,7 @@ export const POST = withAuth(
           await messagesCollection(convId).doc(assistantMessage.id).update({
             runId,
             dispatchAgentId: agentId,
+            ...(dispatchLink.runtimeTargetId ? { dispatchRuntimeTargetId: dispatchLink.runtimeTargetId } : {}),
             ...(runResult.runDocId ? { runDocId: runResult.runDocId } : {}),
           })
         } else {
@@ -742,6 +791,9 @@ export const GET = withAuth(
     if (!canAccessConversation(user, conversation)) {
       return apiError('Forbidden', 403)
     }
+
+    const projectAuthorization = await authorizeConversationProject(user, conversation)
+    if (!projectAuthorization.ok) return apiError(projectAuthorization.error, projectAuthorization.status)
 
     const messages = await listMessages(convId, 200)
     return apiSuccess({ messages: messages.map(publicConversationMessageView) })

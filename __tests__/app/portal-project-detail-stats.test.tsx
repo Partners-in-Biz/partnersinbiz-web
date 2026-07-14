@@ -1,26 +1,12 @@
 import React from 'react'
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import ProjectDetailPage from '@/app/(portal)/portal/projects/[projectId]/page'
 
-let snapshotCallback: ((snap: { docChanges: () => Array<{ type: 'added' | 'modified' | 'removed'; doc: { id: string; data: () => Record<string, unknown> } }> }) => void) | null = null
-const unsubscribe = jest.fn()
 const mockSearchParamsGet = jest.fn(() => null)
 
 jest.mock('next/navigation', () => ({
   useParams: () => ({ projectId: 'project-1' }),
   useSearchParams: () => ({ get: mockSearchParamsGet }),
-}))
-
-jest.mock('firebase/firestore', () => ({
-  collection: jest.fn((...segments: string[]) => segments),
-  onSnapshot: jest.fn((_ref, onNext) => {
-    snapshotCallback = onNext
-    return unsubscribe
-  }),
-}))
-
-jest.mock('@/lib/firebase/config', () => ({
-  getClientDb: jest.fn(() => ({})),
 }))
 
 jest.mock('@/components/kanban/KanbanBoard', () => ({
@@ -38,19 +24,6 @@ jest.mock('@/components/kanban/TaskDetailPanel', () => ({
 jest.mock('@/components/kanban/TaskComposer', () => ({
   TaskComposer: () => <div data-testid="task-composer" />,
 }))
-
-function mockSnapshotChange(type: 'added' | 'modified' | 'removed', id: string, data: Record<string, unknown>) {
-  act(() => {
-    snapshotCallback?.({
-      docChanges: () => [
-        {
-          type,
-          doc: { id, data: () => data },
-        },
-      ],
-    })
-  })
-}
 
 function upcomingIsoDate() {
   return new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
@@ -139,8 +112,6 @@ function mockFetch() {
 
 describe('Portal project detail kanban stat cards', () => {
   beforeEach(() => {
-    snapshotCallback = null
-    unsubscribe.mockClear()
     mockSearchParamsGet.mockReset()
     mockSearchParamsGet.mockReturnValue(null)
     Object.defineProperty(window, 'matchMedia', {
@@ -183,19 +154,12 @@ describe('Portal project detail kanban stat cards', () => {
     expect(screen.queryByText('Done / blocked')).not.toBeInTheDocument()
   })
 
-  it('keeps portal stat cards in sync with live board task changes', async () => {
+  it('derives portal stat cards from the relationship-aware task API response', async () => {
     render(<ProjectDetailPage />)
 
-    await waitFor(() => expect(snapshotCallback).toBeTruthy())
-    mockSnapshotChange('added', 'task-live-1', {
-      title: 'Live blocked task',
-      columnId: 'blocked',
-      order: 4,
-    })
-
-    expect(screen.getByText('Live blocked task')).toBeInTheDocument()
-    expect(screen.getByLabelText('Done task progress')).toHaveTextContent('2 / 5')
-    expect(screen.getByLabelText('Needs Peet task count')).toHaveTextContent('2')
+    await waitFor(() => expect(screen.getByText('Board blocker')).toBeInTheDocument())
+    expect(screen.getByLabelText('Done task progress')).toHaveTextContent('2 / 4')
+    expect(screen.getByLabelText('Needs Peet task count')).toHaveTextContent('1')
   })
 
   it('keeps the board/list toggle and manual order control on one spaced toolbar row', async () => {

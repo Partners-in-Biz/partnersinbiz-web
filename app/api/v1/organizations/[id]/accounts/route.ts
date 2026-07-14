@@ -6,6 +6,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { isMember } from '@/lib/organizations/helpers'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,6 +16,7 @@ export const GET = withAuth('admin', async (req, user, ctx) => {
   const { id } = await (ctx as Params).params
   const doc = await adminDb.collection('organizations').doc(id).get()
   if (!doc.exists) return apiError('Organisation not found', 404)
+  if (!canAccessOrg(user, id)) return apiError('Forbidden', 403)
 
   const data = doc.data()!
   // This guard is unreachable with current roles ('admin', 'client', 'ai') because withAuth('admin') blocks clients.

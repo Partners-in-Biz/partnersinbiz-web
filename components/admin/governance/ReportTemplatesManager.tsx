@@ -331,7 +331,7 @@ export function ReportTemplatesManager() {
                 >
                   <td className="px-3 py-2">
                     <p className="font-medium text-[var(--color-pib-text)]">{t.name}</p>
-                    {t.isDefault && <span className="text-[11px] text-[var(--color-pib-text-muted)]">Default</span>}
+                    {t.isDefault && <span className="pib-pill pib-pill-cyan !text-[10px] !py-0.5">Default</span>}
                     {t.description && <p className="text-[11px] text-[var(--color-pib-text-muted)] mt-0.5 max-w-[260px]">{t.description}</p>}
                   </td>
                   <td className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)] max-w-[220px] break-words">{t.subject}</td>
@@ -341,9 +341,9 @@ export function ReportTemplatesManager() {
                   <td className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">v{t.version}</td>
                   <td className="px-3 py-2">
                     <span
-                      className={`inline-block rounded px-1.5 py-0.5 text-xs ${
-                        t.source === 'builtin' ? 'bg-[var(--color-pib-surface-soft)] text-[var(--color-pib-text-muted)]' : 'bg-blue-500/15 text-blue-300'
-                      }`}
+                      className={
+                        t.source === 'builtin' ? 'pib-pill' : 'pib-pill pib-pill-cyan'
+                      }
                     >
                       {t.source}
                     </span>

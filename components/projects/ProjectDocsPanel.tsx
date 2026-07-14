@@ -156,7 +156,7 @@ export function ProjectDocsPanel({
             <p className="pib-label">Library</p>
             <h2 className="mt-1 text-lg font-headline font-bold text-[var(--color-pib-text)]">Documents</h2>
           </div>
-          <span className="rounded-full border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-1 text-xs text-[var(--color-pib-text-muted)]">{docs.length} docs</span>
+          <span className="pib-pill pib-pill-cyan !text-xs normal-case">{docs.length} docs</span>
         </div>
 
         {editingDoc ? (
@@ -205,7 +205,9 @@ export function ProjectDocsPanel({
                         className="flex w-full items-start gap-3 rounded-[var(--radius-btn)] px-3 py-3 text-left"
                         aria-label={`Preview ${doc.title}`}
                       >
-                        <span className="material-symbols-outlined mt-0.5 text-[22px] text-[var(--color-pib-text-muted)]">description</span>
+                        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan mt-0.5">
+                          <span className="material-symbols-outlined text-[18px]">description</span>
+                        </span>
                         <span className="min-w-0 flex-1">
                           <span className="block text-sm font-semibold text-[var(--color-pib-text)]">{doc.title}</span>
                           <span className="mt-2 block text-xs leading-5 text-[var(--color-pib-text-muted)]">{docPreview(doc.content)}</span>

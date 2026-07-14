@@ -10,13 +10,14 @@ interface Params { slug: string }
 export default async function ConversionActionsPage({ params }: { params: Promise<Params> }) {
   const { slug } = await params
   const orgId = await resolveOrgIdBySlug(slug)
-  if (!orgId) return <div className="text-white/60">Org not found.</div>
+  if (!orgId) return <p className="pib-page-sub">Org not found.</p>
   const actions = await listConversionActions({ orgId })
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <header>
-        <h1 className="text-2xl font-semibold">Conversion Actions</h1>
-        <p className="text-sm text-white/50">
+        <p className="eyebrow">Ads · Conversion Actions</p>
+        <h1 className="pib-page-title mt-2">Conversion Actions</h1>
+        <p className="pib-page-sub">
           Define what counts as a conversion. Used for tracking + bid optimization.
         </p>
       </header>

@@ -226,7 +226,7 @@ export function CustomReportBuilder({ orgId, onSaved }: Props) {
           {sections.map((sec, i) => (
             <div key={sec.id} className="bento-card !p-4 space-y-3">
               <div className="flex items-center justify-between gap-2">
-                <span className="pib-pill !text-[10px] uppercase">{SECTION_LABELS[sec.type]}</span>
+                <span className="pib-pill pib-pill-cyan !text-[10px] uppercase">{SECTION_LABELS[sec.type]}</span>
                 <div className="flex items-center gap-1">
                   <button type="button" onClick={() => moveSection(sec.id, -1)} disabled={i === 0} aria-label="Move up" className="btn-pib-secondary !py-1 !px-2 !text-xs disabled:opacity-40">
                     <span className="material-symbols-outlined text-[14px]">arrow_upward</span>

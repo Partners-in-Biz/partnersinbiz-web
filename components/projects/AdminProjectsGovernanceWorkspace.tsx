@@ -118,7 +118,7 @@ export function AdminProjectsGovernanceWorkspace({ orgSlug }: AdminProjectsGover
                 These organisation-level rules decide whether the Projects tab is visible and whether people can create new project requests.
               </p>
             </div>
-            <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-[var(--color-pib-line)] text-[var(--color-pib-accent)]">
+            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan inline-flex size-9 shrink-0 items-center justify-center rounded-lg">
               <span className="material-symbols-outlined text-[20px] leading-none">shield</span>
             </span>
           </div>
@@ -188,7 +188,7 @@ export function AdminProjectsGovernanceWorkspace({ orgSlug }: AdminProjectsGover
                   <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{type.label}</h3>
                   <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{type.description}</p>
                 </div>
-                <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+                <span className="pib-pill pib-pill-cyan !text-[10px] normal-case">
                   {type.locked ? 'Default' : 'Custom'}
                 </span>
               </div>

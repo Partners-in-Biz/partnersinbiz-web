@@ -190,7 +190,9 @@ export function CrmSearchBar({ className, orgScope }: Props) {
                       onClick={clearAndClose}
                       className="flex items-center gap-2 px-3 py-1.5 transition-colors hover:bg-white/[0.05]"
                     >
-                      <span className="material-symbols-outlined shrink-0 text-[14px] text-[var(--color-pib-text-muted)]">person</span>
+                      <span aria-hidden="true" className="shrink-0 pib-icon-tint" style={{ width: '1.5rem', height: '1.5rem', borderRadius: '8px' }}>
+                        <span className="material-symbols-outlined text-[14px]">person</span>
+                      </span>
                       <span className="flex-1 truncate text-xs text-[var(--color-pib-text)]">{contactResultLabel(c)}</span>
                       <span className="shrink-0 text-[11px] text-[var(--color-pib-text-muted)]">Contact</span>
                     </Link>
@@ -209,7 +211,9 @@ export function CrmSearchBar({ className, orgScope }: Props) {
                       onClick={clearAndClose}
                       className="flex items-center gap-2 px-3 py-1.5 transition-colors hover:bg-white/[0.05]"
                     >
-                      <span className="material-symbols-outlined shrink-0 text-[14px] text-[var(--color-pib-text-muted)]">business</span>
+                      <span aria-hidden="true" className="shrink-0 pib-icon-tint" style={{ width: '1.5rem', height: '1.5rem', borderRadius: '8px' }}>
+                        <span className="material-symbols-outlined text-[14px]">business</span>
+                      </span>
                       <span className="flex-1 truncate text-xs text-[var(--color-pib-text)]">{co.name}</span>
                       <span className="shrink-0 text-[11px] text-[var(--color-pib-text-muted)]">Company</span>
                     </Link>
@@ -228,7 +232,9 @@ export function CrmSearchBar({ className, orgScope }: Props) {
                       onClick={clearAndClose}
                       className="flex items-center gap-2 px-3 py-1.5 transition-colors hover:bg-white/[0.05]"
                     >
-                      <span className="material-symbols-outlined shrink-0 text-[14px] text-[var(--color-pib-text-muted)]">handshake</span>
+                      <span aria-hidden="true" className="shrink-0 pib-icon-tint" style={{ width: '1.5rem', height: '1.5rem', borderRadius: '8px' }}>
+                        <span className="material-symbols-outlined text-[14px]">handshake</span>
+                      </span>
                       <span className="flex-1 truncate text-xs text-[var(--color-pib-text)]">{d.title}</span>
                       <span className="shrink-0 text-[11px] text-[var(--color-pib-text-muted)]">
                         Deal{d.value != null ? ` · ${d.currency ?? ''} ${d.value.toLocaleString()}` : ''}

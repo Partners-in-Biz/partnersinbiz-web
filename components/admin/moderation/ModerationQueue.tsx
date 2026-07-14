@@ -194,8 +194,8 @@ export function ModerationQueue() {
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-medium text-[var(--color-pib-text)]">{item.orgName}</span>
                     <StatusPill tone="info">{item.contentType === 'campaign' ? 'Campaign' : 'Social post'}</StatusPill>
-                    <StatusPill tone="neutral">{item.status}</StatusPill>
-                    <StatusPill tone="neutral">{item.platform}</StatusPill>
+                    <StatusPill tone="cyan">{item.status}</StatusPill>
+                    <StatusPill tone="cyan">{item.platform}</StatusPill>
                     <StatusPill tone={confidenceTone(item.confidence)}>{confidenceLabel(item.confidence)}</StatusPill>
                   </div>
                   <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">

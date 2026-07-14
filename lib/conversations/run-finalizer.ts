@@ -1,6 +1,7 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { getAgentDispatchHermesProfileLink } from '@/lib/agents/team'
+import { getLinkedRunResult } from '@/lib/linked-computers/run-queue-store'
 import type { AgentId } from '@/lib/agents/types'
 import { callHermesJson, HERMES_RUNS_COLLECTION } from '@/lib/hermes/server'
 import type { ChatEvent, ChatUiAction, HermesProfileLink, RichMessagePart } from '@/lib/hermes/types'
@@ -265,8 +266,8 @@ function runDocMessageId(data: JsonObject, metadata: JsonObject): string | null 
     ?? cleanString(data.messageId ?? data.message_id)
 }
 
-async function buildAgentLink(agentId: AgentId, orgId: string): Promise<HermesProfileLink> {
-  const agentLink = await getAgentDispatchHermesProfileLink(agentId, orgId)
+async function buildAgentLink(agentId: AgentId, orgId: string, runtimeTarget?: string | null): Promise<HermesProfileLink> {
+  const agentLink = await getAgentDispatchHermesProfileLink(agentId, orgId, { runtimeTarget })
   if (!agentLink) throw new HermesConversationRunError('Agent not found', 404)
   return agentLink
 }
@@ -334,13 +335,46 @@ export async function finalizeConversationRun(input: {
   }
   const messageAlreadyCompleted = msgData.status === 'completed'
 
+  const linkedDeviceId = cleanString(msgData.linkedDeviceId)
+  if (linkedDeviceId) {
+    if (messageAlreadyCompleted) {
+      return {
+        status: 'completed',
+        content: cleanString(msgData.content) ?? '',
+        runId,
+        alreadyFinal: true,
+      }
+    }
+    if (msgData.status === 'failed') {
+      const error = cleanString(msgData.error) ?? 'The linked computer run failed.'
+      return { status: 'failed', content: '', error, runId, alreadyFinal: true }
+    }
+    const linkedResult = await getLinkedRunResult({
+      jobId: runId,
+      deviceId: linkedDeviceId,
+      conversationId: input.convId,
+      assistantMessageId: input.msgId,
+    })
+    if (!linkedResult) {
+      throw new HermesConversationRunError('Linked computer run not found', 404)
+    }
+    return {
+      status: linkedResult.status,
+      runId: linkedResult.runId,
+      ...(linkedResult.content !== undefined ? { content: linkedResult.content } : {}),
+      ...(linkedResult.error ? { error: linkedResult.error } : {}),
+    }
+  }
+
   const events = Array.isArray(msgData.events) ? msgData.events as ChatEvent[] : []
   const agentId = resolveAgentId(storedAgentId as AgentId, msgData)
   if (!agentId) throw new HermesConversationRunError('Agent not found for run', 404)
 
   const createdAtMs = createdAtToMillis(msgData.createdAt)
   const ageMs = createdAtMs ? Date.now() - createdAtMs : 0
-  const agentLink = await buildAgentLink(agentId, conversation.orgId)
+  const runtimeTarget = cleanString(msgData.dispatchRuntimeTargetId)
+    ?? cleanString(conversation.workspaceContext?.runtimeTarget)
+  const agentLink = await buildAgentLink(agentId, conversation.orgId, runtimeTarget)
   const { response, data } = await callHermesJson(agentLink, `/v1/runs/${encodeURIComponent(runId)}`)
 
   if (!response.ok) {

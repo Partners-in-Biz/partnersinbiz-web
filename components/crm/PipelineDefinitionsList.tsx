@@ -18,7 +18,7 @@ export interface PipelineDefinitionsListProps {
 
 function DefaultBadge() {
   return (
-    <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+    <span className="pib-pill pib-pill-accent">
       default
     </span>
   )
@@ -26,7 +26,7 @@ function DefaultBadge() {
 
 function ArchivedBadge() {
   return (
-    <span className="inline-flex items-center rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium text-[var(--color-pib-text-muted)]">
+    <span className="pib-pill pib-pill-accent">
       archived
     </span>
   )
@@ -94,7 +94,7 @@ function PipelineRow({
             <p className="truncate text-sm font-semibold text-[var(--color-pib-text)]">{displayName}</p>
             {pipeline.isDefault && <DefaultBadge />}
             {pipeline.archived && <ArchivedBadge />}
-            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${healthScore >= 100 && !needsSetupReview ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-100' : 'border-amber-400/40 bg-amber-400/10 text-amber-200'}`}>
+            <span className={`pib-pill ${healthScore >= 100 && !needsSetupReview ? 'pib-pill-success' : 'pib-pill-warn'}`}>
               {needsSetupReview ? 'Review setup' : healthScore >= 100 ? 'Ready' : `${healthScore}% setup`}
             </span>
           </div>
@@ -122,12 +122,12 @@ function PipelineRow({
               <span
                 key={stage.id}
                 className={[
-                  'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-[11px]',
+                  'pib-pill',
                   stage.kind === 'won'
-                    ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-100'
+                    ? 'pib-pill-success'
                     : stage.kind === 'lost'
-                      ? 'border-red-400/40 bg-red-400/10 text-red-100'
-                      : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)]',
+                      ? 'pib-pill-danger'
+                      : '',
                 ].join(' ')}
                 title={`${stageDisplayName(stage)} (${stage.probability}% probability)`}
               >
@@ -289,7 +289,7 @@ export function PipelineDefinitionsList({
       <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
         <div className="grid gap-0 lg:grid-cols-[1.1fr_1.4fr]">
           <div className="border-b border-[var(--color-card-border)] p-4 lg:border-b-0 lg:border-r">
-            <span className="material-symbols-outlined mb-2 grid h-6 w-6 place-items-center rounded-md bg-primary/10 text-[15px] text-primary">account_tree</span>
+            <span className="pib-icon-tint mb-2"><span className="material-symbols-outlined text-[15px]">account_tree</span></span>
             <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Pipeline setup</p>
             <h2 className="mt-1 text-base font-semibold leading-tight text-[var(--color-pib-text)]">
               Launch your first revenue path

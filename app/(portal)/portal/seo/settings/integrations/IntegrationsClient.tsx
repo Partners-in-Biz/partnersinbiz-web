@@ -139,8 +139,8 @@ function GscSprintCard({ sprint, autoLoad }: { sprint: SprintRow; autoLoad: bool
     <section className="pib-card-section">
       <div className="pib-card-section-row flex-col items-stretch gap-4 lg:flex-row lg:items-start">
         <div className="flex min-w-0 gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[var(--color-pib-line)] bg-white/[0.03] text-[var(--color-pib-text-muted)]">
-            <span className="material-symbols-outlined text-[20px]">search</span>
+          <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green shrink-0">
+            <span className="material-symbols-outlined text-[18px]">search</span>
           </span>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">

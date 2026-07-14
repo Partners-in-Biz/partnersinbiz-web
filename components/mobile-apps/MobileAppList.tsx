@@ -98,15 +98,15 @@ export function MobileAppList({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={app.assets.iconUrl} alt="" className="h-16 w-16 rounded-2xl object-cover" />
               ) : (
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/[0.04]">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl pib-icon-tint-cyan">
                   <span className="material-symbols-outlined">apps</span>
                 </div>
               )}
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="font-headline text-xl font-bold">{app.name}</h2>
-                  <span className="pill pill-accent uppercase">{app.platform}</span>
-                  <span className="pill capitalize">{app.status}</span>
+                  <span className="pib-pill pib-pill-cyan uppercase">{app.platform}</span>
+                  <span className="pib-pill pib-pill-cyan capitalize">{app.status}</span>
                 </div>
                 <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
                   {app.listing?.subtitle || app.listing?.shortDescription || 'Listing details are being prepared.'}

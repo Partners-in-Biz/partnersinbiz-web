@@ -43,16 +43,17 @@ export function NewSavedAudienceClient({ orgId, orgSlug }: Props) {
   }
 
   return (
-    <section className="space-y-5 max-w-2xl">
+    <section className="space-y-8 max-w-2xl">
       <header>
-        <h1 className="text-2xl font-semibold">New saved audience</h1>
-        <p className="text-sm text-white/60 mt-1">Save targeting once, reuse on any ad set.</p>
+        <p className="eyebrow">Ads · Audiences</p>
+        <h1 className="pib-page-title mt-2">New saved audience</h1>
+        <p className="pib-page-sub">Save targeting once, reuse on any ad set.</p>
       </header>
 
-      <label className="block text-sm">
-        <span className="font-medium">Name</span>
+      <label className="block text-sm space-y-1.5">
+        <span className="pib-label">Name</span>
         <input
-          className="mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm"
+          className="pib-input w-full"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. US adults 25-54 high intent"
@@ -61,10 +62,10 @@ export function NewSavedAudienceClient({ orgId, orgSlug }: Props) {
         />
       </label>
 
-      <label className="block text-sm">
-        <span className="font-medium">Description (optional)</span>
+      <label className="block text-sm space-y-1.5">
+        <span className="pib-label">Description (optional)</span>
         <input
-          className="mt-1 w-full rounded border border-white/10 bg-white/5 px-3 py-2 text-sm"
+          className="pib-input w-full"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           aria-label="Description"
@@ -72,13 +73,13 @@ export function NewSavedAudienceClient({ orgId, orgSlug }: Props) {
         />
       </label>
 
-      <div className="rounded border border-white/10 p-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-white/40 mb-3">Targeting</h2>
+      <div className="pib-card space-y-3">
+        <h2 className="pib-label">Targeting</h2>
         <TargetingEditor orgId={orgId} value={targeting} onChange={setTargeting} />
       </div>
 
       {error && (
-        <div className="rounded border border-red-500/30 bg-red-500/5 p-3 text-sm text-red-300">{error}</div>
+        <div className="rounded-2xl border border-[var(--color-error)]/30 bg-[var(--color-error-container)] p-3 text-sm text-[var(--color-error)]">{error}</div>
       )}
 
       <div className="flex justify-end gap-2">
@@ -92,7 +93,7 @@ export function NewSavedAudienceClient({ orgId, orgSlug }: Props) {
         </button>
         <button
           type="button"
-          className="btn-pib-accent text-sm"
+          className="btn-pib-primary text-sm"
           onClick={submit}
           disabled={!name.trim() || submitting}
         >

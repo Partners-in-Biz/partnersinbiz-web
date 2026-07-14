@@ -27,6 +27,48 @@ describe('linked computer pairing HTTP redaction', () => {
     expect(logSpies.every((spy) => spy.mock.calls.length === 0)).toBe(true)
   })
 
+  it('passes validated VPS and organisation ownership choices into challenge creation', async () => {
+    const create = jest.fn(async () => ({
+      challengeId: 'challenge-vps', secret: 'pairing-secret', expiresAt: 'expiry',
+    }))
+    const response = await handlePairingCreate({ uid: 'admin-a' }, {
+      deviceKind: 'vps', ownerType: 'organization', ownerOrgId: 'org-a',
+    }, create)
+    expect(response.status).toBe(201)
+    expect(create).toHaveBeenCalledWith({
+      actorUserId: 'admin-a', deviceKind: 'vps', ownerType: 'organization', ownerOrgId: 'org-a',
+    })
+  })
+
+  it('passes an explicit legacy location adoption choice into challenge creation', async () => {
+    const create = jest.fn(async () => ({
+      challengeId: 'challenge-adopt', secret: 'pairing-secret', expiresAt: 'expiry',
+      adoption: { sourceLocationId: 'partners-vps', state: 'awaiting_runtime_proof' as const },
+    }))
+    const response = await handlePairingCreate({ uid: 'admin-a' }, {
+      deviceKind: 'vps', ownerType: 'organization', ownerOrgId: 'org-a', adoptLocationId: 'partners-vps',
+    }, create)
+    expect(response.status).toBe(201)
+    expect(create).toHaveBeenCalledWith({
+      actorUserId: 'admin-a', deviceKind: 'vps', ownerType: 'organization', ownerOrgId: 'org-a',
+      adoptLocationId: 'partners-vps',
+    })
+    expect(await response.json()).toMatchObject({
+      data: { adoption: { sourceLocationId: 'partners-vps', state: 'awaiting_runtime_proof' } },
+    })
+  })
+
+  it('rejects a malformed legacy location identifier before challenge creation', async () => {
+    const create = jest.fn()
+    const response = await handlePairingCreate({ uid: 'admin-a' }, {
+      deviceKind: 'vps', ownerType: 'organization', ownerOrgId: 'org-a', adoptLocationId: '../partners-vps',
+    }, create)
+
+    expect(response.status).toBe(400)
+    expect(create).not.toHaveBeenCalled()
+    expect(await response.json()).toMatchObject({ success: false, error: 'Invalid project location' })
+  })
+
   it('returns a generic no-store challenge creation error without logging', async () => {
     const response = await handlePairingCreate({ uid: 'user-a' }, async () => {
       throw new Error('database included pairing-secret')

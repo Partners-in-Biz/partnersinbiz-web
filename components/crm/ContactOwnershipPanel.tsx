@@ -99,7 +99,7 @@ function Field({
   return (
     <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
       <div className="flex items-start gap-2">
-        <span className="material-symbols-outlined mt-0.5 text-[16px] text-primary">{icon}</span>
+        <span aria-hidden="true" className="pib-icon-tint mt-0.5"><span className="material-symbols-outlined text-[16px]">{icon}</span></span>
         <div className="min-w-0 flex-1">
           <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">{label}</p>
           <p className="mt-0.5 break-words text-sm font-medium text-[var(--color-pib-text)]">{value}</p>
@@ -135,9 +135,9 @@ function MissingOwnerPanel({
       <div className="flex items-start gap-2.5">
         <span
           aria-hidden="true"
-          className="material-symbols-outlined grid h-7 w-7 shrink-0 place-items-center rounded-md bg-primary/10 text-[16px] text-primary"
+          className="pib-icon-tint shrink-0"
         >
-          person_alert
+          <span className="material-symbols-outlined text-[16px]">person_alert</span>
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">
@@ -178,9 +178,9 @@ function WeakSourcePanel({
       <div className="flex items-start gap-2.5">
         <span
           aria-hidden="true"
-          className="material-symbols-outlined grid h-7 w-7 shrink-0 place-items-center rounded-md bg-primary/10 text-[16px] text-primary"
+          className="pib-icon-tint shrink-0"
         >
-          conversion_path
+          <span className="material-symbols-outlined text-[16px]">conversion_path</span>
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">

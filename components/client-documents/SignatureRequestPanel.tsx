@@ -32,14 +32,14 @@ function unwrap<T>(body: unknown): T | null {
 
 function StatusBadge({ status }: { status: SignatureRequestRow['status'] }) {
   const map: Record<SignatureRequestRow['status'], { label: string; cls: string; icon: string }> = {
-    signed: { label: 'Signed', cls: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30', icon: 'verified' },
-    pending: { label: 'Pending', cls: 'bg-amber-500/15 text-amber-300 border-amber-500/30', icon: 'schedule' },
-    declined: { label: 'Declined', cls: 'bg-rose-500/15 text-rose-300 border-rose-500/30', icon: 'block' },
-    cancelled: { label: 'Cancelled', cls: 'bg-white/5 text-[var(--color-pib-text-muted)] border-white/10', icon: 'cancel' },
+    signed: { label: 'Signed', cls: 'pib-pill-success', icon: 'verified' },
+    pending: { label: 'Pending', cls: 'pib-pill-warn', icon: 'schedule' },
+    declined: { label: 'Declined', cls: 'pib-pill-danger', icon: 'block' },
+    cancelled: { label: 'Cancelled', cls: '', icon: 'cancel' },
   }
   const m = map[status]
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${m.cls}`}>
+    <span className={`pib-pill ${m.cls} !text-[10px]`}>
       <span className="material-symbols-outlined text-[13px]" aria-hidden>
         {m.icon}
       </span>

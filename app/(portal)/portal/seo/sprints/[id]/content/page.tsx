@@ -3,11 +3,11 @@ import { adminDb } from '@/lib/firebase/admin'
 export const dynamic = 'force-dynamic'
 
 const STATUS_PILL: Record<string, string> = {
-  idea: 'bg-zinc-700/30 text-zinc-300 border border-zinc-600/30',
-  drafting: 'bg-amber-700/30 text-amber-200 border border-amber-600/30',
-  review: 'bg-violet-700/30 text-violet-200 border border-violet-600/30',
-  scheduled: 'bg-blue-700/30 text-blue-200 border border-blue-600/30',
-  live: 'bg-emerald-700/30 text-emerald-200 border border-emerald-600/30',
+  idea: '',
+  drafting: 'pib-pill-warn',
+  review: 'pib-pill-violet',
+  scheduled: 'pib-pill-blue',
+  live: 'pib-pill-success',
 }
 
 const PIPELINE = ['idea', 'drafting', 'review', 'scheduled', 'live']
@@ -79,7 +79,7 @@ function ContentCard({ item }: { item: any }) {
     <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-3">
       <div className="flex items-start justify-between gap-3">
         <p className="font-medium text-sm leading-snug">{item.title}</p>
-        <span className={`text-[9px] px-2 py-1 rounded uppercase tracking-wide shrink-0 ${STATUS_PILL[item.status] ?? STATUS_PILL.idea}`}>
+        <span className={`pib-pill !text-[9px] !px-2 !py-1 shrink-0 ${STATUS_PILL[item.status] ?? STATUS_PILL.idea}`}>
           {item.status ?? 'idea'}
         </span>
       </div>
@@ -97,7 +97,7 @@ function StatTile({ label, value, icon }: { label: string; value: string; icon: 
     <div className="pib-stat-card">
       <div className="flex items-start justify-between">
         <p className="eyebrow !text-[10px]">{label}</p>
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
+        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">{icon}</span></span>
       </div>
       <p className="mt-3 font-display tracking-tight leading-none text-3xl md:text-4xl">{value}</p>
     </div>

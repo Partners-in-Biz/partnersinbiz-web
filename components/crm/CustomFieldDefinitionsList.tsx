@@ -50,7 +50,7 @@ const TYPE_LABELS: Record<CustomFieldType, string> = {
 
 function TypeChip({ type }: { type: string }) {
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono border border-[var(--color-card-border)] text-[var(--color-pib-text-muted)]">
+    <span className="pib-pill pib-pill-accent">
       {TYPE_LABELS[type as CustomFieldType] ?? type}
     </span>
   )
@@ -143,9 +143,9 @@ function SortableRow({
               <p className="text-base font-semibold text-[var(--color-pib-text)] truncate">{displayName}</p>
               <TypeChip type={def.type} />
               {def.required && (
-                <span className="rounded-full bg-red-400/10 px-2 py-0.5 text-[10px] font-medium text-red-200">Required</span>
+                <span className="pib-pill pib-pill-danger">Required</span>
               )}
-              <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${health >= 80 ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-200'}`}>
+              <span className={`pib-pill ${health >= 80 ? 'pib-pill-success' : 'pib-pill-warn'}`}>
                 {health >= 80 ? 'Ready' : `${health}% setup`}
               </span>
             </div>

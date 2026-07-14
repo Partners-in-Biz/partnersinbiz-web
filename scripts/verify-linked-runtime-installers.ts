@@ -1,6 +1,20 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
+const LINUX_RUNTIME_MARKERS = [
+  'workspace.sync',
+  'syncProtocolVersion',
+  'workspace-sync-receipts.json',
+  'revocation-pending.json',
+  'Remote revoke pending',
+] as const
+
+export function verifyLinuxRuntimeArtifact(source: Buffer): string[] {
+  return LINUX_RUNTIME_MARKERS
+    .filter((marker) => !source.includes(Buffer.from(marker)))
+    .map((marker) => `compiled Linux runtime: missing ${marker}`)
+}
+
 export function verifyLinkedRuntimeInstallers(root = process.cwd()): string[] {
 const read = (file: string) => fs.readFileSync(path.join(root, file), 'utf8')
 const errors: string[] = []
@@ -14,12 +28,16 @@ const rejectText = (name: string, source: string, pattern: RegExp) => {
 const mac = read('runtime-installers/macos/install.sh')
 const plist = read('runtime-installers/macos/com.partnersinbiz.runtime.plist')
 const win = read('runtime-installers/windows/install.ps1')
+const linux = read('runtime-installers/linux/install.sh')
+const linuxService = read('runtime-installers/linux/pib-runtime.service')
+const linuxCredentialHelper = read('runtime-installers/linux/pib-credential-helper')
+const linuxFileHelper = read('runtime-installers/linux/pib-file-helper')
 const docs = read('runtime-installers/README.md')
 const structural = validatePowerShellStructure(win); if(structural) errors.push(`Windows PowerShell: ${structural}`)
 
 const runtimeCli=read('runtime-installers/runtime/cli.ts')
-const runtime=['client.ts','worker.ts','core.ts','bridge.ts','release-manager.ts'].map(file=>read(`runtime-installers/runtime/${file}`)).concat(runtimeCli).join('\n')
-for (const [name, source] of [['macOS', mac+runtime], ['Windows', win+runtime]] as const) {
+const runtime=['client.ts','worker.ts','core.ts','bridge.ts','release-manager.ts','workspace-sync.ts','sync-model.ts'].map(file=>read(`runtime-installers/runtime/${file}`)).concat(runtimeCli).join('\n')
+for (const [name, source] of [['macOS', mac+runtime], ['Windows', win+runtime], ['Linux', linux+runtime]] as const) {
   requireText(name, source, /challengeId/i)
   requireText(name, source, /pair/i)
   requireText(name, source, /heartbeat/i)
@@ -40,14 +58,40 @@ requireText('macOS', mac, /launchctl (?:bootstrap|bootout|kickstart)/)
 requireText('macOS plist', plist, /com\.partnersinbiz\.runtime/)
 requireText('macOS plist', plist, /KeepAlive/)
 requireText('Windows', win, /CredWrite|Credential Manager/)
+requireText('Linux release manager', linux, /verify_release[\s\S]*RELEASE_MANAGER/)
+requireText('Linux systemd service', linuxService, /User=root[\s\S]*ExecStart=\/opt\/partnersinbiz\/current\/pib-runtime service/)
+requireText('Linux systemd service hardening', linuxService, /NoNewPrivileges=true/)
+requireText('Linux systemd service umask', linuxService, /UMask=0077/)
+requireText('Linux native sync protocol', linuxService, /PIB_SYNC_PROTOCOL_VERSION=1/)
+requireText('Linux systemd-creds host encryption', linuxCredentialHelper, /systemd-creds encrypt[\s\S]*--with-key=host/)
+requireText('Linux systemd-creds authenticated decryption', linuxCredentialHelper, /systemd-creds decrypt[\s\S]*--name=/)
+requireText('Linux encrypted credential atomic replace', linuxCredentialHelper, /mktemp[\s\S]*mv -f/)
+rejectText('Linux credential plaintext', linuxCredentialHelper, /(?:identity|plaintext)\.(?:json|tmp)/i)
+requireText('Linux descriptor-relative rename', linuxFileHelper, /os\.rename\([^\n]*src_dir_fd=0[^\n]*dst_dir_fd=0/)
+requireText('Linux descriptor-exclusive rename', linuxFileHelper, /renameat2[\s\S]*RENAME_NOREPLACE/)
+requireText('Linux descriptor-relative mkdir', linuxFileHelper, /os\.mkdir\([^\n]*dir_fd=0/)
+requireText('Linux descriptor-relative unlink', linuxFileHelper, /os\.unlink\([^\n]*dir_fd=0/)
+requireText('Linux descriptor-relative rmdir', linuxFileHelper, /os\.rmdir\([^\n]*dir_fd=0/)
+rejectText('Linux descriptor traversal', linuxFileHelper, /os\.(?:rename|mkdir|unlink|rmdir)\([^\n]*path\.join/)
 requireText('runtime service', runtime, /pollForever/)
+requireText('runtime native sync capability', runtime, /workspace\.sync/)
+requireText('runtime native sync protocol', runtime, /syncProtocolVersion/)
+requireText('runtime durable sync receipt retention', runtime, /workspace-sync-receipts\.json/)
 rejectText('runtime service', runtime, /createServer|\.listen\s*\(/)
 requireText('runtime signed client', read('runtime-installers/runtime/client.ts'), /x-device-signature/)
 requireText('macOS release manager', mac, /RELEASE_MANAGER[\s\S]*verify/)
 requireText('Windows release manager', win, /releaseArgs=[\s\S]*'verify'[\s\S]*& \$ReleaseManager @releaseArgs/)
-requireText('build matrix', read('runtime-installers/build-runtime.sh'), /macos-arm64 macos-x64 windows-arm64 windows-x64/)
-requireText('compiled runtime matrix', read('runtime-installers/build-runtime.sh'), /bun build --compile/)
-requireText('native Windows matrix', read('runtime-installers/build-runtime.sh'), /dotnet publish[\s\S]*win-x64[\s\S]*win-arm64/)
+const build = read('runtime-installers/build-runtime.sh')
+requireText('build matrix', build, /macos-arm64 macos-x64 windows-arm64 windows-x64 linux-x64 linux-arm64/)
+requireText('compiled runtime matrix', build, /bun build --compile/)
+requireText('compiled Linux x64 runtime', build, /bun-linux-x64/)
+requireText('compiled Linux arm64 runtime', build, /bun-linux-arm64/)
+requireText('Linux package archives', build, /partnersinbiz-runtime-linux-\$\{arch\}\.tgz/)
+requireText('native Windows matrix', build, /for arch in x64 arm64[\s\S]*dotnet publish[\s\S]*win-\$arch/)
+for (const target of ['linux-x64','linux-arm64']) {
+  const artifact = path.join(root, 'runtime-installers/dist', target, 'pib-runtime')
+  if (fs.existsSync(artifact)) errors.push(...verifyLinuxRuntimeArtifact(fs.readFileSync(artifact)).map(error=>`${target} ${error}`))
+}
 requireText('Windows', win, /sc\.exe create PartnersInBizRuntime/)
 requireText('Windows service', read('runtime-installers/windows/PartnersInBizRuntimeService.cs'), /ServiceBase/)
 requireText('Windows worker supervision', read('runtime-installers/windows/PartnersInBizRuntimeService.cs'), /Supervise\(stopping\.Token\)/)
@@ -70,11 +114,17 @@ requireText('Windows force-local warning',win,/ForceLocal[\s\S]*FORCE LOCAL/)
 requireText('macOS revoke-only retention',mac,/Remote revoke pending[\s\S]*revoke-only recovery mode/)
 requireText('Windows unsigned marker', win, /\.unsigned-dev/)
 requireText('Windows rollback stop fence', win, /Rollback-Runtime[\s\S]*sc\.exe stop[\s\S]*Wait-ServiceStopped/)
+requireText('Linux pairing', linux, /pair --challenge "\$challenge" --platform linux/)
+requireText('Linux mapping', linux, /map --mapping "\$1" --folder "\$2"/)
+requireText('Linux revoke-only retention', linux, /Remote revoke pending[\s\S]*revoke-only recovery mode/)
+requireText('Linux force-local warning', linux, /force-local[\s\S]*FORCE LOCAL/i)
+requireText('Linux service lifecycle', linux, /(?:systemctl|SYSTEMCTL)[\s\S]*daemon-reload[\s\S]*enable/)
 
 // The browser handoff is deliberately a non-secret command contract.
 const safeCommands = [
   'pib-runtime pair --challenge challenge_123 --platform macos',
   'pib-runtime pair --challenge challenge_123 --platform windows',
+  'pib-runtime pair --challenge challenge_123 --platform linux',
 ]
 for (const command of safeCommands) {
   const options = [...command.matchAll(/--([\w-]+)/g)].map((match) => match[1])

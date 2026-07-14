@@ -37,7 +37,7 @@ const LABELS: Record<BlockType, string> = {
 export function BlockIcon({ type, className = '' }: { type: BlockType; className?: string }) {
   return (
     <span
-      className={`inline-flex items-center justify-center w-7 h-7 rounded-md bg-zinc-800 text-zinc-200 text-sm font-bold ${className}`}
+      className={`pib-icon-tint pib-icon-tint-cyan !w-7 !h-7 text-sm font-bold ${className}`}
       aria-hidden="true"
     >
       {ICONS[type]}

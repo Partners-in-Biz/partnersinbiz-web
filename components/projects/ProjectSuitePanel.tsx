@@ -347,7 +347,7 @@ function TimelinePanel({
           <h3 className="text-sm font-headline font-semibold text-[var(--color-pib-text)]">Timeline</h3>
           <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Baseline drift: {timeline?.driftCount ?? 0} items / {timeline?.dependencyCount ?? 0} dependencies</p>
         </div>
-        <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-0.5 text-[10px] font-label text-[var(--color-pib-text-muted)]">Baseline drift</span>
+        <span className="pib-pill pib-pill-cyan">Baseline drift</span>
       </div>
       <TimelineGantt items={items} onEditItem={startEditing} />
       <div className="space-y-2">
@@ -470,7 +470,7 @@ function TimelinePanel({
           <p className="mb-2 pib-label">Baselines</p>
           <div className="flex flex-wrap gap-2">
             {baselines.map((baseline) => (
-              <span key={baseline.id || baseline.title} className="rounded-full border border-[var(--color-pib-line)] bg-[var(--color-card)] px-3 py-1 text-xs text-[var(--color-pib-text)]">
+              <span key={baseline.id || baseline.title} className="pib-pill pib-pill-cyan !text-xs normal-case">
                 {baseline.title || 'Project baseline'}
               </span>
             ))}
@@ -494,7 +494,7 @@ function WorkloadPanel({ workload }: { workload?: SuiteData['workload'] }) {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-0.5 text-[10px] font-label text-[var(--color-pib-text-muted)]">
+          <span className="pib-pill pib-pill-cyan">
             {workload?.overCapacityCount ?? 0} over capacity
           </span>
           <span className={`rounded-full border px-2 py-0.5 text-[10px] font-label ${totalOverByMinutes > 0 ? 'border-red-400/40 text-red-300' : 'border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)]'}`}>
@@ -939,7 +939,7 @@ function ItemList({
     <section className="pib-card">
       <div className="mb-3 flex items-center justify-between gap-3">
         <h3 className="text-sm font-headline font-semibold text-[var(--color-pib-text)]">{title}</h3>
-        <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-0.5 text-[10px] font-label text-[var(--color-pib-text-muted)]">
+        <span className="pib-pill pib-pill-cyan">
           {items.length}
         </span>
       </div>
@@ -952,7 +952,7 @@ function ItemList({
                 <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{item.title || 'Untitled'}</p>
                 {item.description ? <p className="mt-1 line-clamp-2 text-xs text-[var(--color-pib-text-muted)]">{item.description}</p> : null}
               </div>
-              <span className="shrink-0 rounded-full border border-[var(--color-pib-line)] px-2 py-0.5 text-[10px] capitalize text-[var(--color-pib-text-muted)]">
+              <span className="pib-pill pib-pill-cyan shrink-0 capitalize normal-case">
                 {labelStatus(item.status)}
               </span>
             </div>

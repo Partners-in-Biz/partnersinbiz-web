@@ -250,7 +250,7 @@ export function DocumentPresence({
           )}
           {connectionLost && (
             <span
-              className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-300"
+              className="pib-pill pib-pill-warn"
               title="Live presence lost connection — reconnecting"
             >
               <span className="material-symbols-outlined text-[14px]" aria-hidden>

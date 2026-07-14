@@ -47,7 +47,7 @@ function MetricCard({ label, value, icon, subtext, ok }: { label: string; value:
     <div className="pib-stat-card">
       <div className="flex items-start justify-between">
         <p className="eyebrow !text-[10px]">{label}</p>
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
+        <span className="pib-icon-tint pib-icon-tint-green" aria-hidden="true"><span className="material-symbols-outlined text-[18px]">{icon}</span></span>
       </div>
       <p
         className="mt-3 font-display text-3xl leading-none tracking-tight md:text-4xl tabular-nums"
@@ -306,7 +306,7 @@ export function SpeedAnalyzerClient({ sprints, activeSprintId, defaultUrl, histo
 
       {trendRuns.length === 0 && results.length === 0 && !loading && (
         <div className="pib-card p-10 text-center">
-          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">speed</span>
+          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-green)]">speed</span>
           <h3 className="font-headline text-lg font-semibold mt-3">No runs yet</h3>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-1.5 max-w-md mx-auto">
             Enter a URL above and click Analyse to see PageSpeed metrics.

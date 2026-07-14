@@ -35,8 +35,8 @@ function Avatar({ name, email }: { name: string; email: string }) {
     .join('')
   return (
     <div
-      className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-[var(--color-pib-text)] flex-shrink-0"
-      style={{ backgroundColor: 'var(--color-pib-accent)' }}
+      className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+      style={{ backgroundColor: 'var(--color-pib-cyan-soft)', color: '#5EEAD4' }}
     >
       {initials || '?'}
     </div>
@@ -44,20 +44,12 @@ function Avatar({ name, email }: { name: string; email: string }) {
 }
 
 function RoleBadge({ role }: { role: string }) {
-  const colours: Record<string, string> = {
-    admin: '#2563eb',
-    client: '#16a34a',
-    unknown: '#6b7280',
+  const tones: Record<string, string> = {
+    admin: 'pib-pill-cyan',
+    client: 'pib-pill-accent',
+    unknown: '',
   }
-  const colour = colours[role] ?? '#6b7280'
-  return (
-    <span
-      className="text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full"
-      style={{ background: `${colour}20`, color: colour }}
-    >
-      {role}
-    </span>
-  )
+  return <span className={`pib-pill ${tones[role] ?? ''}`}>{role}</span>
 }
 
 function userStatus(u: AdminUserView): { label: string; tone: 'success' | 'danger' | 'warn' } {

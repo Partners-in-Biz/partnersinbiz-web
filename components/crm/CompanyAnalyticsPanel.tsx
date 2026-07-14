@@ -206,7 +206,7 @@ export function CompanyAnalyticsPanel({
               <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Account operating brief</p>
               <h3 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">Where the team should act next</h3>
             </div>
-            <span className="flex h-7 shrink-0 items-center rounded-full border border-[var(--color-card-border)] px-2.5 text-[11px] text-[var(--color-pib-text-muted)]">
+            <span className={`pib-pill ${riskSignals.length > 0 ? 'pib-pill-warn' : ''}`}>
               {riskSignals.length > 0 ? `${riskSignals.length} active signal${riskSignals.length === 1 ? '' : 's'}` : 'No active risks'}
             </span>
           </div>
@@ -256,7 +256,7 @@ export function CompanyAnalyticsPanel({
         ) : (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {riskSignals.map((signal) => (
-              <span key={signal} className="flex h-7 shrink-0 items-center rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 text-[11px] text-amber-200">
+              <span key={signal} className="pib-pill pib-pill-warn">
                 {signal}
               </span>
             ))}

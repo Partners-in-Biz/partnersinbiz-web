@@ -28,11 +28,11 @@ const STATUS_TABS: Array<{ key: ReferralStatus | 'all'; label: string }> = [
   { key: 'paid', label: 'Paid' },
 ]
 
-const STATUS_STYLE: Record<ReferralStatus, { bg: string; color: string }> = {
-  pending: { bg: 'rgba(234,179,8,0.12)', color: '#facc15' },
-  approved: { bg: 'rgba(34,197,94,0.12)', color: '#4ade80' },
-  disputed: { bg: 'rgba(239,68,68,0.12)', color: '#f87171' },
-  paid: { bg: 'rgba(59,130,246,0.12)', color: '#60a5fa' },
+const STATUS_STYLE: Record<ReferralStatus, string> = {
+  pending: 'pib-pill-warn',
+  approved: 'pib-pill-success',
+  disputed: 'pib-pill-danger',
+  paid: 'pib-pill-cyan',
 }
 
 function Skeleton({ className = '' }: { className?: string }) {
@@ -40,15 +40,7 @@ function Skeleton({ className = '' }: { className?: string }) {
 }
 
 function StatusBadge({ status }: { status: ReferralStatus }) {
-  const s = STATUS_STYLE[status]
-  return (
-    <span
-      className="text-xs font-label px-2.5 py-1 rounded-full capitalize"
-      style={{ background: s.bg, color: s.color }}
-    >
-      {status}
-    </span>
-  )
+  return <span className={`pib-pill capitalize ${STATUS_STYLE[status]}`}>{status}</span>
 }
 
 export default function ReferralsPage() {

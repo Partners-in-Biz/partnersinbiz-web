@@ -271,7 +271,7 @@ export function CrmSetupWizard() {
               Capture who owns setup, what the team should launch first, and which decisions need to be visible before CRM becomes daily operating rhythm.
             </p>
           </div>
-          <div className="shrink-0 rounded-md border border-[var(--color-card-border)] bg-black/10 px-2.5 py-1.5 text-[11px] text-[var(--color-pib-text-muted)]">
+          <div className={`pib-pill shrink-0 ${setup.notes?.trim() ? 'pib-pill-success' : 'pib-pill-warn'}`}>
             {setup.notes?.trim() ? 'Notes captured' : 'Notes needed'}
           </div>
         </div>
@@ -342,7 +342,7 @@ export function CrmSetupWizard() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <h3 className="text-xs font-semibold text-[var(--color-pib-text)]">{template.name}</h3>
-                      <span className="rounded border border-[var(--color-card-border)] px-1.5 py-0.5 text-[10px] uppercase text-[var(--color-pib-text-muted)]">{template.kind}</span>
+                      <span className="pib-pill pib-pill-accent">{template.kind}</span>
                     </div>
                     <p className="mt-1 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{template.description}</p>
                   </div>

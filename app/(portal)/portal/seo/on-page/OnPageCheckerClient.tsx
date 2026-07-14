@@ -83,7 +83,7 @@ function ChecklistRow({ item }: { item: OnPageCheckItem }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <p className="text-sm font-medium">{item.label}</p>
-          <span className="pib-pill text-[9px]">weight: {item.weight}</span>
+          <span className="pib-pill pib-pill-success text-[9px]">weight: {item.weight}</span>
         </div>
         <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">{item.detail}</p>
       </div>

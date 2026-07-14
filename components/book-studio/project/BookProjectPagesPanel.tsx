@@ -83,13 +83,13 @@ function PageRow({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={page.imageUrl} alt="" className="h-14 w-14 rounded-lg border border-[var(--color-pib-border)] object-cover" />
           ) : (
-            <span className="material-symbols-outlined flex h-14 w-14 items-center justify-center rounded-lg bg-[var(--color-pib-surface-muted)] text-[var(--color-pib-text-muted)]">
+            <span className="material-symbols-outlined flex h-14 w-14 items-center justify-center rounded-lg bg-[var(--color-pib-rose-soft)] text-[var(--color-pib-rose)]">
               {pageKindIcons[page.kind ?? 'text']}
             </span>
           )}
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <StatusPill tone="neutral">{humanizeToken(page.kind)}</StatusPill>
+              <StatusPill tone="rose">{humanizeToken(page.kind)}</StatusPill>
               {page.status ? <StatusPill tone={page.status === 'approved' ? 'success' : 'neutral'}>{humanizeToken(page.status)}</StatusPill> : null}
             </div>
             <p className="mt-1 text-sm font-medium text-[var(--color-pib-text)]">{page.title || page.caption || `Page ${index + 1}`}</p>

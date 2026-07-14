@@ -48,6 +48,7 @@ beforeEach(() => {
         sourceOrgId: 'pib-platform-owner',
       }),
     },
+    projectAccess: { role: 'owner' },
   })
   mockProjectUpdate.mockResolvedValue(undefined)
   mockProjectDoc.mockReturnValue({ update: mockProjectUpdate })
@@ -103,6 +104,60 @@ describe('PATCH /api/v1/projects/[projectId] targetDate', () => {
     })
 
     expect(res.status).toBe(400)
+    expect(mockProjectUpdate).not.toHaveBeenCalled()
+  })
+
+  it('rejects project mutations from viewer access', async () => {
+    mockGetProjectForUser.mockResolvedValueOnce({
+      ok: true,
+      doc: {
+        id: 'project-1',
+        data: () => ({ orgId: 'pib-platform-owner', sourceOrgId: 'pib-platform-owner' }),
+      },
+      projectAccess: { role: 'viewer' },
+    })
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/route')
+    const res = await PATCH(patchRequest({ name: 'Unauthorized rename' }), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+
+    expect(res.status).toBe(403)
+    expect(mockProjectUpdate).not.toHaveBeenCalled()
+  })
+
+  it('does not let a contributor change project sharing links', async () => {
+    mockGetProjectForUser.mockResolvedValueOnce({
+      ok: true,
+      doc: {
+        id: 'project-1',
+        data: () => ({ orgId: 'pib-platform-owner', sourceOrgId: 'pib-platform-owner' }),
+      },
+      projectAccess: { role: 'contributor' },
+    })
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/route')
+    const res = await PATCH(patchRequest({ clientOrgIds: ['another-org'] }), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+
+    expect(res.status).toBe(403)
+    expect(mockProjectUpdate).not.toHaveBeenCalled()
+  })
+
+  it('does not let an external project manager fan sharing out to another organisation', async () => {
+    mockGetProjectForUser.mockResolvedValueOnce({
+      ok: true,
+      doc: {
+        id: 'project-1',
+        data: () => ({ orgId: 'owner-org', sourceOrgId: 'owner-org' }),
+      },
+      projectAccess: { role: 'manager', canViewInternal: false },
+    })
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/route')
+    const res = await PATCH(patchRequest({ clientOrgIds: ['another-org'] }), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+
+    expect(res.status).toBe(403)
     expect(mockProjectUpdate).not.toHaveBeenCalled()
   })
 })

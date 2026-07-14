@@ -161,7 +161,7 @@ export default function ProfilePage() {
       <section role="region" aria-label="Personal social marketing" className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
         <div className="pib-card space-y-5 overflow-hidden">
           <div className="flex items-start gap-4">
-            <span className="material-symbols-outlined rounded-2xl bg-[var(--color-pib-accent)]/15 p-3 text-[var(--color-pib-accent)]" aria-hidden>person_play</span>
+            <span className="pib-icon-tint pib-icon-tint-cyan" aria-hidden><span className="material-symbols-outlined">person_play</span></span>
             <div>
               <p className="eyebrow !text-[10px]">Your own channels</p>
               <h2 className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">Personal social marketing</h2>
@@ -172,17 +172,17 @@ export default function ProfilePage() {
           </div>
           <div className="grid gap-3 md:grid-cols-3">
             <Link href="/portal/personal/marketing" className="pib-stat-card group min-w-0 space-y-2 p-4 transition hover:border-[var(--color-pib-accent)]/50 hover:bg-[var(--color-pib-surface-soft)]">
-              <span className="material-symbols-outlined text-[var(--color-pib-accent)]" aria-hidden>space_dashboard</span>
+              <span className="pib-icon-tint pib-icon-tint-cyan" aria-hidden><span className="material-symbols-outlined">space_dashboard</span></span>
               <p className="text-sm font-semibold text-[var(--color-pib-text)]">Open personal workspace</p>
               <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">Dashboard, vault, calendar, history, and X MCP setup.</p>
             </Link>
             <Link href="/portal/personal/social/compose" className="pib-stat-card group min-w-0 space-y-2 p-4 transition hover:border-[var(--color-pib-accent)]/50 hover:bg-[var(--color-pib-surface-soft)]">
-              <span className="material-symbols-outlined text-[var(--color-pib-accent)]" aria-hidden>edit_square</span>
+              <span className="pib-icon-tint pib-icon-tint-cyan" aria-hidden><span className="material-symbols-outlined">edit_square</span></span>
               <p className="text-sm font-semibold text-[var(--color-pib-text)]">Compose personal post</p>
               <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">Draft, schedule, preview, and publish from your accounts.</p>
             </Link>
             <Link href="/portal/personal/social/accounts" className="pib-stat-card group min-w-0 space-y-2 p-4 transition hover:border-[var(--color-pib-accent)]/50 hover:bg-[var(--color-pib-surface-soft)]">
-              <span className="material-symbols-outlined text-[var(--color-pib-accent)]" aria-hidden>add_link</span>
+              <span className="pib-icon-tint pib-icon-tint-cyan" aria-hidden><span className="material-symbols-outlined">add_link</span></span>
               <p className="text-sm font-semibold text-[var(--color-pib-text)]">Connect personal accounts</p>
               <p className="text-xs leading-5 text-[var(--color-pib-text-muted)]">OAuth and X MCP are user-owned, not shared company tokens.</p>
             </Link>

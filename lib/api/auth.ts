@@ -8,6 +8,7 @@ import { canAccessOrg } from './platformAdmin'
 import { resolveMemberAccessPolicy, type MemberAccessPolicy } from '@/lib/orgMembers/access-policy'
 import type { OrgRole } from '@/lib/organizations/types'
 import { getMaintenanceState, isMaintenanceActiveNow, requestBypassesMaintenance } from '@/lib/governance/maintenance'
+import { isActiveOrgMembershipRow } from '@/lib/linked-computers/policy'
 
 type RouteHandler = (req: NextRequest, user: ApiUser, context?: any) => Promise<Response>
 
@@ -227,11 +228,14 @@ async function getUserExtrasFromFirestore(
   let activeOrgId = profileActiveOrgId
   if (validRole === 'client') {
     const candidates = Array.from(new Set([profileOrgId, profileActiveOrgId, ...profileOrgIds].filter((value): value is string => Boolean(value))))
-    const memberships = await Promise.all(candidates.map(async (candidate) => ({
-      orgId: candidate,
-      exists: (await adminDb.collection('orgMembers').doc(`${candidate}_${uid}`).get()).exists,
-    })))
-    orgIds = memberships.filter((membership) => membership.exists).map((membership) => membership.orgId)
+    const memberships = await Promise.all(candidates.map(async (candidate) => {
+      const membership = await adminDb.collection('orgMembers').doc(`${candidate}_${uid}`).get()
+      return {
+        orgId: candidate,
+        active: membership.exists && isActiveOrgMembershipRow(membership.data() ?? undefined),
+      }
+    }))
+    orgIds = memberships.filter((membership) => membership.active).map((membership) => membership.orgId)
     orgId = profileOrgId && orgIds.includes(profileOrgId) ? profileOrgId : orgIds[0]
     activeOrgId = profileActiveOrgId && orgIds.includes(profileActiveOrgId) ? profileActiveOrgId : orgId
   }
@@ -244,6 +248,7 @@ async function loadMemberAccessPolicy(uid: string, orgId: string): Promise<Membe
     const memberDoc = await adminDb.collection('orgMembers').doc(`${orgId}_${uid}`).get()
     if (!memberDoc.exists) return undefined
     const data = memberDoc.data() ?? {}
+    if (!isActiveOrgMembershipRow(data)) return undefined
     return resolveMemberAccessPolicy({
       role: (data.role as OrgRole | undefined) ?? 'viewer',
       accessScope: data.accessScope,

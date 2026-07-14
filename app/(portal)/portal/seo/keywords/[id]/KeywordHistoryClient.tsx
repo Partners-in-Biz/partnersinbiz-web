@@ -225,7 +225,7 @@ export function KeywordHistoryClient({
               .sort((a, b) => a.snapshotDay - b.snapshotDay)
               .map((audit) => (
                 <div key={audit.id} className="flex items-center gap-4 px-5 py-3 text-sm">
-                  <span className="pib-pill text-[10px] shrink-0">Day {audit.snapshotDay}</span>
+                  <span className="pib-pill pib-pill-success text-[10px] shrink-0">Day {audit.snapshotDay}</span>
                   <span className="text-[var(--color-pib-text-muted)]">{audit.capturedAt.slice(0, 10)}</span>
                 </div>
               ))}
@@ -265,7 +265,7 @@ export function KeywordHistoryClient({
                       <td className="px-5 py-3 text-right tabular-nums">{p.clicks?.toLocaleString('en-ZA') ?? '—'}</td>
                       <td className="px-5 py-3 text-right tabular-nums">{p.ctr != null ? `${(p.ctr * 100).toFixed(2)}%` : '—'}</td>
                       <td className="px-5 py-3">
-                        <span className="pib-pill text-[10px]">{p.source}</span>
+                        <span className="pib-pill pib-pill-success text-[10px]">{p.source}</span>
                       </td>
                     </tr>
                   ))}
@@ -299,7 +299,7 @@ function StatCard({
     <div className="pib-stat-card">
       <div className="flex items-start justify-between">
         <p className="eyebrow !text-[10px]">{label}</p>
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
+        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">{icon}</span></span>
       </div>
       <p
         className={`mt-3 font-display text-3xl leading-none tracking-tight md:text-4xl ${

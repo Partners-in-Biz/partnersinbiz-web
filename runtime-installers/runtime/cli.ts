@@ -8,6 +8,12 @@ import type{JSONValue}from'./core'
 import { MappingRegistry } from './bridge'
 import { DeviceApiClient, type DeviceIdentity } from './client'
 import { executeJob, pollForever, type Job } from './worker'
+import {
+  DurableSyncSpool,
+  executeWorkspaceSyncJob,
+  pollWorkspaceSyncForever,
+  type WorkspaceSyncRuntimeJob,
+} from './workspace-sync'
 
 const api=process.env.PIB_API_BASE||'https://partnersinbiz.online'
 const hermes=process.env.PIB_LOCAL_HERMES||'http://127.0.0.1:8755'
@@ -15,6 +21,7 @@ const runtimeVersion=process.env.PIB_RUNTIME_VERSION||'1.0.0'
 const stateRoot=process.env.PIB_RUNTIME_STATE_DIR||path.join(os.homedir(),'.partnersinbiz')
 const revocationMarker=path.join(stateRoot,'revocation-pending.json')
 const maps=new MappingRegistry(path.join(stateRoot,'mappings.json'))
+const syncSpool=new DurableSyncSpool(path.join(stateRoot,'workspace-sync-receipts.json'))
 const helper=process.env.PIB_CREDENTIAL_HELPER||path.join(path.dirname(process.execPath),process.platform==='win32'?'pib-credential-helper.exe':'pib-credential-helper')
 type RuntimeIdentity=DeviceIdentity&{pendingRotationDeliveryId?:string;transportToken?:string;[key:string]:JSONValue|undefined}
 type Rotation={credential:string;credentialVersion:number;rotationDeliveryId:string}
@@ -27,6 +34,7 @@ async function promptSecret(label:string){
  return new Promise<string>((resolve,reject)=>{let value='';const done=()=>{process.stdin.setRawMode(false);process.stdin.pause();process.stderr.write('\n');process.stdin.removeListener('data',onData);resolve(value)};const onData=(c:string)=>{if(c==='\u0003'){process.stdin.setRawMode(false);reject(new Error('cancelled'))}else if(c==='\r'||c==='\n')done();else if(c==='\u007f')value=value.slice(0,-1);else if(c>=' ')value+=c};process.stdin.on('data',onData)})
 }
 export function sanitizeIdentity<T extends RuntimeIdentity>(value:T):T{if(!Object.prototype.hasOwnProperty.call(value,'transportToken'))return value;const next={...value};delete next.transportToken;return next}
+export function linkedRuntimePlatform(platform:string):'macos'|'windows'|'linux'{if(platform==='darwin')return'macos';if(platform==='win32')return'windows';if(platform==='linux')return'linux';throw new Error('unsupported runtime platform')}
 async function persistIdentity(value:RuntimeIdentity){await store.put('identity',JSON.stringify(sanitizeIdentity(value)))}
 async function identity():Promise<RuntimeIdentity>{const raw=record(JSON.parse(await store.get('identity'))) as RuntimeIdentity;if(typeof raw.deviceId!=='string'||typeof raw.credential!=='string'||!Number.isInteger(raw.credentialVersion)||typeof raw.privateKey!=='string')throw new Error('secure identity invalid');const clean=sanitizeIdentity(raw);if(clean!==raw)await persistIdentity(clean);return clean}
 async function client(){return new DeviceApiClient(api,await identity())}
@@ -40,19 +48,27 @@ async function pair(challengeId:string){
  if(!/^[A-Za-z0-9_-]{1,128}$/.test(challengeId||''))throw new Error('invalid challenge identifier')
  const code=await promptSecret('One-time pairing code: '),deviceId=randomUUID(),keys=createPairingIdentity()
  const proof=sign(null,Buffer.from(pairingPayload(challengeId,code,deviceId,keys.publicKey)),keys.privateKey).toString('base64url')
- const response=await fetch(`${api}/api/v1/linked-computers/pairing/exchange`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({challengeId,secret:code,deviceId,publicKey:keys.publicKey,proof,label:os.hostname(),platform:process.platform==='win32'?'windows':'macos',architecture:process.arch==='arm64'?'arm64':'x64',runtimeVersion})})
+ const response=await fetch(`${api}/api/v1/linked-computers/pairing/exchange`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({challengeId,secret:code,deviceId,publicKey:keys.publicKey,proof,label:os.hostname(),platform:linkedRuntimePlatform(process.platform),architecture:process.arch==='arm64'?'arm64':'x64',runtimeVersion})})
  const data=record(await jsonData(response)),outboundIdentity=sanitizeIdentity({...data,privateKey:keys.privateKey.export({type:'pkcs8',format:'pem'})} as RuntimeIdentity);await persistIdentity(outboundIdentity);await heartbeat();process.stdout.write('Paired.\n')
 }
 async function acknowledgeRotation(value:RuntimeIdentity,deliveryId:string){const response=await new DeviceApiClient(api,value).post(`/api/v1/linked-computers/${value.deviceId}/credentials/rotation/ack`,{rotationDeliveryId:deliveryId});if(!response.ok)throw new Error('rotation acknowledgement rejected')}
-async function heartbeat(){let i=await identity();if(i.pendingRotationDeliveryId)i=await handleRotation(i,{rotation:null},persistIdentity,identity,acknowledgeRotation);const response=await new DeviceApiClient(api,i).post(`/api/v1/linked-computers/${i.deviceId}/heartbeat`,{runtimeVersion,health:'ok',capabilities:['workspace.execute'],claimRotation:true}),data=await jsonData(response);await handleRotation(i,data,persistIdentity,identity,acknowledgeRotation)}
+export function nativeWorkspaceSyncSupported(platform=process.platform){return platform==='darwin'||platform==='linux'}
+export function linkedRuntimeHeartbeatBody(platform=process.platform){const sync=nativeWorkspaceSyncSupported(platform);return{runtimeVersion,health:'ok' as const,capabilities:sync?['workspace.execute','workspace.sync']:['workspace.execute'],...(sync?{syncProtocolVersion:1 as const}:{}),claimRotation:true}}
+export function linkedRuntimeSyncClaimBody(){return{runtimeVersion,syncProtocolVersion:1 as const}}
+async function heartbeat(){let i=await identity();if(i.pendingRotationDeliveryId)i=await handleRotation(i,{rotation:null},persistIdentity,identity,acknowledgeRotation);const response=await new DeviceApiClient(api,i).post(`/api/v1/linked-computers/${i.deviceId}/heartbeat`,linkedRuntimeHeartbeatBody()),data=await jsonData(response);await handleRotation(i,data,persistIdentity,identity,acknowledgeRotation)}
 async function claim():Promise<Job|null>{const i=await identity();const response=await post(`/api/v1/linked-computers/${i.deviceId}/runs/claim`,{runtimeVersion});if(response.status===204)return null;return await jsonData(response) as Job}
+async function syncClaim():Promise<WorkspaceSyncRuntimeJob|null>{const i=await identity();const response=await post(`/api/v1/linked-computers/${i.deviceId}/sync/claim`,linkedRuntimeSyncClaimBody());if(response.status===204)return null;return await jsonData(response) as WorkspaceSyncRuntimeJob}
 async function localHermes(body:{prompt:string;model?:string;provider?:string;working_directory:string}):Promise<unknown>{const response=await fetch(`${hermes}/v1/runs`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});if(!response.ok)throw new Error('Local Hermes execution failed');return response.json()}
 async function run(job:Job){const i=await identity();return executeJob(job,i,maps,(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body),localHermes)}
+async function syncRun(job:WorkspaceSyncRuntimeJob){const i=await identity();return executeWorkspaceSyncJob(job,{registry:maps,stateRoot,spool:syncSpool,post:(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body)})}
+async function syncFlush(){const i=await identity();return syncSpool.flush((suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body))}
 export async function isRevokeAcknowledged(response:Response){if(!response.ok)return false;try{const body=record(await response.json());return body.revoked===true&&typeof body.code==='string'&&['device_revoked','already_revoked'].includes(body.code)}catch{return false}}
 async function signedRemoteRevoke(){const i=await identity(),response=await new DeviceApiClient(api,i).post(`/api/v1/linked-computers/${i.deviceId}/revoke`,{reason:'local-user-revoked',runtimeVersion});if(!await isRevokeAcknowledged(response))throw new Error('remote revoke unavailable')}
 async function clearRevocation(){await store.clear();fs.rmSync(revocationMarker,{force:true})}
 export async function recoverPendingRevocation(attempt:()=>Promise<void>,clear:()=>Promise<void>,wait:(ms:number)=>Promise<void>,stop:()=>boolean){let delay=1000;while(!stop()){try{await attempt();await clear();return true}catch{await wait(delay);delay=Math.min(delay*2,30000)}}return false}
-async function service(){let stopped=false;process.once('SIGTERM',()=>{stopped=true});process.once('SIGINT',()=>{stopped=true});if(fs.existsSync(revocationMarker)){await recoverPendingRevocation(signedRemoteRevoke,clearRevocation,ms=>new Promise(r=>setTimeout(r,ms)),()=>stopped);return}let lastHeartbeat=0;await pollForever(async()=>{if(Date.now()-lastHeartbeat>60000){await heartbeat();lastHeartbeat=Date.now()}return claim()},run,()=>stopped)}
+export async function heartbeatForever(beat:()=>Promise<void>,stop:()=>boolean,intervalMs=60_000,wait:(ms:number)=>Promise<void>=ms=>new Promise(r=>setTimeout(r,ms))){while(!stop()){await beat().catch(()=>undefined);if(!stop())await wait(intervalMs)}}
+export async function runRuntimeServicePollers(...pollers:Array<()=>Promise<void>>){await Promise.all(pollers.map(poller=>poller()))}
+async function service(){let stopped=false;process.once('SIGTERM',()=>{stopped=true});process.once('SIGINT',()=>{stopped=true});if(fs.existsSync(revocationMarker)){await recoverPendingRevocation(signedRemoteRevoke,clearRevocation,ms=>new Promise(r=>setTimeout(r,ms)),()=>stopped);return}const pollers=[()=>pollForever(claim,run,()=>stopped),()=>heartbeatForever(heartbeat,()=>stopped)];if(nativeWorkspaceSyncSupported())pollers.push(()=>pollWorkspaceSyncForever(syncClaim,syncRun,syncFlush,async()=>undefined,()=>stopped));await runRuntimeServicePollers(...pollers)}
 async function revoke(){fs.mkdirSync(stateRoot,{recursive:true,mode:0o700});fs.writeFileSync(revocationMarker,JSON.stringify({pending:true,createdAt:new Date().toISOString()}),{mode:0o600});const result=await revokeAndCleanup(signedRemoteRevoke,clearRevocation);if(result.remoteRevokePending){process.stderr.write('Remote revoke pending; secure identity retained for revoke-only retry.\n');throw new Error('remote revoke pending')}}
 function option(args:string[],name:string){const i=args.indexOf(name);if(i<0||!args[i+1])throw new Error(`${name} is required`);return args[i+1]}
 async function confirmMapping(mappingId:string,present:boolean){const i=await identity(),response=await new DeviceApiClient(api,i).post(`/api/v1/linked-computers/${i.deviceId}/mappings/${mappingId}/confirm`,{present});if(!response.ok)throw new Error('mapping confirmation rejected')}

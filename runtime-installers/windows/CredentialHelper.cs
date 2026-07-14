@@ -8,8 +8,10 @@ class CredentialHelper {
   [DllImport("advapi32",CharSet=CharSet.Unicode,SetLastError=true)]static extern bool CredRead(string target,uint type,uint flags,out IntPtr credential);
   [DllImport("advapi32")]static extern void CredFree(IntPtr pointer);
   [DllImport("advapi32",CharSet=CharSet.Unicode)]static extern bool CredDelete(string target,uint type,uint flags);
+  [DllImport("kernel32",SetLastError=true)]static extern IntPtr GetStdHandle(int kind);
+  [DllImport("kernel32",CharSet=CharSet.Unicode,SetLastError=true)]static extern uint GetFinalPathNameByHandle(IntPtr handle,StringBuilder path,uint length,uint flags);
   static void Zero(IntPtr pointer,int length){for(var i=0;i<length;i++)Marshal.WriteByte(pointer,i,0);}
-  static int Main(string[] args){if(args.Length<1)return 2;var target="PartnersInBiz/runtime/"+(args.Length>1?args[1]:"identity");
+  static int Main(string[] args){if(args.Length<1)return 2;if(args[0]=="resolved-path"){var path=new StringBuilder(32768);var count=GetFinalPathNameByHandle(GetStdHandle(-10),path,(uint)path.Capacity,0);if(count==0||count>=path.Capacity)return 1;Console.Write(path.ToString());return 0;}var target="PartnersInBiz/runtime/"+(args.Length>1?args[1]:"identity");
     if(args[0]=="put"){var bytes=Encoding.UTF8.GetBytes(Console.In.ReadToEnd());var pointer=Marshal.AllocHGlobal(bytes.Length);try{Marshal.Copy(bytes,0,pointer,bytes.Length);var credential=new CREDENTIAL{Type=1,TargetName=target,CredentialBlobSize=(uint)bytes.Length,CredentialBlob=pointer,Persist=2,UserName="SYSTEM"};return CredWrite(ref credential,0)?0:1;}finally{Array.Clear(bytes,0,bytes.Length);Zero(pointer,bytes.Length);Marshal.FreeHGlobal(pointer);}}
     if(args[0]=="get"){IntPtr pointer;if(!CredRead(target,1,0,out pointer))return 1;try{var credential=Marshal.PtrToStructure<CREDENTIAL>(pointer);if(credential.CredentialBlob==IntPtr.Zero||credential.CredentialBlobSize>512*1024)return 1;var bytes=new byte[credential.CredentialBlobSize];try{Marshal.Copy(credential.CredentialBlob,bytes,0,bytes.Length);Console.OpenStandardOutput().Write(bytes,0,bytes.Length);return 0;}finally{Array.Clear(bytes,0,bytes.Length);}}finally{if(pointer!=IntPtr.Zero)CredFree(pointer);}}
     if(args[0]=="clear")return CredDelete(target,1,0)?0:0;return 2;

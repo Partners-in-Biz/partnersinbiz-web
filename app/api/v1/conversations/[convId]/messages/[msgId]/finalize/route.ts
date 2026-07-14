@@ -20,7 +20,7 @@ import {
   HermesConversationRunError,
 } from '@/lib/conversations/run-finalizer'
 import type { ApiUser } from '@/lib/api/types'
-import { canReplyConversation } from '@/lib/conversations/access'
+import { authorizeConversationProject, canReplyConversation } from '@/lib/conversations/access'
 import type { AgentId } from '@/lib/agents/types'
 
 export const dynamic = 'force-dynamic'
@@ -34,6 +34,8 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   const conversation = await getConversation(convId)
   if (!conversation) return apiError('Conversation not found', 404)
   if (!canReplyConversation(user, conversation)) return apiError('Forbidden', 403)
+  const projectAuthorization = await authorizeConversationProject(user, conversation)
+  if (!projectAuthorization.ok) return apiError(projectAuthorization.error, projectAuthorization.status)
 
   // Verify message exists
   const msgDoc = await messagesCollection(convId).doc(msgId).get()

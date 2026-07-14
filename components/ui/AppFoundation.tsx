@@ -231,7 +231,7 @@ export function EmptyState({ icon, title, description, action, className }: Empt
   )
 }
 
-type StatusTone = 'neutral' | 'accent' | 'success' | 'warn' | 'danger' | 'info'
+type StatusTone = 'neutral' | 'accent' | 'success' | 'warn' | 'danger' | 'info' | 'violet' | 'blue' | 'cyan' | 'rose'
 
 type StatusPillProps = ComponentPropsWithoutRef<'span'> & {
   tone?: StatusTone

@@ -33,12 +33,12 @@ const DOC_TABS: { key: string; label: string }[] = [
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    published: 'bg-green-500/10 text-green-400 border-green-500/20',
-    draft: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-    archived: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
+    published: 'pib-pill-success',
+    draft: 'pib-pill-warn',
+    archived: '',
   }
   return (
-    <span className={`text-[10px] font-label uppercase tracking-widest px-2.5 py-1 rounded-full border ${map[status] ?? map.archived}`}>
+    <span className={`pib-pill ${map[status] ?? ''}`}>
       {status}
     </span>
   )
