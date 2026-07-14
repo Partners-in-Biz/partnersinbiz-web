@@ -75,7 +75,7 @@ function DuplicateGroupResolver({
             {group.contacts.length} records need {remainingMergeCount} merge{remainingMergeCount === 1 ? '' : 's'}
           </p>
         </div>
-        <span className="flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-[var(--color-card-border)] px-2.5 text-[11px] text-[var(--color-pib-text-muted)]">
+        <span className="pib-pill pib-pill-accent shrink-0">
           <span className="material-symbols-outlined text-[14px]">data_check</span>
           One merge at a time
         </span>

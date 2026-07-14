@@ -196,9 +196,9 @@ function ContactPicker({
               <div className="flex items-center gap-2">
                 <span
                   aria-hidden="true"
-                  className="material-symbols-outlined flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[var(--color-card-border)] bg-white/[0.04] text-[15px] text-[var(--color-accent-v2)]"
+                  className="pib-icon-tint shrink-0"
                 >
-                  person_add
+                  <span className="material-symbols-outlined text-[15px]">person_add</span>
                 </span>
                 <div className="min-w-0">
                   <p className="text-[10px] font-label uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">

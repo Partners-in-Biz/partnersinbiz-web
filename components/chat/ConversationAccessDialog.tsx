@@ -191,7 +191,7 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
             {OPTIONS.map((option) => (
               <label key={option.value} className={`flex cursor-pointer gap-3 rounded-xl border p-3 transition-colors ${shareMode === option.value ? 'border-primary/50 bg-primary/10' : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.04]'}`}>
                 <input type="radio" name="share-mode" value={option.value} checked={shareMode === option.value} onChange={() => chooseMode(option.value)} className="sr-only" />
-                <span className="material-symbols-outlined mt-0.5 text-[18px] text-primary">{option.icon}</span>
+                <span className="pib-icon-tint pib-icon-tint-blue mt-0.5"><span className="material-symbols-outlined text-[18px]">{option.icon}</span></span>
                 <span>
                   <span className="block text-sm font-medium text-[var(--color-pib-text)]">{option.label}</span>
                   <span className="mt-0.5 block text-xs leading-5 text-[var(--color-pib-text-muted)]">{option.description}</span>
@@ -216,7 +216,7 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
                         <span className="block truncate text-sm text-[var(--color-pib-text)]">{labelFor(person)}</span>
                         {person.email && person.email !== labelFor(person) && <span className="block truncate text-[11px] text-[var(--color-pib-text-muted)]">{person.email}</span>}
                       </span>
-                      {owner && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-primary">Owner</span>}
+                      {owner && <span className="pib-pill pib-pill-blue !px-2 !py-0.5">Owner</span>}
                     </label>
                   )
                 })}

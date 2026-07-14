@@ -271,7 +271,7 @@ function StatCard({ label, value, sub, icon }: { label: string; value: string; s
     <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
       <div className="flex items-start justify-between gap-3">
         <p className="eyebrow !text-[10px]">{label}</p>
-        <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
+        <span aria-hidden="true" className="pib-icon-tint h-7 w-7"><span className="material-symbols-outlined text-[15px]">{icon}</span></span>
       </div>
       <p className="mt-2 text-lg font-semibold leading-none text-[var(--color-pib-text)]">{value}</p>
       <p className="mt-2 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{sub}</p>
@@ -652,7 +652,7 @@ export function WebhookSettingsClient() {
                 <h2 className="text-sm font-semibold">Event catalog</h2>
                 <p className="text-xs text-[var(--color-pib-text-muted)]">Choose an event to preview its signed payload.</p>
               </div>
-              <span className="text-[10px] px-2 py-1 rounded-full bg-[var(--color-pib-surface)] text-[var(--color-pib-text-muted)]">
+              <span className="pib-pill pib-pill-accent">
                 {supportedCatalog.length} subscribable
               </span>
             </div>
@@ -960,10 +960,10 @@ export function WebhookSettingsClient() {
                   {WEBHOOK_LAUNCH_CHECKLIST.map((item) => (
                     <div key={item.label} className="rounded-xl border border-[var(--color-card-border)] bg-white/[0.02] p-3">
                       <div className="mb-3 flex items-start justify-between gap-2">
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/[0.04] text-[var(--color-pib-text)]">
+                        <span aria-hidden="true" className="pib-icon-tint">
                           <span className="material-symbols-outlined text-[17px]">{item.icon}</span>
                         </span>
-                        <span className="rounded-full border border-[var(--color-card-border)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)]">
+                        <span className="pib-pill pib-pill-accent">
                           {item.value}
                         </span>
                       </div>
@@ -995,7 +995,7 @@ export function WebhookSettingsClient() {
                       {(webhook.events ?? []).map((event) => (
                         <span
                           key={event}
-                          className="text-[10px] rounded-full border border-[var(--color-card-border)] bg-black/20 px-2 py-0.5 text-[var(--color-pib-text-muted)]"
+                          className="pib-pill pib-pill-accent"
                         >
                           {eventLabel(event)}
                         </span>

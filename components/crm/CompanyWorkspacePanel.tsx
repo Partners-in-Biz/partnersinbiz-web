@@ -270,7 +270,7 @@ export function CompanyWorkspacePanel({ companyName, companyId, mode, workspace 
           {leadWorkspaceItems.map((item) => (
             <div key={item.title} className="pib-card p-3">
               <div className="flex items-center gap-2">
-                <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-[var(--color-pib-accent)]">{item.icon}</span>
+                <span aria-hidden="true" className="pib-icon-tint"><span className="material-symbols-outlined text-[16px]">{item.icon}</span></span>
                 <h3 className="text-xs font-semibold text-[var(--color-pib-text)]">{item.title}</h3>
               </div>
               <p className="mt-1.5 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{item.description}</p>
@@ -324,7 +324,7 @@ export function CompanyWorkspacePanel({ companyName, companyId, mode, workspace 
           >
             <div className="flex items-center justify-between gap-2">
               <div className="flex min-w-0 items-center gap-2">
-                <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-[var(--color-pib-accent)]">{action.icon}</span>
+                <span aria-hidden="true" className="pib-icon-tint"><span className="material-symbols-outlined text-[16px]">{action.icon}</span></span>
                 <h3 className="truncate text-xs font-semibold text-[var(--color-pib-text)]">{action.title}</h3>
               </div>
               <span aria-hidden="true" className="material-symbols-outlined text-[14px] text-[var(--color-pib-text-muted)] transition-colors group-hover:text-[var(--color-pib-text)]">open_in_new</span>

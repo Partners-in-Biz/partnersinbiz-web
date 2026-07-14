@@ -355,14 +355,14 @@ export function CompanyRow({
                 onSetupProfile(company.id)
               }}
               aria-label={`Complete account profile for ${company.name}`}
-              className="inline-flex items-center gap-1 rounded-md border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[10px] font-medium text-amber-200 transition-colors hover:bg-amber-400/20"
+              className="pib-pill pib-pill-warn transition-opacity hover:opacity-80"
             >
               <span className="material-symbols-outlined text-[13px]">fact_check</span>
               Complete profile
             </button>
           )}
           {signals.length > 0 ? signals.map((signal) => (
-            <span key={signal} className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">
+            <span key={signal} className="pib-pill pib-pill-accent">
               {signal}
             </span>
           )) : (

@@ -25,7 +25,7 @@ function MissingValue({ label = 'Not captured' }: { label?: string }) {
 function Chip({ label, color }: { label: string; color?: string }) {
   return (
     <span
-      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border border-[var(--color-card-border)]"
+      className={`pib-pill${color ? '' : ' pib-pill-accent'}`}
       style={color ? { backgroundColor: color + '22', borderColor: color, color } : undefined}
     >
       {label}

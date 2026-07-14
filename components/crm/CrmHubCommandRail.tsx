@@ -72,8 +72,8 @@ export function CrmHubCommandRail({
             aria-label={action.cta}
             className="group flex gap-2.5 p-3 transition-colors hover:bg-white/[0.04]"
           >
-            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
-              <span className="material-symbols-outlined text-[16px]">{action.icon}</span>
+            <span aria-hidden="true" className="pib-icon-tint">
+              <span className="material-symbols-outlined text-[18px]">{action.icon}</span>
             </span>
             <span className="min-w-0">
               <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">{action.title}</h2>

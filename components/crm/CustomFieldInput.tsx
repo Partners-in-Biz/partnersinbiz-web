@@ -210,10 +210,10 @@ export function CustomFieldInput({ definition, value, onChange, disabled }: Cust
                 type="button"
                 onClick={() => toggle(opt.value)}
                 disabled={disabled}
-                className={`flex h-7 cursor-pointer items-center rounded-full border px-2.5 text-[11px] transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                className={`pib-pill cursor-pointer normal-case transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                   active
-                    ? 'border-primary/30 bg-primary/10 text-primary'
-                    : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]'
+                    ? 'pib-pill-accent'
+                    : 'hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]'
                 }`}
               >
                 {opt.label}

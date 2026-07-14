@@ -68,9 +68,9 @@ function MissingIdentityPanel({ fieldActions }: { fieldActions?: ContactIdentity
       <div className="flex items-start gap-2.5">
         <span
           aria-hidden="true"
-          className="material-symbols-outlined grid h-7 w-7 shrink-0 place-items-center rounded-md bg-primary/10 text-[16px] text-primary"
+          className="pib-icon-tint shrink-0"
         >
-          badge
+          <span className="material-symbols-outlined text-[16px]">badge</span>
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">
@@ -104,14 +104,7 @@ function MissingIdentityPanel({ fieldActions }: { fieldActions?: ContactIdentity
 
 function Signal({ icon, label, healthy }: { icon: string; label: string; healthy: boolean }) {
   return (
-    <span
-      className={[
-        'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-[11px]',
-        healthy
-          ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-100'
-          : 'border-[var(--color-card-border)] bg-white/[0.03] text-[var(--color-pib-text-muted)]',
-      ].join(' ')}
-    >
+    <span className={`pib-pill ${healthy ? 'pib-pill-success' : ''}`}>
       <span className="material-symbols-outlined text-[13px]">{icon}</span>
       {label}
     </span>

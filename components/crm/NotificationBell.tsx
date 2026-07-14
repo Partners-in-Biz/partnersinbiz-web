@@ -193,11 +193,11 @@ export function NotificationBell({ mode = 'crm', orgId, userId }: NotificationBe
                 ].join(' ')
                 const content = (
                   <>
-                    <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[var(--color-card-border)] bg-black/10">
-                      <span className="material-symbols-outlined text-[13px] text-[var(--color-pib-text-muted)]">
+                    <span aria-hidden="true" className="mt-0.5 shrink-0 pib-icon-tint" style={{ width: '1.5rem', height: '1.5rem', borderRadius: '9999px' }}>
+                      <span className="material-symbols-outlined text-[13px]">
                         {notifIcon(n.type)}
                       </span>
-                    </div>
+                    </span>
                     <div className="min-w-0 flex-1">
                       <p className={['text-xs leading-snug', n.status === 'unread' ? 'font-medium text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)]'].join(' ')}>
                         {n.title ?? n.body ?? n.type}
@@ -210,7 +210,7 @@ export function NotificationBell({ mode = 'crm', orgId, userId }: NotificationBe
                       </p>
                     </div>
                     {n.status === 'unread' && (
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-accent-v2)]" />
+                      <span className="mt-1.5 shrink-0 pib-status-dot pib-status-dot-accent" />
                     )}
                   </>
                 )

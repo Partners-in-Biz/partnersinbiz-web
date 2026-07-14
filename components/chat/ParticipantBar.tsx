@@ -79,7 +79,7 @@ export default function ParticipantBar({ participants, agentDetails = {}, classN
               {previewSkills.map((skill) => (
                 <span
                   key={skill}
-                  className="hidden sm:inline-flex rounded-full border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]"
+                  className="hidden sm:inline-flex pib-pill pib-pill-blue !px-1.5 !py-0.5 !text-[10px] normal-case tracking-normal"
                 >
                   {skill}
                 </span>
@@ -106,7 +106,7 @@ export default function ParticipantBar({ participants, agentDetails = {}, classN
                       {skills.length > 0 && (
                         <span className="mt-2 flex flex-wrap gap-1">
                           {skills.map((skill) => (
-                            <span key={skill} className="rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] text-[var(--color-pib-text)]">
+                            <span key={skill} className="pib-pill pib-pill-blue !px-2 !py-0.5 !text-[11px] normal-case tracking-normal">
                               {skill}
                             </span>
                           ))}
@@ -137,7 +137,7 @@ export default function ParticipantBar({ participants, agentDetails = {}, classN
             key={`user-${p.uid}`}
             className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-xs"
           >
-            <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-white/40" />
+            <span className="pib-status-dot pib-status-dot-blue shrink-0" />
             <span className="text-[var(--color-pib-text-muted)]">{name}</span>
           </span>
         )

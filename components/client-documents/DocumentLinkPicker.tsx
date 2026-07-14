@@ -99,12 +99,8 @@ export function DocumentLinkPicker({ open, onClose, onSelect }: DocumentLinkPick
           className="flex items-center gap-3 px-5 py-4 border-b"
           style={{ borderColor: 'var(--color-pib-line)' }}
         >
-          <span
-            className="material-symbols-outlined text-xl"
-            style={{ color: 'var(--color-pib-accent)' }}
-            aria-hidden="true"
-          >
-            attach_file
+          <span className="pib-icon-tint pib-icon-tint-cyan" aria-hidden="true">
+            <span className="material-symbols-outlined text-[18px]">attach_file</span>
           </span>
           <div className="flex-1 min-w-0">
             <p className="font-headline text-base leading-tight">Insert document link</p>
@@ -201,12 +197,8 @@ export function DocumentLinkPicker({ open, onClose, onSelect }: DocumentLinkPick
                 ;(e.currentTarget as HTMLButtonElement).style.background = 'transparent'
               }}
             >
-              <span
-                className="material-symbols-outlined text-xl flex-shrink-0"
-                style={{ color: 'var(--color-pib-accent)' }}
-                aria-hidden="true"
-              >
-                description
+              <span className="pib-icon-tint pib-icon-tint-cyan flex-shrink-0" aria-hidden="true">
+                <span className="material-symbols-outlined text-[18px]">description</span>
               </span>
               <div className="flex-1 min-w-0">
                 <p
@@ -216,14 +208,7 @@ export function DocumentLinkPicker({ open, onClose, onSelect }: DocumentLinkPick
                   {doc.title ?? 'Untitled document'}
                 </p>
               </div>
-              <span
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-label uppercase tracking-wide flex-shrink-0"
-                style={{
-                  background: 'rgba(74,222,128,0.10)',
-                  border: '1px solid rgba(74,222,128,0.30)',
-                  color: '#86EFAC',
-                }}
-              >
+              <span className="pib-pill pib-pill-success flex-shrink-0">
                 Shared
               </span>
             </button>

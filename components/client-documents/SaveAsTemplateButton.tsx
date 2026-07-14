@@ -51,7 +51,7 @@ export function SaveAsTemplateButton({ documentId, orgId }: SaveAsTemplateButton
   if (savedName && !open) {
     return (
       <div className="mt-3 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
-        <span className="material-symbols-outlined align-middle text-[14px] text-[var(--color-pib-accent)]">
+        <span className="material-symbols-outlined align-middle text-[14px] text-[var(--color-pib-cyan)]">
           check_circle
         </span>{' '}
         Saved “{savedName}” as a template.{' '}

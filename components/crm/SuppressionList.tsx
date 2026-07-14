@@ -331,7 +331,7 @@ export function SuppressionList({ apiPath }: SuppressionListProps) {
                   <tr key={row.id} className="border-b border-[var(--color-pib-line)] transition hover:bg-[var(--color-row-hover)] last:border-0">
                     <td className="break-all px-3 py-2 align-middle text-[var(--color-pib-text)]">{row.email}</td>
                     <td className="px-3 py-2 align-middle">
-                      <span className="pib-pill px-2 py-0.5 text-[11px]">
+                      <span className="pib-pill pib-pill-accent px-2 py-0.5 text-[11px]">
                         {row.reason}
                       </span>
                     </td>

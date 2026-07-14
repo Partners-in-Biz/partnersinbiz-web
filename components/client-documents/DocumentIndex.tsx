@@ -375,7 +375,9 @@ export function DocumentIndex({
                     </Link>
                   </h2>
                 </div>
-                <span className="material-symbols-outlined shrink-0 text-[var(--color-pib-accent)]">description</span>
+                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan shrink-0">
+                  <span className="material-symbols-outlined text-[18px]">description</span>
+                </span>
               </div>
 
               <dl className="grid grid-cols-2 gap-3 text-sm">

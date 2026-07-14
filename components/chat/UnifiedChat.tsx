@@ -3727,7 +3727,7 @@ export default function UnifiedChat({
 
             {activeWorkspaceContext && activeRuntimeLabel && (
               <div
-                className="hidden shrink-0 items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2 py-1 text-[10px] font-mono uppercase tracking-wide text-primary lg:flex"
+                className="hidden shrink-0 pib-pill pib-pill-blue !gap-1 lg:flex"
                 title={`${activeWorkspaceContext.orgName} · ${activeRuntimeLabel}`}
               >
                 <span className="material-symbols-outlined text-[13px]">folder_managed</span>

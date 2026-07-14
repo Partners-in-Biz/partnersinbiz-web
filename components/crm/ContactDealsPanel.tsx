@@ -334,10 +334,8 @@ export function ContactDealsPanel({ contactId, contactName, orgId = '', orgScope
             const closeDateAction = closeDateLabel === 'Close date missing' ? 'Add close date' : 'Edit close date'
             return (
               <div key={deal.id} className="flex items-center gap-3 px-3 py-2 transition hover:bg-white/[0.04]">
-                <span
-                  className="material-symbols-outlined shrink-0 text-[16px] text-[var(--color-pib-text-muted)]"
-                >
-                  monetization_on
+                <span className="pib-icon-tint shrink-0" aria-hidden="true">
+                  <span className="material-symbols-outlined text-[16px]">monetization_on</span>
                 </span>
                 <div className="min-w-0 flex-1">
                   <Link
