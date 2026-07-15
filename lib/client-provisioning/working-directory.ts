@@ -9,7 +9,7 @@ import type {
 import { projectLinkedToOrganization } from '@/lib/projects/organization-link'
 
 export type AuthorizedWorkingDirectoryResult =
-  | { ok: true; directory: string; pathClass: 'organisation' | 'project' }
+  | { ok: true; directory: string; pathClass: 'organisation' | 'company' | 'project' }
   | { ok: false; code: WorkspaceDispatchFailureCode }
 
 function failure(code: WorkspaceDispatchFailureCode): AuthorizedWorkingDirectoryResult {
@@ -63,7 +63,9 @@ export async function resolveAuthorizedWorkingDirectory(input: {
   if (!isContained(lexicalRoot, lexicalDirectory)) return failure('workspace_directory_outside_root')
 
   try {
-    const pathClass = projectPathClass ? 'project' : 'organisation'
+    const pathClass = projectPathClass
+      ? 'project'
+      : workspace.folderScope === 'company' ? 'company' : 'organisation'
     if (pathClass === 'organisation' && lexicalDirectory !== lexicalRoot) {
       return failure('workspace_directory_outside_root')
     }
@@ -88,6 +90,15 @@ export async function resolveAuthorizedWorkingDirectory(input: {
       if (project.archived === true || ['archived', 'completed', 'cancelled'].includes(status)) {
         return failure('workspace_project_archived')
       }
+    }
+
+    // The Next.js API runs on Vercel and cannot inspect a directory that lives
+    // on the selected VPS. At this boundary we can prove only the server-owned
+    // root, the contained relative path, and the organisation/project grant.
+    // Hermes performs the realpath, symlink, existence, and directory checks
+    // again on the authenticated runtime before accepting the run.
+    if (!localRuntime) {
+      return { ok: true, directory: lexicalDirectory, pathClass }
     }
 
     const rootStat = await lstat(lexicalRoot)

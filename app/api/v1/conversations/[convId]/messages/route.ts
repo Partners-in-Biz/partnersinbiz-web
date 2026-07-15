@@ -180,6 +180,7 @@ function buildWorkspaceContext(conversation: Conversation): string {
     '[Workspace context — this chat is bound to a Partners in Biz Workspace]',
     `workspaceId: ${workspace.workspaceId}`,
     `workspaceName: ${workspace.orgName}`,
+    workspace.companyWorkspaceId ? `companyWorkspaceId: ${workspace.companyWorkspaceId}` : '',
     `orgId: ${workspace.orgId}`,
     `orgSlug: ${workspace.orgSlug}`,
     `sourceOfTruth: ${workspace.sourceOfTruth}`,
@@ -197,10 +198,12 @@ function buildWorkspaceContext(conversation: Conversation): string {
     `agentDomainPath: ${workspace.agentDomainPath}`,
     `localAgentDomainPath: ${workspace.localAgentDomainPath}`,
     workspace.companyId ? `crmCompanyId: ${workspace.companyId}` : '',
+    workspace.companyName ? `crmCompanyName: ${workspace.companyName}` : '',
     workspace.contactIds.length ? `crmContactIds: ${workspace.contactIds.join(', ')}` : '',
     `shareMode: ${workspace.shareMode}`,
     `ownerUserId: ${workspace.ownerUserId}`,
-    'Treat the runtime-matching working path above as this chat session’s working directory. Create the project directory if it does not exist, keep project artefacts inside it, and read the Workspace root AGENTS.md/CLAUDE.md plus .pib-workspace.json before acting when file access is available.',
+    'The active orgId is the security and operating perspective for this session. crmCompanyId identifies the CRM company folder; a linked organisation mentioned in AGENTS.md is metadata and a delivery relationship, not permission to browse or act inside that organisation.',
+    'Treat the runtime-matching working path above as this chat session’s working directory. Keep project artefacts inside it, and read the company root AGENTS.md/CLAUDE.md plus .pib-workspace.json before acting when file access is available.',
     'Keep user chat threads separate unless the shareMode or user request says otherwise.',
     '---',
     '',
@@ -633,7 +636,7 @@ export const POST = withAuth(
         }
       }
       let selectedWorkingDirectory: string | undefined
-      let workspacePathClass: 'organisation' | 'project' | undefined
+      let workspacePathClass: 'organisation' | 'company' | 'project' | undefined
       if (conversation.workspaceContext && !linkedComputerBinding) {
         const workingDirectory = await resolveAuthorizedWorkingDirectory({
           workspaceContext: conversation.workspaceContext,
