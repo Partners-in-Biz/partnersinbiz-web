@@ -174,6 +174,17 @@ export async function resolveConversationWorkspaceContext(input: {
   const runtimeTarget = (input.runtimeTarget || workspace.defaultRuntimeTarget || 'vps') as WorkspaceRuntimeTarget
   const projectId = cleanString(input.projectId)
   const projectName = cleanString(input.projectName)
+  let projectCompanyId = ''
+  if (projectId && !projectId.includes('/')) {
+    const projectSnapshot = await adminDb.collection('projects').doc(projectId).get()
+    if (projectSnapshot.exists) {
+      const project = projectSnapshot.data() ?? {}
+      const projectOrgId = cleanString(project.sourceOrgId) || cleanString(project.orgId)
+      if (projectOrgId === input.orgId) {
+        projectCompanyId = cleanString(project.sourceCompanyId) || cleanString(project.companyId)
+      }
+    }
+  }
   const requestedFolderRelativePath = cleanString(input.folderRelativePath)
   const folderRelativePath = projectId
     ? requestedFolderRelativePath || `projects/${projectId}`
@@ -200,7 +211,7 @@ export async function resolveConversationWorkspaceContext(input: {
     runtimeLabel: input.runtimeLabel?.trim() || workspaceRuntimeLabel(runtimeTarget),
     shareMode: input.shareMode || 'private',
     ownerUserId: input.ownerUserId,
-    companyId: workspace.companyId ?? null,
+    companyId: projectCompanyId || workspace.companyId || null,
     contactIds: Array.isArray(workspace.contactIds) ? workspace.contactIds : [],
     folderScope: projectId ? 'project' : 'organisation',
     folderRelativePath,

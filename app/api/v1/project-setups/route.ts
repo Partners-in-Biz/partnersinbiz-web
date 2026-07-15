@@ -34,10 +34,13 @@ import {
 import {
   ProjectSetupIdempotencyError,
   createProjectSetupOperationRepository,
+  companyProjectResourceId,
   projectSetupOperationResourceIds,
   projectSetupRequestFingerprint,
   type ProjectSetupOperationFirestore,
 } from '@/lib/project-locations/project-setup-operations'
+import { getAccessibleCompanyForUser } from '@/lib/companies/api-access'
+import { addProjectToUserLibrary } from '@/lib/projects/user-library'
 
 export const dynamic = 'force-dynamic'
 
@@ -85,6 +88,26 @@ function safeFolderId(value: string): boolean {
   return Boolean(value && value.length <= 256 && !value.includes('/') && !/[\u0000-\u001f]/.test(value))
 }
 
+async function findExistingCompanyProject(orgId: string, companyId: string): Promise<{ id: string; name: string } | null> {
+  const snapshots = await Promise.all([
+    adminDb.collection('projects').where('sourceOrgId', '==', orgId).get(),
+    adminDb.collection('projects').where('orgId', '==', orgId).get(),
+  ])
+  const seen = new Set<string>()
+  for (const snapshot of snapshots) {
+    for (const document of snapshot.docs) {
+      if (seen.has(document.id)) continue
+      seen.add(document.id)
+      const project = record(document.data())
+      const active = project.active !== false && clean(project.status).toLowerCase() !== 'archived'
+      if (active && clean(project.sourceCompanyId || project.companyId) === companyId) {
+        return { id: document.id, name: clean(project.name) || 'Existing project' }
+      }
+    }
+  }
+  return null
+}
+
 function publicProjectSetupResult(result: ProjectSetupExecutionResult) {
   return {
     ...(result.projectId ? { projectId: result.projectId } : {}),
@@ -113,12 +136,17 @@ function publicProjectSetupResult(result: ProjectSetupExecutionResult) {
   }
 }
 
-function dependencies(user: ApiUser, setupOperationId: string): ProjectSetupExecutionDependencies {
+function dependencies(user: ApiUser, setupOperationId: string, setupInput: Record<string, unknown>): ProjectSetupExecutionDependencies {
   const resourceIds = projectSetupOperationResourceIds(setupOperationId)
+  const companyId = clean(setupInput.companyId)
+  const orgId = clean(setupInput.orgId)
+  const projectDocumentId = companyId && orgId
+    ? companyProjectResourceId(orgId, companyId)
+    : resourceIds.projectId
   return {
     async createProject(input) {
       return operationResponse(await handleProjectCreate(internalRequest('/api/v1/projects', input), user, {
-        documentId: resourceIds.projectId,
+        documentId: projectDocumentId,
         setupOperationId,
       }))
     },
@@ -190,6 +218,16 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     const orgId = clean(body.orgId)
     if (!orgId) return apiError('orgId is required', 400)
     if (!canAccessOrg(user, orgId)) return apiError('Forbidden', 403)
+    const companyId = clean(body.companyId)
+    if (companyId && !await getAccessibleCompanyForUser(companyId, orgId, user)) {
+      return apiError('Company is not available in this organisation', 403)
+    }
+    if (companyId && (body.mode === 'standard' || body.mode === 'existing_folder')) {
+      const existingProject = await findExistingCompanyProject(orgId, companyId)
+      if (existingProject) {
+        return apiError(`A Cowork project already exists for this company: ${existingProject.name}. Link the existing project instead.`, 409)
+      }
+    }
   }
 
   let claim: Awaited<ReturnType<typeof setupOperations.claim>>
@@ -207,6 +245,14 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
 
   if (claim.kind === 'in_progress') return apiError('Project setup is already in progress', 409)
   if (claim.kind === 'replay') {
+    if (body.mode !== 'full_client' && claim.result.projectId) {
+      await addProjectToUserLibrary({
+        orgId: clean(body.orgId),
+        userId: user.uid,
+        projectId: claim.result.projectId,
+        companyId: clean(body.companyId) || null,
+      })
+    }
     return apiSuccess(publicProjectSetupResult(claim.result), claim.result.status)
   }
 
@@ -223,7 +269,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
         leaseToken: claim.leaseToken,
       }).catch(error => console.error('[project-setup-idempotency-heartbeat]', error))
     }, 60_000)
-    const result = await executeProjectSetup(body, user, dependencies(user, claim.operationId), {
+    const result = await executeProjectSetup(body, user, dependencies(user, claim.operationId, body), {
       requestId: claim.operationId,
       resume: claim.checkpoint,
       checkpoint: async (checkpoint) => {
@@ -235,6 +281,14 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
         })
       },
     })
+    if (body.mode !== 'full_client' && result.projectId) {
+      await addProjectToUserLibrary({
+        orgId: clean(body.orgId),
+        userId: user.uid,
+        projectId: result.projectId,
+        companyId: clean(body.companyId) || null,
+      })
+    }
     await setupOperations.finish({
       operationId: claim.operationId,
       leaseToken: claim.leaseToken,

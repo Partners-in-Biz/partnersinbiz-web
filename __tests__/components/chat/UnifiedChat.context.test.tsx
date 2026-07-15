@@ -162,13 +162,107 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     expect(within(dialog).getByLabelText('Conversation context')).toHaveValue('project')
     expect(within(dialog).getByRole('combobox', { name: 'Project folder' })).toHaveTextContent('No projects available')
     const projectSetup = within(dialog).getByRole('region', { name: 'New project' })
-    expect(within(projectSetup).getByRole('radio', { name: 'Link existing folder' })).toBeChecked()
-    expect(within(projectSetup).getByRole('radio', { name: 'Standard PiB project' })).toBeEnabled()
-    expect(within(projectSetup).getByRole('radio', { name: 'Full client workspace' })).toBeEnabled()
+    expect(within(projectSetup).getByRole('radio', { name: 'Link existing project' })).toBeChecked()
+    expect(within(projectSetup).getByRole('radio', { name: 'Create new project' })).toBeEnabled()
+    expect(within(projectSetup).getByRole('combobox', { name: 'Search accessible companies' })).toBeInTheDocument()
+    expect(within(projectSetup).queryByRole('radio', { name: 'Full client workspace' })).not.toBeInTheDocument()
 
     fireEvent.keyDown(dialog, { key: 'Escape' })
     fireEvent.click(screen.getByRole('button', { name: /^New conversation$/i }))
     expect(screen.queryByRole('region', { name: 'New project' })).not.toBeInTheDocument()
+  })
+
+  it('does not resurrect an unlinked project from its old conversations', async () => {
+    const hiddenProjectConversation = {
+      ...baseConversation,
+      id: 'conv-hidden-project',
+      title: 'Old migrated session',
+      scope: 'project',
+      scopeRefId: 'hidden-project',
+      workspaceContext: { projectId: 'hidden-project', projectName: 'Hidden migrated project' },
+    }
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/visible-agents') || url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: {
+        workspaces: [], runtimeTargetsByWorkspace: {}, projects: [],
+      } })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [hiddenProjectConversation] } })
+      if (url.includes('/messages')) return jsonResponse({ data: { messages: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" layoutVariant="hermes" />)
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/api/v1/conversations?')))
+    expect(screen.queryByText('Hidden migrated project')).not.toBeInTheDocument()
+    expect(screen.queryByText('Old migrated session')).not.toBeInTheDocument()
+  })
+
+  it('removes only the current user sidebar link and refreshes the project list', async () => {
+    let removed = false
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/visible-agents') || url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: {
+        workspaces: [], runtimeTargetsByWorkspace: {},
+        projects: removed ? [] : [{ id: 'project-1', name: 'Acme Cowork' }],
+      } })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [] } })
+      if (url.startsWith('/api/v1/project-library?') && init?.method === 'DELETE') {
+        removed = true
+        return jsonResponse({ data: { projectId: 'project-1', removed: true } })
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" layoutVariant="hermes" />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove Acme Cowork from my projects' }))
+
+    await waitFor(() => expect(screen.queryByTestId('hermes-project-project-1')).not.toBeInTheDocument())
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/project-library?'),
+      expect.objectContaining({ method: 'DELETE' }),
+    )
+  })
+
+  it('finds an existing company Cowork and lets the user add it without creating a duplicate', async () => {
+    let added = false
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/visible-agents') || url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/crm/companies?')) return jsonResponse({ data: { companies: [{ id: 'company-1', name: 'Acme' }] } })
+      if (url.startsWith('/api/v1/project-library?') && (!init?.method || init.method === 'GET')) return jsonResponse({ data: {
+        company: { id: 'company-1', name: 'Acme' },
+        projects: [{ id: 'project-acme', name: 'Acme Cowork', companyId: 'company-1', added }],
+      } })
+      if (url === '/api/v1/project-library' && init?.method === 'POST') {
+        added = true
+        return jsonResponse({ data: { projectId: 'project-acme', added: true } })
+      }
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: {
+        workspaces: [], runtimeTargetsByWorkspace: {}, projects: added ? [{ id: 'project-acme', name: 'Acme Cowork' }] : [],
+      } })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" layoutVariant="hermes" />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Create new project' }))
+    const wizard = screen.getByRole('region', { name: 'New project' })
+    fireEvent.change(within(wizard).getByRole('combobox', { name: 'Search accessible companies' }), { target: { value: 'Acme' } })
+    fireEvent.click(await within(wizard).findByRole('button', { name: 'Acme' }))
+
+    await within(wizard).findByRole('button', { name: 'Add Acme Cowork to my projects' })
+    expect(within(wizard).queryByLabelText('Registered folder')).not.toBeInTheDocument()
+    fireEvent.click(within(wizard).getByRole('radio', { name: 'Create new project' }))
+    expect(within(wizard).getByText(/already has a Cowork project/i)).toBeInTheDocument()
+    expect(within(wizard).getByRole('button', { name: 'Create project' })).toBeDisabled()
+    fireEvent.click(within(wizard).getByRole('radio', { name: 'Link existing project' }))
+    fireEvent.click(within(wizard).getByRole('button', { name: 'Add Acme Cowork to my projects' }))
+
+    await waitFor(() => expect(screen.getByTestId('hermes-project-project-acme')).toBeInTheDocument())
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/project-setups', expect.anything())
   })
 
   it('renders friendly VPS-canonical scope copy without raw filesystem paths', async () => {
@@ -303,12 +397,12 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
         projects: [{
           id: 'project-mac', name: 'Mac project', locations: [{
             replicaId: 'replica-mac', locationId: 'location-mac', label: 'Studio Mac',
-            workspaceId: 'acme', availability: 'online', syncStatus: 'synced', selectable: true,
+            workspaceId: 'acme', availability: 'online', syncStatus: 'synced', selectable: true, authenticatedRuntime: true,
           }],
         }, {
           id: 'project-pending', name: 'Pending project', locations: [{
             replicaId: 'replica-vps', locationId: 'location-vps', label: 'Client VPS',
-            workspaceId: 'acme', availability: 'online', syncStatus: 'pending', selectable: false,
+            workspaceId: 'acme', availability: 'online', syncStatus: 'pending', selectable: false, authenticatedRuntime: true,
           }],
         }, { id: 'project-unlinked', name: 'Unlinked project', locations: [] }],
       } })
@@ -476,7 +570,11 @@ describe('UnifiedChat new project setup', () => {
     fireEvent.click(await screen.findByRole('button', { name: /new conversation/i }))
     fireEvent.change(screen.getByLabelText('Conversation context'), { target: { value: 'project' } })
     fireEvent.click(screen.getByRole('button', { name: 'New project' }))
-    return screen.getByRole('region', { name: 'New project' })
+    const wizard = screen.getByRole('region', { name: 'New project' })
+    fireEvent.change(within(wizard).getByRole('combobox', { name: 'Search accessible companies' }), { target: { value: 'Acme' } })
+    fireEvent.click(await within(wizard).findByRole('button', { name: 'Acme' }))
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/api/v1/project-library?')))
+    return wizard
   }
 
   it('links a registered folder without exposing raw paths and selects the returned project', async () => {
@@ -485,6 +583,8 @@ describe('UnifiedChat new project setup', () => {
     global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       if (url.includes('/visible-agents') || url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/crm/companies?')) return jsonResponse({ data: { companies: [{ id: 'company-1', name: 'Acme' }] } })
+      if (url.startsWith('/api/v1/project-library?')) return jsonResponse({ data: { company: { id: 'company-1', name: 'Acme' }, projects: [] } })
       if (url.startsWith('/api/v1/workspaces?')) {
         workspaceRequests += 1
         return jsonResponse({ data: {
@@ -524,28 +624,29 @@ describe('UnifiedChat new project setup', () => {
     render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" />)
     const wizard = await openProjectWizard()
 
-    expect(within(wizard).getByRole('radio', { name: 'Link existing folder' })).toBeChecked()
-    expect(within(wizard).getByRole('radio', { name: 'Standard PiB project' })).toBeInTheDocument()
-    expect(within(wizard).getByRole('radio', { name: 'Full client workspace' })).toBeInTheDocument()
+    expect(within(wizard).getByRole('radio', { name: 'Link existing project' })).toBeChecked()
+    expect(within(wizard).getByRole('radio', { name: 'Create new project' })).toBeInTheDocument()
+    expect(within(wizard).queryByRole('radio', { name: 'Full client workspace' })).not.toBeInTheDocument()
     fireEvent.change(within(wizard).getByLabelText('Project name'), { target: { value: 'Website Refresh' } })
     fireEvent.change(await within(wizard).findByLabelText('Registered folder'), { target: { value: 'folder-briefs' } })
-    fireEvent.change(within(wizard).getByLabelText('Project location'), { target: { value: 'location-mac' } })
+    fireEvent.click(within(wizard).getByRole('checkbox', { name: /Studio Mac · online/ }))
     fireEvent.click(within(wizard).getByRole('button', { name: 'Create project' }))
 
     await waitFor(() => expect(setupPayload).toEqual({
       mode: 'existing_folder',
       orgId: 'org-1',
+      companyId: 'company-1',
       projectName: 'Website Refresh',
       workspaceId: 'acme',
       workspaceFolderId: 'folder-briefs',
-      locationId: 'location-mac',
-      locationIds: ['location-mac'],
-      mappingId: 'mapping-mac',
+      locationId: 'location-vps',
+      locationIds: ['location-vps', 'location-mac'],
+      mappingId: 'mapping-vps',
     }))
     expect(await within(wizard).findByText('Pending mapping')).toBeInTheDocument()
     expect(within(wizard).getByText('Confirm existing folder')).toBeInTheDocument()
     expect(within(wizard).getByText(/Sync is not yet confirmed/)).toBeInTheDocument()
-    expect(within(wizard).getByRole('button', { name: 'Continue to session' })).toBeEnabled()
+    expect(within(wizard).getByRole('button', { name: 'Continue to session' })).toBeDisabled()
     expect(screen.getByRole('combobox', { name: 'Project folder' })).toHaveValue('project-new')
     expect(document.body).not.toHaveTextContent('/srv/clients/acme/private')
     expect(document.body).not.toHaveTextContent('/Users/peet/private')
@@ -555,6 +656,8 @@ describe('UnifiedChat new project setup', () => {
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
       if (url.includes('/visible-agents') || url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/crm/companies?')) return jsonResponse({ data: { companies: [{ id: 'company-1', name: 'Acme' }] } })
+      if (url.startsWith('/api/v1/project-library?')) return jsonResponse({ data: { company: { id: 'company-1', name: 'Acme' }, projects: [] } })
       if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: {
         workspaces: [workspace], runtimeTargetsByWorkspace: { acme: runtimes },
         projects: [{ id: 'project-existing', name: 'Existing project' }],
@@ -580,6 +683,8 @@ describe('UnifiedChat new project setup', () => {
     global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       if (url.includes('/visible-agents') || url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/crm/companies?')) return jsonResponse({ data: { companies: [{ id: 'company-1', name: 'Acme' }] } })
+      if (url.startsWith('/api/v1/project-library?')) return jsonResponse({ data: { company: { id: 'company-1', name: 'Acme' }, projects: [] } })
       if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: {
         workspaces: [workspace], runtimeTargetsByWorkspace: { acme: onlineRuntimes },
         projects: [{ id: 'project-existing', name: 'Existing project' }],
@@ -603,7 +708,7 @@ describe('UnifiedChat new project setup', () => {
 
     render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" />)
     const wizard = await openProjectWizard()
-    fireEvent.click(within(wizard).getByRole('radio', { name: 'Standard PiB project' }))
+    fireEvent.click(within(wizard).getByRole('radio', { name: 'Create new project' }))
     fireEvent.change(within(wizard).getByLabelText('Project name'), { target: { value: 'Growth Sprint' } })
     const canonicalVps = within(wizard).getByRole('checkbox', { name: /Partners VPS · Canonical VPS/ })
     await waitFor(() => expect(canonicalVps).toBeChecked())
@@ -613,19 +718,21 @@ describe('UnifiedChat new project setup', () => {
     fireEvent.click(within(wizard).getByRole('button', { name: 'Create project' }))
 
     await waitFor(() => expect(setupPayload).toEqual({
-      mode: 'standard', orgId: 'org-1', projectName: 'Growth Sprint', workspaceId: 'acme',
+      mode: 'standard', orgId: 'org-1', companyId: 'company-1', projectName: 'Growth Sprint', workspaceId: 'acme',
       locationIds: ['location-vps', 'location-mac', 'location-office'],
     }))
     expect(await within(wizard).findByText('Pending sync')).toBeInTheDocument()
     expect(within(wizard).getByText(/Sync is not yet confirmed/)).toBeInTheDocument()
     expect(within(wizard).queryByText(/^Sync complete/i)).not.toBeInTheDocument()
-    expect(within(wizard).getByRole('button', { name: 'Continue to session' })).toBeEnabled()
+    expect(within(wizard).getByRole('button', { name: 'Continue to session' })).toBeDisabled()
   })
 
   it('shows an unavailable computer but prevents selecting it for project setup', async () => {
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
       if (url.includes('/visible-agents') || url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/crm/companies?')) return jsonResponse({ data: { companies: [{ id: 'company-1', name: 'Acme' }] } })
+      if (url.startsWith('/api/v1/project-library?')) return jsonResponse({ data: { company: { id: 'company-1', name: 'Acme' }, projects: [] } })
       if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: {
         workspaces: [workspace], runtimeTargetsByWorkspace: { acme: runtimes },
         projects: [{ id: 'project-existing', name: 'Existing project' }],
@@ -638,7 +745,7 @@ describe('UnifiedChat new project setup', () => {
 
     render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" />)
     const wizard = await openProjectWizard()
-    fireEvent.click(within(wizard).getByRole('radio', { name: 'Standard PiB project' }))
+    fireEvent.click(within(wizard).getByRole('radio', { name: 'Create new project' }))
 
     expect(within(wizard).getByRole('checkbox', { name: /Office PC · Computer unavailable/ })).toBeDisabled()
   })
@@ -649,6 +756,8 @@ describe('UnifiedChat new project setup', () => {
     global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       if (url.includes('/visible-agents') || url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/crm/companies?')) return jsonResponse({ data: { companies: [{ id: 'company-1', name: 'Acme' }] } })
+      if (url.startsWith('/api/v1/project-library?')) return jsonResponse({ data: { company: { id: 'company-1', name: 'Acme' }, projects: [] } })
       if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: {
         workspaces: [workspace], runtimeTargetsByWorkspace: { acme: runtimes },
         projects: [{ id: 'project-existing', name: 'Existing project' }],
@@ -675,7 +784,6 @@ describe('UnifiedChat new project setup', () => {
     const wizard = await openProjectWizard()
     fireEvent.change(within(wizard).getByLabelText('Project name'), { target: { value: 'Retried project' } })
     fireEvent.change(await within(wizard).findByLabelText('Registered folder'), { target: { value: 'folder-briefs' } })
-    fireEvent.change(within(wizard).getByLabelText('Project location'), { target: { value: 'location-mac' } })
     fireEvent.click(within(wizard).getByRole('button', { name: 'Create project' }))
 
     expect(await within(wizard).findByRole('alert')).toHaveTextContent('Temporary setup failure')
@@ -687,11 +795,13 @@ describe('UnifiedChat new project setup', () => {
     expect(setupKeys[1]).toBe(setupKeys[0])
   })
 
-  it('keeps full Client Manager provisioning in the new organisation and links to its Messages workspace', async () => {
+  it('does not expose the legacy organisation-creating client setup mode', async () => {
     let setupPayload: Record<string, unknown> | undefined
     global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       if (url.includes('/visible-agents') || url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/crm/companies?')) return jsonResponse({ data: { companies: [{ id: 'company-1', name: 'Acme' }] } })
+      if (url.startsWith('/api/v1/project-library?')) return jsonResponse({ data: { company: { id: 'company-1', name: 'Acme' }, projects: [] } })
       if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: {
         workspaces: [workspace], runtimeTargetsByWorkspace: { acme: runtimes },
         projects: [{ id: 'project-existing', name: 'Existing project' }],
@@ -717,25 +827,8 @@ describe('UnifiedChat new project setup', () => {
 
     render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" />)
     const wizard = await openProjectWizard()
-    fireEvent.click(within(wizard).getByRole('radio', { name: 'Full client workspace' }))
-    expect(within(wizard).getByText(/Client Manager will create the PiB client organisation/i)).toBeInTheDocument()
-    expect(within(wizard).getByText(/does not create a per-client Hermes profile/i)).toBeInTheDocument()
-    fireEvent.change(within(wizard).getByLabelText('Project name'), { target: { value: 'North Star Launch' } })
-    fireEvent.change(within(wizard).getByLabelText('Client name'), { target: { value: 'North Star' } })
-    fireEvent.change(within(wizard).getByLabelText('Client domain'), { target: { value: 'north-star' } })
-    fireEvent.change(within(wizard).getByLabelText('Agent name'), { target: { value: 'Pip' } })
-    fireEvent.click(within(wizard).getByRole('button', { name: 'Create project' }))
-
-    await waitFor(() => expect(setupPayload).toEqual({
-      mode: 'full_client', orgId: 'org-1', projectName: 'North Star Launch',
-      clientName: 'North Star', domainSlug: 'north-star', agentName: 'Pip',
-    }))
-    expect(await within(wizard).findByText('Location selection pending')).toBeInTheDocument()
-    expect(within(wizard).getByText(/client workspace was created in its own organisation/i)).toBeInTheDocument()
-    expect(within(wizard).getByRole('link', { name: 'Open client Messages' })).toHaveAttribute(
-      'href', '/admin/org/north-star/messages',
-    )
-    expect(screen.getByRole('combobox', { name: 'Project folder' })).not.toHaveValue('project-client')
+    expect(within(wizard).queryByRole('radio', { name: 'Full client workspace' })).not.toBeInTheDocument()
+    expect(setupPayload).toBeUndefined()
   })
 })
 
@@ -775,7 +868,7 @@ describe('UnifiedChat project pulse integration', () => {
       const url = String(input)
       if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
       if (url.includes('/visible-agents')) return jsonResponse({ data: [] })
-      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [] } })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [], projects: [{ id: 'project-1', name: 'Launch Project' }] } })
       if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [conversation] } })
       if (url === '/api/v1/conversations/conv-1/messages') {
         return jsonResponse({ data: { messages: [
@@ -871,7 +964,7 @@ describe('UnifiedChat project pulse integration', () => {
       const url = String(input)
       if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
       if (url.includes('/visible-agents')) return jsonResponse({ data: [] })
-      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [] } })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [], projects: [{ id: 'project-1', name: 'Launch Project' }] } })
       if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [conversation] } })
       if (url === '/api/v1/conversations/conv-1/messages') return jsonResponse({ data: { messages: [] } })
       if (url === '/api/v1/chat-context/project/project-1') return jsonResponse({ data: { ...contextModel, asOf: `2026-07-13T10:00:0${contextRevision++}.000Z` } })
@@ -1064,7 +1157,7 @@ describe('UnifiedChat message scrolling', () => {
       const url = String(input)
       if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
       if (url.includes('/visible-agents')) return jsonResponse({ data: [] })
-      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [] } })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [], projects: [{ id: 'project-1', name: 'Launch Project' }] } })
       if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations } })
       if (url.includes('/messages')) return jsonResponse({ data: { messages: [] } })
       throw new Error(`Unhandled fetch: ${url}`)
@@ -1296,7 +1389,7 @@ describe('UnifiedChat message scrolling', () => {
     fireEvent.click(within(project).getByRole('button', { name: 'Manage locations for Launch Project' }))
 
     const manager = await within(project).findByRole('region', { name: 'Manage locations for Launch Project' })
-    expect(within(manager).getByText('Archive PC · Computer unavailable')).toBeInTheDocument()
+    expect(await within(manager).findByText('Archive PC · Computer unavailable')).toBeInTheDocument()
     expect(within(manager).getByText('Private')).toBeInTheDocument()
     expect(within(manager).getByRole('checkbox', { name: 'Studio Mac · online' })).toBeEnabled()
     expect(within(manager).getByRole('checkbox', { name: 'Client VPS · online' })).toBeEnabled()

@@ -24,6 +24,7 @@ import {
   type ProjectReplicaRuntimeUnavailableReason,
 } from '@/lib/project-locations/model'
 import { legacyProjectAccessForUser, projectOrganizationDocId } from '@/lib/projects/collaboration'
+import { listUserLibraryProjectIds } from '@/lib/projects/user-library'
 
 export const dynamic = 'force-dynamic'
 
@@ -96,7 +97,7 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
     'targetOrgIds',
     'linkedOrgIds',
   ] as const
-  const [snap, runtimeDoc, projectSnapshots, projectOrganizationAccess, projectMemberAccess, projectReplicas] = await Promise.all([
+  const [snap, runtimeDoc, projectSnapshots, projectOrganizationAccess, projectMemberAccess, projectReplicas, libraryProjectIds] = await Promise.all([
     adminDb.collection(ORG_WORKSPACES_COLLECTION)
       .where('orgId', '==', orgScope.orgId)
       .where('status', '==', 'active')
@@ -113,7 +114,9 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
     adminDb.collection('projectOrganizations').where('orgId', '==', orgScope.orgId).get(),
     adminDb.collection('projectMembers').where('uid', '==', user.uid).get(),
     adminDb.collection(PROJECT_LOCATION_REPLICAS_COLLECTION).where('orgId', '==', orgScope.orgId).get(),
+    listUserLibraryProjectIds(orgScope.orgId, user.uid),
   ])
+  const libraryProjectIdSet = new Set(libraryProjectIds)
 
   // Explicit project-organisation grants are first-class access records and
   // may exist without legacy link fields on the project document.
@@ -195,6 +198,7 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
   const projectsById = new Map<string, PublicWorkspaceProjectSummary>()
   for (const projectSnap of [...projectSnapshots, { docs: accessProjectDocs }]) {
     for (const projectDoc of projectSnap.docs) {
+      if (!libraryProjectIdSet.has(projectDoc.id)) continue
       const data = projectDoc.data() ?? {}
       if (data.deleted === true || data.archived === true) continue
       const hasCanonicalAccess = canonicalProjectAccess.has(projectDoc.id)

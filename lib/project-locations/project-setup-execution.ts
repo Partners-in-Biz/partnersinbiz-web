@@ -237,6 +237,7 @@ async function createProject(
   const response = await dependencies.createProject({
     name: projectName,
     orgId,
+    ...(optionalClean(input.companyId) ? { sourceCompanyId: optionalClean(input.companyId) } : {}),
     ...(optionalClean(input.description) ? { description: optionalClean(input.description) } : {}),
     ...(optionalClean(input.status) ? { status: optionalClean(input.status) } : {}),
   })

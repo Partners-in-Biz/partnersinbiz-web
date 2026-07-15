@@ -119,6 +119,14 @@ export function projectSetupOperationResourceIds(operationId: string): {
   }
 }
 
+export function companyProjectResourceId(orgId: string, companyId: string): string {
+  const org = orgId.trim()
+  const company = companyId.trim()
+  if (!org || !company) throw new ProjectSetupIdempotencyError('Company project identity is invalid', 409)
+  const digest = createHash('sha256').update(`${org}\0${company}`).digest('hex').slice(0, 40)
+  return `setup_project_${digest}`
+}
+
 function checkpointFrom(value: unknown): ProjectSetupExecutionCheckpoint {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? value as ProjectSetupExecutionCheckpoint

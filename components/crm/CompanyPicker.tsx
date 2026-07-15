@@ -21,12 +21,13 @@ export interface CompanyPickerProps {
   currentCompanyName?: string
   orgScope?: PortalOrgRouteScope
   ariaLabel?: string
+  allowCreate?: boolean
   onChange: (val: { companyId: string | null; companyName: string | null }) => void
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function CompanyPicker({ currentCompanyId, currentCompanyName, orgScope, ariaLabel = 'Search companies', onChange }: CompanyPickerProps) {
+export function CompanyPicker({ currentCompanyId, currentCompanyName, orgScope, ariaLabel = 'Search companies', allowCreate = true, onChange }: CompanyPickerProps) {
   const [query, setQuery] = useState(currentCompanyName ?? '')
   const [results, setResults] = useState<CompanyResult[]>([])
   const [open, setOpen] = useState(false)
@@ -175,7 +176,7 @@ export function CompanyPicker({ currentCompanyId, currentCompanyName, orgScope, 
           )}
 
           {/* Create new */}
-          {!showCreateForm ? (
+          {allowCreate && (!showCreateForm ? (
             <button
               type="button"
               onClick={() => { setShowCreateForm(true); setOpen(true) }}
@@ -219,7 +220,7 @@ export function CompanyPicker({ currentCompanyId, currentCompanyName, orgScope, 
                 </button>
               </div>
             </div>
-          )}
+          ))}
         </div>
       )}
     </div>

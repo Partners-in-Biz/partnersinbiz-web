@@ -1,6 +1,7 @@
 import {
   ProjectSetupIdempotencyError,
   createProjectSetupOperationRepository,
+  companyProjectResourceId,
   projectSetupOperationResourceIds,
   projectSetupRequestFingerprint,
   type ProjectSetupOperationFirestore,
@@ -81,6 +82,12 @@ describe('project setup operation repository', () => {
     expect(first.projectId).toMatch(/^setup_project_/)
     expect(first.organizationId).toMatch(/^setup_org_/)
     expect(first.projectId).not.toBe(first.organizationId)
+  })
+
+  it('derives one canonical project record for a company inside an organisation', () => {
+    expect(companyProjectResourceId('org-1', 'company-1')).toBe(companyProjectResourceId('org-1', 'company-1'))
+    expect(companyProjectResourceId('org-1', 'company-1')).not.toBe(companyProjectResourceId('org-2', 'company-1'))
+    expect(companyProjectResourceId('org-1', 'company-1')).toMatch(/^setup_project_[a-f0-9]{40}$/)
   })
 
   it('renews a long-running lease before its original expiry', async () => {

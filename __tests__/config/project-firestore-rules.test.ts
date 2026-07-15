@@ -33,4 +33,10 @@ describe('project Firestore boundary', () => {
       allow read, write: if false;
     }`)
   })
+
+  it('keeps each user personal project-library links behind the tenant-aware API', () => {
+    expect(rules).toContain(`match /project_user_library/{linkId} {
+      allow read, write: if false;
+    }`)
+  })
 })
