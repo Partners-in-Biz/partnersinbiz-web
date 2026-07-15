@@ -15,6 +15,9 @@ const mockSetupOperationCheckpoint = jest.fn()
 const mockSetupOperationHeartbeat = jest.fn()
 const mockSetupOperationFinish = jest.fn()
 const mockSetupOperationFail = jest.fn()
+const mockGetAccessibleCompany = jest.fn()
+const mockAddProjectToUserLibrary = jest.fn()
+let mockExistingCompanyProjectDocs: Array<{ id: string; data: () => Record<string, unknown> }> = []
 
 let mockUser = { uid: 'peet-user', role: 'admin' as 'admin' | 'client', orgId: 'pib-org', orgIds: ['pib-org'] }
 
@@ -38,6 +41,12 @@ jest.mock('@/lib/project-locations/store', () => ({
 jest.mock('@/lib/project-locations/project-folder-provisioning', () => ({
   provisionStandardProjectFolder: (...args: unknown[]) => mockProvisionStandardProjectFolder(...args),
 }))
+jest.mock('@/lib/companies/api-access', () => ({
+  getAccessibleCompanyForUser: (...args: unknown[]) => mockGetAccessibleCompany(...args),
+}))
+jest.mock('@/lib/projects/user-library', () => ({
+  addProjectToUserLibrary: (...args: unknown[]) => mockAddProjectToUserLibrary(...args),
+}))
 jest.mock('@/lib/project-locations/project-setup-operations', () => {
   const actual = jest.requireActual('@/lib/project-locations/project-setup-operations')
   return {
@@ -57,6 +66,7 @@ jest.mock('firebase-admin/firestore', () => ({
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: {
     collection: (name: string) => ({
+      where: () => ({ get: async () => ({ docs: name === 'projects' ? mockExistingCompanyProjectDocs : [] }) }),
       doc: (_id: string) => name === 'workspace_folders'
         ? { get: mockFolderGet, set: mockFolderSet }
         : { set: mockProjectSet },
@@ -121,9 +131,62 @@ beforeEach(() => {
   mockSetupOperationHeartbeat.mockResolvedValue(undefined)
   mockSetupOperationFinish.mockResolvedValue(undefined)
   mockSetupOperationFail.mockResolvedValue(undefined)
+  mockGetAccessibleCompany.mockResolvedValue({ id: 'company-1', orgId: 'pib-org', name: 'Acme' })
+  mockAddProjectToUserLibrary.mockResolvedValue({ projectId: 'project-1', active: true })
+  mockExistingCompanyProjectDocs = []
 })
 
 describe('POST /api/v1/project-setups', () => {
+  it('binds setup to an accessible company and adds the result only to the current user sidebar', async () => {
+    const { POST } = await import('@/app/api/v1/project-setups/route')
+    const response = await POST(request({
+      mode: 'standard', orgId: 'pib-org', companyId: 'company-1', projectName: 'Acme Cowork', workspaceId: 'partners',
+      locationIds: ['partners-vps'],
+    }))
+
+    expect(response.status).toBe(202)
+    expect(mockGetAccessibleCompany).toHaveBeenCalledWith('company-1', 'pib-org', mockUser)
+    const internalRequest = mockHandleProjectCreate.mock.calls[0][0] as NextRequest
+    expect(await internalRequest.json()).toEqual(expect.objectContaining({
+      orgId: 'pib-org', sourceCompanyId: 'company-1', name: 'Acme Cowork',
+    }))
+    expect(mockAddProjectToUserLibrary).toHaveBeenCalledWith({
+      orgId: 'pib-org', userId: 'peet-user', projectId: 'project-1', companyId: 'company-1',
+    })
+  })
+
+  it('rejects setup when the selected company is outside the user CRM access', async () => {
+    mockGetAccessibleCompany.mockResolvedValue(null)
+    const { POST } = await import('@/app/api/v1/project-setups/route')
+    const response = await POST(request({
+      mode: 'standard', orgId: 'pib-org', companyId: 'company-secret', projectName: 'Secret', workspaceId: 'partners',
+      locationIds: ['partners-vps'],
+    }))
+
+    expect(response.status).toBe(403)
+    expect(mockSetupOperationClaim).not.toHaveBeenCalled()
+    expect(mockHandleProjectCreate).not.toHaveBeenCalled()
+  })
+
+  it.each(['standard', 'existing_folder'])('refuses to create a duplicate Cowork project for the same company and organisation in %s mode', async (mode) => {
+    mockExistingCompanyProjectDocs = [{
+      id: 'existing-company-project',
+      data: () => ({ orgId: 'pib-org', sourceCompanyId: 'company-1', name: 'Acme Cowork', status: 'active' }),
+    }]
+    const { POST } = await import('@/app/api/v1/project-setups/route')
+    const response = await POST(request({
+      mode, orgId: 'pib-org', companyId: 'company-1', projectName: 'Duplicate', workspaceId: 'partners',
+      locationIds: ['partners-vps'],
+    }))
+
+    expect(response.status).toBe(409)
+    expect(await response.json()).toEqual(expect.objectContaining({
+      error: expect.stringMatching(/already exists/i),
+    }))
+    expect(mockSetupOperationClaim).not.toHaveBeenCalled()
+    expect(mockHandleProjectCreate).not.toHaveBeenCalled()
+  })
+
   it('executes standard setup through the existing project business handler', async () => {
     const { POST } = await import('@/app/api/v1/project-setups/route')
     const response = await POST(request({

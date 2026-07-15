@@ -7,6 +7,7 @@ let mockProjectDocs: Array<{ id: string; data: () => Record<string, unknown> }> 
 let mockProjectQueryDocs: Record<string, Array<{ id: string; data: () => Record<string, unknown> }>> | null = null
 let mockProjectOrganizationDocs: Array<{ id: string; data: () => Record<string, unknown> }> = []
 let mockProjectMemberDocs: Array<{ id: string; data: () => Record<string, unknown> }> = []
+let mockProjectLibraryDocs: Array<{ id: string; data: () => Record<string, unknown> }> = []
 let mockReplicaDocs: Array<{ id: string; data: () => Record<string, unknown> }> = []
 let mockWorkspaceUser: Record<string, unknown> = {
   uid: 'peet', role: 'admin', orgId: 'pib-platform-owner', allowedOrgIds: [],
@@ -55,6 +56,9 @@ jest.mock('@/lib/firebase/admin', () => ({
       if (name === 'projectMembers') return {
         where: () => ({ get: async () => ({ docs: mockProjectMemberDocs }) }),
       }
+      if (name === 'project_user_library') return {
+        where: () => ({ where: () => ({ get: async () => ({ docs: mockProjectLibraryDocs }) }) }),
+      }
       if (name === 'project_location_replicas') return { where: () => ({ get: async () => ({ docs: mockReplicaDocs }) }) }
       throw new Error(`Unexpected collection ${name}`)
     }),
@@ -68,6 +72,7 @@ describe('GET workspaces with scoped execution locations', () => {
     mockProjectQueryDocs = null
     mockProjectOrganizationDocs = []
     mockProjectMemberDocs = []
+    mockProjectLibraryDocs = []
     mockReplicaDocs = []
     mockWorkspaceUser = { uid: 'peet', role: 'admin', orgId: 'pib-platform-owner', allowedOrgIds: [] }
     mockDiscoverLinkedTargets.mockResolvedValue([])
@@ -89,6 +94,33 @@ describe('GET workspaces with scoped execution locations', () => {
     }))
     expect(body.data.runtimeTargetsByWorkspace.partners.map((target: { id: string }) => target.id)).toEqual(['vps'])
     expect(body.data.runtimeTargets.map((target: { id: string }) => target.id)).toEqual(['vps'])
+  })
+
+  it('keeps authorised projects out of the sidebar until this user adds them', async () => {
+    mockProjectDocs = [{
+      id: 'project-1',
+      data: () => ({ orgId: 'pib-platform-owner', name: 'Discoverable project' }),
+    }]
+
+    const { GET } = await import('@/app/api/v1/workspaces/route')
+    const hidden = await GET(new NextRequest('http://localhost/api/v1/workspaces?orgId=pib-platform-owner'))
+    expect((await hidden.json()).data.projects).toEqual([])
+
+    mockProjectLibraryDocs = [{
+      id: 'link-1',
+      data: () => ({
+        linkId: 'link-1', orgId: 'pib-platform-owner', userId: 'peet', projectId: 'project-1', active: true,
+      }),
+    }, {
+      id: 'link-other-user',
+      data: () => ({
+        linkId: 'link-other-user', orgId: 'pib-platform-owner', userId: 'someone-else', projectId: 'project-2', active: true,
+      }),
+    }]
+    const visible = await GET(new NextRequest('http://localhost/api/v1/workspaces?orgId=pib-platform-owner'))
+    expect((await visible.json()).data.projects).toEqual([{
+      id: 'project-1', name: 'Discoverable project', locations: [],
+    }])
   })
 
   it('preserves the execution location id when a linked-computer row shares the runtime id', async () => {
@@ -156,6 +188,7 @@ describe('GET workspaces with scoped execution locations', () => {
       id: 'project-1',
       data: () => ({ orgId: 'pib-platform-owner', name: 'Launch project' }),
     }]
+    mockProjectLibraryDocs = [{ id: 'link-project-1', data: () => ({ orgId: 'pib-platform-owner', userId: 'peet', projectId: 'project-1', active: true }) }]
     mockReplicaDocs = [
       {
         id: 'replica-vps',
@@ -200,6 +233,7 @@ describe('GET workspaces with scoped execution locations', () => {
       data: () => ({ name: 'Multi-org project', clientOrgIds: ['pib-platform-owner'] }),
     }
     mockProjectDocs = [arrayProject]
+    mockProjectLibraryDocs = [{ id: 'link-project-array', data: () => ({ orgId: 'pib-platform-owner', userId: 'peet', projectId: 'project-array', active: true }) }]
     mockProjectQueryDocs = { 'clientOrgIds:array-contains': [arrayProject] }
 
     const { GET } = await import('@/app/api/v1/workspaces/route')
@@ -218,6 +252,7 @@ describe('GET workspaces with scoped execution locations', () => {
       data: () => ({ name: 'Shared project', orgId: 'another-org' }),
     }
     mockProjectDocs = [sharedProject]
+    mockProjectLibraryDocs = [{ id: 'link-project-shared', data: () => ({ orgId: 'pib-platform-owner', userId: 'peet', projectId: 'project-shared', active: true }) }]
     mockProjectQueryDocs = {}
     mockProjectOrganizationDocs = [{
       id: 'project-shared_pib-platform-owner',

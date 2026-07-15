@@ -47,6 +47,7 @@ import type { ProjectChatTaskItem } from '@/lib/projects/chatProgress'
 import type { RuntimeExecution } from '@/components/messages/hermes/RuntimeInspectorRail'
 import { ProjectPeopleAccessPanel } from '@/components/projects/ProjectPeopleAccessPanel'
 import { AccessibleDialog } from '@/components/linked-computers/AccessibleOverlay'
+import { CompanyPicker } from '@/components/crm/CompanyPicker'
 
 type AgentId = string
 
@@ -523,9 +524,9 @@ function buildHermesProjectGroups(
     if (conversation.archived) continue
     const project = conversationProjectIdentity(conversation)
     if (!project) continue
-    const group = groups.get(project.id) ?? { ...project, conversations: [] }
+    const group = groups.get(project.id)
+    if (!group) continue
     group.conversations.push(conversation)
-    groups.set(project.id, group)
   }
 
   const query = filter.trim().toLocaleLowerCase()
@@ -757,10 +758,14 @@ export default function UnifiedChat({
   const [selectedWorkspaceShareMode, setSelectedWorkspaceShareMode] = useState<'private' | 'shared' | 'org'>('private')
   const [showProjectSetupWizard, setShowProjectSetupWizard] = useState(false)
   const [projectSetupMode, setProjectSetupMode] = useState<ProjectSetupMode>('existing_folder')
+  const [projectSetupCompanyId, setProjectSetupCompanyId] = useState('')
+  const [projectSetupCompanyName, setProjectSetupCompanyName] = useState('')
+  const [projectSetupExistingProjects, setProjectSetupExistingProjects] = useState<Array<{ id: string; name: string; added: boolean }>>([])
+  const [projectSetupLibraryLoading, setProjectSetupLibraryLoading] = useState(false)
+  const [projectSetupAddingProjectId, setProjectSetupAddingProjectId] = useState('')
   const [projectSetupName, setProjectSetupName] = useState('')
   const [projectSetupWorkspaceId, setProjectSetupWorkspaceId] = useState('')
   const [projectSetupWorkspaceFolderId, setProjectSetupWorkspaceFolderId] = useState('')
-  const [projectSetupLocationId, setProjectSetupLocationId] = useState('')
   const [projectSetupLocationIds, setProjectSetupLocationIds] = useState<string[]>([])
   const [projectSetupClientName, setProjectSetupClientName] = useState('')
   const [projectSetupDomainSlug, setProjectSetupDomainSlug] = useState('')
@@ -819,9 +824,14 @@ export default function UnifiedChat({
   const autoCreateRef = useRef(false)
 
   // ── Derived ───────────────────────────────────────────────────────────────
+  const linkedProjectIds = useMemo(() => new Set(workspaceProjects.map((project) => project.id)), [workspaceProjects])
   const activeConversation = useMemo(
-    () => conversations.find((c) => c.id === activeId) ?? null,
-    [conversations, activeId],
+    () => conversations.find((conversation) => {
+      if (conversation.id !== activeId) return false
+      const project = conversationProjectIdentity(conversation)
+      return layoutVariant !== 'hermes' || compact || !project || linkedProjectIds.has(project.id)
+    }) ?? null,
+    [conversations, activeId, compact, layoutVariant, linkedProjectIds],
   )
   useEffect(() => {
     if (!preferCurrentPageContext || !currentPageContext) return
@@ -930,7 +940,7 @@ export default function UnifiedChat({
         .map((location) => [location.locationId, location]))
       return catalogue.flatMap((runtime) => {
         const location = linkedLocations.get(projectRuntimeLocationId(runtime))
-        if (!location) return []
+        if (!location || !location.authenticatedRuntime) return []
         const selectable = runtime.selectable && location.availability === 'online'
         return [{
           ...runtime,
@@ -1021,9 +1031,13 @@ export default function UnifiedChat({
     )),
     [projectSetupLocationOptions],
   )
-  const projectSetupHasAvailableLocation = Boolean(projectSetupResult?.linkedLocationIds.some((locationId) =>
-    projectLocationOptions.some((location) => location.locationId === locationId && location.selectable),
-  ))
+  const projectSetupHasAvailableLocation = Boolean(projectSetupResult && workspaceProjects
+    .find((project) => project.id === projectSetupResult.projectId)
+    ?.locations?.some((location) => (
+      projectSetupResult.linkedLocationIds.includes(location.locationId)
+      && location.availability === 'online'
+      && location.authenticatedRuntime
+    )))
   const projectSetupBlocksSession = Boolean(
     projectSetupResult
     && selectedProjectId === projectSetupResult.projectId
@@ -1031,16 +1045,20 @@ export default function UnifiedChat({
   )
   const projectSetupCanSubmit = Boolean(
     projectSetupName.trim()
+    && projectSetupCompanyId
+    && !projectSetupLibraryLoading
     && !projectSetupSubmitting
     && (projectSetupMode === 'existing_folder'
-      ? projectSetupWorkspaceId
+      ? projectSetupExistingProjects.length === 0
+        && projectSetupWorkspaceId
         && projectSetupWorkspaceFolderId
-        && projectSetupLocationId
-        && projectSetupLocationOptions.some((location) => (
-          location.locationId === projectSetupLocationId && location.selectable
-        ))
+        && projectSetupLocationIds.length > 0
+        && projectSetupLocationIds.every((locationId) => projectSetupLocationOptions.some((location) => (
+          location.locationId === locationId && location.selectable
+        )))
       : projectSetupMode === 'standard'
-        ? projectSetupWorkspaceId
+        ? projectSetupExistingProjects.length === 0
+          && projectSetupWorkspaceId
           && projectSetupCanonicalVps
           && projectSetupLocationIds.includes(projectSetupCanonicalVps.locationId)
           && projectSetupLocationIds.length > 0
@@ -1050,6 +1068,37 @@ export default function UnifiedChat({
         : projectSetupClientName.trim() && projectSetupDomainSlug.trim() && projectSetupAgentName.trim()),
   )
   useEffect(() => {
+    if (!showProjectSetupWizard || !projectSetupCompanyId) {
+      setProjectSetupExistingProjects([])
+      setProjectSetupLibraryLoading(false)
+      return
+    }
+    let cancelled = false
+    setProjectSetupLibraryLoading(true)
+    const query = new URLSearchParams({ orgId, companyId: projectSetupCompanyId }).toString()
+    fetch(`/api/v1/project-library?${query}`)
+      .then(async (response) => {
+        const body = await response.json().catch(() => null)
+        if (!response.ok) throw new Error(body?.error ?? `Project lookup: ${response.status}`)
+        if (cancelled) return
+        const projects = Array.isArray(body?.data?.projects) ? body.data.projects : []
+        setProjectSetupExistingProjects(projects.flatMap((project: unknown) => {
+          if (!project || typeof project !== 'object') return []
+          const candidate = project as Record<string, unknown>
+          const id = typeof candidate.id === 'string' ? candidate.id.trim() : ''
+          const name = typeof candidate.name === 'string' ? candidate.name.trim() : ''
+          return id ? [{ id, name: name || 'Company Cowork', added: candidate.added === true }] : []
+        }))
+      })
+      .catch((lookupError) => {
+        if (!cancelled) setProjectSetupError(lookupError instanceof Error ? lookupError.message : 'Project lookup failed')
+      })
+      .finally(() => {
+        if (!cancelled) setProjectSetupLibraryLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [orgId, projectSetupCompanyId, showProjectSetupWizard])
+  useEffect(() => {
     if (!showProjectSetupWizard || projectSetupWorkspaceId) return
     setProjectSetupWorkspaceId(selectedWorkspaceId || workspaces[0]?.workspaceId || '')
   }, [projectSetupWorkspaceId, selectedWorkspaceId, showProjectSetupWizard, workspaces])
@@ -1058,12 +1107,15 @@ export default function UnifiedChat({
     if (!projectSetupWorkspaceFolderId && registeredWorkspaceFolders[0]) {
       setProjectSetupWorkspaceFolderId(registeredWorkspaceFolders[0].id)
     }
-    if (!projectSetupLocationOptions.some((location) => (
-      location.locationId === projectSetupLocationId && location.selectable
-    ))) {
-      setProjectSetupLocationId(projectSetupLocationOptions.find((location) => location.selectable)?.locationId ?? '')
-    }
-  }, [projectSetupLocationId, projectSetupLocationOptions, projectSetupMode, projectSetupWorkspaceFolderId, registeredWorkspaceFolders, showProjectSetupWizard])
+    setProjectSetupLocationIds((current) => {
+      const available = current.filter((locationId) => projectSetupLocationOptions.some((location) => (
+        location.locationId === locationId && location.selectable
+      )))
+      if (available.length > 0) return available
+      const first = projectSetupLocationOptions.find((location) => location.selectable)?.locationId
+      return first ? [first] : []
+    })
+  }, [projectSetupLocationOptions, projectSetupMode, projectSetupWorkspaceFolderId, registeredWorkspaceFolders, showProjectSetupWizard])
   useEffect(() => {
     if (!showProjectSetupWizard || projectSetupMode !== 'standard' || !projectSetupCanonicalVps) return
     setProjectSetupLocationIds((current) => current.includes(projectSetupCanonicalVps.locationId)
@@ -1093,8 +1145,12 @@ export default function UnifiedChat({
   )
   const canUseComposer = allowSendMessages && (Boolean(activeConversation) || allowStartConversations) && !unavailableActiveRuntime
   const visibleConversations = useMemo(
-    () => conversations.filter((conversation) => !conversation.archived),
-    [conversations],
+    () => conversations.filter((conversation) => {
+      if (conversation.archived) return false
+      const project = conversationProjectIdentity(conversation)
+      return layoutVariant !== 'hermes' || compact || !project || linkedProjectIds.has(project.id)
+    }),
+    [compact, conversations, layoutVariant, linkedProjectIds],
   )
   const filteredConversations = useMemo(() => {
     const query = conversationFilter.trim().toLocaleLowerCase()
@@ -1298,10 +1354,14 @@ export default function UnifiedChat({
   const openProjectSetupWizard = useCallback(() => {
     projectSetupIdempotencyKeyRef.current = newProjectSetupIdempotencyKey()
     setProjectSetupMode('existing_folder')
+    setProjectSetupCompanyId('')
+    setProjectSetupCompanyName('')
+    setProjectSetupExistingProjects([])
+    setProjectSetupLibraryLoading(false)
+    setProjectSetupAddingProjectId('')
     setProjectSetupName('')
     setProjectSetupWorkspaceId(selectedWorkspaceId || workspaces[0]?.workspaceId || '')
     setProjectSetupWorkspaceFolderId('')
-    setProjectSetupLocationId('')
     setProjectSetupLocationIds([])
     setProjectSetupClientName('')
     setProjectSetupDomainSlug('')
@@ -1321,6 +1381,43 @@ export default function UnifiedChat({
     setShowNewModal(true)
     openProjectSetupWizard()
   }, [allowStartConversations, openProjectSetupWizard])
+
+  const removeProjectFromSidebar = useCallback(async (projectIdToRemove: string) => {
+    setError(null)
+    try {
+      const query = new URLSearchParams({ orgId, projectId: projectIdToRemove }).toString()
+      const response = await fetch(`/api/v1/project-library?${query}`, { method: 'DELETE' })
+      const body = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(body?.error ?? `Remove project: ${response.status}`)
+      if (selectedProjectId === projectIdToRemove) setSelectedProjectId('')
+      if (managedProject?.id === projectIdToRemove) setManagedProject(null)
+      await refreshWorkspaceCatalogueRef.current()
+    } catch (removeError) {
+      setError(removeError instanceof Error ? removeError.message : 'Could not remove project')
+    }
+  }, [managedProject?.id, orgId, selectedProjectId])
+
+  const addExistingProjectToSidebar = useCallback(async (project: { id: string; name: string }) => {
+    setProjectSetupAddingProjectId(project.id)
+    setProjectSetupError(null)
+    try {
+      const response = await fetch('/api/v1/project-library', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orgId, projectId: project.id }),
+      })
+      const body = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(body?.error ?? `Add project: ${response.status}`)
+      await refreshWorkspaceCatalogueRef.current()
+      setNewScope('project')
+      setSelectedProjectId(project.id)
+      setShowProjectSetupWizard(false)
+    } catch (addError) {
+      setProjectSetupError(addError instanceof Error ? addError.message : 'Could not add project')
+    } finally {
+      setProjectSetupAddingProjectId('')
+    }
+  }, [orgId])
 
   const loadManagedProjectLocations = useCallback(async (projectIdToLoad: string, showLoading = true): Promise<ManagedProjectLocation[]> => {
     if (showLoading) setProjectLocationsLoading(true)
@@ -2613,15 +2710,17 @@ export default function UnifiedChat({
       const payload: Record<string, unknown> = {
         mode: projectSetupMode,
         orgId,
+        companyId: projectSetupCompanyId,
         projectName: projectSetupName.trim(),
       }
       if (projectSetupMode === 'existing_folder') {
-        const location = projectSetupLocationOptions.find((candidate) => candidate.locationId === projectSetupLocationId)
-        if (!location) throw new Error('Select an authorised project location.')
+        const locations = projectSetupLocationOptions.filter((candidate) => projectSetupLocationIds.includes(candidate.locationId) && candidate.selectable)
+        const location = locations[0]
+        if (!location || locations.length !== projectSetupLocationIds.length) throw new Error('Select authorised project locations.')
         payload.workspaceId = projectSetupWorkspaceId
         payload.workspaceFolderId = projectSetupWorkspaceFolderId
         payload.locationId = location.locationId
-        payload.locationIds = [location.locationId]
+        payload.locationIds = locations.map((candidate) => candidate.locationId)
         if (location.mappingId) payload.mappingId = location.mappingId
       } else if (projectSetupMode === 'standard') {
         payload.workspaceId = projectSetupWorkspaceId
@@ -2748,7 +2847,7 @@ export default function UnifiedChat({
     } finally {
       setProjectSetupSubmitting(false)
     }
-  }, [orgId, projectSetupAgentName, projectSetupCanSubmit, projectSetupCanonicalVps, projectSetupClientName, projectSetupDomainSlug, projectSetupLocationId, projectSetupLocationIds, projectSetupLocationOptions, projectSetupMode, projectSetupName, projectSetupSubmitting, projectSetupWorkspaceFolderId, projectSetupWorkspaceId, workspaceProjects, workspaceRuntimeTargetsByWorkspace])
+  }, [orgId, projectSetupAgentName, projectSetupCanSubmit, projectSetupCanonicalVps, projectSetupClientName, projectSetupCompanyId, projectSetupDomainSlug, projectSetupLocationIds, projectSetupLocationOptions, projectSetupMode, projectSetupName, projectSetupSubmitting, projectSetupWorkspaceFolderId, projectSetupWorkspaceId, workspaceProjects, workspaceRuntimeTargetsByWorkspace])
 
   const handleCreateConversation = useCallback(async () => {
     if (creatingConv) return
@@ -3209,6 +3308,15 @@ export default function UnifiedChat({
                         className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60"
                       >
                         <span className="material-symbols-outlined text-[16px]" aria-hidden="true">group_add</span>
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Remove ${project.name} from my projects`}
+                        title={`Remove ${project.name} from my projects`}
+                        onClick={() => void removeProjectFromSidebar(project.id)}
+                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-red-200 focus-visible:ring-2 focus-visible:ring-primary/60"
+                      >
+                        <span className="material-symbols-outlined text-[16px]" aria-hidden="true">remove</span>
                       </button>
                     </div>
                     {(project.locations?.length ?? 0) > 0 && (
@@ -4664,9 +4772,8 @@ export default function UnifiedChat({
                           <fieldset className="grid gap-1.5">
                             <legend className="sr-only">Project setup type</legend>
                             {([
-                              ['existing_folder', 'Link existing folder'],
-                              ['standard', 'Standard PiB project'],
-                              ['full_client', 'Full client workspace'],
+                              ['existing_folder', 'Link existing project'],
+                              ['standard', 'Create new project'],
                             ] as const).map(([mode, label]) => (
                               <label key={mode} className="flex cursor-pointer items-center gap-2 rounded-md border border-[var(--color-card-border)] px-2.5 py-2 text-xs text-[var(--color-pib-text)]">
                                 <input
@@ -4685,6 +4792,49 @@ export default function UnifiedChat({
                           </fieldset>
 
                           <label className="block text-xs text-[var(--color-pib-text)]">
+                            <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Company</span>
+                            <CompanyPicker
+                              currentCompanyId={projectSetupCompanyId}
+                              currentCompanyName={projectSetupCompanyName}
+                              orgScope={{ orgId }}
+                              ariaLabel="Search accessible companies"
+                              allowCreate={false}
+                              onChange={({ companyId, companyName }) => {
+                                setProjectSetupExistingProjects([])
+                                setProjectSetupLibraryLoading(Boolean(companyId))
+                                setProjectSetupCompanyId(companyId ?? '')
+                                setProjectSetupCompanyName(companyName ?? '')
+                                if (companyName) setProjectSetupName(companyName)
+                                setProjectSetupError(null)
+                              }}
+                            />
+                          </label>
+
+                          {projectSetupMode === 'existing_folder' && projectSetupCompanyId && (
+                            <div className="space-y-1.5">
+                              {projectSetupLibraryLoading ? (
+                                <p className="text-xs text-[var(--color-pib-text-muted)]">Checking this company&apos;s projects…</p>
+                              ) : projectSetupExistingProjects.map((project) => (
+                                <div key={project.id} className="flex items-center justify-between gap-2 rounded-md border border-primary/20 bg-primary/5 px-2.5 py-2">
+                                  <div className="min-w-0">
+                                    <p className="truncate text-xs font-semibold text-[var(--color-pib-text)]">{project.name}</p>
+                                    <p className="text-[11px] text-[var(--color-pib-text-muted)]">Existing Cowork project for {projectSetupCompanyName}</p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    aria-label={project.added ? `${project.name} is already in my projects` : `Add ${project.name} to my projects`}
+                                    disabled={project.added || Boolean(projectSetupAddingProjectId)}
+                                    onClick={() => void addExistingProjectToSidebar(project)}
+                                    className="shrink-0 rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-on-primary disabled:opacity-50"
+                                  >
+                                    {project.added ? 'Already added' : projectSetupAddingProjectId === project.id ? 'Adding…' : 'Add project'}
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          <label className="block text-xs text-[var(--color-pib-text)]">
                             <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Project name</span>
                             <input
                               type="text"
@@ -4701,7 +4851,6 @@ export default function UnifiedChat({
                                 value={projectSetupWorkspaceId}
                                 onChange={(event) => {
                                   setProjectSetupWorkspaceId(event.target.value)
-                                  setProjectSetupLocationId('')
                                   setProjectSetupLocationIds([])
                                 }}
                                 disabled={workspaces.length === 0}
@@ -4714,7 +4863,7 @@ export default function UnifiedChat({
                             </label>
                           )}
 
-                          {projectSetupMode === 'existing_folder' && (
+                          {projectSetupMode === 'existing_folder' && !projectSetupLibraryLoading && projectSetupExistingProjects.length === 0 && (
                             <>
                               <label className="block text-xs text-[var(--color-pib-text)]">
                                 <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Registered folder</span>
@@ -4738,28 +4887,39 @@ export default function UnifiedChat({
                                   A folder must first be registered and mapped to this organisation Workspace.
                                 </p>
                               )}
-                              <label className="block text-xs text-[var(--color-pib-text)]">
-                                <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Project location</span>
-                                <select
-                                  value={projectSetupLocationId}
-                                  onChange={(event) => setProjectSetupLocationId(event.target.value)}
-                                  disabled={!projectSetupLocationOptions.some((location) => location.selectable)}
-                                  className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] px-3 py-2 text-sm outline-none focus:border-primary/60 disabled:opacity-60"
-                                >
-                                  {!projectSetupLocationOptions.some((location) => location.selectable) && <option value="">No available locations</option>}
-                                  {projectSetupLocationOptions.map((location) => (
-                                    <option key={location.key} value={location.locationId} disabled={!location.selectable}>
-                                      {location.label} · {location.selectable ? 'online' : 'Computer unavailable'}
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
+                              <fieldset className="space-y-1.5">
+                                <legend className="mb-1 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Project locations</legend>
+                                {projectSetupLocationOptions.length === 0 ? (
+                                  <p className="text-xs text-amber-100">No authorised computers are mapped to this Workspace.</p>
+                                ) : projectSetupLocationOptions.map((location) => (
+                                  <label key={location.key} className={`flex items-center justify-between gap-2 rounded-md border border-[var(--color-card-border)] px-2.5 py-2 text-xs text-[var(--color-pib-text)] ${location.selectable ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
+                                    <span className="flex items-center gap-2">
+                                      <input
+                                        type="checkbox"
+                                        aria-label={`${location.label} · ${location.selectable ? 'online' : 'Computer unavailable'}`}
+                                        checked={projectSetupLocationIds.includes(location.locationId)}
+                                        disabled={!location.selectable}
+                                        onChange={(event) => setProjectSetupLocationIds((current) => event.target.checked
+                                          ? Array.from(new Set([...current, location.locationId]))
+                                          : current.filter((locationId) => locationId !== location.locationId))}
+                                      />
+                                      {location.label}
+                                    </span>
+                                    <span>{location.selectable ? 'Online' : 'Computer unavailable'}</span>
+                                  </label>
+                                ))}
+                              </fieldset>
                             </>
                           )}
 
                           {projectSetupMode === 'standard' && (
                             <fieldset className="space-y-1.5">
                               <legend className="mb-1 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Project locations</legend>
+                              {projectSetupExistingProjects.length > 0 && (
+                                <p className="rounded-md border border-amber-400/20 bg-amber-500/10 px-2.5 py-2 text-xs text-amber-100">
+                                  This company already has a Cowork project. Choose Link existing project to add it without creating a duplicate.
+                                </p>
+                              )}
                               {projectSetupLocationOptions.length === 0 ? (
                                 <p className="text-xs text-amber-100">No authorised computers are mapped to this Workspace.</p>
                               ) : projectSetupLocationOptions.map((location) => {

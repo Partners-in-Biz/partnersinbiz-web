@@ -93,6 +93,10 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /project_user_library/{linkId} {
+      allow read, write: if false;
+    }
+
     match /tasks/{id} {
       allow read: if isAdmin() || isClientFor(resource.data.clientId);
       allow write: if isAdmin();
