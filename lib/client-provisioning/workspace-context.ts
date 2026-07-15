@@ -64,6 +64,8 @@ export type OrgWorkspaceRecord = {
 
 export type ConversationWorkspaceContext = {
   workspaceId: string
+  /** Company Cowork folder identity; does not grant access to a linked organisation. */
+  companyWorkspaceId?: string
   orgId: string
   orgSlug: string
   orgName: string
@@ -78,8 +80,9 @@ export type ConversationWorkspaceContext = {
   shareMode: 'private' | 'shared' | 'org'
   ownerUserId: string
   companyId: string | null
+  companyName?: string
   contactIds: string[]
-  folderScope?: 'organisation' | 'project'
+  folderScope?: 'organisation' | 'company' | 'project'
   folderRelativePath?: string
   vpsWorkingPath?: string
   localWorkingPath?: string
@@ -156,6 +159,19 @@ export async function getDefaultOrgWorkspace(orgId: string): Promise<OrgWorkspac
   return doc ? ({ id: doc.id, ...doc.data() } as OrgWorkspaceRecord) : null
 }
 
+export async function getCompanyWorkspaceByCompanyId(companyId: string): Promise<OrgWorkspaceRecord | null> {
+  const cleanCompanyId = cleanString(companyId)
+  if (!cleanCompanyId) return null
+  const snap = await adminDb.collection(ORG_WORKSPACES_COLLECTION)
+    .where('companyId', '==', cleanCompanyId)
+    .where('status', '==', 'active')
+    .limit(2)
+    .get()
+  if (snap.docs.length !== 1) return null
+  const doc = snap.docs[0]
+  return { id: doc.id, ...doc.data() } as OrgWorkspaceRecord
+}
+
 export async function resolveConversationWorkspaceContext(input: {
   orgId: string
   workspaceId?: string | null
@@ -166,6 +182,8 @@ export async function resolveConversationWorkspaceContext(input: {
   projectId?: string | null
   projectName?: string | null
   folderRelativePath?: string | null
+  companyId?: string | null
+  companyName?: string | null
 }): Promise<ConversationWorkspaceContext | null> {
   const workspace = input.workspaceId
     ? await getOrgWorkspaceById(input.workspaceId)
@@ -174,7 +192,7 @@ export async function resolveConversationWorkspaceContext(input: {
   const runtimeTarget = (input.runtimeTarget || workspace.defaultRuntimeTarget || 'vps') as WorkspaceRuntimeTarget
   const projectId = cleanString(input.projectId)
   const projectName = cleanString(input.projectName)
-  let projectCompanyId = ''
+  let projectCompanyId = cleanString(input.companyId)
   if (projectId && !projectId.includes('/')) {
     const projectSnapshot = await adminDb.collection('projects').doc(projectId).get()
     if (projectSnapshot.exists) {
@@ -185,6 +203,15 @@ export async function resolveConversationWorkspaceContext(input: {
       }
     }
   }
+  const companyWorkspace = projectCompanyId
+    ? await getCompanyWorkspaceByCompanyId(projectCompanyId)
+    : null
+  // A company-root session must never fall back to the organisation root.
+  // Legacy project rows may still lack a company Workspace link; keep those
+  // on their existing organisation project path until their CRM link is repaired.
+  if (cleanString(input.companyId) && !companyWorkspace) return null
+  const companyName = cleanString(input.companyName) || companyWorkspace?.orgName || ''
+  const workspaceRoot = companyWorkspace ?? workspace
   const requestedFolderRelativePath = cleanString(input.folderRelativePath)
   const folderRelativePath = projectId
     ? requestedFolderRelativePath || `projects/${projectId}`
@@ -202,8 +229,9 @@ export async function resolveConversationWorkspaceContext(input: {
     orgSlug: workspace.orgSlug,
     orgName: workspace.orgName,
     agentDomain: workspace.agentDomain,
-    vpsPath: workspace.vpsPath,
-    localPath: workspace.localPath,
+    ...(companyWorkspace ? { companyWorkspaceId: companyWorkspace.workspaceId } : {}),
+    vpsPath: workspaceRoot.vpsPath,
+    localPath: workspaceRoot.localPath,
     agentDomainPath: workspace.agentDomainPath,
     localAgentDomainPath: workspace.localAgentDomainPath,
     sourceOfTruth: 'vps',
@@ -212,11 +240,12 @@ export async function resolveConversationWorkspaceContext(input: {
     shareMode: input.shareMode || 'private',
     ownerUserId: input.ownerUserId,
     companyId: projectCompanyId || workspace.companyId || null,
+    ...(companyName ? { companyName } : {}),
     contactIds: Array.isArray(workspace.contactIds) ? workspace.contactIds : [],
-    folderScope: projectId ? 'project' : 'organisation',
+    folderScope: projectId ? 'project' : projectCompanyId ? 'company' : 'organisation',
     folderRelativePath,
-    vpsWorkingPath: folderRelativePath ? `${workspace.vpsPath}/${folderRelativePath}` : workspace.vpsPath,
-    localWorkingPath: folderRelativePath ? `${workspace.localPath}/${folderRelativePath}` : workspace.localPath,
+    vpsWorkingPath: folderRelativePath ? `${workspaceRoot.vpsPath}/${folderRelativePath}` : workspaceRoot.vpsPath,
+    localWorkingPath: folderRelativePath ? `${workspaceRoot.localPath}/${folderRelativePath}` : workspaceRoot.localPath,
     ...(projectId ? { projectId } : {}),
     ...(projectName ? { projectName } : {}),
   }

@@ -256,8 +256,7 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     await within(wizard).findByRole('button', { name: 'Add Acme Cowork to my projects' })
     expect(within(wizard).queryByLabelText('Registered folder')).not.toBeInTheDocument()
     fireEvent.click(within(wizard).getByRole('radio', { name: 'Create new project' }))
-    expect(within(wizard).getByText(/already has a Cowork project/i)).toBeInTheDocument()
-    expect(within(wizard).getByRole('button', { name: 'Create project' })).toBeDisabled()
+    expect(within(wizard).queryByText(/already has a Cowork project/i)).not.toBeInTheDocument()
     fireEvent.click(within(wizard).getByRole('radio', { name: 'Link existing project' }))
     fireEvent.click(within(wizard).getByRole('button', { name: 'Add Acme Cowork to my projects' }))
 
@@ -318,10 +317,10 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     )
 
     fireEvent.click(await screen.findByRole('button', { name: /new conversation/i }))
-    const workspaceContextOption = screen.getByRole('option', { name: 'Organisation Workspace folder' })
+    const workspaceContextOption = screen.getByRole('option', { name: 'Organisation root folder' })
     fireEvent.change(workspaceContextOption.parentElement as HTMLSelectElement, { target: { value: 'workspace' } })
 
-    expect(await screen.findByText(/VPS-canonical organisation Workspace/i)).toBeInTheDocument()
+    expect(await screen.findByText(/Current organisation root folder/i)).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Acme Mac · online' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: /Beta PC/ })).not.toBeInTheDocument()
     expect(screen.queryByText(/\/var\/lib\/hermes/i)).not.toBeInTheDocument()

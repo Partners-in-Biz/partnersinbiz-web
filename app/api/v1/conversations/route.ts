@@ -30,6 +30,7 @@ import type { AuthorizedWorkspaceRuntime } from '@/lib/workspaces/runtime-author
 import { requireProjectRuntimeReplica } from '@/lib/project-locations/runtime-binding'
 import { getProjectForUser } from '@/lib/projects/access'
 import { projectLinkedToOrganization } from '@/lib/projects/organization-link'
+import { getConversationCompanyForUser } from '@/lib/companies/conversation-access'
 import { publicConversationView } from '@/lib/conversations/access'
 import { organizationMemberUids } from '@/lib/conversations/participant-access'
 import { resolveConversationDispatchAgentId } from '@/lib/conversations/dispatch-agent'
@@ -240,6 +241,8 @@ export const POST = withAuth(
     }
     let projectName: string | undefined
     let projectFolderRelativePath: string | undefined
+    let companyId: string | undefined
+    let companyName: string | undefined
     if (convScope === 'project') {
       if (!scopeRefId) return apiError('scopeRefId is required for project conversations', 400)
       if (!requestedWorkspaceId || !runtimeTarget) {
@@ -253,7 +256,18 @@ export const POST = withAuth(
       }
       projectName = typeof projectData.name === 'string' ? projectData.name.trim() : undefined
     }
-    const shouldBindWorkspace = convScope === 'workspace' || convScope === 'project' || Boolean(requestedWorkspaceId)
+    if (convScope === 'company') {
+      if (!scopeRefId) return apiError('scopeRefId is required for company conversations', 400)
+      if (!requestedWorkspaceId || !runtimeTarget) {
+        return apiError('workspaceId and runtimeTarget are required for company conversations', 400)
+      }
+      const company = await getConversationCompanyForUser(scopeRefId, scope.orgId, user)
+      if (!company) return apiError('Company not found', 404)
+      companyId = company.id
+      companyName = company.name
+    }
+    const shouldBindWorkspace = convScope === 'workspace' || convScope === 'company'
+      || convScope === 'project' || Boolean(requestedWorkspaceId)
     let runtimeLabel: string | undefined
     let authorizedWorkspaceRuntime: AuthorizedWorkspaceRuntime | null = null
     if (shouldBindWorkspace && runtimeTarget) {
@@ -308,6 +322,8 @@ export const POST = withAuth(
           projectId: convScope === 'project' ? scopeRefId : undefined,
           projectName,
           folderRelativePath: projectFolderRelativePath,
+          companyId,
+          companyName,
         })
       : null
     if (shouldBindWorkspace && !workspaceContext) return apiError('Workspace not found for this organisation', 404)

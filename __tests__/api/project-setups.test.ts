@@ -4,6 +4,7 @@ const mockHandleProjectCreate = jest.fn()
 const mockHandleOrganizationCreate = jest.fn()
 const mockGetOrgWorkspaceById = jest.fn()
 const mockGetDefaultOrgWorkspace = jest.fn()
+const mockGetCompanyWorkspaceByCompanyId = jest.fn()
 const mockListExecutionLocationsForWorkspace = jest.fn()
 const mockLinkProjectLocation = jest.fn()
 const mockProvisionStandardProjectFolder = jest.fn()
@@ -33,6 +34,7 @@ jest.mock('@/app/api/v1/organizations/route', () => ({
 jest.mock('@/lib/client-provisioning/workspace-context', () => ({
   getOrgWorkspaceById: (...args: unknown[]) => mockGetOrgWorkspaceById(...args),
   getDefaultOrgWorkspace: (...args: unknown[]) => mockGetDefaultOrgWorkspace(...args),
+  getCompanyWorkspaceByCompanyId: (...args: unknown[]) => mockGetCompanyWorkspaceByCompanyId(...args),
 }))
 jest.mock('@/lib/project-locations/store', () => ({
   listExecutionLocationsForWorkspace: (...args: unknown[]) => mockListExecutionLocationsForWorkspace(...args),
@@ -107,6 +109,13 @@ beforeEach(() => {
   }
   mockGetOrgWorkspaceById.mockResolvedValue(workspace)
   mockGetDefaultOrgWorkspace.mockResolvedValue(workspace)
+  mockGetCompanyWorkspaceByCompanyId.mockResolvedValue({
+    ...workspace,
+    workspaceId: 'acme-company',
+    orgId: 'linked-client-org',
+    vpsPath: '/var/lib/hermes/Cowork/Acme',
+    localPath: '/Users/peetstander/Cowork/Acme',
+  })
   mockListExecutionLocationsForWorkspace.mockResolvedValue([vps])
   mockProvisionStandardProjectFolder.mockResolvedValue({
     projectId: 'project-1', relativePath: 'projects/project-1', folderStatus: 'provisioned', syncStatus: 'pending',
@@ -153,6 +162,9 @@ describe('POST /api/v1/project-setups', () => {
     expect(mockAddProjectToUserLibrary).toHaveBeenCalledWith({
       orgId: 'pib-org', userId: 'peet-user', projectId: 'project-1', companyId: 'company-1',
     })
+    expect(mockProvisionStandardProjectFolder).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: 'partners', workspacePath: '/var/lib/hermes/Cowork/Acme',
+    }))
   })
 
   it('rejects setup when the selected company is outside the user CRM access', async () => {
@@ -175,7 +187,7 @@ describe('POST /api/v1/project-setups', () => {
     }]
     const { POST } = await import('@/app/api/v1/project-setups/route')
     const response = await POST(request({
-      mode, orgId: 'pib-org', companyId: 'company-1', projectName: 'Duplicate', workspaceId: 'partners',
+      mode, orgId: 'pib-org', companyId: 'company-1', projectName: '  ACME   cowork ', workspaceId: 'partners',
       locationIds: ['partners-vps'],
     }))
 
@@ -185,6 +197,21 @@ describe('POST /api/v1/project-setups', () => {
     }))
     expect(mockSetupOperationClaim).not.toHaveBeenCalled()
     expect(mockHandleProjectCreate).not.toHaveBeenCalled()
+  })
+
+  it('allows multiple differently named projects for the same company', async () => {
+    mockExistingCompanyProjectDocs = [{
+      id: 'existing-company-project',
+      data: () => ({ orgId: 'pib-org', sourceCompanyId: 'company-1', name: 'Website', status: 'active' }),
+    }]
+    const { POST } = await import('@/app/api/v1/project-setups/route')
+    const response = await POST(request({
+      mode: 'standard', orgId: 'pib-org', companyId: 'company-1', projectName: 'SEO Sprint',
+      workspaceId: 'partners', locationIds: ['partners-vps'],
+    }))
+
+    expect(response.status).toBe(202)
+    expect(mockHandleProjectCreate).toHaveBeenCalled()
   })
 
   it('executes standard setup through the existing project business handler', async () => {
@@ -321,13 +348,16 @@ describe('POST /api/v1/project-setups', () => {
     ))).toBe(true)
   })
 
-  it('keeps full-client setup admin-only before calling the organisation handler', async () => {
-    mockUser = { uid: 'client-user', role: 'client', orgId: 'pib-org', orgIds: ['pib-org'] }
+  it('never auto-creates an organisation from company project setup', async () => {
     const { POST } = await import('@/app/api/v1/project-setups/route')
     const response = await POST(request({ mode: 'full_client', clientName: 'Acme', projectName: 'Launch' }))
 
-    expect(response.status).toBe(403)
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual(expect.objectContaining({
+      error: expect.stringMatching(/Automatic organisation creation is disabled/i),
+    }))
     expect(mockHandleOrganizationCreate).not.toHaveBeenCalled()
+    expect(mockSetupOperationClaim).not.toHaveBeenCalled()
   })
 
   it('requires a caller idempotency key before any setup side effect', async () => {

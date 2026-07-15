@@ -54,6 +54,22 @@ it('authorizes a canonical organisation root', async () => {
   })
 })
 
+it('defers VPS filesystem existence checks to the authenticated remote runtime', async () => {
+  const remoteRoot = '/var/lib/hermes/Cowork/Partners in Biz'
+
+  await expect(resolveAuthorizedWorkingDirectory({
+    workspaceContext: context({
+      runtimeTarget: 'vps',
+      vpsPath: remoteRoot,
+      vpsWorkingPath: remoteRoot,
+    }),
+  })).resolves.toEqual({
+    ok: true,
+    directory: remoteRoot,
+    pathClass: 'organisation',
+  })
+})
+
 it('authorizes an existing active project directory', async () => {
   const project = join(root, 'projects', 'project-1')
   await mkdir(project, { recursive: true })

@@ -9,6 +9,7 @@ import { handleProjectCreate } from '@/app/api/v1/projects/route'
 import { handleOrganizationCreate } from '@/app/api/v1/organizations/route'
 import {
   getDefaultOrgWorkspace,
+  getCompanyWorkspaceByCompanyId,
   getOrgWorkspaceById,
   upsertOrgWorkspace,
 } from '@/lib/client-provisioning/workspace-context'
@@ -88,7 +89,9 @@ function safeFolderId(value: string): boolean {
   return Boolean(value && value.length <= 256 && !value.includes('/') && !/[\u0000-\u001f]/.test(value))
 }
 
-async function findExistingCompanyProject(orgId: string, companyId: string): Promise<{ id: string; name: string } | null> {
+async function findDuplicateCompanyProject(orgId: string, companyId: string, projectName: string): Promise<{ id: string; name: string } | null> {
+  const normalizedName = projectName.trim().toLocaleLowerCase().replace(/\s+/g, ' ')
+  if (!normalizedName) return null
   const snapshots = await Promise.all([
     adminDb.collection('projects').where('sourceOrgId', '==', orgId).get(),
     adminDb.collection('projects').where('orgId', '==', orgId).get(),
@@ -100,7 +103,9 @@ async function findExistingCompanyProject(orgId: string, companyId: string): Pro
       seen.add(document.id)
       const project = record(document.data())
       const active = project.active !== false && clean(project.status).toLowerCase() !== 'archived'
-      if (active && clean(project.sourceCompanyId || project.companyId) === companyId) {
+      const existingName = clean(project.name)
+      if (active && clean(project.sourceCompanyId || project.companyId) === companyId
+        && existingName.toLocaleLowerCase().replace(/\s+/g, ' ') === normalizedName) {
         return { id: document.id, name: clean(project.name) || 'Existing project' }
       }
     }
@@ -173,10 +178,19 @@ function dependencies(user: ApiUser, setupOperationId: string, setupInput: Recor
       })
     },
     async getWorkspace(orgId, workspaceId) {
-      const workspace = workspaceId
+      const runtimeWorkspace = workspaceId
         ? await getOrgWorkspaceById(workspaceId)
         : await getDefaultOrgWorkspace(orgId)
-      return workspace && workspace.orgId === orgId ? workspace : null
+      if (!runtimeWorkspace || runtimeWorkspace.orgId !== orgId) return null
+      if (!companyId) return runtimeWorkspace
+      const companyWorkspace = await getCompanyWorkspaceByCompanyId(companyId)
+      if (!companyWorkspace) return null
+      return {
+        ...runtimeWorkspace,
+        companyId,
+        vpsPath: companyWorkspace.vpsPath,
+        localPath: companyWorkspace.localPath,
+      }
     },
     async getWorkspaceFolder(folderId, orgId, actor) {
       if (!safeFolderId(folderId)) return null
@@ -212,7 +226,9 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
 
   const idempotencyKey = req.headers.get('idempotency-key')?.trim() ?? ''
   if (!idempotencyKey) return apiError('Idempotency-Key header is required', 400)
-  if (body.mode === 'full_client' && user.role !== 'admin') return apiError('admin role required for full_client setup', 403)
+  if (body.mode === 'full_client') {
+    return apiError('Automatic organisation creation is disabled. Create the CRM company folder and record any linked organisation in its AGENTS.md metadata.', 400)
+  }
 
   if (body.mode !== 'full_client') {
     const orgId = clean(body.orgId)
@@ -223,9 +239,9 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
       return apiError('Company is not available in this organisation', 403)
     }
     if (companyId && (body.mode === 'standard' || body.mode === 'existing_folder')) {
-      const existingProject = await findExistingCompanyProject(orgId, companyId)
-      if (existingProject) {
-        return apiError(`A Cowork project already exists for this company: ${existingProject.name}. Link the existing project instead.`, 409)
+      const duplicateProject = await findDuplicateCompanyProject(orgId, companyId, clean(body.projectName || body.name))
+      if (duplicateProject) {
+        return apiError(`A project named ${duplicateProject.name} already exists for this company. Link it instead of creating a duplicate.`, 409)
       }
     }
   }

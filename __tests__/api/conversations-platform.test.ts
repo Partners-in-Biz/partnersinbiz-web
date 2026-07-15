@@ -175,7 +175,18 @@ beforeEach(() => {
         where: () => ({
           where: () => ({
             get: async () => ({ docs: [{ id: 'acme', data: () => workspaceData }] }),
-            limit: () => ({ get: async () => ({ docs: [] }) }),
+            limit: () => ({ get: async () => ({ docs: [{ id: 'acme', data: () => workspaceData }] }) }),
+          }),
+        }),
+      }
+    }
+    if (name === 'companies') {
+      return {
+        doc: (id: string) => ({
+          get: async () => ({
+            exists: id === 'company-1',
+            id,
+            data: () => ({ id, orgId: 'org-1', name: 'Acme', deleted: false }),
           }),
         }),
       }
@@ -235,6 +246,9 @@ beforeEach(() => {
     }
     if (name === 'projectMembers') {
       return { where: () => ({ get: async () => ({ docs: [] }) }) }
+    }
+    if (name === 'project_user_library') {
+      return { where: () => ({ where: () => ({ get: async () => ({ docs: [] }) }) }) }
     }
     throw new Error(`Unexpected collection: ${name}`)
   })
@@ -478,6 +492,34 @@ describe('platform-scoped unified conversations', () => {
         projectName: 'Website launch',
         vpsWorkingPath: '/var/lib/hermes/Cowork/Acme/clients/acme/website-launch',
         localWorkingPath: '~/Cowork/Acme/clients/acme/website-launch',
+      }),
+    }))
+  })
+
+  it('binds a company conversation to the CRM company Cowork root without switching organisations', async () => {
+    const { POST } = await import('@/app/api/v1/conversations/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/conversations', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        scope: 'company',
+        scopeRefId: 'company-1',
+        workspaceId: 'acme',
+        runtimeTarget: 'vps',
+        participants: [{ kind: 'agent', agentId: 'pip' }],
+      }),
+    }))
+
+    expect(res.status).toBe(201)
+    expect(mockAuthorizeWorkspaceRuntime).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'admin-1', orgId: 'org-1', workspaceId: 'acme', runtimeTargetId: 'vps',
+    }))
+    expect(mockCreateConversation).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1', scope: 'company', scopeRefId: 'company-1',
+      workspaceContext: expect.objectContaining({
+        orgId: 'org-1', workspaceId: 'acme', companyId: 'company-1', companyName: 'Acme',
+        companyWorkspaceId: 'acme', folderScope: 'company',
+        vpsWorkingPath: '/var/lib/hermes/Cowork/Acme',
       }),
     }))
   })

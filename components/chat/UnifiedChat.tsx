@@ -753,6 +753,8 @@ export default function UnifiedChat({
   const [workspaceCatalogueLoaded, setWorkspaceCatalogueLoaded] = useState(false)
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('')
   const [selectedProjectId, setSelectedProjectId] = useState(projectId ?? '')
+  const [selectedCompanyId, setSelectedCompanyId] = useState('')
+  const [selectedCompanyName, setSelectedCompanyName] = useState('')
   const [selectedWorkspaceRuntime, setSelectedWorkspaceRuntime] = useState<string>('')
   const workspaceRuntimeExplicitRef = useRef(false)
   const [selectedWorkspaceShareMode, setSelectedWorkspaceShareMode] = useState<'private' | 'shared' | 'org'>('private')
@@ -1043,6 +1045,10 @@ export default function UnifiedChat({
     && selectedProjectId === projectSetupResult.projectId
     && !projectSetupHasAvailableLocation,
   )
+  const projectSetupDuplicateName = Boolean(projectSetupName.trim() && projectSetupExistingProjects.some((project) => (
+    project.name.trim().toLocaleLowerCase().replace(/\s+/g, ' ')
+      === projectSetupName.trim().toLocaleLowerCase().replace(/\s+/g, ' ')
+  )))
   const projectSetupCanSubmit = Boolean(
     projectSetupName.trim()
     && projectSetupCompanyId
@@ -1057,7 +1063,7 @@ export default function UnifiedChat({
           location.locationId === locationId && location.selectable
         )))
       : projectSetupMode === 'standard'
-        ? projectSetupExistingProjects.length === 0
+        ? !projectSetupDuplicateName
           && projectSetupWorkspaceId
           && projectSetupCanonicalVps
           && projectSetupLocationIds.includes(projectSetupCanonicalVps.locationId)
@@ -2855,7 +2861,7 @@ export default function UnifiedChat({
       setError('Starting new conversations is disabled for your organisation role.')
       return
     }
-    if ((newScope === 'workspace' || newScope === 'project') && !selectedWorkspaceRuntimeIsValid) {
+    if ((newScope === 'workspace' || newScope === 'company' || newScope === 'project') && !selectedWorkspaceRuntimeIsValid) {
       setError('Select an available runtime for this Workspace before starting the conversation.')
       return
     }
@@ -2879,6 +2885,14 @@ export default function UnifiedChat({
       if (newScope !== 'general') payload.scope = newScope
       if (newScope === 'workspace') {
         if (!selectedWorkspaceId) throw new Error('Select a Workspace before starting a Workspace chat.')
+        payload.workspaceId = selectedWorkspaceId
+        payload.runtimeTarget = selectedWorkspaceRuntime
+        payload.shareMode = selectedWorkspaceShareMode
+      }
+      if (newScope === 'company') {
+        if (!selectedCompanyId) throw new Error('Select a company before starting a company Cowork chat.')
+        if (!selectedWorkspaceId) throw new Error('No organisation runtime Workspace is available for this company.')
+        payload.scopeRefId = selectedCompanyId
         payload.workspaceId = selectedWorkspaceId
         payload.runtimeTarget = selectedWorkspaceRuntime
         payload.shareMode = selectedWorkspaceShareMode
@@ -2919,7 +2933,7 @@ export default function UnifiedChat({
     } finally {
       setCreatingConv(false)
     }
-  }, [allowStartConversations, creatingConv, newParticipants, newTitle, newScope, orgId, projectId, projectSetupBlocksSession, scope, scopeRefId, contextRefs, selectedWorkspaceId, selectedWorkspaceRuntime, selectedWorkspaceRuntimeIsValid, selectedWorkspaceShareMode, selectedProjectId])
+  }, [allowStartConversations, creatingConv, newParticipants, newTitle, newScope, orgId, projectId, projectSetupBlocksSession, scope, scopeRefId, contextRefs, selectedWorkspaceId, selectedWorkspaceRuntime, selectedWorkspaceRuntimeIsValid, selectedWorkspaceShareMode, selectedProjectId, selectedCompanyId])
 
   const send = useCallback(
     async (e: FormEvent) => {
@@ -3149,9 +3163,10 @@ export default function UnifiedChat({
   const subtitle = [orgName, scopeLabel].filter(Boolean).join(' · ')
   const availableConversationContexts = [
     { value: 'general' as const, label: `General conversation${orgName ? `: ${orgName}` : ''}` },
-    ...(workspaces.length > 0 ? [{ value: 'workspace' as const, label: 'Organisation Workspace folder' }] : []),
-    { value: 'project' as const, label: 'Project inside organisation' },
-    ...(scope && scope !== 'general' && scope !== 'project' && scope !== 'workspace'
+    ...(workspaces.length > 0 ? [{ value: 'workspace' as const, label: 'Organisation root folder' }] : []),
+    ...(workspaces.length > 0 ? [{ value: 'company' as const, label: 'Company Cowork folder' }] : []),
+    { value: 'project' as const, label: 'Project inside company' },
+    ...(scope && scope !== 'general' && scope !== 'project' && scope !== 'workspace' && scope !== 'company'
       ? [{ value: scope, label: `Current ${scope}: ${scopeRefId ?? 'selected item'}` }]
       : []),
   ]
@@ -4624,11 +4639,13 @@ export default function UnifiedChat({
                 </select>
               </div>
 
-              {(newScope === 'workspace' || newScope === 'project') && (
+              {(newScope === 'workspace' || newScope === 'company' || newScope === 'project') && (
                 <div className="grid gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3 sm:grid-cols-[minmax(0,1fr)_160px]">
                   <div>
                     <label className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
-                      {newScope === 'project' ? 'Project folder' : 'Organisation Workspace'}
+                      {newScope === 'project'
+                        ? 'Project folder'
+                        : newScope === 'company' ? 'Company Cowork folder' : 'Organisation root'}
                     </label>
                     {newScope === 'project' ? (
                       <div className="flex items-center gap-2">
@@ -4653,6 +4670,17 @@ export default function UnifiedChat({
                           New project
                         </button>
                       </div>
+                    ) : newScope === 'company' ? (
+                      <CompanyPicker
+                        currentCompanyId={selectedCompanyId}
+                        currentCompanyName={selectedCompanyName}
+                        ariaLabel="Search accessible companies"
+                        allowCreate={false}
+                        onChange={({ companyId, companyName }) => {
+                          setSelectedCompanyId(companyId ?? '')
+                          setSelectedCompanyName(companyName ?? '')
+                        }}
+                      />
                     ) : (
                       <select
                         value={selectedWorkspaceId}
@@ -4670,8 +4698,10 @@ export default function UnifiedChat({
                     {selectedWorkspace && (
                       <div className="mt-1 truncate text-[11px] text-[var(--color-pib-text-muted)]">
                         {newScope === 'project'
-                          ? 'VPS-canonical project scope'
-                          : 'VPS-canonical organisation Workspace'}
+                          ? 'Company project folder on the selected computer'
+                          : newScope === 'company'
+                            ? 'Top-level CRM company Cowork folder'
+                            : 'Current organisation root folder'}
                       </div>
                     )}
                   </div>
@@ -4715,7 +4745,7 @@ export default function UnifiedChat({
                       </p>
                     )}
                     <div className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">
-                      Only healthy computers mapped to this Workspace can run files here.
+                      Only healthy computers authorised for the current organisation can run files here.
                     </div>
                     {newScope === 'project' && selectedProjectId && workspaceRuntimeTargets.length === 0 && (
                       <p role="status" className="mt-2 text-xs text-amber-200">
@@ -4846,7 +4876,7 @@ export default function UnifiedChat({
 
                           {projectSetupMode !== 'full_client' && (
                             <label className="block text-xs text-[var(--color-pib-text)]">
-                              <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Mapped Workspace</span>
+                              <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Current organisation runtime access</span>
                               <select
                                 value={projectSetupWorkspaceId}
                                 onChange={(event) => {
@@ -4860,6 +4890,9 @@ export default function UnifiedChat({
                                   <option key={workspace.workspaceId} value={workspace.workspaceId}>{workspace.orgName}</option>
                                 ))}
                               </select>
+                              <span className="mt-1 block text-[11px] text-[var(--color-pib-text-muted)]">
+                                This authorises the computer from the current organisation. The selected CRM company determines the Cowork folder.
+                              </span>
                             </label>
                           )}
 
@@ -4915,9 +4948,9 @@ export default function UnifiedChat({
                           {projectSetupMode === 'standard' && (
                             <fieldset className="space-y-1.5">
                               <legend className="mb-1 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Project locations</legend>
-                              {projectSetupExistingProjects.length > 0 && (
+                              {projectSetupDuplicateName && (
                                 <p className="rounded-md border border-amber-400/20 bg-amber-500/10 px-2.5 py-2 text-xs text-amber-100">
-                                  This company already has a Cowork project. Choose Link existing project to add it without creating a duplicate.
+                                  A project with this name already exists for the company. Add that project instead or use a different name.
                                 </p>
                               )}
                               {projectSetupLocationOptions.length === 0 ? (
@@ -4949,7 +4982,7 @@ export default function UnifiedChat({
                                   A verified online organisation VPS is required before creating a standard project.
                                 </p>
                               )}
-                              <p className="text-[11px] text-[var(--color-pib-text-muted)]">The organisation VPS is always linked. Select every additional computer that should keep this project in sync.</p>
+                              <p className="text-[11px] text-[var(--color-pib-text-muted)]">The company folder on the organisation VPS is always linked. Select every additional computer that should keep this project in sync.</p>
                             </fieldset>
                           )}
 
@@ -5066,7 +5099,7 @@ export default function UnifiedChat({
               <button
                 type="button"
                 onClick={handleCreateConversation}
-                disabled={!allowStartConversations || creatingConv || newParticipants.length === 0 || ((newScope === 'workspace' || newScope === 'project') && !selectedWorkspaceRuntimeIsValid) || (newScope === 'workspace' && !selectedWorkspaceId) || (newScope === 'project' && (!selectedProjectId || !selectedWorkspaceId || projectSetupBlocksSession))}
+                disabled={!allowStartConversations || creatingConv || newParticipants.length === 0 || ((newScope === 'workspace' || newScope === 'company' || newScope === 'project') && !selectedWorkspaceRuntimeIsValid) || (newScope === 'workspace' && !selectedWorkspaceId) || (newScope === 'company' && (!selectedCompanyId || !selectedWorkspaceId)) || (newScope === 'project' && (!selectedProjectId || !selectedWorkspaceId || projectSetupBlocksSession))}
                 className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary disabled:opacity-50 hover:opacity-90"
               >
                 {creatingConv ? 'Creating…' : 'Start conversation'}
