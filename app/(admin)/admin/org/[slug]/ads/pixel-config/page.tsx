@@ -28,7 +28,7 @@ export default async function PixelConfigPage({ params }: { params: Promise<Para
       <header>
         <p className="eyebrow">Ads · Pixel &amp; CAPI</p>
         <h1 className="pib-page-title mt-2">Pixel &amp; Conversions API</h1>
-        <p className="pib-page-sub">Configure server-side and browser tracking for this client's ad accounts.</p>
+        <p className="pib-page-sub">Configure server-side and browser tracking for this client&apos;s ad accounts.</p>
       </header>
       <PixelConfigPanel orgId={orgId} orgSlug={slug} initialConfigs={configs} />
 
