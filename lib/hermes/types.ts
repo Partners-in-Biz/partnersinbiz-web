@@ -47,6 +47,7 @@ export interface HermesRunRequest {
   prompt: string
   conversation_id?: string
   working_directory?: string
+  working_directory_root?: string
   model?: string
   reasoning_effort?: string
   provider?: string
