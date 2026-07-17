@@ -447,6 +447,7 @@ describe('unified conversation message routing', () => {
     })
     expect(mockCreateHermesRun.mock.calls[0][2]).toEqual(expect.objectContaining({
       working_directory: '/Users/peetstander/Cowork/Partners in Biz/projects/website',
+      working_directory_root: '/Users/peetstander/Cowork/Partners in Biz',
       metadata: expect.objectContaining({
         requestedRuntimeTargetId: 'local',
         runtimeTargetId: 'local',

@@ -636,6 +636,7 @@ export const POST = withAuth(
         }
       }
       let selectedWorkingDirectory: string | undefined
+      let selectedWorkingDirectoryRoot: string | undefined
       let workspacePathClass: 'organisation' | 'company' | 'project' | undefined
       if (conversation.workspaceContext && !linkedComputerBinding) {
         const workingDirectory = await resolveAuthorizedWorkingDirectory({
@@ -664,6 +665,9 @@ export const POST = withAuth(
           }, 201)
         }
         selectedWorkingDirectory = workingDirectory.directory
+        selectedWorkingDirectoryRoot = conversation.workspaceContext.runtimeTarget === 'local'
+          ? conversation.workspaceContext.localPath
+          : conversation.workspaceContext.vpsPath
         workspacePathClass = workingDirectory.pathClass
       }
 
@@ -674,6 +678,7 @@ export const POST = withAuth(
         prompt: hermesInput,
         conversation_id: convId,
         ...(selectedWorkingDirectory ? { working_directory: selectedWorkingDirectory } : {}),
+        ...(selectedWorkingDirectoryRoot ? { working_directory_root: selectedWorkingDirectoryRoot } : {}),
         ...(modelSelection?.model ? { model: modelSelection.model } : {}),
         ...(modelSelection?.provider ? { provider: modelSelection.provider } : {}),
         ...(agentEffort ? { reasoning_effort: agentEffort } : {}),

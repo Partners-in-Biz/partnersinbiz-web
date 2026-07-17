@@ -21,6 +21,24 @@ function isContained(root: string, candidate: string): boolean {
   return fromRoot === '' || (!fromRoot.startsWith(`..${sep}`) && fromRoot !== '..' && !isAbsolute(fromRoot))
 }
 
+function isPortableHomePath(value: string): boolean {
+  return value.startsWith('~/') && !value.includes('\\')
+}
+
+function lexicalPath(value: string): string {
+  return isPortableHomePath(value)
+    ? resolve('/__runtime_home__', value.slice(2))
+    : resolve(value)
+}
+
+function resolveRuntimePath(root: string, child: string): string {
+  if (!isPortableHomePath(root)) return resolve(root, child)
+  const runtimeHome = '/__runtime_home__'
+  const candidate = resolve(lexicalPath(root), child)
+  const homeRelative = relative(runtimeHome, candidate).split(sep).join('/')
+  return `~/${homeRelative}`
+}
+
 async function containsSymlink(root: string, candidate: string): Promise<boolean> {
   const fromRoot = relative(root, candidate)
   if (!fromRoot) return false
@@ -52,14 +70,21 @@ export async function resolveAuthorizedWorkingDirectory(input: {
   const authorizedProjectRelativePath = input.projectRelativePath?.trim()
     || (effectiveProjectId ? `projects/${effectiveProjectId}` : '')
   const configuredDirectory = projectPathClass && authorizedProjectRelativePath && configuredRoot
-    ? resolve(configuredRoot, authorizedProjectRelativePath)
+    ? resolveRuntimePath(configuredRoot, authorizedProjectRelativePath)
     : persistedDirectory
-  if (!configuredRoot || !configuredDirectory || !isAbsolute(configuredRoot) || !isAbsolute(configuredDirectory)) {
+  const portableHomePath = Boolean(
+    configuredRoot
+    && configuredDirectory
+    && isPortableHomePath(configuredRoot)
+    && isPortableHomePath(configuredDirectory),
+  )
+  if (!configuredRoot || !configuredDirectory
+    || (!portableHomePath && (!isAbsolute(configuredRoot) || !isAbsolute(configuredDirectory)))) {
     return failure('workspace_root_invalid')
   }
 
-  const lexicalRoot = resolve(configuredRoot)
-  const lexicalDirectory = resolve(configuredDirectory)
+  const lexicalRoot = lexicalPath(configuredRoot)
+  const lexicalDirectory = lexicalPath(configuredDirectory)
   if (!isContained(lexicalRoot, lexicalDirectory)) return failure('workspace_directory_outside_root')
 
   try {
@@ -97,8 +122,8 @@ export async function resolveAuthorizedWorkingDirectory(input: {
     // root, the contained relative path, and the organisation/project grant.
     // Hermes performs the realpath, symlink, existence, and directory checks
     // again on the authenticated runtime before accepting the run.
-    if (!localRuntime) {
-      return { ok: true, directory: lexicalDirectory, pathClass }
+    if (!localRuntime || portableHomePath) {
+      return { ok: true, directory: portableHomePath ? configuredDirectory : lexicalDirectory, pathClass }
     }
 
     const rootStat = await lstat(lexicalRoot)

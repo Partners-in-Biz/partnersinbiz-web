@@ -70,6 +70,45 @@ it('defers VPS filesystem existence checks to the authenticated remote runtime',
   })
 })
 
+it('defers a portable Mac home path to the authenticated owning runtime', async () => {
+  const portableRoot = '~/Cowork/AHS Law'
+
+  await expect(resolveAuthorizedWorkingDirectory({
+    workspaceContext: context({
+      runtimeTarget: 'local',
+      localPath: portableRoot,
+      localWorkingPath: portableRoot,
+      folderScope: 'company',
+    }),
+  })).resolves.toEqual({
+    ok: true,
+    directory: portableRoot,
+    pathClass: 'company',
+  })
+})
+
+it('builds a portable Mac project path for the authenticated owning runtime', async () => {
+  const portableRoot = '~/Cowork/AHS Law'
+  mockProjectGet.mockResolvedValue({
+    exists: true,
+    data: () => ({ orgId: 'org-1', archived: false, status: 'active' }),
+  })
+
+  await expect(resolveAuthorizedWorkingDirectory({
+    workspaceContext: context({
+      runtimeTarget: 'local',
+      localPath: portableRoot,
+      localWorkingPath: portableRoot,
+      folderScope: 'project',
+      projectId: 'project-1',
+    }),
+  })).resolves.toEqual({
+    ok: true,
+    directory: '~/Cowork/AHS Law/projects/project-1',
+    pathClass: 'project',
+  })
+})
+
 it('authorizes an existing active project directory', async () => {
   const project = join(root, 'projects', 'project-1')
   await mkdir(project, { recursive: true })
