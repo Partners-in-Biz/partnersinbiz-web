@@ -104,6 +104,7 @@ const MAX_COMPOSER_HISTORY_ENTRIES = 30
 const MAX_QUEUED_COMPOSER_DRAFTS = 8
 const COMPOSER_HISTORY_STORAGE_PREFIX = 'pib.messages.composerHistory.v1'
 const PINNED_CONVERSATIONS_STORAGE_PREFIX = 'pib.messages.pinnedConversations.v1'
+const EXPANDED_SESSION_GROUPS_STORAGE_PREFIX = 'pib.messages.expandedSessionGroups.v1'
 const PROJECT_SETUP_IDEMPOTENCY_PREFIX = 'pib-project-setup'
 const ALLOWED_ATTACHMENT_MIME = new Set([
   'image/jpeg',
@@ -467,6 +468,36 @@ function writePinnedConversationIds(orgId: string, ids: string[]): void {
   }
 }
 
+function expandedSessionGroupsStorageKey(orgId: string): string {
+  return `${EXPANDED_SESSION_GROUPS_STORAGE_PREFIX}:${orgId}`
+}
+
+function readExpandedSessionGroupKeys(orgId: string): string[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.localStorage.getItem(expandedSessionGroupsStorageKey(orgId))
+    const parsed = raw ? JSON.parse(raw) : null
+    return Array.isArray(parsed)
+      ? parsed.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+      : []
+  } catch {
+    return []
+  }
+}
+
+function writeExpandedSessionGroupKeys(orgId: string, keys: string[]): void {
+  if (typeof window === 'undefined') return
+  try {
+    const uniqueKeys = Array.from(new Set(keys.filter((key) => key.trim().length > 0)))
+    const storageKey = expandedSessionGroupsStorageKey(orgId)
+    if (uniqueKeys.length === 0) window.localStorage.removeItem(storageKey)
+    else window.localStorage.setItem(storageKey, JSON.stringify(uniqueKeys))
+  } catch (err) {
+    void err
+    // Best effort only: a storage failure must not block the session rail.
+  }
+}
+
 function isProjectConversation(conversation: Conversation): boolean {
   return Boolean(conversationProjectIdentity(conversation))
 }
@@ -760,6 +791,7 @@ export default function UnifiedChat({
   const [executionDockRequest, setExecutionDockRequest] = useState(0)
   const [contextArtifactRequest, setContextArtifactRequest] = useState<{ id: string; nonce: number }>()
   const [pinnedConversationIds, setPinnedConversationIds] = useState<string[]>(() => readPinnedConversationIds(orgId))
+  const [expandedSessionGroupKeys, setExpandedSessionGroupKeys] = useState<string[]>(() => readExpandedSessionGroupKeys(orgId))
 
   // Agent map for looking up colorKey / iconKey for bubbles
   const [agentMap, setAgentMap] = useState<Record<AgentId, AgentTeamDoc>>({} as Record<AgentId, AgentTeamDoc>)
@@ -838,6 +870,11 @@ export default function UnifiedChat({
   const projectSyncInFlightRef = useRef(false)
   const projectSyncRefreshInFlightRef = useRef(false)
   const [creatingConv, setCreatingConv] = useState(false)
+  const newConversationRuntimeAgentId = useMemo<AgentId>(() => {
+    const agentIds = newParticipants.flatMap((participant) => participant.kind === 'agent' ? [participant.agentId] : [])
+    if (agentIds.length === 0 || agentIds.includes('pip')) return 'pip'
+    return agentIds[0]
+  }, [newParticipants])
 
   // Attachment state
   const [attachments, setAttachments] = useState<File[]>([])
@@ -935,6 +972,9 @@ export default function UnifiedChat({
     if (agentIds.length === 0) return null
     return agentIds.includes('pip') ? 'pip' : agentIds[0]
   }, [activeConversation?.participantAgentIds])
+  const workspaceCatalogueAgentId = showNewModal
+    ? newConversationRuntimeAgentId
+    : activeModelAgentId ?? 'pip'
   const activeRuntimeMessage = useMemo(() => {
     const sorted = messages.slice().sort((a, b) => tsSeconds(b.createdAt) - tsSeconds(a.createdAt))
     return sorted.find((message) =>
@@ -1228,6 +1268,19 @@ export default function UnifiedChat({
     [conversationFilter, visibleConversations, workspaceProjects],
   )
   const hasHermesRailItems = hermesCompanyGroups.length > 0 || hermesProjectGroups.length > 0 || hermesSessionSections.length > 0
+  useEffect(() => {
+    if (!activeId || layoutVariant !== 'hermes') return
+    const company = hermesCompanyGroups.find((group) => group.conversations.some((conversation) => conversation.id === activeId))
+    const project = hermesProjectGroups.find((group) => group.conversations.some((conversation) => conversation.id === activeId))
+    const groupKey = company ? `company:${company.id}` : project ? `project:${project.id}` : null
+    if (!groupKey) return
+    setExpandedSessionGroupKeys((current) => {
+      if (current.includes(groupKey)) return current
+      const next = [...current, groupKey]
+      writeExpandedSessionGroupKeys(orgId, next)
+      return next
+    })
+  }, [activeId, hermesCompanyGroups, hermesProjectGroups, layoutVariant, orgId])
   const menuConversation = useMemo(
     () => conversations.find((conversation) => conversation.id === menuOpenId) ?? null,
     [conversations, menuOpenId],
@@ -1284,7 +1337,10 @@ export default function UnifiedChat({
     const loadWorkspaceCatalogue = async (showLoading: boolean): Promise<WorkspaceCatalogueSnapshot | null> => {
       if (showLoading) setWorkspacesLoading(true)
       try {
-        const response = await fetch(`/api/v1/workspaces?${new URLSearchParams({ orgId }).toString()}`)
+        const response = await fetch(`/api/v1/workspaces?${new URLSearchParams({
+          orgId,
+          agentId: workspaceCatalogueAgentId,
+        }).toString()}`)
         const body = response.ok ? await response.json() : null
         if (cancelled || !body?.data) return null
         const next = Array.isArray(body.data.workspaces)
@@ -1336,7 +1392,7 @@ export default function UnifiedChat({
       refreshWorkspaceCatalogueRef.current = async () => null
       window.clearInterval(interval)
     }
-  }, [orgId, projectId])
+  }, [orgId, projectId, workspaceCatalogueAgentId])
 
   useEffect(() => {
     if (!showProjectSetupWizard) return
@@ -1378,6 +1434,7 @@ export default function UnifiedChat({
 
   useEffect(() => {
     setPinnedConversationIds(readPinnedConversationIds(orgId))
+    setExpandedSessionGroupKeys(readExpandedSessionGroupKeys(orgId))
   }, [orgId])
 
   const togglePinnedConversation = useCallback((conversationId: string) => {
@@ -1386,6 +1443,16 @@ export default function UnifiedChat({
         ? current.filter((id) => id !== conversationId)
         : [conversationId, ...current]
       writePinnedConversationIds(orgId, next)
+      return next
+    })
+  }, [orgId])
+
+  const toggleSessionGroup = useCallback((groupKey: string) => {
+    setExpandedSessionGroupKeys((current) => {
+      const next = current.includes(groupKey)
+        ? current.filter((key) => key !== groupKey)
+        : [...current, groupKey]
+      writeExpandedSessionGroupKeys(orgId, next)
       return next
     })
   }, [orgId])
@@ -3345,16 +3412,32 @@ export default function UnifiedChat({
                 <span className="font-mono text-xs tracking-normal text-[var(--color-pib-text-muted)]/55">{hermesCompanyGroups.length}</span>
               </div>
               <div className="flex min-w-0 flex-col gap-1">
-                {hermesCompanyGroups.map((company) => (
-                  <div
-                    key={company.id}
-                    data-testid={`hermes-company-${company.id}`}
-                    className="min-w-0 rounded-lg border border-white/[0.06] bg-white/[0.025] p-1"
-                  >
+                {hermesCompanyGroups.map((company) => {
+                  const groupKey = `company:${company.id}`
+                  const sessionsExpanded = Boolean(conversationFilter.trim()) || expandedSessionGroupKeys.includes(groupKey)
+                  const sessionsRegionId = `company-sessions-${company.id}`
+                  return (
+                    <div
+                      key={company.id}
+                      data-testid={`hermes-company-${company.id}`}
+                      className="min-w-0 rounded-lg border border-white/[0.06] bg-white/[0.025] p-1"
+                    >
                     <div className="flex min-w-0 items-center gap-1 px-1 py-1">
-                      <span className="material-symbols-outlined shrink-0 text-[16px] text-primary" aria-hidden="true">folder</span>
-                      <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--color-pib-text)]">{company.name}</span>
-                      <span className="font-mono text-xs text-[var(--color-pib-text-muted)]/70">{company.conversations.length}</span>
+                      <button
+                        type="button"
+                        aria-expanded={sessionsExpanded}
+                        aria-controls={sessionsRegionId}
+                        aria-label={`${sessionsExpanded ? 'Collapse' : 'Expand'} sessions for ${company.name}`}
+                        onClick={() => toggleSessionGroup(groupKey)}
+                        className="flex min-w-0 flex-1 items-center gap-1 rounded px-1 py-1 text-left hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-primary/60"
+                      >
+                        <span className="material-symbols-outlined shrink-0 text-[16px] text-primary" aria-hidden="true">folder</span>
+                        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--color-pib-text)]">{company.name}</span>
+                        <span className="font-mono text-xs text-[var(--color-pib-text-muted)]/70">{company.conversations.length}</span>
+                        <span className="material-symbols-outlined shrink-0 text-[16px] text-[var(--color-pib-text-muted)]" aria-hidden="true">
+                          {sessionsExpanded ? 'expand_less' : 'expand_more'}
+                        </span>
+                      </button>
                       <button
                         type="button"
                         aria-label={`Start session in ${company.name}`}
@@ -3366,7 +3449,7 @@ export default function UnifiedChat({
                         <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
                       </button>
                     </div>
-                    <div className="ml-2 flex min-w-0 flex-col gap-0.5 border-l border-white/[0.06] pl-1">
+                    {sessionsExpanded && <div id={sessionsRegionId} className="ml-2 flex min-w-0 flex-col gap-0.5 border-l border-white/[0.06] pl-1">
                       {company.conversations.map((c) => (
                         <div key={c.id} className="relative group/conv">
                           {renamingId === c.id ? (
@@ -3425,9 +3508,10 @@ export default function UnifiedChat({
                           )}
                         </div>
                       ))}
-                    </div>
+                    </div>}
                   </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}
@@ -3438,16 +3522,32 @@ export default function UnifiedChat({
                 <span className="font-mono text-xs tracking-normal text-[var(--color-pib-text-muted)]/55">{hermesProjectGroups.length}</span>
               </div>
               <div className="flex min-w-0 flex-col gap-1">
-                {hermesProjectGroups.map((project) => (
-                  <div
-                    key={project.id}
-                    data-testid={`hermes-project-${project.id}`}
-                    className="min-w-0 rounded-lg border border-white/[0.06] bg-white/[0.025] p-1"
-                  >
+                {hermesProjectGroups.map((project) => {
+                  const groupKey = `project:${project.id}`
+                  const sessionsExpanded = Boolean(conversationFilter.trim()) || expandedSessionGroupKeys.includes(groupKey)
+                  const sessionsRegionId = `project-sessions-${project.id}`
+                  return (
+                    <div
+                      key={project.id}
+                      data-testid={`hermes-project-${project.id}`}
+                      className="min-w-0 rounded-lg border border-white/[0.06] bg-white/[0.025] p-1"
+                    >
                     <div className="flex min-w-0 items-center gap-1 px-1 py-1">
-                      <span className="material-symbols-outlined shrink-0 text-[16px] text-primary" aria-hidden="true">folder_managed</span>
-                      <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--color-pib-text)]">{project.name}</span>
-                      <span className="font-mono text-xs text-[var(--color-pib-text-muted)]/70">{project.conversations.length}</span>
+                      <button
+                        type="button"
+                        aria-expanded={sessionsExpanded}
+                        aria-controls={sessionsRegionId}
+                        aria-label={`${sessionsExpanded ? 'Collapse' : 'Expand'} sessions for ${project.name}`}
+                        onClick={() => toggleSessionGroup(groupKey)}
+                        className="flex min-w-0 flex-1 items-center gap-1 rounded px-1 py-1 text-left hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-primary/60"
+                      >
+                        <span className="material-symbols-outlined shrink-0 text-[16px] text-primary" aria-hidden="true">folder_managed</span>
+                        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--color-pib-text)]">{project.name}</span>
+                        <span className="font-mono text-xs text-[var(--color-pib-text-muted)]/70">{project.conversations.length}</span>
+                        <span className="material-symbols-outlined shrink-0 text-[16px] text-[var(--color-pib-text-muted)]" aria-hidden="true">
+                          {sessionsExpanded ? 'expand_less' : 'expand_more'}
+                        </span>
+                      </button>
                       <button
                         type="button"
                         aria-label={`Manage locations for ${project.name}`}
@@ -3673,10 +3773,10 @@ export default function UnifiedChat({
                         )}
                       </section>
                     )}
-                    {project.conversations.length === 0 ? (
-                      <div className="px-6 py-1 text-xs text-[var(--color-pib-text-muted)]/70">No sessions yet</div>
+                    {sessionsExpanded && (project.conversations.length === 0 ? (
+                      <div id={sessionsRegionId} className="px-6 py-1 text-xs text-[var(--color-pib-text-muted)]/70">No sessions yet</div>
                     ) : (
-                      <div className="ml-2 flex min-w-0 flex-col gap-0.5 border-l border-white/[0.06] pl-1">
+                      <div id={sessionsRegionId} className="ml-2 flex min-w-0 flex-col gap-0.5 border-l border-white/[0.06] pl-1">
                         {project.conversations.map((c) => (
                           <div key={c.id} className="relative group/conv">
                             {renamingId === c.id ? (
@@ -3736,9 +3836,10 @@ export default function UnifiedChat({
                           </div>
                         ))}
                       </div>
-                    )}
+                    ))}
                   </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}
