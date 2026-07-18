@@ -17,7 +17,7 @@ import {
 } from './workspace-sync'
 
 const api=process.env.PIB_API_BASE||'https://partnersinbiz.online'
-const runtimeVersion=process.env.PIB_RUNTIME_VERSION||'1.1.0'
+const runtimeVersion=process.env.PIB_RUNTIME_VERSION||'1.1.1'
 const stateRoot=process.env.PIB_RUNTIME_STATE_DIR||path.join(os.homedir(),'.partnersinbiz')
 const revocationMarker=path.join(stateRoot,'revocation-pending.json')
 const maps=new MappingRegistry(path.join(stateRoot,'mappings.json'))
