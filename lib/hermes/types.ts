@@ -76,6 +76,7 @@ export type RichMessagePartType =
   | 'project_task_proposal'
   | 'studio_artifact'
   | 'studio_artifact_bundle'
+  | 'workspace_panel'
 
 export type RichMessageChoice = string | {
   id?: string
@@ -133,6 +134,9 @@ export type RichMessagePart = {
   artifactIds?: string[]
   artifacts?: Array<{ id: string; contextId: string }>
   contextId?: string
+  eyebrow?: string
+  metrics?: Array<{ label?: string; value?: string; detail?: string }>
+  sections?: Array<{ heading?: string; title?: string; body?: string; content?: string; items?: string[] }>
   [key: string]: unknown
 }
 

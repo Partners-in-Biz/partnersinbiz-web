@@ -37,7 +37,11 @@ function grantAccessLabel(grant: Grant) { return grant.accessMode === 'organizat
 function pendingMappingCommand(mappingId: string) { return `pib-runtime map --mapping ${mappingId} --folder <local folder>` }
 function seenMs(value: unknown): number | null {
   if (typeof value === 'string') { const ms = Date.parse(value); return Number.isFinite(ms) ? ms : null }
-  if (value && typeof value === 'object' && 'seconds' in value) return Number((value as { seconds: number }).seconds) * 1000
+  if (value && typeof value === 'object') {
+    const timestamp = value as { seconds?: unknown; _seconds?: unknown }
+    const seconds = Number(timestamp.seconds ?? timestamp._seconds)
+    if (Number.isFinite(seconds)) return seconds * 1000
+  }
   return null
 }
 

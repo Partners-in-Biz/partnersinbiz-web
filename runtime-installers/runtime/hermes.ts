@@ -43,20 +43,57 @@ function configuredAgentIds(env: RuntimeEnv): string[] {
   return [...new Set(values)]
 }
 
-function defaultLocalHermesApiKey(env: RuntimeEnv): string | undefined {
-  if (env.PIB_LOCAL_HERMES_API_KEY) return env.PIB_LOCAL_HERMES_API_KEY
-  const hermesHome = env.HERMES_HOME || path.join(os.homedir(), '.hermes')
+function hermesHome(env: RuntimeEnv): string {
+  return env.PIB_HERMES_HOME || env.HERMES_HOME || path.join(os.homedir(), '.hermes')
+}
+
+function envFileValue(file: string, key: string): string | undefined {
   try {
-    const line = fs.readFileSync(path.join(hermesHome, '.env'), 'utf8')
+    const line = fs.readFileSync(file, 'utf8')
       .split(/\r?\n/)
-      .find((candidate) => candidate.startsWith('API_SERVER_KEY='))
+      .find((candidate) => candidate.startsWith(`${key}=`))
     if (!line) return undefined
-    const raw = line.slice('API_SERVER_KEY='.length).trim()
+    const raw = line.slice(key.length + 1).trim()
     const value = (raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))
       ? raw.slice(1, -1)
       : raw
     return value || undefined
   } catch { return undefined }
+}
+
+function defaultLocalHermesApiKey(env: RuntimeEnv): string | undefined {
+  return env.PIB_LOCAL_HERMES_API_KEY || envFileValue(path.join(hermesHome(env), '.env'), 'API_SERVER_KEY')
+}
+
+function localPort(value: unknown, fallback?: number): number | null {
+  const port = Number(value ?? fallback)
+  return Number.isInteger(port) && port >= 1 && port <= 65_535 ? port : null
+}
+
+/** Discover named Hermes profiles without copying their keys into PiB state. */
+function discoveredHermesRoutes(env: RuntimeEnv): LocalHermesRoute[] {
+  const home = hermesHome(env)
+  const routes: LocalHermesRoute[] = []
+  const defaultAgentId = cleanAgentId(env.PIB_LOCAL_HERMES_AGENT_ID || 'pip')
+  const defaultEnvFile = path.join(home, '.env')
+  const defaultPort = localPort(envFileValue(defaultEnvFile, 'API_SERVER_PORT'), 8755)
+  if (defaultPort) {
+    const apiKey = env.PIB_LOCAL_HERMES_API_KEY || envFileValue(defaultEnvFile, 'API_SERVER_KEY')
+    routes.push({ agentId: defaultAgentId, baseUrl: `http://127.0.0.1:${defaultPort}`, ...(apiKey ? { apiKey } : {}) })
+  }
+  try {
+    for (const entry of fs.readdirSync(path.join(home, 'profiles'), { withFileTypes: true })) {
+      if (!entry.isDirectory() || !AGENT_ID.test(entry.name) || entry.name === defaultAgentId) continue
+      const profileEnv = path.join(home, 'profiles', entry.name, '.env')
+      const port = localPort(envFileValue(profileEnv, 'API_SERVER_PORT'))
+      if (!port) continue
+      const apiKey = envFileValue(profileEnv, 'API_SERVER_KEY')
+      routes.push({ agentId: entry.name, baseUrl: `http://127.0.0.1:${port}`, ...(apiKey ? { apiKey } : {}) })
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+  }
+  return routes.sort((left, right) => left.agentId.localeCompare(right.agentId))
 }
 
 export function localHermesRoutes(env: RuntimeEnv = process.env): LocalHermesRoute[] {
@@ -77,6 +114,10 @@ export function localHermesRoutes(env: RuntimeEnv = process.env): LocalHermesRou
         ...(typeof row.apiKey === 'string' && row.apiKey ? { apiKey: row.apiKey } : fallbackApiKey ? { apiKey: fallbackApiKey } : {}),
       }
     })
+  }
+
+  if (!env.PIB_LOCAL_HERMES && !env.PIB_LOCAL_HERMES_AGENTS && env.PIB_LOCAL_HERMES_AUTO_DISCOVER !== '0') {
+    return discoveredHermesRoutes(env)
   }
 
   const baseTemplate = env.PIB_LOCAL_HERMES || 'http://127.0.0.1:8755'

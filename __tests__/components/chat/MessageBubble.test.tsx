@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import MessageBubble from '@/components/chat/MessageBubble'
+import { WORKSPACE_PANEL_EVENT } from '@/lib/hermes/workspace-panels'
 
 function closestMessageGroup(element: Element): HTMLElement | null {
   let node: Element | null = element
@@ -11,6 +12,27 @@ function closestMessageGroup(element: Element): HTMLElement | null {
 }
 
 describe('MessageBubble', () => {
+  it('renders a generated workspace panel as a safe preview and requests its own pane', () => {
+    const listener = jest.fn()
+    window.addEventListener(WORKSPACE_PANEL_EVENT, listener)
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'msg-panel', conversationId: 'conv-1', role: 'assistant', content: 'I built the panel.',
+          authorKind: 'agent', authorId: 'pip', authorDisplayName: 'Pip', status: 'completed',
+          richParts: [{ type: 'workspace_panel', id: 'pipeline', title: 'Pipeline cockpit', metrics: [{ label: 'Qualified', value: '18' }], sections: [] }],
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Pipeline cockpit')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Open in workspace pane' }))
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect((listener.mock.calls[0][0] as CustomEvent).detail).toMatchObject({ id: 'pipeline', title: 'Pipeline cockpit' })
+    window.removeEventListener(WORKSPACE_PANEL_EVENT, listener)
+  })
+
   it('keeps long mobile chat text inside the viewport instead of forcing horizontal scroll', () => {
     const longToken = 'https://example.com/' + 'unbroken-mobile-overflow-token-'.repeat(12)
 

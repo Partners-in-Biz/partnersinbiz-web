@@ -8,6 +8,7 @@ UNIT_PATH="${PIB_LINUX_UNIT_PATH:-/etc/systemd/system/pib-runtime.service}"
 RUNTIME_ENV_PATH="${PIB_RUNTIME_ENV_PATH:-/etc/partnersinbiz/runtime.env}"
 BIN="$ROOT/current/pib-runtime"
 API_BASE="${PIB_API_BASE:-https://partnersinbiz.online}"
+HERMES_HOME_PATH="${PIB_HERMES_HOME:-}"
 ARCH="$(uname -m)"
 case "$ARCH" in x86_64|amd64) ARCH=x64;; aarch64|arm64) ARCH=arm64;; *) echo "Unsupported Linux architecture: $ARCH" >&2;exit 1;; esac
 METADATA_URL="${PIB_RUNTIME_METADATA_URL:-$API_BASE/runtime/linux/$ARCH/stable.json}"
@@ -29,6 +30,7 @@ run_runtime() {
   PIB_CREDENTIAL_HELPER="$RUNTIME_CREDENTIAL_HELPER" \
   PIB_FILE_HELPER="$RUNTIME_FILE_HELPER" \
   PIB_API_BASE="$API_BASE" \
+  PIB_HERMES_HOME="$HERMES_HOME_PATH" \
   PIB_SYNC_PROTOCOL_VERSION=1 \
     "$BIN" "$@"
 }
@@ -151,8 +153,23 @@ swap_verified_releases() {
   mv "$swap" "$ROOT/previous"
 }
 install_systemd_assets() {
-  local version temp
+  local version temp hermes_home="$HERMES_HOME_PATH"
   version="$(json_field "$ROOT/current/manifest.json" version)"
+  if [[ -z "$hermes_home" && -f "$RUNTIME_ENV_PATH" ]]; then
+    hermes_home="$($PYTHON - "$RUNTIME_ENV_PATH" <<'PY'
+import json, sys
+for line in open(sys.argv[1], encoding="utf-8"):
+    if line.startswith('PIB_HERMES_HOME='):
+        try:
+            value = json.loads(line.split('=', 1)[1].strip())
+        except (ValueError, json.JSONDecodeError):
+            value = ''
+        if isinstance(value, str):
+            print(value)
+        break
+PY
+)"
+  fi
   install -d -m 0755 "$(dirname "$UNIT_PATH")" "$(dirname "$RUNTIME_ENV_PATH")"
   install -m 0644 "$INSTALLER_DIR/pib-runtime.service" "$UNIT_PATH"
   temp="$RUNTIME_ENV_PATH.$$.tmp"
@@ -164,6 +181,7 @@ install_systemd_assets() {
     write_runtime_environment PIB_CREDENTIAL_HELPER "$RUNTIME_CREDENTIAL_HELPER"
     write_runtime_environment PIB_FILE_HELPER "$RUNTIME_FILE_HELPER"
     write_runtime_environment PIB_API_BASE "$API_BASE"
+    [[ -z "$hermes_home" ]] || write_runtime_environment PIB_HERMES_HOME "$hermes_home"
   } > "$temp"
   chmod 0600 "$temp"
   mv -f "$temp" "$RUNTIME_ENV_PATH"

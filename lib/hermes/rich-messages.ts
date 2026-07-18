@@ -1,5 +1,6 @@
 import type { ChatEvent, ChatUiAction, RichMessagePart, RichModelOption } from './types'
 import { normalizeStudioArtifactPart } from '@/lib/chat-context/artifactPayload'
+import { normalizeWorkspacePanel } from './workspace-panels'
 
 type PlainRecord = Record<string, unknown>
 
@@ -200,6 +201,9 @@ function normalizeRichPart(value: unknown): RichMessagePart | null {
   const normalizedType = normalizeRichPartType(type)
   if (normalizedType === 'studio_artifact' || normalizedType === 'studio_artifact_bundle') {
     return normalizeStudioArtifactPart({ ...record, type: normalizedType })
+  }
+  if (normalizedType === 'workspace_panel') {
+    return normalizeWorkspacePanel(record)
   }
   const actionId = cleanString(record.actionId) ?? cleanString(record.action_id)
   const known = [

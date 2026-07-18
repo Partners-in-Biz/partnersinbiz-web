@@ -14,7 +14,10 @@ function response(body: unknown, ok = true): Response {
 }
 
 describe('LinkedComputersWorkspace', () => {
+  const originalBootstrapPlatforms = process.env.NEXT_PUBLIC_LINKED_RUNTIME_BOOTSTRAP_PLATFORMS
+
   beforeEach(() => {
+    process.env.NEXT_PUBLIC_LINKED_RUNTIME_BOOTSTRAP_PLATFORMS = 'macos,windows,linux'
     jest.useFakeTimers().setSystemTime(new Date('2026-07-13T09:00:00.000Z'))
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {
       if (String(input) === '/api/v1/linked-computers') return response({ data: [device] })
@@ -23,6 +26,10 @@ describe('LinkedComputersWorkspace', () => {
     })
   })
   afterEach(() => jest.useRealTimers())
+  afterAll(() => {
+    if (originalBootstrapPlatforms === undefined) delete process.env.NEXT_PUBLIC_LINKED_RUNTIME_BOOTSTRAP_PLATFORMS
+    else process.env.NEXT_PUBLIC_LINKED_RUNTIME_BOOTSTRAP_PLATFORMS = originalBootstrapPlatforms
+  })
 
   it('shows safe health, version, grant, and mapping status without internal data', async () => {
     render(<LinkedComputersWorkspace />)
@@ -49,6 +56,19 @@ describe('LinkedComputersWorkspace', () => {
     })
 
     expect(card).toHaveTextContent('Computer unavailable')
+  })
+
+  it('treats a Firestore JSON timestamp heartbeat as online', async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      if (String(input) === '/api/v1/linked-computers') return response({
+        data: [{ ...device, lastSeenAt: { _seconds: Date.parse('2026-07-13T08:59:30.000Z') / 1000, _nanoseconds: 0 } }],
+      })
+      if (String(input) === '/api/v1/workspaces') return response({ data: { workspaces: [] } })
+      return response({ data: [] })
+    })
+
+    render(<LinkedComputersWorkspace />)
+    expect(await screen.findByRole('article', { name: 'Studio Mac' })).toHaveTextContent('Online')
   })
 
   it('exposes the exact preserved mapping command for a pending adopted Workspace', async () => {
@@ -392,7 +412,9 @@ describe('LinkedComputersWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Link a computer or VPS' }))
     fireEvent.click(screen.getByRole('radio', { name: 'Linux' }))
     fireEvent.click(screen.getByRole('button', { name: 'Create pairing code' }))
-    expect(await screen.findByDisplayValue('pib-runtime pair --challenge challenge-a --platform linux')).toBeInTheDocument()
+    expect(await screen.findByLabelText('One-command computer setup')).toHaveValue(
+      "curl -fsSL https://partnersinbiz.online/runtime/bootstrap/linux.sh | bash -s -- --challenge 'challenge-a' --profiles 'pip' --providers 'nous'",
+    )
   })
 
   it('creates an organisation-owned VPS handoff directly from Linked Computers', async () => {
@@ -422,7 +444,9 @@ describe('LinkedComputersWorkspace', () => {
     expect(JSON.parse(String(pairingCall?.[1]?.body))).toEqual({
       deviceKind: 'vps', ownerType: 'organization', ownerOrgId: 'org-a',
     })
-    expect(screen.getByDisplayValue('pib-runtime pair --challenge challenge-vps --platform linux')).toBeInTheDocument()
+    expect(screen.getByLabelText('One-command computer setup')).toHaveValue(
+      "curl -fsSL https://partnersinbiz.online/runtime/bootstrap/linux.sh | bash -s -- --challenge 'challenge-vps' --profiles 'pip' --providers 'nous'",
+    )
   })
 
   it.each([

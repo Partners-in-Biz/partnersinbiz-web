@@ -133,6 +133,31 @@ describe('linked computer one-time pairing', () => {
     await expect(exchangePairing(input, { db, now, nowMs: () => nowMs + 2 })).rejects.toThrow('already consumed')
   })
 
+  it('accepts the original runtime proof that included the PEM trailing newline', async () => {
+    const { db, rows } = fakeDb()
+    const pairing = await createPairing({ actorUserId: 'user-a' }, { db, now, nowMs: () => nowMs })
+    const m = machine()
+    const deviceId = 'original-runtime-mac'
+    const originalRuntimeProof = sign(
+      null,
+      Buffer.from(`${pairing.challengeId}\n${pairing.secret}\n${deviceId}\n${m.publicKey}`),
+      m.privateKey,
+    ).toString('base64url')
+
+    await expect(exchangePairing({
+      challengeId: pairing.challengeId,
+      secret: pairing.secret,
+      deviceId,
+      publicKey: m.publicKey,
+      proof: originalRuntimeProof,
+      label: 'Original Runtime Mac',
+      platform: 'macos',
+      architecture: 'arm64',
+      runtimeVersion: '1.1.0',
+    }, { db, now, nowMs: () => nowMs + 1 })).resolves.toMatchObject({ deviceId })
+    expect(rows.get(`linked_devices/${deviceId}`)?.publicKey).toBe(m.publicKey.trim())
+  })
+
   it('pairs a Linux runtime with explicit backward-compatible user ownership metadata', async () => {
     const { db, rows } = fakeDb()
     const pairing = await createPairing({ actorUserId: 'user-a' }, { db, now, nowMs: () => nowMs })

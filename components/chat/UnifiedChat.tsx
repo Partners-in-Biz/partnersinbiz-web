@@ -91,6 +91,12 @@ export interface UnifiedChatProps {
   onContextActionResolved?: () => void
   compact?: boolean
   layoutVariant?: 'classic' | 'hermes'
+  /** Controlled session selection used by the Hermes multi-pane workspace. */
+  activeConversationId?: string | null
+  onActiveConversationChange?: (conversationId: string | null) => void
+  onConversationsChange?: (conversations: Conversation[]) => void
+  /** A secondary pane reuses the chat surface without duplicating the session rail. */
+  showConversationList?: boolean
 }
 
 const POLL_INTERVAL = 1500
@@ -765,10 +771,19 @@ export default function UnifiedChat({
   onContextActionResolved,
   compact = false,
   layoutVariant = 'classic',
+  activeConversationId,
+  onActiveConversationChange,
+  onConversationsChange,
+  showConversationList = true,
 }: UnifiedChatProps) {
   // ── State ─────────────────────────────────────────────────────────────────
   const [conversations, setConversations] = useState<Conversation[]>([])
-  const [activeId, setActiveId] = useState<string | null>(null)
+  const [uncontrolledActiveId, setUncontrolledActiveId] = useState<string | null>(null)
+  const activeId = activeConversationId === undefined ? uncontrolledActiveId : activeConversationId
+  const setActiveId = useCallback((value: string | null) => {
+    if (activeConversationId === undefined) setUncontrolledActiveId(value)
+    onActiveConversationChange?.(value)
+  }, [activeConversationId, onActiveConversationChange])
   const [messages, setMessages] = useState<ConversationMessage[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
@@ -792,6 +807,10 @@ export default function UnifiedChat({
   const [contextArtifactRequest, setContextArtifactRequest] = useState<{ id: string; nonce: number }>()
   const [pinnedConversationIds, setPinnedConversationIds] = useState<string[]>(() => readPinnedConversationIds(orgId))
   const [expandedSessionGroupKeys, setExpandedSessionGroupKeys] = useState<string[]>(() => readExpandedSessionGroupKeys(orgId))
+
+  useEffect(() => {
+    onConversationsChange?.(conversations)
+  }, [conversations, onConversationsChange])
 
   // Agent map for looking up colorKey / iconKey for bubbles
   const [agentMap, setAgentMap] = useState<Record<AgentId, AgentTeamDoc>>({} as Record<AgentId, AgentTeamDoc>)
@@ -920,8 +939,8 @@ export default function UnifiedChat({
   useEffect(() => {
     if (!preferCurrentPageContext || !currentPageContext) return
     const relatedId = findRelatedConversationId(conversations, currentPageContext)
-    setActiveId((current) => current === relatedId ? current : relatedId)
-  }, [conversations, currentPageContext, preferCurrentPageContext])
+    if (activeId !== relatedId) setActiveId(relatedId)
+  }, [activeId, conversations, currentPageContext, preferCurrentPageContext, setActiveId])
   const hasDockContext = Boolean(activeConversation && (
     (activeConversation.scope === 'project' && activeConversation.scopeRefId) ||
     (activeConversation.contextRefs ?? []).some((ref) => ref.type === 'project' || ref.type === 'studio' || ref.type === 'studio_artifact')
@@ -1920,6 +1939,7 @@ export default function UnifiedChat({
     currentPageContext,
     preferCurrentPageContext,
     coerceContextRef,
+    setActiveId,
   ])
 
   // ── Load messages ─────────────────────────────────────────────────────────
@@ -2758,7 +2778,7 @@ export default function UnifiedChat({
         body: JSON.stringify({ archived: true }),
       }).catch(() => {})
     },
-    [activeId, allowArchiveConversations],
+    [activeId, allowArchiveConversations, setActiveId],
   )
 
   // ── Delete conversation ──────────────────────────────────────────────────
@@ -2784,7 +2804,7 @@ export default function UnifiedChat({
         setError(`Delete failed: ${res.status}`)
       }
     },
-    [activeId, allowDeleteConversations, conversations, loadConversations, loadMessages],
+    [activeId, allowDeleteConversations, conversations, loadConversations, loadMessages, setActiveId],
   )
 
   const openConversationInNewWindow = useCallback((convId: string) => {
@@ -3061,7 +3081,7 @@ export default function UnifiedChat({
     } finally {
       setCreatingConv(false)
     }
-  }, [allowStartConversations, creatingConv, newParticipants, newTitle, newScope, orgId, projectId, projectSetupBlocksSession, scope, scopeRefId, contextRefs, selectedWorkspaceId, selectedWorkspaceRuntime, selectedWorkspaceRuntimeIsValid, selectedWorkspaceShareMode, selectedProjectId, selectedCompanyId])
+  }, [allowStartConversations, creatingConv, newParticipants, newTitle, newScope, orgId, projectId, projectSetupBlocksSession, scope, scopeRefId, contextRefs, selectedWorkspaceId, selectedWorkspaceRuntime, selectedWorkspaceRuntimeIsValid, selectedWorkspaceShareMode, selectedProjectId, selectedCompanyId, setActiveId])
 
   const send = useCallback(
     async (e: FormEvent) => {
@@ -3281,6 +3301,7 @@ export default function UnifiedChat({
       conversations,
       activeConversation?.participantAgentIds?.length,
       selectedSlashCommand,
+      setActiveId,
     ],
   )
 
@@ -3335,13 +3356,15 @@ export default function UnifiedChat({
       className={
         compact
           ? 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden'
+          : !showConversationList
+            ? 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden'
           : hermesLayout
             ? 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-2 lg:grid-cols-[236px_minmax(0,1fr)]'
             : 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-4 lg:grid-cols-[280px_minmax(0,1fr)]'
       }
     >
       {/* ── Left: conversation list ─────────────────────────────────────── */}
-      <aside
+      {showConversationList && <aside
         className={[
           hermesLayout
             ? 'min-h-0 min-w-0 flex-col gap-2 overflow-hidden flex-1 rounded-xl border border-[var(--color-card-border)] bg-black/[0.08] p-2'
@@ -3978,7 +4001,7 @@ export default function UnifiedChat({
               </div>
             ))}
         </div>
-      </aside>
+      </aside>}
 
       {/* Context menu — rendered fixed to escape scroll container */}
       {menuOpenId && menuPosition && (
@@ -4070,8 +4093,8 @@ export default function UnifiedChat({
           hermesLayout
             ? 'relative flex-col overflow-hidden min-h-0 min-w-0 flex-1 rounded-xl border border-[var(--color-card-border)] bg-black/[0.06]'
             : 'pib-card relative flex-col overflow-hidden min-h-0 min-w-0 flex-1',
-          compact ? '!p-0 !rounded-none !border-0 !bg-transparent' : 'lg:flex max-lg:!p-0 max-lg:!rounded-none max-lg:!border-0 max-lg:!bg-transparent',
-          showListOnMobile ? 'hidden' : 'flex',
+          compact || !showConversationList ? '!p-0 !rounded-none !border-0 !bg-transparent' : 'lg:flex max-lg:!p-0 max-lg:!rounded-none max-lg:!border-0 max-lg:!bg-transparent',
+          showConversationList && showListOnMobile ? 'hidden' : 'flex',
         ].join(' ')}
       >
         {/* Header — mobile style (back / title+subtitle / ⋯) on small,
