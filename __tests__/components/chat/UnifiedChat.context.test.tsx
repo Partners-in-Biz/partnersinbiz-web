@@ -1109,7 +1109,7 @@ describe('UnifiedChat message scrolling', () => {
     expect(screen.getByText('Sessions')).toBeInTheDocument()
   })
 
-  it('groups Hermes sessions into pinned, project, agent, and recent areas without changing the classic rail', async () => {
+  it('groups Hermes sessions into pinned, company Cowork, project, agent, and recent areas without changing the classic rail', async () => {
     window.localStorage.setItem('pib.messages.pinnedConversations.v1:org-1', JSON.stringify(['conv-pinned']))
     const conversations = [
       {
@@ -1119,6 +1119,19 @@ describe('UnifiedChat message scrolling', () => {
         lastMessagePreview: 'Keep this handy',
         lastMessageAt: { seconds: 10 },
         messageCount: 3,
+      },
+      {
+        ...baseConversation,
+        id: 'conv-company',
+        title: 'AHS Law check-in',
+        scope: 'company',
+        scopeRefId: 'company-ahs',
+        workspaceContext: {
+          workspaceId: 'partners', orgName: 'Partners in Biz', runtimeTarget: 'device-mac', runtimeLabel: "Peet's Mac",
+          companyId: 'company-ahs', companyName: 'AHS Law', folderScope: 'company' as const,
+        },
+        lastMessagePreview: 'Company root thread',
+        lastMessageAt: { seconds: 9 },
       },
       {
         ...baseConversation,
@@ -1173,9 +1186,15 @@ describe('UnifiedChat message scrolling', () => {
 
     expect(await screen.findByTestId('hermes-session-section-pinned')).toBeInTheDocument()
     expect(within(screen.getByTestId('hermes-session-section-pinned')).getByText('Pinned launch')).toBeInTheDocument()
+    const companyFolder = screen.getByTestId('hermes-company-company-ahs')
+    expect(within(companyFolder).getByText('AHS Law')).toBeInTheDocument()
+    expect(within(companyFolder).getByText('AHS Law check-in')).toBeInTheDocument()
+    expect(screen.getByTestId('hermes-session-section-agents')).not.toHaveTextContent('AHS Law check-in')
     expect(within(screen.getByTestId('hermes-project-project-1')).getByText('Website project')).toBeInTheDocument()
     expect(within(screen.getByTestId('hermes-session-section-agents')).getByText('Pip agent run')).toBeInTheDocument()
     expect(within(screen.getByTestId('hermes-session-section-recent')).getByText('General inbox')).toBeInTheDocument()
+
+    expect(within(companyFolder).getByRole('button', { name: 'Start session in AHS Law' })).toBeEnabled()
     unmount()
 
     render(
