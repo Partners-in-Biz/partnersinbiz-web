@@ -10,7 +10,9 @@ $Root = Join-Path $env:ProgramFiles 'Partners in Biz'
 $Binary = Join-Path $Root 'current\pib-runtime.exe'
 $Previous = Join-Path $Root 'previous\pib-runtime.exe'
 $ApiBase = if ($env:PIB_API_BASE) { $env:PIB_API_BASE } else { 'https://partnersinbiz.online' }
-$MetadataUrl = if ($env:PIB_RUNTIME_METADATA_URL) { $env:PIB_RUNTIME_METADATA_URL } else { "$ApiBase/runtime/windows/stable.json" }
+$ReleaseBase = if ($env:PIB_RUNTIME_RELEASE_BASE) { $env:PIB_RUNTIME_RELEASE_BASE.TrimEnd('/') } else { 'https://github.com/Partners-in-Biz/partnersinbiz-web/releases/latest/download' }
+$Architecture = $env:PROCESSOR_ARCHITECTURE.ToLowerInvariant().Replace('amd64','x64')
+$MetadataUrl = if ($env:PIB_RUNTIME_METADATA_URL) { $env:PIB_RUNTIME_METADATA_URL } else { "$ReleaseBase/partnersinbiz-runtime-windows-$Architecture-stable.json" }
 $ReleaseManager = if ($env:PIB_RELEASE_MANAGER) { $env:PIB_RELEASE_MANAGER } else { Join-Path $PSScriptRoot 'pib-release-manager.exe' }
 
 function Assert-Administrator { if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'Run from an elevated PowerShell.' } }

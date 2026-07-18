@@ -1,0 +1,90 @@
+name: Release linked runtime for Linux
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: SemVer runtime version to publish
+        required: true
+        default: 1.1.1
+
+permissions:
+  contents: write
+
+concurrency:
+  group: linked-runtime-linux-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PIB_RUNTIME_RELEASE_PRIVATE_KEY: ${{ secrets.LINKED_RUNTIME_RELEASE_PRIVATE_KEY }}
+      VERSION: ${{ inputs.version }}
+    steps:
+      - name: Refuse non-production source
+        run: |
+          if [[ "${GITHUB_REF}" != refs/heads/main ]]; then
+            echo 'Runtime releases must be dispatched from main.' >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.10
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify release inputs
+        run: |
+          [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)([-+][0-9A-Za-z.-]+)?$ ]] || {
+            echo 'Version must be valid SemVer.' >&2
+            exit 1
+          }
+          [[ -n "$PIB_RUNTIME_RELEASE_PRIVATE_KEY" ]] || {
+            echo 'LINKED_RUNTIME_RELEASE_PRIVATE_KEY is not configured.' >&2
+            exit 1
+          }
+          if gh release view "runtime-v$VERSION" >/dev/null 2>&1; then
+            echo "runtime-v$VERSION already exists; immutable runtime releases cannot be overwritten." >&2
+            exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Build Linux x64 and arm64 runtimes
+        run: PIB_RUNTIME_TARGETS='linux-x64 linux-arm64' bash runtime-installers/build-runtime.sh
+
+      - name: Verify installers and lifecycle
+        run: |
+          npx tsx scripts/verify-linked-runtime-installers.ts
+          bash runtime-installers/tests/linux-credential-helper.sh
+          bash runtime-installers/tests/linux-lifecycle.sh
+
+      - name: Create signed release assets
+        run: |
+          npx tsx scripts/package-linked-runtime-release.ts \
+            --version "$VERSION" \
+            --minimum-version "$VERSION" \
+            --tag "runtime-v$VERSION" \
+            --targets linux-x64,linux-arm64
+
+      - name: Publish immutable GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "runtime-v$VERSION" runtime-installers/release-dist/* \
+            --target "$GITHUB_SHA" \
+            --title "Partners in Biz linked runtime $VERSION" \
+            --notes "Signed Partners in Biz linked-computer runtime for Linux x64 and arm64. Install from Settings > Linked Computers on partnersinbiz.online."

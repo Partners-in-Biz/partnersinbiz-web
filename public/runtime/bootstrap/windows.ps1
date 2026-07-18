@@ -6,6 +6,8 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $ApiBase = if ($env:PIB_API_BASE) { $env:PIB_API_BASE.TrimEnd('/') } else { 'https://partnersinbiz.online' }
+$ReleaseBase = if ($env:PIB_RUNTIME_RELEASE_BASE) { $env:PIB_RUNTIME_RELEASE_BASE.TrimEnd('/') } else { 'https://github.com/Partners-in-Biz/partnersinbiz-web/releases/latest/download' }
+$Architecture = $env:PROCESSOR_ARCHITECTURE.ToLowerInvariant().Replace('amd64','x64')
 
 if (-not (Get-Command hermes -ErrorAction SilentlyContinue)) {
   Write-Host 'Installing Hermes Agent...'
@@ -27,7 +29,7 @@ foreach ($Profile in $RequestedProfiles) {
 $Stage = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory $Stage | Out-Null
 try {
-  $BundleUrl = if ($env:PIB_RUNTIME_BUNDLE_URL) { $env:PIB_RUNTIME_BUNDLE_URL } else { "$ApiBase/runtime/windows/installer-bundle.zip" }
+  $BundleUrl = if ($env:PIB_RUNTIME_BUNDLE_URL) { $env:PIB_RUNTIME_BUNDLE_URL } else { "$ReleaseBase/partnersinbiz-runtime-windows-$Architecture-installer.zip" }
   $Archive = Join-Path $Stage 'runtime.zip'
   Write-Host 'Installing the signed Partners in Biz runtime...'
   Invoke-WebRequest -UseBasicParsing -Uri $BundleUrl -OutFile $Archive

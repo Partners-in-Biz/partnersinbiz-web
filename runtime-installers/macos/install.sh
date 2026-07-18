@@ -6,9 +6,12 @@ ROOT="$HOME/Library/Application Support/PartnersInBiz"
 BIN="$ROOT/current/pib-runtime"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 API_BASE="${PIB_API_BASE:-https://partnersinbiz.online}"
-METADATA_URL="${PIB_RUNTIME_METADATA_URL:-$API_BASE/runtime/macos/stable.json}"
+RELEASE_BASE="${PIB_RUNTIME_RELEASE_BASE:-https://github.com/Partners-in-Biz/partnersinbiz-web/releases/latest/download}"
+ARCH="$(uname -m | sed 's/x86_64/x64/')"
+METADATA_URL="${PIB_RUNTIME_METADATA_URL:-$RELEASE_BASE/partnersinbiz-runtime-macos-$ARCH-stable.json}"
 PUBLIC_KEY="${PIB_RUNTIME_UPDATE_PUBLIC_KEY:-}"
 RELEASE_MANAGER="${PIB_RELEASE_MANAGER:-$(dirname "$0")/pib-release-manager}"
+[[ -n "$PUBLIC_KEY" || ! -f "$(dirname "$0")/release-public.pem" ]] || PUBLIC_KEY="$(cat "$(dirname "$0")/release-public.pem")"
 
 usage() { echo "usage: install.sh install|pair|update|rollback|uninstall|revoke [challengeId|--force-local]"; }
 require_root() { [[ $EUID -ne 0 ]] || { echo "Run as the paired desktop user, not root." >&2; exit 1; }; }
@@ -31,11 +34,11 @@ verify_release() {
   local current_version="${PIB_RUNTIME_CURRENT_VERSION:-}" rollback_flag=""
   if [[ -z "$current_version" && -x "$ROOT/current/pib-runtime" ]];then
     if [[ -f "$ROOT/current/.unsigned-dev" ]];then [[ "${PIB_ALLOW_UNSIGNED_DEV:-0}" == 1 ]]||{ echo 'Production refused an installed unsigned development release.' >&2;return 1;};current_version="$($RELEASE_MANAGER installed-version --manifest "$ROOT/current/manifest.json" --payload "$ROOT/current/pib-runtime" --platform macos --architecture "$(uname -m | sed 's/x86_64/x64/')" --channel stable --allow-unsigned-dev)";
-    else [[ -f "$ROOT/current/manifest.sig" ]]||{ echo 'Installed release signature is missing.' >&2;return 1;};current_version="$($RELEASE_MANAGER installed-version --manifest "$ROOT/current/manifest.json" --signature "$ROOT/current/manifest.sig" --payload "$ROOT/current/pib-runtime" --public-key "$key_file" --platform macos --architecture "$(uname -m | sed 's/x86_64/x64/')" --channel stable)";fi
+    else [[ -f "$ROOT/current/manifest.sig" ]]||{ echo 'Installed release signature is missing.' >&2;return 1;};current_version="$($RELEASE_MANAGER installed-version --manifest "$ROOT/current/manifest.json" --signature "$ROOT/current/manifest.sig" --payload "$ROOT/current/pib-runtime" --public-key "$key_file" --platform macos --architecture "$ARCH" --channel stable)";fi
   fi
   [[ -n "$current_version" ]]||current_version="$(/usr/bin/plutil -extract minimumVersion raw "$metadata")"
   [[ "${3:-}" != rollback ]] || rollback_flag="--allow-downgrade"
-  local verify_args=(verify --manifest "$metadata" --payload "$payload" --platform macos --architecture "$(uname -m | sed 's/x86_64/x64/')" --current-version "$current_version" --channel stable)
+  local verify_args=(verify --manifest "$metadata" --payload "$payload" --platform macos --architecture "$ARCH" --current-version "$current_version" --channel stable)
   [[ -z "$unsigned_flag" ]]&&verify_args+=(--signature "$signature_file" --public-key "$key_file")||verify_args+=(--allow-unsigned-dev)
   [[ -z "$rollback_flag" ]]||verify_args+=(--allow-downgrade)
   "$RELEASE_MANAGER" "${verify_args[@]}"

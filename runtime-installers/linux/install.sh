@@ -8,12 +8,14 @@ UNIT_PATH="${PIB_LINUX_UNIT_PATH:-/etc/systemd/system/pib-runtime.service}"
 RUNTIME_ENV_PATH="${PIB_RUNTIME_ENV_PATH:-/etc/partnersinbiz/runtime.env}"
 BIN="$ROOT/current/pib-runtime"
 API_BASE="${PIB_API_BASE:-https://partnersinbiz.online}"
+RELEASE_BASE="${PIB_RUNTIME_RELEASE_BASE:-https://github.com/Partners-in-Biz/partnersinbiz-web/releases/latest/download}"
 HERMES_HOME_PATH="${PIB_HERMES_HOME:-}"
 ARCH="$(uname -m)"
 case "$ARCH" in x86_64|amd64) ARCH=x64;; aarch64|arm64) ARCH=arm64;; *) echo "Unsupported Linux architecture: $ARCH" >&2;exit 1;; esac
-METADATA_URL="${PIB_RUNTIME_METADATA_URL:-$API_BASE/runtime/linux/$ARCH/stable.json}"
+METADATA_URL="${PIB_RUNTIME_METADATA_URL:-$RELEASE_BASE/partnersinbiz-runtime-linux-$ARCH-stable.json}"
 PUBLIC_KEY="${PIB_RUNTIME_UPDATE_PUBLIC_KEY:-}"
 RELEASE_MANAGER="${PIB_RELEASE_MANAGER:-$INSTALLER_DIR/pib-release-manager}"
+[[ -n "$PUBLIC_KEY" || ! -f "$INSTALLER_DIR/release-public.pem" ]] || PUBLIC_KEY="$(cat "$INSTALLER_DIR/release-public.pem")"
 SYSTEMCTL="${PIB_SYSTEMCTL:-systemctl}"
 CURL="${PIB_CURL:-curl}"
 PYTHON="${PIB_PYTHON3:-python3}"
@@ -75,7 +77,7 @@ print(value)
 PY
 }
 require_https_download_url() {
-  "$PYTHON" - "$1" "$METADATA_URL" "${PIB_RUNTIME_DOWNLOAD_HOSTS:-partnersinbiz.online,storage.googleapis.com}" <<'PY'
+  "$PYTHON" - "$1" "$METADATA_URL" "${PIB_RUNTIME_DOWNLOAD_HOSTS:-partnersinbiz.online,storage.googleapis.com,github.com,objects.githubusercontent.com}" <<'PY'
 import sys
 from urllib.parse import urlparse
 candidate, metadata, configured = sys.argv[1:]

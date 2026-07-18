@@ -66,3 +66,23 @@ export function linkedComputerBootstrapCommand(input: {
   const platform = input.platform === 'linux' ? 'linux' : 'macos'
   return `curl -fsSL ${apiBase}/runtime/bootstrap/${platform}.sh | bash -s -- --challenge '${challengeId}' --profiles '${profiles}' --providers '${providers}'`
 }
+
+export function linkedComputerSetupDownload(input: Parameters<typeof linkedComputerBootstrapCommand>[0]): {
+  filename: string
+  mimeType: string
+  content: string
+} {
+  const command = linkedComputerBootstrapCommand(input)
+  if (input.platform === 'windows') {
+    return {
+      filename: 'partners-in-biz-setup.ps1',
+      mimeType: 'text/plain;charset=utf-8',
+      content: `$ErrorActionPreference = 'Stop'\r\n${command}\r\n`,
+    }
+  }
+  return {
+    filename: `partners-in-biz-setup-${input.platform}.sh`,
+    mimeType: 'text/x-shellscript;charset=utf-8',
+    content: `#!/bin/bash\nset -euo pipefail\n${command}\n`,
+  }
+}
