@@ -29,6 +29,9 @@ export interface Conversation {
     orgName: string
     runtimeTarget: string
     runtimeLabel: string
+    companyId?: string | null
+    companyName?: string
+    folderScope?: 'organisation' | 'company' | 'project'
     projectId?: string
     projectName?: string
     shareMode?: string
