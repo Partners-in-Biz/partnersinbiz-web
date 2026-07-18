@@ -35,7 +35,9 @@ for profile in "${requested_profiles[@]}"; do
 done
 
 stage="$(mktemp -d)"; trap 'rm -rf "$stage"' EXIT
-bundle_url="${PIB_RUNTIME_BUNDLE_URL:-$API_BASE/runtime/macos/installer-bundle.tgz}"
+arch="$(uname -m)"; [[ "$arch" != x86_64 ]] || arch=x64
+release_base="${PIB_RUNTIME_RELEASE_BASE:-https://github.com/Partners-in-Biz/partnersinbiz-web/releases/latest/download}"
+bundle_url="${PIB_RUNTIME_BUNDLE_URL:-$release_base/partnersinbiz-runtime-macos-$arch-installer.tgz}"
 echo 'Installing the signed Partners in Biz runtime…'
 curl -fsSL --proto '=https' "$bundle_url" -o "$stage/runtime.tgz"
 tar -xzf "$stage/runtime.tgz" -C "$stage"

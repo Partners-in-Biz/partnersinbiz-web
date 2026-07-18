@@ -61,7 +61,8 @@ for (const [name, source] of [['macOS bootstrap', macBootstrap], ['Linux bootstr
   requireText(name, source, /profile create/)
   requireText(name, source, /setup model/)
   requireText(name, source, /gateway (?:install|start)/)
-  requireText(name, source, /installer-bundle/)
+  requireText(name, source, /partnersinbiz-runtime-[^\s"']+-installer/)
+  requireText(name, source, /github\.com\/Partners-in-Biz\/partnersinbiz-web\/releases\/latest\/download/)
   requireText(name, source, /challenge/i)
   rejectText(name, source, /(?:OPENAI|ANTHROPIC|OPENROUTER|GOOGLE|XAI)_API_KEY\s*=/i)
 }

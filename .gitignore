@@ -24,6 +24,9 @@
 # misc
 .DS_Store
 *.pem
+!runtime-installers/release-public.pem
+runtime-installers/dist/
+runtime-installers/release-dist/
 
 # debug
 npm-debug.log*

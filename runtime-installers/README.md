@@ -14,11 +14,13 @@ PIB_LOCAL_HERMES_ROUTES={"pip":{"baseUrl":"http://127.0.0.1:8755","apiKey":"..."
 
 Route URLs are restricted to loopback HTTP. The runtime includes the selected `agentId` in the claimed job, dispatches only to that agent's configured route, and reports the healthy inventory to PiB so Messages never offers a computer for an agent it does not have.
 
-Production metadata names `version`, `minimumVersion`, `payloadUrl`, `sha256`, and an Ed25519 `signature`. Install/update verifies authenticated metadata and payload before activation, enforces the minimum version, and retains one prior verified binary for rollback. Missing or invalid signatures fail closed.
+Production metadata names `version`, `minimumVersion`, `payloadUrl`, `sha256`, and an Ed25519 `signature`. Install/update verifies authenticated metadata and payload before activation, enforces the minimum version, and retains one prior verified binary for rollback. Missing or invalid signatures fail closed. Immutable release assets live in the repository's `runtime-v<semver>` GitHub Releases; bootstrap scripts resolve the latest stable release, while each signed manifest pins its payload to the exact versioned tag.
+
+The release private key is stored in GitHub Actions as `LINKED_RUNTIME_RELEASE_PRIVATE_KEY` and in Peet's macOS Keychain under `com.partnersinbiz.runtime-release-signing-key`. Only `runtime-installers/release-public.pem` is committed or distributed. Linux releases are built and published from `main` with the **Release linked runtime for Linux** workflow. The workflow refuses duplicate tags, mismatched signing keys, invalid SemVer, and non-production source branches.
 
 ## UNSIGNED DEVELOPMENT MODE
 
-Unsigned packages are never silently accepted. macOS requires `PIB_ALLOW_UNSIGNED_DEV=1`; Windows requires `-AllowUnsignedDev`, and both print a prominent warning. This mode is development-only. A production release remains blocked until the macOS package is Developer ID signed and notarised and the Windows installer/binary is Authenticode signed, with real release public keys configured.
+Unsigned packages are never silently accepted. macOS requires `PIB_ALLOW_UNSIGNED_DEV=1`; Windows requires `-AllowUnsignedDev`, and both print a prominent warning. This mode is development-only. The Ed25519 update-signing key is configured, but the customer macOS package must still be Developer ID signed and notarised with Developer ID Application, Developer ID Installer, and notarisation credentials. Windows publication remains blocked on an Authenticode certificate/private-key signing service. Those OS trust gates are separate from the release-manifest signature and may not be bypassed.
 
 Lifecycle commands are idempotent: `install`, `pair`, `update`, `rollback`, `revoke`, and `uninstall`. Revocation is attempted with a signed device request before local credentials are deleted. If PiB is offline, the OS-secure identity and a nonsecret pending marker are retained and the service enters revoke-only retry mode: it cannot heartbeat, claim, or execute work. Uninstall likewise retains the minimal runtime until server acknowledgement. `--force-local` (macOS) or `-ForceLocal` (Windows) is an explicit last resort that prints a warning and requires revocation from the PiB portal.
 
@@ -42,7 +44,7 @@ PIB_RUNTIME_TARGETS="linux-x64 linux-arm64" runtime-installers/build-runtime.sh
 
 The host prerequisites are systemd 250 or newer (including `systemd-creds`), Python 3, curl, and a glibc Linux distribution. The installer intentionally runs the service as root because linked projects may live under different VPS users and because host-key decryption is root-only. Identity JSON is piped directly into `systemd-creds encrypt --with-key=host`; only authenticated ciphertext is stored under `/var/lib/partnersinbiz/credentials` with mode `0600`. `/var/lib/systemd/credential.secret` remains owned and managed by systemd. The package never writes plaintext identity JSON to disk.
 
-Set `PIB_RUNTIME_UPDATE_PUBLIC_KEY` to the production Ed25519 release public key, then run the signed lifecycle as root:
+Published installer bundles include the production Ed25519 public key. `PIB_RUNTIME_UPDATE_PUBLIC_KEY` remains available as an explicit override. Run the signed lifecycle as root:
 
 ```text
 ./install.sh install

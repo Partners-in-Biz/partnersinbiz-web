@@ -7,6 +7,7 @@ import {
   HERMES_PROFILE_PRESETS,
   linkedComputerBootstrapCommand,
   linkedComputerBootstrapReady,
+  linkedComputerSetupDownload,
   sanitizeHermesProfiles,
   sanitizeHermesProviders,
 } from '@/lib/linked-computers/bootstrap'
@@ -125,6 +126,21 @@ export function PairComputerDialog({
     profiles: requestedProfiles,
     providers: requestedProviders,
   }) : ''
+  const downloadSetup = () => {
+    if (!pairing) return
+    const setup = linkedComputerSetupDownload({
+      platform: pairing.requestedPlatform,
+      challengeId: pairing.challengeId,
+      profiles: requestedProfiles,
+      providers: requestedProviders,
+    })
+    const url = URL.createObjectURL(new Blob([setup.content], { type: setup.mimeType }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = setup.filename
+    link.click()
+    URL.revokeObjectURL(url)
+  }
 
   const toggleChoice = (value: string, current: string[], update: (values: string[]) => void) => {
     if (current.includes(value) && current.length === 1) return
@@ -160,11 +176,12 @@ export function PairComputerDialog({
         <p className="mt-2 font-mono text-2xl font-bold tracking-widest">{pairing.secret}</p>
         <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">This code expires in 10 minutes and works once.</p>
         <label className="mt-4 block text-left text-xs">One-command computer setup<textarea readOnly aria-label="One-command computer setup" value={bootstrapCommand} rows={pairing.requestedPlatform === 'windows' ? 4 : 3} className="mt-1 w-full resize-none rounded-lg border bg-transparent p-2 font-mono text-[11px]" /></label>
+        <button type="button" onClick={downloadSetup} className="mt-2 inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 text-xs font-medium text-primary"><span className="material-symbols-outlined text-[15px]">download</span>Download setup file</button>
         <button type="button" onClick={() => { void navigator.clipboard.writeText(bootstrapCommand).then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 1500) }) }} className="mt-2 inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 text-xs font-medium text-primary"><span className="material-symbols-outlined text-[15px]">content_copy</span>{copied ? 'Copied' : 'Copy setup command'}</button>
         {pairing.adoption && (adoptionCompleted
           ? <p role="status" className="mt-2 rounded-lg border border-emerald-400/20 bg-emerald-400/10 p-3 text-left text-xs text-emerald-200">Authenticated runtime linked. Its existing project links were preserved.</p>
           : <p className="mt-2 rounded-lg border border-amber-400/20 bg-amber-400/10 p-3 text-left text-xs text-amber-200">{eligibleLegacyLocations.find((location) => location.locationId === pairing.adoption?.sourceLocationId)?.label ?? 'The selected location'} stays a legacy project location until this runtime proves ownership with the one-time code.</p>)}
-        <p className="mt-2 text-left text-xs text-[var(--color-pib-text-muted)]">Run this in Terminal on macOS/Linux or an Administrator PowerShell on Windows. It installs Hermes when needed, creates the selected profiles, starts their gateways, installs the signed PiB runtime, then asks privately for the code above. After pairing, map one or more organisation Workspaces.</p>
+        <p className="mt-2 text-left text-xs text-[var(--color-pib-text-muted)]">Download and run the setup file, or copy the command into Terminal on macOS/Linux or an Administrator PowerShell on Windows. It installs Hermes when needed, creates the selected profiles, starts their gateways, installs the signed PiB runtime, then asks privately for the code above. After pairing, map one or more organisation Workspaces.</p>
       </div> : <button type="button" onClick={createCode} disabled={pairingDisabled || !guidedSetupReady} title={!guidedSetupReady ? `${platformLabel} signed installer is not published yet` : undefined} className="pib-btn-primary mt-5">{busy ? 'Creating…' : guidedSetupReady ? 'Create pairing code' : `Awaiting signed ${platformLabel} installer`}</button>}
       <button type="button" onClick={onClose} className="ml-2 mt-5 text-sm">{adoptionCompleted ? 'Done' : 'Cancel'}</button>
   </AccessibleDialog>

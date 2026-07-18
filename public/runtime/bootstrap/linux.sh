@@ -31,7 +31,9 @@ for profile in "${requested_profiles[@]}"; do
 done
 
 stage="$(mktemp -d)"; trap 'rm -rf "$stage"' EXIT
-bundle_url="${PIB_RUNTIME_BUNDLE_URL:-$API_BASE/runtime/linux/installer-bundle.tgz}"
+arch="$(uname -m)"; case "$arch" in x86_64|amd64) arch=x64;; aarch64|arm64) arch=arm64;; *) echo "Unsupported Linux architecture: $arch" >&2; exit 1;; esac
+release_base="${PIB_RUNTIME_RELEASE_BASE:-https://github.com/Partners-in-Biz/partnersinbiz-web/releases/latest/download}"
+bundle_url="${PIB_RUNTIME_BUNDLE_URL:-$release_base/partnersinbiz-runtime-linux-$arch-installer.tgz}"
 curl -fsSL --proto '=https' "$bundle_url" -o "$stage/runtime.tgz"
 tar -xzf "$stage/runtime.tgz" -C "$stage"
 installer="$(find "$stage" -maxdepth 3 -type f -name install.sh -print -quit)"

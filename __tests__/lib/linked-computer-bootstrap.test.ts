@@ -1,6 +1,7 @@
 import {
   linkedComputerBootstrapCommand,
   linkedComputerBootstrapReady,
+  linkedComputerSetupDownload,
   sanitizeHermesProfiles,
   sanitizeHermesProviders,
 } from '@/lib/linked-computers/bootstrap'
@@ -31,5 +32,16 @@ describe('linked computer bootstrap handoff', () => {
     expect(linkedComputerBootstrapReady('linux', 'macos,linux')).toBe(true)
     expect(linkedComputerBootstrapReady('windows', 'macos,linux')).toBe(false)
     expect(linkedComputerBootstrapReady('macos', '')).toBe(false)
+  })
+
+  it('creates a downloadable nonsecret setup file for each platform', () => {
+    const mac = linkedComputerSetupDownload({ platform: 'macos', challengeId: 'challenge_123', profiles: ['pip'], providers: ['nous'] })
+    expect(mac.filename).toBe('partners-in-biz-setup-macos.sh')
+    expect(mac.content).toContain('#!/bin/bash')
+    expect(mac.content).toContain("--challenge 'challenge_123'")
+    const windows = linkedComputerSetupDownload({ platform: 'windows', challengeId: 'challenge_123', profiles: ['pip'], providers: ['nous'] })
+    expect(windows.filename).toBe('partners-in-biz-setup.ps1')
+    expect(windows.content).toContain("-ChallengeId 'challenge_123'")
+    expect(`${mac.content}${windows.content}`).not.toMatch(/api[_-]?key|pairing code|credential/i)
   })
 })
