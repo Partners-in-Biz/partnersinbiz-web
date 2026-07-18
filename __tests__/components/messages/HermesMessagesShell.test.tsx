@@ -1,6 +1,7 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import HermesMessagesShell from '@/components/messages/hermes-desktop/HermesMessagesShell'
 import { MessagesWorkspace } from '@/components/messages/MessagesWorkspace'
+import { WORKSPACE_PANEL_EVENT } from '@/lib/hermes/workspace-panels'
 
 const mockUnifiedChat = jest.fn((props: Record<string, unknown>) => (
   <div
@@ -30,6 +31,7 @@ describe('HermesMessagesShell', () => {
   beforeEach(() => {
     mockUnifiedChat.mockClear()
     mockAgentRunSession.mockClear()
+    window.localStorage.clear()
   })
 
   it('renders the dense Hermes-style workspace shell and passes chat capabilities through', () => {
@@ -97,12 +99,55 @@ describe('HermesMessagesShell', () => {
       allowAgentParticipants: false,
     }))
   })
+
+  it('opens a second session pane with its own tab surface', () => {
+    render(
+      <HermesMessagesShell
+        surface="portal"
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        initialConvId="conv-1"
+        capabilities={{ allowStartConversations: true, allowSendMessages: true, allowAgentParticipants: true, allowArchiveConversations: true }}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open active session in split pane' }))
+
+    expect(screen.getByTestId('messages-workspace-pane-primary')).toBeInTheDocument()
+    expect(screen.getByTestId('messages-workspace-pane-secondary')).toBeInTheDocument()
+    expect(mockUnifiedChat).toHaveBeenLastCalledWith(expect.objectContaining({
+      activeConversationId: 'conv-1',
+      showConversationList: false,
+    }))
+  })
+
+  it('places safe agent-generated workspace UI in its own pane', () => {
+    render(
+      <HermesMessagesShell
+        surface="portal"
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        capabilities={{ allowStartConversations: true, allowSendMessages: true, allowAgentParticipants: true, allowArchiveConversations: true }}
+      />,
+    )
+
+    fireEvent(window, new CustomEvent(WORKSPACE_PANEL_EVENT, { detail: {
+      type: 'workspace_panel', id: 'growth', title: 'Growth cockpit', metrics: [{ label: 'Leads', value: '42' }], sections: [], columns: [], rows: [],
+    } }))
+
+    expect(screen.getByTestId('messages-workspace-pane-secondary')).toBeInTheDocument()
+    expect(screen.getByTestId('generated-workspace-panel-growth')).toHaveTextContent('Growth cockpit')
+    expect(screen.getByTestId('generated-workspace-panel-growth')).toHaveTextContent('42')
+  })
 })
 
 describe('MessagesWorkspace', () => {
   beforeEach(() => {
     mockUnifiedChat.mockClear()
     mockAgentRunSession.mockClear()
+    window.localStorage.clear()
   })
 
   it('routes normal portal messages through the Hermes shell', () => {

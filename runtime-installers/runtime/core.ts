@@ -19,7 +19,7 @@ export function verifyRelease(m:ReleaseManifest, signature:string, payload:Buffe
   return m
 }
 export function createPairingIdentity(){ const pair=generateKeyPairSync('ed25519'); return {publicKey:pair.publicKey.export({type:'spki',format:'pem'}).toString(),privateKey:pair.privateKey} }
-export function pairingPayload(challengeId:string,code:string,deviceId:string,publicKey:string){return `${challengeId}\n${code}\n${deviceId}\n${publicKey}`}
+export function pairingPayload(challengeId:string,code:string,deviceId:string,publicKey:string){return `${challengeId}\n${code}\n${deviceId}\n${publicKey.trim()}`}
 export function createReceipt(body:Record<string,unknown>, key:KeyLike){return {...body,signature:sign(null,Buffer.from(canonicalJson(body)),key).toString('base64url'),algorithm:'Ed25519'}}
 export function redactLog(s:string){return s.replace(/(credential|transportToken|pairingCode|privateKey)\s*[=:]\s*\S+/gi,'$1=[REDACTED]')}
 export async function revokeAndCleanup(remote:()=>Promise<unknown>,cleanup:()=>Promise<void>|void){try{await remote();await cleanup();return{remoteRevokePending:false}}catch{return{remoteRevokePending:true}}}

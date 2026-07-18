@@ -1,14 +1,17 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import UnifiedChat from '@/components/chat/UnifiedChat'
+import { ChatMessageContent } from '@/components/chat/MessageBubble'
+import type { Conversation } from '@/components/chat/ConversationListItem'
+import {
+  normalizeWorkspacePanel,
+  WORKSPACE_PANEL_EVENT,
+  type WorkspacePanelSpec,
+} from '@/lib/hermes/workspace-panels'
 import type { HermesMessagesShellProps, MessagesSurface } from './types'
 
-const SURFACE_META: Record<MessagesSurface, {
-  eyebrow: string
-  title: string
-  description: string
-}> = {
+const SURFACE_META: Record<MessagesSurface, { eyebrow: string; title: string; description: string }> = {
   admin: {
     eyebrow: 'Workspace / Messages',
     title: 'Messages',
@@ -21,89 +24,273 @@ const SURFACE_META: Record<MessagesSurface, {
   },
 }
 
+type ConversationTab = { id: string; kind: 'conversation'; conversationId: string; title: string }
+type PanelTab = { id: string; kind: 'panel'; panel: WorkspacePanelSpec; title: string }
+type WorkspaceTab = ConversationTab | PanelTab
+type WorkspacePane = { id: string; tabs: WorkspaceTab[]; activeTabId: string | null }
+type WorkspaceDirection = 'row' | 'column'
+
+function conversationTab(conversationId: string, title = 'Session'): ConversationTab {
+  return { id: `conversation:${conversationId}`, kind: 'conversation', conversationId, title }
+}
+
+function initialPanes(initialConvId?: string): WorkspacePane[] {
+  const tabs = initialConvId ? [conversationTab(initialConvId)] : []
+  return [{ id: 'primary', tabs, activeTabId: tabs[0]?.id ?? null }]
+}
+
+function safeStoredPanes(value: unknown, initialConvId?: string): WorkspacePane[] {
+  if (!Array.isArray(value)) return initialPanes(initialConvId)
+  const panes = value.slice(0, 2).flatMap((rawPane, paneIndex): WorkspacePane[] => {
+    if (!rawPane || typeof rawPane !== 'object') return []
+    const pane = rawPane as Record<string, unknown>
+    const tabs = (Array.isArray(pane.tabs) ? pane.tabs : []).slice(0, 12).flatMap((rawTab): WorkspaceTab[] => {
+      if (!rawTab || typeof rawTab !== 'object') return []
+      const tab = rawTab as Record<string, unknown>
+      if (tab.kind !== 'conversation' || typeof tab.conversationId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(tab.conversationId)) return []
+      return [conversationTab(tab.conversationId, typeof tab.title === 'string' ? tab.title.slice(0, 120) : 'Session')]
+    })
+    const activeTabId = typeof pane.activeTabId === 'string' && tabs.some((tab) => tab.id === pane.activeTabId)
+      ? pane.activeTabId
+      : tabs[0]?.id ?? null
+    return [{ id: paneIndex === 0 ? 'primary' : 'secondary', tabs, activeTabId }]
+  })
+  return panes.length ? panes : initialPanes(initialConvId)
+}
+
 function StatusPill({ children, tone = 'default' }: { children: ReactNode; tone?: 'default' | 'accent' | 'muted' }) {
   const toneClass = tone === 'accent'
     ? 'border-primary/25 bg-primary/10 text-primary'
     : tone === 'muted'
       ? 'border-white/10 bg-white/[0.03] text-[var(--color-pib-text-muted)]'
       : 'border-[var(--color-pib-blue)]/25 bg-[var(--color-pib-blue-soft)] text-[var(--color-pib-blue)]'
+  return <span className={`inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[11px] ${toneClass}`}>{children}</span>
+}
+
+function GeneratedWorkspacePanel({ panel }: { panel: WorkspacePanelSpec }) {
   return (
-    <span className={`inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[11px] ${toneClass}`}>
-      {children}
-    </span>
+    <section data-testid={`generated-workspace-panel-${panel.id}`} className="h-full min-h-0 overflow-y-auto p-4 sm:p-5">
+      <div className="mx-auto max-w-5xl">
+        <p className="pib-label text-primary">{panel.eyebrow ?? 'Generated workspace UI'}</p>
+        <h2 className="mt-1 text-xl font-semibold text-[var(--color-pib-text)]">{panel.title}</h2>
+        {panel.body && <div className="mt-3 text-sm leading-relaxed text-[var(--color-pib-text-muted)]"><ChatMessageContent content={panel.body} /></div>}
+        {panel.metrics.length > 0 && (
+          <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            {panel.metrics.map((metric) => (
+              <article key={metric.label} className="rounded-lg border border-[var(--color-card-border)] bg-white/[0.025] p-3">
+                <p className="text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]">{metric.label}</p>
+                <p className="mt-1 text-lg font-semibold text-[var(--color-pib-text)]">{metric.value}</p>
+                {metric.detail && <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{metric.detail}</p>}
+              </article>
+            ))}
+          </div>
+        )}
+        {panel.sections.length > 0 && (
+          <div className="mt-5 grid gap-3 xl:grid-cols-2">
+            {panel.sections.map((section, index) => (
+              <article key={`${section.heading ?? 'section'}-${index}`} className="rounded-lg border border-[var(--color-card-border)] bg-black/[0.08] p-4">
+                {section.heading && <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{section.heading}</h3>}
+                {section.body && <div className="mt-2 text-xs leading-relaxed text-[var(--color-pib-text-muted)]"><ChatMessageContent content={section.body} /></div>}
+                {section.items && section.items.length > 0 && <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-[var(--color-pib-text-muted)]">{section.items.map((item, itemIndex) => <li key={`${item}-${itemIndex}`}>{item}</li>)}</ul>}
+              </article>
+            ))}
+          </div>
+        )}
+        {panel.rows.length > 0 && (
+          <div className="mt-5 overflow-x-auto rounded-lg border border-[var(--color-card-border)]">
+            <table className="min-w-full border-collapse text-left text-xs">
+              {panel.columns.length > 0 && <thead className="bg-white/[0.04]"><tr>{panel.columns.map((column) => <th key={column} className="border-b border-[var(--color-card-border)] px-3 py-2 font-semibold">{column}</th>)}</tr></thead>}
+              <tbody>{panel.rows.map((row, rowIndex) => <tr key={rowIndex} className="border-b border-[var(--color-card-border)] last:border-0">{row.map((cell, cellIndex) => <td key={cellIndex} className="px-3 py-2 text-[var(--color-pib-text-muted)]">{cell}</td>)}</tr>)}</tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </section>
   )
 }
 
-export function HermesMessagesShell({
-  surface,
-  orgId,
-  currentUserUid,
-  currentUserDisplayName,
-  orgName,
-  userRole,
-  initialConvId,
-  capabilities,
-}: HermesMessagesShellProps) {
+export function HermesMessagesShell(props: HermesMessagesShellProps) {
+  const { surface, orgId, currentUserUid, currentUserDisplayName, orgName, userRole, initialConvId, capabilities } = props
   const copy = SURFACE_META[surface]
   const runtimeMode = capabilities.allowAgentParticipants ? 'Agents enabled' : 'Human-only'
+  const storageKey = `pib.messages.workspace.v1:${orgId}:${currentUserUid}`
+  const [panes, setPanes] = useState<WorkspacePane[]>(() => {
+    if (typeof window === 'undefined') return initialPanes(initialConvId)
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(storageKey) ?? 'null') as { panes?: unknown } | null
+      return safeStoredPanes(stored?.panes, initialConvId)
+    } catch { return initialPanes(initialConvId) }
+  })
+  const [direction, setDirection] = useState<WorkspaceDirection>(() => {
+    if (typeof window === 'undefined') return 'row'
+    try { return JSON.parse(window.localStorage.getItem(storageKey) ?? 'null')?.direction === 'column' ? 'column' : 'row' } catch { return 'row' }
+  })
+  const [splitPercent, setSplitPercent] = useState(() => {
+    if (typeof window === 'undefined') return 50
+    try {
+      const value = Number(JSON.parse(window.localStorage.getItem(storageKey) ?? 'null')?.splitPercent)
+      return Number.isFinite(value) ? Math.min(72, Math.max(28, value)) : 50
+    } catch { return 50 }
+  })
+  const [focusedPaneId, setFocusedPaneId] = useState('primary')
+  const [conversationTitles, setConversationTitles] = useState<Record<string, string>>({})
+  const dragRef = useRef<{ origin: number; percent: number; size: number } | null>(null)
+
+  useEffect(() => {
+    const persistable = panes.map((pane) => ({
+      ...pane,
+      tabs: pane.tabs.filter((tab): tab is ConversationTab => tab.kind === 'conversation'),
+    }))
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify({ panes: persistable, direction, splitPercent }))
+    } catch (storageError) {
+      // Private browsing or storage policy must not break Messages.
+      void storageError
+    }
+  }, [direction, panes, splitPercent, storageKey])
+
+  const openConversation = useCallback((paneId: string, conversationId: string | null) => {
+    if (!conversationId) return
+    setFocusedPaneId(paneId)
+    setPanes((current) => current.map((pane) => {
+      if (pane.id !== paneId) return pane
+      const tab = conversationTab(conversationId, conversationTitles[conversationId] ?? 'Session')
+      const tabs = pane.tabs.some((item) => item.id === tab.id) ? pane.tabs : [...pane.tabs, tab].slice(-12)
+      return { ...pane, tabs, activeTabId: tab.id }
+    }))
+  }, [conversationTitles])
+
+  const handleConversationCatalogue = useCallback((conversations: Conversation[]) => {
+    const titles = Object.fromEntries(conversations.map((conversation) => [conversation.id, conversation.title || 'Untitled session']))
+    setConversationTitles(titles)
+    setPanes((current) => current.map((pane) => ({
+      ...pane,
+      tabs: pane.tabs.map((tab) => tab.kind === 'conversation' && titles[tab.conversationId]
+        ? { ...tab, title: titles[tab.conversationId] }
+        : tab),
+    })))
+  }, [])
+
+  const splitActiveTab = useCallback(() => {
+    setPanes((current) => {
+      if (current.length > 1) return current
+      const source = current.find((pane) => pane.id === focusedPaneId) ?? current[0]
+      const active = source?.tabs.find((tab) => tab.id === source.activeTabId)
+      return [...current, { id: 'secondary', tabs: active ? [active] : [], activeTabId: active?.id ?? null }]
+    })
+    setFocusedPaneId('secondary')
+  }, [focusedPaneId])
+
+  useEffect(() => {
+    const listener = (event: Event) => {
+      const panel = normalizeWorkspacePanel((event as CustomEvent).detail)
+      if (!panel) return
+      const tab: PanelTab = { id: `panel:${panel.id}`, kind: 'panel', panel, title: panel.title }
+      setPanes((current) => {
+        const withSecondary = current.length > 1 ? current : [...current, { id: 'secondary', tabs: [], activeTabId: null }]
+        return withSecondary.map((pane) => pane.id !== 'secondary'
+          ? pane
+          : { ...pane, tabs: pane.tabs.some((item) => item.id === tab.id) ? pane.tabs.map((item) => item.id === tab.id ? tab : item) : [...pane.tabs, tab].slice(-12), activeTabId: tab.id })
+      })
+      setFocusedPaneId('secondary')
+    }
+    window.addEventListener(WORKSPACE_PANEL_EVENT, listener)
+    return () => window.removeEventListener(WORKSPACE_PANEL_EVENT, listener)
+  }, [])
+
+  const closeTab = (paneId: string, tabId: string) => {
+    setPanes((current) => {
+      const next = current.map((pane) => {
+        if (pane.id !== paneId) return pane
+        const index = pane.tabs.findIndex((tab) => tab.id === tabId)
+        const tabs = pane.tabs.filter((tab) => tab.id !== tabId)
+        const activeTabId = pane.activeTabId === tabId ? tabs[Math.max(0, index - 1)]?.id ?? tabs[0]?.id ?? null : pane.activeTabId
+        return { ...pane, tabs, activeTabId }
+      })
+      return next.length > 1 && next[1].tabs.length === 0 ? [next[0]] : next
+    })
+    if (paneId === 'secondary') setFocusedPaneId('primary')
+  }
+
+  const startResize = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const container = event.currentTarget.parentElement
+    if (!container) return
+    const rect = container.getBoundingClientRect()
+    dragRef.current = { origin: direction === 'row' ? event.clientX : event.clientY, percent: splitPercent, size: direction === 'row' ? rect.width : rect.height }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+  const continueResize = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (!dragRef.current) return
+    const cursor = direction === 'row' ? event.clientX : event.clientY
+    setSplitPercent(Math.min(72, Math.max(28, dragRef.current.percent + ((cursor - dragRef.current.origin) / dragRef.current.size) * 100)))
+  }
+  const finishResize = (event: React.PointerEvent<HTMLButtonElement>) => {
+    dragRef.current = null
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+  }
+
+  const chatProps = useMemo(() => ({
+    orgId,
+    currentUserUid,
+    currentUserDisplayName,
+    userRole,
+    orgName,
+    allowDeleteConversations: surface === 'admin',
+    allowManageConversationAccess: surface === 'admin',
+    allowAgentParticipants: capabilities.allowAgentParticipants,
+    allowStartConversations: capabilities.allowStartConversations,
+    allowSendMessages: capabilities.allowSendMessages,
+    allowArchiveConversations: capabilities.allowArchiveConversations,
+    layoutVariant: 'hermes' as const,
+  }), [capabilities, currentUserDisplayName, currentUserUid, orgId, orgName, surface, userRole])
 
   return (
-    <div
-      data-testid="hermes-messages-shell"
-      className="flex h-[calc(100dvh-88px)] min-h-0 min-w-0 flex-col overflow-hidden rounded-[22px] border border-[var(--color-card-border)] bg-[var(--color-card)]/55 shadow-[0_24px_80px_rgba(0,0,0,0.24)] lg:min-h-[640px]"
-    >
-      <header
-        data-testid="hermes-messages-shell-topbar"
-        className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black/[0.08] px-3"
-      >
+    <div data-testid="hermes-messages-shell" className="flex h-[calc(100dvh-88px)] min-h-0 min-w-0 flex-col overflow-hidden rounded-[22px] border border-[var(--color-card-border)] bg-[var(--color-card)]/55 shadow-[0_24px_80px_rgba(0,0,0,0.24)] lg:min-h-[640px]">
+      <header data-testid="hermes-messages-shell-topbar" className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black/[0.08] px-3">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="material-symbols-outlined grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-[15px] text-primary">
-            forum
-          </span>
-          <div className="min-w-0">
-            <div className="truncate pib-label">
-              {copy.eyebrow}
-            </div>
-            <div className="flex min-w-0 items-center gap-2">
-              <h1 className="truncate text-sm font-semibold leading-tight text-[var(--color-pib-text)]">{copy.title}</h1>
-              {orgName && <span className="hidden truncate text-xs text-[var(--color-pib-text-muted)] sm:inline">· {orgName}</span>}
-            </div>
-          </div>
+          <span className="material-symbols-outlined grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-[15px] text-primary">forum</span>
+          <div className="min-w-0"><div className="truncate pib-label">{copy.eyebrow}</div><div className="flex min-w-0 items-center gap-2"><h1 className="truncate text-sm font-semibold leading-tight text-[var(--color-pib-text)]">{copy.title}</h1>{orgName && <span className="hidden truncate text-xs text-[var(--color-pib-text-muted)] sm:inline">· {orgName}</span>}</div></div>
         </div>
-
-        <div className="hidden min-w-0 items-center gap-1.5 lg:flex">
-          <StatusPill tone="accent">
-            <span className="material-symbols-outlined text-[13px]">hub</span>
-            {runtimeMode}
-          </StatusPill>
-          <StatusPill>
-            <span className="material-symbols-outlined text-[13px]">shield_lock</span>
-            Safe /v1 runs
-          </StatusPill>
-          {userRole && <StatusPill tone="muted">{userRole}</StatusPill>}
+        <div className="flex min-w-0 items-center gap-1.5">
+          <div className="hidden items-center gap-1.5 xl:flex"><StatusPill tone="accent"><span className="material-symbols-outlined text-[13px]">hub</span>{runtimeMode}</StatusPill><StatusPill><span className="material-symbols-outlined text-[13px]">shield_lock</span>Safe /v1 runs</StatusPill>{userRole && <StatusPill tone="muted">{userRole}</StatusPill>}</div>
+          <button type="button" aria-label={direction === 'row' ? 'Stack panes vertically' : 'Place panes side by side'} onClick={() => setDirection((value) => value === 'row' ? 'column' : 'row')} disabled={panes.length < 2} className="grid h-7 w-7 place-items-center rounded-md border border-white/[0.08] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] disabled:opacity-35"><span className="material-symbols-outlined text-[16px]">{direction === 'row' ? 'horizontal_split' : 'vertical_split'}</span></button>
+          <button type="button" aria-label="Open active session in split pane" onClick={splitActiveTab} disabled={panes.length > 1} className="grid h-7 w-7 place-items-center rounded-md border border-white/[0.08] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] disabled:opacity-35"><span className="material-symbols-outlined text-[16px]">splitscreen</span></button>
         </div>
       </header>
-
-      <div className="sr-only" data-testid="hermes-messages-shell-description">
-        {copy.description}
-      </div>
-
+      <div className="sr-only" data-testid="hermes-messages-shell-description">{copy.description}</div>
       <section data-testid="hermes-messages-shell-body" className="min-h-0 min-w-0 flex-1 overflow-hidden p-2">
-        <UnifiedChat
-          orgId={orgId}
-          currentUserUid={currentUserUid}
-          currentUserDisplayName={currentUserDisplayName}
-          userRole={userRole}
-          orgName={orgName}
-          initialConvId={initialConvId}
-          allowDeleteConversations={surface === 'admin'}
-          allowManageConversationAccess={surface === 'admin'}
-          allowAgentParticipants={capabilities.allowAgentParticipants}
-          allowStartConversations={capabilities.allowStartConversations}
-          allowSendMessages={capabilities.allowSendMessages}
-          allowArchiveConversations={capabilities.allowArchiveConversations}
-          layoutVariant="hermes"
-        />
+        <div className={`flex h-full min-h-0 min-w-0 ${direction === 'row' ? 'flex-row' : 'flex-col'}`}>
+          {panes.map((pane, paneIndex) => {
+            const activeTab = pane.tabs.find((tab) => tab.id === pane.activeTabId) ?? null
+            const style: CSSProperties = panes.length === 1
+              ? { flex: '1 1 100%', order: paneIndex * 2 }
+              : { flex: `0 0 ${paneIndex === 0 ? splitPercent : 100 - splitPercent}%`, order: paneIndex * 2 }
+            return (
+              <div key={pane.id} data-testid={`messages-workspace-pane-${pane.id}`} style={style} onPointerDown={() => setFocusedPaneId(pane.id)} className={`min-h-0 min-w-0 overflow-hidden rounded-xl border ${focusedPaneId === pane.id ? 'border-primary/35' : 'border-[var(--color-card-border)]'} bg-black/[0.035] ${pane.id !== focusedPaneId ? 'max-md:hidden' : ''}`}>
+                <div className="flex h-8 min-w-0 items-center border-b border-[var(--color-card-border)] bg-black/[0.09] px-1">
+                  <div role="tablist" aria-label={`${pane.id} pane tabs`} className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
+                    {pane.tabs.map((tab) => <div key={tab.id} role="presentation" className={`group/tab flex h-6 min-w-[92px] max-w-[220px] items-center rounded-md border px-1.5 ${tab.id === pane.activeTabId ? 'border-white/[0.1] bg-white/[0.07]' : 'border-transparent text-[var(--color-pib-text-muted)] hover:bg-white/[0.04]'}`}><button type="button" role="tab" aria-selected={tab.id === pane.activeTabId} onClick={() => { setFocusedPaneId(pane.id); setPanes((current) => current.map((item) => item.id === pane.id ? { ...item, activeTabId: tab.id } : item)) }} className="min-w-0 flex-1 truncate text-left text-[11px]">{tab.title}</button><button type="button" aria-label={`Close ${tab.title}`} onClick={() => closeTab(pane.id, tab.id)} className="ml-1 grid h-4 w-4 shrink-0 place-items-center rounded opacity-0 hover:bg-white/10 group-hover/tab:opacity-100 focus:opacity-100"><span className="material-symbols-outlined text-[12px]">close</span></button></div>)}
+                    {pane.tabs.length === 0 && <span className="px-2 text-[11px] text-[var(--color-pib-text-muted)]">Select a session</span>}
+                  </div>
+                  {pane.id === 'secondary' && <button type="button" aria-label="Close split pane" onClick={() => { setPanes((current) => current.filter((item) => item.id !== 'secondary')); setFocusedPaneId('primary') }} className="grid h-6 w-6 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.06]"><span className="material-symbols-outlined text-[14px]">close_fullscreen</span></button>}
+                </div>
+                <div className="h-[calc(100%-2rem)] min-h-0 min-w-0 overflow-hidden p-1.5">
+                  {activeTab?.kind === 'panel' ? <GeneratedWorkspacePanel panel={activeTab.panel} /> : (
+                    <UnifiedChat
+                      {...chatProps}
+                      initialConvId={activeTab?.kind === 'conversation' ? activeTab.conversationId : paneIndex === 0 ? initialConvId : undefined}
+                      activeConversationId={activeTab?.kind === 'conversation' ? activeTab.conversationId : null}
+                      onActiveConversationChange={(conversationId) => openConversation(pane.id, conversationId)}
+                      onConversationsChange={paneIndex === 0 ? handleConversationCatalogue : undefined}
+                      showConversationList={paneIndex === 0}
+                    />
+                  )}
+                </div>
+              </div>
+            )
+          })}
+          {panes.length > 1 && <button type="button" aria-label="Resize workspace panes" style={{ order: 1 }} onPointerDown={startResize} onPointerMove={continueResize} onPointerUp={finishResize} onPointerCancel={finishResize} className={`z-10 shrink-0 touch-none rounded-full bg-transparent hover:bg-primary/20 focus-visible:bg-primary/20 ${direction === 'row' ? '-mx-0.5 w-2 cursor-col-resize' : '-my-0.5 h-2 cursor-row-resize'}`} />}
+        </div>
       </section>
     </div>
   )

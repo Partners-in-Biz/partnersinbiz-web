@@ -4,6 +4,7 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import type { ChatEvent, ChatUiAction, RichMessagePart } from '@/lib/hermes/types'
+import { normalizeWorkspacePanel, WORKSPACE_PANEL_EVENT } from '@/lib/hermes/workspace-panels'
 import {
   dedupeStructured,
   isRichPayloadText,
@@ -1067,6 +1068,46 @@ function ProjectTaskProposal({ part }: { part: RichMessagePart }) {
   )
 }
 
+function WorkspacePanelCard({ part }: { part: RichMessagePart }) {
+  const panel = normalizeWorkspacePanel(part)
+  if (!panel) return null
+  const openPanel = () => {
+    window.dispatchEvent(new CustomEvent(WORKSPACE_PANEL_EVENT, { detail: panel }))
+  }
+  return (
+    <article aria-label={panel.title} className="my-2 overflow-hidden rounded-lg border border-primary/25 bg-primary/[0.045]">
+      <header className="flex min-w-0 items-start justify-between gap-3 border-b border-white/[0.08] px-3 py-2.5">
+        <div className="min-w-0">
+          <p className="text-[10px] font-label uppercase tracking-[0.18em] text-primary">{panel.eyebrow ?? 'Generated workspace UI'}</p>
+          <p className="mt-0.5 truncate text-sm font-semibold text-[var(--color-pib-text)]">{panel.title}</p>
+        </div>
+        <span className="material-symbols-outlined shrink-0 text-[18px] text-primary" aria-hidden="true">dashboard_customize</span>
+      </header>
+      <div className="space-y-2.5 px-3 py-3">
+        {panel.body && <p className="line-clamp-3 text-xs leading-relaxed text-[var(--color-pib-text-muted)]">{panel.body}</p>}
+        {panel.metrics.length > 0 && (
+          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+            {panel.metrics.slice(0, 3).map((metric) => (
+              <div key={metric.label} className="rounded-md border border-white/[0.08] bg-black/15 px-2 py-1.5">
+                <p className="truncate text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">{metric.label}</p>
+                <p className="mt-0.5 truncate text-sm font-semibold text-[var(--color-pib-text)]">{metric.value}</p>
+              </div>
+            ))}
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={openPanel}
+          className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary transition hover:bg-primary/15 focus-visible:ring-2 focus-visible:ring-primary/60"
+        >
+          <span className="material-symbols-outlined text-[15px]" aria-hidden="true">splitscreen</span>
+          Open in workspace pane
+        </button>
+      </div>
+    </article>
+  )
+}
+
 function RichMessagePartView({
   part,
   onQuoteSelection,
@@ -1077,6 +1118,9 @@ function RichMessagePartView({
   const type = String(part.type).toLowerCase()
   if (type === 'studio_artifact' || type === 'studio_artifact_bundle') {
     return <RehydratedStudioArtifacts part={part} />
+  }
+  if (type === 'workspace_panel') {
+    return <WorkspacePanelCard part={part} />
   }
   if (type === 'markdown') {
     return <ChatMessageContent content={partContent(part)} />

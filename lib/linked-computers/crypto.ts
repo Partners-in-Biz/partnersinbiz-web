@@ -401,7 +401,11 @@ function validExchangeProof(input: PairingExchangeInput, challenge: Record<strin
 } {
   const deviceId = typeof input.deviceId === 'string' ? input.deviceId.trim() : ''
   const deviceIdValid = /^[A-Za-z0-9_-]{1,128}$/.test(deviceId)
-  const publicKey = typeof input.publicKey === 'string' ? input.publicKey.trim() : ''
+  // The first shipped runtime signed the PEM exactly as Node exported it,
+  // including its trailing newline. Keep that submitted byte sequence for
+  // verification while storing the canonical trimmed PEM on the device.
+  const submittedPublicKey = typeof input.publicKey === 'string' ? input.publicKey : ''
+  const publicKey = submittedPublicKey.trim()
   const ownerType = challenge.ownerType === 'organization' ? 'organization' : 'user'
   const ownerUserId = typeof challenge.ownerUserId === 'string' ? challenge.ownerUserId.trim() : ''
   const ownerOrgId = ownerType === 'organization' && typeof challenge.ownerOrgId === 'string'
@@ -425,6 +429,16 @@ function validExchangeProof(input: PairingExchangeInput, challenge: Record<strin
       publicKey,
       Buffer.from(input.proof, 'base64url'),
     )
+    if (!proofValid && submittedPublicKey !== publicKey) {
+      proofValid = verify(
+        null,
+        Buffer.from(pairingProofPayload({
+          challengeId: String(challenge.challengeId), secret: input.secret, deviceId, publicKey: submittedPublicKey,
+        })),
+        publicKey,
+        Buffer.from(input.proof, 'base64url'),
+      )
+    }
   } catch {
     proofValid = false
   }
