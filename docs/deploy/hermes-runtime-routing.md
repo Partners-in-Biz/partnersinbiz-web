@@ -85,11 +85,12 @@ PIB_LOCAL_RUNTIME_URL_TEMPLATE="https://hermes-api.partnersinbiz.online/local-pr
 PIB_LOCAL_RUNTIME_HOST_ID="peets-mac-mini"
 ```
 
-The Mac launchd job `ai.hermes.local-runtime` starts all reusable platform profiles locally, opens reverse SSH tunnels to VPS loopback ports, and re-runs this registrar as a heartbeat every 5 minutes.
+The Mac launchd job `ai.hermes.local-runtime` runs `scripts/start-local-runtime-fleet.sh`, starts all reusable platform profiles locally, verifies every local API, opens the reverse SSH tunnels to VPS loopback ports, verifies every public route, and only then registers the profiles. It refreshes the heartbeat every 60 seconds.
 
 Operational guardrails for that local runtime fleet:
 
-- It is API-only. The launcher exports `WHATSAPP_ENABLED=false` and starts each profile with `gateway run --replace --force --quiet` so the local API fleet does not also act as Peet's messaging gateway.
+- It is API-only. The launcher uses a profile-specific Hermes managed-scope overlay for `API_SERVER_PORT`, `API_SERVER_KEY`, and `WHATSAPP_ENABLED=false`. Managed scope deliberately wins over stale profile `.env` values, preventing every profile from falling back to port `8642` after a Hermes update.
+- A heartbeat is never written before all local profiles and every VPS reverse listener pass health checks. The public `/local-profiles/<agent>/v1/health` routes are checked as the external release canary. The PiB UI therefore cannot advertise the Mac as healthy when its Hermes fleet or tunnel is broken.
 - Local profile cron jobs should not run from this Mac API fleet. On 2026-07-08, existing local `pip`/`theo`/`maya` cron jobs were backed up under each profile's `cron.disabled-local-runtime/<timestamp>/` and active `cron/jobs.json` was emptied. Keep scheduled production work on the intended VPS/default runtime unless a job is deliberately local-only.
 - `cron/`, `skills/`, runtime sessions, locks, and secrets are intentionally outside the Mac↔VPS profile-definition sync surface.
 

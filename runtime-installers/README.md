@@ -2,6 +2,16 @@
 
 This directory includes the TypeScript `pib-runtime` source, cryptographic core, native credential helpers, a per-user macOS LaunchAgent, a Windows SCM service wrapper, and a headless Linux systemd package for VPS hosts. The service is outbound-only: it heartbeats and polls fixed PiB HTTPS queue endpoints, signs every claim/progress/completion request, and calls loopback Hermes without opening an inbound listener. Pairing commands contain only `challengeId` and `platform`; the runtime privately prompts without terminal echo for the one-time code. It creates the Ed25519 device signing key locally and stores the private key and device credential in macOS Keychain, Windows Credential Manager, or a Linux host-key-encrypted `systemd-creds` file.
 
+Hermes Agent is a hard prerequisite. Runtime protocol `1.1.0` probes the configured loopback Hermes routes before a pairing code is consumed and refuses to pair when no agent is healthy. Each heartbeat repeats that probe, advertises only the healthy agent IDs, and removes `workspace.execute` while Hermes is unavailable. PiB therefore never labels a computer chat-ready merely because the lightweight runtime process is alive.
+
+The default local route is Pip at `http://127.0.0.1:8755`. The runtime reads `API_SERVER_KEY` from the standard local `~/.hermes/.env` (or `HERMES_HOME/.env`) without copying it into PiB state; `PIB_LOCAL_HERMES_API_KEY` remains an explicit override. A computer can host agents that do not exist on the VPS by configuring exact loopback routes:
+
+```text
+PIB_LOCAL_HERMES_ROUTES={"pip":{"baseUrl":"http://127.0.0.1:8755","apiKey":"..."},"theo":{"baseUrl":"http://127.0.0.1:8756","apiKey":"..."}}
+```
+
+Route URLs are restricted to loopback HTTP. The runtime includes the selected `agentId` in the claimed job, dispatches only to that agent's configured route, and reports the healthy inventory to PiB so Messages never offers a computer for an agent it does not have.
+
 Production metadata names `version`, `minimumVersion`, `payloadUrl`, `sha256`, and an Ed25519 `signature`. Install/update verifies authenticated metadata and payload before activation, enforces the minimum version, and retains one prior verified binary for rollback. Missing or invalid signatures fail closed.
 
 ## UNSIGNED DEVELOPMENT MODE

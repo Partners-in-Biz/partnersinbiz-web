@@ -131,6 +131,17 @@ describe('linked computer runtime authorization', () => {
     }
   })
 
+  it('offers a linked computer only for Hermes agents reported healthy on that machine', async () => {
+    const rows = structuredClone(base) as any
+    rows.linked_devices.owned.availableAgentIds = ['pip']
+    const targets = await discoverAuthorizedRuntimeTargets({ userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a', agentId: 'theo' }, { db: fakeDb(rows), nowMs: () => now })
+    expect(targets).toContainEqual(expect.objectContaining({ id: 'target-owned', selectable: false, unavailableReason: 'agent_unavailable', availableAgentIds: ['pip'] }))
+    await expect(authorizeLinkedComputerDispatch({ userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a', runtimeTargetId: 'target-owned', agentId: 'theo' }, { db: fakeDb(rows), nowMs: () => now }))
+      .rejects.toMatchObject({ code: 'linked_device_agent_unavailable' })
+    await expect(authorizeLinkedComputerDispatch({ userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a', runtimeTargetId: 'target-owned', agentId: 'pip' }, { db: fakeDb(rows), nowMs: () => now }))
+      .resolves.toEqual(expect.objectContaining({ deviceId: 'owned', availableAgentIds: ['pip'] }))
+  })
+
   it('denies guessed runtime or device identifiers', async () => {
     await expect(authorizeLinkedComputerDispatch({ userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a', runtimeTargetId: 'target-guessed' }, { db: fakeDb(base), nowMs: () => now }))
       .rejects.toMatchObject({ code: 'linked_device_not_authorized' })

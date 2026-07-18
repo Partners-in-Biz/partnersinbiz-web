@@ -2,6 +2,14 @@
 
 Date: 2026-07-13
 
+## Hermes prerequisite and agent placement
+
+The native PiB runtime is a secure outbound worker, not the agent itself. Hermes Agent must be installed and at least one configured local Hermes profile must pass `/v1/health` before pairing. Pairing fails before consuming the one-time code when this prerequisite is missing.
+
+Every heartbeat probes Hermes again and records `availableAgentIds`, `hermesVersion`, and a safe health reason. `workspace.execute` is advertised only while at least one local agent is healthy. Runtime selection is agent-aware: a computer is unavailable for Theo when it only has Pip, even if the computer and sync worker are online.
+
+Agents are portable. A profile may exist only on the linked computer and does not also need a VPS copy. Configure `PIB_LOCAL_HERMES_ROUTES` with one loopback route per local agent and the PiB runtime will advertise and dispatch to those profiles. The VPS remains an optional always-on target, not the ownership source for local agents.
+
 ## Architecture and trust boundary
 
 Linked computers are outbound-only clients. PiB authorises an organisation, user, device, grant, Workspace mapping, capability, heartbeat and credential, then encrypts the logical request into `linked_device_run_jobs`. The device polls fixed PiB HTTPS claim/progress/completion endpoints. It never exposes a public listener, registers a runtime URL, or requires an inbound tunnel.

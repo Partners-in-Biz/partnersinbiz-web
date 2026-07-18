@@ -106,10 +106,19 @@ export function PairComputerDialog({
 
   return <AccessibleDialog label="Link a computer or VPS" onClose={onClose} className="w-full max-w-lg rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-card)] p-6 shadow-xl">
       <div className="flex items-start justify-between gap-4">
-        <div><h2 id="pair-title" className="text-lg font-semibold">Link a computer or VPS</h2><p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">Choose its owner, create a one-time code, then enter it in the Partners in Biz runtime on that machine.</p></div>
+        <div><h2 id="pair-title" className="text-lg font-semibold">Link a computer or VPS</h2><p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">Choose its owner, then pair the Partners in Biz runtime with a healthy Hermes installation on that machine.</p></div>
         <button type="button" aria-label="Close pairing dialog" onClick={onClose} className="p-1">&#10005;</button>
       </div>
       {error && <p role="alert" className="mt-4 text-sm text-red-400">{error}</p>}
+      <div className="mt-4 rounded-xl border border-primary/25 bg-primary/10 p-4 text-sm">
+        <p className="font-medium">Hermes is required on the linked machine</p>
+        <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs text-[var(--color-pib-text-muted)]">
+          <li>Install Hermes Agent and the agent profiles you want to run locally.</li>
+          <li>Install and start the Partners in Biz runtime.</li>
+          <li>Create the code below and run the pairing command on that machine.</li>
+        </ol>
+        <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">The runtime checks Hermes before consuming the code. Only healthy agents installed on this computer are offered in Messages; an agent may live here without also living on the VPS.</p>
+      </div>
       <fieldset disabled={Boolean(pairing)} className="mt-4"><legend className="text-sm font-medium">Location type</legend><div className="mt-2 grid grid-cols-2 gap-2"><label className="rounded-lg border p-3 text-sm"><input type="radio" name="device-kind" checked={deviceKind === 'computer'} onChange={() => { setDeviceKind('computer'); if (platform === 'linux') setPlatform('macos') }} /> Computer</label><label className="rounded-lg border p-3 text-sm"><input type="radio" name="device-kind" checked={deviceKind === 'vps'} onChange={() => { setDeviceKind('vps'); setPlatform('linux') }} /> VPS</label></div></fieldset>
       <fieldset disabled={Boolean(pairing)} className="mt-4"><legend className="text-sm font-medium">Who owns this location?</legend><div className="mt-2 grid grid-cols-2 gap-2"><label className="rounded-lg border p-3 text-sm"><input type="radio" name="owner-type" checked={ownerType === 'user'} onChange={() => setOwnerType('user')} /> Only me</label><label className="rounded-lg border p-3 text-sm"><input type="radio" name="owner-type" checked={ownerType === 'organization'} onChange={() => { setOwnerType('organization'); setOwnerOrgId((current) => current || organizations[0]?.id || '') }} /> Organisation</label></div></fieldset>
       {ownerType === 'organization' && <label className="mt-4 block text-sm">Organisation<select disabled={Boolean(pairing)} aria-label="Owning organisation" value={ownerOrgId} onChange={(event) => setOwnerOrgId(event.target.value)} className="mt-1 w-full rounded-lg border bg-transparent p-2"><option value="">Select an organisation</option>{organizations.map((organization) => <option key={organization.id} value={organization.id}>{organization.name}</option>)}</select></label>}
@@ -124,7 +133,7 @@ export function PairComputerDialog({
         {pairing.adoption && (adoptionCompleted
           ? <p role="status" className="mt-2 rounded-lg border border-emerald-400/20 bg-emerald-400/10 p-3 text-left text-xs text-emerald-200">Authenticated runtime linked. Its existing project links were preserved.</p>
           : <p className="mt-2 rounded-lg border border-amber-400/20 bg-amber-400/10 p-3 text-left text-xs text-amber-200">{eligibleLegacyLocations.find((location) => location.locationId === pairing.adoption?.sourceLocationId)?.label ?? 'The selected location'} stays a legacy project location until this runtime proves ownership with the one-time code.</p>)}
-        <p className="mt-2 text-left text-xs text-[var(--color-pib-text-muted)]">After pairing, map one or more organisation Workspaces. Project folders can then be selected directly in Messages.</p>
+        <p className="mt-2 text-left text-xs text-[var(--color-pib-text-muted)]">Run this on the selected machine. Pairing stops with a clear error if Hermes is missing or no local agent is healthy. After pairing, map one or more organisation Workspaces.</p>
       </div> : <button type="button" onClick={createCode} disabled={pairingDisabled} className="pib-btn-primary mt-5">{busy ? 'Creating…' : 'Create pairing code'}</button>}
       <button type="button" onClick={onClose} className="ml-2 mt-5 text-sm">{adoptionCompleted ? 'Done' : 'Cancel'}</button>
   </AccessibleDialog>

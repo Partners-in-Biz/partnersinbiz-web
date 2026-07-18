@@ -120,7 +120,7 @@ describe('linked computer lifecycle HTTP boundaries', () => {
     } as never)
     const response = await handleLinkedComputerList({ uid: 'user-a' }, async () => [safe])
     const json = await response.json()
-    expect(Object.keys(json.data[0]).sort()).toEqual(['architecture', 'capabilities', 'createdAt', 'credentialVersion', 'deviceId', 'deviceKind', 'grants', 'health', 'label', 'lastSeenAt', 'mappings', 'ownerType', 'platform', 'runtimeVersion', 'status', 'updatedAt'].sort())
+    expect(Object.keys(json.data[0]).sort()).toEqual(['architecture', 'availableAgentIds', 'capabilities', 'createdAt', 'credentialVersion', 'deviceId', 'deviceKind', 'grants', 'health', 'healthReason', 'hermesVersion', 'label', 'lastSeenAt', 'mappings', 'ownerType', 'platform', 'runtimeVersion', 'status', 'updatedAt'].sort())
     expect(JSON.stringify(json)).not.toMatch(/\/Users|private-target|fingerprint|secret|internalUrl/i)
   })
 
@@ -183,7 +183,7 @@ describe('linked computer lifecycle HTTP boundaries', () => {
     const req = new NextRequest('https://test/api/v1/linked-computers/device-a/heartbeat', { method: 'POST', body: '{"runtimeVersion":"1.2.3","health":"ok","capabilities":["workspace.execute"],"localPath":"/Users/private"}' })
     expect((await handleDeviceHeartbeat(req, 'device-a', auth as never, record)).status).toBe(200)
     expect(auth).toHaveBeenCalledWith(expect.anything(), 'device-a', expect.stringContaining('"localPath"'))
-    expect(record).toHaveBeenCalledWith({ deviceId: 'device-a', runtimeVersion: '1.2.3', health: 'ok', capabilities: ['workspace.execute'], syncProtocolVersion: null })
+    expect(record).toHaveBeenCalledWith({ deviceId: 'device-a', runtimeVersion: '1.2.3', health: 'ok', capabilities: ['workspace.execute'], syncProtocolVersion: null, availableAgentIds: [], hermesVersion: null, healthReason: null })
     expect(record.mock.calls[0][0]).not.toHaveProperty('localPath')
 
     const denied = new NextRequest('https://test/api/v1/linked-computers/device-a/heartbeat', { method: 'POST', body: '{"runtimeVersion":"1","health":"ok"}' })

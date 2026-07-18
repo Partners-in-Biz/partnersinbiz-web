@@ -8,6 +8,7 @@ import type{JSONValue}from'./core'
 import { MappingRegistry } from './bridge'
 import { DeviceApiClient, type DeviceIdentity } from './client'
 import { executeJob, pollForever, type Job } from './worker'
+import { callLocalHermes, probeLocalHermes, type LocalHermesProbe } from './hermes'
 import {
   DurableSyncSpool,
   executeWorkspaceSyncJob,
@@ -16,8 +17,7 @@ import {
 } from './workspace-sync'
 
 const api=process.env.PIB_API_BASE||'https://partnersinbiz.online'
-const hermes=process.env.PIB_LOCAL_HERMES||'http://127.0.0.1:8755'
-const runtimeVersion=process.env.PIB_RUNTIME_VERSION||'1.0.0'
+const runtimeVersion=process.env.PIB_RUNTIME_VERSION||'1.1.0'
 const stateRoot=process.env.PIB_RUNTIME_STATE_DIR||path.join(os.homedir(),'.partnersinbiz')
 const revocationMarker=path.join(stateRoot,'revocation-pending.json')
 const maps=new MappingRegistry(path.join(stateRoot,'mappings.json'))
@@ -46,6 +46,8 @@ export async function handleRotation<T extends RuntimeIdentity>(current:T,data:u
 
 async function pair(challengeId:string){
  if(!/^[A-Za-z0-9_-]{1,128}$/.test(challengeId||''))throw new Error('invalid challenge identifier')
+ const hermesProbe=await probeLocalHermes()
+ if(hermesProbe.availableAgentIds.length===0)throw new Error('Hermes must be installed, configured, and running on this computer before it can be linked')
  const code=await promptSecret('One-time pairing code: '),deviceId=randomUUID(),keys=createPairingIdentity()
  const proof=sign(null,Buffer.from(pairingPayload(challengeId,code,deviceId,keys.publicKey)),keys.privateKey).toString('base64url')
  const response=await fetch(`${api}/api/v1/linked-computers/pairing/exchange`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({challengeId,secret:code,deviceId,publicKey:keys.publicKey,proof,label:os.hostname(),platform:linkedRuntimePlatform(process.platform),architecture:process.arch==='arm64'?'arm64':'x64',runtimeVersion})})
@@ -53,13 +55,13 @@ async function pair(challengeId:string){
 }
 async function acknowledgeRotation(value:RuntimeIdentity,deliveryId:string){const response=await new DeviceApiClient(api,value).post(`/api/v1/linked-computers/${value.deviceId}/credentials/rotation/ack`,{rotationDeliveryId:deliveryId});if(!response.ok)throw new Error('rotation acknowledgement rejected')}
 export function nativeWorkspaceSyncSupported(platform=process.platform){return platform==='darwin'||platform==='linux'}
-export function linkedRuntimeHeartbeatBody(platform=process.platform){const sync=nativeWorkspaceSyncSupported(platform);return{runtimeVersion,health:'ok' as const,capabilities:sync?['workspace.execute','workspace.sync']:['workspace.execute'],...(sync?{syncProtocolVersion:1 as const}:{}),claimRotation:true}}
+export function linkedRuntimeHeartbeatBody(platform=process.platform,hermesProbe:LocalHermesProbe={availableAgentIds:['pip']}){const sync=nativeWorkspaceSyncSupported(platform),hermesReady=hermesProbe.availableAgentIds.length>0,capabilities=[...(hermesReady?['workspace.execute' as const]:[]),...(sync?['workspace.sync' as const]:[])];return{runtimeVersion,health:hermesReady?'ok' as const:'degraded' as const,capabilities,availableAgentIds:hermesProbe.availableAgentIds,...(hermesProbe.hermesVersion?{hermesVersion:hermesProbe.hermesVersion}:{}),...(hermesProbe.healthReason?{healthReason:hermesProbe.healthReason}:{}),...(sync?{syncProtocolVersion:1 as const}:{}),claimRotation:true}}
 export function linkedRuntimeSyncClaimBody(){return{runtimeVersion,syncProtocolVersion:1 as const}}
-async function heartbeat(){let i=await identity();if(i.pendingRotationDeliveryId)i=await handleRotation(i,{rotation:null},persistIdentity,identity,acknowledgeRotation);const response=await new DeviceApiClient(api,i).post(`/api/v1/linked-computers/${i.deviceId}/heartbeat`,linkedRuntimeHeartbeatBody()),data=await jsonData(response);await handleRotation(i,data,persistIdentity,identity,acknowledgeRotation)}
+async function heartbeat(){let i=await identity();if(i.pendingRotationDeliveryId)i=await handleRotation(i,{rotation:null},persistIdentity,identity,acknowledgeRotation);const hermesProbe=await probeLocalHermes();const response=await new DeviceApiClient(api,i).post(`/api/v1/linked-computers/${i.deviceId}/heartbeat`,linkedRuntimeHeartbeatBody(process.platform,hermesProbe)),data=await jsonData(response);await handleRotation(i,data,persistIdentity,identity,acknowledgeRotation)}
 async function claim():Promise<Job|null>{const i=await identity();const response=await post(`/api/v1/linked-computers/${i.deviceId}/runs/claim`,{runtimeVersion});if(response.status===204)return null;return await jsonData(response) as Job}
 async function syncClaim():Promise<WorkspaceSyncRuntimeJob|null>{const i=await identity();const response=await post(`/api/v1/linked-computers/${i.deviceId}/sync/claim`,linkedRuntimeSyncClaimBody());if(response.status===204)return null;return await jsonData(response) as WorkspaceSyncRuntimeJob}
-async function localHermes(body:{prompt:string;model?:string;provider?:string;working_directory:string}):Promise<unknown>{const response=await fetch(`${hermes}/v1/runs`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});if(!response.ok)throw new Error('Local Hermes execution failed');return response.json()}
-async function run(job:Job){const i=await identity();return executeJob(job,i,maps,(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body),localHermes)}
+async function localHermes(agentId:string,body:{prompt:string;model?:string;provider?:string;working_directory:string}):Promise<unknown>{return callLocalHermes(agentId,body)}
+async function run(job:Job){const i=await identity();return executeJob(job,i,maps,(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body),(body)=>localHermes(job.agentId||'pip',body))}
 async function syncRun(job:WorkspaceSyncRuntimeJob){const i=await identity();return executeWorkspaceSyncJob(job,{registry:maps,stateRoot,spool:syncSpool,post:(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body)})}
 async function syncFlush(){const i=await identity();return syncSpool.flush((suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body))}
 export async function isRevokeAcknowledged(response:Response){if(!response.ok)return false;try{const body=record(await response.json());return body.revoked===true&&typeof body.code==='string'&&['device_revoked','already_revoked'].includes(body.code)}catch{return false}}

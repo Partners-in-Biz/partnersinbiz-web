@@ -24,6 +24,10 @@ export interface LinkedDevice {
   platform: LinkedDevicePlatform
   architecture: LinkedDeviceArchitecture
   runtimeVersion: string
+  /** Healthy Hermes profiles currently reachable over loopback on this device. */
+  availableAgentIds?: string[]
+  hermesVersion?: string
+  healthReason?: 'hermes_unavailable' | 'no_agents_available'
   capabilities: LinkedDeviceCapability[]
   status: LinkedDeviceStatus
   credentialVersion: number

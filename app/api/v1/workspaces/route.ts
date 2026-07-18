@@ -179,7 +179,7 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
         workspaceId: workspace.workspaceId,
         compatibilityTargets: compatibilityRuntimeTargets,
       }).catch(() => []),
-      discoverAuthorizedRuntimeTargets({ userId: user.uid, orgId: orgScope.orgId, workspaceId: workspace.workspaceId }).catch(() => []),
+      discoverAuthorizedRuntimeTargets({ userId: user.uid, orgId: orgScope.orgId, workspaceId: workspace.workspaceId, agentId: runtimeAgentId }).catch(() => []),
     ])
     const deduped = new Map<string, WorkspaceRuntimeTarget>()
     for (const target of [...scopedCompatibility, ...linked]) {
