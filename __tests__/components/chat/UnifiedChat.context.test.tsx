@@ -474,6 +474,34 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     }
   })
 
+  it('refreshes the runtime catalogue for the agent selected in a new session', async () => {
+    const workspaceUrls: string[] = []
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents')) return jsonResponse({ data: [{
+        agentId: 'theo', name: 'Theo', role: 'Builder', persona: '', iconKey: 'code', colorKey: 'sky',
+        enabled: true, baseUrl: '', apiKey: '', defaultModel: 'auto',
+      }] })
+      if (url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) {
+        workspaceUrls.push(url)
+        return jsonResponse({ data: { workspaces: [], runtimeTargetsByWorkspace: {}, projects: [] } })
+      }
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" layoutVariant="hermes" />)
+
+    await waitFor(() => expect(workspaceUrls.some((url) => url.includes('agentId=pip'))).toBe(true))
+    fireEvent.click(screen.getByRole('button', { name: 'New conversation' }))
+    const dialog = await screen.findByRole('dialog', { name: 'New conversation' })
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: /Theo Builder/ }))
+
+    await waitFor(() => expect(workspaceUrls.some((url) => url.includes('agentId=theo'))).toBe(true))
+  })
+
   it('renders the accepted computer receipt instead of the requested target echo', async () => {
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
@@ -1110,6 +1138,7 @@ describe('UnifiedChat message scrolling', () => {
   })
 
   it('groups Hermes sessions into pinned, company Cowork, project, agent, and recent areas without changing the classic rail', async () => {
+    window.localStorage.setItem('pib.messages.expandedSessionGroups.v1:org-1', JSON.stringify(['project:project-1']))
     window.localStorage.setItem('pib.messages.pinnedConversations.v1:org-1', JSON.stringify(['conv-pinned']))
     const conversations = [
       {
@@ -1188,9 +1217,14 @@ describe('UnifiedChat message scrolling', () => {
     expect(within(screen.getByTestId('hermes-session-section-pinned')).getByText('Pinned launch')).toBeInTheDocument()
     const companyFolder = screen.getByTestId('hermes-company-company-ahs')
     expect(within(companyFolder).getByText('AHS Law')).toBeInTheDocument()
+    expect(within(companyFolder).queryByText('AHS Law check-in')).not.toBeInTheDocument()
+    fireEvent.click(within(companyFolder).getByRole('button', { name: 'Expand sessions for AHS Law' }))
     expect(within(companyFolder).getByText('AHS Law check-in')).toBeInTheDocument()
     expect(screen.getByTestId('hermes-session-section-agents')).not.toHaveTextContent('AHS Law check-in')
-    expect(within(screen.getByTestId('hermes-project-project-1')).getByText('Website project')).toBeInTheDocument()
+    const projectFolder = screen.getByTestId('hermes-project-project-1')
+    const expandProject = within(projectFolder).queryByRole('button', { name: 'Expand sessions for Launch Project' })
+    if (expandProject) fireEvent.click(expandProject)
+    expect(within(projectFolder).getByText('Website project')).toBeInTheDocument()
     expect(within(screen.getByTestId('hermes-session-section-agents')).getByText('Pip agent run')).toBeInTheDocument()
     expect(within(screen.getByTestId('hermes-session-section-recent')).getByText('General inbox')).toBeInTheDocument()
 
@@ -1211,6 +1245,7 @@ describe('UnifiedChat message scrolling', () => {
   })
 
   it('renders catalogue projects first, nests multiple sessions, and preselects an empty project from its add action', async () => {
+    window.localStorage.setItem('pib.messages.expandedSessionGroups.v1:org-1', JSON.stringify(['project:project-1']))
     window.localStorage.setItem('pib.messages.pinnedConversations.v1:org-1', JSON.stringify(['conv-general']))
     const conversations = [
       {
@@ -1273,10 +1308,14 @@ describe('UnifiedChat message scrolling', () => {
 
     const launchProject = await screen.findByTestId('hermes-project-project-1')
     expect(within(launchProject).getByText('Launch Project')).toBeInTheDocument()
+    const collapseLaunch = await within(launchProject).findByRole('button', { name: 'Collapse sessions for Launch Project' })
     expect(within(launchProject).getByTestId('conversation-row-conv-project-one')).toHaveTextContent('Homepage implementation')
     expect(within(launchProject).getByTestId('conversation-row-conv-project-one')).toHaveTextContent('Studio Mac')
     expect(within(launchProject).getByTestId('conversation-row-conv-project-two')).toHaveTextContent('Launch checklist')
     expect(within(launchProject).getByTestId('conversation-row-conv-project-two')).toHaveTextContent('Partners VPS')
+    fireEvent.click(collapseLaunch)
+    expect(within(launchProject).queryByTestId('conversation-row-conv-project-one')).not.toBeInTheDocument()
+    fireEvent.click(within(launchProject).getByRole('button', { name: 'Expand sessions for Launch Project' }))
 
     fireEvent.click(within(launchProject).getByRole('button', { name: 'Link client organisation to Launch Project' }))
     const accessDialog = await screen.findByRole('dialog', { name: 'Project access for Launch Project' })
@@ -1285,6 +1324,7 @@ describe('UnifiedChat message scrolling', () => {
     fireEvent.click(within(accessDialog).getByRole('button', { name: 'Close' }))
 
     const emptyProject = screen.getByTestId('hermes-project-project-empty')
+    fireEvent.click(within(emptyProject).getByRole('button', { name: 'Expand sessions for Empty Project' }))
     expect(within(emptyProject).getByText('No sessions yet')).toBeInTheDocument()
     expect(within(screen.getByTestId('hermes-session-section-pinned')).getByText('Direct check-in')).toBeInTheDocument()
 

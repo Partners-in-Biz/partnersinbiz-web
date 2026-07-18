@@ -25,6 +25,7 @@ import {
 } from '@/lib/project-locations/model'
 import { legacyProjectAccessForUser, projectOrganizationDocId } from '@/lib/projects/collaboration'
 import { listUserLibraryProjectIds } from '@/lib/projects/user-library'
+import { AGENT_IDS, type AgentId } from '@/lib/agents/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -86,6 +87,11 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
   const { searchParams } = new URL(req.url)
   const orgScope = resolveOrgScope(user, searchParams.get('orgId'))
   if (!orgScope.ok) return apiError(orgScope.error, orgScope.status)
+  const requestedRuntimeAgentId = searchParams.get('agentId')?.trim()
+  const runtimeAgentId: AgentId = requestedRuntimeAgentId
+    && AGENT_IDS.includes(requestedRuntimeAgentId as AgentId)
+    ? requestedRuntimeAgentId as AgentId
+    : 'pip'
 
   const scalarProjectOrgFields = ['orgId', 'clientOrgId', 'targetOrgId', 'recipientOrgId'] as const
   const arrayProjectOrgFields = [
@@ -102,7 +108,11 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
       .where('orgId', '==', orgScope.orgId)
       .where('status', '==', 'active')
       .get(),
-    adminDb.collection('agent_dispatch_configs').doc('pip').get(),
+    // Compatibility transports are agent-profile specific. The selected
+    // session agent must drive this catalogue or the browser can show Pip's
+    // Mac as online immediately before conversation creation authorizes the
+    // same target against another agent and rejects it as unavailable.
+    adminDb.collection('agent_dispatch_configs').doc(runtimeAgentId).get(),
     Promise.all([
       ...scalarProjectOrgFields.map((field) => (
         adminDb.collection('projects').where(field, '==', orgScope.orgId).get()

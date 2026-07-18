@@ -9,6 +9,7 @@ let mockProjectOrganizationDocs: Array<{ id: string; data: () => Record<string, 
 let mockProjectMemberDocs: Array<{ id: string; data: () => Record<string, unknown> }> = []
 let mockProjectLibraryDocs: Array<{ id: string; data: () => Record<string, unknown> }> = []
 let mockReplicaDocs: Array<{ id: string; data: () => Record<string, unknown> }> = []
+let mockRuntimeAgentIds: string[] = []
 let mockWorkspaceUser: Record<string, unknown> = {
   uid: 'peet', role: 'admin', orgId: 'pib-platform-owner', allowedOrgIds: [],
 }
@@ -33,12 +34,15 @@ jest.mock('@/lib/firebase/admin', () => ({
           defaultRuntimeTarget: 'vps', folderVersion: 2, status: 'active', contactIds: [],
         }) }] }) }) }),
       }
-      if (name === 'agent_dispatch_configs') return { doc: () => ({ get: async () => ({ data: () => ({
+      if (name === 'agent_dispatch_configs') return { doc: (agentId: string) => ({ get: async () => {
+        mockRuntimeAgentIds.push(agentId)
+        return { data: () => ({
         runtimeTargets: {
           vps: { id: 'vps', label: 'VPS', baseUrl: 'https://vps.example', apiKey: 'key', enabled: true },
           local: { id: 'local', label: "Peet's Mac", hostId: 'peets-mac-mini', baseUrl: 'https://mac.example', apiKey: 'key', enabled: true, capabilities: ['local-files'], lastSeenAt: new Date().toISOString() },
         },
-      }) }) }) }
+      }) }
+      } }) }
       if (name === 'projects') return {
         where: (field: string, operator: string) => ({
           get: async () => ({ docs: mockProjectQueryDocs?.[`${field}:${operator}`] ?? (mockProjectQueryDocs ? [] : mockProjectDocs) }),
@@ -74,6 +78,7 @@ describe('GET workspaces with scoped execution locations', () => {
     mockProjectMemberDocs = []
     mockProjectLibraryDocs = []
     mockReplicaDocs = []
+    mockRuntimeAgentIds = []
     mockWorkspaceUser = { uid: 'peet', role: 'admin', orgId: 'pib-platform-owner', allowedOrgIds: [] }
     mockDiscoverLinkedTargets.mockResolvedValue([])
     mockDiscoverExecutionLocations.mockResolvedValue([{
@@ -94,6 +99,14 @@ describe('GET workspaces with scoped execution locations', () => {
     }))
     expect(body.data.runtimeTargetsByWorkspace.partners.map((target: { id: string }) => target.id)).toEqual(['vps'])
     expect(body.data.runtimeTargets.map((target: { id: string }) => target.id)).toEqual(['vps'])
+  })
+
+  it('builds runtime availability from the agent selected for the new session', async () => {
+    const { GET } = await import('@/app/api/v1/workspaces/route')
+    const response = await GET(new NextRequest('http://localhost/api/v1/workspaces?orgId=pib-platform-owner&agentId=theo'))
+
+    expect(response.status).toBe(200)
+    expect(mockRuntimeAgentIds).toEqual(['theo'])
   })
 
   it('keeps authorised projects out of the sidebar until this user adds them', async () => {
