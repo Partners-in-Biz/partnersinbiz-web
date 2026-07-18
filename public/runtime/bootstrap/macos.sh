@@ -37,13 +37,17 @@ done
 stage="$(mktemp -d)"; trap 'rm -rf "$stage"' EXIT
 arch="$(uname -m)"; [[ "$arch" != x86_64 ]] || arch=x64
 release_base="${PIB_RUNTIME_RELEASE_BASE:-https://github.com/Partners-in-Biz/partnersinbiz-web/releases/latest/download}"
-bundle_url="${PIB_RUNTIME_BUNDLE_URL:-$release_base/partnersinbiz-runtime-macos-$arch-installer.tgz}"
+bundle_url="${PIB_RUNTIME_BUNDLE_URL:-$release_base/partnersinbiz-runtime-macos-$arch-installer.pkg}"
 echo 'Installing the signed Partners in Biz runtime…'
-curl -fsSL --proto '=https' "$bundle_url" -o "$stage/runtime.tgz"
-tar -xzf "$stage/runtime.tgz" -C "$stage"
-installer="$(find "$stage" -maxdepth 3 -type f -name install.sh -print -quit)"
-[[ -n "$installer" ]] || { echo 'The signed PiB runtime bundle is incomplete.' >&2; exit 1; }
-chmod 0755 "$installer"
+curl -fsSL --proto '=https' "$bundle_url" -o "$stage/runtime.pkg"
+/usr/sbin/pkgutil --check-signature "$stage/runtime.pkg" | grep -Fq 'Developer ID Installer: The Partners in Business (PTY) LTD (C2BLS65EY4)' || {
+  echo 'The PiB installer does not have the expected Apple Developer ID signature.' >&2
+  exit 1
+}
+/usr/sbin/spctl -a -t install -vv "$stage/runtime.pkg"
+sudo /usr/sbin/installer -pkg "$stage/runtime.pkg" -target /
+installer="/Library/Application Support/PartnersInBiz/Installer-$arch/install.sh"
+[[ -x "$installer" ]] || { echo 'The signed PiB runtime installer is incomplete.' >&2; exit 1; }
 "$installer" install
 "$installer" pair "$CHALLENGE"
 echo 'Computer linked. Keep Hermes and the PiB runtime running to stay available.'

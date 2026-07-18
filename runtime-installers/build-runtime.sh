@@ -20,6 +20,7 @@ for target in $TARGETS;do
     arch="${target#macos-}";[[ "$arch" != x64 ]]||arch=x86_64
     swiftc -O -target "$arch-apple-macos12" runtime-installers/macos/CredentialHelper.swift -o "$stage/pib-credential-helper"
     cp runtime-installers/macos/{install.sh,com.partnersinbiz.runtime.plist} "$stage/"
+    cp runtime-installers/README.md "$stage/README.md"
   elif [[ "$target" == windows-* ]];then
     cp runtime-installers/windows/{install.ps1,CredentialHelper.cs,PartnersInBizRuntimeService.cs,PartnersInBizRuntimeService.csproj} "$stage/"
   else
