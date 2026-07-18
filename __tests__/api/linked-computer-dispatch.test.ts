@@ -1,4 +1,5 @@
 import {
+  authorizeAdoptedLinkedComputerDispatch,
   authorizeLinkedComputerDispatch,
   discoverAuthorizedRuntimeTargets,
   linkedComputerReceiptPayload,
@@ -48,6 +49,7 @@ const base = {
     'org-a_user-a': { orgId: 'org-a', uid: 'user-a', status: 'active' },
     'org-a_user-b': { orgId: 'org-a', uid: 'user-b', status: 'active' },
   },
+  project_execution_locations: {},
 }
 
 describe('linked computer runtime authorization', () => {
@@ -94,6 +96,32 @@ describe('linked computer runtime authorization', () => {
       .resolves.toEqual(expect.objectContaining({ deviceId: 'shared', locationId: 'linked-device:shared' }))
     await expect(authorizeLinkedComputerDispatch({ userId: 'user-c', orgId: 'org-a', workspaceId: 'workspace-a', runtimeTargetId: 'target-shared' }, { db: fakeDb(rows), nowMs: () => now }))
       .rejects.toMatchObject({ code: 'linked_device_not_authorized' })
+  })
+
+  it('resolves a retired runtime alias only through its explicit adopted-device replacement edge', async () => {
+    const rows = structuredClone(base) as any
+    rows.linked_devices.owned.adoptedFromLocationId = 'office-mac-legacy'
+    rows.project_execution_locations['office-mac-legacy'] = {
+      locationId: 'office-mac-legacy', runtimeTargetId: 'local', legacyCompatibilityTargetId: 'legacy-local',
+      status: 'retired', adoptedDeviceId: 'owned', replacedByLocationId: 'linked-device:owned',
+    }
+    const targets = await discoverAuthorizedRuntimeTargets(
+      { userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a' },
+      { db: fakeDb(rows), nowMs: () => now },
+    )
+    expect(targets).toContainEqual(expect.objectContaining({
+      id: 'target-owned', legacyRuntimeTargetIds: ['legacy-local', 'local'], selectable: true,
+    }))
+    await expect(authorizeAdoptedLinkedComputerDispatch(
+      { userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a', runtimeTargetId: 'local' },
+      { db: fakeDb(rows), nowMs: () => now },
+    )).resolves.toEqual(expect.objectContaining({ deviceId: 'owned', runtimeTargetId: 'target-owned' }))
+
+    rows.project_execution_locations['office-mac-legacy'].replacedByLocationId = 'linked-device:shared'
+    await expect(authorizeAdoptedLinkedComputerDispatch(
+      { userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a', runtimeTargetId: 'local' },
+      { db: fakeDb(rows), nowMs: () => now },
+    )).rejects.toMatchObject({ code: 'linked_device_not_authorized' })
   })
 
   it('never leaks an organisation-owned runtime across tenant boundaries', async () => {

@@ -7,7 +7,9 @@ import {
 import type { AgentId } from '@/lib/agents/types'
 import { adminDb } from '@/lib/firebase/admin'
 import {
+  authorizeAdoptedLinkedComputerDispatch,
   authorizeLinkedComputerDispatch,
+  LinkedComputerDispatchError,
   type AuthorizedLinkedComputerDispatch,
 } from '@/lib/linked-computers/runtime-targets'
 import { authorizeExecutionLocationDispatch } from '@/lib/project-locations/discovery'
@@ -38,6 +40,7 @@ interface AuthorizationOptions {
   loadCompatibilityTargets?: (agentId: AgentId) => Promise<CompatibilityRuntimeTarget[]>
   authorizeExecution?: typeof authorizeExecutionLocationDispatch
   authorizeLinked?: typeof authorizeLinkedComputerDispatch
+  authorizeLinkedAlias?: typeof authorizeAdoptedLinkedComputerDispatch
 }
 
 async function loadCompatibilityTargets(agentId: AgentId): Promise<CompatibilityRuntimeTarget[]> {
@@ -60,18 +63,28 @@ export async function authorizeWorkspaceRuntime(
   const compatibilityTargets = await (options.loadCompatibilityTargets ?? loadCompatibilityTargets)(agentId)
   const compatibilityTarget = compatibilityTargets.find((target) => target.id === input.runtimeTargetId)
   if (compatibilityTarget) {
-    const authorized = await (options.authorizeExecution ?? authorizeExecutionLocationDispatch)({
-      ...input,
-      compatibilityTargets,
-    })
-    return {
-      kind: 'execution-location',
-      locationId: authorized.locationId,
-      runtimeTargetId: authorized.runtimeTargetId,
-      machineLabel: authorized.machineLabel,
-      locationKind: authorized.kind,
-      organizationAccessible: authorized.organizationAccessible,
-      transportIdentity: compatibilityTarget.transportIdentity ?? '',
+    try {
+      const authorized = await (options.authorizeExecution ?? authorizeExecutionLocationDispatch)({
+        ...input,
+        compatibilityTargets,
+      })
+      return {
+        kind: 'execution-location',
+        locationId: authorized.locationId,
+        runtimeTargetId: authorized.runtimeTargetId,
+        machineLabel: authorized.machineLabel,
+        locationKind: authorized.kind,
+        organizationAccessible: authorized.organizationAccessible,
+        transportIdentity: compatibilityTarget.transportIdentity ?? '',
+      }
+    } catch (executionError) {
+      try {
+        return await (options.authorizeLinkedAlias ?? authorizeAdoptedLinkedComputerDispatch)(input)
+      } catch (aliasError) {
+        if (aliasError instanceof LinkedComputerDispatchError
+          && aliasError.code === 'linked_device_not_authorized') throw executionError
+        throw aliasError
+      }
     }
   }
   return (options.authorizeLinked ?? authorizeLinkedComputerDispatch)(input)

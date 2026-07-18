@@ -10,6 +10,8 @@ export type WorkspaceMappingStatus = 'pending' | 'active' | 'stale' | 'missing' 
 
 export interface LinkedDevice {
   deviceId: string
+  /** Explicit legacy execution location replaced when this native runtime was adopted. */
+  adoptedFromLocationId?: string
   /** Missing on legacy rows, which are ordinary computers. */
   deviceKind?: LinkedDeviceKind
   /** Missing on legacy rows, which are treated as user-owned when ownerUserId exists. */

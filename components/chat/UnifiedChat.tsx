@@ -168,6 +168,7 @@ interface WorkspaceProjectLocationSummary {
 
 interface WorkspaceRuntimePresence {
   id: string
+  legacyRuntimeTargetIds?: string[]
   label: string
   hostId?: string
   deviceId?: string
@@ -1241,7 +1242,8 @@ export default function UnifiedChat({
         : activeWorkspaceContext?.runtimeTarget)
   const activeRuntimePresence = activeWorkspaceContext
     ? (workspaceRuntimeTargetsByWorkspace[activeWorkspaceContext.workspaceId] ?? []).find(
-        runtime => runtime.id === activeWorkspaceContext.runtimeTarget,
+        runtime => runtime.id === activeWorkspaceContext.runtimeTarget
+          || runtime.legacyRuntimeTargetIds?.includes(activeWorkspaceContext.runtimeTarget),
       )
     : undefined
   const unavailableActiveRuntime = useMemo(

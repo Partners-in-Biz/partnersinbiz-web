@@ -353,6 +353,30 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled()
   })
 
+  it('keeps an adopted legacy-runtime session available through the linked computer alias', async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents') || url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: {
+        workspaces: [{ workspaceId: 'acme', orgId: 'org-1', orgSlug: 'acme', orgName: 'Acme', agentDomain: 'acme', sourceOfTruth: 'vps', syncMode: 'hybrid', defaultRuntimeTarget: 'vps', folderVersion: 1 }],
+        runtimeTargetsByWorkspace: { acme: [{
+          id: 'linked-device:mac-a', legacyRuntimeTargetIds: ['local'], label: 'Studio Mac', selectable: true,
+          enabled: true, isLocal: true, isFresh: true, isHealthy: true, lastSeenAt: null,
+        }] }, projects: [],
+      } })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [{ ...baseConversation, workspaceContext: { workspaceId: 'acme', orgName: 'Acme', runtimeTarget: 'local', runtimeLabel: 'Studio Mac' } }] } })
+      if (url === '/api/v1/conversations/conv-1/messages') return jsonResponse({ data: { messages: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" initialConvId="conv-1" />)
+    const composer = await screen.findByPlaceholderText('Send a message')
+    expect(composer).toBeEnabled()
+    fireEvent.change(composer, { target: { value: 'Continue this session' } })
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeEnabled()
+    expect(screen.queryByText('Computer unavailable')).not.toBeInTheDocument()
+  })
+
   it('does not invent a selectable VPS when a project has no available computer', async () => {
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
