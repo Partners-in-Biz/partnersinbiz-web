@@ -10,6 +10,7 @@ describe('linked runtime release publisher', () => {
       signature: 'partnersinbiz-runtime-linux-arm64-stable.json.sig',
       installer: 'partnersinbiz-runtime-linux-arm64-installer.tgz',
     })
+    expect(runtimeReleaseAssetNames('macos-arm64').installer).toBe('partnersinbiz-runtime-macos-arm64-installer.pkg')
     expect(runtimeReleaseAssetNames('windows-x64').payload).toBe('partnersinbiz-runtime-windows-x64.exe')
   })
 

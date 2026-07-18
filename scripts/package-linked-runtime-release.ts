@@ -16,7 +16,7 @@ export function runtimeReleaseAssetNames(target: RuntimeTarget) {
     payload: `${prefix}${platform === 'windows' ? '.exe' : ''}`,
     metadata: `${prefix}-stable.json`,
     signature: `${prefix}-stable.json.sig`,
-    installer: `${prefix}-installer.${platform === 'windows' ? 'zip' : 'tgz'}`,
+    installer: `${prefix}-installer.${platform === 'windows' ? 'zip' : platform === 'macos' ? 'pkg' : 'tgz'}`,
   }
 }
 
@@ -46,11 +46,36 @@ function argument(name: string, fallback = '') {
   return index >= 0 ? process.argv[index + 1] ?? '' : fallback
 }
 
-function archiveInstaller(stage: string, destination: string, windows: boolean) {
-  const command = windows ? 'zip' : 'tar'
-  const args = windows ? ['-q', '-r', destination, '.'] : ['-czf', destination, '-C', stage, '.']
-  const result = spawnSync(command, args, { cwd: windows ? stage : process.cwd(), stdio: 'inherit' })
-  if (result.status !== 0) throw new Error(`Could not create ${path.basename(destination)}`)
+function archiveInstaller(input: { stage: string; destination: string; target: RuntimeTarget; version: string }) {
+  const [platform, architecture] = input.target.split('-')
+  let archiveStage = input.stage
+  let cleanStage = ''
+  if (platform === 'macos') {
+    cleanStage = path.join(path.dirname(input.stage), `.package-${architecture}-${process.pid}`)
+    fs.rmSync(cleanStage, { force: true, recursive: true })
+    const copy = spawnSync('ditto', ['--norsrc', '--noextattr', input.stage, cleanStage], { stdio: 'inherit' })
+    if (copy.status !== 0) throw new Error(`Could not prepare clean macOS package contents for ${input.target}`)
+    archiveStage = cleanStage
+  }
+  const command = platform === 'windows' ? 'zip' : platform === 'macos' ? 'pkgbuild' : 'tar'
+  const args = platform === 'windows'
+    ? ['-q', '-r', input.destination, '.']
+    : platform === 'macos'
+      ? [
+        '--root', archiveStage,
+        '--identifier', `online.partnersinbiz.linked-runtime.${architecture}`,
+        '--version', input.version,
+        '--install-location', `/Library/Application Support/PartnersInBiz/Installer-${architecture}`,
+        input.destination,
+      ]
+      : ['-czf', input.destination, '-C', input.stage, '.']
+  const result = spawnSync(command, args, {
+    cwd: platform === 'windows' ? archiveStage : process.cwd(),
+    env: { ...process.env, COPYFILE_DISABLE: '1' },
+    stdio: 'inherit',
+  })
+  if (cleanStage) fs.rmSync(cleanStage, { force: true, recursive: true })
+  if (result.status !== 0) throw new Error(`Could not create ${path.basename(input.destination)}`)
 }
 
 export function packageRuntimeRelease(input: {
@@ -85,7 +110,12 @@ export function packageRuntimeRelease(input: {
     fs.copyFileSync(binary, path.join(input.outputDir, names.payload))
     fs.writeFileSync(path.join(input.outputDir, names.metadata), `${JSON.stringify(manifest, null, 2)}\n`)
     fs.writeFileSync(path.join(input.outputDir, names.signature), `${sign(null, Buffer.from(canonicalJson(manifest)), key).toString('base64url')}\n`)
-    archiveInstaller(stage, path.join(input.outputDir, names.installer), platform === 'windows')
+    archiveInstaller({
+      stage,
+      destination: path.join(input.outputDir, names.installer),
+      target,
+      version: input.version,
+    })
   }
 }
 

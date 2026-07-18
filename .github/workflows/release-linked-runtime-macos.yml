@@ -1,0 +1,146 @@
+name: Release linked runtime for macOS
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Existing SemVer runtime release to extend with macOS assets
+        required: true
+        default: 1.1.1
+
+permissions:
+  contents: write
+
+concurrency:
+  group: linked-runtime-macos-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: macos-14
+    timeout-minutes: 45
+    env:
+      PIB_RUNTIME_RELEASE_PRIVATE_KEY: ${{ secrets.LINKED_RUNTIME_RELEASE_PRIVATE_KEY }}
+      APPLE_APPLICATION_P12: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_P12_BASE64 }}
+      APPLE_APPLICATION_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_P12_PASSWORD }}
+      APPLE_INSTALLER_P12: ${{ secrets.APPLE_DEVELOPER_ID_INSTALLER_P12_BASE64 }}
+      APPLE_INSTALLER_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_INSTALLER_P12_PASSWORD }}
+      APPLE_NOTARY_PRIVATE_KEY: ${{ secrets.APPLE_NOTARY_PRIVATE_KEY }}
+      APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+      APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+      VERSION: ${{ inputs.version }}
+      APPLICATION_IDENTITY: 'Developer ID Application: The Partners in Business (PTY) LTD (C2BLS65EY4)'
+      INSTALLER_IDENTITY: 'Developer ID Installer: The Partners in Business (PTY) LTD (C2BLS65EY4)'
+    steps:
+      - name: Refuse non-production source
+        run: |
+          if [[ "${GITHUB_REF}" != refs/heads/main ]]; then
+            echo 'Runtime releases must be dispatched from main.' >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.10
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify release inputs and secrets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)([-+][0-9A-Za-z.-]+)?$ ]] || {
+            echo 'Version must be valid SemVer.' >&2
+            exit 1
+          }
+          for value in PIB_RUNTIME_RELEASE_PRIVATE_KEY APPLE_APPLICATION_P12 APPLE_APPLICATION_PASSWORD APPLE_INSTALLER_P12 APPLE_INSTALLER_PASSWORD APPLE_NOTARY_PRIVATE_KEY APPLE_NOTARY_KEY_ID APPLE_NOTARY_ISSUER_ID; do
+            [[ -n "${!value:-}" ]] || { echo "$value is not configured." >&2; exit 1; }
+          done
+          gh release view "runtime-v$VERSION" >/dev/null 2>&1 || {
+            echo "runtime-v$VERSION must exist before adding macOS assets." >&2
+            exit 1
+          }
+          for arch in x64 arm64; do
+            if gh release view "runtime-v$VERSION" --json assets --jq '.assets[].name' | grep -Fxq "partnersinbiz-runtime-macos-$arch"; then
+              echo "macOS $arch assets already exist; immutable assets cannot be overwritten." >&2
+              exit 1
+            fi
+          done
+
+      - name: Configure isolated Apple signing keychain
+        env:
+          KEYCHAIN_PASSWORD: ${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+        run: |
+          keychain="$RUNNER_TEMP/partnersinbiz-signing.keychain-db"
+          printf '%s' "$APPLE_APPLICATION_P12" | base64 -D > "$RUNNER_TEMP/application.p12"
+          printf '%s' "$APPLE_INSTALLER_P12" | base64 -D > "$RUNNER_TEMP/installer.p12"
+          printf '%s' "$APPLE_NOTARY_PRIVATE_KEY" > "$RUNNER_TEMP/AuthKey.p8"
+          chmod 0600 "$RUNNER_TEMP"/*.p12 "$RUNNER_TEMP/AuthKey.p8"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$keychain"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security import "$RUNNER_TEMP/application.p12" -k "$keychain" -P "$APPLE_APPLICATION_PASSWORD" -T /usr/bin/codesign
+          security import "$RUNNER_TEMP/installer.p12" -k "$keychain" -P "$APPLE_INSTALLER_PASSWORD" -T /usr/bin/productsign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$keychain"
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          echo "PIB_SIGNING_KEYCHAIN=$keychain" >> "$GITHUB_ENV"
+
+      - name: Build macOS x64 and arm64 runtimes
+        run: PIB_RUNTIME_TARGETS='macos-x64 macos-arm64' bash runtime-installers/build-runtime.sh
+
+      - name: Sign and verify native executables
+        run: |
+          for arch in x64 arm64; do
+            stage="runtime-installers/dist/macos-$arch"
+            for executable in pib-runtime pib-release-manager pib-credential-helper; do
+              codesign --force --options runtime --timestamp --keychain "$PIB_SIGNING_KEYCHAIN" --sign "$APPLICATION_IDENTITY" "$stage/$executable"
+              codesign --verify --strict --verbose=2 "$stage/$executable"
+            done
+          done
+
+      - name: Verify installer sources and lifecycle
+        run: |
+          npx tsx scripts/verify-linked-runtime-installers.ts
+          bash runtime-installers/tests/macos-lifecycle.sh
+
+      - name: Create signed release metadata and unsigned packages
+        run: |
+          npx tsx scripts/package-linked-runtime-release.ts \
+            --version "$VERSION" \
+            --minimum-version "$VERSION" \
+            --tag "runtime-v$VERSION" \
+            --targets macos-x64,macos-arm64
+
+      - name: Sign, notarize and staple installer packages
+        run: |
+          for arch in x64 arm64; do
+            package="runtime-installers/release-dist/partnersinbiz-runtime-macos-$arch-installer.pkg"
+            mv "$package" "$package.unsigned"
+            productsign --keychain "$PIB_SIGNING_KEYCHAIN" --sign "$INSTALLER_IDENTITY" "$package.unsigned" "$package"
+            rm "$package.unsigned"
+            pkgutil --check-signature "$package" | grep -F "$INSTALLER_IDENTITY"
+            xcrun notarytool submit "$package" \
+              --key "$RUNNER_TEMP/AuthKey.p8" \
+              --key-id "$APPLE_NOTARY_KEY_ID" \
+              --issuer "$APPLE_NOTARY_ISSUER_ID" \
+              --wait
+            xcrun stapler staple "$package"
+            xcrun stapler validate "$package"
+            spctl -a -t install -vv "$package"
+          done
+
+      - name: Publish immutable macOS assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "runtime-v$VERSION" runtime-installers/release-dist/*
