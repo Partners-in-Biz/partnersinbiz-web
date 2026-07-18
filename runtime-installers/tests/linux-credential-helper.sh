@@ -34,7 +34,7 @@ HELPER="$REPO/runtime-installers/linux/pib-credential-helper"
 IDENTITY='{"deviceId":"device-a","credential":"super-secret","privateKey":"private"}'
 
 printf '%s' "$IDENTITY" | "$HELPER" put identity
-[[ "$(stat -f '%Lp' "$TMP/store/identity.cred" 2>/dev/null || stat -c '%a' "$TMP/store/identity.cred")" == 600 ]]
+[[ "$(stat -c '%a' "$TMP/store/identity.cred" 2>/dev/null || stat -f '%Lp' "$TMP/store/identity.cred")" == 600 ]]
 ! grep -F 'super-secret' "$TMP/store/identity.cred"
 [[ "$("$HELPER" get identity)" == "$IDENTITY" ]]
 
