@@ -13,6 +13,7 @@ import type {
 } from './types'
 
 const DEVICE_STALE_AFTER_MS = 5 * 60 * 1000
+const SAFE_RUNTIME_ALIAS = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/
 
 interface Snapshot { exists: boolean; id?: string; data(): Record<string, unknown> | undefined }
 interface DbLike {
@@ -31,6 +32,8 @@ export interface CompatibilityRuntimeTarget {
 
 export interface PublicAuthorizedRuntimeTarget {
   id: string
+  /** Retired runtime IDs that were explicitly adopted by this linked computer. */
+  legacyRuntimeTargetIds?: string[]
   locationId: string
   deviceId: string
   label: string
@@ -157,6 +160,7 @@ async function membership(db: DbLike, orgId: string, userId: string): Promise<Ac
 
 type ResolvedAuthorizedRuntimeTarget = Omit<AuthorizedLinkedComputerDispatch, 'lastSeenAt'> & {
   lastSeenAt: string | null
+  legacyRuntimeTargetIds: string[]
   unavailableReason?: LinkedRuntimeUnavailableReason
   owner: AuthorizedProjectRuntimeOwner
   accessMode: DeviceGrantAccessMode
@@ -166,6 +170,33 @@ type ResolvedAuthorizedRuntimeTarget = Omit<AuthorizedLinkedComputerDispatch, 'l
 export function linkedDeviceProjectLocationId(deviceId: string): string {
   if (!/^[A-Za-z0-9_-]{1,128}$/.test(deviceId)) throw new Error('linked computers: invalid device id')
   return `linked-device:${deviceId}`
+}
+
+function adoptedLegacyRuntimeTargetIds(
+  device: LinkedDevice,
+  locations: Record<string, unknown>[],
+): string[] {
+  const nativeLocationId = linkedDeviceProjectLocationId(device.deviceId)
+  const adoptedFromLocationId = typeof device.adoptedFromLocationId === 'string'
+    ? device.adoptedFromLocationId.trim()
+    : ''
+  if (!SAFE_RUNTIME_ALIAS.test(adoptedFromLocationId)) return []
+  const aliases = new Set<string>()
+
+  for (const location of locations) {
+    const locationId = String(location.locationId ?? location.__id ?? '').trim()
+    const explicitReplacement = location.status === 'retired'
+      && location.adoptedDeviceId === device.deviceId
+      && location.replacedByLocationId === nativeLocationId
+      && locationId === adoptedFromLocationId
+    if (!explicitReplacement) continue
+    for (const value of [location.runtimeTargetId, location.legacyCompatibilityTargetId]) {
+      if (typeof value !== 'string') continue
+      const alias = value.trim()
+      if (alias !== device.runtimeTargetId && SAFE_RUNTIME_ALIAS.test(alias)) aliases.add(alias)
+    }
+  }
+  return Array.from(aliases).sort()
 }
 
 async function resolveCandidates(input: ResolveInput, options: ResolveOptions): Promise<ResolvedAuthorizedRuntimeTarget[]> {
@@ -178,6 +209,15 @@ async function resolveCandidates(input: ResolveInput, options: ResolveOptions): 
     allRows<LinkedDeviceWorkspaceMapping>(db, 'linked_device_workspace_mappings'),
     allRows<Record<string, unknown>>(db, 'linked_device_credentials'),
   ])
+  const adoptedLocationIds = Array.from(new Set(devices
+    .map((device) => typeof device.adoptedFromLocationId === 'string' ? device.adoptedFromLocationId.trim() : '')
+    .filter((locationId) => SAFE_RUNTIME_ALIAS.test(locationId))))
+  const adoptedLocationSnapshots = await Promise.all(adoptedLocationIds.map((locationId) => (
+    db.collection('project_execution_locations').doc(locationId).get()
+  )))
+  const executionLocations = adoptedLocationSnapshots
+    .filter((snapshot) => snapshot.exists)
+    .map((snapshot) => ({ ...(snapshot.data() ?? {}), ...(snapshot.id ? { __id: snapshot.id } : {}) }))
   const credentialById = new Map(credentials.map((row) => [String(row.__id ?? row.deviceId ?? ''), row]))
   const now = options.nowMs?.() ?? Date.now()
   const candidates: ResolvedAuthorizedRuntimeTarget[] = []
@@ -213,6 +253,7 @@ async function resolveCandidates(input: ResolveInput, options: ResolveOptions): 
     candidates.push({
       kind: 'linked-computer', locationId: linkedDeviceProjectLocationId(device.deviceId),
       deviceId: device.deviceId, runtimeTargetId: device.runtimeTargetId,
+      legacyRuntimeTargetIds: adoptedLegacyRuntimeTargetIds(device, executionLocations),
       machineLabel: device.label, mappingId: mapping.mappingId, credentialVersion: device.credentialVersion,
       runtimeVersion: device.runtimeVersion, platform: device.platform, lastSeenAt: seen == null ? null : new Date(seen).toISOString(),
       availableAgentIds,
@@ -233,6 +274,7 @@ export async function discoverAuthorizedRuntimeTargets(input: ResolveInput, opti
   const candidates = await resolveCandidates(input, options)
   return candidates.map((target) => ({
     id: target.runtimeTargetId, locationId: target.locationId,
+    ...(target.legacyRuntimeTargetIds.length > 0 ? { legacyRuntimeTargetIds: target.legacyRuntimeTargetIds } : {}),
     deviceId: target.deviceId, label: target.machineLabel,
     platform: target.platform, runtimeVersion: target.runtimeVersion, mappingId: target.mappingId,
     availableAgentIds: target.availableAgentIds,
@@ -313,6 +355,39 @@ export async function authorizeLinkedComputerDispatch(input: ResolveInput & { ru
     throw new LinkedComputerDispatchError('linked_device_agent_unavailable')
   }
   throw new LinkedComputerDispatchError('linked_device_not_authorized')
+}
+
+/**
+ * Resolves only an explicitly adopted legacy runtime ID. Unlike the normal
+ * dispatcher this cannot select a device by its current target or device ID,
+ * so compatibility fallback cannot turn an arbitrary name collision into a
+ * linked-computer dispatch.
+ */
+export async function authorizeAdoptedLinkedComputerDispatch(
+  input: ResolveInput & { runtimeTargetId: string },
+  options: ResolveOptions = {},
+): Promise<AuthorizedLinkedComputerDispatch> {
+  const candidates = await resolveCandidates(input, options)
+  const selected = candidates.find((target) => target.legacyRuntimeTargetIds.includes(input.runtimeTargetId))
+  if (!selected) throw new LinkedComputerDispatchError('linked_device_not_authorized')
+  if (selected.unavailableReason) throw new LinkedComputerDispatchError(`linked_device_${selected.unavailableReason}`)
+  return {
+    kind: selected.kind,
+    locationId: selected.locationId,
+    deviceId: selected.deviceId,
+    runtimeTargetId: selected.runtimeTargetId,
+    machineLabel: selected.machineLabel,
+    mappingId: selected.mappingId,
+    workspaceId: selected.workspaceId,
+    credentialVersion: selected.credentialVersion,
+    runtimeVersion: selected.runtimeVersion,
+    availableAgentIds: selected.availableAgentIds,
+    platform: selected.platform,
+    lastSeenAt: selected.lastSeenAt!,
+    publicKey: selected.publicKey,
+    accessMode: selected.accessMode,
+    ...(selected.updateRequired ? { updateRequired: true } : {}),
+  }
 }
 
 export function linkedComputerReceiptPayload(receipt: Omit<LinkedComputerExecutionReceipt, 'signature'> | LinkedComputerExecutionReceipt): string {

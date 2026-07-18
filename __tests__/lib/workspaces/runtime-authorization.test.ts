@@ -2,6 +2,7 @@ import {
   authorizeWorkspaceRuntime,
   workspaceRuntimeSupportsOrganizationSharing,
 } from '@/lib/workspaces/runtime-authorization'
+import { LinkedComputerDispatchError } from '@/lib/linked-computers/runtime-targets'
 
 const input = { userId: 'peet', orgId: 'pib-platform-owner', workspaceId: 'partners', runtimeTargetId: 'vps' }
 
@@ -73,13 +74,31 @@ describe('Workspace runtime authorization', () => {
     } as never)).toBe(false)
   })
 
-  it('never falls back to linked authorization when a configured compatibility target is denied', async () => {
+  it('does not fall back to ordinary linked authorization when a configured compatibility target is denied', async () => {
     const authorizeLinked = jest.fn()
+    const authorizeLinkedAlias = jest.fn(async () => { throw new LinkedComputerDispatchError('linked_device_not_authorized') })
     await expect(authorizeWorkspaceRuntime(input, {
       loadCompatibilityTargets: async () => [{ id: 'vps', label: 'VPS', enabled: true, isLocal: false, isFresh: true, isHealthy: true, selectable: true, lastSeenAt: null, ageSeconds: null, lastHealthStatus: 'ok' }],
       authorizeExecution: async () => { throw new Error('Execution location not authorized') },
       authorizeLinked,
+      authorizeLinkedAlias,
     })).rejects.toThrow('Execution location not authorized')
     expect(authorizeLinked).not.toHaveBeenCalled()
+    expect(authorizeLinkedAlias).toHaveBeenCalledWith(input)
+  })
+
+  it('continues an old compatibility-bound session on its explicitly adopted linked computer', async () => {
+    const linked = {
+      kind: 'linked-computer' as const, deviceId: 'device-a', runtimeTargetId: 'linked-device:device-a',
+      machineLabel: 'Office Mac', accessMode: 'owner' as const,
+    }
+    const authorizeLinkedAlias = jest.fn(async () => linked as never)
+    await expect(authorizeWorkspaceRuntime({ ...input, runtimeTargetId: 'local' }, {
+      loadCompatibilityTargets: async () => [{ id: 'local', label: 'Local', enabled: true, isLocal: true, isFresh: false, isHealthy: false, selectable: false, lastSeenAt: null, ageSeconds: null, lastHealthStatus: 'offline' }],
+      authorizeExecution: async () => { throw new Error('Computer unavailable') },
+      authorizeLinked: jest.fn(),
+      authorizeLinkedAlias,
+    })).resolves.toBe(linked)
+    expect(authorizeLinkedAlias).toHaveBeenCalledWith(expect.objectContaining({ runtimeTargetId: 'local' }))
   })
 })
