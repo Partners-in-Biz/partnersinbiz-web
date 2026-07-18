@@ -166,7 +166,7 @@ export function requireLinkedRunReceipt(job: LinkedRunJob, receipt: LinkedRunRec
 
 export function publicClaimedLinkedRun(job: LinkedRunJob, payload: LinkedRunPayload) {
   return {
-    jobId: job.jobId, requestId: job.requestId, prompt: payload.prompt, workspaceId: job.workspaceId,
+    jobId: job.jobId, requestId: job.requestId, prompt: payload.prompt, workspaceId: job.workspaceId, agentId: job.agentId,
     ...(job.projectId ? { projectId: job.projectId } : {}), mappingId: job.mappingId,
     relativeFolder: job.relativeFolder, attempt: job.attempt, leaseToken: job.leaseToken, ...(payload.model ? { model: payload.model } : {}),
     ...(payload.provider ? { provider: payload.provider } : {}),

@@ -36,6 +36,7 @@ export interface PublicAuthorizedRuntimeTarget {
   label: string
   platform: LinkedDevicePlatform
   runtimeVersion: string
+  availableAgentIds: string[]
   mappingId: string
   workspaceId: string
   kind: 'linked-computer'
@@ -72,7 +73,7 @@ export interface AuthorizedProjectRuntimeTarget {
   lastSeenAt: string | null
 }
 
-export type LinkedRuntimeUnavailableReason = 'offline' | 'stale' | 'update_required'
+export type LinkedRuntimeUnavailableReason = 'offline' | 'stale' | 'update_required' | 'agent_unavailable'
 
 export interface AuthorizedLinkedComputerDispatch {
   kind: 'linked-computer'
@@ -84,6 +85,7 @@ export interface AuthorizedLinkedComputerDispatch {
   workspaceId: string
   credentialVersion: number
   runtimeVersion: string
+  availableAgentIds: string[]
   platform: LinkedDevicePlatform
   lastSeenAt: string
   publicKey: string
@@ -126,7 +128,7 @@ export class LinkedComputerDispatchError extends Error {
   }
 }
 
-interface ResolveInput { userId: string; orgId: string; workspaceId: string; runtimeTargetId?: string }
+interface ResolveInput { userId: string; orgId: string; workspaceId: string; runtimeTargetId?: string; agentId?: string }
 interface ResolveOptions {
   db?: DbLike
   nowMs?: () => number
@@ -198,16 +200,22 @@ async function resolveCandidates(input: ResolveInput, options: ResolveOptions): 
     if (!credential || credential.revokedAt || Number(credential.credentialVersion) !== device.credentialVersion) continue
     const seen = timestampToMs(device.lastSeenAt)
     const updateRequired = linkedRuntimeUpdateRequired(device.runtimeVersion)
+    const availableAgentIds = Array.isArray(device.availableAgentIds)
+      ? device.availableAgentIds.filter((agentId): agentId is string => typeof agentId === 'string')
+      : []
+    const requestedAgentUnavailable = Boolean(input.agentId && availableAgentIds.length > 0 && !availableAgentIds.includes(input.agentId))
     const unavailableReason: LinkedRuntimeUnavailableReason | undefined = device.health !== 'ok' || seen == null
       ? 'offline'
       : now - seen > (options.staleAfterMs ?? DEVICE_STALE_AFTER_MS)
         ? 'stale'
-        : updateRequired ? 'update_required' : undefined
+        : updateRequired ? 'update_required'
+          : requestedAgentUnavailable ? 'agent_unavailable' : undefined
     candidates.push({
       kind: 'linked-computer', locationId: linkedDeviceProjectLocationId(device.deviceId),
       deviceId: device.deviceId, runtimeTargetId: device.runtimeTargetId,
       machineLabel: device.label, mappingId: mapping.mappingId, credentialVersion: device.credentialVersion,
       runtimeVersion: device.runtimeVersion, platform: device.platform, lastSeenAt: seen == null ? null : new Date(seen).toISOString(),
+      availableAgentIds,
       deviceKind: device.deviceKind === 'vps' ? 'vps' : 'computer',
       workspaceId: mapping.workspaceId, publicKey: String((device as LinkedDevice & { publicKey?: string }).publicKey ?? ''),
       owner: ownerType === 'user'
@@ -227,6 +235,7 @@ export async function discoverAuthorizedRuntimeTargets(input: ResolveInput, opti
     id: target.runtimeTargetId, locationId: target.locationId,
     deviceId: target.deviceId, label: target.machineLabel,
     platform: target.platform, runtimeVersion: target.runtimeVersion, mappingId: target.mappingId,
+    availableAgentIds: target.availableAgentIds,
     workspaceId: target.workspaceId,
     kind: 'linked-computer',
     deviceKind: target.deviceKind,
@@ -271,6 +280,7 @@ export async function authorizeLinkedComputerDispatch(input: ResolveInput & { ru
       deviceId: selected.deviceId, runtimeTargetId: selected.runtimeTargetId,
       machineLabel: selected.machineLabel, mappingId: selected.mappingId, workspaceId: selected.workspaceId,
       credentialVersion: selected.credentialVersion, runtimeVersion: selected.runtimeVersion, platform: selected.platform,
+      availableAgentIds: selected.availableAgentIds,
       lastSeenAt: selected.lastSeenAt!, publicKey: selected.publicKey,
       accessMode: selected.accessMode,
       ...(selected.updateRequired ? { updateRequired: true } : {}),
@@ -298,6 +308,10 @@ export async function authorizeLinkedComputerDispatch(input: ResolveInput & { ru
   if (device.health !== 'ok' || seen == null) throw new LinkedComputerDispatchError('linked_device_offline')
   if ((options.nowMs?.() ?? Date.now()) - seen > (options.staleAfterMs ?? DEVICE_STALE_AFTER_MS)) throw new LinkedComputerDispatchError('linked_device_stale')
   if (linkedRuntimeUpdateRequired(device.runtimeVersion)) throw new LinkedComputerDispatchError('linked_device_update_required')
+  const availableAgentIds = Array.isArray(device.availableAgentIds) ? device.availableAgentIds : []
+  if (input.agentId && availableAgentIds.length > 0 && !availableAgentIds.includes(input.agentId)) {
+    throw new LinkedComputerDispatchError('linked_device_agent_unavailable')
+  }
   throw new LinkedComputerDispatchError('linked_device_not_authorized')
 }
 

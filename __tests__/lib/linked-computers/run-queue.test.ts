@@ -3,6 +3,7 @@ import {
   decryptLinkedRunPayload,
   encryptLinkedRunPayload,
   linkedRunReceiptPayload,
+  publicClaimedLinkedRun,
   requireLinkedRunReceipt,
   transitionLinkedRun,
   sanitizeLinkedResult,
@@ -42,6 +43,14 @@ describe('linked run queue security transitions', () => {
     expect(retried.leaseToken).not.toBe(first.leaseToken)
     const running = { ...first, status: 'running' as const }
     expect(transitionLinkedRun(running, { type: 'claim', deviceId: 'device-a', credentialVersion: 3, nowMs: now + 31_000, leaseMs: 30_000 })).toEqual(expect.objectContaining({ attempt: 2, status: 'claimed' }))
+  })
+
+  it('delivers the selected agent identity to the linked computer', () => {
+    const job = transitionLinkedRun(queued({ agentId: 'theo' }), { type: 'claim', deviceId: 'device-a', credentialVersion: 3, nowMs: now, leaseMs: 30_000 })
+    expect(publicClaimedLinkedRun(job, { prompt: 'Run on Theo' })).toEqual(expect.objectContaining({
+      agentId: 'theo',
+      prompt: 'Run on Theo',
+    }))
   })
 
   it('renews only the current worker lease and comprehensively redacts results', () => {

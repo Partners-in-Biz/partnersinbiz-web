@@ -66,6 +66,7 @@ export interface SafeLinkedDeviceDto {
   deviceId: string; label: string; platform: LinkedDevicePlatform; architecture: LinkedDeviceArchitecture
   deviceKind: LinkedDeviceKind; ownerType: LinkedDeviceOwnerType
   runtimeVersion: string; capabilities: LinkedDeviceCapability[]; status: LinkedDeviceStatus
+  availableAgentIds: string[]; hermesVersion: string | null; healthReason: 'hermes_unavailable' | 'no_agents_available' | null
   credentialVersion: number; createdAt: unknown; updatedAt: unknown; lastSeenAt: unknown | null
   health: 'ok' | 'degraded' | null
   grants: Array<{ orgId: string; status: DeviceGrantStatus; accessMode: DeviceGrantAccessMode }>
@@ -75,7 +76,11 @@ export interface SafeLinkedDeviceDto {
 export function toSafeLinkedDeviceDto(row: LinkedDevice): SafeLinkedDeviceDto {
   const { deviceId, label, platform, architecture, runtimeVersion, capabilities, status, credentialVersion, createdAt, updatedAt, lastSeenAt } = row
   const health = (row as LinkedDevice & { health?: unknown }).health
-  return { deviceId, label, platform, architecture, deviceKind: row.deviceKind === 'vps' ? 'vps' : 'computer', ownerType: linkedDeviceOwnerType(row), runtimeVersion, capabilities, status, credentialVersion, createdAt, updatedAt, lastSeenAt,
+  const availableAgentIds = Array.isArray(row.availableAgentIds)
+    ? row.availableAgentIds.filter((agentId): agentId is string => typeof agentId === 'string')
+    : []
+  const healthReason = row.healthReason === 'hermes_unavailable' || row.healthReason === 'no_agents_available' ? row.healthReason : null
+  return { deviceId, label, platform, architecture, deviceKind: row.deviceKind === 'vps' ? 'vps' : 'computer', ownerType: linkedDeviceOwnerType(row), runtimeVersion, availableAgentIds, hermesVersion: typeof row.hermesVersion === 'string' ? row.hermesVersion : null, healthReason, capabilities, status, credentialVersion, createdAt, updatedAt, lastSeenAt,
     health: health === 'ok' || health === 'degraded' ? health : null, grants: [], mappings: [] }
 }
 
@@ -129,7 +134,7 @@ export async function updateOwnedDevice(input: { deviceId: string; actorUserId: 
   })
 }
 
-export async function recordDeviceHeartbeat(input: { deviceId: string; runtimeVersion: string; capabilities: LinkedDeviceCapability[]; health: 'ok' | 'degraded'; syncProtocolVersion?: 1 | null }, options: StoreOptions = {}): Promise<void> {
+export async function recordDeviceHeartbeat(input: { deviceId: string; runtimeVersion: string; capabilities: LinkedDeviceCapability[]; health: 'ok' | 'degraded'; syncProtocolVersion?: 1 | null; availableAgentIds?: string[]; hermesVersion?: string | null; healthReason?: 'hermes_unavailable' | 'no_agents_available' | null }, options: StoreOptions = {}): Promise<void> {
   const db = options.db ?? (adminDb as unknown as DbLike)
   await db.runTransaction(async (tx) => {
     const ref = db.collection(DEVICES).doc(input.deviceId)
@@ -140,6 +145,9 @@ export async function recordDeviceHeartbeat(input: { deviceId: string; runtimeVe
     const at = timestamp(options)
     tx.update(ref, {
       runtimeVersion: required(input.runtimeVersion, 'runtimeVersion'),
+      availableAgentIds: input.availableAgentIds ?? [],
+      hermesVersion: input.hermesVersion ?? null,
+      healthReason: input.healthReason ?? null,
       capabilities: input.capabilities,
       syncProtocolVersion: input.syncProtocolVersion === 1 ? 1 : null,
       health: input.health,
