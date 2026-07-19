@@ -12,7 +12,33 @@ permissions:
   contents: write
 
 jobs:
+  build-windows-arm64-bun:
+    runs-on: macos-14
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.10
+      - run: npm ci
+      - name: Cross-compile Windows arm64 Bun executables
+        run: |
+          mkdir -p runtime-installers/prebuilt/windows-arm64
+          bun build --compile --target=bun-windows-arm64 runtime-installers/runtime/cli.ts --outfile runtime-installers/prebuilt/windows-arm64/pib-runtime.exe
+          bun build --compile --target=bun-windows-arm64 runtime-installers/runtime/release-manager.ts --outfile runtime-installers/prebuilt/windows-arm64/pib-release-manager.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-arm64-bun-${{ github.sha }}
+          path: runtime-installers/prebuilt/windows-arm64
+          retention-days: 1
+          if-no-files-found: error
+
   release:
+    needs: build-windows-arm64-bun
     runs-on: windows-2025
     timeout-minutes: 45
     env:
@@ -35,6 +61,10 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '8.0.x'
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-arm64-bun-${{ github.sha }}
+          path: runtime-installers/prebuilt/windows-arm64
       - run: npm ci
       - name: Verify release inputs and secrets
         shell: pwsh
@@ -56,6 +86,7 @@ jobs:
         shell: bash
         env:
           PIB_RUNTIME_TARGETS: windows-x64 windows-arm64
+          PIB_RUNTIME_PREBUILT_WINDOWS_ARM64_DIR: runtime-installers/prebuilt/windows-arm64
         run: bash runtime-installers/build-runtime.sh
       - name: Sign Windows executable matrix
         uses: sslcom/esigner-codesign@cf5f6c1d38ad10f47e3ed9aca873f429b1a8d85b

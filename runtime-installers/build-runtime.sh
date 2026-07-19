@@ -13,8 +13,15 @@ for target in $TARGETS;do
     *) echo "Unsupported runtime target: $target" >&2;exit 2 ;;
   esac
   stage="$OUT/$target";mkdir -p "$stage"
-  bun build --compile --target="$bun_target" runtime-installers/runtime/cli.ts --outfile "$stage/pib-runtime$extension"
-  bun build --compile --target="$bun_target" runtime-installers/runtime/release-manager.ts --outfile "$stage/pib-release-manager$extension"
+  if [[ "$target" == windows-arm64 && -n "${PIB_RUNTIME_PREBUILT_WINDOWS_ARM64_DIR:-}" ]];then
+    for binary in pib-runtime.exe pib-release-manager.exe;do
+      [[ -f "$PIB_RUNTIME_PREBUILT_WINDOWS_ARM64_DIR/$binary" ]] || { echo "Prebuilt Windows arm64 artifact is missing $binary." >&2;exit 1; }
+      cp "$PIB_RUNTIME_PREBUILT_WINDOWS_ARM64_DIR/$binary" "$stage/$binary"
+    done
+  else
+    bun build --compile --target="$bun_target" runtime-installers/runtime/cli.ts --outfile "$stage/pib-runtime$extension"
+    bun build --compile --target="$bun_target" runtime-installers/runtime/release-manager.ts --outfile "$stage/pib-release-manager$extension"
+  fi
   if [[ "$target" == macos-* ]];then
     command -v swiftc >/dev/null || { echo 'macOS native helper packaging blocked: install the Swift toolchain.' >&2;exit 1; }
     arch="${target#macos-}";[[ "$arch" != x64 ]]||arch=x86_64
