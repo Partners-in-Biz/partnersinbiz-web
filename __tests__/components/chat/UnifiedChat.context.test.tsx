@@ -2081,6 +2081,69 @@ describe('UnifiedChat context references', () => {
     await waitFor(() => expect(input).toHaveValue(selectedDraft))
   })
 
+  it('does not let a delayed context PATCH from another conversation disturb the active composer', async () => {
+    let resolvePatch: ((value: Response) => void) | undefined
+    const patchResponse = new Promise<Response>((resolve) => { resolvePatch = resolve })
+    const conversationA = { ...baseConversation, title: 'Conversation A', contextRefs: [] }
+    const conversationB = { ...baseConversation, id: 'conv-2', title: 'Conversation B', contextRefs: [] }
+    const defaultFetch = mockFetch
+    mockFetch = jest.fn(async (request: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(request)
+      if (url.startsWith('/api/v1/conversations?')) {
+        return jsonResponse({ data: { conversations: [conversationA, conversationB] } })
+      }
+      if (url === '/api/v1/conversations/conv-2/messages') {
+        return jsonResponse({ data: { messages: [] } })
+      }
+      if (url === '/api/v1/conversations/conv-1/context' && init?.method === 'PATCH') {
+        return patchResponse
+      }
+      return defaultFetch(request, init)
+    })
+    global.fetch = mockFetch
+    const onConversationsChange = jest.fn()
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        onConversationsChange={onConversationsChange}
+      />,
+    )
+
+    const input = await screen.findByPlaceholderText('Send a message')
+    fireEvent.change(input, { target: { value: 'Attach @projects:launch' } })
+    fireEvent.click(await screen.findByRole('option', { name: 'Launch Project' }))
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/conversations/conv-1/context',
+      expect.objectContaining({ method: 'PATCH' }),
+    ))
+
+    fireEvent.click(screen.getByTestId('conversation-row-conv-2'))
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith('/api/v1/conversations/conv-2/messages'))
+    const conversationBDraft = 'Keep B draft @projects:launch'
+    fireEvent.change(input, { target: { value: conversationBDraft } })
+    const result = await screen.findByRole('option', { name: 'Launch Project' })
+    input.focus()
+    expect(input).toHaveFocus()
+
+    await act(async () => {
+      resolvePatch?.(jsonResponse({ data: { contextRefs: [projectRef] } }))
+      await patchResponse
+    })
+
+    expect(input).toHaveValue(conversationBDraft)
+    expect(input).toHaveFocus()
+    expect(screen.getByRole('listbox', { name: 'Context references' })).toContainElement(result)
+    expect(screen.getByRole('button', { name: 'Add conversation context' })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.queryByRole('button', { name: 'Remove Launch Project context' })).not.toBeInTheDocument()
+    await waitFor(() => expect(onConversationsChange).toHaveBeenLastCalledWith([
+      expect.objectContaining({ id: 'conv-1', contextRefs: [expect.objectContaining(projectRef)] }),
+      expect.objectContaining({ id: 'conv-2', contextRefs: [] }),
+    ]))
+  })
+
   it('owns type autocomplete from the textarea and selects with keyboard navigation', async () => {
     render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" />)
 

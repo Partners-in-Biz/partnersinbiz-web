@@ -789,6 +789,8 @@ export default function UnifiedChat({
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [uncontrolledActiveId, setUncontrolledActiveId] = useState<string | null>(null)
   const activeId = activeConversationId === undefined ? uncontrolledActiveId : activeConversationId
+  const activeConversationIdRef = useRef(activeId)
+  activeConversationIdRef.current = activeId
   const setActiveId = useCallback((value: string | null) => {
     if (activeConversationId === undefined) setUncontrolledActiveId(value)
     onActiveConversationChange?.(value)
@@ -2709,7 +2711,8 @@ export default function UnifiedChat({
       return next
     }
 
-    const res = await fetch(`/api/v1/conversations/${activeId}/context`, {
+    const initiatingConversationId = activeId
+    const res = await fetch(`/api/v1/conversations/${initiatingConversationId}/context`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action, refs: localRefs }),
@@ -2717,10 +2720,10 @@ export default function UnifiedChat({
     const body = await res.json().catch(() => null)
     if (!res.ok) throw new Error(body?.error ?? `context update failed: ${res.status}`)
     const next = ((body?.data?.contextRefs ?? []) as ContextReference[]).map(coerceContextRef)
-    setContextRefs(next)
+    if (activeConversationIdRef.current === initiatingConversationId) setContextRefs(next)
     setConversations((prev) =>
       prev.map((conversation) =>
-        conversation.id === activeId ? { ...conversation, contextRefs: next } : conversation,
+        conversation.id === initiatingConversationId ? { ...conversation, contextRefs: next } : conversation,
       ),
     )
     return next
@@ -2742,12 +2745,14 @@ export default function UnifiedChat({
   }, [patchContextRefs])
 
   const selectMentionContext = useCallback((ref: ContextReference) => {
+    const conversationIdAtSelection = activeId
     const mentionAtSelection = contextMention
     const inputAtSelection = input
     const editRevisionAtSelection = composerEditRevisionRef.current
     const insertedSeparatorAtSelection = contextPickerInsertedSeparatorRef.current
     patchContextRefs('add', [ref])
       .then(() => {
+        if (activeConversationIdRef.current !== conversationIdAtSelection) return
         if (mentionAtSelection && composerEditRevisionRef.current === editRevisionAtSelection) {
           setInput((latestInput) => {
             if (composerEditRevisionRef.current !== editRevisionAtSelection || latestInput !== inputAtSelection) {
@@ -2768,9 +2773,10 @@ export default function UnifiedChat({
         requestAnimationFrame(() => composerRef.current?.focus())
       })
       .catch((err) => {
+        if (activeConversationIdRef.current !== conversationIdAtSelection) return
         setError(err instanceof Error ? err.message : 'Failed to attach context')
       })
-  }, [contextMention, input, patchContextRefs])
+  }, [activeId, contextMention, input, patchContextRefs])
 
   const selectContextType = useCallback((option: ContextReferenceMentionOption) => {
     if (!contextTypePrompt) return
