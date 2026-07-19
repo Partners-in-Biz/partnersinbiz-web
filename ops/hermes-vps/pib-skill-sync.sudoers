@@ -1,0 +1,4 @@
+# The command itself is root-owned and rejects paths outside the exact numeric
+# /srv/hermes-projects/pib-skill-staging/<run>-<attempt> boundary, foreign
+# ownership, incomplete bundles, and any symlink in the staging tree.
+hermes-deploy ALL=(root) NOPASSWD: /usr/local/sbin/pib-apply-skill-staging /srv/hermes-projects/pib-skill-staging/*

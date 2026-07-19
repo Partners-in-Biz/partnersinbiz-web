@@ -7,7 +7,9 @@ on:
       - '.claude/skills/**'
       - 'config/agent-skill-policy.json'
       - 'scripts/apply-agent-skill-policy.mjs'
+      - 'scripts/apply-vps-skill-staging.sh'
       - 'scripts/install-vps-skills.sh'
+      - 'ops/hermes-vps/pib-skill-sync.sudoers'
       - '.github/workflows/sync-vps-skills.yml'
   workflow_dispatch:
 
@@ -28,49 +30,41 @@ jobs:
 
       - name: Rsync platform skills and policy tooling to VPS
         run: |
-          ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "mkdir -p /var/lib/hermes/partnersinbiz-web/config /var/lib/hermes/partnersinbiz-web/scripts"
+          local_helper_sha=$(sha256sum scripts/apply-vps-skill-staging.sh | awk '{print $1}')
+          remote_helper_sha=$(ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "sha256sum /usr/local/sbin/pib-apply-skill-staging" | awk '{print $1}')
+          if [ "$local_helper_sha" != "$remote_helper_sha" ]; then
+            echo "Root-owned VPS skill installer is not at the reviewed repository version" >&2
+            exit 1
+          fi
+
+          staging="/srv/hermes-projects/pib-skill-staging/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "rm -rf '$staging' && mkdir -p '$staging/.claude/skills' '$staging/config' '$staging/scripts'"
           rsync -rlz --omit-dir-times --no-perms --no-owner --no-group \
             config/agent-skill-policy.json \
-            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/var/lib/hermes/partnersinbiz-web/config/agent-skill-policy.json"
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:$staging/config/agent-skill-policy.json"
           rsync -rlz --omit-dir-times --no-perms --no-owner --no-group \
             scripts/apply-agent-skill-policy.mjs scripts/install-vps-skills.sh \
-            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/var/lib/hermes/partnersinbiz-web/scripts/"
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:$staging/scripts/"
 
-          # Use -rlz instead of -avz: skip preserving times/perms/owner/group.
-          # The hermes-deploy user has group-write but isn't the owner of the
-          # destination dirs, so utime() fails ("Operation not permitted").
-          # We only need content + filenames; times/perms aren't load-bearing here.
-          remote_base="/var/lib/hermes/pib-skills/partnersinbiz"
+          # Stage as the unprivileged deployment user outside HERMES_HOME.
+          # Hermes deliberately restores /var/lib/hermes to mode 0700, so the
+          # old direct-rsync path was inherently racy. A fixed root-owned helper
+          # validates and installs this data-only bundle through narrow sudo.
           mapfile -t sync_skills < <(node -e "const p=require('./config/agent-skill-policy.json'); console.log(Object.entries(p.skillCatalog).filter(([,v]) => v.syncTarget === 'vps').map(([k]) => k).sort().join('\n'))")
           for skill in "${sync_skills[@]}"; do
             if [ -d ".claude/skills/$skill" ]; then
               echo "-> rsyncing $skill"
-              safe_skill="${skill//\//__}"
-              tmp_dir="$remote_base/.sync-$safe_skill-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-              dest_dir="$remote_base/$skill"
-              stale_dir="$remote_base/.stale-$safe_skill-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-              ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "rm -rf '$tmp_dir' '$stale_dir' && mkdir -p '$tmp_dir' \"\$(dirname '$dest_dir')\""
+              dest_dir="$staging/.claude/skills/$skill"
+              ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "mkdir -p '$dest_dir'"
               rsync -rlz --delete --omit-dir-times --no-perms --no-owner --no-group \
                 ".claude/skills/$skill/" \
-                "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:$tmp_dir/"
-              ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-                set -e
-                if [ -e '$dest_dir' ]; then
-                  mv '$dest_dir' '$stale_dir'
-                fi
-                mv '$tmp_dir' '$dest_dir'
-                chmod -R g+rwX '$dest_dir' || true
-                rm -rf '$stale_dir' 2>/dev/null || true
-              "
+                "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:$dest_dir/"
             else
               echo "-- skipping $skill (not found in repo)"
             fi
           done
-          ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "
-            set -e
-            # Profile config.yaml files are owned by the live Hermes runtime.
-            # Provisioning/install scripts update them; CI only refreshes the
-            # shared skill cache and generated per-agent skill directories.
-            node /var/lib/hermes/partnersinbiz-web/scripts/apply-agent-skill-policy.mjs --root /var/lib/hermes --apply --no-config --allow-missing-global
-          "
+          ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "sudo /usr/local/sbin/pib-apply-skill-staging '$staging'"
           echo "Sync complete"
