@@ -1040,6 +1040,69 @@ describe('UnifiedChat project pulse integration', () => {
   })
 })
 
+describe('UnifiedChat responsive Sessions focus mode', () => {
+  const installViewport = (width: number) => {
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: jest.fn((query: string) => ({
+        matches: query.includes('max-width: 1279px')
+          ? width <= 1279
+          : query.includes('max-width: 1023px')
+            ? width <= 1023
+            : query.includes('min-width: 1280px')
+              ? width >= 1280
+              : false,
+        media: query,
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+      })),
+    })
+  }
+
+  const installConversationFetch = () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents') || url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [], projects: [] } })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [baseConversation] } })
+      if (url === '/api/v1/conversations/conv-1/messages') return jsonResponse({ data: { messages: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+  }
+
+  it('uses a focus-trapped Sessions slide-over at the 1194px landscape breakpoint and returns focus', async () => {
+    installViewport(1194)
+    installConversationFetch()
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" initialConvId="conv-1" layoutVariant="hermes" />)
+
+    const trigger = await screen.findByRole('button', { name: 'Open Sessions' })
+    expect(trigger).toHaveClass('h-11', 'w-11', 'xl:hidden')
+    const composer = await screen.findByPlaceholderText('Message Pip')
+    fireEvent.change(composer, { target: { value: 'Keep this draft' } })
+    fireEvent.click(trigger)
+
+    const drawer = screen.getByRole('dialog', { name: 'Session browser' })
+    expect(drawer).toHaveAttribute('data-presentation', 'drawer')
+    expect(composer).toBeInTheDocument()
+    expect(composer).toHaveValue('Keep this draft')
+    expect(screen.getByRole('button', { name: 'Close sessions' })).toHaveFocus()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    await waitFor(() => expect(trigger).toHaveFocus())
+  })
+
+  it('expands a collapsed desktop rail and focuses its filter from Search sessions', async () => {
+    installViewport(1440)
+    installConversationFetch()
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" initialConvId="conv-1" layoutVariant="hermes" conversationRailMode="collapsed" onConversationRailModeChange={jest.fn()} />)
+
+    const search = await screen.findByRole('button', { name: 'Search sessions' })
+    expect(search).toHaveClass('h-11', 'w-11', 'xl:h-10', 'xl:w-10')
+    fireEvent.click(search)
+    await waitFor(() => expect(screen.getByRole('searchbox', { name: 'Filter conversations' })).toHaveFocus())
+  })
+})
+
 describe('UnifiedChat message scrolling', () => {
   let originalRequestAnimationFrame: typeof window.requestAnimationFrame
   let originalCancelAnimationFrame: typeof window.cancelAnimationFrame

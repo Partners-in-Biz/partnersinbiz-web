@@ -912,7 +912,8 @@ export default function UnifiedChat({
 
   // Mobile pane navigation: which pane is visible on small screens
   const [mobilePane, setMobilePane] = useState<'list' | 'conversation'>(initialConvId ? 'conversation' : 'list')
-  const [mobileViewport, setMobileViewport] = useState(false)
+  const [sessionsOverlayViewport, setSessionsOverlayViewport] = useState(false)
+  const [tabletSessionsDrawer, setTabletSessionsDrawer] = useState(false)
 
   // Mobile header "…" menu
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false)
@@ -936,12 +937,22 @@ export default function UnifiedChat({
   const mobileSessionsRef = useRef<HTMLElement | null>(null)
   const mobileSessionsCloseRef = useRef<HTMLButtonElement | null>(null)
   const mobileSessionsTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const conversationFilterRef = useRef<HTMLInputElement | null>(null)
   useEffect(() => {
     if (typeof window.matchMedia !== 'function') return
-    const media = window.matchMedia('(max-width: 1023px)')
-    const update = () => setMobileViewport(media.matches)
-    update(); media.addEventListener?.('change', update)
-    return () => media.removeEventListener?.('change', update)
+    const overlayMedia = window.matchMedia('(max-width: 1279px)')
+    const tabletMedia = window.matchMedia('(min-width: 1024px) and (max-width: 1279px)')
+    const update = () => {
+      setSessionsOverlayViewport(overlayMedia.matches)
+      setTabletSessionsDrawer(tabletMedia.matches)
+    }
+    update()
+    overlayMedia.addEventListener?.('change', update)
+    tabletMedia.addEventListener?.('change', update)
+    return () => {
+      overlayMedia.removeEventListener?.('change', update)
+      tabletMedia.removeEventListener?.('change', update)
+    }
   }, [])
   const historyDraftRef = useRef('')
   // Tracks which assistant message IDs we've already started polling for (prevents duplicates)
@@ -3369,9 +3380,11 @@ export default function UnifiedChat({
   ]
   const showListOnMobile = mobilePane === 'list'
   const hermesLayout = layoutVariant === 'hermes' && !compact
-  const railCollapsed = hermesLayout && conversationRailMode === 'collapsed'
+  // A saved collapsed preference only applies to the docked >=1280 rail. Overlay
+  // Sessions always renders its complete catalogue without mutating that preference.
+  const railCollapsed = hermesLayout && conversationRailMode === 'collapsed' && !sessionsOverlayViewport
   useEffect(() => {
-    if (!showConversationList || !showListOnMobile || !mobileViewport) return
+    if (!showConversationList || !showListOnMobile || !sessionsOverlayViewport) return
     mobileSessionsCloseRef.current?.focus()
     const keydown = (event: globalThis.KeyboardEvent) => {
       if (event.key === 'Escape' && activeConversation) { event.preventDefault(); setMobilePane('conversation'); requestAnimationFrame(() => mobileSessionsTriggerRef.current?.focus()); return }
@@ -3384,7 +3397,7 @@ export default function UnifiedChat({
     }
     document.addEventListener('keydown', keydown)
     return () => document.removeEventListener('keydown', keydown)
-  }, [activeConversation, mobileViewport, showConversationList, showListOnMobile])
+  }, [activeConversation, sessionsOverlayViewport, showConversationList, showListOnMobile])
   const canStopActiveRun = Boolean(
     allowDeleteConversations &&
     activeRuntimeMessage?.runId &&
@@ -3423,33 +3436,39 @@ export default function UnifiedChat({
           : !showConversationList
             ? 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden'
           : hermesLayout
-            ? `relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-2 ${railCollapsed ? 'lg:grid-cols-[48px_minmax(0,1fr)]' : 'lg:grid-cols-[236px_minmax(0,1fr)]'}`
+            ? `relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden xl:grid xl:gap-2 ${railCollapsed ? 'xl:grid-cols-[48px_minmax(0,1fr)]' : 'xl:grid-cols-[236px_minmax(0,1fr)]'}`
             : 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-4 lg:grid-cols-[280px_minmax(0,1fr)]'
       }
     >
       {/* ── Left: conversation list ─────────────────────────────────────── */}
+      {showConversationList && showListOnMobile && tabletSessionsDrawer && <div aria-hidden="true" onClick={() => setMobilePane('conversation')} className="fixed inset-0 z-40 bg-black/45 xl:hidden" />}
       {showConversationList && <aside
         ref={mobileSessionsRef}
-        role={mobileViewport && showListOnMobile ? 'dialog' : undefined}
-        aria-modal={mobileViewport && showListOnMobile ? 'true' : undefined}
-        aria-label={mobileViewport && showListOnMobile ? 'Session browser' : undefined}
+        role={sessionsOverlayViewport && showListOnMobile ? 'dialog' : undefined}
+        aria-modal={sessionsOverlayViewport && showListOnMobile ? 'true' : undefined}
+        aria-label={sessionsOverlayViewport && showListOnMobile ? 'Session browser' : undefined}
+        data-presentation={sessionsOverlayViewport && showListOnMobile ? tabletSessionsDrawer ? 'drawer' : 'sheet' : 'rail'}
         className={[
           hermesLayout
             ? `min-h-0 min-w-0 flex-col gap-2 overflow-hidden flex-1 rounded-xl border border-[var(--color-card-border)] bg-black/[0.08] ${railCollapsed ? 'p-1' : 'p-2'}`
             : 'pib-card min-h-0 min-w-0 flex-col gap-2 overflow-hidden flex-1 p-3',
-          compact ? '!rounded-none !border-0 !bg-transparent' : 'lg:flex max-lg:!rounded-none max-lg:!border-0 max-lg:!bg-transparent',
-          showListOnMobile ? 'flex max-lg:fixed max-lg:inset-0 max-lg:z-50 max-lg:rounded-none max-lg:bg-[var(--color-surface,#151515)] max-lg:px-[max(.75rem,env(safe-area-inset-left))] max-lg:pb-[max(.75rem,env(safe-area-inset-bottom))] max-lg:pt-[max(.75rem,env(safe-area-inset-top))]' : 'hidden',
+          compact ? '!rounded-none !border-0 !bg-transparent' : 'xl:flex max-xl:!rounded-none max-xl:!border-0 max-xl:!bg-transparent',
+          showListOnMobile
+            ? tabletSessionsDrawer
+              ? 'flex fixed inset-y-0 left-0 z-50 w-[min(380px,42vw)] rounded-none bg-[var(--color-surface,#151515)] px-[max(.75rem,env(safe-area-inset-left))] pb-[max(.75rem,env(safe-area-inset-bottom))] pt-[max(.75rem,env(safe-area-inset-top))] shadow-2xl xl:static xl:w-auto xl:shadow-none'
+              : 'flex max-xl:fixed max-xl:inset-0 max-xl:z-50 max-xl:rounded-none max-xl:bg-[var(--color-surface,#151515)] max-xl:px-[max(.75rem,env(safe-area-inset-left))] max-xl:pb-[max(.75rem,env(safe-area-inset-bottom))] max-xl:pt-[max(.75rem,env(safe-area-inset-top))]'
+            : 'hidden',
         ].join(' ')}
       >
         {railCollapsed && (
-          <div className="hidden min-h-0 flex-1 flex-col items-center gap-1.5 lg:flex">
-            <button type="button" aria-label="Expand sessions" onClick={() => onConversationRailModeChange?.('expanded')} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)]"><span aria-hidden="true" className="material-symbols-outlined text-[19px]">left_panel_open</span></button>
-            <button type="button" aria-label="New conversation" onClick={() => openNewConversation()} disabled={!allowStartConversations} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-primary/25 bg-primary/10 text-primary hover:bg-primary/15 disabled:opacity-40"><span aria-hidden="true" className="material-symbols-outlined text-[19px]">add_comment</span></button>
-            <button type="button" aria-label="Search sessions" onClick={() => onConversationRailModeChange?.('expanded')} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)]"><span aria-hidden="true" className="material-symbols-outlined text-[19px]">search</span></button>
+          <div className="hidden min-h-0 flex-1 flex-col items-center gap-1.5 xl:flex">
+            <button type="button" aria-label="Expand sessions" onClick={() => onConversationRailModeChange?.('expanded')} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)] xl:h-10 xl:w-10"><span aria-hidden="true" className="material-symbols-outlined text-[19px]">left_panel_open</span></button>
+            <button type="button" aria-label="New conversation" onClick={() => openNewConversation()} disabled={!allowStartConversations} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-primary/25 bg-primary/10 text-primary hover:bg-primary/15 disabled:opacity-40 xl:h-10 xl:w-10"><span aria-hidden="true" className="material-symbols-outlined text-[19px]">add_comment</span></button>
+            <button type="button" aria-label="Search sessions" onClick={() => { onConversationRailModeChange?.('expanded'); requestAnimationFrame(() => conversationFilterRef.current?.focus()) }} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)] xl:h-10 xl:w-10"><span aria-hidden="true" className="material-symbols-outlined text-[19px]">search</span></button>
             <div aria-hidden="true" className="my-0.5 h-px w-7 bg-[var(--color-card-border)]" />
             <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
               {filteredConversations.slice(0, 10).map((conversation) => (
-                <button key={conversation.id} type="button" aria-label={`Open ${conversation.title || 'Untitled session'}`} title={conversation.title || 'Untitled session'} onClick={() => { setActiveId(conversation.id); setMobilePane('conversation') }} className={`relative grid h-10 w-10 place-items-center rounded-lg ${conversation.id === activeId ? 'bg-primary/14 text-primary' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)]'}`}>
+                <button key={conversation.id} type="button" aria-label={`Open ${conversation.title || 'Untitled session'}`} title={conversation.title || 'Untitled session'} onClick={() => { setActiveId(conversation.id); setMobilePane('conversation') }} className={`relative grid h-11 w-11 place-items-center rounded-lg xl:h-10 xl:w-10 ${conversation.id === activeId ? 'bg-primary/14 text-primary' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)]'}`}>
                   <span aria-hidden="true" className="material-symbols-outlined text-[18px]">chat_bubble</span>
                   {pinnedConversationIdSet.has(conversation.id) ? <span aria-label="Pinned session" className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-amber-300" /> : null}
                 </button>
@@ -3458,13 +3477,13 @@ export default function UnifiedChat({
           </div>
         )}
         <div className={railCollapsed ? 'hidden' : 'contents'}>
-        <div className="mb-1 flex min-h-11 items-center justify-between lg:hidden"><div><p className="text-[10px] font-label uppercase tracking-[0.2em] text-[var(--color-pib-text-muted)]">Messages</p><h2 className="text-base font-semibold text-[var(--color-pib-text)]">Browse sessions</h2></div>{activeConversation && <button ref={mobileSessionsCloseRef} type="button" aria-label="Close sessions" onClick={() => { setMobilePane('conversation'); requestAnimationFrame(() => mobileSessionsTriggerRef.current?.focus()) }} className="grid h-11 w-11 place-items-center rounded-full text-[var(--color-pib-text-muted)] hover:bg-white/[0.07]"><span aria-hidden="true" className="material-symbols-outlined">close</span></button>}</div>
+        <div className="mb-1 flex min-h-11 items-center justify-between xl:hidden"><div><p className="text-[10px] font-label uppercase tracking-[0.2em] text-[var(--color-pib-text-muted)]">Messages</p><h2 className="text-base font-semibold text-[var(--color-pib-text)]">Browse sessions</h2></div>{activeConversation && <button ref={mobileSessionsCloseRef} type="button" aria-label="Close sessions" onClick={() => { setMobilePane('conversation'); requestAnimationFrame(() => mobileSessionsTriggerRef.current?.focus()) }} className="grid h-11 w-11 place-items-center rounded-full text-[var(--color-pib-text-muted)] hover:bg-white/[0.07]"><span aria-hidden="true" className="material-symbols-outlined">close</span></button>}</div>
         <button
           type="button"
           onClick={() => openNewConversation()}
           disabled={!allowStartConversations}
           className={hermesLayout
-            ? 'flex h-8 items-center justify-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-white/[0.05] px-2 text-xs font-medium text-[var(--color-pib-text)] hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-45'
+            ? 'flex h-11 items-center justify-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-white/[0.05] px-2 text-xs font-medium text-[var(--color-pib-text)] hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-45 xl:h-8'
             : 'rounded-lg bg-primary px-3 py-2 text-sm font-medium text-on-primary hover:opacity-90 flex items-center justify-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-45'}
         >
           <span className={`material-symbols-outlined ${hermesLayout ? 'text-[14px]' : 'text-[16px]'}`} aria-hidden="true">add</span>
@@ -3477,7 +3496,7 @@ export default function UnifiedChat({
             aria-label="Create new project"
             onClick={openNewProject}
             disabled={!allowStartConversations}
-            className="flex h-9 items-center justify-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-3 text-sm font-semibold text-primary hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-45"
+            className="flex h-11 items-center justify-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-3 text-sm font-semibold text-primary hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-45 xl:h-9"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">create_new_folder</span>
             New project
@@ -3491,13 +3510,14 @@ export default function UnifiedChat({
         <label className="relative block">
           <span className="material-symbols-outlined pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[14px] text-[var(--color-pib-text-muted)]" aria-hidden="true">search</span>
           <input
+            ref={conversationFilterRef}
             type="search"
             aria-label="Filter conversations"
             value={conversationFilter}
             onChange={(event) => setConversationFilter(event.target.value)}
             placeholder="Filter conversations"
             className={hermesLayout
-              ? 'h-8 w-full rounded-md border border-[var(--color-card-border)] bg-black/10 pl-7 pr-2 text-xs text-[var(--color-pib-text)] outline-none placeholder:text-[var(--color-pib-text-muted)]/65 focus:border-primary/50 focus:ring-1 focus:ring-primary/30'
+              ? 'h-11 w-full rounded-md border border-[var(--color-card-border)] bg-black/10 pl-7 pr-2 text-xs text-[var(--color-pib-text)] outline-none placeholder:text-[var(--color-pib-text-muted)]/65 focus:border-primary/50 focus:ring-1 focus:ring-primary/30 xl:h-8'
               : 'h-9 w-full rounded-lg border border-[var(--color-card-border)] bg-transparent pl-8 pr-2 text-sm text-[var(--color-pib-text)] outline-none placeholder:text-[var(--color-pib-text-muted)] focus:border-primary/50 focus:ring-1 focus:ring-primary/30'}
           />
         </label>
@@ -4107,7 +4127,6 @@ export default function UnifiedChat({
           </button>
           {hermesLayout && menuConversation && (
             <button
-              ref={mobileSessionsTriggerRef}
               type="button"
               className="w-full text-left px-3 py-2 text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
               onClick={() => {
@@ -4181,8 +4200,8 @@ export default function UnifiedChat({
           hermesLayout
             ? 'relative flex-col overflow-hidden min-h-0 min-w-0 flex-1 rounded-xl border border-[var(--color-card-border)] bg-black/[0.06]'
             : 'pib-card relative flex-col overflow-hidden min-h-0 min-w-0 flex-1',
-          compact || !showConversationList ? '!p-0 !rounded-none !border-0 !bg-transparent' : 'lg:flex max-lg:!p-0 max-lg:!rounded-none max-lg:!border-0 max-lg:!bg-transparent',
-          showConversationList && showListOnMobile ? 'hidden' : 'flex',
+          compact || !showConversationList ? '!p-0 !rounded-none !border-0 !bg-transparent' : 'xl:flex max-xl:!p-0 max-xl:!rounded-none max-xl:!border-0 max-xl:!bg-transparent',
+          showConversationList && showListOnMobile && !tabletSessionsDrawer ? 'hidden' : 'flex',
         ].join(' ')}
       >
         {/* Header — mobile style (back / title+subtitle / ⋯) on small,
@@ -4191,12 +4210,13 @@ export default function UnifiedChat({
           <div className="flex items-center gap-2">
             {/* Back arrow — mobile only */}
             <button
+              ref={mobileSessionsTriggerRef}
               type="button"
               onClick={() => setMobilePane('list')}
-              aria-label="Back to conversations"
+              aria-label="Open Sessions"
               className={[
-                '-ml-1 items-center justify-center w-9 h-9 rounded-full hover:bg-white/[0.06] active:bg-white/[0.1] text-[var(--color-pib-text-muted)] transition-colors shrink-0',
-                compact ? 'flex' : 'lg:hidden flex',
+                '-ml-1 h-11 w-11 shrink-0 items-center justify-center rounded-full text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.06] active:bg-white/[0.1]',
+                compact ? 'flex' : 'flex xl:hidden',
               ].join(' ')}
             >
               <span className="material-symbols-outlined text-[22px]">arrow_back_ios_new</span>
