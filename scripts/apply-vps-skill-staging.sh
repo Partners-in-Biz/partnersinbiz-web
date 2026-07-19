@@ -73,6 +73,29 @@ mapfile -t active_units < <(
 if (( ${#active_units[@]} > 0 )); then
   systemctl restart "${active_units[@]}"
   systemctl is-active "${active_units[@]}"
+
+  # A syntax/import failure can leave a Restart=always unit momentarily active
+  # before it falls into a crash loop. Do not report a successful skill sync
+  # until every restarted profile survives a full stabilization window without
+  # incrementing its restart counter.
+  declare -A restart_baseline=()
+  for unit in "${active_units[@]}"; do
+    restart_baseline["$unit"]=$(systemctl show "$unit" --property=NRestarts --value)
+  done
+  stabilization_seconds=${PIB_SKILL_RESTART_STABILIZATION_SECONDS:-30}
+  if [[ ! "$stabilization_seconds" =~ ^[0-9]+$ ]]; then
+    echo "PIB_SKILL_RESTART_STABILIZATION_SECONDS must be a non-negative integer" >&2
+    exit 2
+  fi
+  sleep "$stabilization_seconds"
+  systemctl is-active "${active_units[@]}"
+  for unit in "${active_units[@]}"; do
+    current_restarts=$(systemctl show "$unit" --property=NRestarts --value)
+    if (( current_restarts > restart_baseline["$unit"] )); then
+      echo "$unit restarted during the ${stabilization_seconds}s stabilization window" >&2
+      exit 1
+    fi
+  done
 fi
 
 logger -t pib-skill-sync "applied staged PiB agent skills and restarted ${#active_units[@]} active profiles"
