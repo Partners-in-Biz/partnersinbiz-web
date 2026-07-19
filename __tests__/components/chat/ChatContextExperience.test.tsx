@@ -235,7 +235,8 @@ describe('useChatContexts', () => {
 
     const { rerender } = render(<ChatContextExperience context={baseContext} />)
 
-    await waitFor(() => expect(screen.getByRole('dialog', { name: 'Launch context' })).toHaveAttribute('data-presentation', 'canvas'))
+    await waitFor(() => expect(screen.getByRole('dialog', { name: 'Launch context' })).toHaveAttribute('data-presentation', 'dual'))
+    expect(screen.getByLabelText('Secondary context')).toHaveValue('company:company-1')
     expect(JSON.parse(window.localStorage.getItem(storageKey) ?? '{}')).toEqual(savedState)
 
     rerender(<ChatContextExperience context={{ ...baseContext, model: { ...model, relationships: [{ kind: 'task' as const, id: 'saved-related-task', label: 'Saved related task' }] } }} />)
@@ -246,5 +247,31 @@ describe('useChatContexts', () => {
     const writes = setItem.mock.calls.filter(([key]) => key === storageKey).map(([, value]) => JSON.parse(String(value)))
     expect(writes).not.toHaveLength(0)
     expect(writes).toEqual(writes.map(() => savedState))
+  })
+
+  it('settles an unavailable saved secondary without freezing fallback selection or canvas persistence', async () => {
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: jest.fn((query: string) => ({ matches: query.includes('min-width: 1280px'), addEventListener: jest.fn(), removeEventListener: jest.fn() })) })
+    const storageKey = 'pib.messages.contextCanvas.v1:org-1:conv-stale-related'
+    const staleState = { open: true, mode: 'dual', width: 580, secondary: { kind: 'task', id: 'removed-task' } }
+    window.localStorage.setItem(storageKey, JSON.stringify(staleState))
+    const activeContext = { kind: 'project' as const, id: 'project-1', label: 'Launch' }
+    const company = { kind: 'company' as const, id: 'company-1', label: 'Partners in Biz' }
+    const contact = { kind: 'contact' as const, id: 'contact-1', label: 'Theo' }
+    const model = { context: { kind: 'project' as const, id: 'project-1', orgId: 'org-1', label: 'Launch', icon: 'target' }, pulse: { label: 'Project', metrics: [] }, groups: [], artifacts: [], attention: [], activity: [], capabilities: [], relationships: [], asOf: '2026-07-19T00:00:00Z' }
+    const baseContext = { contexts: [activeContext, company, contact], activeContext, setActiveContext: jest.fn(), model, error: null, refresh: jest.fn(), routineUpdateCount: 0, dismissRoutineUpdates: jest.fn(), orgId: 'org-1', conversationId: 'conv-stale-related' }
+
+    const { rerender } = render(<ChatContextExperience context={baseContext} />)
+
+    await waitFor(() => expect(screen.getByRole('dialog', { name: 'Launch context' })).toHaveAttribute('data-presentation', 'dual'))
+    expect(screen.getByLabelText('Secondary context')).toHaveValue('company:company-1')
+    fireEvent.click(screen.getByRole('button', { name: 'Close context dock' }))
+    await waitFor(() => expect(JSON.parse(window.localStorage.getItem(storageKey) ?? '{}')).toEqual({ ...staleState, open: false }))
+
+    rerender(<ChatContextExperience context={{ ...baseContext, model: { ...model, asOf: '2026-07-19T00:00:05Z' } }} />)
+
+    await waitFor(() => expect(JSON.parse(window.localStorage.getItem(storageKey) ?? '{}')).toEqual({ ...staleState, open: false, secondary: { kind: 'company', id: 'company-1' } }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open context dock' }))
+    fireEvent.change(screen.getByLabelText('Secondary context'), { target: { value: 'contact:contact-1' } })
+    await waitFor(() => expect(JSON.parse(window.localStorage.getItem(storageKey) ?? '{}')).toEqual({ ...staleState, open: true, secondary: { kind: 'contact', id: 'contact-1' } }))
   })
 })
