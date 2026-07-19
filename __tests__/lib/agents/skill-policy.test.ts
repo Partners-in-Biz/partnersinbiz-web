@@ -113,6 +113,17 @@ describe('agent skill policy manifest', () => {
     expect(orchestrateSkill).toContain('studio_artifact_existing_result')
   })
 
+  it('keeps the project-management create contract aligned with the API lifecycle statuses', () => {
+    const projectSkill = readFileSync(join(
+      process.cwd(),
+      '.claude/skills/project-management/SKILL.md',
+    ), 'utf8')
+
+    expect(projectSkill).toContain('`discovery`, `design`, `development`, `review`, `live`, and `maintenance`')
+    expect(projectSkill).toContain('400 Invalid status')
+    expect(projectSkill).not.toContain('"status": "active"')
+  })
+
   it('catalogs every repo skill folder with an owner and runtime policy', () => {
     const discovered = discoverRepoSkills()
     expect(discovered.length).toBeGreaterThanOrEqual(45)
