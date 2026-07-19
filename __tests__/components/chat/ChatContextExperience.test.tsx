@@ -198,4 +198,27 @@ describe('useChatContexts', () => {
     const destinationWrites = setItem.mock.calls.filter(([key]) => key === destinationKey).map(([, value]) => JSON.parse(String(value)))
     expect(destinationWrites).not.toContainEqual(sourceState)
   })
+
+  it('keeps the destination saved secondary when the source selection is invalid there', async () => {
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: jest.fn((query: string) => ({ matches: query.includes('min-width: 1280px'), addEventListener: jest.fn(), removeEventListener: jest.fn() })) })
+    const sourceKey = 'pib.messages.contextCanvas.v1:org-1:conv-source'
+    const destinationKey = 'pib.messages.contextCanvas.v1:org-1:conv-destination'
+    const sourceState = { open: true, mode: 'dual', width: 610, secondary: { kind: 'contact', id: 'source-contact' } }
+    const destinationState = { open: true, mode: 'dual', width: 440, secondary: { kind: 'task', id: 'saved-task' } }
+    window.localStorage.setItem(sourceKey, JSON.stringify(sourceState))
+    window.localStorage.setItem(destinationKey, JSON.stringify(destinationState))
+    const model = { context: { kind: 'project' as const, id: 'project-1', orgId: 'org-1', label: 'Launch', icon: 'target' }, pulse: { label: 'Project', metrics: [] }, groups: [], artifacts: [], attention: [], activity: [], capabilities: [], asOf: '2026-07-19T00:00:00Z' }
+    const activeContext = { kind: 'project' as const, id: 'project-1', label: 'Launch' }
+    const sharedContext = { kind: 'company' as const, id: 'company-1', label: 'Partners in Biz' }
+    const sourceContext = { contexts: [activeContext, { kind: 'contact' as const, id: 'source-contact', label: 'Source contact' }], activeContext, setActiveContext: jest.fn(), model, error: null, refresh: jest.fn(), routineUpdateCount: 0, dismissRoutineUpdates: jest.fn(), orgId: 'org-1', conversationId: 'conv-source' }
+    const destinationContext = { ...sourceContext, contexts: [activeContext, sharedContext, { kind: 'task' as const, id: 'saved-task', label: 'Saved task' }], conversationId: 'conv-destination' }
+
+    const { rerender } = render(<ChatContextExperience context={sourceContext} />)
+    await waitFor(() => expect(screen.getByLabelText('Secondary context')).toHaveValue('contact:source-contact'))
+
+    rerender(<ChatContextExperience context={destinationContext} />)
+
+    await waitFor(() => expect(screen.getByLabelText('Secondary context')).toHaveValue('task:saved-task'))
+    expect(JSON.parse(window.localStorage.getItem(destinationKey) ?? '{}')).toEqual(destinationState)
+  })
 })
