@@ -2144,6 +2144,103 @@ describe('UnifiedChat context references', () => {
     ]))
   })
 
+  it('does not show a delayed context removal failure in a different conversation', async () => {
+    let rejectPatch: ((reason?: unknown) => void) | undefined
+    const patchResponse = new Promise<Response>((_resolve, reject) => { rejectPatch = reject })
+    const conversationA = { ...baseConversation, title: 'Conversation A', contextRefs: [projectRef] }
+    const conversationB = { ...baseConversation, id: 'conv-2', title: 'Conversation B', contextRefs: [] }
+    const defaultFetch = mockFetch
+    mockFetch = jest.fn(async (request: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(request)
+      if (url.startsWith('/api/v1/conversations?')) {
+        return jsonResponse({ data: { conversations: [conversationA, conversationB] } })
+      }
+      if (url === '/api/v1/conversations/conv-2/messages') {
+        return jsonResponse({ data: { messages: [] } })
+      }
+      if (url === '/api/v1/conversations/conv-1/context' && init?.method === 'PATCH') {
+        return patchResponse
+      }
+      return defaultFetch(request, init)
+    })
+    global.fetch = mockFetch
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" />)
+
+    const removeButton = await within(screen.getByTestId('chat-context-toolbar')).findByRole('button', {
+      name: 'Remove Launch Project context',
+    })
+    await waitFor(() => expect(removeButton).toBeEnabled())
+    fireEvent.click(removeButton)
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/conversations/conv-1/context',
+      expect.objectContaining({ method: 'PATCH' }),
+    ))
+
+    fireEvent.click(screen.getByTestId('conversation-row-conv-2'))
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith('/api/v1/conversations/conv-2/messages'))
+
+    await act(async () => {
+      rejectPatch?.(new Error('Remove failed in conversation A'))
+      await patchResponse.catch(() => undefined)
+    })
+
+    expect(screen.queryByText('Remove failed in conversation A')).not.toBeInTheDocument()
+    expect(screen.getAllByText('Conversation B')).not.toHaveLength(0)
+  })
+
+  it('does not show a delayed current-page pin failure in a different conversation', async () => {
+    let rejectPatch: ((reason?: unknown) => void) | undefined
+    const patchResponse = new Promise<Response>((_resolve, reject) => { rejectPatch = reject })
+    const conversationA = { ...baseConversation, title: 'Conversation A', contextRefs: [] }
+    const conversationB = { ...baseConversation, id: 'conv-2', title: 'Conversation B', contextRefs: [] }
+    const defaultFetch = mockFetch
+    mockFetch = jest.fn(async (request: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(request)
+      if (url.startsWith('/api/v1/conversations?')) {
+        return jsonResponse({ data: { conversations: [conversationA, conversationB] } })
+      }
+      if (url === '/api/v1/conversations/conv-2/messages') {
+        return jsonResponse({ data: { messages: [] } })
+      }
+      if (url === '/api/v1/conversations/conv-1/context' && init?.method === 'PATCH') {
+        return patchResponse
+      }
+      return defaultFetch(request, init)
+    })
+    global.fetch = mockFetch
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        currentPageContext={contactRef}
+      />,
+    )
+
+    const currentPageButton = await within(screen.getByTestId('chat-context-toolbar')).findByRole('button', {
+      name: /Use current page/,
+    })
+    await waitFor(() => expect(currentPageButton).toBeEnabled())
+    fireEvent.click(currentPageButton)
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/conversations/conv-1/context',
+      expect.objectContaining({ method: 'PATCH' }),
+    ))
+
+    fireEvent.click(screen.getByTestId('conversation-row-conv-2'))
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith('/api/v1/conversations/conv-2/messages'))
+
+    await act(async () => {
+      rejectPatch?.(new Error('Current-page pin failed in conversation A'))
+      await patchResponse.catch(() => undefined)
+    })
+
+    expect(screen.queryByText('Current-page pin failed in conversation A')).not.toBeInTheDocument()
+    expect(screen.getAllByText('Conversation B')).not.toHaveLength(0)
+  })
+
   it('owns type autocomplete from the textarea and selects with keyboard navigation', async () => {
     render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" />)
 

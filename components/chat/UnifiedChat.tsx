@@ -2739,10 +2739,12 @@ export default function UnifiedChat({
   }, [coerceContextRef, contextRefs, currentPageContext, patchContextRefs])
 
   const removeContextRef = useCallback((ref: ContextReference) => {
+    const initiatingConversationId = activeId
     patchContextRefs('remove', [ref]).catch((err) => {
+      if (activeConversationIdRef.current !== initiatingConversationId) return
       setError(err instanceof Error ? err.message : 'Failed to remove context')
     })
-  }, [patchContextRefs])
+  }, [activeId, patchContextRefs])
 
   const selectMentionContext = useCallback((ref: ContextReference) => {
     const conversationIdAtSelection = activeId
@@ -4609,7 +4611,9 @@ export default function UnifiedChat({
                   <button
                     type="button"
                     onClick={() => {
+                      const initiatingConversationId = activeId
                       pinCurrentPageContext().catch((err) => {
+                        if (activeConversationIdRef.current !== initiatingConversationId) return
                         setError(err instanceof Error ? err.message : 'Failed to attach current page')
                       })
                     }}
