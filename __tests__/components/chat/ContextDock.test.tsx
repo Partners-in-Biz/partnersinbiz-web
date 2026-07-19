@@ -122,6 +122,19 @@ it('switches between primary and secondary context as one tablet landscape surfa
   expect(primary).toHaveAttribute('aria-selected', 'true')
 })
 
+it('keeps keyboard canvas resizing within the 420 to 640 pixel desktop bounds', () => {
+  Object.defineProperty(window, 'matchMedia', { configurable: true, value: jest.fn((query: string) => ({ matches: query.includes('min-width: 1280px'), addEventListener: jest.fn(), removeEventListener: jest.fn() })) })
+  const onCanvasWidthChange = jest.fn()
+  const { rerender } = render(<ContextDock model={model} open canvasWidth={640} onCanvasWidthChange={onCanvasWidthChange} onClose={jest.fn()} />)
+
+  fireEvent.keyDown(screen.getByRole('separator', { name: 'Resize context canvas' }), { key: 'ArrowLeft' })
+  expect(onCanvasWidthChange).toHaveBeenLastCalledWith(640)
+
+  rerender(<ContextDock model={model} open canvasWidth={420} onCanvasWidthChange={onCanvasWidthChange} onClose={jest.fn()} />)
+  fireEvent.keyDown(screen.getByRole('separator', { name: 'Resize context canvas' }), { key: 'ArrowRight' })
+  expect(onCanvasWidthChange).toHaveBeenLastCalledWith(420)
+})
+
 it('shows active execution inside the same context dock with events and stop permission', () => {
   const onStop = jest.fn()
   render(<ContextDock model={model} open onClose={jest.fn()} execution={{ ...activeExecution, canStop: true, onStop }} />)

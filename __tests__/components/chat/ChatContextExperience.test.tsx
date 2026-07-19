@@ -102,6 +102,40 @@ describe('useChatContexts', () => {
     expect(onActionResolved).toHaveBeenCalledTimes(1)
   })
 
+  it('refreshes a visible related projection after its action succeeds', async () => {
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: jest.fn((query: string) => ({ matches: query.includes('min-width: 1280px'), addEventListener: jest.fn(), removeEventListener: jest.fn() })) })
+    window.localStorage.setItem('pib.messages.contextCanvas.v1:org-1:conv-related-action', JSON.stringify({ open: true, mode: 'dual', width: 520, secondary: { kind: 'task', id: 'task-1' } }))
+    const refresh = jest.fn(async () => undefined)
+    let relatedReads = 0
+    const relatedAction = { id: 'complete-task', label: 'Complete task', href: '/api/tasks/task-1/complete', method: 'POST' as const }
+    global.fetch = jest.fn(async (input) => {
+      if (String(input) === '/api/v1/chat-context/task/task-1') {
+        relatedReads += 1
+        return { ok: true, json: async () => ({ data: {
+          context: { kind: 'task', id: 'task-1', orgId: 'org-1', label: 'Design pilot', icon: 'task_alt' },
+          pulse: { label: 'Task', headline: relatedReads === 1 ? 'Waiting for completion' : 'Completed and verified', metrics: [] },
+          groups: [], artifacts: [], attention: relatedReads === 1 ? [{ id: 'ready', label: 'Ready to complete', state: 'review', actions: [relatedAction] }] : [], activity: [], capabilities: [], asOf: `2026-07-19T00:00:0${relatedReads}Z`,
+        } }) }
+      }
+      return { ok: true }
+    }) as jest.Mock
+    const model = { context: { kind: 'project' as const, id: 'project-1', orgId: 'org-1', label: 'Launch', icon: 'target' }, pulse: { label: 'Project', metrics: [] }, groups: [], artifacts: [], attention: [], activity: [], capabilities: [], asOf: '2026-07-19T00:00:00Z' }
+    const project = { kind: 'project' as const, id: 'project-1', label: 'Launch' }
+    const task = { kind: 'task' as const, id: 'task-1', label: 'Design pilot' }
+    const context = { contexts: [project, task], activeContext: project, setActiveContext: jest.fn(), model, error: null, refresh, routineUpdateCount: 0, dismissRoutineUpdates: jest.fn(), orgId: 'org-1', conversationId: 'conv-related-action' }
+
+    render(<ChatContextExperience context={context} />)
+
+    expect(await screen.findByText('Waiting for completion')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Complete task' }))
+
+    await waitFor(() => expect(screen.getByText('Completed and verified')).toBeInTheDocument())
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(global.fetch).toHaveBeenCalledWith('/api/tasks/task-1/complete', expect.objectContaining({ method: 'POST' }))
+    expect((global.fetch as jest.Mock).mock.calls.filter(([input]) => String(input) === '/api/v1/chat-context/task/task-1')).toHaveLength(2)
+    expect(screen.getByRole('dialog', { name: 'Launch context' })).toHaveAttribute('data-presentation', 'dual')
+  })
+
   it('reports a failed Dock mutation without refreshing or rejecting unhandled', async () => {
     const refresh = jest.fn(async () => undefined)
     global.fetch = jest.fn(async () => ({ ok: false, status: 409 })) as jest.Mock
@@ -228,12 +262,14 @@ describe('useChatContexts', () => {
     const contexts = [{ kind: 'project' as const, id: 'project-1', label: 'Launch' }, { kind: 'company' as const, id: 'company-1', label: 'Partners in Biz' }]
     const context = { contexts, activeContext: contexts[0], setActiveContext: jest.fn(), model, error: null, refresh: jest.fn(), routineUpdateCount: 0, dismissRoutineUpdates: jest.fn(), orgId: 'org-1', conversationId: 'conv-1' }
 
-    render(<ChatContextExperience context={context} />)
+    const onPresentationChange = jest.fn()
+    render(<ChatContextExperience context={context} onPresentationChange={onPresentationChange} />)
 
     const dialog = await screen.findByRole('dialog', { name: 'Launch context' })
     expect(dialog).toHaveAttribute('data-presentation', 'dual')
     expect(screen.getByRole('separator', { name: 'Resize context canvas' })).toHaveAttribute('aria-valuenow', '610')
     expect(screen.getByLabelText('Secondary context')).toHaveValue('company:company-1')
+    await waitFor(() => expect(onPresentationChange).toHaveBeenCalledWith({ open: true, mode: 'dual', width: 610 }))
     fireEvent.click(screen.getByRole('button', { name: 'Close context dock' }))
     await waitFor(() => expect(JSON.parse(window.localStorage.getItem('pib.messages.contextCanvas.v1:org-1:conv-1') ?? '{}')).toMatchObject({ open: false, mode: 'dual', width: 610 }))
   })
