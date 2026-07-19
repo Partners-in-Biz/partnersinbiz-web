@@ -249,6 +249,40 @@ describe('useChatContexts', () => {
     expect(writes).toEqual(writes.map(() => savedState))
   })
 
+  it('keeps a destination saved relationship while its model replaces the stale source model', async () => {
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: jest.fn((query: string) => ({ matches: query.includes('min-width: 1280px'), addEventListener: jest.fn(), removeEventListener: jest.fn() })) })
+    const destinationKey = 'pib.messages.contextCanvas.v1:org-1:conv-destination-lazy'
+    const destinationState = { open: true, mode: 'dual', width: 570, secondary: { kind: 'task', id: 'destination-task' } }
+    window.localStorage.setItem(destinationKey, JSON.stringify(destinationState))
+    const setItem = jest.spyOn(Storage.prototype, 'setItem')
+    const sourceActive = { kind: 'project' as const, id: 'source-project', label: 'Source project' }
+    const destinationActive = { kind: 'project' as const, id: 'destination-project', label: 'Destination project' }
+    const fallback = { kind: 'company' as const, id: 'company-1', label: 'Partners in Biz' }
+    const sourceModel = { context: { kind: 'project' as const, id: 'source-project', orgId: 'org-1', label: 'Source project', icon: 'target' }, pulse: { label: 'Project', metrics: [] }, groups: [], artifacts: [], attention: [], activity: [], capabilities: [], relationships: [], asOf: '2026-07-19T00:00:00Z' }
+    const destinationModel = { ...sourceModel, context: { ...sourceModel.context, id: 'destination-project', label: 'Destination project' }, relationships: [{ kind: 'task' as const, id: 'destination-task', label: 'Destination task' }], asOf: '2026-07-19T00:00:05Z' }
+    const shared = { setActiveContext: jest.fn(), error: null, refresh: jest.fn(), routineUpdateCount: 0, dismissRoutineUpdates: jest.fn(), orgId: 'org-1' }
+    const sourceContext = { ...shared, contexts: [sourceActive, fallback], activeContext: sourceActive, model: sourceModel, conversationId: 'conv-source-loaded' }
+    const destinationLoadingContext = { ...shared, contexts: [destinationActive, fallback], activeContext: destinationActive, model: null, conversationId: 'conv-destination-lazy' }
+
+    const { rerender } = render(<ChatContextExperience context={sourceContext} />)
+
+    rerender(<ChatContextExperience context={{ ...destinationLoadingContext, model: sourceModel }} />)
+    await waitFor(() => expect(screen.getByRole('dialog', { name: 'Source project context' })).toHaveAttribute('data-presentation', 'dual'))
+    expect(screen.getByLabelText('Secondary context')).toHaveValue('company:company-1')
+    expect(JSON.parse(window.localStorage.getItem(destinationKey) ?? '{}')).toEqual(destinationState)
+
+    rerender(<ChatContextExperience context={destinationLoadingContext} />)
+    await waitFor(() => expect(JSON.parse(window.localStorage.getItem(destinationKey) ?? '{}')).toEqual(destinationState))
+
+    rerender(<ChatContextExperience context={{ ...destinationLoadingContext, model: destinationModel }} />)
+    await waitFor(() => expect(screen.getByRole('dialog', { name: 'Destination project context' })).toHaveAttribute('data-presentation', 'dual'))
+    await waitFor(() => expect(screen.getByLabelText('Secondary context')).toHaveValue('task:destination-task'))
+    expect(JSON.parse(window.localStorage.getItem(destinationKey) ?? '{}')).toEqual(destinationState)
+    const destinationWrites = setItem.mock.calls.filter(([key]) => key === destinationKey).map(([, value]) => JSON.parse(String(value)))
+    expect(destinationWrites).not.toHaveLength(0)
+    expect(destinationWrites).toEqual(destinationWrites.map(() => destinationState))
+  })
+
   it('settles an unavailable saved secondary without freezing fallback selection or canvas persistence', async () => {
     Object.defineProperty(window, 'matchMedia', { configurable: true, value: jest.fn((query: string) => ({ matches: query.includes('min-width: 1280px'), addEventListener: jest.fn(), removeEventListener: jest.fn() })) })
     const storageKey = 'pib.messages.contextCanvas.v1:org-1:conv-stale-related'

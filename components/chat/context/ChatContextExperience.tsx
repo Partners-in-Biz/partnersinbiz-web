@@ -38,13 +38,15 @@ export function ChatContextExperience({ context, compact = false, artifactReques
   const secondaryOptionsRef = useRef(secondaryOptions)
   secondaryOptionsRef.current = secondaryOptions
   const secondaryHydrationRevision = useMemo(() => {
-    if (!context.model) return 'loading'
+    if (!context.model
+      || context.model.context.kind !== context.activeContext?.kind
+      || context.model.context.id !== context.activeContext?.id) return 'loading'
     const relationships = (context.model.relationships ?? [])
       .map((relationship) => `${relationship.kind}:${relationship.id}`)
       .sort()
       .join('|')
     return `${context.model.asOf}:${relationships}`
-  }, [context.model])
+  }, [context.activeContext?.id, context.activeContext?.kind, context.model])
   const secondaryHydrationRevisionRef = useRef(secondaryHydrationRevision)
   secondaryHydrationRevisionRef.current = secondaryHydrationRevision
   const canvasStorageKey = context.conversationId && context.orgId ? `pib.messages.contextCanvas.v1:${context.orgId}:${context.conversationId}` : ''
