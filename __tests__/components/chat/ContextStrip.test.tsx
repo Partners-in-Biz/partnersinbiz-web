@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 
-import { ContextStrip } from '@/components/chat/context/ContextStrip'
+import { ContextStrip, EmptyContextStrip } from '@/components/chat/context/ContextStrip'
 
 const options = [
   { kind: 'project' as const, id: 'project-1', label: 'Evaluate SkillOpt' },
@@ -22,4 +22,27 @@ it('renders multiple pinned contexts in one selectable non-wrapping strip', () =
   expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ kind: 'company', id: 'company-1' }))
   fireEvent.click(screen.getByRole('button', { name: 'Remove Theo context' }))
   expect(onRemove).toHaveBeenCalledWith(expect.objectContaining({ kind: 'contact', id: 'contact-1' }))
+})
+
+it('keeps every strip action touch-sized through tablet widths and labels Add context', () => {
+  render(<ContextStrip options={options} value={options[0]} onChange={jest.fn()} onRemove={jest.fn()} onOpen={jest.fn()} onAdd={jest.fn()} />)
+
+  const actions = screen.getByRole('toolbar', { name: 'Pinned conversation context' }).querySelectorAll('button')
+  expect(actions.length).toBeGreaterThan(0)
+  for (const action of actions) {
+    expect(action).toHaveClass('h-11')
+    expect(action.className).not.toMatch(/(?:sm|md|lg):h-(?:\d|\[)/)
+    expect(action.className).not.toMatch(/(?:sm|md|lg):w-(?:\d|\[)/)
+  }
+  expect(screen.getByRole('button', { name: 'Add conversation context' })).toHaveTextContent('Add context')
+  expect(screen.getByText('Project')).toHaveClass('xl:inline')
+})
+
+it('keeps the empty Add context action touch-sized without extra helper copy', () => {
+  render(<EmptyContextStrip onAdd={jest.fn()} />)
+
+  const action = screen.getByRole('button', { name: 'Add conversation context' })
+  expect(action).toHaveClass('h-11', 'min-w-11')
+  expect(action.className).not.toMatch(/(?:sm|md|lg):h-(?:\d|\[)/)
+  expect(screen.queryByText(/Pin projects, documents/i)).not.toBeInTheDocument()
 })

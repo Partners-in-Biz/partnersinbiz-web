@@ -108,8 +108,17 @@ export function findActiveContextTypePrompt(input: string, caretIndex = input.le
   }
 }
 
-export function removeMentionToken(input: string, mention: Pick<ActiveContextMention, 'start' | 'end'>): string {
-  return `${input.slice(0, mention.start)}${input.slice(mention.end)}`.replace(/\s{2,}/g, ' ').trim()
+export function removeMentionToken(
+  input: string,
+  mention: Pick<ActiveContextMention, 'start' | 'end'>,
+  insertedSeparatorIndex?: number | null,
+): string {
+  const removeFrom = insertedSeparatorIndex === undefined
+    ? (mention.start > 0 && input[mention.start - 1] === ' ' ? mention.start - 1 : mention.start)
+    : insertedSeparatorIndex === mention.start - 1 && input[insertedSeparatorIndex] === ' '
+      ? insertedSeparatorIndex
+      : mention.start
+  return `${input.slice(0, removeFrom)}${input.slice(mention.end)}`
 }
 
 export function replaceTypePromptToken(

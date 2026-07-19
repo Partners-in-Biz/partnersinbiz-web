@@ -1791,6 +1791,54 @@ describe('UnifiedChat context references', () => {
     expect(screen.getByRole('button', { name: 'Add conversation context' })).toBeInTheDocument()
   })
 
+  it('reuses an open context picker without changing the draft or appending another mention', async () => {
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+      />,
+    )
+
+    const input = await screen.findByPlaceholderText('Send a message')
+    const addContext = screen.getByRole('button', { name: 'Add conversation context' })
+    fireEvent.change(input, { target: { value: 'Keep this draft' } })
+
+    fireEvent.click(addContext)
+    expect(input).toHaveValue('Keep this draft @')
+    expect(await screen.findByRole('button', { name: 'Use @projects:' })).toBeInTheDocument()
+
+    fireEvent.click(addContext)
+    expect(input).toHaveValue('Keep this draft @')
+    await waitFor(() => expect(input).toHaveFocus())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Use @projects:' }))
+    fireEvent.change(input, { target: { value: 'Keep this draft @projects:lau' } })
+    fireEvent.click(addContext)
+
+    expect(input).toHaveValue('Keep this draft @projects:lau')
+    await waitFor(() => expect(input).toHaveFocus())
+
+    fireEvent.click(await screen.findByText('Launch Project'))
+    await waitFor(() => expect(input).toHaveValue('Keep this draft'))
+  })
+
+  it('does not add a separator when the draft already ends in whitespace', async () => {
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+      />,
+    )
+
+    const input = await screen.findByPlaceholderText('Send a message')
+    fireEvent.change(input, { target: { value: 'Keep this line\n' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add conversation context' }))
+
+    expect(input).toHaveValue('Keep this line\n@')
+  })
+
   it('pins the detected current page from the drawer action', async () => {
     render(
       <UnifiedChat

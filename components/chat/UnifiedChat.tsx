@@ -931,6 +931,8 @@ export default function UnifiedChat({
   const eventSourcesRef = useRef<Record<string, EventSource>>({})
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
   const composerRef = useRef<HTMLTextAreaElement | null>(null)
+  // undefined means a manually typed mention; null means Add context reused existing whitespace.
+  const contextPickerInsertedSeparatorRef = useRef<number | null | undefined>(undefined)
   const mobileSessionsRef = useRef<HTMLElement | null>(null)
   const mobileSessionsCloseRef = useRef<HTMLButtonElement | null>(null)
   const mobileSessionsTriggerRef = useRef<HTMLButtonElement | null>(null)
@@ -2486,6 +2488,12 @@ export default function UnifiedChat({
   const updateMentionFromComposer = useCallback((value: string, caret = value.length) => {
     const mention = findActiveContextMention(value, caret)
     const typePrompt = mention ? null : findActiveContextTypePrompt(value, caret)
+    const activeContextPicker = mention ?? typePrompt
+    const insertedSeparator = contextPickerInsertedSeparatorRef.current
+    if (!activeContextPicker) contextPickerInsertedSeparatorRef.current = undefined
+    else if (typeof insertedSeparator === 'number' && (
+      insertedSeparator !== activeContextPicker.start - 1 || value[insertedSeparator] !== ' '
+    )) contextPickerInsertedSeparatorRef.current = undefined
     const commandPrompt = mention || typePrompt ? null : findActiveSlashCommandPrompt(value, caret)
     setContextMention(mention)
     setContextTypePrompt(typePrompt)
@@ -2505,11 +2513,21 @@ export default function UnifiedChat({
   }, [])
 
   const openContextPicker = useCallback(() => {
-    const next = `${input}${input && !input.endsWith(' ') ? ' ' : ''}@`
+    const activePicker = contextMention ?? contextTypePrompt
+    if (activePicker) {
+      requestAnimationFrame(() => {
+        composerRef.current?.focus()
+        composerRef.current?.setSelectionRange(activePicker.end, activePicker.end)
+      })
+      return
+    }
+    const needsSeparator = Boolean(input && !/\s$/.test(input))
+    contextPickerInsertedSeparatorRef.current = needsSeparator ? input.length : null
+    const next = `${input}${needsSeparator ? ' ' : ''}@`
     setInput(next)
     updateMentionFromComposer(next, next.length)
     focusComposerToEnd(next)
-  }, [focusComposerToEnd, input, updateMentionFromComposer])
+  }, [contextMention, contextTypePrompt, focusComposerToEnd, input, updateMentionFromComposer])
 
   const rememberComposerPrompt = useCallback((conversationId: string, rawPrompt: string) => {
     const trimmed = rawPrompt.trim()
@@ -2692,9 +2710,11 @@ export default function UnifiedChat({
   const selectMentionContext = useCallback((ref: ContextReference) => {
     patchContextRefs('add', [ref])
       .then(() => {
+        const insertedSeparator = contextPickerInsertedSeparatorRef.current
         if (contextMention) {
-          setInput((prev) => removeMentionToken(prev, contextMention))
+          setInput((prev) => removeMentionToken(prev, contextMention, insertedSeparator))
         }
+        contextPickerInsertedSeparatorRef.current = undefined
         setContextMention(null)
         setContextTypePrompt(null)
         setContextSearchResults([])
@@ -4781,6 +4801,7 @@ export default function UnifiedChat({
               onKeyUp={(e) => updateMentionFromComposer(input, e.currentTarget.selectionStart ?? input.length)}
               onKeyDown={(e) => {
                 if (e.key === 'Escape' && (contextMention || contextTypePrompt || slashPrompt)) {
+                  contextPickerInsertedSeparatorRef.current = undefined
                   setContextMention(null)
                   setContextTypePrompt(null)
                   setSlashPrompt(null)

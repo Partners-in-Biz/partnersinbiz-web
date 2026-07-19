@@ -47,7 +47,26 @@ describe('context reference composer helpers', () => {
     expect(removeMentionToken('Check @projects:launch with me', {
       start: 6,
       end: 22,
-    })).toBe('Check with me')
+    }, 5)).toBe('Check with me')
+  })
+
+  it('preserves draft whitespace byte-for-byte outside the mention and its inserted separator', () => {
+    const draft = 'First line  \n\n  Keep   every space'
+    const input = `${draft} @projects:launch`
+    expect(removeMentionToken(input, {
+      start: draft.length + 1,
+      end: input.length,
+    }, draft.length)).toBe(draft)
+
+    expect(removeMentionToken('First line\n\n@projects:launch', {
+      start: 12,
+      end: 28,
+    })).toBe('First line\n\n')
+
+    expect(removeMentionToken('Keep trailing space @projects:launch', {
+      start: 20,
+      end: 36,
+    }, null)).toBe('Keep trailing space ')
   })
 
   it('detects bare and partial @reference type prompts', () => {

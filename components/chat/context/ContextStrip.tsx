@@ -12,6 +12,16 @@ const ICONS: Record<string, string> = {
   report: 'analytics', calendar_event: 'calendar_month',
 }
 
+const TYPE_LABELS: Record<string, string> = {
+  seo_sprint: 'SEO sprint', workspace_folder: 'Workspace folder', workspace_artifact: 'Workspace artifact',
+  workspace_connection: 'Workspace connection', workspace_broker_job: 'Broker job', studio_artifact: 'Studio artifact',
+  calendar_event: 'Calendar event',
+}
+
+function contextTypeLabel(kind: string) {
+  return TYPE_LABELS[kind] ?? `${kind.charAt(0).toUpperCase()}${kind.slice(1).replaceAll('_', ' ')}`
+}
+
 export function EmptyContextStrip({ onAdd }: { onAdd: () => void }) {
   return (
     <div role="toolbar" aria-label="Pinned conversation context" className="flex min-h-11 shrink-0 items-center gap-2 overflow-x-auto whitespace-nowrap border-b border-[var(--color-card-border)] bg-black/[0.08] px-3 py-1.5 [scrollbar-width:thin]">
@@ -20,12 +30,11 @@ export function EmptyContextStrip({ onAdd }: { onAdd: () => void }) {
         type="button"
         aria-label="Add conversation context"
         onClick={onAdd}
-        className="inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--color-card-border)] px-3 text-xs font-medium text-[var(--color-pib-text-muted)] outline-none transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 sm:h-8"
+        className="inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--color-card-border)] px-3 text-xs font-medium text-[var(--color-pib-text-muted)] outline-none transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-9"
       >
         <span aria-hidden="true" className="material-symbols-outlined text-[16px]">add</span>
         Add context
       </button>
-      <span className="hidden min-w-0 truncate text-[11px] text-[var(--color-pib-text-muted)] sm:inline">Pin projects, documents, companies, contacts, tasks, and more</span>
     </div>
   )
 }
@@ -45,20 +54,23 @@ export function ContextStrip({ options, value, onChange, onRemove, onOpen, onAdd
       {options.map((option) => {
         const active = option.kind === value.kind && option.id === value.id
         return (
-          <span key={`${option.kind}:${option.id}`} className={`group/context inline-flex h-8 shrink-0 items-center overflow-hidden rounded-lg border transition-colors ${active ? 'border-primary/45 bg-primary/12 text-[var(--color-pib-text)]' : 'border-[var(--color-card-border)] bg-white/[0.035] text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)]'}`}>
+          <span key={`${option.kind}:${option.id}`} className={`group/context inline-flex h-11 shrink-0 items-center overflow-hidden rounded-lg border transition-colors xl:h-9 ${active ? 'border-primary/45 bg-primary/12 text-[var(--color-pib-text)]' : 'border-[var(--color-card-border)] bg-white/[0.035] text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)]'}`}>
             <button
               type="button"
               aria-label={`Open ${option.label} context`}
               aria-pressed={active}
               onClick={() => { onChange({ kind: option.kind, id: option.id }); onOpen() }}
-              className="inline-flex h-11 min-w-0 items-center gap-1.5 px-2.5 text-[11px] font-medium sm:h-8"
+              className="inline-flex h-11 min-w-0 items-center gap-1.5 px-2.5 text-[11px] font-medium xl:h-9"
             >
               <span aria-hidden="true" className={`material-symbols-outlined text-[15px] ${active ? 'text-primary' : ''}`}>{ICONS[option.kind] ?? 'category'}</span>
-              <span className="max-w-[190px] truncate">{option.label}</span>
+              <span className="flex min-w-0 flex-col items-start leading-none">
+                <span className="hidden text-[8px] font-label uppercase tracking-[0.12em] text-[var(--color-pib-text-muted)] xl:inline">{contextTypeLabel(option.kind)}</span>
+                <span className="max-w-[190px] truncate leading-4">{option.label}</span>
+              </span>
               {active && <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-emerald-400" />}
             </button>
             {onRemove && (
-              <button type="button" aria-label={`Remove ${option.label} context`} onClick={() => onRemove(option)} className="grid h-11 w-9 shrink-0 place-items-center border-l border-white/[0.06] text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] sm:h-8 sm:w-7">
+              <button type="button" aria-label={`Remove ${option.label} context`} onClick={() => onRemove(option)} className="grid h-11 w-11 shrink-0 place-items-center border-l border-white/[0.06] text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] xl:h-9 xl:w-8">
                 <span aria-hidden="true" className="material-symbols-outlined text-[14px]">close</span>
               </button>
             )}
@@ -66,11 +78,12 @@ export function ContextStrip({ options, value, onChange, onRemove, onOpen, onAdd
         )
       })}
       {model?.pulse.progress && <span className="inline-flex h-8 shrink-0 items-center rounded-full border border-emerald-400/20 bg-emerald-500/5 px-2.5 text-[10px] font-medium text-emerald-200">{model.pulse.progress.complete}/{model.pulse.progress.total} complete</span>}
-      <button type="button" aria-label="Open context dock" onClick={onOpen} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-[var(--color-card-border)] bg-white/[0.035] text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.07] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 sm:h-8 sm:w-8">
+      <button type="button" aria-label="Open context dock" onClick={onOpen} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-[var(--color-card-border)] bg-white/[0.035] text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.07] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-9 xl:w-9">
         <span aria-hidden="true" className="material-symbols-outlined text-[16px]">view_sidebar</span>
       </button>
-      <button type="button" aria-label="Add conversation context" onClick={onAdd} disabled={!onAdd} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-dashed border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-default disabled:opacity-50 sm:h-8 sm:w-8">
+      <button type="button" aria-label="Add conversation context" onClick={onAdd} disabled={!onAdd} className="inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--color-card-border)] px-3 text-xs font-medium text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-default disabled:opacity-50 xl:h-9">
         <span aria-hidden="true" className="material-symbols-outlined text-[16px]">add</span>
+        Add context
       </button>
     </div>
   )
