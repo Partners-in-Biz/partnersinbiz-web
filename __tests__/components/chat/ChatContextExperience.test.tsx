@@ -188,6 +188,38 @@ describe('useChatContexts', () => {
     expect(screen.queryByText('Source failure')).not.toBeInTheDocument()
   })
 
+  it.each([
+    { label: 'successful', response: { ok: true } },
+    { label: 'failed', response: { ok: false, status: 500, json: async () => ({ error: 'Project action failed' }) } },
+  ])('does not leak a delayed $label action after changing primary context', async ({ response }) => {
+    let resolve!: (value: typeof response) => void
+    global.fetch = jest.fn(() => new Promise<typeof response>((done) => { resolve = done })) as jest.Mock
+    const projectRefresh = jest.fn()
+    const companyRefresh = jest.fn()
+    const action = { id: 'retry', label: 'Retry project', href: '/api/retry-project', method: 'POST' as const }
+    const projectModel = { context: { kind: 'project' as const, id: 'project-1', orgId: 'org-1', label: 'Launch project', icon: 'target' }, pulse: { label: 'Project', metrics: [] }, groups: [], artifacts: [], attention: [{ id: 'project-failure', label: 'Project failure', state: 'blocked' as const, actions: [action] }], activity: [], capabilities: [], asOf: '2026-07-19T00:00:00Z' }
+    const companyModel = { ...projectModel, context: { kind: 'company' as const, id: 'company-1', orgId: 'org-1', label: 'Partners in Biz', icon: 'domain' }, attention: [] }
+    const project = { kind: 'project' as const, id: 'project-1', label: 'Launch project' }
+    const company = { kind: 'company' as const, id: 'company-1', label: 'Partners in Biz' }
+    const shared = { contexts: [project, company], setActiveContext: jest.fn(), error: null, routineUpdateCount: 0, dismissRoutineUpdates: jest.fn(), orgId: 'org-1', conversationId: 'conv-context-switch' }
+    const projectContext = { ...shared, activeContext: project, model: projectModel, refresh: projectRefresh }
+    const companyContext = { ...shared, activeContext: company, model: companyModel, refresh: companyRefresh }
+
+    const { rerender } = render(<ChatContextExperience context={projectContext} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Open context dock' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Retry project' }))
+
+    rerender(<ChatContextExperience context={companyContext} />)
+    await waitFor(() => expect(screen.getByRole('dialog', { name: 'Partners in Biz context' })).toBeInTheDocument())
+
+    await act(async () => resolve(response))
+
+    expect(projectRefresh).not.toHaveBeenCalled()
+    expect(companyRefresh).not.toHaveBeenCalled()
+    expect(screen.queryByText('Project action failed')).not.toBeInTheDocument()
+    expect(screen.queryByText('Project failure')).not.toBeInTheDocument()
+  })
+
   it('restores and persists per-conversation canvas mode, split selection, width, and open state', async () => {
     Object.defineProperty(window, 'matchMedia', { configurable: true, value: jest.fn((query: string) => ({ matches: query.includes('min-width: 1280px'), addEventListener: jest.fn(), removeEventListener: jest.fn() })) })
     window.localStorage.setItem('pib.messages.contextCanvas.v1:org-1:conv-1', JSON.stringify({ open: true, mode: 'dual', width: 610, secondary: { kind: 'company', id: 'company-1' } }))

@@ -50,15 +50,16 @@ export function ChatContextExperience({ context, compact = false, artifactReques
   const secondaryHydrationRevisionRef = useRef(secondaryHydrationRevision)
   secondaryHydrationRevisionRef.current = secondaryHydrationRevision
   const canvasStorageKey = context.conversationId && context.orgId ? `pib.messages.contextCanvas.v1:${context.orgId}:${context.conversationId}` : ''
-  const canvasStorageKeyRef = useRef(canvasStorageKey)
-  canvasStorageKeyRef.current = canvasStorageKey
+  const actionOperationIdentity = `${canvasStorageKey}:${context.activeContext?.kind ?? ''}:${context.activeContext?.id ?? ''}`
+  const actionOperationIdentityRef = useRef(actionOperationIdentity)
+  actionOperationIdentityRef.current = actionOperationIdentity
   useEffect(() => { onOpenChange?.(open) }, [onOpenChange, open])
   useEffect(() => { onPresentationChange?.({ open, mode: canvasMode }) }, [canvasMode, onPresentationChange, open])
   useEffect(() => {
     pendingRef.current = undefined
     setPendingActionId(undefined)
     setActionError(null)
-  }, [canvasStorageKey])
+  }, [actionOperationIdentity])
   useEffect(() => {
     if (!canvasStorageKey) {
       setLoadedCanvasStorageKey('')
@@ -128,7 +129,7 @@ export function ChatContextExperience({ context, compact = false, artifactReques
     if (!action.href || !action.method) return
     if (pendingRef.current) return
     if ((action.destructive || action.requiresApproval) && !window.confirm(`${action.label} requires confirmation. Continue?`)) return
-    const initiatingStorageKey = canvasStorageKey
+    const initiatingOperationIdentity = actionOperationIdentity
     pendingRef.current = action.id; setPendingActionId(action.id)
     setActionError(null)
     try {
@@ -138,14 +139,14 @@ export function ChatContextExperience({ context, compact = false, artifactReques
         const safeError = typeof body?.error === 'string' ? body.error.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 180) : ''
         throw new Error(safeError || `Context action failed (${response.status}). Try again.`)
       }
-      if (canvasStorageKeyRef.current !== initiatingStorageKey) return
+      if (actionOperationIdentityRef.current !== initiatingOperationIdentity) return
       await context.refresh()
-      if (canvasStorageKeyRef.current !== initiatingStorageKey) return
+      if (actionOperationIdentityRef.current !== initiatingOperationIdentity) return
       onActionResolved?.()
     } catch (cause) {
-      if (canvasStorageKeyRef.current === initiatingStorageKey) setActionError(cause instanceof Error ? cause.message : 'Context action failed. Try again.')
+      if (actionOperationIdentityRef.current === initiatingOperationIdentity) setActionError(cause instanceof Error ? cause.message : 'Context action failed. Try again.')
     } finally {
-      if (canvasStorageKeyRef.current === initiatingStorageKey && pendingRef.current === action.id) {
+      if (actionOperationIdentityRef.current === initiatingOperationIdentity && pendingRef.current === action.id) {
         pendingRef.current = undefined
         setPendingActionId(undefined)
       }
