@@ -384,6 +384,23 @@ describe('GET /api/v1/projects', () => {
 })
 
 describe('POST /api/v1/projects', () => {
+  it('ignores the ordinary Next.js route context when creating a project through the public API', async () => {
+    mockUser = { uid: 'admin-1', role: 'admin', orgId: 'pib-org', orgIds: ['pib-org'] }
+    mockOrgDocGet.mockResolvedValue({ exists: true, data: () => ({ name: 'PiB' }) })
+    mockAdd.mockResolvedValue({ id: 'project-1' })
+
+    const { POST } = await import('@/app/api/v1/projects/route')
+    const response = await POST(new NextRequest('http://localhost/api/v1/projects', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Pip API project', orgId: 'pib-org' }),
+    }), { params: Promise.resolve({}) })
+
+    expect(response.status).toBe(201)
+    expect((await response.json()).data.id).toBe('project-1')
+    expect(mockAdd).toHaveBeenCalledTimes(1)
+  })
+
   it('uses and replays a trusted setup-derived project id instead of creating duplicates', async () => {
     mockUser = { uid: 'admin-1', role: 'admin', orgId: 'pib-org', orgIds: ['pib-org'] }
     mockOrgDocGet.mockResolvedValue({ exists: true, data: () => ({ name: 'PiB' }) })
