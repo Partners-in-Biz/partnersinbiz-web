@@ -139,7 +139,9 @@ Document-related insight tasks can come from `client_documents_waiting_for_revie
 ### Projects
 
 #### `GET /projects` — auth: client
-Filters: `orgId`, `status` (`active`|`completed`|`on_hold`|`cancelled`), `clientOrgId`, `page`, `limit`, `view`.
+Filters: `orgId`, `status` (exact stored lifecycle value), `clientOrgId`, `page`, `limit`, `view`, `archive` (`active`|`only`|`include`).
+
+Current create/update lifecycle statuses are `discovery`, `design`, `development`, `review`, `live`, and `maintenance`. Historical rows can also contain `completed` or legacy values, so use `archive=include` when auditing older work. Do not send `active`, `on_hold`, or `cancelled` when creating a project; the create route rejects unsupported statuses with `400 Invalid status`.
 
 - Default/sent view filters by source `orgId`.
 - `view=received` filters by `recipientOrgId` and compatible `clientOrgId` legacy rows.
@@ -157,7 +159,7 @@ Body:
   "clientOrgId": "org_client",
   "companyId": "crm_company_id",
   "contactId": "crm_contact_id",
-  "status": "active",
+  "status": "discovery",
   "startAt": "2026-04-01",
   "endAt": "2026-06-30",
   "assignedTo": { "type": "user", "id": "uid123" },
@@ -168,6 +170,8 @@ Body:
 For PiB/admin-created client projects, the request `orgId` is the client/recipient org; the API resolves the platform owner as `sourceOrgId` and stores the client in `recipientOrgId`/`targetOrgId`/`clientOrgId`. For CRM-targeted project sharing, pass `companyId`/`contactId` and optional `recipientOrgId`; a Company `linkedOrgId` is reused when already present.
 
 Response (201): `{ id }`.
+
+After creation, read the returned project back with `GET /projects/[id]` before creating nested tasks or claiming success. If the route returns `500 Project setup resource identity is invalid`, do not keep retrying and do not describe a standalone escalation task as the requested project or as completed scoping work. That response means the deployed public route is incorrectly forwarding ordinary Next.js context as trusted setup identity; record the exact response and escalate the production release gap.
 
 #### `DELETE /projects` — auth: admin
 Deletes/archives a project through the collection route. Check current route code before use; this is admin-only and should be treated as destructive.
@@ -455,7 +459,7 @@ POST /comments
 ```bash
 POST /projects
 { "orgId": "org_abc", "name": "Q2 Campaign", "brief": "# Goals...",
-  "clientOrgId": "org_client", "status": "active", "assignedTo": { "type": "user", "id": "uid_pm" } }
+  "clientOrgId": "org_client", "status": "discovery", "assignedTo": { "type": "user", "id": "uid_pm" } }
 
 # Add initial docs
 POST /projects/proj_xyz/docs
@@ -473,7 +477,7 @@ POST /projects/proj_xyz/tasks
 # the client becomes recipient/clientOrgId.
 POST /projects
 { "orgId": "org_client", "name": "Website launch", "brief": "# Goals...",
-  "companyId": "pib_platform_crm_company", "status": "active" }
+  "companyId": "pib_platform_crm_company", "status": "discovery" }
 
 # Client portal list.
 GET /projects?view=received
