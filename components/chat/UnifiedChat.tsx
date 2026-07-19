@@ -97,6 +97,10 @@ export interface UnifiedChatProps {
   onConversationsChange?: (conversations: Conversation[]) => void
   /** A secondary pane reuses the chat surface without duplicating the session rail. */
   showConversationList?: boolean
+  /** Backward-compatible presentation control for the Hermes session catalogue. */
+  conversationRailMode?: 'expanded' | 'collapsed'
+  onConversationRailModeChange?: (mode: 'expanded' | 'collapsed') => void
+  onContextCanvasPresentationChange?: (state: { open: boolean; mode: 'single' | 'dual' }) => void
 }
 
 const POLL_INTERVAL = 1500
@@ -776,6 +780,9 @@ export default function UnifiedChat({
   onActiveConversationChange,
   onConversationsChange,
   showConversationList = true,
+  conversationRailMode = 'expanded',
+  onConversationRailModeChange,
+  onContextCanvasPresentationChange,
 }: UnifiedChatProps) {
   // ── State ─────────────────────────────────────────────────────────────────
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -788,6 +795,7 @@ export default function UnifiedChat({
   const [messages, setMessages] = useState<ConversationMessage[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
+  const [contextCanvasOpen, setContextCanvasOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [contextRefs, setContextRefs] = useState<ContextReference[]>([])
@@ -903,7 +911,8 @@ export default function UnifiedChat({
   const attachmentInputId = useId()
 
   // Mobile pane navigation: which pane is visible on small screens
-  const [mobilePane, setMobilePane] = useState<'list' | 'conversation'>('list')
+  const [mobilePane, setMobilePane] = useState<'list' | 'conversation'>(initialConvId ? 'conversation' : 'list')
+  const [mobileViewport, setMobileViewport] = useState(false)
 
   // Mobile header "…" menu
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false)
@@ -922,6 +931,16 @@ export default function UnifiedChat({
   const eventSourcesRef = useRef<Record<string, EventSource>>({})
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
   const composerRef = useRef<HTMLTextAreaElement | null>(null)
+  const mobileSessionsRef = useRef<HTMLElement | null>(null)
+  const mobileSessionsCloseRef = useRef<HTMLButtonElement | null>(null)
+  const mobileSessionsTriggerRef = useRef<HTMLButtonElement | null>(null)
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return
+    const media = window.matchMedia('(max-width: 1023px)')
+    const update = () => setMobileViewport(media.matches)
+    update(); media.addEventListener?.('change', update)
+    return () => media.removeEventListener?.('change', update)
+  }, [])
   const historyDraftRef = useRef('')
   // Tracks which assistant message IDs we've already started polling for (prevents duplicates)
   const resumedRunsRef = useRef<Set<string>>(new Set())
@@ -944,7 +963,7 @@ export default function UnifiedChat({
   }, [activeId, conversations, currentPageContext, preferCurrentPageContext, setActiveId])
   const hasDockContext = Boolean(activeConversation && (
     (activeConversation.scope === 'project' && activeConversation.scopeRefId) ||
-    (activeConversation.contextRefs ?? []).some((ref) => ref.type === 'project' || ref.type === 'studio' || ref.type === 'studio_artifact')
+    (activeConversation.contextRefs ?? []).length > 0
   ))
   const chatContexts = useChatContexts(orgId, activeConversation, hasDockContext)
   const projectChat = useProjectChatProgress(
@@ -3323,6 +3342,22 @@ export default function UnifiedChat({
   ]
   const showListOnMobile = mobilePane === 'list'
   const hermesLayout = layoutVariant === 'hermes' && !compact
+  const railCollapsed = hermesLayout && conversationRailMode === 'collapsed'
+  useEffect(() => {
+    if (!showConversationList || !showListOnMobile || !mobileViewport) return
+    mobileSessionsCloseRef.current?.focus()
+    const keydown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape' && activeConversation) { event.preventDefault(); setMobilePane('conversation'); requestAnimationFrame(() => mobileSessionsTriggerRef.current?.focus()); return }
+      if (event.key !== 'Tab' || !mobileSessionsRef.current) return
+      const focusable = Array.from(mobileSessionsRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+      if (focusable.length === 0) return
+      const first = focusable[0]; const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
+    }
+    document.addEventListener('keydown', keydown)
+    return () => document.removeEventListener('keydown', keydown)
+  }, [activeConversation, mobileViewport, showConversationList, showListOnMobile])
   const canStopActiveRun = Boolean(
     allowDeleteConversations &&
     activeRuntimeMessage?.runId &&
@@ -3361,20 +3396,42 @@ export default function UnifiedChat({
           : !showConversationList
             ? 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden'
           : hermesLayout
-            ? 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-2 lg:grid-cols-[236px_minmax(0,1fr)]'
+            ? `relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-2 ${railCollapsed ? 'lg:grid-cols-[48px_minmax(0,1fr)]' : 'lg:grid-cols-[236px_minmax(0,1fr)]'}`
             : 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-4 lg:grid-cols-[280px_minmax(0,1fr)]'
       }
     >
       {/* ── Left: conversation list ─────────────────────────────────────── */}
       {showConversationList && <aside
+        ref={mobileSessionsRef}
+        role={mobileViewport && showListOnMobile ? 'dialog' : undefined}
+        aria-modal={mobileViewport && showListOnMobile ? 'true' : undefined}
+        aria-label={mobileViewport && showListOnMobile ? 'Session browser' : undefined}
         className={[
           hermesLayout
-            ? 'min-h-0 min-w-0 flex-col gap-2 overflow-hidden flex-1 rounded-xl border border-[var(--color-card-border)] bg-black/[0.08] p-2'
+            ? `min-h-0 min-w-0 flex-col gap-2 overflow-hidden flex-1 rounded-xl border border-[var(--color-card-border)] bg-black/[0.08] ${railCollapsed ? 'p-1' : 'p-2'}`
             : 'pib-card min-h-0 min-w-0 flex-col gap-2 overflow-hidden flex-1 p-3',
           compact ? '!rounded-none !border-0 !bg-transparent' : 'lg:flex max-lg:!rounded-none max-lg:!border-0 max-lg:!bg-transparent',
-          showListOnMobile ? 'flex' : 'hidden',
+          showListOnMobile ? 'flex max-lg:fixed max-lg:inset-0 max-lg:z-50 max-lg:rounded-none max-lg:bg-[var(--color-surface,#151515)] max-lg:px-[max(.75rem,env(safe-area-inset-left))] max-lg:pb-[max(.75rem,env(safe-area-inset-bottom))] max-lg:pt-[max(.75rem,env(safe-area-inset-top))]' : 'hidden',
         ].join(' ')}
       >
+        {railCollapsed && (
+          <div className="hidden min-h-0 flex-1 flex-col items-center gap-1.5 lg:flex">
+            <button type="button" aria-label="Expand sessions" onClick={() => onConversationRailModeChange?.('expanded')} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)]"><span aria-hidden="true" className="material-symbols-outlined text-[19px]">left_panel_open</span></button>
+            <button type="button" aria-label="New conversation" onClick={() => openNewConversation()} disabled={!allowStartConversations} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-primary/25 bg-primary/10 text-primary hover:bg-primary/15 disabled:opacity-40"><span aria-hidden="true" className="material-symbols-outlined text-[19px]">add_comment</span></button>
+            <button type="button" aria-label="Search sessions" onClick={() => onConversationRailModeChange?.('expanded')} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)]"><span aria-hidden="true" className="material-symbols-outlined text-[19px]">search</span></button>
+            <div aria-hidden="true" className="my-0.5 h-px w-7 bg-[var(--color-card-border)]" />
+            <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
+              {filteredConversations.slice(0, 10).map((conversation) => (
+                <button key={conversation.id} type="button" aria-label={`Open ${conversation.title || 'Untitled session'}`} title={conversation.title || 'Untitled session'} onClick={() => { setActiveId(conversation.id); setMobilePane('conversation') }} className={`relative grid h-10 w-10 place-items-center rounded-lg ${conversation.id === activeId ? 'bg-primary/14 text-primary' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)]'}`}>
+                  <span aria-hidden="true" className="material-symbols-outlined text-[18px]">chat_bubble</span>
+                  {pinnedConversationIdSet.has(conversation.id) ? <span aria-label="Pinned session" className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-amber-300" /> : null}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        <div className={railCollapsed ? 'hidden' : 'contents'}>
+        <div className="mb-1 flex min-h-11 items-center justify-between lg:hidden"><div><p className="text-[10px] font-label uppercase tracking-[0.2em] text-[var(--color-pib-text-muted)]">Messages</p><h2 className="text-base font-semibold text-[var(--color-pib-text)]">Browse sessions</h2></div>{activeConversation && <button ref={mobileSessionsCloseRef} type="button" aria-label="Close sessions" onClick={() => { setMobilePane('conversation'); requestAnimationFrame(() => mobileSessionsTriggerRef.current?.focus()) }} className="grid h-11 w-11 place-items-center rounded-full text-[var(--color-pib-text-muted)] hover:bg-white/[0.07]"><span aria-hidden="true" className="material-symbols-outlined">close</span></button>}</div>
         <button
           type="button"
           onClick={() => openNewConversation()}
@@ -4003,6 +4060,7 @@ export default function UnifiedChat({
               </div>
             ))}
         </div>
+        </div>
       </aside>}
 
       {/* Context menu — rendered fixed to escape scroll container */}
@@ -4022,6 +4080,7 @@ export default function UnifiedChat({
           </button>
           {hermesLayout && menuConversation && (
             <button
+              ref={mobileSessionsTriggerRef}
               type="button"
               className="w-full text-left px-3 py-2 text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
               onClick={() => {
@@ -4241,7 +4300,14 @@ export default function UnifiedChat({
           )}
         </div>
 
-        {(hasDockContext || runtimeExecution) && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} execution={runtimeExecution} executionRequest={executionDockRequest} onActionResolved={handleContextActionResolved} />}
+        {(hasDockContext || runtimeExecution) && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} execution={runtimeExecution} executionRequest={executionDockRequest} onActionResolved={handleContextActionResolved} onOpenChange={setContextCanvasOpen} onPresentationChange={onContextCanvasPresentationChange} onAddContext={() => {
+          const next = `${input}${input && !input.endsWith(' ') ? ' ' : ''}@`
+          setInput(next)
+          requestAnimationFrame(() => { composerRef.current?.focus(); composerRef.current?.setSelectionRange(next.length, next.length) })
+        }} onRemoveContext={(value) => {
+          const ref = contextRefs.find((item) => item.type === value.kind && item.id === value.id)
+          if (ref) removeContextRef(ref)
+        }} />}
 
         {/* Messages */}
         <div
@@ -4249,7 +4315,7 @@ export default function UnifiedChat({
           role="log"
           aria-label="Conversation messages"
           aria-live="polite"
-          className="flex-1 min-h-0 min-w-0 space-y-3 overflow-y-auto overflow-x-hidden p-4"
+          className={`flex-1 min-h-0 min-w-0 space-y-3 overflow-y-auto overflow-x-hidden p-4 transition-[margin] duration-200 ${contextCanvasOpen ? 'lg:mr-[42%] xl:mr-[min(42%,560px)]' : ''}`}
         >
           {loading && <div className="text-xs text-[var(--color-pib-text-muted)]">Loading…</div>}
           {!loading && messages.length === 0 && (
@@ -4400,9 +4466,10 @@ export default function UnifiedChat({
           data-testid="chat-input-drop-zone"
           className={[
             hermesLayout
-              ? 'shrink-0 min-w-0 flex flex-col gap-1.5 border-t border-[var(--color-card-border)] p-2 transition-colors'
-              : 'shrink-0 min-w-0 flex flex-col gap-2 border-t border-[var(--color-card-border)] p-3 transition-colors',
+              ? 'shrink-0 min-w-0 flex flex-col gap-1.5 border-t border-[var(--color-card-border)] p-2 transition-[background-color,margin] duration-200'
+              : 'shrink-0 min-w-0 flex flex-col gap-2 border-t border-[var(--color-card-border)] p-3 transition-[background-color,margin] duration-200',
             draggingAttachments ? 'bg-primary/10 ring-1 ring-primary/35' : '',
+            contextCanvasOpen ? 'lg:mr-[42%] xl:mr-[min(42%,560px)]' : '',
           ].join(' ')}
         >
           {showComposerContextToolbar && (

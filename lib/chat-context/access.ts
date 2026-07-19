@@ -1,5 +1,6 @@
 import type { ApiUser } from '@/lib/api/types'
 import type { ChatContextKind, ChatContextReadModel } from '@/lib/chat-context/types'
+import { CONTEXT_REFERENCE_TYPES } from '@/lib/context-references/types'
 
 export interface ChatContextResolveInput {
   kind: ChatContextKind
@@ -21,9 +22,7 @@ export interface ChatContextAdapter {
   resolve(input: ChatContextResolveInput): Promise<ChatContextResolveResult>
 }
 
-export const CHAT_CONTEXT_KINDS: readonly ChatContextKind[] = [
-  'project', 'studio', 'studio_artifact', 'company',
-]
+export const CHAT_CONTEXT_KINDS: readonly ChatContextKind[] = CONTEXT_REFERENCE_TYPES
 
 export function isChatContextKind(value: string): value is ChatContextKind {
   return CHAT_CONTEXT_KINDS.includes(value as ChatContextKind)

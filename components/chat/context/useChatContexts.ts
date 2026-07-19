@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { selectActiveContext } from '@/lib/chat-context/selection'
-import type { ChatContextKind, ChatContextReadModel, ChatContextReference } from '@/lib/chat-context/types'
+import type { ChatContextReadModel, ChatContextReference } from '@/lib/chat-context/types'
 import type { ChatContextOption } from './ContextSelector'
+import { contextReferenceTypeFrom } from '@/lib/context-references/types'
 
 const REFRESH_MS = 5_000
-const SUPPORTED = new Set<ChatContextKind>(['project', 'studio', 'studio_artifact'])
-interface Conversation { id: string; scope?: string; scopeRefId?: string; contextRefs?: Array<{ type?: string; kind?: string; id: string; label?: string }> }
+interface Conversation { id: string; scope?: string; scopeRefId?: string; contextRefs?: Array<{ type?: string; kind?: string; id: string; label?: string; href?: string; summary?: string }> }
 const selectionKey = (orgId: string, conversationId: string) => `pib.messages.contextSelection.v1:${orgId}:${conversationId}`
 const seenKey = (orgId: string, conversationId: string, context: ChatContextReference) => `pib.messages.contextSeen.v1:${orgId}:${conversationId}:${context.kind}:${context.id}`
 
@@ -16,8 +16,8 @@ function optionsFor(conversation: Conversation | null): ChatContextOption[] {
   const result = new Map<string, ChatContextOption>()
   if (conversation.scope === 'project' && conversation.scopeRefId) result.set(`project:${conversation.scopeRefId}`, { kind: 'project', id: conversation.scopeRefId, label: 'Project' })
   for (const ref of conversation.contextRefs ?? []) {
-    const kind = (ref.kind ?? ref.type) as ChatContextKind
-    if (SUPPORTED.has(kind)) result.set(`${kind}:${ref.id}`, { kind, id: ref.id, label: ref.label ?? 'Context' })
+    const kind = contextReferenceTypeFrom(ref.kind ?? ref.type)
+    if (kind) result.set(`${kind}:${ref.id}`, { kind, id: ref.id, label: ref.label ?? 'Context', ...(ref.href ? { href: ref.href } : {}), ...(ref.summary ? { summary: ref.summary } : {}) })
   }
   return [...result.values()]
 }
@@ -107,5 +107,5 @@ export function useChatContexts(orgId: string, conversation: Conversation | null
     const now = Date.now(); seenByContext.current.set(contextKey, now); window.localStorage.setItem(seenKey(orgId, conversation.id, activeContext), String(now))
   }, [activeContext, contextKey, conversation, orgId])
 
-  return { contexts, activeContext, setActiveContext, model, error, refresh, routineUpdateCount, dismissRoutineUpdates }
+  return { contexts, activeContext, setActiveContext, model, error, refresh, routineUpdateCount, dismissRoutineUpdates, conversationId: conversation?.id, orgId }
 }

@@ -491,6 +491,25 @@ async function resolveDocument(input: ResolverInput): Promise<ContextReference |
   const data = doc as unknown as RawDoc
   const orgId = docOrgId(data, input.seed.orgId ?? input.defaultOrgId)
   if (!orgId || !sameOrg(data, expectedOrgId(input.seed, input.defaultOrgId)) || !canUseOrg(input.user, orgId)) return null
+  const linked = doc.linked ?? {}
+  const relationshipSeeds: Array<{ type: ContextReferenceType; id: string; relation: string }> = []
+  const addRelationshipSeeds = (type: ContextReferenceType, relation: string, ids: Array<string | undefined>) => {
+    for (const id of ids) {
+      const cleanId = clean(id)
+      if (cleanId && !relationshipSeeds.some((item) => item.type === type && item.id === cleanId)) relationshipSeeds.push({ type, id: cleanId, relation })
+      if (relationshipSeeds.length >= 12) return
+    }
+  }
+  addRelationshipSeeds('project', 'Project', [linked.projectId, ...(linked.projectIds ?? [])])
+  addRelationshipSeeds('company', 'Company', [linked.companyId, linked.sourceCompanyId, ...(linked.companyIds ?? [])])
+  addRelationshipSeeds('contact', 'Contact', [linked.contactId, ...(linked.contactIds ?? [])])
+  addRelationshipSeeds('campaign', 'Campaign', [linked.campaignId])
+  addRelationshipSeeds('deal', 'Deal', [linked.dealId, ...(linked.dealIds ?? [])])
+  addRelationshipSeeds('research', 'Research', linked.researchItemIds ?? [])
+  addRelationshipSeeds('invoice', 'Invoice', [linked.invoiceId])
+  addRelationshipSeeds('report', 'Report', [linked.reportId])
+  addRelationshipSeeds('seo_sprint', 'SEO sprint', [linked.seoSprintId])
+  addRelationshipSeeds('task', 'Approval task', [linked.approvalGateTaskId])
   return makeRef({
     type: 'document',
     id: doc.id,
@@ -503,6 +522,7 @@ async function resolveDocument(input: ResolverInput): Promise<ContextReference |
       `status: ${clean(doc.status)}`,
       doc.approvalMode ? `approval: ${clean(doc.approvalMode)}` : '',
     ]),
+    metadata: relationshipSeeds.length > 0 ? { relationshipSeeds } : undefined,
   })
 }
 

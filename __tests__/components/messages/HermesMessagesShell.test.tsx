@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import HermesMessagesShell from '@/components/messages/hermes-desktop/HermesMessagesShell'
 import { MessagesWorkspace } from '@/components/messages/MessagesWorkspace'
 import { WORKSPACE_PANEL_EVENT } from '@/lib/hermes/workspace-panels'
@@ -10,6 +10,7 @@ const mockUnifiedChat = jest.fn((props: Record<string, unknown>) => (
     data-allow-agent-participants={String(props.allowAgentParticipants)}
     data-allow-delete={String(props.allowDeleteConversations)}
     data-layout-variant={String(props.layoutVariant)}
+    data-conversation-rail-mode={String(props.conversationRailMode)}
   />
 ))
 
@@ -120,6 +121,47 @@ describe('HermesMessagesShell', () => {
       activeConversationId: 'conv-1',
       showConversationList: false,
     }))
+  })
+
+  it('persists a focus-mode Sessions rail without hiding the conversation catalogue', () => {
+    render(
+      <HermesMessagesShell
+        surface="portal"
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        initialConvId="conv-1"
+        capabilities={{ allowStartConversations: true, allowSendMessages: true, allowAgentParticipants: true, allowArchiveConversations: true }}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse sessions' }))
+    expect(screen.getByTestId('mock-unified-chat')).toHaveAttribute('data-conversation-rail-mode', 'collapsed')
+    expect(JSON.parse(window.localStorage.getItem('pib.messages.workspace.v1:org-1:user-1') ?? '{}')).toMatchObject({ conversationRailMode: 'collapsed' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand sessions' }))
+    expect(screen.getByTestId('mock-unified-chat')).toHaveAttribute('data-conversation-rail-mode', 'expanded')
+  })
+
+  it('temporarily frees Sessions space for Dual Focus without overwriting the saved rail preference', () => {
+    render(
+      <HermesMessagesShell
+        surface="portal"
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        initialConvId="conv-1"
+        capabilities={{ allowStartConversations: true, allowSendMessages: true, allowAgentParticipants: true, allowArchiveConversations: true }}
+      />,
+    )
+
+    const primaryProps = mockUnifiedChat.mock.calls.at(-1)?.[0] as { onContextCanvasPresentationChange?: (state: { open: boolean; mode: 'single' | 'dual' }) => void }
+    act(() => primaryProps.onContextCanvasPresentationChange?.({ open: true, mode: 'dual' }))
+    expect(screen.getByTestId('mock-unified-chat')).toHaveAttribute('data-conversation-rail-mode', 'collapsed')
+    expect(JSON.parse(window.localStorage.getItem('pib.messages.workspace.v1:org-1:user-1') ?? '{}')).toMatchObject({ conversationRailMode: 'expanded' })
+
+    act(() => primaryProps.onContextCanvasPresentationChange?.({ open: false, mode: 'dual' }))
+    expect(screen.getByTestId('mock-unified-chat')).toHaveAttribute('data-conversation-rail-mode', 'expanded')
   })
 
   it('places safe agent-generated workspace UI in its own pane', () => {

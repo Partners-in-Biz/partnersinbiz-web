@@ -1,4 +1,6 @@
-export type ChatContextKind = 'project' | 'studio' | 'studio_artifact' | 'company'
+import type { ContextReferenceType } from '@/lib/context-references/types'
+
+export type ChatContextKind = ContextReferenceType
 
 export type ContextDisplayState =
   | 'ready' | 'running' | 'waiting' | 'needs_input' | 'needs_approval'
@@ -18,6 +20,21 @@ export interface ConversationOrigin {
 export interface ChatContextReference {
   kind: ChatContextKind
   id: string
+}
+
+export interface ChatContextPreview {
+  kind: 'summary' | 'document'
+  text?: string
+  status?: string
+  version?: string
+}
+
+export interface ChatContextRelationship {
+  kind: ChatContextKind
+  id: string
+  label: string
+  relation: string
+  href?: string
 }
 
 export interface ChatContextAction {
@@ -101,6 +118,8 @@ export interface ChatContextReadModel {
   artifacts: ChatArtifactSummary[]
   attention: ContextAttentionSummary[]
   activity: ContextActivitySummary[]
+  preview?: ChatContextPreview
+  relationships?: ChatContextRelationship[]
   capabilities: string[]
   asOf: string
 }
