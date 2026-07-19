@@ -70,17 +70,39 @@ describe('context reference composer helpers', () => {
     }, null)).toBe('Keep trailing space ')
   })
 
-  it('rebases a selected mention onto newer draft edits before removing it', () => {
+  it('does not remove a selected mention after the draft changes before the delayed PATCH resolves', () => {
     const original = 'Keep  these bytes @projects:launch'
     const mention = findActiveContextMention(original)
     expect(mention).not.toBeNull()
 
-    expect(removeMentionTokenFromLatest(
-      'Added before\nKeep  these bytes @projects:launch\nAdded after',
-      original,
-      mention!,
-      17,
-    )).toBe('Added before\nKeep  these bytes\nAdded after')
+    const latest = 'Added before\nKeep  these bytes @projects:launch\nAdded after'
+    expect(removeMentionTokenFromLatest(latest, original, mention!, 17)).toBe(latest)
+  })
+
+  it('does not delete a newer identical manual token elsewhere after the selected token is replaced', () => {
+    const original = 'Review @projects:launch'
+    const mention = findActiveContextMention(original)
+    expect(mention).not.toBeNull()
+
+    const latest = '@projects:launch Review complete'
+    expect(removeMentionTokenFromLatest(latest, original, mention!, undefined)).toBe(latest)
+  })
+
+  it('does not remove text after edits immediately around the selected token', () => {
+    const original = 'Review @projects:launch'
+    const mention = findActiveContextMention(original)
+    expect(mention).not.toBeNull()
+
+    const latest = 'Review (@projects:launch)'
+    expect(removeMentionTokenFromLatest(latest, original, mention!, undefined)).toBe(latest)
+  })
+
+  it('removes the selected token only from the exact selection-time snapshot', () => {
+    const original = 'Review @projects:launch'
+    const mention = findActiveContextMention(original)
+    expect(mention).not.toBeNull()
+
+    expect(removeMentionTokenFromLatest(original, original, mention!, undefined)).toBe('Review')
   })
 
   it('leaves the latest draft untouched when the pending mention was edited', () => {

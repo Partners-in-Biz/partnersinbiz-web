@@ -127,39 +127,13 @@ export function removeMentionTokenFromLatest(
   mention: ActiveContextMention,
   insertedSeparatorIndex?: number | null,
 ): string {
+  // A context PATCH may resolve after the user has continued editing. Text is
+  // mutable user data, so only clean up the mention from the exact snapshot
+  // that initiated the request. Trying to rebase by token count or ordinal can
+  // delete a newer, unrelated occurrence of the same token.
+  if (latestInput !== inputAtSelection) return latestInput
   if (inputAtSelection.slice(mention.start, mention.end) !== mention.token) return latestInput
-  const findCompleteTokenStarts = (value: string) => {
-    const starts: number[] = []
-    let cursor = value.indexOf(mention.token)
-    while (cursor >= 0) {
-      const end = cursor + mention.token.length
-      if (
-        (cursor === 0 || /\s/.test(value[cursor - 1] ?? '')) &&
-        (end === value.length || /\s/.test(value[end] ?? ''))
-      ) starts.push(cursor)
-      cursor = value.indexOf(mention.token, cursor + mention.token.length)
-    }
-    return starts
-  }
-  const originalMatches = findCompleteTokenStarts(inputAtSelection)
-  const selectedOrdinal = originalMatches.indexOf(mention.start)
-  const latestMatches = findCompleteTokenStarts(latestInput)
-  if (selectedOrdinal < 0 || latestMatches.length !== originalMatches.length) return latestInput
-  const start = latestMatches[selectedOrdinal]
-  if (start === undefined) return latestInput
-
-  const rebasedSeparator = insertedSeparatorIndex === undefined
-    ? undefined
-    : insertedSeparatorIndex === null
-      ? null
-      : start > 0 && latestInput[start - 1] === ' '
-        ? start - 1
-        : null
-
-  return removeMentionToken(latestInput, {
-    start,
-    end: start + mention.token.length,
-  }, rebasedSeparator)
+  return removeMentionToken(latestInput, mention, insertedSeparatorIndex)
 }
 
 export function replaceTypePromptToken(

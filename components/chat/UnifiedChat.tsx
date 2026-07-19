@@ -806,6 +806,7 @@ export default function UnifiedChat({
   const [selectedSlashCommand, setSelectedSlashCommand] = useState<SlashCommandDefinition | null>(null)
   const [contextSearchResults, setContextSearchResults] = useState<ContextReference[]>([])
   const [contextSearchLoading, setContextSearchLoading] = useState(false)
+  const [contextPickerActiveIndex, setContextPickerActiveIndex] = useState(0)
   const [agentEffort, setAgentEffort] = useState<AgentEffort | ''>('')
   const [modelCatalog, setModelCatalog] = useState<MessageModelCatalog | null>(null)
   const [modelCatalogLoading, setModelCatalogLoading] = useState(false)
@@ -1345,6 +1346,21 @@ export default function UnifiedChat({
     () => (contextTypePrompt ? filterContextReferenceMentionOptions(contextTypePrompt.query) : []),
     [contextTypePrompt],
   )
+  const contextPickerOpen = Boolean(contextTypePrompt || contextMention)
+  const contextPickerOptionCount = contextTypePrompt
+    ? contextTypeOptions.length
+    : contextMention && !contextSearchLoading
+      ? contextSearchResults.length
+      : 0
+  const contextPickerActiveOptionId = contextPickerOpen && contextPickerOptionCount > 0
+    ? `${contextPickerPanelId}-option-${Math.min(contextPickerActiveIndex, contextPickerOptionCount - 1)}`
+    : undefined
+  useEffect(() => {
+    setContextPickerActiveIndex(0)
+  }, [contextMention?.token, contextTypePrompt?.token])
+  useEffect(() => {
+    setContextPickerActiveIndex((current) => Math.max(0, Math.min(current, contextPickerOptionCount - 1)))
+  }, [contextPickerOptionCount])
   const slashCommandOptions = useMemo(
     () => (slashPrompt ? filterSlashCommands(slashPrompt.query) : []),
     [slashPrompt],
@@ -2759,6 +2775,36 @@ export default function UnifiedChat({
       composerRef.current?.setSelectionRange(caret, caret)
     })
   }, [contextTypePrompt, input])
+
+  const handleContextPickerKeyDown = useCallback((event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!contextPickerOpen) return false
+
+    if (event.key === 'Escape') return false
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Home' || event.key === 'End') {
+      event.preventDefault()
+      if (contextPickerOptionCount === 0) return true
+      setContextPickerActiveIndex((current) => {
+        if (event.key === 'Home') return 0
+        if (event.key === 'End') return contextPickerOptionCount - 1
+        if (event.key === 'ArrowDown') return (current + 1) % contextPickerOptionCount
+        return (current - 1 + contextPickerOptionCount) % contextPickerOptionCount
+      })
+      return true
+    }
+    if (event.key !== 'Enter' || event.shiftKey) return false
+
+    event.preventDefault()
+    if (contextPickerOptionCount === 0) return true
+    const activeIndex = Math.min(contextPickerActiveIndex, contextPickerOptionCount - 1)
+    if (contextTypePrompt) {
+      const option = contextTypeOptions[activeIndex]
+      if (option) selectContextType(option)
+    } else if (contextMention) {
+      const ref = contextSearchResults[activeIndex]
+      if (ref) selectMentionContext(ref)
+    }
+    return true
+  }, [contextMention, contextPickerActiveIndex, contextPickerOpen, contextPickerOptionCount, contextSearchResults, contextTypeOptions, contextTypePrompt, selectContextType, selectMentionContext])
 
   const selectSlashCommand = useCallback((command: SlashCommandDefinition) => {
     if (!slashPrompt) return
@@ -4640,21 +4686,25 @@ export default function UnifiedChat({
           )}
 
           {contextTypePrompt && (
-            <div id={contextPickerPanelId} role="menu" aria-label="Reference types" className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
+            <div id={contextPickerPanelId} role="listbox" aria-label="Reference types" className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
               <div role="presentation" className="px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 Reference types
               </div>
               {contextTypeOptions.length === 0 ? (
                 <div className="px-2 py-2 text-xs text-[var(--color-pib-text-muted)]">No matching reference types</div>
               ) : (
-                contextTypeOptions.map((option) => (
+                contextTypeOptions.map((option, index) => (
                   <button
                     key={option.namespace}
+                    id={`${contextPickerPanelId}-option-${index}`}
                     type="button"
-                    role="menuitem"
+                    role="option"
+                    aria-selected={index === contextPickerActiveIndex}
+                    tabIndex={-1}
                     aria-label={`Use @${option.namespace}:`}
+                    onMouseDown={(event) => event.preventDefault()}
                     onClick={() => selectContextType(option)}
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-[var(--color-pib-text)] transition-colors hover:bg-white/[0.06]"
+                    className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-[var(--color-pib-text)] transition-colors hover:bg-white/[0.06] ${index === contextPickerActiveIndex ? 'bg-white/[0.06]' : ''}`}
                   >
                     <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">alternate_email</span>
                     <span className="min-w-0 flex-1">
@@ -4668,7 +4718,7 @@ export default function UnifiedChat({
           )}
 
           {contextMention && (
-            <div id={contextPickerPanelId} role="menu" aria-label="Context references" className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
+            <div id={contextPickerPanelId} role="listbox" aria-label="Context references" className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
               <div role="presentation" className="px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 @{contextMention.namespace}: references
               </div>
@@ -4678,14 +4728,18 @@ export default function UnifiedChat({
               {!contextSearchLoading && contextSearchResults.length === 0 && (
                 <div className="px-2 py-2 text-xs text-[var(--color-pib-text-muted)]">No matching references</div>
               )}
-              {!contextSearchLoading && contextSearchResults.map((ref) => (
+              {!contextSearchLoading && contextSearchResults.map((ref, index) => (
                 <button
                   key={contextReferenceKey(ref)}
+                  id={`${contextPickerPanelId}-option-${index}`}
                   type="button"
-                  role="menuitem"
+                  role="option"
+                  aria-selected={index === contextPickerActiveIndex}
+                  tabIndex={-1}
                   aria-label={contextChipLabel(ref)}
+                  onMouseDown={(event) => event.preventDefault()}
                   onClick={() => selectMentionContext(ref)}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-[var(--color-pib-text)] transition-colors hover:bg-white/[0.06]"
+                  className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-[var(--color-pib-text)] transition-colors hover:bg-white/[0.06] ${index === contextPickerActiveIndex ? 'bg-white/[0.06]' : ''}`}
                 >
                   <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">alternate_email</span>
                   <span className="min-w-0 flex-1">
@@ -4823,6 +4877,12 @@ export default function UnifiedChat({
 
             <textarea
               ref={composerRef}
+              role="combobox"
+              aria-autocomplete="list"
+              aria-haspopup="listbox"
+              aria-expanded={contextPickerOpen}
+              aria-controls={contextPickerOpen ? contextPickerPanelId : undefined}
+              aria-activedescendant={contextPickerActiveOptionId}
               value={input}
               onChange={(e) => {
                 suppressContextPickerKeyUpRef.current = false
@@ -4840,6 +4900,7 @@ export default function UnifiedChat({
                 updateMentionFromComposer(input, e.currentTarget.selectionStart ?? input.length)
               }}
               onKeyDown={(e) => {
+                if (handleContextPickerKeyDown(e)) return
                 if (e.key === 'Escape' && (contextMention || contextTypePrompt || slashPrompt)) {
                   e.preventDefault()
                   const contextPicker = contextMention ?? contextTypePrompt
