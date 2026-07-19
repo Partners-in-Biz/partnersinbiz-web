@@ -116,6 +116,7 @@ requireText('Windows clean service stop', read('runtime-installers/windows/Partn
 requireText('Windows service identity', win, /obj= LocalSystem/)
 requireText('Windows Hermes home bridge', win, /PIB_HERMES_HOME=.*HermesHome/)
 requireText('Windows DPAPI handoff', win, /DataProtectionScope]::LocalMachine/)
+requireText('Windows service DPAPI package', read('runtime-installers/windows/PartnersInBizRuntimeService.csproj'), /System\.Security\.Cryptography\.ProtectedData/)
 requireText('Windows handoff ACL', win, /SYSTEM:\(OI\)\(CI\)F.*Administrators:\(OI\)\(CI\)F/)
 requireText('Windows credential read', read('runtime-installers/windows/CredentialHelper.cs'), /CredRead/)
 requireText('Windows credential exact free', read('runtime-installers/windows/CredentialHelper.cs'), /Zero\(pointer,bytes\.Length\)[\s\S]*FreeHGlobal\(pointer\)/)
