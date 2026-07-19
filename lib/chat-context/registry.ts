@@ -15,6 +15,7 @@ import { bookStudioChatContextAdapter } from '@/lib/chat-context/adapters/bookSt
 import { youtubeStudioChatContextAdapter } from '@/lib/chat-context/adapters/youtubeStudio'
 import { nonMarketingStudioRootChatContextAdapter } from '@/lib/chat-context/adapters/studioRoot'
 import type { StudioKind } from '@/lib/chat-context/types'
+import { genericChatContextAdapter } from '@/lib/chat-context/adapters/generic'
 
 export type ChatContextAdapters = Partial<Record<ChatContextKind, ChatContextAdapter>>
 type StudioRootAdapters = Record<StudioKind, ChatContextAdapter>
@@ -29,15 +30,15 @@ export function createStudioRootNamespaceAdapter(adapters: StudioRootAdapters): 
   }
 }
 
-export function createChatContextRegistry(adapters: ChatContextAdapters) {
+export function createChatContextRegistry(adapters: ChatContextAdapters, fallback?: ChatContextAdapter) {
   return {
     async resolve(input: ChatContextResolveInput): Promise<ChatContextResolveResult> {
       if (!isChatContextKind(input.kind)) {
         return { ok: false, reason: 'unsupported', status: 400, error: 'Unsupported context kind' }
       }
       const adapter = adapters[input.kind]
-      if (!adapter) return unavailableContextResult()
-      return adapter.resolve(input)
+      if (!adapter && !fallback) return unavailableContextResult()
+      return (adapter ?? fallback)!.resolve(input)
     },
   }
 }
@@ -61,4 +62,4 @@ export const chatContextRegistry = createChatContextRegistry({
       return Promise.resolve({ ok: false, reason: 'not_found' as const, status: 404, error: 'Context unavailable' })
     },
   },
-})
+}, genericChatContextAdapter)

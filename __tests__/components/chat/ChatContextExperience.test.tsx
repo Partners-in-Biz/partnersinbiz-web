@@ -28,10 +28,19 @@ describe('useChatContexts', () => {
     expect(result.current.activeContext).toEqual(expect.objectContaining({ kind: 'project', id: 'project-1' }))
   })
 
-  it('excludes context kinds without a registered adapter', () => {
+  it('keeps every resolved conversation reference available to the context canvas', () => {
     global.fetch = jest.fn(() => new Promise(() => {})) as jest.Mock
-    const { result } = renderHook(() => useChatContexts('org-1', { ...conversation, contextRefs: [...conversation.contextRefs, { type: 'company', id: 'c1', label: 'Company' }] }))
-    expect(result.current.contexts).not.toContainEqual(expect.objectContaining({ kind: 'company' }))
+    const { result } = renderHook(() => useChatContexts('org-1', { ...conversation, contextRefs: [
+      ...conversation.contextRefs,
+      { type: 'company', id: 'c1', label: 'Company' },
+      { type: 'document', id: 'd1', label: 'Brief' },
+      { type: 'contact', id: 'person-1', label: 'Theo' },
+    ] }))
+    expect(result.current.contexts).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'company', id: 'c1', label: 'Company' }),
+      expect.objectContaining({ kind: 'document', id: 'd1', label: 'Brief' }),
+      expect.objectContaining({ kind: 'contact', id: 'person-1', label: 'Theo' }),
+    ]))
   })
 
   it('aborts the previous conversation request before it can update state', async () => {
@@ -137,5 +146,23 @@ describe('useChatContexts', () => {
     expect(global.fetch).toHaveBeenCalledTimes(1)
     expect(button).toBeDisabled()
     await act(async () => resolve({ ok: true }))
+  })
+
+  it('restores and persists per-conversation canvas mode, split selection, width, and open state', async () => {
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: jest.fn((query: string) => ({ matches: query.includes('min-width: 1280px'), addEventListener: jest.fn(), removeEventListener: jest.fn() })) })
+    window.localStorage.setItem('pib.messages.contextCanvas.v1:org-1:conv-1', JSON.stringify({ open: true, mode: 'dual', width: 610, secondary: { kind: 'company', id: 'company-1' } }))
+    global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ data: { context: { kind: 'company', id: 'company-1', orgId: 'org-1', label: 'Partners in Biz', icon: 'domain' }, pulse: { label: 'Company', metrics: [] }, groups: [], artifacts: [], attention: [], activity: [], capabilities: [], asOf: new Date().toISOString() } }) })) as jest.Mock
+    const model = { context: { kind: 'project' as const, id: 'project-1', orgId: 'org-1', label: 'Launch', icon: 'target' }, pulse: { label: 'Project', metrics: [] }, groups: [], artifacts: [], attention: [], activity: [], capabilities: [], asOf: '2026-07-19T00:00:00Z' }
+    const contexts = [{ kind: 'project' as const, id: 'project-1', label: 'Launch' }, { kind: 'company' as const, id: 'company-1', label: 'Partners in Biz' }]
+    const context = { contexts, activeContext: contexts[0], setActiveContext: jest.fn(), model, error: null, refresh: jest.fn(), routineUpdateCount: 0, dismissRoutineUpdates: jest.fn(), orgId: 'org-1', conversationId: 'conv-1' }
+
+    render(<ChatContextExperience context={context} />)
+
+    const dialog = await screen.findByRole('dialog', { name: 'Launch context' })
+    expect(dialog).toHaveAttribute('data-presentation', 'dual')
+    expect(screen.getByRole('separator', { name: 'Resize context canvas' })).toHaveAttribute('aria-valuenow', '610')
+    expect(screen.getByLabelText('Secondary context')).toHaveValue('company:company-1')
+    fireEvent.click(screen.getByRole('button', { name: 'Close context dock' }))
+    await waitFor(() => expect(JSON.parse(window.localStorage.getItem('pib.messages.contextCanvas.v1:org-1:conv-1') ?? '{}')).toMatchObject({ open: false, mode: 'dual', width: 610 }))
   })
 })

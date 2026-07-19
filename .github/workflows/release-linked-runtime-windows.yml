@@ -1,0 +1,184 @@
+name: Release linked runtime for Windows
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Existing immutable runtime version to extend with Windows assets
+        required: true
+        default: '1.1.1'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows-arm64-bun:
+    runs-on: macos-14
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.10
+      - run: npm ci
+      - name: Cross-compile Windows arm64 Bun executables
+        run: |
+          mkdir -p runtime-installers/prebuilt/windows-arm64
+          bun build --compile --target=bun-windows-arm64 runtime-installers/runtime/cli.ts --outfile runtime-installers/prebuilt/windows-arm64/pib-runtime.exe
+          bun build --compile --target=bun-windows-arm64 runtime-installers/runtime/release-manager.ts --outfile runtime-installers/prebuilt/windows-arm64/pib-release-manager.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-arm64-bun-${{ github.sha }}
+          path: runtime-installers/prebuilt/windows-arm64
+          retention-days: 1
+          if-no-files-found: error
+
+  release:
+    needs: build-windows-arm64-bun
+    runs-on: windows-2025
+    timeout-minutes: 45
+    env:
+      VERSION: ${{ inputs.version }}
+      PIB_RUNTIME_RELEASE_PRIVATE_KEY: ${{ secrets.LINKED_RUNTIME_RELEASE_PRIVATE_KEY }}
+      EXPECTED_PUBLISHER: The Partners in Business (PTY) LTD
+    steps:
+      - name: Refuse non-production source
+        shell: pwsh
+        run: |
+          if ('${{ github.ref }}' -ne 'refs/heads/main') { throw 'Windows releases must run from main.' }
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.10
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-arm64-bun-${{ github.sha }}
+          path: runtime-installers/prebuilt/windows-arm64
+      - run: npm ci
+      - name: Verify release inputs and secrets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ES_USERNAME: ${{ secrets.SSL_ESIGNER_USERNAME }}
+          ES_PASSWORD: ${{ secrets.SSL_ESIGNER_PASSWORD }}
+          ES_CREDENTIAL_ID: ${{ secrets.SSL_ESIGNER_CREDENTIAL_ID }}
+          ES_TOTP_SECRET: ${{ secrets.SSL_ESIGNER_TOTP_SECRET }}
+        run: |
+          if ($env:VERSION -notmatch '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$') { throw 'Version must be SemVer.' }
+          foreach ($Name in @('PIB_RUNTIME_RELEASE_PRIVATE_KEY','ES_USERNAME','ES_PASSWORD','ES_CREDENTIAL_ID','ES_TOTP_SECRET')) {
+            if ([string]::IsNullOrWhiteSpace((Get-Item "env:$Name").Value)) { throw "$Name is not configured." }
+          }
+          $Assets = gh release view "runtime-v$env:VERSION" --json assets --jq '.assets[].name'
+          if ($LASTEXITCODE -ne 0) { throw "runtime-v$env:VERSION does not exist." }
+          if ($Assets | Select-String '^partnersinbiz-runtime-windows-') { throw 'Immutable Windows assets already exist for this version.' }
+      - name: Build Windows x64 and arm64 runtimes
+        shell: bash
+        env:
+          PIB_RUNTIME_TARGETS: windows-x64 windows-arm64
+          PIB_RUNTIME_PREBUILT_WINDOWS_ARM64_DIR: runtime-installers/prebuilt/windows-arm64
+        run: bash runtime-installers/build-runtime.sh
+      - name: Sign Windows executable matrix
+        uses: sslcom/esigner-codesign@cf5f6c1d38ad10f47e3ed9aca873f429b1a8d85b
+        with:
+          command: batch_sign
+          username: ${{ secrets.SSL_ESIGNER_USERNAME }}
+          password: ${{ secrets.SSL_ESIGNER_PASSWORD }}
+          credential_id: ${{ secrets.SSL_ESIGNER_CREDENTIAL_ID }}
+          totp_secret: ${{ secrets.SSL_ESIGNER_TOTP_SECRET }}
+          dir_path: ${{ github.workspace }}/runtime-installers/dist
+          malware_block: true
+          override: true
+          clean_logs: true
+          environment_name: PROD
+          signing_method: v2
+      - name: Verify executable signatures and native helpers
+        shell: pwsh
+        run: |
+          function Assert-Publisher([string]$Path) {
+            $Signature = Get-AuthenticodeSignature -LiteralPath $Path
+            if ($Signature.Status -ne 'Valid' -or -not $Signature.SignerCertificate) { throw "Invalid Authenticode signature: $Path ($($Signature.Status))." }
+            $Publisher = $Signature.SignerCertificate.GetNameInfo([Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false)
+            if ($Publisher -cne $env:EXPECTED_PUBLISHER) { throw "Unexpected publisher for $Path: $Publisher." }
+          }
+          foreach ($Arch in @('x64','arm64')) {
+            foreach ($Name in @('pib-runtime.exe','pib-release-manager.exe','pib-credential-helper.exe','PartnersInBizRuntimeService.exe')) {
+              Assert-Publisher "runtime-installers/dist/windows-$Arch/$Name"
+            }
+          }
+          $Helper = Resolve-Path runtime-installers/dist/windows-x64/pib-credential-helper.exe
+          'WINDOWS_SIGNED_CREDENTIAL_SMOKE' | & $Helper put release-smoke
+          if ($LASTEXITCODE -ne 0) { throw 'Credential Manager write failed.' }
+          $Value = & $Helper get release-smoke
+          & $Helper clear release-smoke
+          if ($Value.Trim() -ne 'WINDOWS_SIGNED_CREDENTIAL_SMOKE') { throw 'Credential Manager signed helper readback failed.' }
+          npx tsx scripts/verify-linked-runtime-installers.ts
+      - name: Create signed metadata and unsigned CAB containers
+        shell: pwsh
+        run: |
+          npx tsx scripts/package-linked-runtime-release.ts --version $env:VERSION --minimum-version $env:VERSION --tag "runtime-v$env:VERSION" --targets windows-x64,windows-arm64
+      - name: Sign Windows x64 CAB
+        uses: sslcom/esigner-codesign@cf5f6c1d38ad10f47e3ed9aca873f429b1a8d85b
+        with:
+          command: sign
+          username: ${{ secrets.SSL_ESIGNER_USERNAME }}
+          password: ${{ secrets.SSL_ESIGNER_PASSWORD }}
+          credential_id: ${{ secrets.SSL_ESIGNER_CREDENTIAL_ID }}
+          totp_secret: ${{ secrets.SSL_ESIGNER_TOTP_SECRET }}
+          file_path: ${{ github.workspace }}/runtime-installers/release-dist/partnersinbiz-runtime-windows-x64-installer.cab
+          malware_block: true
+          override: true
+          clean_logs: true
+          environment_name: PROD
+          signing_method: v2
+      - name: Sign Windows arm64 CAB
+        uses: sslcom/esigner-codesign@cf5f6c1d38ad10f47e3ed9aca873f429b1a8d85b
+        with:
+          command: sign
+          username: ${{ secrets.SSL_ESIGNER_USERNAME }}
+          password: ${{ secrets.SSL_ESIGNER_PASSWORD }}
+          credential_id: ${{ secrets.SSL_ESIGNER_CREDENTIAL_ID }}
+          totp_secret: ${{ secrets.SSL_ESIGNER_TOTP_SECRET }}
+          file_path: ${{ github.workspace }}/runtime-installers/release-dist/partnersinbiz-runtime-windows-arm64-installer.cab
+          malware_block: true
+          override: true
+          clean_logs: true
+          environment_name: PROD
+          signing_method: v2
+      - name: Verify signed CABs, contents and release metadata
+        shell: pwsh
+        run: |
+          function Assert-Publisher([string]$Path) {
+            $Signature = Get-AuthenticodeSignature -LiteralPath $Path
+            if ($Signature.Status -ne 'Valid' -or -not $Signature.SignerCertificate) { throw "Invalid Authenticode signature: $Path ($($Signature.Status))." }
+            $Publisher = $Signature.SignerCertificate.GetNameInfo([Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false)
+            if ($Publisher -cne $env:EXPECTED_PUBLISHER) { throw "Unexpected publisher for $Path: $Publisher." }
+          }
+          foreach ($Arch in @('x64','arm64')) {
+            $Prefix = "partnersinbiz-runtime-windows-$Arch"
+            $Cab = "runtime-installers/release-dist/$Prefix-installer.cab"
+            Assert-Publisher $Cab
+            $Expanded = Join-Path $env:RUNNER_TEMP "expanded-$Arch"
+            New-Item -ItemType Directory $Expanded | Out-Null
+            & expand.exe $Cab -F:* $Expanded | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "CAB extraction failed for $Arch." }
+            foreach ($Name in @('pib-runtime.exe','pib-release-manager.exe','pib-credential-helper.exe','PartnersInBizRuntimeService.exe')) { Assert-Publisher (Join-Path $Expanded $Name) }
+            [void][scriptblock]::Create((Get-Content (Join-Path $Expanded 'install.ps1') -Raw))
+            & 'runtime-installers/dist/windows-x64/pib-release-manager.exe' verify --manifest "runtime-installers/release-dist/$Prefix-stable.json" --payload "runtime-installers/release-dist/$Prefix.exe" --signature "runtime-installers/release-dist/$Prefix-stable.json.sig" --public-key runtime-installers/release-public.pem --platform windows --architecture $Arch --current-version $env:VERSION --channel stable
+            if ($LASTEXITCODE -ne 0) { throw "Release verification failed for $Arch." }
+          }
+      - name: Publish immutable Windows assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "runtime-v$env:VERSION" runtime-installers/release-dist/*

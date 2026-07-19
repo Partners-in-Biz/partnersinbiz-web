@@ -12,6 +12,7 @@ describe('linked runtime release publisher', () => {
     })
     expect(runtimeReleaseAssetNames('macos-arm64').installer).toBe('partnersinbiz-runtime-macos-arm64-installer.pkg')
     expect(runtimeReleaseAssetNames('windows-x64').payload).toBe('partnersinbiz-runtime-windows-x64.exe')
+    expect(runtimeReleaseAssetNames('windows-x64').installer).toBe('partnersinbiz-runtime-windows-x64-installer.cab')
   })
 
   it('binds a release manifest to the platform, payload hash and pinned release URL', () => {

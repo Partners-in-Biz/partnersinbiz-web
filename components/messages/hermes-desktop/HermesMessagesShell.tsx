@@ -132,6 +132,11 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
       return Number.isFinite(value) ? Math.min(72, Math.max(28, value)) : 50
     } catch { return 50 }
   })
+  const [conversationRailMode, setConversationRailMode] = useState<'expanded' | 'collapsed'>(() => {
+    if (typeof window === 'undefined') return 'expanded'
+    try { return JSON.parse(window.localStorage.getItem(storageKey) ?? 'null')?.conversationRailMode === 'collapsed' ? 'collapsed' : 'expanded' } catch { return 'expanded' }
+  })
+  const [canvasForcesCollapsedRail, setCanvasForcesCollapsedRail] = useState(false)
   const [focusedPaneId, setFocusedPaneId] = useState('primary')
   const [conversationTitles, setConversationTitles] = useState<Record<string, string>>({})
   const dragRef = useRef<{ origin: number; percent: number; size: number } | null>(null)
@@ -142,12 +147,12 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
       tabs: pane.tabs.filter((tab): tab is ConversationTab => tab.kind === 'conversation'),
     }))
     try {
-      window.localStorage.setItem(storageKey, JSON.stringify({ panes: persistable, direction, splitPercent }))
+      window.localStorage.setItem(storageKey, JSON.stringify({ panes: persistable, direction, splitPercent, conversationRailMode }))
     } catch (storageError) {
       // Private browsing or storage policy must not break Messages.
       void storageError
     }
-  }, [direction, panes, splitPercent, storageKey])
+  }, [conversationRailMode, direction, panes, splitPercent, storageKey])
 
   const openConversation = useCallback((paneId: string, conversationId: string | null) => {
     if (!conversationId) return
@@ -253,6 +258,7 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
         </div>
         <div className="flex min-w-0 items-center gap-1.5">
           <div className="hidden items-center gap-1.5 xl:flex"><StatusPill tone="accent"><span className="material-symbols-outlined text-[13px]">hub</span>{runtimeMode}</StatusPill><StatusPill><span className="material-symbols-outlined text-[13px]">shield_lock</span>Safe /v1 runs</StatusPill>{userRole && <StatusPill tone="muted">{userRole}</StatusPill>}</div>
+          <button type="button" aria-label={conversationRailMode === 'expanded' ? 'Collapse sessions' : 'Expand sessions'} onClick={() => setConversationRailMode((value) => value === 'expanded' ? 'collapsed' : 'expanded')} className="grid h-7 w-7 place-items-center rounded-md border border-white/[0.08] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"><span aria-hidden="true" className="material-symbols-outlined text-[16px]">{conversationRailMode === 'expanded' ? 'left_panel_close' : 'left_panel_open'}</span></button>
           <button type="button" aria-label={direction === 'row' ? 'Stack panes vertically' : 'Place panes side by side'} onClick={() => setDirection((value) => value === 'row' ? 'column' : 'row')} disabled={panes.length < 2} className="grid h-7 w-7 place-items-center rounded-md border border-white/[0.08] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] disabled:opacity-35"><span className="material-symbols-outlined text-[16px]">{direction === 'row' ? 'horizontal_split' : 'vertical_split'}</span></button>
           <button type="button" aria-label="Open active session in split pane" onClick={splitActiveTab} disabled={panes.length > 1} className="grid h-7 w-7 place-items-center rounded-md border border-white/[0.08] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] disabled:opacity-35"><span className="material-symbols-outlined text-[16px]">splitscreen</span></button>
         </div>
@@ -283,6 +289,9 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
                       onActiveConversationChange={(conversationId) => openConversation(pane.id, conversationId)}
                       onConversationsChange={paneIndex === 0 ? handleConversationCatalogue : undefined}
                       showConversationList={paneIndex === 0}
+                      conversationRailMode={canvasForcesCollapsedRail && paneIndex === 0 ? 'collapsed' : conversationRailMode}
+                      onConversationRailModeChange={setConversationRailMode}
+                      onContextCanvasPresentationChange={paneIndex === 0 ? ({ open, mode }) => setCanvasForcesCollapsedRail(open && mode === 'dual') : undefined}
                     />
                   )}
                 </div>

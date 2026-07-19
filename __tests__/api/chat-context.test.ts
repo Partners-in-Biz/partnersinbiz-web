@@ -5,6 +5,7 @@ const mockCollection = jest.fn()
 const mockProjectDoc = jest.fn()
 const mockTaskCollection = jest.fn()
 const mockTaskGet = jest.fn()
+const mockResolveContextReferences = jest.fn()
 const mockWithAuth = jest.fn((_role: string, handler: any) => async (req: NextRequest, ctx?: unknown) => handler(req, mockUser, ctx))
 const mockUser = { uid: 'client-1', role: 'client' as const, orgId: 'client-org' }
 
@@ -15,6 +16,13 @@ jest.mock('@/lib/api/auth', () => ({
 jest.mock('@/lib/projects/access', () => ({
   getProjectForUser: (...args: unknown[]) => mockGetProjectForUser(...args),
 }))
+jest.mock('@/lib/context-references/registry', () => {
+  const actual = jest.requireActual('@/lib/context-references/registry')
+  return {
+    ...actual,
+    resolveContextReferences: (...args: unknown[]) => mockResolveContextReferences(...args),
+  }
+})
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -29,6 +37,7 @@ beforeEach(() => {
     { id: 'secret', data: () => ({ title: 'Provider token', columnId: 'todo', internalOnly: true, providerCredential: 'never-return' }) },
   ] })
   mockTaskCollection.mockReturnValue({ get: mockTaskGet })
+  mockResolveContextReferences.mockResolvedValue([])
   mockProjectDoc.mockReturnValue({ collection: mockTaskCollection })
   mockCollection.mockImplementation((name: string) => {
     if (name === 'projects') return { doc: mockProjectDoc }
@@ -62,6 +71,22 @@ describe('chat context read-model API', () => {
 
     expect(res.status).toBe(404)
     expect(mockTaskGet).not.toHaveBeenCalled()
+  })
+
+  it('returns a safe generic canvas model for every resolved non-specialised reference', async () => {
+    mockResolveContextReferences.mockResolvedValueOnce([{
+      type: 'company', id: 'company-1', orgId: 'client-org', label: 'Partners in Biz',
+      origin: 'mention', href: '/portal/companies/company-1', summary: 'Active client company',
+    }])
+
+    const res = await get('company', 'company-1')
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.context).toEqual(expect.objectContaining({ kind: 'company', id: 'company-1', label: 'Partners in Biz' }))
+    expect(body.data.preview).toEqual(expect.objectContaining({ kind: 'summary', text: 'Active client company' }))
+    expect(body.data.context.href).toBe('/portal/companies/company-1')
+    expect(JSON.stringify(body)).not.toContain('providerCredential')
   })
 
   it('does not disclose whether a forbidden or missing project exists', async () => {

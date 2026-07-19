@@ -2,7 +2,7 @@
 
 import type { ChatContextReference } from '@/lib/chat-context/types'
 
-export interface ChatContextOption extends ChatContextReference { label: string }
+export interface ChatContextOption extends ChatContextReference { label: string; href?: string; summary?: string }
 
 export function ContextSelector({ options, value, onChange }: { options: ChatContextOption[]; value: ChatContextReference; onChange: (value: ChatContextReference) => void }) {
   if (options.length < 2) return <span className="min-w-0 truncate text-xs font-semibold text-on-surface">{options[0]?.label}</span>
