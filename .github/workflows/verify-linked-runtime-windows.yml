@@ -1,0 +1,71 @@
+name: Verify linked runtime for Windows
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/verify-linked-runtime-windows.yml'
+      - '.github/workflows/release-linked-runtime-windows.yml'
+      - 'runtime-installers/**'
+      - 'scripts/package-linked-runtime-release.ts'
+      - 'scripts/package-windows-installer.ps1'
+      - 'scripts/verify-linked-runtime-installers.ts'
+      - 'public/runtime/bootstrap/windows.ps1'
+      - '__tests__/scripts/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: windows-2025
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+      - run: npm ci
+      - name: Build Windows x64 and arm64 runtimes
+        shell: bash
+        env:
+          PIB_RUNTIME_TARGETS: windows-x64 windows-arm64
+        run: bash runtime-installers/build-runtime.sh
+      - name: Verify source contracts and PowerShell parsing
+        shell: pwsh
+        run: |
+          npx tsx scripts/verify-linked-runtime-installers.ts
+          [void][scriptblock]::Create((Get-Content runtime-installers/windows/install.ps1 -Raw))
+          [void][scriptblock]::Create((Get-Content public/runtime/bootstrap/windows.ps1 -Raw))
+          [void][scriptblock]::Create((Get-Content scripts/package-windows-installer.ps1 -Raw))
+      - name: Verify Credential Manager helper
+        shell: pwsh
+        run: |
+          $Helper = Resolve-Path runtime-installers/dist/windows-x64/pib-credential-helper.exe
+          'WINDOWS_CREDENTIAL_SMOKE' | & $Helper put ci-smoke
+          if ($LASTEXITCODE -ne 0) { throw 'Credential Manager write failed.' }
+          $Value = & $Helper get ci-smoke
+          if ($LASTEXITCODE -ne 0 -or $Value.Trim() -ne 'WINDOWS_CREDENTIAL_SMOKE') { throw 'Credential Manager readback failed.' }
+          & $Helper clear ci-smoke
+          if ($LASTEXITCODE -ne 0) { throw 'Credential Manager cleanup failed.' }
+      - name: Verify CAB creation and extraction
+        shell: pwsh
+        run: |
+          Copy-Item runtime-installers/release-public.pem runtime-installers/dist/windows-x64/release-public.pem
+          ./scripts/package-windows-installer.ps1 -Stage runtime-installers/dist/windows-x64 -Destination "$env:RUNNER_TEMP/windows-x64.cab"
+          $Expanded = Join-Path $env:RUNNER_TEMP expanded
+          New-Item -ItemType Directory $Expanded | Out-Null
+          & expand.exe "$env:RUNNER_TEMP/windows-x64.cab" -F:* $Expanded | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'CAB extraction failed.' }
+          foreach ($Name in @('pib-runtime.exe','pib-release-manager.exe','pib-credential-helper.exe','PartnersInBizRuntimeService.exe','install.ps1','release-public.pem','README.md')) {
+            if (-not (Test-Path (Join-Path $Expanded $Name))) { throw "CAB is missing $Name." }
+          }
+      - name: Focused tests and typecheck
+        run: |
+          npx jest --runInBand __tests__/scripts/verify-linked-runtime-installers.test.ts __tests__/scripts/linked-runtime-publisher.test.ts
+          npm run typecheck

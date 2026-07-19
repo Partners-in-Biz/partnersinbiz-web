@@ -22,7 +22,8 @@ for target in $TARGETS;do
     cp runtime-installers/macos/{install.sh,com.partnersinbiz.runtime.plist} "$stage/"
     cp runtime-installers/README.md "$stage/README.md"
   elif [[ "$target" == windows-* ]];then
-    cp runtime-installers/windows/{install.ps1,CredentialHelper.cs,PartnersInBizRuntimeService.cs,PartnersInBizRuntimeService.csproj} "$stage/"
+    cp runtime-installers/windows/install.ps1 "$stage/"
+    cp runtime-installers/README.md "$stage/README.md"
   else
     install -m 0755 runtime-installers/linux/{install.sh,pib-credential-helper,pib-file-helper} "$stage/"
     install -m 0644 runtime-installers/linux/pib-runtime.service "$stage/"
@@ -39,9 +40,10 @@ for arch in x64 arm64;do
   dotnet publish runtime-installers/windows/CredentialHelper.csproj -c Release -r "win-$arch" --self-contained true -o "$OUT/$target/credential-native"
   cp "$OUT/$target/native/PartnersInBizRuntimeService.exe" "$OUT/$target/"
   cp "$OUT/$target/credential-native/pib-credential-helper.exe" "$OUT/$target/"
+  rm -rf "$OUT/$target/native" "$OUT/$target/credential-native"
 done
 for target in $TARGETS;do
   if [[ "$target" == linux-* ]];then arch="${target#linux-}";tar -czf "$OUT/partnersinbiz-runtime-linux-${arch}.tgz" -C "$OUT/$target" .
-  else tar -czf "$OUT/partnersinbiz-runtime-$target.tgz" -C "$OUT/$target" .
+  elif [[ "$target" != windows-* ]];then tar -czf "$OUT/partnersinbiz-runtime-$target.tgz" -C "$OUT/$target" .
   fi
 done

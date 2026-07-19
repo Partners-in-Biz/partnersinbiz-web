@@ -16,7 +16,7 @@ export function runtimeReleaseAssetNames(target: RuntimeTarget) {
     payload: `${prefix}${platform === 'windows' ? '.exe' : ''}`,
     metadata: `${prefix}-stable.json`,
     signature: `${prefix}-stable.json.sig`,
-    installer: `${prefix}-installer.${platform === 'windows' ? 'zip' : platform === 'macos' ? 'pkg' : 'tgz'}`,
+    installer: `${prefix}-installer.${platform === 'windows' ? 'cab' : platform === 'macos' ? 'pkg' : 'tgz'}`,
   }
 }
 
@@ -46,7 +46,7 @@ function argument(name: string, fallback = '') {
   return index >= 0 ? process.argv[index + 1] ?? '' : fallback
 }
 
-function archiveInstaller(input: { stage: string; destination: string; target: RuntimeTarget; version: string }) {
+function archiveInstaller(input: { root: string; stage: string; destination: string; target: RuntimeTarget; version: string }) {
   const [platform, architecture] = input.target.split('-')
   let archiveStage = input.stage
   let cleanStage = ''
@@ -57,9 +57,14 @@ function archiveInstaller(input: { stage: string; destination: string; target: R
     if (copy.status !== 0) throw new Error(`Could not prepare clean macOS package contents for ${input.target}`)
     archiveStage = cleanStage
   }
-  const command = platform === 'windows' ? 'zip' : platform === 'macos' ? 'pkgbuild' : 'tar'
+  const command = platform === 'windows' ? 'powershell.exe' : platform === 'macos' ? 'pkgbuild' : 'tar'
   const args = platform === 'windows'
-    ? ['-q', '-r', input.destination, '.']
+    ? [
+        '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+        '-File', path.join(input.root, 'scripts/package-windows-installer.ps1'),
+        '-Stage', archiveStage,
+        '-Destination', input.destination,
+      ]
     : platform === 'macos'
       ? [
         '--root', archiveStage,
@@ -111,6 +116,7 @@ export function packageRuntimeRelease(input: {
     fs.writeFileSync(path.join(input.outputDir, names.metadata), `${JSON.stringify(manifest, null, 2)}\n`)
     fs.writeFileSync(path.join(input.outputDir, names.signature), `${sign(null, Buffer.from(canonicalJson(manifest)), key).toString('base64url')}\n`)
     archiveInstaller({
+      root: input.root,
       stage,
       destination: path.join(input.outputDir, names.installer),
       target,
