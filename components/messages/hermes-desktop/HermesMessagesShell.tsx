@@ -258,9 +258,9 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
         </div>
         <div className="flex min-w-0 items-center gap-1.5">
           <div className="hidden items-center gap-1.5 xl:flex"><StatusPill tone="accent"><span className="material-symbols-outlined text-[13px]">hub</span>{runtimeMode}</StatusPill><StatusPill><span className="material-symbols-outlined text-[13px]">shield_lock</span>Safe /v1 runs</StatusPill>{userRole && <StatusPill tone="muted">{userRole}</StatusPill>}</div>
-          <button type="button" aria-label={conversationRailMode === 'expanded' ? 'Collapse sessions' : 'Expand sessions'} onClick={() => setConversationRailMode((value) => value === 'expanded' ? 'collapsed' : 'expanded')} className="grid h-7 w-7 place-items-center rounded-md border border-white/[0.08] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"><span aria-hidden="true" className="material-symbols-outlined text-[16px]">{conversationRailMode === 'expanded' ? 'left_panel_close' : 'left_panel_open'}</span></button>
-          <button type="button" aria-label={direction === 'row' ? 'Stack panes vertically' : 'Place panes side by side'} onClick={() => setDirection((value) => value === 'row' ? 'column' : 'row')} disabled={panes.length < 2} className="grid h-7 w-7 place-items-center rounded-md border border-white/[0.08] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] disabled:opacity-35"><span className="material-symbols-outlined text-[16px]">{direction === 'row' ? 'horizontal_split' : 'vertical_split'}</span></button>
-          <button type="button" aria-label="Open active session in split pane" onClick={splitActiveTab} disabled={panes.length > 1} className="grid h-7 w-7 place-items-center rounded-md border border-white/[0.08] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] disabled:opacity-35"><span className="material-symbols-outlined text-[16px]">splitscreen</span></button>
+          <button type="button" aria-label={conversationRailMode === 'expanded' ? 'Collapse sessions' : 'Expand sessions'} onClick={() => setConversationRailMode((value) => value === 'expanded' ? 'collapsed' : 'expanded')} className="grid h-11 w-11 place-items-center rounded-md border border-white/[0.08] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] xl:h-7 xl:w-7"><span aria-hidden="true" className="material-symbols-outlined text-[16px]">{conversationRailMode === 'expanded' ? 'left_panel_close' : 'left_panel_open'}</span></button>
+          <button type="button" aria-label={direction === 'row' ? 'Stack panes vertically' : 'Place panes side by side'} onClick={() => setDirection((value) => value === 'row' ? 'column' : 'row')} disabled={panes.length < 2} className="grid h-11 w-11 place-items-center rounded-md border border-white/[0.08] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] disabled:opacity-35 xl:h-7 xl:w-7"><span className="material-symbols-outlined text-[16px]">{direction === 'row' ? 'horizontal_split' : 'vertical_split'}</span></button>
+          <button type="button" aria-label="Open active session in split pane" onClick={splitActiveTab} disabled={panes.length > 1} className="grid h-11 w-11 place-items-center rounded-md border border-white/[0.08] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] disabled:opacity-35 xl:h-7 xl:w-7"><span className="material-symbols-outlined text-[16px]">splitscreen</span></button>
         </div>
       </header>
       <div className="sr-only" data-testid="hermes-messages-shell-description">{copy.description}</div>
@@ -268,19 +268,27 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
         <div className={`flex h-full min-h-0 min-w-0 ${direction === 'row' ? 'flex-row' : 'flex-col'}`}>
           {panes.map((pane, paneIndex) => {
             const activeTab = pane.tabs.find((tab) => tab.id === pane.activeTabId) ?? null
-            const style: CSSProperties = panes.length === 1
-              ? { flex: '1 1 100%', order: paneIndex * 2 }
-              : { flex: `0 0 ${paneIndex === 0 ? splitPercent : 100 - splitPercent}%`, order: paneIndex * 2 }
+            const paneBasis = panes.length === 1 ? 100 : paneIndex === 0 ? splitPercent : 100 - splitPercent
+            // The desktop resizer contributes a net 4px to the flex line
+            // (8px size with -2px margins on both sides). Split that cost
+            // evenly so both pane bases plus the resizer fit the container.
+            const workspacePaneBasis = panes.length === 1 ? `${paneBasis}%` : `calc(${paneBasis}% - 2px)`
+            const style = {
+              '--workspace-pane-basis': workspacePaneBasis,
+              order: paneIndex * 2,
+            } as CSSProperties
+            const alternatePaneId = pane.id === 'primary' ? 'secondary' : 'primary'
             return (
-              <div key={pane.id} data-testid={`messages-workspace-pane-${pane.id}`} style={style} onPointerDown={() => setFocusedPaneId(pane.id)} className={`min-h-0 min-w-0 overflow-hidden rounded-xl border ${focusedPaneId === pane.id ? 'border-primary/35' : 'border-[var(--color-card-border)]'} bg-black/[0.035] ${pane.id !== focusedPaneId ? 'max-md:hidden' : ''}`}>
-                <div className="flex h-8 min-w-0 items-center border-b border-[var(--color-card-border)] bg-black/[0.09] px-1">
+              <div key={pane.id} data-testid={`messages-workspace-pane-${pane.id}`} style={style} onPointerDown={() => setFocusedPaneId(pane.id)} className={`flex min-h-0 min-w-0 flex-1 basis-full flex-col overflow-hidden rounded-xl border xl:flex-none xl:basis-[var(--workspace-pane-basis)] ${focusedPaneId === pane.id ? 'border-primary/35' : 'border-[var(--color-card-border)]'} bg-black/[0.035] ${panes.length > 1 && pane.id !== focusedPaneId ? 'max-xl:hidden' : ''}`}>
+                <div className="flex min-h-11 min-w-0 shrink-0 items-center border-b border-[var(--color-card-border)] bg-black/[0.09] px-1 xl:h-8 xl:min-h-0">
                   <div role="tablist" aria-label={`${pane.id} pane tabs`} className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
-                    {pane.tabs.map((tab) => <div key={tab.id} role="presentation" className={`group/tab flex h-6 min-w-[92px] max-w-[220px] items-center rounded-md border px-1.5 ${tab.id === pane.activeTabId ? 'border-white/[0.1] bg-white/[0.07]' : 'border-transparent text-[var(--color-pib-text-muted)] hover:bg-white/[0.04]'}`}><button type="button" role="tab" aria-selected={tab.id === pane.activeTabId} onClick={() => { setFocusedPaneId(pane.id); setPanes((current) => current.map((item) => item.id === pane.id ? { ...item, activeTabId: tab.id } : item)) }} className="min-w-0 flex-1 truncate text-left text-[11px]">{tab.title}</button><button type="button" aria-label={`Close ${tab.title}`} onClick={() => closeTab(pane.id, tab.id)} className="ml-1 grid h-4 w-4 shrink-0 place-items-center rounded opacity-0 hover:bg-white/10 group-hover/tab:opacity-100 focus:opacity-100"><span className="material-symbols-outlined text-[12px]">close</span></button></div>)}
+                    {pane.tabs.map((tab) => <div key={tab.id} role="presentation" className={`group/tab flex min-h-11 min-w-[92px] max-w-[220px] items-center rounded-md border px-1.5 xl:h-6 xl:min-h-0 ${tab.id === pane.activeTabId ? 'border-white/[0.1] bg-white/[0.07]' : 'border-transparent text-[var(--color-pib-text-muted)] hover:bg-white/[0.04]'}`}><button type="button" role="tab" aria-selected={tab.id === pane.activeTabId} onClick={() => { setFocusedPaneId(pane.id); setPanes((current) => current.map((item) => item.id === pane.id ? { ...item, activeTabId: tab.id } : item)) }} className="min-h-11 min-w-0 flex-1 truncate text-left text-[11px] xl:min-h-0">{tab.title}</button><button type="button" aria-label={`Close ${tab.title}`} onClick={() => closeTab(pane.id, tab.id)} className="ml-1 grid h-11 w-11 shrink-0 place-items-center rounded hover:bg-white/10 xl:h-4 xl:w-4 xl:opacity-0 xl:group-hover/tab:opacity-100 xl:focus:opacity-100"><span className="material-symbols-outlined text-[12px]">close</span></button></div>)}
                     {pane.tabs.length === 0 && <span className="px-2 text-[11px] text-[var(--color-pib-text-muted)]">Select a session</span>}
                   </div>
-                  {pane.id === 'secondary' && <button type="button" aria-label="Close split pane" onClick={() => { setPanes((current) => current.filter((item) => item.id !== 'secondary')); setFocusedPaneId('primary') }} className="grid h-6 w-6 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.06]"><span className="material-symbols-outlined text-[14px]">close_fullscreen</span></button>}
+                  {panes.length > 1 && <button type="button" aria-label={`Show ${alternatePaneId} pane`} onClick={() => setFocusedPaneId(alternatePaneId)} className="grid h-11 w-11 shrink-0 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] xl:hidden"><span aria-hidden="true" className="material-symbols-outlined text-[18px]">swap_horiz</span></button>}
+                  {pane.id === 'secondary' && <button type="button" aria-label="Close split pane" onClick={() => { setPanes((current) => current.filter((item) => item.id !== 'secondary')); setFocusedPaneId('primary') }} className="grid h-11 w-11 shrink-0 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] xl:h-6 xl:w-6"><span className="material-symbols-outlined text-[14px]">close_fullscreen</span></button>}
                 </div>
-                <div className="h-[calc(100%-2rem)] min-h-0 min-w-0 overflow-hidden p-1.5">
+                <div className="min-h-0 min-w-0 flex-1 overflow-hidden p-1.5">
                   {activeTab?.kind === 'panel' ? <GeneratedWorkspacePanel panel={activeTab.panel} /> : (
                     <UnifiedChat
                       {...chatProps}
@@ -298,7 +306,7 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
               </div>
             )
           })}
-          {panes.length > 1 && <button type="button" aria-label="Resize workspace panes" style={{ order: 1 }} onPointerDown={startResize} onPointerMove={continueResize} onPointerUp={finishResize} onPointerCancel={finishResize} className={`z-10 shrink-0 touch-none rounded-full bg-transparent hover:bg-primary/20 focus-visible:bg-primary/20 ${direction === 'row' ? '-mx-0.5 w-2 cursor-col-resize' : '-my-0.5 h-2 cursor-row-resize'}`} />}
+          {panes.length > 1 && <button type="button" aria-label="Resize workspace panes" style={{ order: 1 }} onPointerDown={startResize} onPointerMove={continueResize} onPointerUp={finishResize} onPointerCancel={finishResize} className={`z-10 hidden shrink-0 touch-none rounded-full bg-transparent hover:bg-primary/20 focus-visible:bg-primary/20 xl:block ${direction === 'row' ? '-mx-0.5 cursor-col-resize xl:w-2 xl:min-w-0' : '-my-0.5 cursor-row-resize xl:h-2 xl:min-h-0'}`} />}
         </div>
       </section>
     </div>

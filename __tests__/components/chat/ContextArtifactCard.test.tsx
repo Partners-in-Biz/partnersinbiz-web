@@ -14,6 +14,7 @@ it('activates the Dock on click and reveals provenance progressively', () => {
   expect(screen.getByText(/veo-3/)).toBeInTheDocument()
   expect(screen.getByText(/google/)).toBeInTheDocument()
   expect(screen.getByRole('button', { name: /Hide provenance/i })).toHaveClass('focus-visible:ring-2')
+  expect(screen.getByRole('button', { name: /Hide provenance/i })).toHaveClass('min-h-11', 'xl:min-h-0')
 })
 
 it('renders media preview, lifecycle metadata, review state, and executes actions through the handler', () => {
@@ -26,7 +27,7 @@ it('renders media preview, lifecycle metadata, review state, and executes action
   expect(screen.getByText(/vera/)).toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: 'Review' }))
   expect(onAction).toHaveBeenCalledWith(actionable.actions[0])
-  expect(screen.getByRole('button', { name: 'Review' })).toHaveClass('focus-visible:ring-2')
+  expect(screen.getByRole('button', { name: 'Review' })).toHaveClass('focus-visible:ring-2', 'min-h-11', 'xl:min-h-0')
 })
 
 it('rejects executable and data preview URLs', () => {

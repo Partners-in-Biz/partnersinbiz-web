@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChatArtifactSummary, ChatContextAction } from '@/lib/chat-context/types'
 import { ContextDock } from './ContextDock'
-import { ContextStrip } from './ContextStrip'
+import { ContextStrip, EmptyContextStrip } from './ContextStrip'
 import type { ReturnTypeOfUseChatContexts } from './internalTypes'
 import type { RuntimeExecution } from '@/components/messages/hermes/RuntimeInspectorRail'
 import type { ChatContextReadModel, ChatContextReference } from '@/lib/chat-context/types'
@@ -14,16 +14,18 @@ const executionOnlyModel: ChatContextReadModel = {
   pulse: { label: 'Execution', metrics: [] }, groups: [], artifacts: [], attention: [], activity: [], capabilities: [], asOf: '',
 }
 
-export function ChatContextExperience({ context, compact = false, artifactRequest, execution, executionRequest, onActionResolved, onRemoveContext, onAddContext, onOpenChange, onPresentationChange }: { context: ReturnTypeOfUseChatContexts; compact?: boolean; artifactRequest?: { id: string; nonce: number }; execution?: RuntimeExecution; executionRequest?: number; onActionResolved?: () => void; onRemoveContext?: (value: ChatContextReference) => void; onAddContext?: () => void; onOpenChange?: (open: boolean) => void; onPresentationChange?: (state: { open: boolean; mode: 'single' | 'dual' }) => void }) {
+export function ChatContextExperience({ context, compact = false, artifactRequest, execution, executionRequest, onActionResolved, onRemoveContext, onAddContext, contextPickerExpanded, contextPickerControls, onOpenChange, onPresentationChange }: { context: ReturnTypeOfUseChatContexts; compact?: boolean; artifactRequest?: { id: string; nonce: number }; execution?: RuntimeExecution; executionRequest?: number; onActionResolved?: () => void; onRemoveContext?: (value: ChatContextReference) => void; onAddContext?: () => void; contextPickerExpanded?: boolean; contextPickerControls?: string; onOpenChange?: (open: boolean) => void; onPresentationChange?: (state: { open: boolean; mode: 'single' | 'dual'; width: number }) => void }) {
   const [open, setOpen] = useState(false)
   const [canvasMode, setCanvasMode] = useState<'single' | 'dual'>('single')
   const [canvasWidth, setCanvasWidth] = useState(520)
-  const [canvasStateLoaded, setCanvasStateLoaded] = useState(false)
+  const [loadedCanvasStorageKey, setLoadedCanvasStorageKey] = useState('')
   const [secondaryContext, setSecondaryContext] = useState<ChatContextOption>()
   const [activeArtifactId, setActiveArtifactId] = useState<string>()
   const [actionError, setActionError] = useState<string | null>(null)
   const [pendingActionId, setPendingActionId] = useState<string>()
+  const [secondaryRefreshRevision, setSecondaryRefreshRevision] = useState(0)
   const pendingRef = useRef<string | undefined>(undefined)
+  const [pendingStoredSecondary, setPendingStoredSecondary] = useState<{ storageKey: string; reference: ChatContextReference; hydrationRevision: string } | null>(null)
   const secondaryOptions = useMemo<ChatContextOption[]>(() => {
     const options = new Map<string, ChatContextOption>()
     for (const option of context.contexts) {
@@ -36,12 +38,35 @@ export function ChatContextExperience({ context, compact = false, artifactReques
   }, [context.activeContext?.id, context.activeContext?.kind, context.contexts, context.model?.relationships])
   const secondaryOptionsRef = useRef(secondaryOptions)
   secondaryOptionsRef.current = secondaryOptions
+  const secondaryHydrationRevision = useMemo(() => {
+    if (!context.model
+      || context.model.context.kind !== context.activeContext?.kind
+      || context.model.context.id !== context.activeContext?.id) return 'loading'
+    const relationships = (context.model.relationships ?? [])
+      .map((relationship) => `${relationship.kind}:${relationship.id}`)
+      .sort()
+      .join('|')
+    return `${context.model.asOf}:${relationships}`
+  }, [context.activeContext?.id, context.activeContext?.kind, context.model])
+  const secondaryHydrationRevisionRef = useRef(secondaryHydrationRevision)
+  secondaryHydrationRevisionRef.current = secondaryHydrationRevision
   const canvasStorageKey = context.conversationId && context.orgId ? `pib.messages.contextCanvas.v1:${context.orgId}:${context.conversationId}` : ''
+  const actionOperationIdentity = `${canvasStorageKey}:${context.activeContext?.kind ?? ''}:${context.activeContext?.id ?? ''}:${secondaryContext?.kind ?? ''}:${secondaryContext?.id ?? ''}`
+  const actionOperationIdentityRef = useRef(actionOperationIdentity)
+  actionOperationIdentityRef.current = actionOperationIdentity
   useEffect(() => { onOpenChange?.(open) }, [onOpenChange, open])
-  useEffect(() => { onPresentationChange?.({ open, mode: canvasMode }) }, [canvasMode, onPresentationChange, open])
+  useEffect(() => { onPresentationChange?.({ open, mode: canvasMode, width: canvasWidth }) }, [canvasMode, canvasWidth, onPresentationChange, open])
   useEffect(() => {
-    setCanvasStateLoaded(false)
-    if (!canvasStorageKey) return
+    pendingRef.current = undefined
+    setPendingActionId(undefined)
+    setActionError(null)
+  }, [actionOperationIdentity])
+  useEffect(() => {
+    if (!canvasStorageKey) {
+      setLoadedCanvasStorageKey('')
+      setPendingStoredSecondary(null)
+      return
+    }
     try {
       const stored = JSON.parse(window.localStorage.getItem(canvasStorageKey) ?? 'null') as { open?: unknown; mode?: unknown; width?: unknown; secondary?: ChatContextReference } | null
       setOpen(stored?.open === true)
@@ -49,22 +74,43 @@ export function ChatContextExperience({ context, compact = false, artifactReques
       const storedWidth = Number(stored?.width)
       setCanvasWidth(Number.isFinite(storedWidth) ? Math.min(640, Math.max(420, storedWidth)) : 520)
       const candidate = stored?.secondary && secondaryOptionsRef.current.find((option) => option.kind === stored.secondary?.kind && option.id === stored.secondary.id)
-      setSecondaryContext(candidate ?? secondaryOptionsRef.current[0])
+      if (stored?.secondary && !candidate) {
+        setPendingStoredSecondary({ storageKey: canvasStorageKey, reference: stored.secondary, hydrationRevision: secondaryHydrationRevisionRef.current })
+        setSecondaryContext(secondaryOptionsRef.current[0])
+      } else {
+        setPendingStoredSecondary(null)
+        setSecondaryContext(candidate ?? secondaryOptionsRef.current[0])
+      }
     } catch {
+      setPendingStoredSecondary(null)
       setCanvasMode('single')
       setCanvasWidth(520)
       setSecondaryContext(secondaryOptionsRef.current[0])
     }
-    setCanvasStateLoaded(true)
+    setLoadedCanvasStorageKey(canvasStorageKey)
   }, [canvasStorageKey])
   useEffect(() => {
+    if (!canvasStorageKey || loadedCanvasStorageKey !== canvasStorageKey) return
+    if (pendingStoredSecondary?.storageKey === canvasStorageKey) {
+      const restored = secondaryOptions.find((option) => option.kind === pendingStoredSecondary.reference.kind && option.id === pendingStoredSecondary.reference.id)
+      if (restored) {
+        setPendingStoredSecondary(null)
+        setSecondaryContext(restored)
+        return
+      }
+      if (pendingStoredSecondary.hydrationRevision === secondaryHydrationRevision) return
+      setPendingStoredSecondary(null)
+    }
     if (secondaryContext && secondaryOptions.some((option) => option.kind === secondaryContext.kind && option.id === secondaryContext.id)) return
     setSecondaryContext(secondaryOptions[0])
-  }, [secondaryContext, secondaryOptions])
+  }, [canvasStorageKey, loadedCanvasStorageKey, pendingStoredSecondary, secondaryContext, secondaryHydrationRevision, secondaryOptions])
   useEffect(() => {
-    if (!canvasStorageKey || !canvasStateLoaded) return
-    try { window.localStorage.setItem(canvasStorageKey, JSON.stringify({ open, mode: canvasMode, width: canvasWidth, secondary: secondaryContext ? { kind: secondaryContext.kind, id: secondaryContext.id } : undefined })) } catch (storageError) { void storageError /* Storage policy must not break Messages. */ }
-  }, [canvasMode, canvasStateLoaded, canvasStorageKey, canvasWidth, open, secondaryContext])
+    if (!canvasStorageKey || loadedCanvasStorageKey !== canvasStorageKey) return
+    const storedSecondary = pendingStoredSecondary?.storageKey === canvasStorageKey
+      ? pendingStoredSecondary.reference
+      : secondaryContext ? { kind: secondaryContext.kind, id: secondaryContext.id } : undefined
+    try { window.localStorage.setItem(canvasStorageKey, JSON.stringify({ open, mode: canvasMode, width: canvasWidth, secondary: storedSecondary })) } catch (storageError) { void storageError /* Storage policy must not break Messages. */ }
+  }, [canvasMode, canvasStorageKey, canvasWidth, loadedCanvasStorageKey, open, pendingStoredSecondary, secondaryContext])
   useEffect(() => {
     if (!artifactRequest) return
     setActiveArtifactId(artifactRequest.id)
@@ -73,15 +119,18 @@ export function ChatContextExperience({ context, compact = false, artifactReques
   useEffect(() => { if (executionRequest) setOpen(true) }, [executionRequest])
   const hasExecution = Boolean(execution?.activeMessage?.runId)
   if ((!context.model || !context.activeContext) && !hasExecution) return <>
-    {context.activeContext && context.contexts.length > 0 && <ContextStrip options={context.contexts} value={context.activeContext} onChange={context.setActiveContext} onRemove={onRemoveContext} onAdd={onAddContext} onOpen={() => { void context.refresh() }} />}
-    {context.error && <div role="alert" className="border-b border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">Unable to load context. <button type="button" aria-label="Retry context" onClick={() => { void context.refresh() }} className="underline">Retry</button></div>}
+    {context.activeContext && context.contexts.length > 0
+      ? <ContextStrip options={context.contexts} value={context.activeContext} onChange={context.setActiveContext} onRemove={onRemoveContext} onAdd={onAddContext} pickerExpanded={contextPickerExpanded} pickerControls={contextPickerControls} onOpen={() => { void context.refresh() }} />
+      : onAddContext ? <EmptyContextStrip onAdd={onAddContext} pickerExpanded={contextPickerExpanded} pickerControls={contextPickerControls} /> : null}
+    {context.error && <div role="alert" className="border-b border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">Unable to load context. <button type="button" aria-label="Retry context" onClick={() => { void context.refresh() }} className="min-h-11 px-2 underline xl:min-h-0">Retry</button></div>}
   </>
   const model = context.model ?? executionOnlyModel
   const activateArtifact = (artifact: ChatArtifactSummary) => { setActiveArtifactId(artifact.id); setOpen(true) }
-  const executeAction = async (action: ChatContextAction) => {
+  const executeAction = async (action: ChatContextAction, actionContext?: ChatContextOption) => {
     if (!action.href || !action.method) return
     if (pendingRef.current) return
     if ((action.destructive || action.requiresApproval) && !window.confirm(`${action.label} requires confirmation. Continue?`)) return
+    const initiatingOperationIdentity = actionOperationIdentity
     pendingRef.current = action.id; setPendingActionId(action.id)
     setActionError(null)
     try {
@@ -91,16 +140,25 @@ export function ChatContextExperience({ context, compact = false, artifactReques
         const safeError = typeof body?.error === 'string' ? body.error.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 180) : ''
         throw new Error(safeError || `Context action failed (${response.status}). Try again.`)
       }
+      if (actionOperationIdentityRef.current !== initiatingOperationIdentity) return
+      if (actionContext) setSecondaryRefreshRevision((revision) => revision + 1)
       await context.refresh()
+      if (actionOperationIdentityRef.current !== initiatingOperationIdentity) return
       onActionResolved?.()
     } catch (cause) {
-      setActionError(cause instanceof Error ? cause.message : 'Context action failed. Try again.')
+      if (actionOperationIdentityRef.current === initiatingOperationIdentity) setActionError(cause instanceof Error ? cause.message : 'Context action failed. Try again.')
     } finally {
-      pendingRef.current = undefined; setPendingActionId(undefined)
+      if (actionOperationIdentityRef.current === initiatingOperationIdentity && pendingRef.current === action.id) {
+        pendingRef.current = undefined
+        setPendingActionId(undefined)
+      }
     }
   }
   return <>
-    {context.model && context.activeContext ? <ContextStrip options={context.contexts} value={context.activeContext} model={context.model} onChange={context.setActiveContext} onRemove={onRemoveContext} onAdd={onAddContext} onOpen={() => setOpen(true)} /> : <button type="button" data-testid="execution-context-trigger" onClick={() => setOpen(true)} className="mx-3 mt-2 inline-flex h-8 items-center gap-2 self-start rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-xs text-[var(--color-pib-text)]"><span aria-hidden="true" className="material-symbols-outlined text-[15px]">developer_board</span>Execution <span className="text-[var(--color-pib-text-muted)]">{execution?.activeMessage?.status}</span></button>}
-    <ContextDock model={model} open={open} compact={compact} activeArtifactId={activeArtifactId} onArtifactActivate={activateArtifact} onAction={(action) => { void executeAction(action) }} actionError={actionError} pendingActionId={pendingActionId} execution={execution} mode={canvasMode} onModeChange={setCanvasMode} canvasWidth={canvasWidth} onCanvasWidthChange={setCanvasWidth} secondaryContext={secondaryContext} secondaryOptions={secondaryOptions} onSecondaryChange={setSecondaryContext} onClose={() => setOpen(false)} />
+    {context.model && context.activeContext
+      ? <ContextStrip options={context.contexts} value={context.activeContext} model={context.model} onChange={context.setActiveContext} onRemove={onRemoveContext} onAdd={onAddContext} pickerExpanded={contextPickerExpanded} pickerControls={contextPickerControls} onOpen={() => setOpen(true)} />
+      : onAddContext ? <EmptyContextStrip onAdd={onAddContext} pickerExpanded={contextPickerExpanded} pickerControls={contextPickerControls} /> : null}
+    {!context.model && !context.activeContext && <button type="button" data-testid="execution-context-trigger" onClick={() => setOpen(true)} className="mx-3 mt-2 inline-flex h-11 items-center gap-2 self-start rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-xs text-[var(--color-pib-text)] outline-none focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-8"><span aria-hidden="true" className="material-symbols-outlined text-[15px]">developer_board</span>Execution <span className="text-[var(--color-pib-text-muted)]">{execution?.activeMessage?.status}</span></button>}
+    <ContextDock model={model} open={open} compact={compact} activeArtifactId={activeArtifactId} onArtifactActivate={activateArtifact} onAction={(action, actionContext) => { void executeAction(action, actionContext) }} actionError={actionError} pendingActionId={pendingActionId} execution={execution} mode={canvasMode} onModeChange={setCanvasMode} canvasWidth={canvasWidth} onCanvasWidthChange={setCanvasWidth} secondaryContext={secondaryContext} secondaryOptions={secondaryOptions} onSecondaryChange={(next) => { setPendingStoredSecondary(null); setSecondaryContext(next) }} secondaryRefreshRevision={secondaryRefreshRevision} onClose={() => setOpen(false)} />
   </>
 }

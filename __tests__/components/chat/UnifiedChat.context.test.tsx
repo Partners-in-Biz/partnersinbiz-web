@@ -985,6 +985,11 @@ describe('UnifiedChat project pulse integration', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Open context dock/i }))
     expect(screen.getByRole('dialog', { name: 'Launch Project context' })).toBeInTheDocument()
+    const composer = screen.getByTestId('chat-input-drop-zone')
+    expect(conversationLog).toHaveClass('lg:mr-[42%]', 'xl:mr-[var(--context-canvas-width)]')
+    expect(composer).toHaveClass('lg:mr-[42%]', 'xl:mr-[var(--context-canvas-width)]')
+    expect(conversationLog.style.getPropertyValue('--context-canvas-width')).toBe('520px')
+    expect(composer.style.getPropertyValue('--context-canvas-width')).toBe('520px')
     jest.spyOn(window, 'confirm').mockReturnValue(true)
     fireEvent.click(screen.getAllByRole('button', { name: 'Approve next step' })[0])
 
@@ -1037,6 +1042,96 @@ describe('UnifiedChat project pulse integration', () => {
     expect(fetchMock.mock.calls.filter(([url]) => String(url) === '/api/v1/chat-context/project/project-1')).toHaveLength(7)
     expect(fetchMock.mock.calls.filter(([url]) => String(url) === '/api/v1/projects/project-1/chat-progress')).toHaveLength(2)
     jest.useRealTimers()
+  })
+})
+
+describe('UnifiedChat responsive Sessions focus mode', () => {
+  const originalMatchMedia = window.matchMedia
+
+  afterEach(() => {
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalMatchMedia })
+  })
+
+  const installViewport = (width: number) => {
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: jest.fn((query: string) => ({
+        matches: query.includes('max-width: 1279px')
+          ? width <= 1279
+          : query.includes('max-width: 1023px')
+            ? width <= 1023
+            : query.includes('min-width: 1280px')
+              ? width >= 1280
+              : false,
+        media: query,
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+      })),
+    })
+  }
+
+  const installConversationFetch = () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents') || url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [], projects: [] } })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [baseConversation] } })
+      if (url === '/api/v1/conversations/conv-1/messages') return jsonResponse({ data: { messages: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+  }
+
+  it('uses a focus-trapped Sessions slide-over at the 1194px landscape breakpoint and returns focus', async () => {
+    installViewport(1194)
+    installConversationFetch()
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" initialConvId="conv-1" layoutVariant="hermes" />)
+
+    const trigger = await screen.findByRole('button', { name: 'Open Sessions' })
+    expect(trigger).toHaveClass('h-11', 'w-11', 'xl:hidden')
+    const composer = await screen.findByPlaceholderText('Message Pip')
+    fireEvent.change(composer, { target: { value: 'Keep this draft' } })
+    fireEvent.click(trigger)
+
+    const drawer = screen.getByRole('dialog', { name: 'Session browser' })
+    expect(drawer).toHaveAttribute('data-presentation', 'drawer')
+    expect(composer).toBeInTheDocument()
+    expect(composer).toHaveValue('Keep this draft')
+    const sessionMenu = screen.getByRole('button', { name: 'Conversation options for Launch chat' })
+    expect(sessionMenu).toHaveClass('flex', 'h-11', 'w-11', 'xl:hidden', 'xl:group-hover/conv:flex')
+    expect(screen.getByRole('button', { name: 'Close sessions' })).toHaveFocus()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    await waitFor(() => expect(trigger).toHaveFocus())
+  })
+
+  it('returns focus to the Sessions trigger after backdrop dismissal and row selection', async () => {
+    installViewport(1194)
+    installConversationFetch()
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" initialConvId="conv-1" layoutVariant="hermes" />)
+
+    const trigger = await screen.findByRole('button', { name: 'Open Sessions' })
+    fireEvent.click(trigger)
+    fireEvent.click(screen.getByTestId('conversation-row-conv-1'))
+    await waitFor(() => expect(trigger).toHaveFocus())
+
+    fireEvent.click(trigger)
+    expect(screen.getByRole('dialog', { name: 'Session browser' })).toHaveClass(
+      'pl-[max(.75rem,env(safe-area-inset-left))]',
+      'pr-[max(.75rem,env(safe-area-inset-right))]',
+    )
+    fireEvent.click(screen.getByTestId('sessions-backdrop'))
+    await waitFor(() => expect(trigger).toHaveFocus())
+  })
+
+  it('expands a collapsed desktop rail and focuses its filter from Search sessions', async () => {
+    installViewport(1440)
+    installConversationFetch()
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" initialConvId="conv-1" layoutVariant="hermes" conversationRailMode="collapsed" onConversationRailModeChange={jest.fn()} />)
+
+    const search = await screen.findByRole('button', { name: 'Search sessions' })
+    expect(search).toHaveClass('h-11', 'w-11', 'xl:h-10', 'xl:w-10')
+    fireEvent.click(search)
+    await waitFor(() => expect(screen.getByRole('searchbox', { name: 'Filter conversations' })).toHaveFocus())
   })
 })
 
@@ -1651,6 +1746,7 @@ describe('UnifiedChat message scrolling', () => {
 
     render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" layoutVariant="hermes" initialConvId="conv-1" />)
     await screen.findByText('Working')
+    expect(screen.getByRole('button', { name: 'Add conversation context' })).toBeInTheDocument()
     expect(screen.queryByTestId('runtime-inspector-rail')).not.toBeInTheDocument()
     fireEvent.click(screen.getByTestId('hermes-runtime-inspector-toggle'))
     expect(screen.getByRole('dialog', { name: 'Conversation context' })).toBeInTheDocument()
@@ -1660,7 +1756,6 @@ describe('UnifiedChat message scrolling', () => {
   })
 
   it('opens execution in the same modal sheet used by compact Briefings chat', async () => {
-    const originalMatchMedia = window.matchMedia
     const matchMedia = jest.fn(() => ({ matches: true, addEventListener: jest.fn(), removeEventListener: jest.fn() }))
     Object.defineProperty(window, 'matchMedia', { configurable: true, value: matchMedia })
     const defaultFetch = global.fetch as jest.Mock
@@ -1680,15 +1775,24 @@ describe('UnifiedChat message scrolling', () => {
     expect(sheet).toHaveAttribute('aria-modal', 'true')
     expect(screen.getByRole('region', { name: 'Execution' })).toBeInTheDocument()
     expect(matchMedia).toHaveBeenCalledWith('(max-width: 1023px)')
-    Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalMatchMedia })
   })
 })
 
 describe('UnifiedChat context references', () => {
+  const originalContextReferencesMatchMedia = window.matchMedia
   let mockFetch: jest.Mock
   let conversation: typeof baseConversation
 
   beforeEach(() => {
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: jest.fn((query: string) => ({
+        matches: query.includes('min-width: 1280px'),
+        media: query,
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+      })),
+    })
     conversation = { ...baseConversation, contextRefs: [] }
     mockFetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
@@ -1753,6 +1857,454 @@ describe('UnifiedChat context references', () => {
       throw new Error(`Unhandled fetch: ${url}`)
     })
     global.fetch = mockFetch
+  })
+
+  afterEach(() => {
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalContextReferencesMatchMedia })
+  })
+
+  it('keeps an accessible Add context strip available before the first reference is pinned', async () => {
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+      />,
+    )
+
+    const input = await screen.findByPlaceholderText('Send a message')
+    const addContext = screen.getByRole('button', { name: 'Add conversation context' })
+
+    expect(addContext).toHaveClass('h-11', 'min-w-11', 'focus-visible:ring-2')
+    expect(addContext.closest('[role="toolbar"]')).toHaveAttribute('aria-label', 'Pinned conversation context')
+    expect(addContext).toHaveAttribute('aria-haspopup', 'listbox')
+    expect(addContext).toHaveAttribute('aria-expanded', 'false')
+
+    fireEvent.click(addContext)
+
+    expect(input).toHaveValue('@')
+    await waitFor(() => expect(input).toHaveFocus())
+    expect(addContext).toHaveAttribute('aria-expanded', 'true')
+    const referenceTypeMenu = screen.getByRole('listbox', { name: 'Reference types' })
+    expect(addContext).toHaveAttribute('aria-controls', referenceTypeMenu.id)
+    expect(await screen.findByRole('option', { name: 'Use @projects:' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Use @docs:' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('option', { name: 'Use @projects:' }))
+    await act(async () => {
+      fireEvent.change(input, { target: { value: '@projects:launch' } })
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    fireEvent.click(await screen.findByText('Launch Project'))
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Open Launch Project context' })).toBeInTheDocument())
+    expect(mockFetch).toHaveBeenCalledWith('/api/v1/conversations/conv-1/context', expect.objectContaining({ method: 'PATCH' }))
+    expect(screen.getByRole('button', { name: 'Add conversation context' })).toBeInTheDocument()
+  })
+
+  it('reuses an open context picker without changing the draft or appending another mention', async () => {
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+      />,
+    )
+
+    const input = await screen.findByPlaceholderText('Send a message')
+    const addContext = screen.getByRole('button', { name: 'Add conversation context' })
+    fireEvent.change(input, { target: { value: 'Keep this draft' } })
+
+    fireEvent.click(addContext)
+    expect(input).toHaveValue('Keep this draft @')
+    expect(await screen.findByRole('option', { name: 'Use @projects:' })).toBeInTheDocument()
+
+    fireEvent.click(addContext)
+    expect(input).toHaveValue('Keep this draft @')
+    await waitFor(() => expect(input).toHaveFocus())
+
+    fireEvent.click(screen.getByRole('option', { name: 'Use @projects:' }))
+    fireEvent.change(input, { target: { value: 'Keep this draft @projects:lau' } })
+    fireEvent.click(addContext)
+
+    expect(input).toHaveValue('Keep this draft @projects:lau')
+    await waitFor(() => expect(input).toHaveFocus())
+
+    fireEvent.click(await screen.findByText('Launch Project'))
+    await waitFor(() => expect(input).toHaveValue('Keep this draft'))
+  })
+
+  it('dismisses an Add context picker on Escape without reopening and restores the exact draft', async () => {
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+      />,
+    )
+
+    const input = await screen.findByPlaceholderText('Send a message')
+    const draft = 'First line  \n\n  Keep every byte '
+    fireEvent.change(input, { target: { value: draft } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add conversation context' }))
+    expect(input).toHaveValue(`${draft}@`)
+    expect(await screen.findByRole('listbox', { name: 'Reference types' })).toBeInTheDocument()
+
+    expect(fireEvent.keyDown(input, { key: 'Escape' })).toBe(false)
+    fireEvent.keyUp(input, { key: 'Escape' })
+
+    expect(input).toHaveValue(draft)
+    expect(screen.queryByRole('listbox', { name: 'Reference types' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add conversation context' })).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('dismisses a manually typed context prompt without deleting it and reopens after another edit', async () => {
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+      />,
+    )
+
+    const input = await screen.findByPlaceholderText('Send a message')
+    fireEvent.change(input, { target: { value: 'Draft @pro' } })
+    expect(await screen.findByRole('listbox', { name: 'Reference types' })).toBeInTheDocument()
+
+    expect(fireEvent.keyDown(input, { key: 'Escape' })).toBe(false)
+    fireEvent.keyUp(input, { key: 'Escape' })
+
+    expect(input).toHaveValue('Draft @pro')
+    expect(screen.queryByRole('listbox', { name: 'Reference types' })).not.toBeInTheDocument()
+
+    fireEvent.change(input, { target: { value: 'Draft @proj' } })
+    expect(await screen.findByRole('option', { name: 'Use @projects:' })).toBeInTheDocument()
+  })
+
+  it('preserves the exact latest composer value after edits before a delayed context PATCH resolves', async () => {
+    let resolvePatch: ((value: Response) => void) | undefined
+    const patchResponse = new Promise<Response>((resolve) => { resolvePatch = resolve })
+    const defaultFetch = mockFetch
+    mockFetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input) === '/api/v1/conversations/conv-1/context' && init?.method === 'PATCH') {
+        return patchResponse
+      }
+      return defaultFetch(input, init)
+    })
+    global.fetch = mockFetch
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+      />,
+    )
+
+    const input = await screen.findByPlaceholderText('Send a message')
+    const originalDraft = 'First line  \n\n  Keep every byte'
+    fireEvent.change(input, { target: { value: originalDraft } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add conversation context' }))
+    fireEvent.click(await screen.findByRole('option', { name: 'Use @projects:' }))
+    fireEvent.change(input, { target: { value: `${originalDraft} @projects:launch` } })
+    fireEvent.click(await screen.findByRole('option', { name: 'Launch Project' }))
+
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/conversations/conv-1/context',
+      expect.objectContaining({ method: 'PATCH' }),
+    ))
+
+    const latestDraft = 'Inserted before\nFirst line  \n\n  Keep every byte @projects:launch\nInserted after'
+    fireEvent.change(input, { target: { value: latestDraft } })
+    await act(async () => {
+      resolvePatch?.(jsonResponse({ data: { contextRefs: [projectRef] } }))
+      await patchResponse
+    })
+
+    await waitFor(() => expect(input).toHaveValue(latestDraft))
+  })
+
+  it('never deletes a newer identical manual token after a delayed context PATCH', async () => {
+    let resolvePatch: ((value: Response) => void) | undefined
+    const patchResponse = new Promise<Response>((resolve) => { resolvePatch = resolve })
+    const defaultFetch = mockFetch
+    mockFetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input) === '/api/v1/conversations/conv-1/context' && init?.method === 'PATCH') return patchResponse
+      return defaultFetch(input, init)
+    })
+    global.fetch = mockFetch
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" />)
+
+    const input = await screen.findByPlaceholderText('Send a message')
+    fireEvent.change(input, { target: { value: 'Review @projects:launch' } })
+    fireEvent.click(await screen.findByRole('option', { name: 'Launch Project' }))
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/conversations/conv-1/context',
+      expect.objectContaining({ method: 'PATCH' }),
+    ))
+
+    const latestDraft = '@projects:launch Review complete'
+    fireEvent.change(input, { target: { value: latestDraft } })
+    await act(async () => {
+      resolvePatch?.(jsonResponse({ data: { contextRefs: [projectRef] } }))
+      await patchResponse
+    })
+
+    await waitFor(() => expect(input).toHaveValue(latestDraft))
+  })
+
+  it('does not remove a selected mention when the user edits then restores identical bytes before PATCH resolves', async () => {
+    let resolvePatch: ((value: Response) => void) | undefined
+    const patchResponse = new Promise<Response>((resolve) => { resolvePatch = resolve })
+    const defaultFetch = mockFetch
+    mockFetch = jest.fn(async (request: RequestInfo | URL, init?: RequestInit) => {
+      if (String(request) === '/api/v1/conversations/conv-1/context' && init?.method === 'PATCH') return patchResponse
+      return defaultFetch(request, init)
+    })
+    global.fetch = mockFetch
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" />)
+
+    const input = await screen.findByPlaceholderText('Send a message')
+    const selectedDraft = 'Review @projects:launch'
+    fireEvent.change(input, { target: { value: selectedDraft } })
+    fireEvent.click(await screen.findByRole('option', { name: 'Launch Project' }))
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/conversations/conv-1/context',
+      expect.objectContaining({ method: 'PATCH' }),
+    ))
+
+    fireEvent.change(input, { target: { value: `${selectedDraft} edited` } })
+    fireEvent.change(input, { target: { value: selectedDraft } })
+    await act(async () => {
+      resolvePatch?.(jsonResponse({ data: { contextRefs: [projectRef] } }))
+      await patchResponse
+    })
+
+    await waitFor(() => expect(input).toHaveValue(selectedDraft))
+  })
+
+  it('does not let a delayed context PATCH from another conversation disturb the active composer', async () => {
+    let resolvePatch: ((value: Response) => void) | undefined
+    const patchResponse = new Promise<Response>((resolve) => { resolvePatch = resolve })
+    const conversationA = { ...baseConversation, title: 'Conversation A', contextRefs: [] }
+    const conversationB = { ...baseConversation, id: 'conv-2', title: 'Conversation B', contextRefs: [] }
+    const defaultFetch = mockFetch
+    mockFetch = jest.fn(async (request: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(request)
+      if (url.startsWith('/api/v1/conversations?')) {
+        return jsonResponse({ data: { conversations: [conversationA, conversationB] } })
+      }
+      if (url === '/api/v1/conversations/conv-2/messages') {
+        return jsonResponse({ data: { messages: [] } })
+      }
+      if (url === '/api/v1/conversations/conv-1/context' && init?.method === 'PATCH') {
+        return patchResponse
+      }
+      return defaultFetch(request, init)
+    })
+    global.fetch = mockFetch
+    const onConversationsChange = jest.fn()
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        onConversationsChange={onConversationsChange}
+      />,
+    )
+
+    const input = await screen.findByPlaceholderText('Send a message')
+    fireEvent.change(input, { target: { value: 'Attach @projects:launch' } })
+    fireEvent.click(await screen.findByRole('option', { name: 'Launch Project' }))
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/conversations/conv-1/context',
+      expect.objectContaining({ method: 'PATCH' }),
+    ))
+
+    fireEvent.click(screen.getByTestId('conversation-row-conv-2'))
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith('/api/v1/conversations/conv-2/messages'))
+    const conversationBDraft = 'Keep B draft @projects:launch'
+    fireEvent.change(input, { target: { value: conversationBDraft } })
+    const result = await screen.findByRole('option', { name: 'Launch Project' })
+    input.focus()
+    expect(input).toHaveFocus()
+
+    await act(async () => {
+      resolvePatch?.(jsonResponse({ data: { contextRefs: [projectRef] } }))
+      await patchResponse
+    })
+
+    expect(input).toHaveValue(conversationBDraft)
+    expect(input).toHaveFocus()
+    expect(screen.getByRole('listbox', { name: 'Context references' })).toContainElement(result)
+    expect(screen.getByRole('button', { name: 'Add conversation context' })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.queryByRole('button', { name: 'Remove Launch Project context' })).not.toBeInTheDocument()
+    await waitFor(() => expect(onConversationsChange).toHaveBeenLastCalledWith([
+      expect.objectContaining({ id: 'conv-1', contextRefs: [expect.objectContaining(projectRef)] }),
+      expect.objectContaining({ id: 'conv-2', contextRefs: [] }),
+    ]))
+  })
+
+  it('does not show a delayed context removal failure in a different conversation', async () => {
+    let rejectPatch: ((reason?: unknown) => void) | undefined
+    const patchResponse = new Promise<Response>((_resolve, reject) => { rejectPatch = reject })
+    const conversationA = { ...baseConversation, title: 'Conversation A', contextRefs: [projectRef] }
+    const conversationB = { ...baseConversation, id: 'conv-2', title: 'Conversation B', contextRefs: [] }
+    const defaultFetch = mockFetch
+    mockFetch = jest.fn(async (request: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(request)
+      if (url.startsWith('/api/v1/conversations?')) {
+        return jsonResponse({ data: { conversations: [conversationA, conversationB] } })
+      }
+      if (url === '/api/v1/conversations/conv-2/messages') {
+        return jsonResponse({ data: { messages: [] } })
+      }
+      if (url === '/api/v1/conversations/conv-1/context' && init?.method === 'PATCH') {
+        return patchResponse
+      }
+      return defaultFetch(request, init)
+    })
+    global.fetch = mockFetch
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" />)
+
+    const removeButton = await within(screen.getByTestId('chat-context-toolbar')).findByRole('button', {
+      name: 'Remove Launch Project context',
+    })
+    await waitFor(() => expect(removeButton).toBeEnabled())
+    fireEvent.click(removeButton)
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/conversations/conv-1/context',
+      expect.objectContaining({ method: 'PATCH' }),
+    ))
+
+    fireEvent.click(screen.getByTestId('conversation-row-conv-2'))
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith('/api/v1/conversations/conv-2/messages'))
+
+    await act(async () => {
+      rejectPatch?.(new Error('Remove failed in conversation A'))
+      await patchResponse.catch(() => undefined)
+    })
+
+    expect(screen.queryByText('Remove failed in conversation A')).not.toBeInTheDocument()
+    expect(screen.getAllByText('Conversation B')).not.toHaveLength(0)
+  })
+
+  it('does not show a delayed current-page pin failure in a different conversation', async () => {
+    let rejectPatch: ((reason?: unknown) => void) | undefined
+    const patchResponse = new Promise<Response>((_resolve, reject) => { rejectPatch = reject })
+    const conversationA = { ...baseConversation, title: 'Conversation A', contextRefs: [] }
+    const conversationB = { ...baseConversation, id: 'conv-2', title: 'Conversation B', contextRefs: [] }
+    const defaultFetch = mockFetch
+    mockFetch = jest.fn(async (request: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(request)
+      if (url.startsWith('/api/v1/conversations?')) {
+        return jsonResponse({ data: { conversations: [conversationA, conversationB] } })
+      }
+      if (url === '/api/v1/conversations/conv-2/messages') {
+        return jsonResponse({ data: { messages: [] } })
+      }
+      if (url === '/api/v1/conversations/conv-1/context' && init?.method === 'PATCH') {
+        return patchResponse
+      }
+      return defaultFetch(request, init)
+    })
+    global.fetch = mockFetch
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        currentPageContext={contactRef}
+      />,
+    )
+
+    const currentPageButton = await within(screen.getByTestId('chat-context-toolbar')).findByRole('button', {
+      name: /Use current page/,
+    })
+    await waitFor(() => expect(currentPageButton).toBeEnabled())
+    fireEvent.click(currentPageButton)
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/conversations/conv-1/context',
+      expect.objectContaining({ method: 'PATCH' }),
+    ))
+
+    fireEvent.click(screen.getByTestId('conversation-row-conv-2'))
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith('/api/v1/conversations/conv-2/messages'))
+
+    await act(async () => {
+      rejectPatch?.(new Error('Current-page pin failed in conversation A'))
+      await patchResponse.catch(() => undefined)
+    })
+
+    expect(screen.queryByText('Current-page pin failed in conversation A')).not.toBeInTheDocument()
+    expect(screen.getAllByText('Conversation B')).not.toHaveLength(0)
+  })
+
+  it('owns type autocomplete from the textarea and selects with keyboard navigation', async () => {
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" />)
+
+    const input = await screen.findByPlaceholderText('Send a message')
+    input.focus()
+    fireEvent.change(input, { target: { value: '@' } })
+    const listbox = await screen.findByRole('listbox', { name: 'Reference types' })
+
+    expect(input).toHaveFocus()
+    expect(input).toHaveAttribute('role', 'combobox')
+    expect(input).toHaveAttribute('aria-expanded', 'true')
+    expect(input).toHaveAttribute('aria-controls', listbox.id)
+    expect(input).toHaveAttribute('aria-activedescendant', screen.getByRole('option', { name: 'Use @projects:' }).id)
+
+    fireEvent.keyDown(input, { key: 'ArrowDown' })
+    expect(input).toHaveAttribute('aria-activedescendant', screen.getByRole('option', { name: 'Use @tasks:' }).id)
+    fireEvent.keyDown(input, { key: 'End' })
+    expect(input).toHaveAttribute('aria-activedescendant', screen.getByRole('option', { name: 'Use @events:' }).id)
+    fireEvent.keyDown(input, { key: 'Home' })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(input).toHaveValue('@projects:')
+    expect(input).toHaveFocus()
+  })
+
+  it('navigates and selects context search results while textarea focus stays put', async () => {
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" />)
+
+    const input = await screen.findByPlaceholderText('Send a message')
+    input.focus()
+    fireEvent.change(input, { target: { value: '@projects:launch' } })
+    const listbox = await screen.findByRole('listbox', { name: 'Context references' })
+    const launch = await screen.findByRole('option', { name: 'Launch Project' })
+
+    expect(input).toHaveFocus()
+    expect(input).toHaveAttribute('aria-controls', listbox.id)
+    expect(input).toHaveAttribute('aria-activedescendant', launch.id)
+    fireEvent.keyDown(input, { key: 'ArrowDown' })
+    fireEvent.keyDown(input, { key: 'ArrowUp' })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Open Launch Project context' })).toBeInTheDocument())
+    expect(input).toHaveFocus()
+  })
+
+  it('does not add a separator when the draft already ends in whitespace', async () => {
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+      />,
+    )
+
+    const input = await screen.findByPlaceholderText('Send a message')
+    fireEvent.change(input, { target: { value: 'Keep this line\n' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add conversation context' }))
+
+    expect(input).toHaveValue('Keep this line\n@')
   })
 
   it('pins the detected current page from the drawer action', async () => {
@@ -1885,14 +2437,14 @@ describe('UnifiedChat context references', () => {
     const input = await screen.findByPlaceholderText('Send a message')
     fireEvent.change(input, { target: { value: '@' } })
 
-    expect(await screen.findByRole('button', { name: 'Use @projects:' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Use @contacts:' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Use @tasks:' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Use @businesses:' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Use @products:' })).toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: 'Use @projects:' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Use @contacts:' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Use @tasks:' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Use @businesses:' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Use @products:' })).toBeInTheDocument()
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Use @products:' }))
+      fireEvent.click(screen.getByRole('option', { name: 'Use @products:' }))
       await Promise.resolve()
       await Promise.resolve()
       await Promise.resolve()

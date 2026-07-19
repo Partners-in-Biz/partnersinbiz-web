@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ContextDock } from '@/components/chat/context/ContextDock'
 import type { RuntimeExecution } from '@/components/messages/hermes/RuntimeInspectorRail'
 
@@ -18,6 +18,12 @@ const activeExecution: RuntimeExecution = {
   selectedRuntime: null,
   catalog: null,
 }
+
+const originalMatchMedia = window.matchMedia
+
+afterEach(() => {
+  Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalMatchMedia })
+})
 
 it('is an accessible adaptive dock, omits empty sections, closes on Escape, and restores focus', () => {
   const close = jest.fn()
@@ -41,6 +47,13 @@ it('routes attention actions through the shared action handler instead of naviga
   fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
   expect(onAction).toHaveBeenCalledWith(action)
   expect(screen.queryByRole('link', { name: 'Retry' })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Retry' })).toHaveClass('min-h-11', 'xl:min-h-0')
+})
+
+it('keeps workspace links touch-sized until the xl desktop breakpoint', () => {
+  render(<ContextDock model={{ ...model, context: { ...model.context, href: '/portal/studios/s1' } }} open compact onClose={jest.fn()} />)
+  expect(screen.getByRole('link', { name: /Open full workspace/i })).toHaveClass('min-h-11', 'xl:min-h-9')
+  expect(screen.getByRole('link', { name: /Open full workspace/i })).not.toHaveClass('sm:h-9', 'md:h-9', 'lg:h-9')
 })
 
 it('uses a genuinely modal bottom sheet in compact chat and marks the active artifact accessibly', () => {
@@ -58,9 +71,68 @@ it('uses a modal sheet in normal Messages on a mobile viewport and traps focus',
   const dialog = screen.getByRole('dialog', { name: 'Marketing Studio context' })
   expect(dialog).toHaveAttribute('data-presentation', 'sheet')
   expect(dialog).toHaveAttribute('aria-modal', 'true')
+  expect(dialog).toHaveClass('fixed', 'inset-0')
+  expect(dialog).toHaveClass('pl-[env(safe-area-inset-left)]', 'pr-[env(safe-area-inset-right)]')
+  expect(dialog).not.toHaveClass('sm:top-[8%]', 'sm:bottom-3')
+  expect(screen.getByTestId('context-dock-header')).toHaveClass('pt-[max(.5rem,env(safe-area-inset-top))]')
+  expect(screen.getByTestId('context-dock-scroll-body')).toHaveClass('pb-[max(.75rem,env(safe-area-inset-bottom))]')
+  expect(screen.getByRole('button', { name: 'Close context dock' })).toHaveTextContent('Back to chat')
   const close = screen.getByRole('button', { name: 'Close context dock' })
   fireEvent.keyDown(document, { key: 'Tab' })
   expect(close).toHaveFocus()
+})
+
+it('switches between primary and secondary context as one tablet landscape surface', async () => {
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    value: jest.fn(() => ({ matches: false, addEventListener: jest.fn(), removeEventListener: jest.fn() })),
+  })
+  const secondaryContext = { kind: 'document' as const, id: 'd1', label: 'Launch brief', summary: 'Ready for review' }
+  const secondaryModel = {
+    ...model,
+    context: { kind: 'document' as const, id: 'd1', orgId: 'o1', label: 'Launch brief', icon: 'description' },
+    pulse: { label: 'Launch brief', headline: 'Ready for review', metrics: [] },
+    groups: [{ id: 'details', label: 'Document details', items: [{ id: 'status', label: 'Ready for review' }] }],
+  }
+  global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ data: secondaryModel }) })) as jest.Mock
+
+  render(<ContextDock model={model} open mode="dual" onClose={jest.fn()} secondaryContext={secondaryContext} secondaryOptions={[secondaryContext]} />)
+
+  const dialog = screen.getByRole('dialog', { name: 'Marketing Studio context' })
+  expect(dialog).toHaveAttribute('data-presentation', 'canvas')
+  expect(screen.queryByRole('button', { name: 'Use dual context canvas' })).not.toBeInTheDocument()
+  const primary = screen.getByRole('tab', { name: 'Marketing Studio' })
+  const secondary = screen.getByRole('tab', { name: 'Launch brief' })
+  expect(primary).toHaveAttribute('aria-selected', 'true')
+  expect(secondary).toHaveAttribute('aria-selected', 'false')
+  expect(primary).toHaveClass('min-h-11')
+
+  primary.focus()
+  fireEvent.keyDown(primary, { key: 'ArrowRight' })
+
+  await waitFor(() => expect(screen.getByRole('dialog', { name: 'Launch brief context' })).toBeInTheDocument())
+  expect(secondary).toHaveAttribute('aria-selected', 'true')
+  expect(secondary).toHaveFocus()
+  expect(await screen.findByText('Document details')).toBeInTheDocument()
+  expect(screen.queryByText('Related context')).not.toBeInTheDocument()
+  expect(global.fetch).toHaveBeenCalledWith('/api/v1/chat-context/document/d1', expect.objectContaining({ signal: expect.any(AbortSignal) }))
+
+  fireEvent.click(primary)
+  expect(screen.getByRole('dialog', { name: 'Marketing Studio context' })).toBeInTheDocument()
+  expect(primary).toHaveAttribute('aria-selected', 'true')
+})
+
+it('keeps keyboard canvas resizing within the 420 to 640 pixel desktop bounds', () => {
+  Object.defineProperty(window, 'matchMedia', { configurable: true, value: jest.fn((query: string) => ({ matches: query.includes('min-width: 1280px'), addEventListener: jest.fn(), removeEventListener: jest.fn() })) })
+  const onCanvasWidthChange = jest.fn()
+  const { rerender } = render(<ContextDock model={model} open canvasWidth={640} onCanvasWidthChange={onCanvasWidthChange} onClose={jest.fn()} />)
+
+  fireEvent.keyDown(screen.getByRole('separator', { name: 'Resize context canvas' }), { key: 'ArrowLeft' })
+  expect(onCanvasWidthChange).toHaveBeenLastCalledWith(640)
+
+  rerender(<ContextDock model={model} open canvasWidth={420} onCanvasWidthChange={onCanvasWidthChange} onClose={jest.fn()} />)
+  fireEvent.keyDown(screen.getByRole('separator', { name: 'Resize context canvas' }), { key: 'ArrowRight' })
+  expect(onCanvasWidthChange).toHaveBeenLastCalledWith(420)
 })
 
 it('shows active execution inside the same context dock with events and stop permission', () => {

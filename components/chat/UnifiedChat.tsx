@@ -1,6 +1,6 @@
 'use client'
 
-import { DragEvent, FormEvent, KeyboardEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { DragEvent, FormEvent, KeyboardEvent, useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { ChatEvent, ChatUiAction, RichMessagePart } from '@/lib/hermes/types'
 import { AGENT_IDS, type AgentSkillPolicyState } from '@/lib/agents/types'
 import { AGENT_EFFORT_OPTIONS, type AgentEffort } from '@/lib/agents/runRouting'
@@ -10,6 +10,7 @@ import {
   findActiveContextMention,
   findActiveContextTypePrompt,
   removeMentionToken,
+  removeMentionTokenFromLatest,
   replaceTypePromptToken,
   type ActiveContextMention,
   type ActiveContextTypePrompt,
@@ -100,7 +101,7 @@ export interface UnifiedChatProps {
   /** Backward-compatible presentation control for the Hermes session catalogue. */
   conversationRailMode?: 'expanded' | 'collapsed'
   onConversationRailModeChange?: (mode: 'expanded' | 'collapsed') => void
-  onContextCanvasPresentationChange?: (state: { open: boolean; mode: 'single' | 'dual' }) => void
+  onContextCanvasPresentationChange?: (state: { open: boolean; mode: 'single' | 'dual'; width: number }) => void
 }
 
 const POLL_INTERVAL = 1500
@@ -788,6 +789,8 @@ export default function UnifiedChat({
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [uncontrolledActiveId, setUncontrolledActiveId] = useState<string | null>(null)
   const activeId = activeConversationId === undefined ? uncontrolledActiveId : activeConversationId
+  const activeConversationIdRef = useRef(activeId)
+  activeConversationIdRef.current = activeId
   const setActiveId = useCallback((value: string | null) => {
     if (activeConversationId === undefined) setUncontrolledActiveId(value)
     onActiveConversationChange?.(value)
@@ -795,7 +798,15 @@ export default function UnifiedChat({
   const [messages, setMessages] = useState<ConversationMessage[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
-  const [contextCanvasOpen, setContextCanvasOpen] = useState(false)
+  const [contextCanvasPresentation, setContextCanvasPresentation] = useState<{ open: boolean; mode: 'single' | 'dual'; width: number }>({ open: false, mode: 'single', width: 520 })
+  const contextCanvasOpen = contextCanvasPresentation.open
+  const contextCanvasReservedStyle = {
+    '--context-canvas-width': `${contextCanvasPresentation.width}px`,
+  } as CSSProperties
+  const handleContextCanvasPresentationChange = useCallback((state: { open: boolean; mode: 'single' | 'dual'; width: number }) => {
+    setContextCanvasPresentation(state)
+    onContextCanvasPresentationChange?.(state)
+  }, [onContextCanvasPresentationChange])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [contextRefs, setContextRefs] = useState<ContextReference[]>([])
@@ -805,6 +816,7 @@ export default function UnifiedChat({
   const [selectedSlashCommand, setSelectedSlashCommand] = useState<SlashCommandDefinition | null>(null)
   const [contextSearchResults, setContextSearchResults] = useState<ContextReference[]>([])
   const [contextSearchLoading, setContextSearchLoading] = useState(false)
+  const [contextPickerActiveIndex, setContextPickerActiveIndex] = useState(0)
   const [agentEffort, setAgentEffort] = useState<AgentEffort | ''>('')
   const [modelCatalog, setModelCatalog] = useState<MessageModelCatalog | null>(null)
   const [modelCatalogLoading, setModelCatalogLoading] = useState(false)
@@ -909,10 +921,12 @@ export default function UnifiedChat({
   const [draggingAttachments, setDraggingAttachments] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const attachmentInputId = useId()
+  const contextPickerPanelId = useId()
 
   // Mobile pane navigation: which pane is visible on small screens
   const [mobilePane, setMobilePane] = useState<'list' | 'conversation'>(initialConvId ? 'conversation' : 'list')
-  const [mobileViewport, setMobileViewport] = useState(false)
+  const [sessionsOverlayViewport, setSessionsOverlayViewport] = useState(false)
+  const [tabletSessionsDrawer, setTabletSessionsDrawer] = useState(false)
 
   // Mobile header "…" menu
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false)
@@ -931,15 +945,32 @@ export default function UnifiedChat({
   const eventSourcesRef = useRef<Record<string, EventSource>>({})
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
   const composerRef = useRef<HTMLTextAreaElement | null>(null)
+  // User edit generation guards delayed context attachment cleanup. Comparing
+  // text alone is insufficient because a user can edit and then restore the
+  // exact same bytes while the PATCH is in flight.
+  const composerEditRevisionRef = useRef(0)
+  // undefined means a manually typed mention; null means Add context reused existing whitespace.
+  const contextPickerInsertedSeparatorRef = useRef<number | null | undefined>(undefined)
+  const suppressContextPickerKeyUpRef = useRef(false)
   const mobileSessionsRef = useRef<HTMLElement | null>(null)
   const mobileSessionsCloseRef = useRef<HTMLButtonElement | null>(null)
   const mobileSessionsTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const conversationFilterRef = useRef<HTMLInputElement | null>(null)
   useEffect(() => {
     if (typeof window.matchMedia !== 'function') return
-    const media = window.matchMedia('(max-width: 1023px)')
-    const update = () => setMobileViewport(media.matches)
-    update(); media.addEventListener?.('change', update)
-    return () => media.removeEventListener?.('change', update)
+    const overlayMedia = window.matchMedia('(max-width: 1279px)')
+    const tabletMedia = window.matchMedia('(min-width: 1024px) and (max-width: 1279px)')
+    const update = () => {
+      setSessionsOverlayViewport(overlayMedia.matches)
+      setTabletSessionsDrawer(tabletMedia.matches)
+    }
+    update()
+    overlayMedia.addEventListener?.('change', update)
+    tabletMedia.addEventListener?.('change', update)
+    return () => {
+      overlayMedia.removeEventListener?.('change', update)
+      tabletMedia.removeEventListener?.('change', update)
+    }
   }, [])
   const historyDraftRef = useRef('')
   // Tracks which assistant message IDs we've already started polling for (prevents duplicates)
@@ -1329,6 +1360,21 @@ export default function UnifiedChat({
     () => (contextTypePrompt ? filterContextReferenceMentionOptions(contextTypePrompt.query) : []),
     [contextTypePrompt],
   )
+  const contextPickerOpen = Boolean(contextTypePrompt || contextMention)
+  const contextPickerOptionCount = contextTypePrompt
+    ? contextTypeOptions.length
+    : contextMention && !contextSearchLoading
+      ? contextSearchResults.length
+      : 0
+  const contextPickerActiveOptionId = contextPickerOpen && contextPickerOptionCount > 0
+    ? `${contextPickerPanelId}-option-${Math.min(contextPickerActiveIndex, contextPickerOptionCount - 1)}`
+    : undefined
+  useEffect(() => {
+    setContextPickerActiveIndex(0)
+  }, [contextMention?.token, contextTypePrompt?.token])
+  useEffect(() => {
+    setContextPickerActiveIndex((current) => Math.max(0, Math.min(current, contextPickerOptionCount - 1)))
+  }, [contextPickerOptionCount])
   const slashCommandOptions = useMemo(
     () => (slashPrompt ? filterSlashCommands(slashPrompt.query) : []),
     [slashPrompt],
@@ -2486,6 +2532,12 @@ export default function UnifiedChat({
   const updateMentionFromComposer = useCallback((value: string, caret = value.length) => {
     const mention = findActiveContextMention(value, caret)
     const typePrompt = mention ? null : findActiveContextTypePrompt(value, caret)
+    const activeContextPicker = mention ?? typePrompt
+    const insertedSeparator = contextPickerInsertedSeparatorRef.current
+    if (!activeContextPicker) contextPickerInsertedSeparatorRef.current = undefined
+    else if (typeof insertedSeparator === 'number' && (
+      insertedSeparator !== activeContextPicker.start - 1 || value[insertedSeparator] !== ' '
+    )) contextPickerInsertedSeparatorRef.current = undefined
     const commandPrompt = mention || typePrompt ? null : findActiveSlashCommandPrompt(value, caret)
     setContextMention(mention)
     setContextTypePrompt(typePrompt)
@@ -2503,6 +2555,23 @@ export default function UnifiedChat({
       composerRef.current?.setSelectionRange(value.length, value.length)
     })
   }, [])
+
+  const openContextPicker = useCallback(() => {
+    const activePicker = contextMention ?? contextTypePrompt
+    if (activePicker) {
+      requestAnimationFrame(() => {
+        composerRef.current?.focus()
+        composerRef.current?.setSelectionRange(activePicker.end, activePicker.end)
+      })
+      return
+    }
+    const needsSeparator = Boolean(input && !/\s$/.test(input))
+    contextPickerInsertedSeparatorRef.current = needsSeparator ? input.length : null
+    const next = `${input}${needsSeparator ? ' ' : ''}@`
+    setInput(next)
+    updateMentionFromComposer(next, next.length)
+    focusComposerToEnd(next)
+  }, [contextMention, contextTypePrompt, focusComposerToEnd, input, updateMentionFromComposer])
 
   const rememberComposerPrompt = useCallback((conversationId: string, rawPrompt: string) => {
     const trimmed = rawPrompt.trim()
@@ -2650,7 +2719,8 @@ export default function UnifiedChat({
       return next
     }
 
-    const res = await fetch(`/api/v1/conversations/${activeId}/context`, {
+    const initiatingConversationId = activeId
+    const res = await fetch(`/api/v1/conversations/${initiatingConversationId}/context`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action, refs: localRefs }),
@@ -2658,10 +2728,10 @@ export default function UnifiedChat({
     const body = await res.json().catch(() => null)
     if (!res.ok) throw new Error(body?.error ?? `context update failed: ${res.status}`)
     const next = ((body?.data?.contextRefs ?? []) as ContextReference[]).map(coerceContextRef)
-    setContextRefs(next)
+    if (activeConversationIdRef.current === initiatingConversationId) setContextRefs(next)
     setConversations((prev) =>
       prev.map((conversation) =>
-        conversation.id === activeId ? { ...conversation, contextRefs: next } : conversation,
+        conversation.id === initiatingConversationId ? { ...conversation, contextRefs: next } : conversation,
       ),
     )
     return next
@@ -2677,26 +2747,46 @@ export default function UnifiedChat({
   }, [coerceContextRef, contextRefs, currentPageContext, patchContextRefs])
 
   const removeContextRef = useCallback((ref: ContextReference) => {
+    const initiatingConversationId = activeId
     patchContextRefs('remove', [ref]).catch((err) => {
+      if (activeConversationIdRef.current !== initiatingConversationId) return
       setError(err instanceof Error ? err.message : 'Failed to remove context')
     })
-  }, [patchContextRefs])
+  }, [activeId, patchContextRefs])
 
   const selectMentionContext = useCallback((ref: ContextReference) => {
+    const conversationIdAtSelection = activeId
+    const mentionAtSelection = contextMention
+    const inputAtSelection = input
+    const editRevisionAtSelection = composerEditRevisionRef.current
+    const insertedSeparatorAtSelection = contextPickerInsertedSeparatorRef.current
     patchContextRefs('add', [ref])
       .then(() => {
-        if (contextMention) {
-          setInput((prev) => removeMentionToken(prev, contextMention))
+        if (activeConversationIdRef.current !== conversationIdAtSelection) return
+        if (mentionAtSelection && composerEditRevisionRef.current === editRevisionAtSelection) {
+          setInput((latestInput) => {
+            if (composerEditRevisionRef.current !== editRevisionAtSelection || latestInput !== inputAtSelection) {
+              return latestInput
+            }
+            return removeMentionTokenFromLatest(
+              latestInput,
+              inputAtSelection,
+              mentionAtSelection,
+              insertedSeparatorAtSelection,
+            )
+          })
         }
+        contextPickerInsertedSeparatorRef.current = undefined
         setContextMention(null)
         setContextTypePrompt(null)
         setContextSearchResults([])
         requestAnimationFrame(() => composerRef.current?.focus())
       })
       .catch((err) => {
+        if (activeConversationIdRef.current !== conversationIdAtSelection) return
         setError(err instanceof Error ? err.message : 'Failed to attach context')
       })
-  }, [contextMention, patchContextRefs])
+  }, [activeId, contextMention, input, patchContextRefs])
 
   const selectContextType = useCallback((option: ContextReferenceMentionOption) => {
     if (!contextTypePrompt) return
@@ -2711,6 +2801,36 @@ export default function UnifiedChat({
       composerRef.current?.setSelectionRange(caret, caret)
     })
   }, [contextTypePrompt, input])
+
+  const handleContextPickerKeyDown = useCallback((event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!contextPickerOpen) return false
+
+    if (event.key === 'Escape') return false
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Home' || event.key === 'End') {
+      event.preventDefault()
+      if (contextPickerOptionCount === 0) return true
+      setContextPickerActiveIndex((current) => {
+        if (event.key === 'Home') return 0
+        if (event.key === 'End') return contextPickerOptionCount - 1
+        if (event.key === 'ArrowDown') return (current + 1) % contextPickerOptionCount
+        return (current - 1 + contextPickerOptionCount) % contextPickerOptionCount
+      })
+      return true
+    }
+    if (event.key !== 'Enter' || event.shiftKey) return false
+
+    event.preventDefault()
+    if (contextPickerOptionCount === 0) return true
+    const activeIndex = Math.min(contextPickerActiveIndex, contextPickerOptionCount - 1)
+    if (contextTypePrompt) {
+      const option = contextTypeOptions[activeIndex]
+      if (option) selectContextType(option)
+    } else if (contextMention) {
+      const ref = contextSearchResults[activeIndex]
+      if (ref) selectMentionContext(ref)
+    }
+    return true
+  }, [contextMention, contextPickerActiveIndex, contextPickerOpen, contextPickerOptionCount, contextSearchResults, contextTypeOptions, contextTypePrompt, selectContextType, selectMentionContext])
 
   const selectSlashCommand = useCallback((command: SlashCommandDefinition) => {
     if (!slashPrompt) return
@@ -3342,12 +3462,20 @@ export default function UnifiedChat({
   ]
   const showListOnMobile = mobilePane === 'list'
   const hermesLayout = layoutVariant === 'hermes' && !compact
-  const railCollapsed = hermesLayout && conversationRailMode === 'collapsed'
+  // A saved collapsed preference only applies to the docked >=1280 rail. Overlay
+  // Sessions always renders its complete catalogue without mutating that preference.
+  const railCollapsed = hermesLayout && conversationRailMode === 'collapsed' && !sessionsOverlayViewport
+  const closeSessions = useCallback(() => {
+    setMobilePane('conversation')
+    if (sessionsOverlayViewport) {
+      requestAnimationFrame(() => mobileSessionsTriggerRef.current?.focus())
+    }
+  }, [sessionsOverlayViewport])
   useEffect(() => {
-    if (!showConversationList || !showListOnMobile || !mobileViewport) return
+    if (!showConversationList || !showListOnMobile || !sessionsOverlayViewport) return
     mobileSessionsCloseRef.current?.focus()
     const keydown = (event: globalThis.KeyboardEvent) => {
-      if (event.key === 'Escape' && activeConversation) { event.preventDefault(); setMobilePane('conversation'); requestAnimationFrame(() => mobileSessionsTriggerRef.current?.focus()); return }
+      if (event.key === 'Escape' && activeConversation) { event.preventDefault(); closeSessions(); return }
       if (event.key !== 'Tab' || !mobileSessionsRef.current) return
       const focusable = Array.from(mobileSessionsRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'))
       if (focusable.length === 0) return
@@ -3357,7 +3485,7 @@ export default function UnifiedChat({
     }
     document.addEventListener('keydown', keydown)
     return () => document.removeEventListener('keydown', keydown)
-  }, [activeConversation, mobileViewport, showConversationList, showListOnMobile])
+  }, [activeConversation, closeSessions, sessionsOverlayViewport, showConversationList, showListOnMobile])
   const canStopActiveRun = Boolean(
     allowDeleteConversations &&
     activeRuntimeMessage?.runId &&
@@ -3396,33 +3524,39 @@ export default function UnifiedChat({
           : !showConversationList
             ? 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden'
           : hermesLayout
-            ? `relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-2 ${railCollapsed ? 'lg:grid-cols-[48px_minmax(0,1fr)]' : 'lg:grid-cols-[236px_minmax(0,1fr)]'}`
+            ? `relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden xl:grid xl:gap-2 ${railCollapsed ? 'xl:grid-cols-[48px_minmax(0,1fr)]' : 'xl:grid-cols-[236px_minmax(0,1fr)]'}`
             : 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-4 lg:grid-cols-[280px_minmax(0,1fr)]'
       }
     >
       {/* ── Left: conversation list ─────────────────────────────────────── */}
+      {showConversationList && showListOnMobile && tabletSessionsDrawer && <div data-testid="sessions-backdrop" aria-hidden="true" onClick={closeSessions} className="fixed inset-0 z-40 bg-black/45 xl:hidden" />}
       {showConversationList && <aside
         ref={mobileSessionsRef}
-        role={mobileViewport && showListOnMobile ? 'dialog' : undefined}
-        aria-modal={mobileViewport && showListOnMobile ? 'true' : undefined}
-        aria-label={mobileViewport && showListOnMobile ? 'Session browser' : undefined}
+        role={sessionsOverlayViewport && showListOnMobile ? 'dialog' : undefined}
+        aria-modal={sessionsOverlayViewport && showListOnMobile ? 'true' : undefined}
+        aria-label={sessionsOverlayViewport && showListOnMobile ? 'Session browser' : undefined}
+        data-presentation={sessionsOverlayViewport && showListOnMobile ? tabletSessionsDrawer ? 'drawer' : 'sheet' : 'rail'}
         className={[
           hermesLayout
             ? `min-h-0 min-w-0 flex-col gap-2 overflow-hidden flex-1 rounded-xl border border-[var(--color-card-border)] bg-black/[0.08] ${railCollapsed ? 'p-1' : 'p-2'}`
             : 'pib-card min-h-0 min-w-0 flex-col gap-2 overflow-hidden flex-1 p-3',
-          compact ? '!rounded-none !border-0 !bg-transparent' : 'lg:flex max-lg:!rounded-none max-lg:!border-0 max-lg:!bg-transparent',
-          showListOnMobile ? 'flex max-lg:fixed max-lg:inset-0 max-lg:z-50 max-lg:rounded-none max-lg:bg-[var(--color-surface,#151515)] max-lg:px-[max(.75rem,env(safe-area-inset-left))] max-lg:pb-[max(.75rem,env(safe-area-inset-bottom))] max-lg:pt-[max(.75rem,env(safe-area-inset-top))]' : 'hidden',
+          compact ? '!rounded-none !border-0 !bg-transparent' : 'xl:flex max-xl:!rounded-none max-xl:!border-0 max-xl:!bg-transparent',
+          showListOnMobile
+            ? tabletSessionsDrawer
+              ? 'flex fixed inset-y-0 left-0 z-50 w-[min(380px,42vw)] rounded-none bg-[var(--color-surface,#151515)] pl-[max(.75rem,env(safe-area-inset-left))] pr-[max(.75rem,env(safe-area-inset-right))] pb-[max(.75rem,env(safe-area-inset-bottom))] pt-[max(.75rem,env(safe-area-inset-top))] shadow-2xl xl:static xl:w-auto xl:shadow-none'
+              : 'flex max-xl:fixed max-xl:inset-0 max-xl:z-50 max-xl:rounded-none max-xl:bg-[var(--color-surface,#151515)] max-xl:pl-[max(.75rem,env(safe-area-inset-left))] max-xl:pr-[max(.75rem,env(safe-area-inset-right))] max-xl:pb-[max(.75rem,env(safe-area-inset-bottom))] max-xl:pt-[max(.75rem,env(safe-area-inset-top))]'
+            : 'hidden',
         ].join(' ')}
       >
         {railCollapsed && (
-          <div className="hidden min-h-0 flex-1 flex-col items-center gap-1.5 lg:flex">
-            <button type="button" aria-label="Expand sessions" onClick={() => onConversationRailModeChange?.('expanded')} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)]"><span aria-hidden="true" className="material-symbols-outlined text-[19px]">left_panel_open</span></button>
-            <button type="button" aria-label="New conversation" onClick={() => openNewConversation()} disabled={!allowStartConversations} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-primary/25 bg-primary/10 text-primary hover:bg-primary/15 disabled:opacity-40"><span aria-hidden="true" className="material-symbols-outlined text-[19px]">add_comment</span></button>
-            <button type="button" aria-label="Search sessions" onClick={() => onConversationRailModeChange?.('expanded')} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)]"><span aria-hidden="true" className="material-symbols-outlined text-[19px]">search</span></button>
+          <div className="hidden min-h-0 flex-1 flex-col items-center gap-1.5 xl:flex">
+            <button type="button" aria-label="Expand sessions" onClick={() => onConversationRailModeChange?.('expanded')} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)] xl:h-10 xl:w-10"><span aria-hidden="true" className="material-symbols-outlined text-[19px]">left_panel_open</span></button>
+            <button type="button" aria-label="New conversation" onClick={() => openNewConversation()} disabled={!allowStartConversations} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-primary/25 bg-primary/10 text-primary hover:bg-primary/15 disabled:opacity-40 xl:h-10 xl:w-10"><span aria-hidden="true" className="material-symbols-outlined text-[19px]">add_comment</span></button>
+            <button type="button" aria-label="Search sessions" onClick={() => { onConversationRailModeChange?.('expanded'); requestAnimationFrame(() => conversationFilterRef.current?.focus()) }} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)] xl:h-10 xl:w-10"><span aria-hidden="true" className="material-symbols-outlined text-[19px]">search</span></button>
             <div aria-hidden="true" className="my-0.5 h-px w-7 bg-[var(--color-card-border)]" />
             <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
               {filteredConversations.slice(0, 10).map((conversation) => (
-                <button key={conversation.id} type="button" aria-label={`Open ${conversation.title || 'Untitled session'}`} title={conversation.title || 'Untitled session'} onClick={() => { setActiveId(conversation.id); setMobilePane('conversation') }} className={`relative grid h-10 w-10 place-items-center rounded-lg ${conversation.id === activeId ? 'bg-primary/14 text-primary' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)]'}`}>
+                <button key={conversation.id} type="button" aria-label={`Open ${conversation.title || 'Untitled session'}`} title={conversation.title || 'Untitled session'} onClick={() => { setActiveId(conversation.id); closeSessions() }} className={`relative grid h-11 w-11 place-items-center rounded-lg xl:h-10 xl:w-10 ${conversation.id === activeId ? 'bg-primary/14 text-primary' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)]'}`}>
                   <span aria-hidden="true" className="material-symbols-outlined text-[18px]">chat_bubble</span>
                   {pinnedConversationIdSet.has(conversation.id) ? <span aria-label="Pinned session" className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-amber-300" /> : null}
                 </button>
@@ -3431,13 +3565,13 @@ export default function UnifiedChat({
           </div>
         )}
         <div className={railCollapsed ? 'hidden' : 'contents'}>
-        <div className="mb-1 flex min-h-11 items-center justify-between lg:hidden"><div><p className="text-[10px] font-label uppercase tracking-[0.2em] text-[var(--color-pib-text-muted)]">Messages</p><h2 className="text-base font-semibold text-[var(--color-pib-text)]">Browse sessions</h2></div>{activeConversation && <button ref={mobileSessionsCloseRef} type="button" aria-label="Close sessions" onClick={() => { setMobilePane('conversation'); requestAnimationFrame(() => mobileSessionsTriggerRef.current?.focus()) }} className="grid h-11 w-11 place-items-center rounded-full text-[var(--color-pib-text-muted)] hover:bg-white/[0.07]"><span aria-hidden="true" className="material-symbols-outlined">close</span></button>}</div>
+        <div className="mb-1 flex min-h-11 items-center justify-between xl:hidden"><div><p className="text-[10px] font-label uppercase tracking-[0.2em] text-[var(--color-pib-text-muted)]">Messages</p><h2 className="text-base font-semibold text-[var(--color-pib-text)]">Browse sessions</h2></div>{activeConversation && <button ref={mobileSessionsCloseRef} type="button" aria-label="Close sessions" onClick={closeSessions} className="grid h-11 w-11 place-items-center rounded-full text-[var(--color-pib-text-muted)] hover:bg-white/[0.07]"><span aria-hidden="true" className="material-symbols-outlined">close</span></button>}</div>
         <button
           type="button"
           onClick={() => openNewConversation()}
           disabled={!allowStartConversations}
           className={hermesLayout
-            ? 'flex h-8 items-center justify-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-white/[0.05] px-2 text-xs font-medium text-[var(--color-pib-text)] hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-45'
+            ? 'flex h-11 items-center justify-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-white/[0.05] px-2 text-xs font-medium text-[var(--color-pib-text)] hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-45 xl:h-8'
             : 'rounded-lg bg-primary px-3 py-2 text-sm font-medium text-on-primary hover:opacity-90 flex items-center justify-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-45'}
         >
           <span className={`material-symbols-outlined ${hermesLayout ? 'text-[14px]' : 'text-[16px]'}`} aria-hidden="true">add</span>
@@ -3450,7 +3584,7 @@ export default function UnifiedChat({
             aria-label="Create new project"
             onClick={openNewProject}
             disabled={!allowStartConversations}
-            className="flex h-9 items-center justify-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-3 text-sm font-semibold text-primary hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-45"
+            className="flex h-11 items-center justify-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-3 text-sm font-semibold text-primary hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-45 xl:h-9"
           >
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">create_new_folder</span>
             New project
@@ -3464,13 +3598,14 @@ export default function UnifiedChat({
         <label className="relative block">
           <span className="material-symbols-outlined pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[14px] text-[var(--color-pib-text-muted)]" aria-hidden="true">search</span>
           <input
+            ref={conversationFilterRef}
             type="search"
             aria-label="Filter conversations"
             value={conversationFilter}
             onChange={(event) => setConversationFilter(event.target.value)}
             placeholder="Filter conversations"
             className={hermesLayout
-              ? 'h-8 w-full rounded-md border border-[var(--color-card-border)] bg-black/10 pl-7 pr-2 text-xs text-[var(--color-pib-text)] outline-none placeholder:text-[var(--color-pib-text-muted)]/65 focus:border-primary/50 focus:ring-1 focus:ring-primary/30'
+              ? 'h-11 w-full rounded-md border border-[var(--color-card-border)] bg-black/10 pl-7 pr-2 text-xs text-[var(--color-pib-text)] outline-none placeholder:text-[var(--color-pib-text-muted)]/65 focus:border-primary/50 focus:ring-1 focus:ring-primary/30 xl:h-8'
               : 'h-9 w-full rounded-lg border border-[var(--color-card-border)] bg-transparent pl-8 pr-2 text-sm text-[var(--color-pib-text)] outline-none placeholder:text-[var(--color-pib-text-muted)] focus:border-primary/50 focus:ring-1 focus:ring-primary/30'}
           />
         </label>
@@ -3511,7 +3646,7 @@ export default function UnifiedChat({
                         aria-controls={sessionsRegionId}
                         aria-label={`${sessionsExpanded ? 'Collapse' : 'Expand'} sessions for ${company.name}`}
                         onClick={() => toggleSessionGroup(groupKey)}
-                        className="flex min-w-0 flex-1 items-center gap-1 rounded px-1 py-1 text-left hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-primary/60"
+                        className="flex min-h-11 min-w-0 flex-1 items-center gap-1 rounded px-1 py-1 text-left hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-primary/60 xl:min-h-0"
                       >
                         <span className="material-symbols-outlined shrink-0 text-[16px] text-primary" aria-hidden="true">folder</span>
                         <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--color-pib-text)]">{company.name}</span>
@@ -3526,7 +3661,7 @@ export default function UnifiedChat({
                         title={`Start session in ${company.name}`}
                         disabled={!allowStartConversations}
                         onClick={() => openNewCompanyConversation(company.id, company.name)}
-                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-40"
+                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-40 xl:h-8 xl:w-8"
                       >
                         <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
                       </button>
@@ -3551,7 +3686,7 @@ export default function UnifiedChat({
                                   if (!renameCancelledRef.current) renameConversation(c.id, renameValue)
                                   renameCancelledRef.current = false
                                 }}
-                                className="min-w-0 flex-1 border-b border-primary bg-transparent text-sm text-[var(--color-pib-text)] outline-none"
+                                className="h-11 min-w-0 flex-1 border-b border-primary bg-transparent text-sm text-[var(--color-pib-text)] outline-none xl:h-8"
                               />
                             </div>
                           ) : (
@@ -3560,7 +3695,7 @@ export default function UnifiedChat({
                               active={c.id === activeId}
                               onClick={() => {
                                 setActiveId(c.id)
-                                setMobilePane('conversation')
+                                closeSessions()
                               }}
                               currentUserUid={currentUserUid}
                               density="compact"
@@ -3582,7 +3717,7 @@ export default function UnifiedChat({
                                   setMenuOpenId(c.id)
                                 }
                               }}
-                              className={`absolute right-1 top-1/2 hidden h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-[11px] text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:flex focus-visible:ring-2 focus-visible:ring-primary/60 group-hover/conv:flex ${menuOpenId === c.id ? '!flex' : ''}`}
+                              className={`absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded text-[11px] text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:right-1 xl:hidden xl:h-5 xl:w-5 xl:group-hover/conv:flex xl:focus-visible:flex ${menuOpenId === c.id ? '!flex' : ''}`}
                               aria-label={`Conversation options for ${c.title || 'Untitled'}`}
                             >
                               ⋯
@@ -3621,7 +3756,7 @@ export default function UnifiedChat({
                         aria-controls={sessionsRegionId}
                         aria-label={`${sessionsExpanded ? 'Collapse' : 'Expand'} sessions for ${project.name}`}
                         onClick={() => toggleSessionGroup(groupKey)}
-                        className="flex min-w-0 flex-1 items-center gap-1 rounded px-1 py-1 text-left hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-primary/60"
+                        className="flex min-h-11 min-w-0 flex-1 items-center gap-1 rounded px-1 py-1 text-left hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-primary/60 xl:min-h-0"
                       >
                         <span className="material-symbols-outlined shrink-0 text-[16px] text-primary" aria-hidden="true">folder_managed</span>
                         <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--color-pib-text)]">{project.name}</span>
@@ -3637,7 +3772,7 @@ export default function UnifiedChat({
                         onClick={() => managedProject?.id === project.id
                           ? setManagedProject(null)
                           : openProjectLocationManager({ id: project.id, name: project.name })}
-                        className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 ${managedProject?.id === project.id ? 'bg-white/[0.08] text-primary' : 'text-[var(--color-pib-text-muted)]'}`}
+                        className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-8 xl:w-8 ${managedProject?.id === project.id ? 'bg-white/[0.08] text-primary' : 'text-[var(--color-pib-text-muted)]'}`}
                       >
                         <span className="material-symbols-outlined text-[16px]" aria-hidden="true">devices</span>
                       </button>
@@ -3647,7 +3782,7 @@ export default function UnifiedChat({
                         title={`Start session for ${project.name}`}
                         disabled={!allowStartConversations}
                         onClick={() => openNewConversation(project.id)}
-                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-40"
+                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-40 xl:h-8 xl:w-8"
                       >
                         <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
                       </button>
@@ -3656,7 +3791,7 @@ export default function UnifiedChat({
                         aria-label={`Link client organisation to ${project.name}`}
                         title={`Link client organisation to ${project.name}`}
                         onClick={() => setAccessProject({ id: project.id, name: project.name })}
-                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60"
+                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-8 xl:w-8"
                       >
                         <span className="material-symbols-outlined text-[16px]" aria-hidden="true">group_add</span>
                       </button>
@@ -3665,7 +3800,7 @@ export default function UnifiedChat({
                         aria-label={`Remove ${project.name} from my projects`}
                         title={`Remove ${project.name} from my projects`}
                         onClick={() => void removeProjectFromSidebar(project.id)}
-                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-red-200 focus-visible:ring-2 focus-visible:ring-primary/60"
+                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-red-200 focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-8 xl:w-8"
                       >
                         <span className="material-symbols-outlined text-[16px]" aria-hidden="true">remove</span>
                       </button>
@@ -3708,7 +3843,7 @@ export default function UnifiedChat({
                             type="button"
                             aria-label={`Close location manager for ${project.name}`}
                             onClick={() => setManagedProject(null)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60"
+                            className="inline-flex h-11 w-11 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-8 xl:w-8"
                           >
                             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">close</span>
                           </button>
@@ -3739,7 +3874,7 @@ export default function UnifiedChat({
                                       aria-label={`Unlink ${location.label}`}
                                       disabled={projectLocationsMutating}
                                       onClick={() => void handleUnlinkManagedProjectLocation(location)}
-                                      className="min-h-8 rounded px-2 py-1 text-xs text-red-200 hover:bg-red-500/10 focus-visible:ring-2 focus-visible:ring-red-300/60 disabled:opacity-40"
+                                      className="min-h-11 rounded px-2 py-1 text-xs text-red-200 hover:bg-red-500/10 focus-visible:ring-2 focus-visible:ring-red-300/60 disabled:opacity-40 xl:min-h-8"
                                     >
                                       Unlink
                                     </button>
@@ -3758,7 +3893,7 @@ export default function UnifiedChat({
                                 <p className="text-xs text-[var(--color-pib-text-muted)]">Every available location is already linked.</p>
                               ) : (
                                 managedUnlinkedLocationCandidates.map((candidate) => (
-                                  <label key={candidate.key} className="flex min-w-0 items-center gap-2 rounded border border-white/[0.06] px-2 py-2 text-xs text-[var(--color-pib-text)]">
+                                  <label key={candidate.key} className="flex min-h-11 min-w-0 items-center gap-2 rounded border border-white/[0.06] px-2 py-2 text-xs text-[var(--color-pib-text)] xl:min-h-0">
                                     <input
                                       type="checkbox"
                                       aria-label={`${candidate.label} · ${candidate.selectable ? 'online' : 'Computer unavailable'}`}
@@ -3822,7 +3957,7 @@ export default function UnifiedChat({
                                 type="button"
                                 onClick={() => void requestManagedProjectSync({ id: project.id, name: project.name }, managedProjectLocations)}
                                 disabled={projectLocationsMutating || projectSyncLoading || projectSyncSubmitting || projectSyncResetting || !managedProjectSyncEligible}
-                                className="min-h-9 w-full rounded border border-primary/30 bg-primary/10 px-2 py-2 text-xs font-medium text-primary hover:bg-primary/15 focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-40"
+                                className="min-h-11 w-full rounded border border-primary/30 bg-primary/10 px-2 py-2 text-xs font-medium text-primary hover:bg-primary/15 focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-40 xl:min-h-9"
                               >
                                 {projectSyncSubmitting ? 'Syncing…' : 'Sync now'}
                               </button>
@@ -3832,7 +3967,7 @@ export default function UnifiedChat({
                                   type="button"
                                   onClick={() => void resetManagedProjectSync({ id: project.id, name: project.name })}
                                   disabled={projectLocationsMutating || projectSyncLoading || projectSyncSubmitting || projectSyncResetting}
-                                  className="min-h-9 w-full rounded border border-amber-400/30 bg-amber-500/10 px-2 py-2 text-xs font-medium text-amber-100 hover:bg-amber-500/15 focus-visible:ring-2 focus-visible:ring-amber-300/60 disabled:cursor-not-allowed disabled:opacity-40"
+                                  className="min-h-11 w-full rounded border border-amber-400/30 bg-amber-500/10 px-2 py-2 text-xs font-medium text-amber-100 hover:bg-amber-500/15 focus-visible:ring-2 focus-visible:ring-amber-300/60 disabled:cursor-not-allowed disabled:opacity-40 xl:min-h-9"
                                 >
                                   {projectSyncResetting ? 'Resetting…' : 'Reset sync safely'}
                                 </button>
@@ -3847,7 +3982,7 @@ export default function UnifiedChat({
                               onClick={() => void handleLinkManagedProjectLocations()}
                               disabled={projectLocationsMutating || !managedUnlinkedLocationCandidates.some((candidate) =>
                                 candidate.selectable && selectedManagedProjectLocationKeys.includes(candidate.key))}
-                              className="min-h-9 w-full rounded bg-primary px-2 py-2 text-xs font-medium text-on-primary hover:opacity-90 focus-visible:ring-2 focus-visible:ring-primary/60 disabled:opacity-40"
+                              className="min-h-11 w-full rounded bg-primary px-2 py-2 text-xs font-medium text-on-primary hover:opacity-90 focus-visible:ring-2 focus-visible:ring-primary/60 disabled:opacity-40 xl:min-h-9"
                             >
                               {projectLocationsMutating ? 'Updating…' : 'Link selected locations'}
                             </button>
@@ -3878,7 +4013,7 @@ export default function UnifiedChat({
                                     if (!renameCancelledRef.current) renameConversation(c.id, renameValue)
                                     renameCancelledRef.current = false
                                   }}
-                                  className="min-w-0 flex-1 border-b border-primary bg-transparent text-sm text-[var(--color-pib-text)] outline-none"
+                                  className="h-11 min-w-0 flex-1 border-b border-primary bg-transparent text-sm text-[var(--color-pib-text)] outline-none xl:h-8"
                                 />
                               </div>
                             ) : (
@@ -3887,7 +4022,7 @@ export default function UnifiedChat({
                                 active={c.id === activeId}
                                 onClick={() => {
                                   setActiveId(c.id)
-                                  setMobilePane('conversation')
+                                  closeSessions()
                                 }}
                                 currentUserUid={currentUserUid}
                                 density="compact"
@@ -3909,7 +4044,7 @@ export default function UnifiedChat({
                                     setMenuOpenId(c.id)
                                   }
                                 }}
-                                className={`absolute right-1 top-1/2 hidden h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-[11px] text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:flex focus-visible:ring-2 focus-visible:ring-primary/60 group-hover/conv:flex ${menuOpenId === c.id ? '!flex' : ''}`}
+                                className={`absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded text-[11px] text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:right-1 xl:hidden xl:h-5 xl:w-5 xl:group-hover/conv:flex xl:focus-visible:flex ${menuOpenId === c.id ? '!flex' : ''}`}
                                 aria-label={`Conversation options for ${c.title || 'Untitled'}`}
                               >
                                 ⋯
@@ -3952,7 +4087,7 @@ export default function UnifiedChat({
                               if (!renameCancelledRef.current) renameConversation(c.id, renameValue)
                               renameCancelledRef.current = false
                             }}
-                            className="flex-1 min-w-0 bg-transparent border-b border-primary text-sm text-[var(--color-pib-text)] outline-none"
+                            className="h-11 min-w-0 flex-1 border-b border-primary bg-transparent text-sm text-[var(--color-pib-text)] outline-none xl:h-8"
                           />
                         </div>
                       ) : (
@@ -3961,7 +4096,7 @@ export default function UnifiedChat({
                           active={c.id === activeId}
                           onClick={() => {
                             setActiveId(c.id)
-                            setMobilePane('conversation')
+                            closeSessions()
                           }}
                           currentUserUid={currentUserUid}
                           density="compact"
@@ -3985,7 +4120,7 @@ export default function UnifiedChat({
                               setMenuOpenId(c.id)
                             }
                           }}
-                          className={`absolute right-1 top-1/2 hidden h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-[11px] text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:flex focus-visible:ring-2 focus-visible:ring-primary/60 group-hover/conv:flex ${
+                          className={`absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded text-[11px] text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:right-1 xl:hidden xl:h-5 xl:w-5 xl:group-hover/conv:flex xl:focus-visible:flex ${
                             menuOpenId === c.id ? '!flex' : ''
                           }`}
                           aria-label={`Conversation options for ${c.title || 'Untitled'}`}
@@ -4017,7 +4152,7 @@ export default function UnifiedChat({
                         if (!renameCancelledRef.current) renameConversation(c.id, renameValue)
                         renameCancelledRef.current = false
                       }}
-                      className="flex-1 min-w-0 bg-transparent border-b border-primary text-sm text-[var(--color-pib-text)] outline-none"
+                      className="h-11 min-w-0 flex-1 border-b border-primary bg-transparent text-sm text-[var(--color-pib-text)] outline-none xl:h-8"
                     />
                   </div>
                 ) : (
@@ -4026,7 +4161,7 @@ export default function UnifiedChat({
                     active={c.id === activeId}
                     onClick={() => {
                       setActiveId(c.id)
-                      setMobilePane('conversation')
+                      closeSessions()
                     }}
                     currentUserUid={currentUserUid}
                     density="comfortable"
@@ -4049,7 +4184,7 @@ export default function UnifiedChat({
                         setMenuOpenId(c.id)
                       }
                     }}
-                    className={`absolute right-1 top-1/2 -translate-y-1/2 hidden group-hover/conv:flex items-center justify-center w-6 h-6 rounded text-[var(--color-pib-text-muted)] outline-none hover:text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.08))] focus-visible:flex focus-visible:ring-2 focus-visible:ring-primary/60 ${
+                    className={`absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded text-[var(--color-pib-text-muted)] outline-none hover:bg-[var(--color-card-hover,rgba(255,255,255,0.08))] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:right-1 xl:hidden xl:h-6 xl:w-6 xl:group-hover/conv:flex xl:focus-visible:flex ${
                       menuOpenId === c.id ? '!flex' : ''
                     }`}
                     aria-label="Conversation options"
@@ -4072,7 +4207,7 @@ export default function UnifiedChat({
         >
           <button
             type="button"
-            className="w-full text-left px-3 py-2 text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
+            className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] xl:min-h-0"
             onClick={() => openConversationInNewWindow(menuOpenId)}
           >
             <span className="material-symbols-outlined text-[14px]">open_in_new</span>
@@ -4080,9 +4215,8 @@ export default function UnifiedChat({
           </button>
           {hermesLayout && menuConversation && (
             <button
-              ref={mobileSessionsTriggerRef}
               type="button"
-              className="w-full text-left px-3 py-2 text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
+              className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] xl:min-h-0"
               onClick={() => {
                 togglePinnedConversation(menuConversation.id)
                 setMenuOpenId(null)
@@ -4097,7 +4231,7 @@ export default function UnifiedChat({
           )}
           <button
             type="button"
-            className="w-full text-left px-3 py-2 text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
+            className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] xl:min-h-0"
             onClick={() => {
               const conv = conversations.find((c) => c.id === menuOpenId)
               setMenuOpenId(null)
@@ -4114,7 +4248,7 @@ export default function UnifiedChat({
           {menuConversation?.workspaceContext && (allowManageConversationAccess || (menuConversation.workspaceContext.ownerUserId ?? menuConversation.startedBy) === currentUserUid) && (
             <button
               type="button"
-              className="w-full text-left px-3 py-2 text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
+              className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] xl:min-h-0"
               onClick={() => {
                 setAccessConversation(menuConversation)
                 setMenuOpenId(null)
@@ -4128,7 +4262,7 @@ export default function UnifiedChat({
           {allowArchiveConversations && (
             <button
               type="button"
-              className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
+              className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-xs text-red-400 hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] xl:min-h-0"
               onClick={() => archiveConversation(menuOpenId)}
             >
               <span className="material-symbols-outlined text-[14px]">archive</span>
@@ -4138,7 +4272,7 @@ export default function UnifiedChat({
           {allowDeleteConversations && (
             <button
               type="button"
-              className="w-full text-left px-3 py-2 text-xs text-red-300 hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
+              className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-xs text-red-300 hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] xl:min-h-0"
               onClick={() => deleteConversation(menuOpenId)}
             >
               <span className="material-symbols-outlined text-[14px]">delete</span>
@@ -4154,8 +4288,8 @@ export default function UnifiedChat({
           hermesLayout
             ? 'relative flex-col overflow-hidden min-h-0 min-w-0 flex-1 rounded-xl border border-[var(--color-card-border)] bg-black/[0.06]'
             : 'pib-card relative flex-col overflow-hidden min-h-0 min-w-0 flex-1',
-          compact || !showConversationList ? '!p-0 !rounded-none !border-0 !bg-transparent' : 'lg:flex max-lg:!p-0 max-lg:!rounded-none max-lg:!border-0 max-lg:!bg-transparent',
-          showConversationList && showListOnMobile ? 'hidden' : 'flex',
+          compact || !showConversationList ? '!p-0 !rounded-none !border-0 !bg-transparent' : 'xl:flex max-xl:!p-0 max-xl:!rounded-none max-xl:!border-0 max-xl:!bg-transparent',
+          showConversationList && showListOnMobile && !tabletSessionsDrawer ? 'hidden' : 'flex',
         ].join(' ')}
       >
         {/* Header — mobile style (back / title+subtitle / ⋯) on small,
@@ -4164,12 +4298,13 @@ export default function UnifiedChat({
           <div className="flex items-center gap-2">
             {/* Back arrow — mobile only */}
             <button
+              ref={mobileSessionsTriggerRef}
               type="button"
               onClick={() => setMobilePane('list')}
-              aria-label="Back to conversations"
+              aria-label="Open Sessions"
               className={[
-                '-ml-1 items-center justify-center w-9 h-9 rounded-full hover:bg-white/[0.06] active:bg-white/[0.1] text-[var(--color-pib-text-muted)] transition-colors shrink-0',
-                compact ? 'flex' : 'lg:hidden flex',
+                '-ml-1 h-11 w-11 shrink-0 items-center justify-center rounded-full text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.06] active:bg-white/[0.1]',
+                compact ? 'flex' : 'flex xl:hidden',
               ].join(' ')}
             >
               <span className="material-symbols-outlined text-[22px]">arrow_back_ios_new</span>
@@ -4300,11 +4435,7 @@ export default function UnifiedChat({
           )}
         </div>
 
-        {(hasDockContext || runtimeExecution) && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} execution={runtimeExecution} executionRequest={executionDockRequest} onActionResolved={handleContextActionResolved} onOpenChange={setContextCanvasOpen} onPresentationChange={onContextCanvasPresentationChange} onAddContext={() => {
-          const next = `${input}${input && !input.endsWith(' ') ? ' ' : ''}@`
-          setInput(next)
-          requestAnimationFrame(() => { composerRef.current?.focus(); composerRef.current?.setSelectionRange(next.length, next.length) })
-        }} onRemoveContext={(value) => {
+        {activeConversation && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} execution={runtimeExecution} executionRequest={executionDockRequest} onActionResolved={handleContextActionResolved} onPresentationChange={handleContextCanvasPresentationChange} onAddContext={openContextPicker} contextPickerExpanded={Boolean(contextMention || contextTypePrompt)} contextPickerControls={contextPickerPanelId} onRemoveContext={(value) => {
           const ref = contextRefs.find((item) => item.type === value.kind && item.id === value.id)
           if (ref) removeContextRef(ref)
         }} />}
@@ -4315,7 +4446,8 @@ export default function UnifiedChat({
           role="log"
           aria-label="Conversation messages"
           aria-live="polite"
-          className={`flex-1 min-h-0 min-w-0 space-y-3 overflow-y-auto overflow-x-hidden p-4 transition-[margin] duration-200 ${contextCanvasOpen ? 'lg:mr-[42%] xl:mr-[min(42%,560px)]' : ''}`}
+          style={contextCanvasReservedStyle}
+          className={`flex-1 min-h-0 min-w-0 space-y-3 overflow-y-auto overflow-x-hidden p-4 transition-[margin] duration-200 ${contextCanvasOpen ? 'lg:mr-[42%] xl:mr-[var(--context-canvas-width)]' : ''}`}
         >
           {loading && <div className="text-xs text-[var(--color-pib-text-muted)]">Loading…</div>}
           {!loading && messages.length === 0 && (
@@ -4464,12 +4596,13 @@ export default function UnifiedChat({
           onDragOver={handleAttachmentDragOver}
           onDragLeave={handleAttachmentDragLeave}
           data-testid="chat-input-drop-zone"
+          style={contextCanvasReservedStyle}
           className={[
             hermesLayout
               ? 'shrink-0 min-w-0 flex flex-col gap-1.5 border-t border-[var(--color-card-border)] p-2 transition-[background-color,margin] duration-200'
               : 'shrink-0 min-w-0 flex flex-col gap-2 border-t border-[var(--color-card-border)] p-3 transition-[background-color,margin] duration-200',
             draggingAttachments ? 'bg-primary/10 ring-1 ring-primary/35' : '',
-            contextCanvasOpen ? 'lg:mr-[42%] xl:mr-[min(42%,560px)]' : '',
+            contextCanvasOpen ? 'lg:mr-[42%] xl:mr-[var(--context-canvas-width)]' : '',
           ].join(' ')}
         >
           {showComposerContextToolbar && (
@@ -4488,7 +4621,9 @@ export default function UnifiedChat({
                   <button
                     type="button"
                     onClick={() => {
+                      const initiatingConversationId = activeId
                       pinCurrentPageContext().catch((err) => {
+                        if (activeConversationIdRef.current !== initiatingConversationId) return
                         setError(err instanceof Error ? err.message : 'Failed to attach current page')
                       })
                     }}
@@ -4587,20 +4722,25 @@ export default function UnifiedChat({
           )}
 
           {contextTypePrompt && (
-            <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
-              <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+            <div id={contextPickerPanelId} role="listbox" aria-label="Reference types" className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
+              <div role="presentation" className="px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 Reference types
               </div>
               {contextTypeOptions.length === 0 ? (
                 <div className="px-2 py-2 text-xs text-[var(--color-pib-text-muted)]">No matching reference types</div>
               ) : (
-                contextTypeOptions.map((option) => (
+                contextTypeOptions.map((option, index) => (
                   <button
                     key={option.namespace}
+                    id={`${contextPickerPanelId}-option-${index}`}
                     type="button"
+                    role="option"
+                    aria-selected={index === contextPickerActiveIndex}
+                    tabIndex={-1}
                     aria-label={`Use @${option.namespace}:`}
+                    onMouseDown={(event) => event.preventDefault()}
                     onClick={() => selectContextType(option)}
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-[var(--color-pib-text)] transition-colors hover:bg-white/[0.06]"
+                    className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-[var(--color-pib-text)] transition-colors hover:bg-white/[0.06] ${index === contextPickerActiveIndex ? 'bg-white/[0.06]' : ''}`}
                   >
                     <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">alternate_email</span>
                     <span className="min-w-0 flex-1">
@@ -4614,8 +4754,8 @@ export default function UnifiedChat({
           )}
 
           {contextMention && (
-            <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
-              <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+            <div id={contextPickerPanelId} role="listbox" aria-label="Context references" className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
+              <div role="presentation" className="px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 @{contextMention.namespace}: references
               </div>
               {contextSearchLoading && (
@@ -4624,12 +4764,18 @@ export default function UnifiedChat({
               {!contextSearchLoading && contextSearchResults.length === 0 && (
                 <div className="px-2 py-2 text-xs text-[var(--color-pib-text-muted)]">No matching references</div>
               )}
-              {!contextSearchLoading && contextSearchResults.map((ref) => (
+              {!contextSearchLoading && contextSearchResults.map((ref, index) => (
                 <button
                   key={contextReferenceKey(ref)}
+                  id={`${contextPickerPanelId}-option-${index}`}
                   type="button"
+                  role="option"
+                  aria-selected={index === contextPickerActiveIndex}
+                  tabIndex={-1}
+                  aria-label={contextChipLabel(ref)}
+                  onMouseDown={(event) => event.preventDefault()}
                   onClick={() => selectMentionContext(ref)}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-[var(--color-pib-text)] transition-colors hover:bg-white/[0.06]"
+                  className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-[var(--color-pib-text)] transition-colors hover:bg-white/[0.06] ${index === contextPickerActiveIndex ? 'bg-white/[0.06]' : ''}`}
                 >
                   <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">alternate_email</span>
                   <span className="min-w-0 flex-1">
@@ -4767,17 +4913,40 @@ export default function UnifiedChat({
 
             <textarea
               ref={composerRef}
+              role="combobox"
+              aria-autocomplete="list"
+              aria-haspopup="listbox"
+              aria-expanded={contextPickerOpen}
+              aria-controls={contextPickerOpen ? contextPickerPanelId : undefined}
+              aria-activedescendant={contextPickerActiveOptionId}
               value={input}
               onChange={(e) => {
+                composerEditRevisionRef.current += 1
+                suppressContextPickerKeyUpRef.current = false
                 setInput(e.target.value)
                 setHistoryCursor(null)
                 historyDraftRef.current = ''
                 updateMentionFromComposer(e.target.value, e.target.selectionStart ?? e.target.value.length)
               }}
               onClick={(e) => updateMentionFromComposer(input, e.currentTarget.selectionStart ?? input.length)}
-              onKeyUp={(e) => updateMentionFromComposer(input, e.currentTarget.selectionStart ?? input.length)}
+              onKeyUp={(e) => {
+                if (e.key === 'Escape' && suppressContextPickerKeyUpRef.current) {
+                  suppressContextPickerKeyUpRef.current = false
+                  return
+                }
+                updateMentionFromComposer(input, e.currentTarget.selectionStart ?? input.length)
+              }}
               onKeyDown={(e) => {
+                if (handleContextPickerKeyDown(e)) return
                 if (e.key === 'Escape' && (contextMention || contextTypePrompt || slashPrompt)) {
+                  e.preventDefault()
+                  const contextPicker = contextMention ?? contextTypePrompt
+                  const insertedSeparator = contextPickerInsertedSeparatorRef.current
+                  if (contextPicker && insertedSeparator !== undefined) {
+                    setInput((latestInput) => removeMentionToken(latestInput, contextPicker, insertedSeparator))
+                  }
+                  contextPickerInsertedSeparatorRef.current = undefined
+                  suppressContextPickerKeyUpRef.current = true
                   setContextMention(null)
                   setContextTypePrompt(null)
                   setSlashPrompt(null)

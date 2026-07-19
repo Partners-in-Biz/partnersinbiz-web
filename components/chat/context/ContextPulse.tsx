@@ -12,7 +12,7 @@ export function ContextPulse({ model, contexts, activeContext, onContextChange, 
       <div className="ml-auto flex shrink-0 items-center gap-2 text-[10px] text-[var(--color-pib-text-muted)] sm:text-[11px]">
         {model.pulse.metrics.map((metric) => <span key={metric.id}>{metric.value} {metric.label}</span>)}
       </div>
-      <button type="button" aria-label="Open context dock" onClick={onOpen} className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.07] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60"><span className="material-symbols-outlined text-[16px]" aria-hidden="true">dock_to_right</span></button>
+      <button type="button" aria-label="Open context dock" onClick={onOpen} className="grid h-11 w-11 shrink-0 place-items-center rounded-md text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.07] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-7 xl:w-7"><span className="material-symbols-outlined text-[16px]" aria-hidden="true">dock_to_right</span></button>
     </div>
     {model.pulse.headline && <p className="mt-1 truncate pl-6 text-[10px] text-[var(--color-pib-text-muted)]">{model.pulse.headline}</p>}
   </div>

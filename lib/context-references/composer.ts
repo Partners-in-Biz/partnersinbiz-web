@@ -108,8 +108,32 @@ export function findActiveContextTypePrompt(input: string, caretIndex = input.le
   }
 }
 
-export function removeMentionToken(input: string, mention: Pick<ActiveContextMention, 'start' | 'end'>): string {
-  return `${input.slice(0, mention.start)}${input.slice(mention.end)}`.replace(/\s{2,}/g, ' ').trim()
+export function removeMentionToken(
+  input: string,
+  mention: Pick<ActiveContextMention, 'start' | 'end'>,
+  insertedSeparatorIndex?: number | null,
+): string {
+  const removeFrom = insertedSeparatorIndex === undefined
+    ? (mention.start > 0 && input[mention.start - 1] === ' ' ? mention.start - 1 : mention.start)
+    : insertedSeparatorIndex === mention.start - 1 && input[insertedSeparatorIndex] === ' '
+      ? insertedSeparatorIndex
+      : mention.start
+  return `${input.slice(0, removeFrom)}${input.slice(mention.end)}`
+}
+
+export function removeMentionTokenFromLatest(
+  latestInput: string,
+  inputAtSelection: string,
+  mention: ActiveContextMention,
+  insertedSeparatorIndex?: number | null,
+): string {
+  // A context PATCH may resolve after the user has continued editing. Text is
+  // mutable user data, so only clean up the mention from the exact snapshot
+  // that initiated the request. Trying to rebase by token count or ordinal can
+  // delete a newer, unrelated occurrence of the same token.
+  if (latestInput !== inputAtSelection) return latestInput
+  if (inputAtSelection.slice(mention.start, mention.end) !== mention.token) return latestInput
+  return removeMentionToken(latestInput, mention, insertedSeparatorIndex)
 }
 
 export function replaceTypePromptToken(

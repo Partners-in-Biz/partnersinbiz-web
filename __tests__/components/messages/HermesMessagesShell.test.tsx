@@ -60,6 +60,11 @@ describe('HermesMessagesShell', () => {
     expect(screen.getByTestId('hermes-messages-shell-topbar')).toHaveTextContent('Client portal / Messages')
     expect(screen.getByTestId('hermes-messages-shell-topbar')).toHaveTextContent('Agents enabled')
     expect(screen.getByTestId('hermes-messages-shell-topbar')).toHaveTextContent('Safe /v1 runs')
+    expect(screen.getByRole('button', { name: 'Collapse sessions' })).toHaveClass('h-11', 'w-11', 'xl:h-7', 'xl:w-7')
+    expect(screen.getByRole('button', { name: 'Stack panes vertically' })).toHaveClass('h-11', 'w-11', 'xl:h-7', 'xl:w-7')
+    expect(screen.getByRole('button', { name: 'Open active session in split pane' })).toHaveClass('h-11', 'w-11', 'xl:h-7', 'xl:w-7')
+    expect(screen.getByRole('tab', { name: 'Session' }).parentElement).toHaveClass('min-h-11', 'xl:h-6', 'xl:min-h-0')
+    expect(screen.getByRole('button', { name: 'Close Session' })).toHaveClass('h-11', 'w-11', 'xl:h-4', 'xl:w-4', 'xl:opacity-0')
     expect(screen.getByTestId('mock-unified-chat')).toHaveAttribute('data-org-id', 'org-1')
     expect(screen.getByTestId('mock-unified-chat')).toHaveAttribute('data-layout-variant', 'hermes')
     expect(mockUnifiedChat).toHaveBeenCalledWith(expect.objectContaining({
@@ -117,10 +122,49 @@ describe('HermesMessagesShell', () => {
 
     expect(screen.getByTestId('messages-workspace-pane-primary')).toBeInTheDocument()
     expect(screen.getByTestId('messages-workspace-pane-secondary')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Close split pane' })).toHaveClass('h-11', 'w-11', 'xl:h-6', 'xl:w-6')
+    expect(screen.getByRole('button', { name: 'Resize workspace panes' })).toHaveClass('hidden', 'xl:block', 'xl:min-w-0', 'xl:w-2')
     expect(mockUnifiedChat).toHaveBeenLastCalledWith(expect.objectContaining({
       activeConversationId: 'conv-1',
       showConversationList: false,
     }))
+  })
+
+  it('uses one full-width focused surface below desktop and keeps narrow split switching available', () => {
+    render(
+      <HermesMessagesShell
+        surface="portal"
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        initialConvId="conv-1"
+        capabilities={{ allowStartConversations: true, allowSendMessages: true, allowAgentParticipants: true, allowArchiveConversations: true }}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open active session in split pane' }))
+
+    const primary = screen.getByTestId('messages-workspace-pane-primary')
+    const secondary = screen.getByTestId('messages-workspace-pane-secondary')
+    const resizer = screen.getByRole('button', { name: 'Resize workspace panes' })
+
+    expect(primary).toHaveClass('flex-1', 'basis-full', 'xl:flex-none', 'xl:basis-[var(--workspace-pane-basis)]', 'max-xl:hidden')
+    expect(secondary).toHaveClass('flex-1', 'basis-full', 'xl:flex-none', 'xl:basis-[var(--workspace-pane-basis)]')
+    expect(secondary).not.toHaveClass('max-xl:hidden')
+    // The visible desktop resizer is 8px with -2px margins on each side, so it
+    // contributes a net 4px to the flex line. Each split pane gives back 2px;
+    // together the two bases plus the resizer therefore fit exactly.
+    expect(primary.style.getPropertyValue('--workspace-pane-basis')).toBe('calc(50% - 2px)')
+    expect(secondary.style.getPropertyValue('--workspace-pane-basis')).toBe('calc(50% - 2px)')
+    expect(primary.style.flex).toBe('')
+    expect(secondary.style.flex).toBe('')
+    expect(resizer).toHaveClass('hidden', 'xl:block')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show primary pane' }))
+
+    expect(primary).not.toHaveClass('max-xl:hidden')
+    expect(secondary).toHaveClass('max-xl:hidden')
+    expect(screen.getByRole('button', { name: 'Show secondary pane' })).toBeInTheDocument()
   })
 
   it('persists a focus-mode Sessions rail without hiding the conversation catalogue', () => {
