@@ -269,8 +269,12 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
           {panes.map((pane, paneIndex) => {
             const activeTab = pane.tabs.find((tab) => tab.id === pane.activeTabId) ?? null
             const paneBasis = panes.length === 1 ? 100 : paneIndex === 0 ? splitPercent : 100 - splitPercent
+            // The desktop resizer contributes a net 4px to the flex line
+            // (8px size with -2px margins on both sides). Split that cost
+            // evenly so both pane bases plus the resizer fit the container.
+            const workspacePaneBasis = panes.length === 1 ? `${paneBasis}%` : `calc(${paneBasis}% - 2px)`
             const style = {
-              '--workspace-pane-basis': `${paneBasis}%`,
+              '--workspace-pane-basis': workspacePaneBasis,
               order: paneIndex * 2,
             } as CSSProperties
             const alternatePaneId = pane.id === 'primary' ? 'secondary' : 'primary'

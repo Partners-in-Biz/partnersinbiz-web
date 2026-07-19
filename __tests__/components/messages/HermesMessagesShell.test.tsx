@@ -151,8 +151,11 @@ describe('HermesMessagesShell', () => {
     expect(primary).toHaveClass('flex-1', 'basis-full', 'xl:flex-none', 'xl:basis-[var(--workspace-pane-basis)]', 'max-xl:hidden')
     expect(secondary).toHaveClass('flex-1', 'basis-full', 'xl:flex-none', 'xl:basis-[var(--workspace-pane-basis)]')
     expect(secondary).not.toHaveClass('max-xl:hidden')
-    expect(primary.style.getPropertyValue('--workspace-pane-basis')).toBe('50%')
-    expect(secondary.style.getPropertyValue('--workspace-pane-basis')).toBe('50%')
+    // The visible desktop resizer is 8px with -2px margins on each side, so it
+    // contributes a net 4px to the flex line. Each split pane gives back 2px;
+    // together the two bases plus the resizer therefore fit exactly.
+    expect(primary.style.getPropertyValue('--workspace-pane-basis')).toBe('calc(50% - 2px)')
+    expect(secondary.style.getPropertyValue('--workspace-pane-basis')).toBe('calc(50% - 2px)')
     expect(primary.style.flex).toBe('')
     expect(secondary.style.flex).toBe('')
     expect(resizer).toHaveClass('hidden', 'xl:block')
