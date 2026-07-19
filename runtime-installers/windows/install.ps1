@@ -19,7 +19,7 @@ $ExpectedPublisher = if ($env:PIB_WINDOWS_EXPECTED_PUBLISHER) { $env:PIB_WINDOWS
 
 function Assert-Administrator { if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'Run from an elevated PowerShell.' } }
 function Wait-ServiceStopped { for($i=0;$i -lt 60;$i++){ $state=(& sc.exe query PartnersInBizRuntime | Select-String 'STATE').ToString();if($state -match 'STOPPED'){return};Start-Sleep -Milliseconds 250 };throw 'Runtime service did not reach SERVICE_STOPPED.' }
-function Assert-ExpectedPublisher([string]$Path) { $signature=Get-AuthenticodeSignature -LiteralPath $Path;if($signature.Status -ne 'Valid' -or -not $signature.SignerCertificate){throw "Authenticode verification failed for $Path: $($signature.Status)."};$publisher=$signature.SignerCertificate.GetNameInfo([Security.Cryptography.X509Certificates.X509NameType]::SimpleName,$false);if($publisher -cne $ExpectedPublisher){throw "Unexpected Windows publisher for $Path: $publisher."} }
+function Assert-ExpectedPublisher([string]$Path) { $signature=Get-AuthenticodeSignature -LiteralPath $Path;if($signature.Status -ne 'Valid' -or -not $signature.SignerCertificate){throw "Authenticode verification failed for ${Path}: $($signature.Status)."};$publisher=$signature.SignerCertificate.GetNameInfo([Security.Cryptography.X509Certificates.X509NameType]::SimpleName,$false);if($publisher -cne $ExpectedPublisher){throw "Unexpected Windows publisher for ${Path}: $publisher."} }
 
 # The runtime uses CredWrite/CredRead through Windows Credential Manager for its
 # device credential and signing private key. Secrets are passed
