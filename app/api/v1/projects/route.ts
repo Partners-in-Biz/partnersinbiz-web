@@ -615,7 +615,7 @@ export async function handleProjectCreate(
   return apiSuccess(stripUndefined({ id: docRef.id, claimToken, claimStatus }), setupReplay ? 200 : 201)
 }
 
-export const POST = withAuth('client', handleProjectCreate)
+export const POST = withAuth('client', (req: NextRequest, user: ApiUser) => handleProjectCreate(req, user))
 
 export const DELETE = withAuth('admin', async (req: NextRequest, user: ApiUser) => {
   const { searchParams } = new URL(req.url)
