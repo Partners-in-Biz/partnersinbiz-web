@@ -43,8 +43,8 @@ if [[ " $TARGETS " == *' windows-'* ]] && [[ -z "$(dotnet --list-sdks 2>/dev/nul
 fi
 for arch in x64 arm64;do
   target="windows-$arch";[[ " $TARGETS " == *" $target "* ]]||continue
-  dotnet publish runtime-installers/windows/PartnersInBizRuntimeService.csproj -c Release -r "win-$arch" --self-contained true -o "$OUT/$target/native"
-  dotnet publish runtime-installers/windows/CredentialHelper.csproj -c Release -r "win-$arch" --self-contained true -o "$OUT/$target/credential-native"
+  dotnet publish runtime-installers/windows/PartnersInBizRuntimeService.csproj -c Release -r "win-$arch" --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$OUT/$target/native"
+  dotnet publish runtime-installers/windows/CredentialHelper.csproj -c Release -r "win-$arch" --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o "$OUT/$target/credential-native"
   cp "$OUT/$target/native/PartnersInBizRuntimeService.exe" "$OUT/$target/"
   cp "$OUT/$target/credential-native/pib-credential-helper.exe" "$OUT/$target/"
   rm -rf "$OUT/$target/native" "$OUT/$target/credential-native"

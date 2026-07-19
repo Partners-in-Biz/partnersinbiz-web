@@ -103,6 +103,7 @@ requireText('compiled Linux x64 runtime', build, /bun-linux-x64/)
 requireText('compiled Linux arm64 runtime', build, /bun-linux-arm64/)
 requireText('Linux package archives', build, /partnersinbiz-runtime-linux-\$\{arch\}\.tgz/)
 requireText('native Windows matrix', build, /for arch in x64 arm64[\s\S]*dotnet publish[\s\S]*win-\$arch/)
+requireText('self-contained single-file Windows executables', build, /dotnet publish[\s\S]*--self-contained true[\s\S]*PublishSingleFile=true/)
 requireText('Windows arm64 cross-runner handoff', build, /PIB_RUNTIME_PREBUILT_WINDOWS_ARM64_DIR[\s\S]*pib-release-manager\.exe/)
 for (const target of ['linux-x64','linux-arm64']) {
   const artifact = path.join(root, 'runtime-installers/dist', target, 'pib-runtime')
