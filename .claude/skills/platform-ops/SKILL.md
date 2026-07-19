@@ -431,6 +431,39 @@ Broker routes create durable `workspace-broker` jobs. After a broker call, poll 
 { "ok": true, "timestamp": "...", "services": { "firestore": "ok", "auth": "ok", "storage": "ok" } }
 ```
 
+### Hermes runtime and provider health
+
+Treat these as separate acceptance gates:
+
+1. `systemctl is-active hermes@<profile>` proves only that the gateway process is alive.
+2. `/profiles/<profile>/health` proves only that the profile API is serving.
+3. A real authenticated `POST /profiles/<profile>/v1/responses` with the prompt `Reply with exactly CODEXOK and nothing else.` proves the configured model provider can answer.
+
+For a VPS provider incident, run the model canary across every routed active profile (`ads`, `data`, `docs`, `maya`, `nora`, `pip`, `qa-release`, `sage`, `sales`, `seo`, `support`, `theo`) before claiming the scope. The `default` unit is intentionally API-less and is verified through systemd stability and clean logs.
+
+Keep platform API authentication separate from model-provider authentication:
+
+- Test PiB credentials against an authoritative PiB endpoint, including `X-Org-Id` where required.
+- `401 token_invalidated`, `token_revoked`, or `token_expired` from `openai-codex` is a Hermes provider credential failure, not a PiB API-key failure.
+- A healthy profile endpoint plus a failed `CODEXOK` response is still an outage.
+- A fallback that returns billing/credit, organisation-policy, or missing-provider errors is not a successful fallback.
+
+For one failing Codex profile, use a profile-specific device flow; do not copy another working profile's `auth.json` or refresh token:
+
+```bash
+sudo -iu hermes bash -lc 'export HERMES_HOME=/var/lib/hermes; cd /var/lib/hermes/hermes-agent; /usr/local/bin/hermes -p <profile> auth add openai-codex --type oauth --no-browser --timeout 600'
+```
+
+After successful sign-in:
+
+1. Restart only `hermes@<profile>`.
+2. Wait at least 30 seconds and require `NRestarts` not to increase.
+3. Require the public profile health route to return HTTP 200.
+4. Require the real model canary to return exact `CODEXOK`.
+5. Requeue blocked agent work only after all four checks pass.
+
+Never print API keys, OAuth access tokens, refresh tokens, or raw profile environment values during this workflow.
+
 ### Workspace inbox
 
 #### `GET /inbox` — auth: admin
