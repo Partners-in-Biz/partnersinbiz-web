@@ -18,7 +18,7 @@ export function ChatContextExperience({ context, compact = false, artifactReques
   const [open, setOpen] = useState(false)
   const [canvasMode, setCanvasMode] = useState<'single' | 'dual'>('single')
   const [canvasWidth, setCanvasWidth] = useState(520)
-  const [canvasStateLoaded, setCanvasStateLoaded] = useState(false)
+  const [loadedCanvasStorageKey, setLoadedCanvasStorageKey] = useState('')
   const [secondaryContext, setSecondaryContext] = useState<ChatContextOption>()
   const [activeArtifactId, setActiveArtifactId] = useState<string>()
   const [actionError, setActionError] = useState<string | null>(null)
@@ -40,8 +40,10 @@ export function ChatContextExperience({ context, compact = false, artifactReques
   useEffect(() => { onOpenChange?.(open) }, [onOpenChange, open])
   useEffect(() => { onPresentationChange?.({ open, mode: canvasMode }) }, [canvasMode, onPresentationChange, open])
   useEffect(() => {
-    setCanvasStateLoaded(false)
-    if (!canvasStorageKey) return
+    if (!canvasStorageKey) {
+      setLoadedCanvasStorageKey('')
+      return
+    }
     try {
       const stored = JSON.parse(window.localStorage.getItem(canvasStorageKey) ?? 'null') as { open?: unknown; mode?: unknown; width?: unknown; secondary?: ChatContextReference } | null
       setOpen(stored?.open === true)
@@ -55,16 +57,16 @@ export function ChatContextExperience({ context, compact = false, artifactReques
       setCanvasWidth(520)
       setSecondaryContext(secondaryOptionsRef.current[0])
     }
-    setCanvasStateLoaded(true)
+    setLoadedCanvasStorageKey(canvasStorageKey)
   }, [canvasStorageKey])
   useEffect(() => {
     if (secondaryContext && secondaryOptions.some((option) => option.kind === secondaryContext.kind && option.id === secondaryContext.id)) return
     setSecondaryContext(secondaryOptions[0])
   }, [secondaryContext, secondaryOptions])
   useEffect(() => {
-    if (!canvasStorageKey || !canvasStateLoaded) return
+    if (!canvasStorageKey || loadedCanvasStorageKey !== canvasStorageKey) return
     try { window.localStorage.setItem(canvasStorageKey, JSON.stringify({ open, mode: canvasMode, width: canvasWidth, secondary: secondaryContext ? { kind: secondaryContext.kind, id: secondaryContext.id } : undefined })) } catch (storageError) { void storageError /* Storage policy must not break Messages. */ }
-  }, [canvasMode, canvasStateLoaded, canvasStorageKey, canvasWidth, open, secondaryContext])
+  }, [canvasMode, canvasStorageKey, canvasWidth, loadedCanvasStorageKey, open, secondaryContext])
   useEffect(() => {
     if (!artifactRequest) return
     setActiveArtifactId(artifactRequest.id)

@@ -14,6 +14,7 @@ const conversation = {
 const originalMatchMedia = window.matchMedia
 
 afterEach(() => {
+  jest.restoreAllMocks()
   Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalMatchMedia })
 })
 
@@ -170,5 +171,31 @@ describe('useChatContexts', () => {
     expect(screen.getByLabelText('Secondary context')).toHaveValue('company:company-1')
     fireEvent.click(screen.getByRole('button', { name: 'Close context dock' }))
     await waitFor(() => expect(JSON.parse(window.localStorage.getItem('pib.messages.contextCanvas.v1:org-1:conv-1') ?? '{}')).toMatchObject({ open: false, mode: 'dual', width: 610 }))
+  })
+
+  it('loads destination canvas state without persisting source state across a conversation change', async () => {
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: jest.fn((query: string) => ({ matches: query.includes('min-width: 1280px'), addEventListener: jest.fn(), removeEventListener: jest.fn() })) })
+    const sourceKey = 'pib.messages.contextCanvas.v1:org-1:conv-source'
+    const destinationKey = 'pib.messages.contextCanvas.v1:org-1:conv-destination'
+    const sourceState = { open: true, mode: 'dual', width: 610, secondary: { kind: 'company', id: 'company-1' } }
+    const destinationState = { open: true, mode: 'single', width: 440, secondary: { kind: 'task', id: 'task-1' } }
+    window.localStorage.setItem(sourceKey, JSON.stringify(sourceState))
+    window.localStorage.setItem(destinationKey, JSON.stringify(destinationState))
+    const model = { context: { kind: 'project' as const, id: 'project-1', orgId: 'org-1', label: 'Launch', icon: 'target' }, pulse: { label: 'Project', metrics: [] }, groups: [], artifacts: [], attention: [], activity: [], capabilities: [], asOf: '2026-07-19T00:00:00Z' }
+    const contexts = [{ kind: 'project' as const, id: 'project-1', label: 'Launch' }, { kind: 'company' as const, id: 'company-1', label: 'Partners in Biz' }, { kind: 'task' as const, id: 'task-1', label: 'Review launch' }]
+    const baseContext = { contexts, activeContext: contexts[0], setActiveContext: jest.fn(), model, error: null, refresh: jest.fn(), routineUpdateCount: 0, dismissRoutineUpdates: jest.fn(), orgId: 'org-1' }
+
+    const { rerender } = render(<ChatContextExperience context={{ ...baseContext, conversationId: 'conv-source' }} />)
+    await waitFor(() => expect(screen.getByRole('dialog', { name: 'Launch context' })).toHaveAttribute('data-presentation', 'dual'))
+    expect(screen.getByRole('separator', { name: 'Resize context canvas' })).toHaveAttribute('aria-valuenow', '610')
+    const setItem = jest.spyOn(Storage.prototype, 'setItem')
+
+    rerender(<ChatContextExperience context={{ ...baseContext, conversationId: 'conv-destination' }} />)
+
+    await waitFor(() => expect(screen.getByRole('dialog', { name: 'Launch context' })).toHaveAttribute('data-presentation', 'canvas'))
+    expect(screen.getByRole('separator', { name: 'Resize context canvas' })).toHaveAttribute('aria-valuenow', '440')
+    expect(JSON.parse(window.localStorage.getItem(destinationKey) ?? '{}')).toEqual(destinationState)
+    const destinationWrites = setItem.mock.calls.filter(([key]) => key === destinationKey).map(([, value]) => JSON.parse(String(value)))
+    expect(destinationWrites).not.toContainEqual(sourceState)
   })
 })
