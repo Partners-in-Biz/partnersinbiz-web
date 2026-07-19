@@ -985,6 +985,11 @@ describe('UnifiedChat project pulse integration', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Open context dock/i }))
     expect(screen.getByRole('dialog', { name: 'Launch Project context' })).toBeInTheDocument()
+    const composer = screen.getByTestId('chat-input-drop-zone')
+    expect(conversationLog).toHaveClass('lg:mr-[42%]', 'xl:mr-[var(--context-canvas-width)]')
+    expect(composer).toHaveClass('lg:mr-[42%]', 'xl:mr-[var(--context-canvas-width)]')
+    expect(conversationLog.style.getPropertyValue('--context-canvas-width')).toBe('520px')
+    expect(composer.style.getPropertyValue('--context-canvas-width')).toBe('520px')
     jest.spyOn(window, 'confirm').mockReturnValue(true)
     fireEvent.click(screen.getAllByRole('button', { name: 'Approve next step' })[0])
 

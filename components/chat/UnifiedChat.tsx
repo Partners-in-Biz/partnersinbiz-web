@@ -1,6 +1,6 @@
 'use client'
 
-import { DragEvent, FormEvent, KeyboardEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { DragEvent, FormEvent, KeyboardEvent, useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { ChatEvent, ChatUiAction, RichMessagePart } from '@/lib/hermes/types'
 import { AGENT_IDS, type AgentSkillPolicyState } from '@/lib/agents/types'
 import { AGENT_EFFORT_OPTIONS, type AgentEffort } from '@/lib/agents/runRouting'
@@ -101,7 +101,7 @@ export interface UnifiedChatProps {
   /** Backward-compatible presentation control for the Hermes session catalogue. */
   conversationRailMode?: 'expanded' | 'collapsed'
   onConversationRailModeChange?: (mode: 'expanded' | 'collapsed') => void
-  onContextCanvasPresentationChange?: (state: { open: boolean; mode: 'single' | 'dual' }) => void
+  onContextCanvasPresentationChange?: (state: { open: boolean; mode: 'single' | 'dual'; width: number }) => void
 }
 
 const POLL_INTERVAL = 1500
@@ -798,7 +798,15 @@ export default function UnifiedChat({
   const [messages, setMessages] = useState<ConversationMessage[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
-  const [contextCanvasOpen, setContextCanvasOpen] = useState(false)
+  const [contextCanvasPresentation, setContextCanvasPresentation] = useState<{ open: boolean; mode: 'single' | 'dual'; width: number }>({ open: false, mode: 'single', width: 520 })
+  const contextCanvasOpen = contextCanvasPresentation.open
+  const contextCanvasReservedStyle = {
+    '--context-canvas-width': `${contextCanvasPresentation.width}px`,
+  } as CSSProperties
+  const handleContextCanvasPresentationChange = useCallback((state: { open: boolean; mode: 'single' | 'dual'; width: number }) => {
+    setContextCanvasPresentation(state)
+    onContextCanvasPresentationChange?.(state)
+  }, [onContextCanvasPresentationChange])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [contextRefs, setContextRefs] = useState<ContextReference[]>([])
@@ -4427,7 +4435,7 @@ export default function UnifiedChat({
           )}
         </div>
 
-        {activeConversation && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} execution={runtimeExecution} executionRequest={executionDockRequest} onActionResolved={handleContextActionResolved} onOpenChange={setContextCanvasOpen} onPresentationChange={onContextCanvasPresentationChange} onAddContext={openContextPicker} contextPickerExpanded={Boolean(contextMention || contextTypePrompt)} contextPickerControls={contextPickerPanelId} onRemoveContext={(value) => {
+        {activeConversation && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} execution={runtimeExecution} executionRequest={executionDockRequest} onActionResolved={handleContextActionResolved} onPresentationChange={handleContextCanvasPresentationChange} onAddContext={openContextPicker} contextPickerExpanded={Boolean(contextMention || contextTypePrompt)} contextPickerControls={contextPickerPanelId} onRemoveContext={(value) => {
           const ref = contextRefs.find((item) => item.type === value.kind && item.id === value.id)
           if (ref) removeContextRef(ref)
         }} />}
@@ -4438,7 +4446,8 @@ export default function UnifiedChat({
           role="log"
           aria-label="Conversation messages"
           aria-live="polite"
-          className={`flex-1 min-h-0 min-w-0 space-y-3 overflow-y-auto overflow-x-hidden p-4 transition-[margin] duration-200 ${contextCanvasOpen ? 'lg:mr-[42%] xl:mr-[min(42%,560px)]' : ''}`}
+          style={contextCanvasReservedStyle}
+          className={`flex-1 min-h-0 min-w-0 space-y-3 overflow-y-auto overflow-x-hidden p-4 transition-[margin] duration-200 ${contextCanvasOpen ? 'lg:mr-[42%] xl:mr-[var(--context-canvas-width)]' : ''}`}
         >
           {loading && <div className="text-xs text-[var(--color-pib-text-muted)]">Loading…</div>}
           {!loading && messages.length === 0 && (
@@ -4587,12 +4596,13 @@ export default function UnifiedChat({
           onDragOver={handleAttachmentDragOver}
           onDragLeave={handleAttachmentDragLeave}
           data-testid="chat-input-drop-zone"
+          style={contextCanvasReservedStyle}
           className={[
             hermesLayout
               ? 'shrink-0 min-w-0 flex flex-col gap-1.5 border-t border-[var(--color-card-border)] p-2 transition-[background-color,margin] duration-200'
               : 'shrink-0 min-w-0 flex flex-col gap-2 border-t border-[var(--color-card-border)] p-3 transition-[background-color,margin] duration-200',
             draggingAttachments ? 'bg-primary/10 ring-1 ring-primary/35' : '',
-            contextCanvasOpen ? 'lg:mr-[42%] xl:mr-[min(42%,560px)]' : '',
+            contextCanvasOpen ? 'lg:mr-[42%] xl:mr-[var(--context-canvas-width)]' : '',
           ].join(' ')}
         >
           {showComposerContextToolbar && (
