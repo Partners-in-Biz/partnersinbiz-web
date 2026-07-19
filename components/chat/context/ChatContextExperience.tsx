@@ -24,6 +24,7 @@ export function ChatContextExperience({ context, compact = false, artifactReques
   const [actionError, setActionError] = useState<string | null>(null)
   const [pendingActionId, setPendingActionId] = useState<string>()
   const pendingRef = useRef<string | undefined>(undefined)
+  const pendingStoredSecondaryRef = useRef<{ storageKey: string; reference: ChatContextReference } | null>(null)
   const secondaryOptions = useMemo<ChatContextOption[]>(() => {
     const options = new Map<string, ChatContextOption>()
     for (const option of context.contexts) {
@@ -51,8 +52,15 @@ export function ChatContextExperience({ context, compact = false, artifactReques
       const storedWidth = Number(stored?.width)
       setCanvasWidth(Number.isFinite(storedWidth) ? Math.min(640, Math.max(420, storedWidth)) : 520)
       const candidate = stored?.secondary && secondaryOptionsRef.current.find((option) => option.kind === stored.secondary?.kind && option.id === stored.secondary.id)
-      setSecondaryContext(candidate ?? secondaryOptionsRef.current[0])
+      if (stored?.secondary && !candidate) {
+        pendingStoredSecondaryRef.current = { storageKey: canvasStorageKey, reference: stored.secondary }
+        setSecondaryContext(undefined)
+      } else {
+        pendingStoredSecondaryRef.current = null
+        setSecondaryContext(candidate ?? secondaryOptionsRef.current[0])
+      }
     } catch {
+      pendingStoredSecondaryRef.current = null
       setCanvasMode('single')
       setCanvasWidth(520)
       setSecondaryContext(secondaryOptionsRef.current[0])
@@ -61,11 +69,23 @@ export function ChatContextExperience({ context, compact = false, artifactReques
   }, [canvasStorageKey])
   useEffect(() => {
     if (!canvasStorageKey || loadedCanvasStorageKey !== canvasStorageKey) return
+    const pendingStoredSecondary = pendingStoredSecondaryRef.current
+    if (pendingStoredSecondary?.storageKey === canvasStorageKey) {
+      const restored = secondaryOptions.find((option) => option.kind === pendingStoredSecondary.reference.kind && option.id === pendingStoredSecondary.reference.id)
+      if (!restored) return
+      if (secondaryContext?.kind === restored.kind && secondaryContext.id === restored.id) {
+        pendingStoredSecondaryRef.current = null
+        return
+      }
+      setSecondaryContext(restored)
+      return
+    }
     if (secondaryContext && secondaryOptions.some((option) => option.kind === secondaryContext.kind && option.id === secondaryContext.id)) return
     setSecondaryContext(secondaryOptions[0])
   }, [canvasStorageKey, loadedCanvasStorageKey, secondaryContext, secondaryOptions])
   useEffect(() => {
     if (!canvasStorageKey || loadedCanvasStorageKey !== canvasStorageKey) return
+    if (pendingStoredSecondaryRef.current?.storageKey === canvasStorageKey) return
     try { window.localStorage.setItem(canvasStorageKey, JSON.stringify({ open, mode: canvasMode, width: canvasWidth, secondary: secondaryContext ? { kind: secondaryContext.kind, id: secondaryContext.id } : undefined })) } catch (storageError) { void storageError /* Storage policy must not break Messages. */ }
   }, [canvasMode, canvasStorageKey, canvasWidth, loadedCanvasStorageKey, open, secondaryContext])
   useEffect(() => {

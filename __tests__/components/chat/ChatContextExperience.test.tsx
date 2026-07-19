@@ -221,4 +221,30 @@ describe('useChatContexts', () => {
     await waitFor(() => expect(screen.getByLabelText('Secondary context')).toHaveValue('task:saved-task'))
     expect(JSON.parse(window.localStorage.getItem(destinationKey) ?? '{}')).toEqual(destinationState)
   })
+
+  it('restores a saved secondary after its lazy relationship arrives without overwriting storage', async () => {
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: jest.fn((query: string) => ({ matches: query.includes('min-width: 1280px'), addEventListener: jest.fn(), removeEventListener: jest.fn() })) })
+    const storageKey = 'pib.messages.contextCanvas.v1:org-1:conv-lazy-related'
+    const savedState = { open: true, mode: 'dual', width: 560, secondary: { kind: 'task', id: 'saved-related-task' } }
+    window.localStorage.setItem(storageKey, JSON.stringify(savedState))
+    const setItem = jest.spyOn(Storage.prototype, 'setItem')
+    const activeContext = { kind: 'project' as const, id: 'project-1', label: 'Launch' }
+    const firstFallback = { kind: 'company' as const, id: 'company-1', label: 'Partners in Biz' }
+    const model = { context: { kind: 'project' as const, id: 'project-1', orgId: 'org-1', label: 'Launch', icon: 'target' }, pulse: { label: 'Project', metrics: [] }, groups: [], artifacts: [], attention: [], activity: [], capabilities: [], relationships: [], asOf: '2026-07-19T00:00:00Z' }
+    const baseContext = { contexts: [activeContext, firstFallback], activeContext, setActiveContext: jest.fn(), model, error: null, refresh: jest.fn(), routineUpdateCount: 0, dismissRoutineUpdates: jest.fn(), orgId: 'org-1', conversationId: 'conv-lazy-related' }
+
+    const { rerender } = render(<ChatContextExperience context={baseContext} />)
+
+    await waitFor(() => expect(screen.getByRole('dialog', { name: 'Launch context' })).toHaveAttribute('data-presentation', 'canvas'))
+    expect(JSON.parse(window.localStorage.getItem(storageKey) ?? '{}')).toEqual(savedState)
+
+    rerender(<ChatContextExperience context={{ ...baseContext, model: { ...model, relationships: [{ kind: 'task' as const, id: 'saved-related-task', label: 'Saved related task' }] } }} />)
+
+    await waitFor(() => expect(screen.getByRole('dialog', { name: 'Launch context' })).toHaveAttribute('data-presentation', 'dual'))
+    await waitFor(() => expect(screen.getByLabelText('Secondary context')).toHaveValue('task:saved-related-task'))
+    await waitFor(() => expect(JSON.parse(window.localStorage.getItem(storageKey) ?? '{}')).toEqual(savedState))
+    const writes = setItem.mock.calls.filter(([key]) => key === storageKey).map(([, value]) => JSON.parse(String(value)))
+    expect(writes).not.toHaveLength(0)
+    expect(writes).toEqual(writes.map(() => savedState))
+  })
 })
