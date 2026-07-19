@@ -1086,6 +1086,8 @@ describe('UnifiedChat responsive Sessions focus mode', () => {
     expect(drawer).toHaveAttribute('data-presentation', 'drawer')
     expect(composer).toBeInTheDocument()
     expect(composer).toHaveValue('Keep this draft')
+    const sessionMenu = screen.getByRole('button', { name: 'Conversation options for Launch chat' })
+    expect(sessionMenu).toHaveClass('flex', 'h-11', 'w-11', 'xl:hidden', 'xl:group-hover/conv:flex')
     expect(screen.getByRole('button', { name: 'Close sessions' })).toHaveFocus()
     fireEvent.keyDown(document, { key: 'Escape' })
     await waitFor(() => expect(trigger).toHaveFocus())

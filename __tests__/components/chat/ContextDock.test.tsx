@@ -41,6 +41,13 @@ it('routes attention actions through the shared action handler instead of naviga
   fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
   expect(onAction).toHaveBeenCalledWith(action)
   expect(screen.queryByRole('link', { name: 'Retry' })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Retry' })).toHaveClass('min-h-11', 'xl:min-h-0')
+})
+
+it('keeps workspace links touch-sized until the xl desktop breakpoint', () => {
+  render(<ContextDock model={{ ...model, context: { ...model.context, href: '/portal/studios/s1' } }} open compact onClose={jest.fn()} />)
+  expect(screen.getByRole('link', { name: /Open full workspace/i })).toHaveClass('min-h-11', 'xl:min-h-9')
+  expect(screen.getByRole('link', { name: /Open full workspace/i })).not.toHaveClass('sm:h-9', 'md:h-9', 'lg:h-9')
 })
 
 it('uses a genuinely modal bottom sheet in compact chat and marks the active artifact accessibly', () => {

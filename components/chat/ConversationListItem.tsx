@@ -151,7 +151,7 @@ export default function ConversationListItem({
         type="button"
         data-testid={`conversation-row-${c.id}`}
         onClick={onClick}
-        className={`group w-full rounded-md px-2 py-1.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/60 ${
+        className={`group min-h-11 w-full rounded-md py-1.5 pl-2 pr-12 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/60 xl:min-h-0 xl:pr-2 ${
           active
             ? 'bg-white/[0.08] text-[var(--color-pib-text)] ring-1 ring-white/[0.06]'
             : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.045] hover:text-[var(--color-pib-text)]'
@@ -217,7 +217,7 @@ export default function ConversationListItem({
       type="button"
       data-testid={`conversation-row-${c.id}`}
       onClick={onClick}
-      className={`w-full text-left outline-none transition-colors group focus-visible:ring-2 focus-visible:ring-primary/60 ${compact ? 'rounded-md px-2 py-1.5' : 'rounded-lg px-3 py-2.5'} ${
+      className={`group min-h-11 w-full pr-12 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/60 xl:min-h-0 xl:pr-3 ${compact ? 'rounded-md py-1.5 pl-2' : 'rounded-lg py-2.5 pl-3'} ${
         active
           ? 'bg-[var(--color-card-active,rgba(255,255,255,0.08))] text-[var(--color-pib-text)]'
           : 'text-[var(--color-pib-text-muted)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.04))]'

@@ -3568,7 +3568,7 @@ export default function UnifiedChat({
                         aria-controls={sessionsRegionId}
                         aria-label={`${sessionsExpanded ? 'Collapse' : 'Expand'} sessions for ${company.name}`}
                         onClick={() => toggleSessionGroup(groupKey)}
-                        className="flex min-w-0 flex-1 items-center gap-1 rounded px-1 py-1 text-left hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-primary/60"
+                        className="flex min-h-11 min-w-0 flex-1 items-center gap-1 rounded px-1 py-1 text-left hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-primary/60 xl:min-h-0"
                       >
                         <span className="material-symbols-outlined shrink-0 text-[16px] text-primary" aria-hidden="true">folder</span>
                         <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--color-pib-text)]">{company.name}</span>
@@ -3583,7 +3583,7 @@ export default function UnifiedChat({
                         title={`Start session in ${company.name}`}
                         disabled={!allowStartConversations}
                         onClick={() => openNewCompanyConversation(company.id, company.name)}
-                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-40"
+                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-40 xl:h-8 xl:w-8"
                       >
                         <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
                       </button>
@@ -3608,7 +3608,7 @@ export default function UnifiedChat({
                                   if (!renameCancelledRef.current) renameConversation(c.id, renameValue)
                                   renameCancelledRef.current = false
                                 }}
-                                className="min-w-0 flex-1 border-b border-primary bg-transparent text-sm text-[var(--color-pib-text)] outline-none"
+                                className="h-11 min-w-0 flex-1 border-b border-primary bg-transparent text-sm text-[var(--color-pib-text)] outline-none xl:h-8"
                               />
                             </div>
                           ) : (
@@ -3639,7 +3639,7 @@ export default function UnifiedChat({
                                   setMenuOpenId(c.id)
                                 }
                               }}
-                              className={`absolute right-1 top-1/2 hidden h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-[11px] text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:flex focus-visible:ring-2 focus-visible:ring-primary/60 group-hover/conv:flex ${menuOpenId === c.id ? '!flex' : ''}`}
+                              className={`absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded text-[11px] text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:right-1 xl:hidden xl:h-5 xl:w-5 xl:group-hover/conv:flex xl:focus-visible:flex ${menuOpenId === c.id ? '!flex' : ''}`}
                               aria-label={`Conversation options for ${c.title || 'Untitled'}`}
                             >
                               ⋯
@@ -3678,7 +3678,7 @@ export default function UnifiedChat({
                         aria-controls={sessionsRegionId}
                         aria-label={`${sessionsExpanded ? 'Collapse' : 'Expand'} sessions for ${project.name}`}
                         onClick={() => toggleSessionGroup(groupKey)}
-                        className="flex min-w-0 flex-1 items-center gap-1 rounded px-1 py-1 text-left hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-primary/60"
+                        className="flex min-h-11 min-w-0 flex-1 items-center gap-1 rounded px-1 py-1 text-left hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-primary/60 xl:min-h-0"
                       >
                         <span className="material-symbols-outlined shrink-0 text-[16px] text-primary" aria-hidden="true">folder_managed</span>
                         <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--color-pib-text)]">{project.name}</span>
@@ -3694,7 +3694,7 @@ export default function UnifiedChat({
                         onClick={() => managedProject?.id === project.id
                           ? setManagedProject(null)
                           : openProjectLocationManager({ id: project.id, name: project.name })}
-                        className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 ${managedProject?.id === project.id ? 'bg-white/[0.08] text-primary' : 'text-[var(--color-pib-text-muted)]'}`}
+                        className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-8 xl:w-8 ${managedProject?.id === project.id ? 'bg-white/[0.08] text-primary' : 'text-[var(--color-pib-text-muted)]'}`}
                       >
                         <span className="material-symbols-outlined text-[16px]" aria-hidden="true">devices</span>
                       </button>
@@ -3704,7 +3704,7 @@ export default function UnifiedChat({
                         title={`Start session for ${project.name}`}
                         disabled={!allowStartConversations}
                         onClick={() => openNewConversation(project.id)}
-                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-40"
+                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-40 xl:h-8 xl:w-8"
                       >
                         <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
                       </button>
@@ -3713,7 +3713,7 @@ export default function UnifiedChat({
                         aria-label={`Link client organisation to ${project.name}`}
                         title={`Link client organisation to ${project.name}`}
                         onClick={() => setAccessProject({ id: project.id, name: project.name })}
-                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60"
+                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-8 xl:w-8"
                       >
                         <span className="material-symbols-outlined text-[16px]" aria-hidden="true">group_add</span>
                       </button>
@@ -3722,7 +3722,7 @@ export default function UnifiedChat({
                         aria-label={`Remove ${project.name} from my projects`}
                         title={`Remove ${project.name} from my projects`}
                         onClick={() => void removeProjectFromSidebar(project.id)}
-                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-red-200 focus-visible:ring-2 focus-visible:ring-primary/60"
+                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-red-200 focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-8 xl:w-8"
                       >
                         <span className="material-symbols-outlined text-[16px]" aria-hidden="true">remove</span>
                       </button>
@@ -3765,7 +3765,7 @@ export default function UnifiedChat({
                             type="button"
                             aria-label={`Close location manager for ${project.name}`}
                             onClick={() => setManagedProject(null)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60"
+                            className="inline-flex h-11 w-11 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-8 xl:w-8"
                           >
                             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">close</span>
                           </button>
@@ -3796,7 +3796,7 @@ export default function UnifiedChat({
                                       aria-label={`Unlink ${location.label}`}
                                       disabled={projectLocationsMutating}
                                       onClick={() => void handleUnlinkManagedProjectLocation(location)}
-                                      className="min-h-8 rounded px-2 py-1 text-xs text-red-200 hover:bg-red-500/10 focus-visible:ring-2 focus-visible:ring-red-300/60 disabled:opacity-40"
+                                      className="min-h-11 rounded px-2 py-1 text-xs text-red-200 hover:bg-red-500/10 focus-visible:ring-2 focus-visible:ring-red-300/60 disabled:opacity-40 xl:min-h-8"
                                     >
                                       Unlink
                                     </button>
@@ -3815,7 +3815,7 @@ export default function UnifiedChat({
                                 <p className="text-xs text-[var(--color-pib-text-muted)]">Every available location is already linked.</p>
                               ) : (
                                 managedUnlinkedLocationCandidates.map((candidate) => (
-                                  <label key={candidate.key} className="flex min-w-0 items-center gap-2 rounded border border-white/[0.06] px-2 py-2 text-xs text-[var(--color-pib-text)]">
+                                  <label key={candidate.key} className="flex min-h-11 min-w-0 items-center gap-2 rounded border border-white/[0.06] px-2 py-2 text-xs text-[var(--color-pib-text)] xl:min-h-0">
                                     <input
                                       type="checkbox"
                                       aria-label={`${candidate.label} · ${candidate.selectable ? 'online' : 'Computer unavailable'}`}
@@ -3879,7 +3879,7 @@ export default function UnifiedChat({
                                 type="button"
                                 onClick={() => void requestManagedProjectSync({ id: project.id, name: project.name }, managedProjectLocations)}
                                 disabled={projectLocationsMutating || projectSyncLoading || projectSyncSubmitting || projectSyncResetting || !managedProjectSyncEligible}
-                                className="min-h-9 w-full rounded border border-primary/30 bg-primary/10 px-2 py-2 text-xs font-medium text-primary hover:bg-primary/15 focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-40"
+                                className="min-h-11 w-full rounded border border-primary/30 bg-primary/10 px-2 py-2 text-xs font-medium text-primary hover:bg-primary/15 focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-40 xl:min-h-9"
                               >
                                 {projectSyncSubmitting ? 'Syncing…' : 'Sync now'}
                               </button>
@@ -3889,7 +3889,7 @@ export default function UnifiedChat({
                                   type="button"
                                   onClick={() => void resetManagedProjectSync({ id: project.id, name: project.name })}
                                   disabled={projectLocationsMutating || projectSyncLoading || projectSyncSubmitting || projectSyncResetting}
-                                  className="min-h-9 w-full rounded border border-amber-400/30 bg-amber-500/10 px-2 py-2 text-xs font-medium text-amber-100 hover:bg-amber-500/15 focus-visible:ring-2 focus-visible:ring-amber-300/60 disabled:cursor-not-allowed disabled:opacity-40"
+                                  className="min-h-11 w-full rounded border border-amber-400/30 bg-amber-500/10 px-2 py-2 text-xs font-medium text-amber-100 hover:bg-amber-500/15 focus-visible:ring-2 focus-visible:ring-amber-300/60 disabled:cursor-not-allowed disabled:opacity-40 xl:min-h-9"
                                 >
                                   {projectSyncResetting ? 'Resetting…' : 'Reset sync safely'}
                                 </button>
@@ -3904,7 +3904,7 @@ export default function UnifiedChat({
                               onClick={() => void handleLinkManagedProjectLocations()}
                               disabled={projectLocationsMutating || !managedUnlinkedLocationCandidates.some((candidate) =>
                                 candidate.selectable && selectedManagedProjectLocationKeys.includes(candidate.key))}
-                              className="min-h-9 w-full rounded bg-primary px-2 py-2 text-xs font-medium text-on-primary hover:opacity-90 focus-visible:ring-2 focus-visible:ring-primary/60 disabled:opacity-40"
+                              className="min-h-11 w-full rounded bg-primary px-2 py-2 text-xs font-medium text-on-primary hover:opacity-90 focus-visible:ring-2 focus-visible:ring-primary/60 disabled:opacity-40 xl:min-h-9"
                             >
                               {projectLocationsMutating ? 'Updating…' : 'Link selected locations'}
                             </button>
@@ -3935,7 +3935,7 @@ export default function UnifiedChat({
                                     if (!renameCancelledRef.current) renameConversation(c.id, renameValue)
                                     renameCancelledRef.current = false
                                   }}
-                                  className="min-w-0 flex-1 border-b border-primary bg-transparent text-sm text-[var(--color-pib-text)] outline-none"
+                                  className="h-11 min-w-0 flex-1 border-b border-primary bg-transparent text-sm text-[var(--color-pib-text)] outline-none xl:h-8"
                                 />
                               </div>
                             ) : (
@@ -3966,7 +3966,7 @@ export default function UnifiedChat({
                                     setMenuOpenId(c.id)
                                   }
                                 }}
-                                className={`absolute right-1 top-1/2 hidden h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-[11px] text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:flex focus-visible:ring-2 focus-visible:ring-primary/60 group-hover/conv:flex ${menuOpenId === c.id ? '!flex' : ''}`}
+                                className={`absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded text-[11px] text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:right-1 xl:hidden xl:h-5 xl:w-5 xl:group-hover/conv:flex xl:focus-visible:flex ${menuOpenId === c.id ? '!flex' : ''}`}
                                 aria-label={`Conversation options for ${c.title || 'Untitled'}`}
                               >
                                 ⋯
@@ -4009,7 +4009,7 @@ export default function UnifiedChat({
                               if (!renameCancelledRef.current) renameConversation(c.id, renameValue)
                               renameCancelledRef.current = false
                             }}
-                            className="flex-1 min-w-0 bg-transparent border-b border-primary text-sm text-[var(--color-pib-text)] outline-none"
+                            className="h-11 min-w-0 flex-1 border-b border-primary bg-transparent text-sm text-[var(--color-pib-text)] outline-none xl:h-8"
                           />
                         </div>
                       ) : (
@@ -4042,7 +4042,7 @@ export default function UnifiedChat({
                               setMenuOpenId(c.id)
                             }
                           }}
-                          className={`absolute right-1 top-1/2 hidden h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-[11px] text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:flex focus-visible:ring-2 focus-visible:ring-primary/60 group-hover/conv:flex ${
+                          className={`absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded text-[11px] text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:right-1 xl:hidden xl:h-5 xl:w-5 xl:group-hover/conv:flex xl:focus-visible:flex ${
                             menuOpenId === c.id ? '!flex' : ''
                           }`}
                           aria-label={`Conversation options for ${c.title || 'Untitled'}`}
@@ -4074,7 +4074,7 @@ export default function UnifiedChat({
                         if (!renameCancelledRef.current) renameConversation(c.id, renameValue)
                         renameCancelledRef.current = false
                       }}
-                      className="flex-1 min-w-0 bg-transparent border-b border-primary text-sm text-[var(--color-pib-text)] outline-none"
+                      className="h-11 min-w-0 flex-1 border-b border-primary bg-transparent text-sm text-[var(--color-pib-text)] outline-none xl:h-8"
                     />
                   </div>
                 ) : (
@@ -4106,7 +4106,7 @@ export default function UnifiedChat({
                         setMenuOpenId(c.id)
                       }
                     }}
-                    className={`absolute right-1 top-1/2 -translate-y-1/2 hidden group-hover/conv:flex items-center justify-center w-6 h-6 rounded text-[var(--color-pib-text-muted)] outline-none hover:text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.08))] focus-visible:flex focus-visible:ring-2 focus-visible:ring-primary/60 ${
+                    className={`absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded text-[var(--color-pib-text-muted)] outline-none hover:bg-[var(--color-card-hover,rgba(255,255,255,0.08))] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:right-1 xl:hidden xl:h-6 xl:w-6 xl:group-hover/conv:flex xl:focus-visible:flex ${
                       menuOpenId === c.id ? '!flex' : ''
                     }`}
                     aria-label="Conversation options"
@@ -4129,7 +4129,7 @@ export default function UnifiedChat({
         >
           <button
             type="button"
-            className="w-full text-left px-3 py-2 text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
+            className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] xl:min-h-0"
             onClick={() => openConversationInNewWindow(menuOpenId)}
           >
             <span className="material-symbols-outlined text-[14px]">open_in_new</span>
@@ -4138,7 +4138,7 @@ export default function UnifiedChat({
           {hermesLayout && menuConversation && (
             <button
               type="button"
-              className="w-full text-left px-3 py-2 text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
+              className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] xl:min-h-0"
               onClick={() => {
                 togglePinnedConversation(menuConversation.id)
                 setMenuOpenId(null)
@@ -4153,7 +4153,7 @@ export default function UnifiedChat({
           )}
           <button
             type="button"
-            className="w-full text-left px-3 py-2 text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
+            className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] xl:min-h-0"
             onClick={() => {
               const conv = conversations.find((c) => c.id === menuOpenId)
               setMenuOpenId(null)
@@ -4170,7 +4170,7 @@ export default function UnifiedChat({
           {menuConversation?.workspaceContext && (allowManageConversationAccess || (menuConversation.workspaceContext.ownerUserId ?? menuConversation.startedBy) === currentUserUid) && (
             <button
               type="button"
-              className="w-full text-left px-3 py-2 text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
+              className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] xl:min-h-0"
               onClick={() => {
                 setAccessConversation(menuConversation)
                 setMenuOpenId(null)
@@ -4184,7 +4184,7 @@ export default function UnifiedChat({
           {allowArchiveConversations && (
             <button
               type="button"
-              className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
+              className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-xs text-red-400 hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] xl:min-h-0"
               onClick={() => archiveConversation(menuOpenId)}
             >
               <span className="material-symbols-outlined text-[14px]">archive</span>
@@ -4194,7 +4194,7 @@ export default function UnifiedChat({
           {allowDeleteConversations && (
             <button
               type="button"
-              className="w-full text-left px-3 py-2 text-xs text-red-300 hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
+              className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-xs text-red-300 hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] xl:min-h-0"
               onClick={() => deleteConversation(menuOpenId)}
             >
               <span className="material-symbols-outlined text-[14px]">delete</span>
