@@ -155,6 +155,39 @@ describe('useChatContexts', () => {
     await act(async () => resolve({ ok: true }))
   })
 
+  it.each([
+    { label: 'successful', response: { ok: true } },
+    { label: 'failed', response: { ok: false, status: 500, json: async () => ({ error: 'Source action failed' }) } },
+  ])('does not leak a delayed $label action from the source conversation', async ({ response }) => {
+    let resolve!: (value: typeof response) => void
+    global.fetch = jest.fn(() => new Promise<typeof response>((done) => { resolve = done })) as jest.Mock
+    const sourceRefresh = jest.fn()
+    const destinationRefresh = jest.fn()
+    const action = { id: 'retry', label: 'Retry source', href: '/api/retry-source', method: 'POST' as const }
+    const sourceModel = { context: { kind: 'project' as const, id: 'source-project', orgId: 'org-1', label: 'Source project', icon: 'target' }, pulse: { label: 'Project', metrics: [] }, groups: [], artifacts: [], attention: [{ id: 'source-failure', label: 'Source failure', state: 'blocked' as const, actions: [action] }], activity: [], capabilities: [], asOf: '2026-07-19T00:00:00Z' }
+    const destinationModel = { ...sourceModel, context: { ...sourceModel.context, id: 'destination-project', label: 'Destination project' }, attention: [] }
+    const sourceActive = { kind: 'project' as const, id: 'source-project', label: 'Source project' }
+    const destinationActive = { kind: 'project' as const, id: 'destination-project', label: 'Destination project' }
+    const shared = { setActiveContext: jest.fn(), error: null, routineUpdateCount: 0, dismissRoutineUpdates: jest.fn(), orgId: 'org-1' }
+    const sourceContext = { ...shared, contexts: [sourceActive], activeContext: sourceActive, model: sourceModel, refresh: sourceRefresh, conversationId: 'conv-action-source' }
+    const destinationContext = { ...shared, contexts: [destinationActive], activeContext: destinationActive, model: destinationModel, refresh: destinationRefresh, conversationId: 'conv-action-destination' }
+    window.localStorage.setItem('pib.messages.contextCanvas.v1:org-1:conv-action-destination', JSON.stringify({ open: true, mode: 'single', width: 520 }))
+
+    const { rerender } = render(<ChatContextExperience context={sourceContext} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Open context dock' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Retry source' }))
+
+    rerender(<ChatContextExperience context={destinationContext} />)
+    await waitFor(() => expect(screen.getByRole('dialog', { name: 'Destination project context' })).toBeInTheDocument())
+
+    await act(async () => resolve(response))
+
+    expect(sourceRefresh).not.toHaveBeenCalled()
+    expect(destinationRefresh).not.toHaveBeenCalled()
+    expect(screen.queryByText('Source action failed')).not.toBeInTheDocument()
+    expect(screen.queryByText('Source failure')).not.toBeInTheDocument()
+  })
+
   it('restores and persists per-conversation canvas mode, split selection, width, and open state', async () => {
     Object.defineProperty(window, 'matchMedia', { configurable: true, value: jest.fn((query: string) => ({ matches: query.includes('min-width: 1280px'), addEventListener: jest.fn(), removeEventListener: jest.fn() })) })
     window.localStorage.setItem('pib.messages.contextCanvas.v1:org-1:conv-1', JSON.stringify({ open: true, mode: 'dual', width: 610, secondary: { kind: 'company', id: 'company-1' } }))
