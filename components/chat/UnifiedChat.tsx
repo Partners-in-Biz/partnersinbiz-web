@@ -4722,7 +4722,7 @@ export default function UnifiedChat({
           )}
 
           {contextTypePrompt && (
-            <div id={contextPickerPanelId} role="listbox" aria-label="Reference types" className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
+            <div id={contextPickerPanelId} role="listbox" aria-label="Reference types" className="max-h-[min(60dvh,32rem)] overflow-y-auto overscroll-contain rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
               <div role="presentation" className="px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 Reference types
               </div>
@@ -4754,7 +4754,7 @@ export default function UnifiedChat({
           )}
 
           {contextMention && (
-            <div id={contextPickerPanelId} role="listbox" aria-label="Context references" className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
+            <div id={contextPickerPanelId} role="listbox" aria-label="Context references" className="max-h-[min(60dvh,32rem)] overflow-y-auto overscroll-contain rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
               <div role="presentation" className="px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 @{contextMention.namespace}: references
               </div>

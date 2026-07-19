@@ -1886,6 +1886,7 @@ describe('UnifiedChat context references', () => {
     await waitFor(() => expect(input).toHaveFocus())
     expect(addContext).toHaveAttribute('aria-expanded', 'true')
     const referenceTypeMenu = screen.getByRole('listbox', { name: 'Reference types' })
+    expect(referenceTypeMenu).toHaveClass('max-h-[min(60dvh,32rem)]', 'overflow-y-auto', 'overscroll-contain')
     expect(addContext).toHaveAttribute('aria-controls', referenceTypeMenu.id)
     expect(await screen.findByRole('option', { name: 'Use @projects:' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Use @docs:' })).toBeInTheDocument()

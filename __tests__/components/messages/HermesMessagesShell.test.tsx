@@ -60,7 +60,7 @@ describe('HermesMessagesShell', () => {
     expect(screen.getByTestId('hermes-messages-shell-topbar')).toHaveTextContent('Client portal / Messages')
     expect(screen.getByTestId('hermes-messages-shell-topbar')).toHaveTextContent('Agents enabled')
     expect(screen.getByTestId('hermes-messages-shell-topbar')).toHaveTextContent('Safe /v1 runs')
-    expect(screen.getByRole('button', { name: 'Collapse sessions' })).toHaveClass('h-11', 'w-11', 'xl:h-7', 'xl:w-7')
+    expect(screen.getByRole('button', { name: 'Collapse sessions' })).toHaveClass('hidden', 'h-7', 'w-7', 'xl:grid')
     expect(screen.getByRole('button', { name: 'Stack panes vertically' })).toHaveClass('h-11', 'w-11', 'xl:h-7', 'xl:w-7')
     expect(screen.getByRole('button', { name: 'Open active session in split pane' })).toHaveClass('h-11', 'w-11', 'xl:h-7', 'xl:w-7')
     expect(screen.getByRole('tab', { name: 'Session' }).parentElement).toHaveClass('min-h-11', 'xl:h-6', 'xl:min-h-0')
