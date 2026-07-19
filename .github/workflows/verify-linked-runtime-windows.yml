@@ -101,4 +101,5 @@ jobs:
       - name: Focused tests and typecheck
         run: |
           npx jest --runInBand __tests__/scripts/verify-linked-runtime-installers.test.ts __tests__/scripts/linked-runtime-publisher.test.ts
-          npm run typecheck
+          $env:NODE_OPTIONS = '--max-old-space-size=4096'
+          npx tsc --noEmit --pretty false --project tsconfig.typecheck.json
