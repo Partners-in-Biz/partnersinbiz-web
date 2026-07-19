@@ -124,6 +124,18 @@ describe('agent skill policy manifest', () => {
     expect(projectSkill).not.toContain('"status": "active"')
   })
 
+  it('requires model-level proof and profile-specific OAuth recovery for Hermes incidents', () => {
+    const platformSkill = readFileSync(join(
+      process.cwd(),
+      '.claude/skills/platform-ops/SKILL.md',
+    ), 'utf8')
+
+    expect(platformSkill).toContain('Reply with exactly CODEXOK and nothing else.')
+    expect(platformSkill).toContain('NRestarts')
+    expect(platformSkill).toContain('auth add openai-codex --type oauth --no-browser --timeout 600')
+    expect(platformSkill).toContain("do not copy another working profile's `auth.json` or refresh token")
+  })
+
   it('catalogs every repo skill folder with an owner and runtime policy', () => {
     const discovered = discoverRepoSkills()
     expect(discovered.length).toBeGreaterThanOrEqual(45)
