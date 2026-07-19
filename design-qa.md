@@ -18,6 +18,6 @@
 
 ## Signed-in browser comparison
 
-Both available local browser profiles resolve the protected Messages route to the PiB login surface. Authentication was not bypassed, copied from another origin, or fabricated. The approved reference and implementation therefore could not yet be captured together in the same signed-in conversation state.
+Vercel Preview `dpl_Cw5cBB1ZxmYgrimcunzh882Xjm9J` completed successfully from commit `50f13143` and is Ready at `https://partnersinbiz-l6wodo5dq-peet-standers-projects-caab22b2.vercel.app`. Its protected `/portal/messages` route redirects to `/login` in the available Chrome profile, matching the earlier local result. Authentication was not bypassed, copied from another origin, or fabricated. The approved reference and implementation therefore could not yet be captured together in the same signed-in conversation state.
 
-Final result: blocked on an authorised local or development Preview browser session.
+Final result: engineering QA passed; signed-in visual comparison remains blocked on an authorised development Preview session.
