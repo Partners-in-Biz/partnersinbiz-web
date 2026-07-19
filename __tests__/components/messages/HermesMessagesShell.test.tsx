@@ -123,11 +123,45 @@ describe('HermesMessagesShell', () => {
     expect(screen.getByTestId('messages-workspace-pane-primary')).toBeInTheDocument()
     expect(screen.getByTestId('messages-workspace-pane-secondary')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Close split pane' })).toHaveClass('h-11', 'w-11', 'xl:h-6', 'xl:w-6')
-    expect(screen.getByRole('button', { name: 'Resize workspace panes' })).toHaveClass('min-w-11', 'min-h-11', 'xl:min-w-0', 'xl:w-2')
+    expect(screen.getByRole('button', { name: 'Resize workspace panes' })).toHaveClass('hidden', 'xl:block', 'xl:min-w-0', 'xl:w-2')
     expect(mockUnifiedChat).toHaveBeenLastCalledWith(expect.objectContaining({
       activeConversationId: 'conv-1',
       showConversationList: false,
     }))
+  })
+
+  it('uses one full-width focused surface below desktop and keeps narrow split switching available', () => {
+    render(
+      <HermesMessagesShell
+        surface="portal"
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        initialConvId="conv-1"
+        capabilities={{ allowStartConversations: true, allowSendMessages: true, allowAgentParticipants: true, allowArchiveConversations: true }}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open active session in split pane' }))
+
+    const primary = screen.getByTestId('messages-workspace-pane-primary')
+    const secondary = screen.getByTestId('messages-workspace-pane-secondary')
+    const resizer = screen.getByRole('button', { name: 'Resize workspace panes' })
+
+    expect(primary).toHaveClass('flex-1', 'basis-full', 'xl:flex-none', 'xl:basis-[var(--workspace-pane-basis)]', 'max-xl:hidden')
+    expect(secondary).toHaveClass('flex-1', 'basis-full', 'xl:flex-none', 'xl:basis-[var(--workspace-pane-basis)]')
+    expect(secondary).not.toHaveClass('max-xl:hidden')
+    expect(primary.style.getPropertyValue('--workspace-pane-basis')).toBe('50%')
+    expect(secondary.style.getPropertyValue('--workspace-pane-basis')).toBe('50%')
+    expect(primary.style.flex).toBe('')
+    expect(secondary.style.flex).toBe('')
+    expect(resizer).toHaveClass('hidden', 'xl:block')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show primary pane' }))
+
+    expect(primary).not.toHaveClass('max-xl:hidden')
+    expect(secondary).toHaveClass('max-xl:hidden')
+    expect(screen.getByRole('button', { name: 'Show secondary pane' })).toBeInTheDocument()
   })
 
   it('persists a focus-mode Sessions rail without hiding the conversation catalogue', () => {
