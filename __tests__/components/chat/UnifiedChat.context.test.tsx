@@ -1833,15 +1833,20 @@ describe('UnifiedChat context references', () => {
 
     expect(addContext).toHaveClass('h-11', 'min-w-11', 'focus-visible:ring-2')
     expect(addContext.closest('[role="toolbar"]')).toHaveAttribute('aria-label', 'Pinned conversation context')
+    expect(addContext).toHaveAttribute('aria-haspopup', 'menu')
+    expect(addContext).toHaveAttribute('aria-expanded', 'false')
 
     fireEvent.click(addContext)
 
     expect(input).toHaveValue('@')
     await waitFor(() => expect(input).toHaveFocus())
-    expect(await screen.findByRole('button', { name: 'Use @projects:' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Use @docs:' })).toBeInTheDocument()
+    expect(addContext).toHaveAttribute('aria-expanded', 'true')
+    const referenceTypeMenu = screen.getByRole('menu', { name: 'Reference types' })
+    expect(addContext).toHaveAttribute('aria-controls', referenceTypeMenu.id)
+    expect(await screen.findByRole('menuitem', { name: 'Use @projects:' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Use @docs:' })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Use @projects:' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Use @projects:' }))
     await act(async () => {
       fireEvent.change(input, { target: { value: '@projects:launch' } })
       await Promise.resolve()
@@ -1869,13 +1874,13 @@ describe('UnifiedChat context references', () => {
 
     fireEvent.click(addContext)
     expect(input).toHaveValue('Keep this draft @')
-    expect(await screen.findByRole('button', { name: 'Use @projects:' })).toBeInTheDocument()
+    expect(await screen.findByRole('menuitem', { name: 'Use @projects:' })).toBeInTheDocument()
 
     fireEvent.click(addContext)
     expect(input).toHaveValue('Keep this draft @')
     await waitFor(() => expect(input).toHaveFocus())
 
-    fireEvent.click(screen.getByRole('button', { name: 'Use @projects:' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Use @projects:' }))
     fireEvent.change(input, { target: { value: 'Keep this draft @projects:lau' } })
     fireEvent.click(addContext)
 
@@ -1884,6 +1889,96 @@ describe('UnifiedChat context references', () => {
 
     fireEvent.click(await screen.findByText('Launch Project'))
     await waitFor(() => expect(input).toHaveValue('Keep this draft'))
+  })
+
+  it('dismisses an Add context picker on Escape without reopening and restores the exact draft', async () => {
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+      />,
+    )
+
+    const input = await screen.findByPlaceholderText('Send a message')
+    const draft = 'First line  \n\n  Keep every byte '
+    fireEvent.change(input, { target: { value: draft } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add conversation context' }))
+    expect(input).toHaveValue(`${draft}@`)
+    expect(await screen.findByRole('menu', { name: 'Reference types' })).toBeInTheDocument()
+
+    expect(fireEvent.keyDown(input, { key: 'Escape' })).toBe(false)
+    fireEvent.keyUp(input, { key: 'Escape' })
+
+    expect(input).toHaveValue(draft)
+    expect(screen.queryByRole('menu', { name: 'Reference types' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add conversation context' })).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('dismisses a manually typed context prompt without deleting it and reopens after another edit', async () => {
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+      />,
+    )
+
+    const input = await screen.findByPlaceholderText('Send a message')
+    fireEvent.change(input, { target: { value: 'Draft @pro' } })
+    expect(await screen.findByRole('menu', { name: 'Reference types' })).toBeInTheDocument()
+
+    expect(fireEvent.keyDown(input, { key: 'Escape' })).toBe(false)
+    fireEvent.keyUp(input, { key: 'Escape' })
+
+    expect(input).toHaveValue('Draft @pro')
+    expect(screen.queryByRole('menu', { name: 'Reference types' })).not.toBeInTheDocument()
+
+    fireEvent.change(input, { target: { value: 'Draft @proj' } })
+    expect(await screen.findByRole('menuitem', { name: 'Use @projects:' })).toBeInTheDocument()
+  })
+
+  it('rebases mention removal onto the latest composer value after a delayed context PATCH', async () => {
+    let resolvePatch: ((value: Response) => void) | undefined
+    const patchResponse = new Promise<Response>((resolve) => { resolvePatch = resolve })
+    const defaultFetch = mockFetch
+    mockFetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input) === '/api/v1/conversations/conv-1/context' && init?.method === 'PATCH') {
+        return patchResponse
+      }
+      return defaultFetch(input, init)
+    })
+    global.fetch = mockFetch
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+      />,
+    )
+
+    const input = await screen.findByPlaceholderText('Send a message')
+    const originalDraft = 'First line  \n\n  Keep every byte'
+    fireEvent.change(input, { target: { value: originalDraft } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add conversation context' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Use @projects:' }))
+    fireEvent.change(input, { target: { value: `${originalDraft} @projects:launch` } })
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Launch Project' }))
+
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/conversations/conv-1/context',
+      expect.objectContaining({ method: 'PATCH' }),
+    ))
+
+    const latestDraft = 'Inserted before\nFirst line  \n\n  Keep every byte @projects:launch\nInserted after'
+    fireEvent.change(input, { target: { value: latestDraft } })
+    await act(async () => {
+      resolvePatch?.(jsonResponse({ data: { contextRefs: [projectRef] } }))
+      await patchResponse
+    })
+
+    await waitFor(() => expect(input).toHaveValue('Inserted before\nFirst line  \n\n  Keep every byte\nInserted after'))
   })
 
   it('does not add a separator when the draft already ends in whitespace', async () => {
@@ -2032,14 +2127,14 @@ describe('UnifiedChat context references', () => {
     const input = await screen.findByPlaceholderText('Send a message')
     fireEvent.change(input, { target: { value: '@' } })
 
-    expect(await screen.findByRole('button', { name: 'Use @projects:' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Use @contacts:' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Use @tasks:' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Use @businesses:' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Use @products:' })).toBeInTheDocument()
+    expect(await screen.findByRole('menuitem', { name: 'Use @projects:' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Use @contacts:' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Use @tasks:' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Use @businesses:' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Use @products:' })).toBeInTheDocument()
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Use @products:' }))
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Use @products:' }))
       await Promise.resolve()
       await Promise.resolve()
       await Promise.resolve()

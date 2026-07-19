@@ -5,6 +5,7 @@ import {
   findActiveContextMention,
   findActiveContextTypePrompt,
   removeMentionToken,
+  removeMentionTokenFromLatest,
   replaceTypePromptToken,
 } from '@/lib/context-references/composer'
 
@@ -67,6 +68,37 @@ describe('context reference composer helpers', () => {
       start: 20,
       end: 36,
     }, null)).toBe('Keep trailing space ')
+  })
+
+  it('rebases a selected mention onto newer draft edits before removing it', () => {
+    const original = 'Keep  these bytes @projects:launch'
+    const mention = findActiveContextMention(original)
+    expect(mention).not.toBeNull()
+
+    expect(removeMentionTokenFromLatest(
+      'Added before\nKeep  these bytes @projects:launch\nAdded after',
+      original,
+      mention!,
+      17,
+    )).toBe('Added before\nKeep  these bytes\nAdded after')
+  })
+
+  it('leaves the latest draft untouched when the pending mention was edited', () => {
+    const original = 'Keep @projects:launch'
+    const mention = findActiveContextMention(original)
+    expect(mention).not.toBeNull()
+    const latest = 'Keep @projects:launch-v2 with my new note'
+
+    expect(removeMentionTokenFromLatest(latest, original, mention!, undefined)).toBe(latest)
+  })
+
+  it('does not remove a different identical mention when the selected occurrence was edited', () => {
+    const original = 'Earlier @projects:launch\nSelect @projects:launch'
+    const mention = findActiveContextMention(original)
+    expect(mention).not.toBeNull()
+    const latest = 'Earlier @projects:launch\nSelect @projects:launch-v2'
+
+    expect(removeMentionTokenFromLatest(latest, original, mention!, undefined)).toBe(latest)
   })
 
   it('detects bare and partial @reference type prompts', () => {

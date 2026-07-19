@@ -14,7 +14,7 @@ const executionOnlyModel: ChatContextReadModel = {
   pulse: { label: 'Execution', metrics: [] }, groups: [], artifacts: [], attention: [], activity: [], capabilities: [], asOf: '',
 }
 
-export function ChatContextExperience({ context, compact = false, artifactRequest, execution, executionRequest, onActionResolved, onRemoveContext, onAddContext, onOpenChange, onPresentationChange }: { context: ReturnTypeOfUseChatContexts; compact?: boolean; artifactRequest?: { id: string; nonce: number }; execution?: RuntimeExecution; executionRequest?: number; onActionResolved?: () => void; onRemoveContext?: (value: ChatContextReference) => void; onAddContext?: () => void; onOpenChange?: (open: boolean) => void; onPresentationChange?: (state: { open: boolean; mode: 'single' | 'dual' }) => void }) {
+export function ChatContextExperience({ context, compact = false, artifactRequest, execution, executionRequest, onActionResolved, onRemoveContext, onAddContext, contextPickerExpanded, contextPickerControls, onOpenChange, onPresentationChange }: { context: ReturnTypeOfUseChatContexts; compact?: boolean; artifactRequest?: { id: string; nonce: number }; execution?: RuntimeExecution; executionRequest?: number; onActionResolved?: () => void; onRemoveContext?: (value: ChatContextReference) => void; onAddContext?: () => void; contextPickerExpanded?: boolean; contextPickerControls?: string; onOpenChange?: (open: boolean) => void; onPresentationChange?: (state: { open: boolean; mode: 'single' | 'dual' }) => void }) {
   const [open, setOpen] = useState(false)
   const [canvasMode, setCanvasMode] = useState<'single' | 'dual'>('single')
   const [canvasWidth, setCanvasWidth] = useState(520)
@@ -74,8 +74,8 @@ export function ChatContextExperience({ context, compact = false, artifactReques
   const hasExecution = Boolean(execution?.activeMessage?.runId)
   if ((!context.model || !context.activeContext) && !hasExecution) return <>
     {context.activeContext && context.contexts.length > 0
-      ? <ContextStrip options={context.contexts} value={context.activeContext} onChange={context.setActiveContext} onRemove={onRemoveContext} onAdd={onAddContext} onOpen={() => { void context.refresh() }} />
-      : onAddContext ? <EmptyContextStrip onAdd={onAddContext} /> : null}
+      ? <ContextStrip options={context.contexts} value={context.activeContext} onChange={context.setActiveContext} onRemove={onRemoveContext} onAdd={onAddContext} pickerExpanded={contextPickerExpanded} pickerControls={contextPickerControls} onOpen={() => { void context.refresh() }} />
+      : onAddContext ? <EmptyContextStrip onAdd={onAddContext} pickerExpanded={contextPickerExpanded} pickerControls={contextPickerControls} /> : null}
     {context.error && <div role="alert" className="border-b border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">Unable to load context. <button type="button" aria-label="Retry context" onClick={() => { void context.refresh() }} className="underline">Retry</button></div>}
   </>
   const model = context.model ?? executionOnlyModel
@@ -103,8 +103,8 @@ export function ChatContextExperience({ context, compact = false, artifactReques
   }
   return <>
     {context.model && context.activeContext
-      ? <ContextStrip options={context.contexts} value={context.activeContext} model={context.model} onChange={context.setActiveContext} onRemove={onRemoveContext} onAdd={onAddContext} onOpen={() => setOpen(true)} />
-      : onAddContext ? <EmptyContextStrip onAdd={onAddContext} /> : null}
+      ? <ContextStrip options={context.contexts} value={context.activeContext} model={context.model} onChange={context.setActiveContext} onRemove={onRemoveContext} onAdd={onAddContext} pickerExpanded={contextPickerExpanded} pickerControls={contextPickerControls} onOpen={() => setOpen(true)} />
+      : onAddContext ? <EmptyContextStrip onAdd={onAddContext} pickerExpanded={contextPickerExpanded} pickerControls={contextPickerControls} /> : null}
     {!context.model && !context.activeContext && <button type="button" data-testid="execution-context-trigger" onClick={() => setOpen(true)} className="mx-3 mt-2 inline-flex h-11 items-center gap-2 self-start rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-xs text-[var(--color-pib-text)] outline-none focus-visible:ring-2 focus-visible:ring-primary/60 sm:h-8"><span aria-hidden="true" className="material-symbols-outlined text-[15px]">developer_board</span>Execution <span className="text-[var(--color-pib-text-muted)]">{execution?.activeMessage?.status}</span></button>}
     <ContextDock model={model} open={open} compact={compact} activeArtifactId={activeArtifactId} onArtifactActivate={activateArtifact} onAction={(action) => { void executeAction(action) }} actionError={actionError} pendingActionId={pendingActionId} execution={execution} mode={canvasMode} onModeChange={setCanvasMode} canvasWidth={canvasWidth} onCanvasWidthChange={setCanvasWidth} secondaryContext={secondaryContext} secondaryOptions={secondaryOptions} onSecondaryChange={setSecondaryContext} onClose={() => setOpen(false)} />
   </>

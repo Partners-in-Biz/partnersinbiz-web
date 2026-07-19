@@ -10,6 +10,7 @@ import {
   findActiveContextMention,
   findActiveContextTypePrompt,
   removeMentionToken,
+  removeMentionTokenFromLatest,
   replaceTypePromptToken,
   type ActiveContextMention,
   type ActiveContextTypePrompt,
@@ -909,6 +910,7 @@ export default function UnifiedChat({
   const [draggingAttachments, setDraggingAttachments] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const attachmentInputId = useId()
+  const contextPickerPanelId = useId()
 
   // Mobile pane navigation: which pane is visible on small screens
   const [mobilePane, setMobilePane] = useState<'list' | 'conversation'>(initialConvId ? 'conversation' : 'list')
@@ -934,6 +936,7 @@ export default function UnifiedChat({
   const composerRef = useRef<HTMLTextAreaElement | null>(null)
   // undefined means a manually typed mention; null means Add context reused existing whitespace.
   const contextPickerInsertedSeparatorRef = useRef<number | null | undefined>(undefined)
+  const suppressContextPickerKeyUpRef = useRef(false)
   const mobileSessionsRef = useRef<HTMLElement | null>(null)
   const mobileSessionsCloseRef = useRef<HTMLButtonElement | null>(null)
   const mobileSessionsTriggerRef = useRef<HTMLButtonElement | null>(null)
@@ -2719,11 +2722,18 @@ export default function UnifiedChat({
   }, [patchContextRefs])
 
   const selectMentionContext = useCallback((ref: ContextReference) => {
+    const mentionAtSelection = contextMention
+    const inputAtSelection = input
+    const insertedSeparatorAtSelection = contextPickerInsertedSeparatorRef.current
     patchContextRefs('add', [ref])
       .then(() => {
-        const insertedSeparator = contextPickerInsertedSeparatorRef.current
-        if (contextMention) {
-          setInput((prev) => removeMentionToken(prev, contextMention, insertedSeparator))
+        if (mentionAtSelection) {
+          setInput((latestInput) => removeMentionTokenFromLatest(
+            latestInput,
+            inputAtSelection,
+            mentionAtSelection,
+            insertedSeparatorAtSelection,
+          ))
         }
         contextPickerInsertedSeparatorRef.current = undefined
         setContextMention(null)
@@ -2734,7 +2744,7 @@ export default function UnifiedChat({
       .catch((err) => {
         setError(err instanceof Error ? err.message : 'Failed to attach context')
       })
-  }, [contextMention, patchContextRefs])
+  }, [contextMention, input, patchContextRefs])
 
   const selectContextType = useCallback((option: ContextReferenceMentionOption) => {
     if (!contextTypePrompt) return
@@ -4347,7 +4357,7 @@ export default function UnifiedChat({
           )}
         </div>
 
-        {activeConversation && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} execution={runtimeExecution} executionRequest={executionDockRequest} onActionResolved={handleContextActionResolved} onOpenChange={setContextCanvasOpen} onPresentationChange={onContextCanvasPresentationChange} onAddContext={openContextPicker} onRemoveContext={(value) => {
+        {activeConversation && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} execution={runtimeExecution} executionRequest={executionDockRequest} onActionResolved={handleContextActionResolved} onOpenChange={setContextCanvasOpen} onPresentationChange={onContextCanvasPresentationChange} onAddContext={openContextPicker} contextPickerExpanded={Boolean(contextMention || contextTypePrompt)} contextPickerControls={contextPickerPanelId} onRemoveContext={(value) => {
           const ref = contextRefs.find((item) => item.type === value.kind && item.id === value.id)
           if (ref) removeContextRef(ref)
         }} />}
@@ -4630,8 +4640,8 @@ export default function UnifiedChat({
           )}
 
           {contextTypePrompt && (
-            <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
-              <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+            <div id={contextPickerPanelId} role="menu" aria-label="Reference types" className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
+              <div role="presentation" className="px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 Reference types
               </div>
               {contextTypeOptions.length === 0 ? (
@@ -4641,6 +4651,7 @@ export default function UnifiedChat({
                   <button
                     key={option.namespace}
                     type="button"
+                    role="menuitem"
                     aria-label={`Use @${option.namespace}:`}
                     onClick={() => selectContextType(option)}
                     className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-[var(--color-pib-text)] transition-colors hover:bg-white/[0.06]"
@@ -4657,8 +4668,8 @@ export default function UnifiedChat({
           )}
 
           {contextMention && (
-            <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
-              <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+            <div id={contextPickerPanelId} role="menu" aria-label="Context references" className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
+              <div role="presentation" className="px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 @{contextMention.namespace}: references
               </div>
               {contextSearchLoading && (
@@ -4671,6 +4682,8 @@ export default function UnifiedChat({
                 <button
                   key={contextReferenceKey(ref)}
                   type="button"
+                  role="menuitem"
+                  aria-label={contextChipLabel(ref)}
                   onClick={() => selectMentionContext(ref)}
                   className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-[var(--color-pib-text)] transition-colors hover:bg-white/[0.06]"
                 >
@@ -4812,16 +4825,30 @@ export default function UnifiedChat({
               ref={composerRef}
               value={input}
               onChange={(e) => {
+                suppressContextPickerKeyUpRef.current = false
                 setInput(e.target.value)
                 setHistoryCursor(null)
                 historyDraftRef.current = ''
                 updateMentionFromComposer(e.target.value, e.target.selectionStart ?? e.target.value.length)
               }}
               onClick={(e) => updateMentionFromComposer(input, e.currentTarget.selectionStart ?? input.length)}
-              onKeyUp={(e) => updateMentionFromComposer(input, e.currentTarget.selectionStart ?? input.length)}
+              onKeyUp={(e) => {
+                if (e.key === 'Escape' && suppressContextPickerKeyUpRef.current) {
+                  suppressContextPickerKeyUpRef.current = false
+                  return
+                }
+                updateMentionFromComposer(input, e.currentTarget.selectionStart ?? input.length)
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Escape' && (contextMention || contextTypePrompt || slashPrompt)) {
+                  e.preventDefault()
+                  const contextPicker = contextMention ?? contextTypePrompt
+                  const insertedSeparator = contextPickerInsertedSeparatorRef.current
+                  if (contextPicker && insertedSeparator !== undefined) {
+                    setInput((latestInput) => removeMentionToken(latestInput, contextPicker, insertedSeparator))
+                  }
                   contextPickerInsertedSeparatorRef.current = undefined
+                  suppressContextPickerKeyUpRef.current = true
                   setContextMention(null)
                   setContextTypePrompt(null)
                   setSlashPrompt(null)

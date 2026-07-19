@@ -121,6 +121,47 @@ export function removeMentionToken(
   return `${input.slice(0, removeFrom)}${input.slice(mention.end)}`
 }
 
+export function removeMentionTokenFromLatest(
+  latestInput: string,
+  inputAtSelection: string,
+  mention: ActiveContextMention,
+  insertedSeparatorIndex?: number | null,
+): string {
+  if (inputAtSelection.slice(mention.start, mention.end) !== mention.token) return latestInput
+  const findCompleteTokenStarts = (value: string) => {
+    const starts: number[] = []
+    let cursor = value.indexOf(mention.token)
+    while (cursor >= 0) {
+      const end = cursor + mention.token.length
+      if (
+        (cursor === 0 || /\s/.test(value[cursor - 1] ?? '')) &&
+        (end === value.length || /\s/.test(value[end] ?? ''))
+      ) starts.push(cursor)
+      cursor = value.indexOf(mention.token, cursor + mention.token.length)
+    }
+    return starts
+  }
+  const originalMatches = findCompleteTokenStarts(inputAtSelection)
+  const selectedOrdinal = originalMatches.indexOf(mention.start)
+  const latestMatches = findCompleteTokenStarts(latestInput)
+  if (selectedOrdinal < 0 || latestMatches.length !== originalMatches.length) return latestInput
+  const start = latestMatches[selectedOrdinal]
+  if (start === undefined) return latestInput
+
+  const rebasedSeparator = insertedSeparatorIndex === undefined
+    ? undefined
+    : insertedSeparatorIndex === null
+      ? null
+      : start > 0 && latestInput[start - 1] === ' '
+        ? start - 1
+        : null
+
+  return removeMentionToken(latestInput, {
+    start,
+    end: start + mention.token.length,
+  }, rebasedSeparator)
+}
+
 export function replaceTypePromptToken(
   input: string,
   prompt: Pick<ActiveContextTypePrompt, 'start' | 'end'>,
