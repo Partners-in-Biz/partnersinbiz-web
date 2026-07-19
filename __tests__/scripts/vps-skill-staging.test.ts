@@ -11,6 +11,9 @@ describe('VPS skill staging deployment', () => {
     expect(helper).toContain("stat -c '%U'")
     expect(helper).toContain('find -P "$staging" -type l')
     expect(helper).toContain('sudo -u hermes env HOME=/var/lib/hermes')
+    expect(helper).toContain('PIB_SKILL_RESTART_STABILIZATION_SECONDS:-30')
+    expect(helper).toContain('--property=NRestarts --value')
+    expect(helper).toContain('restarted during the ${stabilization_seconds}s stabilization window')
     expect(helper).not.toMatch(/(?:bash|sh|source|\.)\s+"?\$staging/)
   })
 
