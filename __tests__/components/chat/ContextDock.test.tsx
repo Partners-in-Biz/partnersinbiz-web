@@ -19,6 +19,12 @@ const activeExecution: RuntimeExecution = {
   catalog: null,
 }
 
+const originalMatchMedia = window.matchMedia
+
+afterEach(() => {
+  Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalMatchMedia })
+})
+
 it('is an accessible adaptive dock, omits empty sections, closes on Escape, and restores focus', () => {
   const close = jest.fn()
   const { rerender } = render(<><button>Open context</button><ContextDock model={model} open={false} onClose={close} /></>)
@@ -66,6 +72,7 @@ it('uses a modal sheet in normal Messages on a mobile viewport and traps focus',
   expect(dialog).toHaveAttribute('data-presentation', 'sheet')
   expect(dialog).toHaveAttribute('aria-modal', 'true')
   expect(dialog).toHaveClass('fixed', 'inset-0')
+  expect(dialog).toHaveClass('pl-[env(safe-area-inset-left)]', 'pr-[env(safe-area-inset-right)]')
   expect(dialog).not.toHaveClass('sm:top-[8%]', 'sm:bottom-3')
   expect(screen.getByTestId('context-dock-header')).toHaveClass('pt-[max(.5rem,env(safe-area-inset-top))]')
   expect(screen.getByTestId('context-dock-scroll-body')).toHaveClass('pb-[max(.75rem,env(safe-area-inset-bottom))]')

@@ -1041,6 +1041,12 @@ describe('UnifiedChat project pulse integration', () => {
 })
 
 describe('UnifiedChat responsive Sessions focus mode', () => {
+  const originalMatchMedia = window.matchMedia
+
+  afterEach(() => {
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalMatchMedia })
+  })
+
   const installViewport = (width: number) => {
     Object.defineProperty(window, 'matchMedia', {
       configurable: true,
@@ -1090,6 +1096,25 @@ describe('UnifiedChat responsive Sessions focus mode', () => {
     expect(sessionMenu).toHaveClass('flex', 'h-11', 'w-11', 'xl:hidden', 'xl:group-hover/conv:flex')
     expect(screen.getByRole('button', { name: 'Close sessions' })).toHaveFocus()
     fireEvent.keyDown(document, { key: 'Escape' })
+    await waitFor(() => expect(trigger).toHaveFocus())
+  })
+
+  it('returns focus to the Sessions trigger after backdrop dismissal and row selection', async () => {
+    installViewport(1194)
+    installConversationFetch()
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" initialConvId="conv-1" layoutVariant="hermes" />)
+
+    const trigger = await screen.findByRole('button', { name: 'Open Sessions' })
+    fireEvent.click(trigger)
+    fireEvent.click(screen.getByTestId('conversation-row-conv-1'))
+    await waitFor(() => expect(trigger).toHaveFocus())
+
+    fireEvent.click(trigger)
+    expect(screen.getByRole('dialog', { name: 'Session browser' })).toHaveClass(
+      'pl-[max(.75rem,env(safe-area-inset-left))]',
+      'pr-[max(.75rem,env(safe-area-inset-right))]',
+    )
+    fireEvent.click(screen.getByTestId('sessions-backdrop'))
     await waitFor(() => expect(trigger).toHaveFocus())
   })
 
@@ -1726,7 +1751,6 @@ describe('UnifiedChat message scrolling', () => {
   })
 
   it('opens execution in the same modal sheet used by compact Briefings chat', async () => {
-    const originalMatchMedia = window.matchMedia
     const matchMedia = jest.fn(() => ({ matches: true, addEventListener: jest.fn(), removeEventListener: jest.fn() }))
     Object.defineProperty(window, 'matchMedia', { configurable: true, value: matchMedia })
     const defaultFetch = global.fetch as jest.Mock
@@ -1746,15 +1770,24 @@ describe('UnifiedChat message scrolling', () => {
     expect(sheet).toHaveAttribute('aria-modal', 'true')
     expect(screen.getByRole('region', { name: 'Execution' })).toBeInTheDocument()
     expect(matchMedia).toHaveBeenCalledWith('(max-width: 1023px)')
-    Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalMatchMedia })
   })
 })
 
 describe('UnifiedChat context references', () => {
+  const originalContextReferencesMatchMedia = window.matchMedia
   let mockFetch: jest.Mock
   let conversation: typeof baseConversation
 
   beforeEach(() => {
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: jest.fn((query: string) => ({
+        matches: query.includes('min-width: 1280px'),
+        media: query,
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+      })),
+    })
     conversation = { ...baseConversation, contextRefs: [] }
     mockFetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
@@ -1819,6 +1852,10 @@ describe('UnifiedChat context references', () => {
       throw new Error(`Unhandled fetch: ${url}`)
     })
     global.fetch = mockFetch
+  })
+
+  afterEach(() => {
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalContextReferencesMatchMedia })
   })
 
   it('keeps an accessible Add context strip available before the first reference is pinned', async () => {

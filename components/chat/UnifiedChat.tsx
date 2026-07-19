@@ -3439,11 +3439,17 @@ export default function UnifiedChat({
   // A saved collapsed preference only applies to the docked >=1280 rail. Overlay
   // Sessions always renders its complete catalogue without mutating that preference.
   const railCollapsed = hermesLayout && conversationRailMode === 'collapsed' && !sessionsOverlayViewport
+  const closeSessions = useCallback(() => {
+    setMobilePane('conversation')
+    if (sessionsOverlayViewport) {
+      requestAnimationFrame(() => mobileSessionsTriggerRef.current?.focus())
+    }
+  }, [sessionsOverlayViewport])
   useEffect(() => {
     if (!showConversationList || !showListOnMobile || !sessionsOverlayViewport) return
     mobileSessionsCloseRef.current?.focus()
     const keydown = (event: globalThis.KeyboardEvent) => {
-      if (event.key === 'Escape' && activeConversation) { event.preventDefault(); setMobilePane('conversation'); requestAnimationFrame(() => mobileSessionsTriggerRef.current?.focus()); return }
+      if (event.key === 'Escape' && activeConversation) { event.preventDefault(); closeSessions(); return }
       if (event.key !== 'Tab' || !mobileSessionsRef.current) return
       const focusable = Array.from(mobileSessionsRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'))
       if (focusable.length === 0) return
@@ -3453,7 +3459,7 @@ export default function UnifiedChat({
     }
     document.addEventListener('keydown', keydown)
     return () => document.removeEventListener('keydown', keydown)
-  }, [activeConversation, sessionsOverlayViewport, showConversationList, showListOnMobile])
+  }, [activeConversation, closeSessions, sessionsOverlayViewport, showConversationList, showListOnMobile])
   const canStopActiveRun = Boolean(
     allowDeleteConversations &&
     activeRuntimeMessage?.runId &&
@@ -3497,7 +3503,7 @@ export default function UnifiedChat({
       }
     >
       {/* ── Left: conversation list ─────────────────────────────────────── */}
-      {showConversationList && showListOnMobile && tabletSessionsDrawer && <div aria-hidden="true" onClick={() => setMobilePane('conversation')} className="fixed inset-0 z-40 bg-black/45 xl:hidden" />}
+      {showConversationList && showListOnMobile && tabletSessionsDrawer && <div data-testid="sessions-backdrop" aria-hidden="true" onClick={closeSessions} className="fixed inset-0 z-40 bg-black/45 xl:hidden" />}
       {showConversationList && <aside
         ref={mobileSessionsRef}
         role={sessionsOverlayViewport && showListOnMobile ? 'dialog' : undefined}
@@ -3511,8 +3517,8 @@ export default function UnifiedChat({
           compact ? '!rounded-none !border-0 !bg-transparent' : 'xl:flex max-xl:!rounded-none max-xl:!border-0 max-xl:!bg-transparent',
           showListOnMobile
             ? tabletSessionsDrawer
-              ? 'flex fixed inset-y-0 left-0 z-50 w-[min(380px,42vw)] rounded-none bg-[var(--color-surface,#151515)] px-[max(.75rem,env(safe-area-inset-left))] pb-[max(.75rem,env(safe-area-inset-bottom))] pt-[max(.75rem,env(safe-area-inset-top))] shadow-2xl xl:static xl:w-auto xl:shadow-none'
-              : 'flex max-xl:fixed max-xl:inset-0 max-xl:z-50 max-xl:rounded-none max-xl:bg-[var(--color-surface,#151515)] max-xl:px-[max(.75rem,env(safe-area-inset-left))] max-xl:pb-[max(.75rem,env(safe-area-inset-bottom))] max-xl:pt-[max(.75rem,env(safe-area-inset-top))]'
+              ? 'flex fixed inset-y-0 left-0 z-50 w-[min(380px,42vw)] rounded-none bg-[var(--color-surface,#151515)] pl-[max(.75rem,env(safe-area-inset-left))] pr-[max(.75rem,env(safe-area-inset-right))] pb-[max(.75rem,env(safe-area-inset-bottom))] pt-[max(.75rem,env(safe-area-inset-top))] shadow-2xl xl:static xl:w-auto xl:shadow-none'
+              : 'flex max-xl:fixed max-xl:inset-0 max-xl:z-50 max-xl:rounded-none max-xl:bg-[var(--color-surface,#151515)] max-xl:pl-[max(.75rem,env(safe-area-inset-left))] max-xl:pr-[max(.75rem,env(safe-area-inset-right))] max-xl:pb-[max(.75rem,env(safe-area-inset-bottom))] max-xl:pt-[max(.75rem,env(safe-area-inset-top))]'
             : 'hidden',
         ].join(' ')}
       >
@@ -3524,7 +3530,7 @@ export default function UnifiedChat({
             <div aria-hidden="true" className="my-0.5 h-px w-7 bg-[var(--color-card-border)]" />
             <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
               {filteredConversations.slice(0, 10).map((conversation) => (
-                <button key={conversation.id} type="button" aria-label={`Open ${conversation.title || 'Untitled session'}`} title={conversation.title || 'Untitled session'} onClick={() => { setActiveId(conversation.id); setMobilePane('conversation') }} className={`relative grid h-11 w-11 place-items-center rounded-lg xl:h-10 xl:w-10 ${conversation.id === activeId ? 'bg-primary/14 text-primary' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)]'}`}>
+                <button key={conversation.id} type="button" aria-label={`Open ${conversation.title || 'Untitled session'}`} title={conversation.title || 'Untitled session'} onClick={() => { setActiveId(conversation.id); closeSessions() }} className={`relative grid h-11 w-11 place-items-center rounded-lg xl:h-10 xl:w-10 ${conversation.id === activeId ? 'bg-primary/14 text-primary' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)]'}`}>
                   <span aria-hidden="true" className="material-symbols-outlined text-[18px]">chat_bubble</span>
                   {pinnedConversationIdSet.has(conversation.id) ? <span aria-label="Pinned session" className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-amber-300" /> : null}
                 </button>
@@ -3533,7 +3539,7 @@ export default function UnifiedChat({
           </div>
         )}
         <div className={railCollapsed ? 'hidden' : 'contents'}>
-        <div className="mb-1 flex min-h-11 items-center justify-between xl:hidden"><div><p className="text-[10px] font-label uppercase tracking-[0.2em] text-[var(--color-pib-text-muted)]">Messages</p><h2 className="text-base font-semibold text-[var(--color-pib-text)]">Browse sessions</h2></div>{activeConversation && <button ref={mobileSessionsCloseRef} type="button" aria-label="Close sessions" onClick={() => { setMobilePane('conversation'); requestAnimationFrame(() => mobileSessionsTriggerRef.current?.focus()) }} className="grid h-11 w-11 place-items-center rounded-full text-[var(--color-pib-text-muted)] hover:bg-white/[0.07]"><span aria-hidden="true" className="material-symbols-outlined">close</span></button>}</div>
+        <div className="mb-1 flex min-h-11 items-center justify-between xl:hidden"><div><p className="text-[10px] font-label uppercase tracking-[0.2em] text-[var(--color-pib-text-muted)]">Messages</p><h2 className="text-base font-semibold text-[var(--color-pib-text)]">Browse sessions</h2></div>{activeConversation && <button ref={mobileSessionsCloseRef} type="button" aria-label="Close sessions" onClick={closeSessions} className="grid h-11 w-11 place-items-center rounded-full text-[var(--color-pib-text-muted)] hover:bg-white/[0.07]"><span aria-hidden="true" className="material-symbols-outlined">close</span></button>}</div>
         <button
           type="button"
           onClick={() => openNewConversation()}
@@ -3663,7 +3669,7 @@ export default function UnifiedChat({
                               active={c.id === activeId}
                               onClick={() => {
                                 setActiveId(c.id)
-                                setMobilePane('conversation')
+                                closeSessions()
                               }}
                               currentUserUid={currentUserUid}
                               density="compact"
@@ -3990,7 +3996,7 @@ export default function UnifiedChat({
                                 active={c.id === activeId}
                                 onClick={() => {
                                   setActiveId(c.id)
-                                  setMobilePane('conversation')
+                                  closeSessions()
                                 }}
                                 currentUserUid={currentUserUid}
                                 density="compact"
@@ -4064,7 +4070,7 @@ export default function UnifiedChat({
                           active={c.id === activeId}
                           onClick={() => {
                             setActiveId(c.id)
-                            setMobilePane('conversation')
+                            closeSessions()
                           }}
                           currentUserUid={currentUserUid}
                           density="compact"
@@ -4129,7 +4135,7 @@ export default function UnifiedChat({
                     active={c.id === activeId}
                     onClick={() => {
                       setActiveId(c.id)
-                      setMobilePane('conversation')
+                      closeSessions()
                     }}
                     currentUserUid={currentUserUid}
                     density="comfortable"

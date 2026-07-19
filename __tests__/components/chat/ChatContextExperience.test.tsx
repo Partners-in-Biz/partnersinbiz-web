@@ -11,6 +11,12 @@ const conversation = {
   ],
 }
 
+const originalMatchMedia = window.matchMedia
+
+afterEach(() => {
+  Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalMatchMedia })
+})
+
 describe('useChatContexts', () => {
   beforeEach(() => {
     window.localStorage.clear()
