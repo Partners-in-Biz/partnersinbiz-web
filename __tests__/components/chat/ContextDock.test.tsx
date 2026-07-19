@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ContextDock } from '@/components/chat/context/ContextDock'
 import type { RuntimeExecution } from '@/components/messages/hermes/RuntimeInspectorRail'
 
@@ -80,6 +80,46 @@ it('uses a modal sheet in normal Messages on a mobile viewport and traps focus',
   const close = screen.getByRole('button', { name: 'Close context dock' })
   fireEvent.keyDown(document, { key: 'Tab' })
   expect(close).toHaveFocus()
+})
+
+it('switches between primary and secondary context as one tablet landscape surface', async () => {
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    value: jest.fn(() => ({ matches: false, addEventListener: jest.fn(), removeEventListener: jest.fn() })),
+  })
+  const secondaryContext = { kind: 'document' as const, id: 'd1', label: 'Launch brief', summary: 'Ready for review' }
+  const secondaryModel = {
+    ...model,
+    context: { kind: 'document' as const, id: 'd1', orgId: 'o1', label: 'Launch brief', icon: 'description' },
+    pulse: { label: 'Launch brief', headline: 'Ready for review', metrics: [] },
+    groups: [{ id: 'details', label: 'Document details', items: [{ id: 'status', label: 'Ready for review' }] }],
+  }
+  global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ data: secondaryModel }) })) as jest.Mock
+
+  render(<ContextDock model={model} open mode="dual" onClose={jest.fn()} secondaryContext={secondaryContext} secondaryOptions={[secondaryContext]} />)
+
+  const dialog = screen.getByRole('dialog', { name: 'Marketing Studio context' })
+  expect(dialog).toHaveAttribute('data-presentation', 'canvas')
+  expect(screen.queryByRole('button', { name: 'Use dual context canvas' })).not.toBeInTheDocument()
+  const primary = screen.getByRole('tab', { name: 'Marketing Studio' })
+  const secondary = screen.getByRole('tab', { name: 'Launch brief' })
+  expect(primary).toHaveAttribute('aria-selected', 'true')
+  expect(secondary).toHaveAttribute('aria-selected', 'false')
+  expect(primary).toHaveClass('min-h-11')
+
+  primary.focus()
+  fireEvent.keyDown(primary, { key: 'ArrowRight' })
+
+  await waitFor(() => expect(screen.getByRole('dialog', { name: 'Launch brief context' })).toBeInTheDocument())
+  expect(secondary).toHaveAttribute('aria-selected', 'true')
+  expect(secondary).toHaveFocus()
+  expect(await screen.findByText('Document details')).toBeInTheDocument()
+  expect(screen.queryByText('Related context')).not.toBeInTheDocument()
+  expect(global.fetch).toHaveBeenCalledWith('/api/v1/chat-context/document/d1', expect.objectContaining({ signal: expect.any(AbortSignal) }))
+
+  fireEvent.click(primary)
+  expect(screen.getByRole('dialog', { name: 'Marketing Studio context' })).toBeInTheDocument()
+  expect(primary).toHaveAttribute('aria-selected', 'true')
 })
 
 it('shows active execution inside the same context dock with events and stop permission', () => {
