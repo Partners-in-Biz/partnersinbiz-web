@@ -935,6 +935,10 @@ export default function UnifiedChat({
   const eventSourcesRef = useRef<Record<string, EventSource>>({})
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
   const composerRef = useRef<HTMLTextAreaElement | null>(null)
+  // User edit generation guards delayed context attachment cleanup. Comparing
+  // text alone is insufficient because a user can edit and then restore the
+  // exact same bytes while the PATCH is in flight.
+  const composerEditRevisionRef = useRef(0)
   // undefined means a manually typed mention; null means Add context reused existing whitespace.
   const contextPickerInsertedSeparatorRef = useRef<number | null | undefined>(undefined)
   const suppressContextPickerKeyUpRef = useRef(false)
@@ -2740,16 +2744,22 @@ export default function UnifiedChat({
   const selectMentionContext = useCallback((ref: ContextReference) => {
     const mentionAtSelection = contextMention
     const inputAtSelection = input
+    const editRevisionAtSelection = composerEditRevisionRef.current
     const insertedSeparatorAtSelection = contextPickerInsertedSeparatorRef.current
     patchContextRefs('add', [ref])
       .then(() => {
-        if (mentionAtSelection) {
-          setInput((latestInput) => removeMentionTokenFromLatest(
-            latestInput,
-            inputAtSelection,
-            mentionAtSelection,
-            insertedSeparatorAtSelection,
-          ))
+        if (mentionAtSelection && composerEditRevisionRef.current === editRevisionAtSelection) {
+          setInput((latestInput) => {
+            if (composerEditRevisionRef.current !== editRevisionAtSelection || latestInput !== inputAtSelection) {
+              return latestInput
+            }
+            return removeMentionTokenFromLatest(
+              latestInput,
+              inputAtSelection,
+              mentionAtSelection,
+              insertedSeparatorAtSelection,
+            )
+          })
         }
         contextPickerInsertedSeparatorRef.current = undefined
         setContextMention(null)
@@ -4891,6 +4901,7 @@ export default function UnifiedChat({
               aria-activedescendant={contextPickerActiveOptionId}
               value={input}
               onChange={(e) => {
+                composerEditRevisionRef.current += 1
                 suppressContextPickerKeyUpRef.current = false
                 setInput(e.target.value)
                 setHistoryCursor(null)

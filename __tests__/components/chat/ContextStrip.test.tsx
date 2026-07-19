@@ -35,6 +35,7 @@ it('keeps every strip action touch-sized through tablet widths and labels Add co
     expect(action.className).not.toMatch(/(?:sm|md|lg):w-(?:\d|\[)/)
   }
   expect(screen.getByRole('button', { name: 'Add conversation context' })).toHaveTextContent('Add context')
+  expect(screen.getByRole('button', { name: 'Add conversation context' })).toHaveAttribute('aria-haspopup', 'listbox')
   expect(screen.getByText('Project')).toHaveClass('xl:inline')
 })
 
@@ -43,6 +44,7 @@ it('keeps the empty Add context action touch-sized without extra helper copy', (
 
   const action = screen.getByRole('button', { name: 'Add conversation context' })
   expect(action).toHaveClass('h-11', 'min-w-11')
+  expect(action).toHaveAttribute('aria-haspopup', 'listbox')
   expect(action.className).not.toMatch(/(?:sm|md|lg):h-(?:\d|\[)/)
   expect(screen.queryByText(/Pin projects, documents/i)).not.toBeInTheDocument()
 })

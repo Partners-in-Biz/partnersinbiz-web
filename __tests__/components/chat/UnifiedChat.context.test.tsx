@@ -1872,7 +1872,7 @@ describe('UnifiedChat context references', () => {
 
     expect(addContext).toHaveClass('h-11', 'min-w-11', 'focus-visible:ring-2')
     expect(addContext.closest('[role="toolbar"]')).toHaveAttribute('aria-label', 'Pinned conversation context')
-    expect(addContext).toHaveAttribute('aria-haspopup', 'menu')
+    expect(addContext).toHaveAttribute('aria-haspopup', 'listbox')
     expect(addContext).toHaveAttribute('aria-expanded', 'false')
 
     fireEvent.click(addContext)
@@ -2048,6 +2048,37 @@ describe('UnifiedChat context references', () => {
     })
 
     await waitFor(() => expect(input).toHaveValue(latestDraft))
+  })
+
+  it('does not remove a selected mention when the user edits then restores identical bytes before PATCH resolves', async () => {
+    let resolvePatch: ((value: Response) => void) | undefined
+    const patchResponse = new Promise<Response>((resolve) => { resolvePatch = resolve })
+    const defaultFetch = mockFetch
+    mockFetch = jest.fn(async (request: RequestInfo | URL, init?: RequestInit) => {
+      if (String(request) === '/api/v1/conversations/conv-1/context' && init?.method === 'PATCH') return patchResponse
+      return defaultFetch(request, init)
+    })
+    global.fetch = mockFetch
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" />)
+
+    const input = await screen.findByPlaceholderText('Send a message')
+    const selectedDraft = 'Review @projects:launch'
+    fireEvent.change(input, { target: { value: selectedDraft } })
+    fireEvent.click(await screen.findByRole('option', { name: 'Launch Project' }))
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/conversations/conv-1/context',
+      expect.objectContaining({ method: 'PATCH' }),
+    ))
+
+    fireEvent.change(input, { target: { value: `${selectedDraft} edited` } })
+    fireEvent.change(input, { target: { value: selectedDraft } })
+    await act(async () => {
+      resolvePatch?.(jsonResponse({ data: { contextRefs: [projectRef] } }))
+      await patchResponse
+    })
+
+    await waitFor(() => expect(input).toHaveValue(selectedDraft))
   })
 
   it('owns type autocomplete from the textarea and selects with keyboard navigation', async () => {

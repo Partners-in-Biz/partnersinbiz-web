@@ -29,7 +29,7 @@ interface ContextPickerDisclosureProps {
 
 function contextPickerDisclosureProps({ pickerExpanded = false, pickerControls }: ContextPickerDisclosureProps) {
   return {
-    'aria-haspopup': 'menu' as const,
+    'aria-haspopup': 'listbox' as const,
     'aria-expanded': pickerExpanded,
     ...(pickerControls ? { 'aria-controls': pickerControls } : {}),
   }
