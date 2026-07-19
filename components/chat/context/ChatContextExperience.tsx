@@ -63,7 +63,7 @@ export function ChatContextExperience({ context, compact = false, artifactReques
   }, [secondaryContext, secondaryOptions])
   useEffect(() => {
     if (!canvasStorageKey || !canvasStateLoaded) return
-    try { window.localStorage.setItem(canvasStorageKey, JSON.stringify({ open, mode: canvasMode, width: canvasWidth, secondary: secondaryContext ? { kind: secondaryContext.kind, id: secondaryContext.id } : undefined })) } catch { /* Storage policy must not break Messages. */ }
+    try { window.localStorage.setItem(canvasStorageKey, JSON.stringify({ open, mode: canvasMode, width: canvasWidth, secondary: secondaryContext ? { kind: secondaryContext.kind, id: secondaryContext.id } : undefined })) } catch (storageError) { void storageError /* Storage policy must not break Messages. */ }
   }, [canvasMode, canvasStateLoaded, canvasStorageKey, canvasWidth, open, secondaryContext])
   useEffect(() => {
     if (!artifactRequest) return
