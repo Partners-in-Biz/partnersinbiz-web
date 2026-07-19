@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChatArtifactSummary, ChatContextAction } from '@/lib/chat-context/types'
 import { ContextDock } from './ContextDock'
-import { ContextStrip } from './ContextStrip'
+import { ContextStrip, EmptyContextStrip } from './ContextStrip'
 import type { ReturnTypeOfUseChatContexts } from './internalTypes'
 import type { RuntimeExecution } from '@/components/messages/hermes/RuntimeInspectorRail'
 import type { ChatContextReadModel, ChatContextReference } from '@/lib/chat-context/types'
@@ -73,7 +73,9 @@ export function ChatContextExperience({ context, compact = false, artifactReques
   useEffect(() => { if (executionRequest) setOpen(true) }, [executionRequest])
   const hasExecution = Boolean(execution?.activeMessage?.runId)
   if ((!context.model || !context.activeContext) && !hasExecution) return <>
-    {context.activeContext && context.contexts.length > 0 && <ContextStrip options={context.contexts} value={context.activeContext} onChange={context.setActiveContext} onRemove={onRemoveContext} onAdd={onAddContext} onOpen={() => { void context.refresh() }} />}
+    {context.activeContext && context.contexts.length > 0
+      ? <ContextStrip options={context.contexts} value={context.activeContext} onChange={context.setActiveContext} onRemove={onRemoveContext} onAdd={onAddContext} onOpen={() => { void context.refresh() }} />
+      : onAddContext ? <EmptyContextStrip onAdd={onAddContext} /> : null}
     {context.error && <div role="alert" className="border-b border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">Unable to load context. <button type="button" aria-label="Retry context" onClick={() => { void context.refresh() }} className="underline">Retry</button></div>}
   </>
   const model = context.model ?? executionOnlyModel
@@ -100,7 +102,10 @@ export function ChatContextExperience({ context, compact = false, artifactReques
     }
   }
   return <>
-    {context.model && context.activeContext ? <ContextStrip options={context.contexts} value={context.activeContext} model={context.model} onChange={context.setActiveContext} onRemove={onRemoveContext} onAdd={onAddContext} onOpen={() => setOpen(true)} /> : <button type="button" data-testid="execution-context-trigger" onClick={() => setOpen(true)} className="mx-3 mt-2 inline-flex h-8 items-center gap-2 self-start rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-xs text-[var(--color-pib-text)]"><span aria-hidden="true" className="material-symbols-outlined text-[15px]">developer_board</span>Execution <span className="text-[var(--color-pib-text-muted)]">{execution?.activeMessage?.status}</span></button>}
+    {context.model && context.activeContext
+      ? <ContextStrip options={context.contexts} value={context.activeContext} model={context.model} onChange={context.setActiveContext} onRemove={onRemoveContext} onAdd={onAddContext} onOpen={() => setOpen(true)} />
+      : onAddContext ? <EmptyContextStrip onAdd={onAddContext} /> : null}
+    {!context.model && !context.activeContext && <button type="button" data-testid="execution-context-trigger" onClick={() => setOpen(true)} className="mx-3 mt-2 inline-flex h-11 items-center gap-2 self-start rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-xs text-[var(--color-pib-text)] outline-none focus-visible:ring-2 focus-visible:ring-primary/60 sm:h-8"><span aria-hidden="true" className="material-symbols-outlined text-[15px]">developer_board</span>Execution <span className="text-[var(--color-pib-text-muted)]">{execution?.activeMessage?.status}</span></button>}
     <ContextDock model={model} open={open} compact={compact} activeArtifactId={activeArtifactId} onArtifactActivate={activateArtifact} onAction={(action) => { void executeAction(action) }} actionError={actionError} pendingActionId={pendingActionId} execution={execution} mode={canvasMode} onModeChange={setCanvasMode} canvasWidth={canvasWidth} onCanvasWidthChange={setCanvasWidth} secondaryContext={secondaryContext} secondaryOptions={secondaryOptions} onSecondaryChange={setSecondaryContext} onClose={() => setOpen(false)} />
   </>
 }

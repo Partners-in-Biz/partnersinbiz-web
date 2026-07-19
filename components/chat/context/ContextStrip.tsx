@@ -12,6 +12,24 @@ const ICONS: Record<string, string> = {
   report: 'analytics', calendar_event: 'calendar_month',
 }
 
+export function EmptyContextStrip({ onAdd }: { onAdd: () => void }) {
+  return (
+    <div role="toolbar" aria-label="Pinned conversation context" className="flex min-h-11 shrink-0 items-center gap-2 overflow-x-auto whitespace-nowrap border-b border-[var(--color-card-border)] bg-black/[0.08] px-3 py-1.5 [scrollbar-width:thin]">
+      <span className="hidden h-7 shrink-0 items-center text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)] sm:inline-flex">Context</span>
+      <button
+        type="button"
+        aria-label="Add conversation context"
+        onClick={onAdd}
+        className="inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--color-card-border)] px-3 text-xs font-medium text-[var(--color-pib-text-muted)] outline-none transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 sm:h-8"
+      >
+        <span aria-hidden="true" className="material-symbols-outlined text-[16px]">add</span>
+        Add context
+      </button>
+      <span className="hidden min-w-0 truncate text-[11px] text-[var(--color-pib-text-muted)] sm:inline">Pin projects, documents, companies, contacts, tasks, and more</span>
+    </div>
+  )
+}
+
 export function ContextStrip({ options, value, onChange, onRemove, onOpen, onAdd, model }: {
   options: ChatContextOption[]
   value: ChatContextReference
@@ -51,7 +69,7 @@ export function ContextStrip({ options, value, onChange, onRemove, onOpen, onAdd
       <button type="button" aria-label="Open context dock" onClick={onOpen} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-[var(--color-card-border)] bg-white/[0.035] text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.07] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 sm:h-8 sm:w-8">
         <span aria-hidden="true" className="material-symbols-outlined text-[16px]">view_sidebar</span>
       </button>
-      <button type="button" aria-label="Add conversation context" onClick={onAdd} disabled={!onAdd} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-dashed border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] disabled:cursor-default disabled:opacity-50 sm:h-8 sm:w-8">
+      <button type="button" aria-label="Add conversation context" onClick={onAdd} disabled={!onAdd} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-dashed border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-default disabled:opacity-50 sm:h-8 sm:w-8">
         <span aria-hidden="true" className="material-symbols-outlined text-[16px]">add</span>
       </button>
     </div>

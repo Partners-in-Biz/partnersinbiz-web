@@ -1651,6 +1651,7 @@ describe('UnifiedChat message scrolling', () => {
 
     render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" layoutVariant="hermes" initialConvId="conv-1" />)
     await screen.findByText('Working')
+    expect(screen.getByRole('button', { name: 'Add conversation context' })).toBeInTheDocument()
     expect(screen.queryByTestId('runtime-inspector-rail')).not.toBeInTheDocument()
     fireEvent.click(screen.getByTestId('hermes-runtime-inspector-toggle'))
     expect(screen.getByRole('dialog', { name: 'Conversation context' })).toBeInTheDocument()
@@ -1753,6 +1754,41 @@ describe('UnifiedChat context references', () => {
       throw new Error(`Unhandled fetch: ${url}`)
     })
     global.fetch = mockFetch
+  })
+
+  it('keeps an accessible Add context strip available before the first reference is pinned', async () => {
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+      />,
+    )
+
+    const input = await screen.findByPlaceholderText('Send a message')
+    const addContext = screen.getByRole('button', { name: 'Add conversation context' })
+
+    expect(addContext).toHaveClass('h-11', 'min-w-11', 'focus-visible:ring-2')
+    expect(addContext.closest('[role="toolbar"]')).toHaveAttribute('aria-label', 'Pinned conversation context')
+
+    fireEvent.click(addContext)
+
+    expect(input).toHaveValue('@')
+    await waitFor(() => expect(input).toHaveFocus())
+    expect(await screen.findByRole('button', { name: 'Use @projects:' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Use @docs:' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Use @projects:' }))
+    await act(async () => {
+      fireEvent.change(input, { target: { value: '@projects:launch' } })
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    fireEvent.click(await screen.findByText('Launch Project'))
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Open Launch Project context' })).toBeInTheDocument())
+    expect(mockFetch).toHaveBeenCalledWith('/api/v1/conversations/conv-1/context', expect.objectContaining({ method: 'PATCH' }))
+    expect(screen.getByRole('button', { name: 'Add conversation context' })).toBeInTheDocument()
   })
 
   it('pins the detected current page from the drawer action', async () => {

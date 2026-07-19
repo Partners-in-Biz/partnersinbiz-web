@@ -2504,6 +2504,13 @@ export default function UnifiedChat({
     })
   }, [])
 
+  const openContextPicker = useCallback(() => {
+    const next = `${input}${input && !input.endsWith(' ') ? ' ' : ''}@`
+    setInput(next)
+    updateMentionFromComposer(next, next.length)
+    focusComposerToEnd(next)
+  }, [focusComposerToEnd, input, updateMentionFromComposer])
+
   const rememberComposerPrompt = useCallback((conversationId: string, rawPrompt: string) => {
     const trimmed = rawPrompt.trim()
     if (!trimmed) return
@@ -4300,11 +4307,7 @@ export default function UnifiedChat({
           )}
         </div>
 
-        {(hasDockContext || runtimeExecution) && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} execution={runtimeExecution} executionRequest={executionDockRequest} onActionResolved={handleContextActionResolved} onOpenChange={setContextCanvasOpen} onPresentationChange={onContextCanvasPresentationChange} onAddContext={() => {
-          const next = `${input}${input && !input.endsWith(' ') ? ' ' : ''}@`
-          setInput(next)
-          requestAnimationFrame(() => { composerRef.current?.focus(); composerRef.current?.setSelectionRange(next.length, next.length) })
-        }} onRemoveContext={(value) => {
+        {activeConversation && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} execution={runtimeExecution} executionRequest={executionDockRequest} onActionResolved={handleContextActionResolved} onOpenChange={setContextCanvasOpen} onPresentationChange={onContextCanvasPresentationChange} onAddContext={openContextPicker} onRemoveContext={(value) => {
           const ref = contextRefs.find((item) => item.type === value.kind && item.id === value.id)
           if (ref) removeContextRef(ref)
         }} />}
