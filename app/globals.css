@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "./pib-fx.css";
+/* Messages-local extras kept for parity; core FX lives in pib-fx.css */
 @import "../components/messages/atmosphere/messages-experience.css";
 
 @theme {
@@ -139,7 +141,8 @@
   --pib-shell-gutter: clamp(1rem, 2vw, 2rem);
   --pib-surface-radius: 1rem;
   --pib-surface-padding: clamp(1rem, 2vw, 1.5rem);
-  --pib-control-height: 2.25rem;
+  --pib-control-height: 2rem;
+  --pib-control-height-touch: 2.75rem;
   --pib-dialog-width: min(42rem, calc(100vw - 1rem));
 }
 
