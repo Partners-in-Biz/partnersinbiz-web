@@ -5,8 +5,9 @@ import type { ApiUser } from '@/lib/api/types'
 import { listLlmProviders, getLlmProvider, UNSUPPORTED_CURSOR_NOTE } from '@/lib/llm-providers/providers'
 import { listLlmProviderConnections, upsertLlmProviderConnection } from '@/lib/llm-providers/store'
 import { validateLlmCredentials } from '@/lib/llm-providers/validate'
-import { clientCanAccessOrg } from '@/lib/llm-providers/org-guard'
+import { clientCanAccessOrg, canWriteOrgLlmConnection } from '@/lib/llm-providers/org-guard'
 import { syncLlmConnectionToHermes } from '@/lib/llm-providers/sync-hermes'
+import { resolveOrgLlmSyncTargets } from '@/lib/llm-providers/sync-targets'
 import type { LlmProviderKey } from '@/lib/llm-providers/providers'
 
 export const dynamic = 'force-dynamic'
@@ -20,13 +21,24 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   const orgId = resolveOrgId(req, user)
   if (!orgId) return apiError('orgId is required', 400)
   if (!clientCanAccessOrg(user, orgId)) return apiError('Forbidden', 403)
-  const [connections] = await Promise.all([
+  const [connections, syncTargets] = await Promise.all([
     listLlmProviderConnections({ orgId, uid: user.uid }),
+    resolveOrgLlmSyncTargets(orgId),
   ])
   return apiSuccess({
     providers: listLlmProviders(),
     connections,
-    notes: { cursor: UNSUPPORTED_CURSOR_NOTE },
+    syncTargets: {
+      orgVpsDeviceCount: syncTargets.orgVpsDeviceCount,
+      hasHermesProfileLink: syncTargets.hasHermesProfileLink,
+      targetCount: syncTargets.targets.length,
+      reasonIfEmpty: syncTargets.reasonIfEmpty,
+    },
+    notes: {
+      cursor: UNSUPPORTED_CURSOR_NOTE,
+      orgScope: 'Organisation credentials sync only to this organisation’s VPS Hermes profiles and are shared by everyone using that VPS.',
+      userScope: 'Personal credentials stay on each user’s linked computer. They are never synced to the organisation VPS.',
+    },
   })
 })
 
@@ -50,6 +62,9 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
   const providerDef = provider ? getLlmProvider(provider) : null
   if (!providerDef) return apiError('Unknown provider', 400)
   if (scope !== 'org' && scope !== 'user') return apiError('scope must be "org" or "user"', 400)
+  if (scope === 'org' && !(await canWriteOrgLlmConnection(user, orgId))) {
+    return apiError('Only organisation admins can connect shared organisation VPS credentials.', 403)
+  }
   if (scope === 'user' && user.role === 'ai') {
     return apiError('Agents can only create organisation-scoped connections', 400)
   }
@@ -86,8 +101,17 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     type: user.role === 'ai' ? 'agent' : 'user',
   })
 
-  let syncResult: { synced: string[]; failed: Array<{ agentId: string; error: string }> } | undefined
-  if (sync !== false) {
+  // User-scoped credentials never sync to VPS. Org credentials sync only to org VPS targets.
+  let syncResult: Awaited<ReturnType<typeof syncLlmConnectionToHermes>> | undefined
+  if (scope === 'user') {
+    syncResult = {
+      synced: [],
+      failed: [],
+      skippedReason: 'user_scope_local_only',
+      message:
+        'Personal credentials saved. Configure the same provider on each linked computer via Hermes setup — they are not pushed to the organisation VPS.',
+    }
+  } else if (sync !== false) {
     try {
       syncResult = await syncLlmConnectionToHermes(connection.id, {
         agentIds: Array.isArray(agentIds) ? agentIds : undefined,

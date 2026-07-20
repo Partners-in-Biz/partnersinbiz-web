@@ -31,7 +31,7 @@ export default function LlmProvidersSettingsPage() {
       <PageHeader
         eyebrow="Settings"
         title="LLM providers"
-        description="Connect Grok, ChatGPT Codex, Claude, Gemini, OpenRouter, and more. OAuth when available; otherwise store API keys encrypted and sync them to your Hermes agents. Connected providers appear in the Messages model selector."
+        description="Organisation credentials sync to your shared VPS. Personal credentials stay on each user’s linked computer — never pushed to the org VPS. Connected org providers appear in the Messages model selector when running on that VPS."
         accent="cyan"
       />
       {!orgId ? (

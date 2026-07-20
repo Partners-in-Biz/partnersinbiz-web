@@ -3,7 +3,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { getLlmProvider } from '@/lib/llm-providers/providers'
-import { clientCanAccessOrg } from '@/lib/llm-providers/org-guard'
+import { clientCanAccessOrg, canWriteOrgLlmConnection } from '@/lib/llm-providers/org-guard'
 import { createOauthSession } from '@/lib/llm-providers/oauth/sessions'
 import { startXaiDeviceCode } from '@/lib/llm-providers/oauth/xai'
 import { startCodexDeviceCode } from '@/lib/llm-providers/oauth/codex'
@@ -34,6 +34,9 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     return apiError('Provider does not support OAuth from Partners in Biz', 400)
   }
   if (scope !== 'org' && scope !== 'user') return apiError('scope must be "org" or "user"', 400)
+  if (scope === 'org' && !(await canWriteOrgLlmConnection(user, orgId))) {
+    return apiError('Only organisation admins can connect shared organisation VPS credentials.', 403)
+  }
 
   try {
     if (def.key === 'xai-oauth') {

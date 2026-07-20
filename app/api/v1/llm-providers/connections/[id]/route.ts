@@ -31,8 +31,8 @@ export const DELETE = withAuth('client', async (req: NextRequest, user: ApiUser,
   if (!existing) return apiError('Connection not found', 404)
   if (!canManageLlmConnection(existing, { orgId, uid: user.uid })) return apiError('Forbidden', 403)
 
-  // Best-effort unset of API key env on previously synced agents.
-  if (existing.syncedAgentIds?.length && existing.authKind !== 'oauth_token') {
+  // Only organisation connections may have been written to a VPS — never unset from user scope.
+  if (existing.scope === 'org' && existing.syncedAgentIds?.length && existing.authKind !== 'oauth_token') {
     const defEnv = existing.provider === 'copilot'
       ? 'COPILOT_GITHUB_TOKEN'
       : existing.provider === 'xai'
@@ -58,7 +58,7 @@ export const DELETE = withAuth('client', async (req: NextRequest, user: ApiUser,
       )
     }
   }
-  if (existing.syncedAgentIds?.length && (existing.authKind === 'oauth_token' || existing.provider.includes('oauth') || existing.provider === 'openai-codex' || existing.provider === 'nous')) {
+  if (existing.scope === 'org' && existing.syncedAgentIds?.length && (existing.authKind === 'oauth_token' || existing.provider.includes('oauth') || existing.provider === 'openai-codex' || existing.provider === 'nous')) {
     await Promise.allSettled(
       existing.syncedAgentIds.map((agentId) =>
         callAgentPath(agentId as AgentId, `/admin/auth/providers/${existing.hermesProvider}`, {
@@ -81,6 +81,12 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   const existing = await getLlmProviderConnection(id)
   if (!existing) return apiError('Connection not found', 404)
   if (!canManageLlmConnection(existing, { orgId, uid: user.uid })) return apiError('Forbidden', 403)
+  if (existing.scope === 'user') {
+    return apiError(
+      'Personal credentials are not synced to the organisation VPS. Configure them on each linked computer via Hermes setup.',
+      400,
+    )
+  }
 
   const body = await req.json().catch(() => ({})) as { agentIds?: string[] }
   try {

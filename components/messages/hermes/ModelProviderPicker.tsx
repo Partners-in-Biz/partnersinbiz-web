@@ -29,6 +29,7 @@ export interface MessageModelCatalog {
   source: 'hermes' | 'agent-default' | 'none'
   warning?: string
   connectProvidersUrl?: string
+  localOnlyProviderLabels?: string[]
 }
 
 export interface ModelRuntimeSelection {

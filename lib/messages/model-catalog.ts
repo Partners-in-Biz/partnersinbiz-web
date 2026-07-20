@@ -21,6 +21,8 @@ export interface PublicMessageModelOption {
   active: boolean
   available: boolean
   connected?: boolean
+  /** True when credentials are personal (linked computer), not on the org VPS. */
+  localOnly?: boolean
   source: 'hermes' | 'agent-default' | 'connected'
   supportsThinking?: boolean
   supportsVision?: boolean
@@ -38,6 +40,8 @@ export interface PublicMessageModelCatalog {
   source: 'hermes' | 'agent-default' | 'none'
   warning?: string
   connectProvidersUrl?: string
+  /** Providers saved as personal (linked computer) — not available on the organisation VPS. */
+  localOnlyProviderLabels?: string[]
 }
 
 export interface ValidatedMessageModelSelection {
@@ -283,14 +287,22 @@ export async function getMessageModelCatalog(input: {
 
   const orgId = input.conversation.orgId || input.user.orgId || input.user.activeOrgId || ''
   let connectedHermesProviders = new Set<string>()
+  const localOnlyProviderLabels: string[] = []
   if (orgId) {
     try {
       const connections = await listLlmProviderConnections({ orgId, uid: input.user.uid })
+      // Only organisation-scoped credentials are synced to the org VPS runtime.
       connectedHermesProviders = new Set(
         connections
-          .filter((c) => c.status === 'connected' && c.hasCredentials)
+          .filter((c) => c.scope === 'org' && c.status === 'connected' && c.hasCredentials)
           .map((c) => c.hermesProvider || getLlmProvider(c.provider)?.hermesProvider || c.provider),
       )
+      for (const c of connections) {
+        if (c.scope !== 'user' || c.status !== 'connected' || !c.hasCredentials) continue
+        const def = getLlmProvider(c.provider)
+        const label = def?.label || c.label || c.provider
+        if (!localOnlyProviderLabels.includes(label)) localOnlyProviderLabels.push(label)
+      }
     } catch {
       // Catalogue still works without connection enrichment.
     }
@@ -310,6 +322,11 @@ export async function getMessageModelCatalog(input: {
     configured: model.configured || connectedHermesProviders.has(model.provider),
   }))
 
+  if (localOnlyProviderLabels.length) {
+    const localNote = `Personal credentials (${localOnlyProviderLabels.join(', ')}) apply on linked computers only — not on the organisation VPS.`
+    warning = warning ? `${warning} ${localNote}` : localNote
+  }
+
   const activeModel = models.find((model) => model.active) ?? models[0]
   return {
     agentId,
@@ -320,6 +337,7 @@ export async function getMessageModelCatalog(input: {
     providers: providersForModels(models, connectedHermesProviders),
     source,
     connectProvidersUrl: '/portal/settings/llm-providers',
+    ...(localOnlyProviderLabels.length ? { localOnlyProviderLabels } : {}),
     ...(warning ? { warning } : {}),
   }
 }

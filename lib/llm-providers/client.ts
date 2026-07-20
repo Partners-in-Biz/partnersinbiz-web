@@ -7,11 +7,23 @@ async function unwrap<T>(res: Response): Promise<T> {
   return (body.data ?? body) as T
 }
 
-export async function listLlmProviderCatalog(orgId: string): Promise<{
+export type LlmProviderCatalogResponse = {
   providers: LlmProviderDefinition[]
   connections: LlmProviderConnectionMasked[]
-  notes: { cursor: string }
-}> {
+  syncTargets?: {
+    orgVpsDeviceCount: number
+    hasHermesProfileLink: boolean
+    targetCount: number
+    reasonIfEmpty?: string
+  }
+  notes: {
+    cursor: string
+    orgScope?: string
+    userScope?: string
+  }
+}
+
+export async function listLlmProviderCatalog(orgId: string): Promise<LlmProviderCatalogResponse> {
   const res = await fetch(`/api/v1/llm-providers/connections?orgId=${encodeURIComponent(orgId)}`)
   return unwrap(res)
 }
