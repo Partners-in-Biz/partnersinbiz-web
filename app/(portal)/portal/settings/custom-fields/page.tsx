@@ -6,7 +6,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { CustomFieldDefinitionsList } from '@/components/crm/CustomFieldDefinitionsList'
 import { CustomFieldDefinitionDrawer } from '@/components/crm/CustomFieldDefinitionDrawer'
-import { PageTabs } from '@/components/ui/AppFoundation'
+import { PageTabs, PageHeader} from '@/components/ui/AppFoundation'
 import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import type { CustomFieldDefinition, CustomFieldResource, CustomFieldType } from '@/lib/customFields/types'
 
@@ -86,7 +86,7 @@ function fieldDisplayName(def: CustomFieldDefinition): string {
 
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
   return (
-    <div className="pib-stat-card min-w-0">
+    <div className="pib-stat-card min-w-0" data-module-accent="cyan">
       <div className="flex items-start justify-between gap-2">
         <p className="pib-label">{label}</p>
         <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">{icon}</span>
@@ -292,26 +292,25 @@ export default function CustomFieldsPage() {
   const hasFilters = Boolean(search) || Boolean(typeFilter) || readinessFilter !== 'all'
 
   return (
-    <div className="space-y-8">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <p className="eyebrow">CRM settings</p>
-          <h1 className="pib-page-title mt-2">Custom field command center</h1>
-          <p className="pib-page-sub max-w-3xl">
-            Shape the extra contact, deal, and company data that powers qualification, reporting, segmentation, and handover quality.
-          </p>
-        </div>
-        {isAdmin && (
-          <button
-            type="button"
-            onClick={openCreate}
-            className="btn-pib-primary shrink-0"
-          >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
-            New field
-          </button>
+    <div className="space-y-6">
+      <PageHeader
+        accent="cyan"
+        eyebrow="CRM settings"
+        title="Custom field command center"
+        description="Shape the extra contact, deal, and company data that powers qualification, reporting, segmentation, and handover quality."
+        actions={(
+          {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={openCreate}
+                      className="btn-pib-primary btn-pib-sm shrink-0"
+                    >
+                      <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+                      New field
+                    </button>
+                  )}
         )}
-      </header>
+      />
 
       {!fetchError && (
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

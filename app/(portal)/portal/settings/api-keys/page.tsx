@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { scopeFromSearchParams, scopedApiPath } from '@/lib/portal/scoped-routing'
+import { PageHeader } from '@/components/ui/AppFoundation'
 
 type Resource = 'social' | 'projects' | 'tasks' | 'invoices' | 'pipeline' | 'platform'
 type Action = 'read' | 'write' | 'delete'
@@ -213,30 +214,28 @@ export default function ApiKeysSettingsPage() {
   const activeCount = keys.filter((k) => keyStatus(k).tone === 'success').length
 
   return (
-    <div className="max-w-5xl space-y-8">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <p className="eyebrow">Workspace settings</p>
-          <h1 className="pib-page-title mt-2">API keys</h1>
-          <p className="pib-page-sub max-w-2xl">
-            Issue scoped API keys so agents and integrations can act on this workspace. Keys are shown once at
-            creation — store them securely.
-          </p>
-        </div>
-        <button
-          type="button"
-          className="pib-btn-primary shrink-0"
-          onClick={() => {
-            setShowForm((v) => !v)
-            setNewKey(null)
-          }}
-        >
-          <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
-            {showForm ? 'close' : 'add'}
-          </span>
-          {showForm ? 'Cancel' : 'Create key'}
-        </button>
-      </header>
+    <div className="max-w-5xl space-y-6" data-module-accent="cyan">
+      <PageHeader
+        accent="cyan"
+        eyebrow="Workspace settings"
+        title="API keys"
+        description="Issue scoped API keys so agents and integrations can act on this workspace. Keys are shown once at creation — store them securely."
+        actions={(
+          <button
+                    type="button"
+                    className="btn-pib-primary btn-pib-sm shrink-0"
+                    onClick={() => {
+                      setShowForm((v) => !v)
+                      setNewKey(null)
+                    }}
+                  >
+                    <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
+                      {showForm ? 'close' : 'add'}
+                    </span>
+                    {showForm ? 'Cancel' : 'Create key'}
+                  </button>
+        )}
+      />
 
       {/* Raw key reveal — shown ONCE */}
       {newKey && (

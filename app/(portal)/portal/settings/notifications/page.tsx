@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import { PushNotificationsToggle } from '@/components/pwa/PushNotificationsToggle'
 import { NotificationPreferences } from '@/components/settings/NotificationPreferences'
+import { PageHeader } from '@/components/ui/AppFoundation'
 
 const readinessMetrics = [
   {
@@ -61,7 +62,7 @@ function ReadinessMetric({
   icon: string
 }) {
   return (
-    <div className="pib-stat-card min-w-0 space-y-3">
+    <div className="pib-stat-card min-w-0 space-y-3" data-module-accent="cyan">
       <div className="relative flex items-start justify-between gap-3">
         <p className="pib-label">{label}</p>
         <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]" aria-hidden="true">
@@ -102,16 +103,13 @@ function SignalCard({
 
 export default function NotificationsPage() {
   return (
-    <div className="max-w-6xl space-y-8">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <p className="eyebrow">Settings · CRM operations</p>
-          <h1 className="pib-page-title mt-2">Notifications</h1>
-          <p className="pib-page-sub max-w-2xl">
-            Keep CRM work visible across sales, approvals, billing, and client communication before the team grows.
-          </p>
-        </div>
-      </header>
+    <div className="max-w-6xl space-y-6">
+      <PageHeader
+        accent="cyan"
+        eyebrow="Settings · CRM operations"
+        title="Notifications"
+        description="Keep CRM work visible across sales, approvals, billing, and client communication before the team grows."
+      />
 
       <section role="region" aria-label="CRM notification command center" className="space-y-4">
         <div data-testid="notification-command-hero" className="pib-card overflow-hidden !p-0">

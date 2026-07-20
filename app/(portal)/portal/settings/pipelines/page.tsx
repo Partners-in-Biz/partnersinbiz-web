@@ -9,6 +9,7 @@ import { PipelineDrawer } from '@/components/crm/PipelineDrawer'
 import { extractPipelinesList } from '@/lib/pipelines/response'
 import type { Pipeline, PipelineStage } from '@/lib/pipelines/types'
 import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { PageHeader } from '@/components/ui/AppFoundation'
 
 type HealthFilter = 'all' | 'ready' | 'needs-work'
 
@@ -52,7 +53,7 @@ function isPipelineSetupArtifact(pipeline?: Pipeline): boolean {
 
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
   return (
-    <div className="pib-stat-card min-w-0">
+    <div className="pib-stat-card min-w-0" data-module-accent="cyan">
       <div className="flex items-start justify-between gap-2">
         <p className="pib-label">{label}</p>
         <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">{icon}</span>
@@ -267,26 +268,25 @@ export default function PipelinesPage() {
   const canClearFilters = Boolean(search) || healthFilter !== 'all'
 
   return (
-    <div className="space-y-8">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <p className="eyebrow">CRM settings</p>
-          <h1 className="pib-page-title mt-2">Pipeline command center</h1>
-          <p className="pib-page-sub max-w-3xl">
-            Design the sales paths that drive deal stages, forecasts, win/loss analytics, and automation triggers.
-          </p>
-        </div>
-        {isAdmin && (
-          <button
-            type="button"
-            onClick={openCreate}
-            className="btn-pib-primary shrink-0"
-          >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
-            New pipeline
-          </button>
+    <div className="space-y-6">
+      <PageHeader
+        accent="cyan"
+        eyebrow="CRM settings"
+        title="Pipeline command center"
+        description="Design the sales paths that drive deal stages, forecasts, win/loss analytics, and automation triggers."
+        actions={(
+          {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={openCreate}
+                      className="btn-pib-primary btn-pib-sm shrink-0"
+                    >
+                      <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+                      New pipeline
+                    </button>
+                  )}
         )}
-      </header>
+      />
 
       {!fetchError && (
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
