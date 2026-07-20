@@ -8,8 +8,8 @@ import { MemberRow } from '@/components/settings/MemberRow'
 import { TeamAccessGovernancePanel } from '@/components/settings/TeamAccessGovernancePanel'
 import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import type { OrgRole } from '@/lib/organizations/types'
-import {
 import { PageHeader } from '@/components/ui/AppFoundation'
+import {
   WORKSPACE_MODULE_KEYS,
   accessSummaryForPolicy,
   normalizeMemberAccessPolicy,

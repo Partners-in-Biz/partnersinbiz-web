@@ -298,18 +298,16 @@ export default function CustomFieldsPage() {
         eyebrow="CRM settings"
         title="Custom field command center"
         description="Shape the extra contact, deal, and company data that powers qualification, reporting, segmentation, and handover quality."
-        actions={(
-          {isAdmin && (
-                    <button
-                      type="button"
-                      onClick={openCreate}
-                      className="btn-pib-primary btn-pib-sm shrink-0"
-                    >
-                      <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
-                      New field
-                    </button>
-                  )}
-        )}
+        actions={isAdmin ? (
+          <button
+            type="button"
+            onClick={openCreate}
+            className="btn-pib-primary btn-pib-sm shrink-0"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+            New field
+          </button>
+        ) : undefined}
       />
 
       {!fetchError && (
