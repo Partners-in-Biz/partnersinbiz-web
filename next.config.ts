@@ -1,10 +1,16 @@
 import path from 'path'
 import type { NextConfig } from 'next'
 
+// Must match outputFileTracingRoot. A parent-directory root (e.g. ../..)
+// resolves to `/` on Vercel and trips the tracing-root mismatch warning while
+// inflating build memory until the webpack worker is SIGKILL'd (OOM).
+const projectRoot = path.join(__dirname)
+
 const nextConfig: NextConfig = {
   allowedDevOrigins: ['127.0.0.1'],
+  outputFileTracingRoot: projectRoot,
   turbopack: {
-    root: path.resolve(__dirname, '../..'),
+    root: projectRoot,
   },
   experimental: {
     // Keep the production build inside Vercel's 8 GB container. The custom
@@ -13,7 +19,7 @@ const nextConfig: NextConfig = {
     webpackBuildWorker: true,
     webpackMemoryOptimizations: true,
     cpus: 1,
-    staticGenerationMaxConcurrency: 2,
+    staticGenerationMaxConcurrency: 1,
   },
   transpilePackages: ['@partnersinbiz/analytics-js'],
   serverExternalPackages: ['@react-pdf/renderer'],
