@@ -190,20 +190,21 @@ export default function SocialHistoryWorkspace({
   }, [platformFilter, posts, statusFilter, visibleStatusSet])
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 py-6 space-y-6">
+    <div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-4" data-module-accent="rose">
       <div>
-        <h1 className="font-headline text-2xl font-bold tracking-tighter text-[var(--color-pib-text)]">{title}</h1>
-        <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{description}</p>
+        <p className="eyebrow">Social · History</p>
+        <h1 className="pib-page-title mt-1.5">{title}</h1>
+        <p className="pib-page-sub">{description}</p>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5">
         {statusOptions.map(status => (
           <button
             key={status}
             type="button"
             onClick={() => setStatusFilter(status)}
-            className={`px-3 py-1.5 text-xs font-label uppercase tracking-widest transition-colors ${
-              statusFilter === status ? 'pib-btn-primary' : 'pib-btn-secondary'
+            className={`btn-pib-sm ${
+              statusFilter === status ? 'btn-pib-primary' : 'btn-pib-secondary'
             }`}
           >
             {statusLabel(status)}

@@ -10,6 +10,8 @@ import {
 } from '@/components/crm/CompaniesBulkCommandBar'
 import { CompaniesTable } from '@/components/crm/CompaniesTable'
 import { CompanyFiltersBar } from '@/components/crm/CompanyFiltersBar'
+import { PageHeader, Surface } from '@/components/ui/AppFoundation'
+import { StatCard } from '@/components/ui/StatCard'
 import { companyAccountOwnerUid, companyHasAccountOwner } from '@/lib/companies/ownership'
 import type { Company, CompanyListParams } from '@/lib/companies/types'
 import { useCrmLiveRefresh } from '@/lib/crm/use-crm-live-refresh'
@@ -47,29 +49,6 @@ function formatCurrency(value: number, currency = 'ZAR'): string {
   } catch {
     return `${currency} ${value.toFixed(0)}`
   }
-}
-
-function AccountMetric({
-  label,
-  value,
-  sub,
-  icon,
-}: {
-  label: string
-  value: string
-  sub: string
-  icon: string
-}) {
-  return (
-    <div className="pib-stat-card min-w-[130px] flex-1">
-      <div className="flex items-center justify-between gap-2">
-        <p className="pib-label mb-0">{label}</p>
-        <span className="material-symbols-outlined text-[15px] text-[var(--color-pib-text-muted)]" aria-hidden="true">{icon}</span>
-      </div>
-      <p className="mt-2 text-lg font-semibold leading-none text-[var(--color-pib-text)]">{value}</p>
-      <p className="mt-1 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{sub}</p>
-    </div>
-  )
 }
 
 export default function CompaniesPage() {
@@ -325,72 +304,63 @@ export default function CompaniesPage() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col space-y-8 sm:p-4">
-      {/* ── Page header ── */}
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex min-w-0 items-start gap-4">
-          <span className="pib-icon-tint" aria-hidden="true">
-            <span className="material-symbols-outlined text-[18px]">domain</span>
-          </span>
-          <div className="min-w-0">
-            <p className="eyebrow">CRM accounts</p>
-            <h1 className="pib-page-title mt-2">Companies</h1>
-            <p className="pib-page-sub hidden max-w-xl lg:block">
-              Account context, health, ownership, billing readiness, client-org links, and setup gaps for this workspace.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex shrink-0 items-center gap-2">
-          {/* Migrate from contacts — only visible to admins; route handled by W2-E */}
-          <Link
-            href={companyPortalPath('/portal/companies/migrate')}
-            className="btn-pib-secondary text-xs"
-          >
-            Migrate from contacts
-          </Link>
-
-          <Link
-            href={companyPortalPath('/portal/companies/new')}
-            className="btn-pib-primary text-xs"
-            aria-label="New company"
-          >
-            <span className="material-symbols-outlined text-[16px]">add</span>
-            New company
-          </Link>
-        </div>
-      </header>
+    <div className="mx-auto flex max-w-7xl flex-col space-y-4 sm:p-4" data-module-accent="amber">
+      <PageHeader
+        accent="amber"
+        eyebrow="CRM · Companies"
+        title="Companies"
+        description="Account context, health, ownership, billing readiness, client-org links, and setup gaps for this workspace."
+        actions={
+          <>
+            <Link
+              href={companyPortalPath('/portal/companies/migrate')}
+              className="btn-pib-secondary btn-pib-sm"
+            >
+              Migrate from contacts
+            </Link>
+            <Link
+              href={companyPortalPath('/portal/companies/new')}
+              className="btn-pib-primary btn-pib-sm"
+              aria-label="New company"
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+              New company
+            </Link>
+          </>
+        }
+      />
 
       {!loading && !error && (
-        <section className="grid grid-cols-2 gap-4 sm:flex sm:flex-wrap">
-          <AccountMetric icon="domain" label="Accounts" value={String(companies.length)} sub={hasActiveFilters ? 'Matching current view' : 'Visible in workspace'} />
-          <AccountMetric icon="handshake" label="Customers" value={String(metrics.customers)} sub={`${metrics.prospects} leads/prospects`} />
-          <AccountMetric icon="hub" label="Client links" value={String(metrics.linkedOrgs)} sub="Linked portal organisations" />
-          <AccountMetric icon="supervisor_account" label="Manager coverage" value={`${Math.round(metrics.managerCoverage * 100)}%`} sub={`${metrics.unmanaged} unmanaged`} />
-          <AccountMetric
+        <section className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+          <StatCard accent="amber" icon="domain" label="Accounts" value={String(companies.length)} detail={hasActiveFilters ? 'Matching current view' : 'Visible in workspace'} />
+          <StatCard accent="amber" icon="handshake" label="Customers" value={String(metrics.customers)} detail={`${metrics.prospects} leads/prospects`} />
+          <StatCard accent="amber" icon="hub" label="Client links" value={String(metrics.linkedOrgs)} detail="Linked portal organisations" />
+          <StatCard accent="amber" icon="supervisor_account" label="Manager coverage" value={`${Math.round(metrics.managerCoverage * 100)}%`} detail={`${metrics.unmanaged} unmanaged`} />
+          <StatCard
+            accent="amber"
             icon="fact_check"
             label="Setup gaps"
             value={String(metrics.incomplete)}
-            sub={metrics.incomplete === 1 ? '1 account needs profile cleanup' : `${metrics.incomplete} accounts need profile cleanup`}
+            detail={metrics.incomplete === 1 ? '1 account needs profile cleanup' : `${metrics.incomplete} accounts need profile cleanup`}
           />
-          <AccountMetric icon="payments" label="Tracked value" value={formatCurrency(metrics.revenue, metrics.currency)} sub="Annual revenue fields" />
+          <StatCard accent="amber" icon="payments" label="Tracked value" value={formatCurrency(metrics.revenue, metrics.currency)} detail="Annual revenue fields" />
         </section>
       )}
 
       {!loading && !error && (
-        <section className="grid gap-4 md:grid-cols-[1fr_1fr]">
+        <section className="grid gap-3 md:grid-cols-2">
           <button
             type="button"
             onClick={() => setManagerLens(managerLens === 'unmanaged' ? 'all' : 'unmanaged')}
             className={[
-              'pib-card pib-card-hover flex items-start gap-3 text-left',
+              'pib-card pib-card-hover flex items-start gap-3 text-left p-3',
               managerLens === 'unmanaged'
                 ? 'border-[var(--color-pib-accent)]/40 bg-[var(--color-pib-accent-soft)]'
                 : '',
             ].join(' ')}
             aria-label={managerLens === 'unmanaged' ? 'Exit unmanaged company lens' : 'Show unmanaged companies needing an account manager'}
           >
-            <span className="pib-icon-tint" aria-hidden="true"><span className="material-symbols-outlined text-[18px]">manage_accounts</span></span>
+            <span className="pib-icon-tint shrink-0" aria-hidden="true"><span className="material-symbols-outlined text-[16px]">manage_accounts</span></span>
             <span className="min-w-0">
               <p className="text-xs font-semibold text-[var(--color-pib-text)]">
                 {managerLens === 'unmanaged' ? 'Showing unmanaged accounts' : 'Review unmanaged accounts'}
@@ -402,31 +372,33 @@ export default function CompaniesPage() {
               </p>
             </span>
           </button>
-          <div className="pib-card flex items-start gap-3">
-            <span className="pib-icon-tint" aria-hidden="true"><span className="material-symbols-outlined text-[18px]">assignment_ind</span></span>
+          <Surface variant="quiet" className="flex items-start gap-3 !p-3">
+            <span className="pib-icon-tint shrink-0" aria-hidden="true"><span className="material-symbols-outlined text-[16px]">assignment_ind</span></span>
             <div className="min-w-0">
               <p className="text-xs font-semibold text-[var(--color-pib-text)]">Account responsibility</p>
               <p className="mt-0.5 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
                 Use the visible lens with bulk updates to assign account managers and keep each company owned by a person.
               </p>
             </div>
-          </div>
+          </Surface>
         </section>
       )}
 
       {/* ── Filters bar ── */}
-      <div className="pib-surface shrink-0 px-3 py-2">
+      <Surface variant="glass" className="shrink-0 !px-3 !py-2">
         <CompanyFiltersBar value={filters} onChange={updateFilters} />
-      </div>
+      </Surface>
 
       {/* ── Error state ── */}
       {error && (
-        <section className="pib-card border-[var(--color-pib-accent)]/40 bg-[var(--color-pib-accent-soft)]">
+        <Surface variant="card" accentEdge="amber" className="border-[var(--color-pib-accent)]/40 bg-[var(--color-pib-accent-soft)]">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="flex gap-3">
-              <span className="material-symbols-outlined mt-0.5 text-[18px] text-[var(--color-pib-accent-hover)]" aria-hidden="true">warning</span>
+              <span className="pib-icon-tint shrink-0" aria-hidden="true">
+                <span className="material-symbols-outlined text-[16px]">warning</span>
+              </span>
               <div>
-                <p className="eyebrow text-[var(--color-pib-accent-hover)]">Source health</p>
+                <p className="pib-label mb-0 text-[var(--color-pib-accent)]">Source health</p>
                 <h2 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Companies could not load</h2>
                 <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">{error}</p>
               </div>
@@ -434,20 +406,20 @@ export default function CompaniesPage() {
             <button
               type="button"
               onClick={retryCompaniesLoad}
-              className="btn-pib-secondary text-xs shrink-0"
+              className="btn-pib-secondary btn-pib-sm shrink-0"
               aria-label="Retry loading companies"
             >
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
               Retry
             </button>
           </div>
-        </section>
+        </Surface>
       )}
 
       {notice && (
-        <div className="pib-surface px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">
+        <Surface variant="quiet" className="!px-3 !py-2 text-xs text-[var(--color-pib-text-muted)]">
           {notice}
-        </div>
+        </Surface>
       )}
 
       {selectedIds.size > 0 && (

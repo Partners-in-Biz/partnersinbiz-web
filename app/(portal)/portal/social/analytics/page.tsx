@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useOrg } from '@/lib/contexts/OrgContext'
 import { HorizontalBarChart, DonutChart, TrendAreaChart } from '@/components/ui/Charts'
-import { PageTabs } from '@/components/ui/AppFoundation'
+import { PageHeader, PageTabs } from '@/components/ui/AppFoundation'
 
 /* ------------------------------------------------------------------ */
 /*  Types & constants                                                  */
@@ -123,10 +123,10 @@ function PlatformBadge({ platform }: { platform: string }) {
 
 function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
-    <div className="pib-stat-card">
-      <p className="pib-label mb-2">{label}</p>
-      <p className="text-3xl font-headline font-bold text-[var(--color-pib-text)]">{value}</p>
-      {sub && <p className="text-xs text-[var(--color-pib-text-muted)] mt-1">{sub}</p>}
+    <div className="pib-stat-card p-3" data-module-accent="rose">
+      <p className="pib-label mb-1 text-[10px] tracking-[0.14em]">{label}</p>
+      <p className="text-xl font-semibold tabular-nums tracking-tight text-[var(--color-pib-text)]">{value}</p>
+      {sub && <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">{sub}</p>}
     </div>
   )
 }
@@ -287,35 +287,37 @@ export default function AnalyticsPage() {
   }, [analytics, filtered])
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
-      <div className="flex items-start justify-between gap-4">
-        <header>
-          <p className="eyebrow">Social</p>
-          <h1 className="pib-page-title mt-2">Analytics</h1>
-          <p className="pib-page-sub">Engagement data and performance insights</p>
-        </header>
-        <div className="flex flex-col items-end gap-1">
-          <button
-            onClick={handleGeneratePdf}
-            disabled={generating}
-            className="btn-pib-primary whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {generating ? 'Generating…' : 'Generate PDF'}
-          </button>
-          {pdfError && <p className="text-[10px] text-[var(--color-error)] max-w-[200px] text-right">{pdfError}</p>}
-        </div>
-      </div>
-
-      <PageTabs
-        variant="segmented"
-        ariaLabel="Social analytics sections"
-        value={tab}
-        onValueChange={(value) => setTab(value as Tab)}
-        tabs={[
-          { value: 'overview', label: 'Overview' },
-          { value: 'posts', label: 'Per Post' },
-          { value: 'best-times', label: 'Best Times' },
-        ]}
+    <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6" data-module-accent="rose">
+      <PageHeader
+        accent="rose"
+        eyebrow="Social"
+        title="Analytics"
+        description="Engagement data and performance insights"
+        actions={
+          <div className="flex flex-col items-end gap-1">
+            <button
+              onClick={handleGeneratePdf}
+              disabled={generating}
+              className="btn-pib-primary btn-pib-sm whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {generating ? 'Generating…' : 'Generate PDF'}
+            </button>
+            {pdfError && <p className="max-w-[200px] text-right text-[10px] text-[var(--color-error)]">{pdfError}</p>}
+          </div>
+        }
+        tabs={
+          <PageTabs
+            variant="segmented"
+            ariaLabel="Social analytics sections"
+            value={tab}
+            onValueChange={(value) => setTab(value as Tab)}
+            tabs={[
+              { value: 'overview', label: 'Overview' },
+              { value: 'posts', label: 'Per Post' },
+              { value: 'best-times', label: 'Best Times' },
+            ]}
+          />
+        }
       />
 
       {/* Date range filter */}
@@ -347,7 +349,7 @@ export default function AnalyticsPage() {
           {tab === 'overview' && (
             <div className="space-y-6">
               {/* Stat Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                 <StatCard label="Published" value={stats.totalPublished} />
                 <StatCard label="Impressions" value={fmtNum(stats.totalImpressions)} />
                 <StatCard label="Engagements" value={fmtNum(stats.totalEngagements)} />

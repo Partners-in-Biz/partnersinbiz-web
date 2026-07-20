@@ -116,17 +116,17 @@ export function EmailProgramsSection({
   }
 
   return (
-    <section className="space-y-5">
-      <div className="flex items-end justify-between gap-4 flex-wrap border-b border-[var(--color-pib-line)] pb-4">
+    <section className="space-y-3" data-module-accent="blue">
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[var(--color-pib-line)] pb-3">
         <div>
           <p className="eyebrow">Campaign workspace</p>
-          <h2 className="font-headline text-2xl md:text-3xl font-semibold tracking-tight mt-2">Email Programs</h2>
-          <p className="text-sm text-[var(--color-pib-text-muted)] mt-1.5 max-w-2xl">
+          <h2 className="mt-1 text-lg font-semibold tracking-tight md:text-xl">Email Programs</h2>
+          <p className="mt-1 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
             Sequence-backed campaigns linked to CRM segments and contacts.
           </p>
         </div>
         {newEmailCampaignHref && (
-          <Link href={newEmailCampaignHref} className="btn-pib-primary whitespace-nowrap">
+          <Link href={newEmailCampaignHref} className="btn-pib-primary btn-pib-sm whitespace-nowrap">
             <span className="material-symbols-outlined text-base">add</span>
             New campaign
           </Link>

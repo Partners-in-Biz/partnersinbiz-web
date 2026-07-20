@@ -72,7 +72,7 @@ export default function LivePage() {
   }, [])
 
   return (
-    <div className="p-6 space-y-8">
+    <div className="space-y-6 p-4 md:p-6" data-module-accent="violet">
       <AnalyticsNav active="live" propertyId={propertyId} />
       <header>
         <p className="eyebrow">Analytics · Live</p>

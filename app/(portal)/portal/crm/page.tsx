@@ -8,6 +8,8 @@ import { useSearchParams } from 'next/navigation'
 import { CrmSearchBar } from '@/components/crm/CrmSearchBar'
 import { CrmHubCommandRail } from '@/components/crm/CrmHubCommandRail'
 import { TrendAreaChart, DonutChart } from '@/components/ui/Charts'
+import { PageHeader, Surface } from '@/components/ui/AppFoundation'
+import { StatCard } from '@/components/ui/StatCard'
 import type { HubSection } from '@/components/navigation/HubPage'
 import type { Deal } from '@/lib/crm/types'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
@@ -360,29 +362,6 @@ function buildLeadershipRisks(dashboard: CrmDashboard | null): CrmLeadershipRisk
   return risks
 }
 
-function DashboardMetric({
-  label,
-  value,
-  sub,
-  icon,
-}: {
-  label: string
-  value: string
-  sub: string
-  icon: string
-}) {
-  return (
-    <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">{label}</p>
-        <span className="material-symbols-outlined text-[15px] text-[var(--color-pib-text-muted)]" aria-hidden="true">{icon}</span>
-      </div>
-      <p className="mt-1.5 text-lg font-semibold leading-none text-[var(--color-pib-text)]">{value}</p>
-      <p className="mt-1 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{sub}</p>
-    </div>
-  )
-}
-
 function CrmLeadershipRiskBrief({
   risks,
   buildHref = (path) => path,
@@ -394,22 +373,28 @@ function CrmLeadershipRiskBrief({
   const riskCopy = `${risks.length} CRM ${risks.length === 1 ? 'risk needs' : 'risks need'} leadership attention before this workspace is board-ready.`
 
   return (
-    <section className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
-      <div className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 border-b border-[var(--color-card-border)] px-3 py-1.5">
-        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Executive controls</p>
-        <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">CRM leadership risk brief</h2>
-        <p className="min-w-0 text-xs leading-5 text-[var(--color-pib-text-muted)]">{riskCopy}</p>
-      </div>
+    <Surface
+      variant="list"
+      accentEdge="amber"
+      header={
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+          <p className="pib-label mb-0">Executive controls</p>
+          <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">CRM leadership risk brief</h2>
+          <p className="min-w-0 text-xs leading-5 text-[var(--color-pib-text-muted)]">{riskCopy}</p>
+        </div>
+      }
+      bodyClassName="!p-0"
+    >
       <div className="grid divide-y divide-[var(--color-card-border)] lg:grid-cols-2 lg:divide-x lg:divide-y-0">
         {risks.map((risk) => (
           <Link
             key={`${risk.href}-${risk.label}`}
             href={buildHref(risk.href)}
             aria-label={`${risk.actionLabel} to fix CRM risk: ${risk.label}`}
-            className="group flex gap-2.5 p-3 transition-colors hover:bg-white/[0.04]"
+            className="group flex gap-2.5 p-3 pib-enter transition-colors hover:bg-[var(--color-row-hover)]"
           >
-            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">{risk.icon}</span>
+            <span className="pib-icon-tint shrink-0" aria-hidden="true">
+              <span className="material-symbols-outlined text-[16px]">{risk.icon}</span>
             </span>
             <span className="min-w-0">
               <span className="block text-sm font-semibold text-[var(--color-pib-text)]">{risk.label}</span>
@@ -422,7 +407,7 @@ function CrmLeadershipRiskBrief({
           </Link>
         ))}
       </div>
-    </section>
+    </Surface>
   )
 }
 
@@ -437,12 +422,14 @@ function ActivityAttributionReview({
   const itemCopy = `${count} recent CRM activity ${count === 1 ? 'item is' : 'items are'} missing visible contact or deal names.`
 
   return (
-    <div className="border-b border-[var(--color-card-border)] bg-amber-400/10 px-3 py-2.5">
+    <div className="border-b border-[var(--color-card-border)] bg-[var(--color-pib-accent-soft)] px-3 py-2.5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex gap-2.5">
-          <span className="material-symbols-outlined mt-0.5 text-[16px] text-amber-100" aria-hidden="true">hub</span>
+          <span className="pib-icon-tint shrink-0" aria-hidden="true">
+            <span className="material-symbols-outlined text-[16px]">hub</span>
+          </span>
           <div>
-            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-amber-100">Activity hygiene</p>
+            <p className="pib-label mb-0 text-[var(--color-pib-accent)]">Activity hygiene</p>
             <h2 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">Activity attribution needs review</h2>
             <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
               {itemCopy} Managers need those touches clearly attributed before activity can drive accountable follow-up.
@@ -452,7 +439,7 @@ function ActivityAttributionReview({
         <Link
           href={buildHref('/portal/contacts?followUp=stale')}
           aria-label="Review unlinked CRM activity from command center"
-          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
+          className="btn-pib-secondary btn-pib-sm shrink-0"
         >
           <span className="material-symbols-outlined text-[16px]" aria-hidden="true">contacts</span>
           Review follow-up
@@ -511,41 +498,26 @@ export default function PortalCrmPage() {
   )
 
   return (
-    <div className="mx-auto flex max-w-7xl min-w-0 flex-col gap-2">
-      <header className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55">
-        <div className="flex min-h-11 flex-wrap items-center gap-2 px-3 py-1.5">
-          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
-            <span className="material-symbols-outlined text-[15px]" aria-hidden="true">hub</span>
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">CRM command center</p>
-            <h1 className="truncate text-sm font-semibold leading-tight text-[var(--color-pib-text)]">CRM</h1>
-          </div>
-          <p className="hidden min-w-0 flex-1 truncate text-xs text-[var(--color-pib-text-muted)] lg:block">
-            Sales movement, customer context, capture quality, and follow-up work for this workspace.
-          </p>
-          <div className="ml-auto flex min-w-0 flex-wrap items-center gap-1.5">
+    <div className="mx-auto flex max-w-7xl min-w-0 flex-col space-y-4" data-module-accent="amber">
+      <PageHeader
+        accent="amber"
+        eyebrow="CRM command center"
+        title="CRM"
+        description="Sales movement, customer context, capture quality, and follow-up work for this workspace."
+        actions={
+          <>
             <CrmSearchBar orgScope={routeScope} className="w-56" />
-            <Link
-              href={crmPortalPath('/portal/contacts')}
-              className="flex h-8 items-center gap-1 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
-            >
+            <Link href={crmPortalPath('/portal/contacts')} className="btn-pib-secondary btn-pib-sm">
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">contacts</span>
               Contacts
             </Link>
-            <Link
-              href={crmPortalPath('/portal/deals')}
-              className="flex h-8 items-center gap-1 rounded-md bg-[var(--color-accent-v2)] px-2.5 text-xs font-medium text-black transition-colors hover:opacity-90"
-            >
+            <Link href={crmPortalPath('/portal/deals')} className="btn-pib-primary btn-pib-sm">
               <span className="material-symbols-outlined text-[16px]" aria-hidden="true">view_kanban</span>
               Pipeline
             </Link>
-          </div>
-        </div>
-        <p className="border-t border-[var(--color-card-border)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)] lg:hidden">
-          Sales movement, customer context, capture quality, and follow-up work for this workspace.
-        </p>
-      </header>
+          </>
+        }
+      />
 
       {error && (
         <div className="rounded-lg border border-red-400/40 bg-red-400/10 px-3 py-2 text-xs text-red-100">
@@ -558,29 +530,33 @@ export default function PortalCrmPage() {
           Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-16" />)
         ) : (
           <>
-            <DashboardMetric
+            <StatCard
+              accent="amber"
               icon="paid"
               label="Open pipeline"
               value={formatCurrency(dashboard?.openDealsValue, primaryCurrency)}
-              sub={`${dashboard?.openDealsCount ?? 0} active deals`}
+              detail={`${dashboard?.openDealsCount ?? 0} active deals`}
             />
-            <DashboardMetric
+            <StatCard
+              accent="amber"
               icon="trending_up"
               label="Weighted forecast"
               value={formatCurrency(dashboard?.weightedPipelineValue, primaryCurrency)}
-              sub="Probability adjusted"
+              detail="Probability adjusted"
             />
-            <DashboardMetric
+            <StatCard
+              accent="amber"
               icon="emoji_events"
               label="Won this month"
               value={formatCurrency(dashboard?.wonThisMonth?.value, primaryCurrency)}
-              sub={`${dashboard?.wonThisMonth?.count ?? 0} closed wins`}
+              detail={`${dashboard?.wonThisMonth?.count ?? 0} closed wins`}
             />
-            <DashboardMetric
+            <StatCard
+              accent="amber"
               icon="warning"
               label="Lost this month"
               value={String(dashboard?.lostThisMonth?.count ?? 0)}
-              sub="Review loss reasons"
+              detail="Review loss reasons"
             />
           </>
         )}
@@ -588,132 +564,139 @@ export default function PortalCrmPage() {
           Array.from({ length: 4 }).map((_, index) => <Skeleton key={`contact-metric-${index}`} className="h-16" />)
         ) : (
           <>
-            <DashboardMetric
+            <StatCard
+              accent="amber"
               icon="contacts"
               label="Total contacts"
               value={formatCount(dashboard?.totalContacts)}
-              sub="People in this workspace"
+              detail="People in this workspace"
             />
-            <DashboardMetric
+            <StatCard
+              accent="amber"
               icon="person_add"
               label="New this month"
               value={formatCount(dashboard?.newThisMonth)}
-              sub="Contacts created this month"
+              detail="Contacts created this month"
             />
-            <DashboardMetric
+            <StatCard
+              accent="amber"
               icon="flag"
               label="Active leads"
               value={formatCount(dashboard?.activeLeads)}
-              sub="Leads still in the pipeline"
+              detail="Leads still in the pipeline"
             />
-            <DashboardMetric
+            <StatCard
+              accent="amber"
               icon="trending_up"
               label="Conversion rate"
               value={formatPercent(dashboard?.conversionRate)}
-              sub={`${formatCount(dashboard?.convertedClients)} converted to clients`}
+              detail={`${formatCount(dashboard?.convertedClients)} converted to clients`}
             />
           </>
         )}
       </section>
 
-      <section className="grid divide-y divide-[var(--color-card-border)] overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-        <Link
-          href={crmPortalPath('/portal/contacts?create=contact')}
-          aria-label="Add a new contact"
-          className="group flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-white/[0.04]"
-        >
-          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
-          </span>
-          <span className="min-w-0">
-            <span className="block text-sm font-medium text-[var(--color-pib-text)]">Add contact</span>
-            <span className="block text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Capture a new person in CRM</span>
-          </span>
-        </Link>
-        <Link
-          href={crmPortalPath('/portal/email?compose=1')}
-          aria-label="Send an email"
-          className="group flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-white/[0.04]"
-        >
-          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">mail</span>
-          </span>
-          <span className="min-w-0">
-            <span className="block text-sm font-medium text-[var(--color-pib-text)]">Send email</span>
-            <span className="block text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Reach a contact or audience</span>
-          </span>
-        </Link>
-        <Link
-          href={crmPortalPath('/portal/segments?create=segment')}
-          aria-label="Create a segment"
-          className="group flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-white/[0.04]"
-        >
-          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">group_work</span>
-          </span>
-          <span className="min-w-0">
-            <span className="block text-sm font-medium text-[var(--color-pib-text)]">Create segment</span>
-            <span className="block text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Build a targeted audience</span>
-          </span>
-        </Link>
-      </section>
-
-      <section className="grid gap-2 xl:grid-cols-[1.4fr_0.6fr]">
-        <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
-          <div className="flex h-9 items-center border-b border-[var(--color-card-border)] px-3">
-            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Contact growth</p>
-          </div>
-          <div className="p-3">
-            {loading ? (
-              <Skeleton className="h-[200px]" />
-            ) : (dashboard?.contactGrowth?.length ?? 0) === 0 ? (
-              <p className="py-8 text-center text-xs text-[var(--color-pib-text-muted)]">
-                No contact history yet for this workspace.
-              </p>
-            ) : (
-              <TrendAreaChart data={dashboard!.contactGrowth!} height={200} />
-            )}
-          </div>
+      <Surface variant="list" bodyClassName="!p-0">
+        <div className="grid divide-y divide-[var(--color-card-border)] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          <Link
+            href={crmPortalPath('/portal/contacts?create=contact')}
+            aria-label="Add a new contact"
+            className="group flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-[var(--color-row-hover)]"
+          >
+            <span className="pib-icon-tint shrink-0" aria-hidden="true">
+              <span className="material-symbols-outlined text-[16px]">person_add</span>
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-medium text-[var(--color-pib-text)]">Add contact</span>
+              <span className="block text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Capture a new person in CRM</span>
+            </span>
+          </Link>
+          <Link
+            href={crmPortalPath('/portal/email?compose=1')}
+            aria-label="Send an email"
+            className="group flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-[var(--color-row-hover)]"
+          >
+            <span className="pib-icon-tint shrink-0" aria-hidden="true">
+              <span className="material-symbols-outlined text-[16px]">mail</span>
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-medium text-[var(--color-pib-text)]">Send email</span>
+              <span className="block text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Reach a contact or audience</span>
+            </span>
+          </Link>
+          <Link
+            href={crmPortalPath('/portal/segments?create=segment')}
+            aria-label="Create a segment"
+            className="group flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-[var(--color-row-hover)]"
+          >
+            <span className="pib-icon-tint shrink-0" aria-hidden="true">
+              <span className="material-symbols-outlined text-[16px]">group_work</span>
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-medium text-[var(--color-pib-text)]">Create segment</span>
+              <span className="block text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Build a targeted audience</span>
+            </span>
+          </Link>
         </div>
+      </Surface>
 
-        <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
-          <div className="flex h-9 items-center border-b border-[var(--color-card-border)] px-3">
-            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Source breakdown</p>
-          </div>
-          <div className="p-3">
-            {loading ? (
-              <Skeleton className="h-[220px]" />
-            ) : (dashboard?.sourceBreakdown?.length ?? 0) === 0 ? (
-              <p className="py-8 text-center text-xs text-[var(--color-pib-text-muted)]">
-                No contacts to attribute yet.
-              </p>
-            ) : (
-              <DonutChart
-                data={dashboard!.sourceBreakdown!}
-                centerLabel="Contacts"
-                centerValue={formatCount(dashboard?.totalContacts)}
-              />
-            )}
-          </div>
-        </div>
+      <section className="grid gap-3 xl:grid-cols-[1.4fr_0.6fr]">
+        <Surface
+          variant="card"
+          header={<p className="pib-label mb-0">Contact growth</p>}
+          bodyClassName="p-3"
+        >
+          {loading ? (
+            <Skeleton className="h-[200px]" />
+          ) : (dashboard?.contactGrowth?.length ?? 0) === 0 ? (
+            <p className="py-8 text-center text-xs text-[var(--color-pib-text-muted)]">
+              No contact history yet for this workspace.
+            </p>
+          ) : (
+            <TrendAreaChart data={dashboard!.contactGrowth!} height={200} />
+          )}
+        </Surface>
+
+        <Surface
+          variant="card"
+          header={<p className="pib-label mb-0">Source breakdown</p>}
+          bodyClassName="p-3"
+        >
+          {loading ? (
+            <Skeleton className="h-[220px]" />
+          ) : (dashboard?.sourceBreakdown?.length ?? 0) === 0 ? (
+            <p className="py-8 text-center text-xs text-[var(--color-pib-text-muted)]">
+              No contacts to attribute yet.
+            </p>
+          ) : (
+            <DonutChart
+              data={dashboard!.sourceBreakdown!}
+              centerLabel="Contacts"
+              centerValue={formatCount(dashboard?.totalContacts)}
+            />
+          )}
+        </Surface>
       </section>
 
       {!loading && <CrmHubCommandRail metrics={commandMetrics} buildHref={crmPortalPath} />}
 
       {!loading && <CrmLeadershipRiskBrief risks={leadershipRisks} buildHref={crmPortalPath} />}
 
-      <section className="grid gap-2 xl:grid-cols-[1.15fr_0.85fr]">
-        <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
-          <div className="flex h-9 items-center border-b border-[var(--color-card-border)] px-3">
-            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Top open deals</p>
-          </div>
+      <section className="grid gap-3 xl:grid-cols-[1.15fr_0.85fr]">
+        <Surface
+          variant="list"
+          header={<p className="pib-label mb-0">Top open deals</p>}
+          bodyClassName="!p-0"
+        >
           {loading ? (
             <div className="space-y-2 p-3">
               {Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="h-10" />)}
             </div>
           ) : !dashboard?.topOpenDeals?.length ? (
             <div className="p-4 text-center">
-              <span className="material-symbols-outlined text-[19px] text-[var(--color-accent-text)]" aria-hidden="true">monetization_on</span>
+              <span className="pib-icon-tint mx-auto" aria-hidden="true">
+                <span className="material-symbols-outlined text-[18px]">monetization_on</span>
+              </span>
               <h2 className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">Build the first active pipeline.</h2>
               <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-[var(--color-pib-text-muted)]">
                 Create a deal so leadership can see value, owner, and next-step accountability from this command center.
@@ -721,9 +704,9 @@ export default function PortalCrmPage() {
               <Link
                 href={crmPortalPath('/portal/deals?create=deal')}
                 aria-label="Create first deal from CRM command center"
-                className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90"
+                className="btn-pib-primary btn-pib-sm mt-3"
               >
-                <span className="material-symbols-outlined text-[16px]">add_circle</span>
+                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add_circle</span>
                 Create first deal
               </Link>
             </div>
@@ -736,34 +719,37 @@ export default function PortalCrmPage() {
                     key={deal.id}
                     href={topDealHref(deal, crmPortalPath)}
                     aria-label={actionLabel}
-                    className="grid gap-2 px-3 py-2 transition-colors hover:bg-white/[0.04] md:grid-cols-[1fr_120px_90px]"
+                    className="grid gap-2 px-3 py-2 pib-enter transition-colors hover:bg-[var(--color-row-hover)] md:grid-cols-[1fr_120px_90px]"
                   >
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{deal.title}</p>
-                      <p className="mt-0.5 truncate text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
+                      <p className="mt-0.5 truncate font-mono text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
                         {topDealContactLabel(deal)}
                       </p>
                     </div>
-                    <p className="text-sm font-medium text-[var(--color-pib-text)]">{formatCurrency(deal.value, deal.currency)}</p>
-                    <p className="text-xs text-[var(--color-pib-text-muted)]">{deal.probability ?? 50}%</p>
+                    <p className="text-sm font-medium tabular-nums text-[var(--color-pib-text)]">{formatCurrency(deal.value, deal.currency)}</p>
+                    <p className="font-mono text-xs text-[var(--color-pib-text-muted)]">{deal.probability ?? 50}%</p>
                   </Link>
                 )
               })}
             </div>
           )}
-        </div>
+        </Surface>
 
-        <div className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
-          <div className="flex h-9 items-center border-b border-[var(--color-card-border)] px-3">
-            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Recent CRM activity</p>
-          </div>
+        <Surface
+          variant="list"
+          header={<p className="pib-label mb-0">Recent CRM activity</p>}
+          bodyClassName="!p-0"
+        >
           {loading ? (
             <div className="space-y-2 p-3">
               {Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="h-9" />)}
             </div>
           ) : !dashboard?.recentActivities?.length ? (
             <div className="p-4 text-center">
-              <span className="material-symbols-outlined text-[19px] text-[var(--color-accent-text)]" aria-hidden="true">history</span>
+              <span className="pib-icon-tint mx-auto" aria-hidden="true">
+                <span className="material-symbols-outlined text-[18px]">history</span>
+              </span>
               <h2 className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">Relationship activity missing</h2>
               <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-[var(--color-pib-text-muted)]">
                 Open the stale follow-up lens so managers can assign calls, emails, meetings, and notes before accounts go quiet.
@@ -771,9 +757,9 @@ export default function PortalCrmPage() {
               <Link
                 href={crmPortalPath('/portal/contacts?followUp=stale')}
                 aria-label="Open stale contacts from CRM command center"
-                className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90"
+                className="btn-pib-primary btn-pib-sm mt-3"
               >
-                <span className="material-symbols-outlined text-[16px]">contacts</span>
+                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">contacts</span>
                 Open contacts
               </Link>
             </div>
@@ -784,17 +770,19 @@ export default function PortalCrmPage() {
                 const href = activityHref(activity, crmPortalPath)
                 const content = (
                   <>
-                    <span className="material-symbols-outlined mt-0.5 text-[15px] text-[var(--color-pib-text-muted)]">radio_button_checked</span>
+                    <span className="pib-icon-tint mt-0.5 shrink-0" aria-hidden="true">
+                      <span className="material-symbols-outlined text-[14px]">radio_button_checked</span>
+                    </span>
                     <div className="min-w-0">
                       <p className="truncate text-sm text-[var(--color-pib-text)]">{activitySummary(activity)}</p>
-                      <p className="mt-0.5 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
+                      <p className="mt-0.5 font-mono text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
                         {activityContactLabel(activity.contactName)} · {' '}
                         {formatRelative(activity.createdAt)}
                       </p>
                     </div>
                   </>
                 )
-                const className = 'flex gap-2.5 px-3 py-2 transition-colors hover:bg-white/[0.04]'
+                const className = 'flex gap-2.5 px-3 py-2 pib-enter transition-colors hover:bg-[var(--color-row-hover)]'
                 return href ? (
                   <Link key={activity.id} href={href} className={className}>
                     {content}
@@ -807,32 +795,36 @@ export default function PortalCrmPage() {
               })}
             </div>
           )}
-        </div>
+        </Surface>
       </section>
 
       {SECTIONS.map((section) => (
-        <section key={section.title} className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
-          <div className="flex h-9 items-center border-b border-[var(--color-card-border)] px-3">
-            <h2 className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">
+        <Surface
+          key={section.title}
+          variant="list"
+          header={
+            <h2 className="pib-label mb-0">
               {section.title}
             </h2>
-          </div>
+          }
+          bodyClassName="!p-0"
+        >
           <div className="divide-y divide-[var(--color-card-border)]">
             {section.actions.map((action) => (
               <Link
                 key={`${section.title}-${action.href}-${action.label}`}
                 href={crmPortalPath(action.href)}
                 aria-label={hubActionLabel(action.label)}
-                className="group flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-white/[0.04]"
+                className="group flex items-center gap-2.5 px-3 py-2 pib-enter transition-colors hover:bg-[var(--color-row-hover)]"
               >
-                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
-                  <span className="material-symbols-outlined text-[16px]" aria-hidden="true">{action.icon}</span>
+                <span className="pib-icon-tint shrink-0" aria-hidden="true">
+                  <span className="material-symbols-outlined text-[16px]">{action.icon}</span>
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex min-w-0 items-center gap-2">
                     <h3 className="truncate text-sm font-medium text-[var(--color-pib-text)]">{action.label}</h3>
                     {action.eyebrow && (
-                      <span className="flex h-5 shrink-0 items-center rounded-full border border-[var(--color-card-border)] px-2 text-[10px] text-[var(--color-pib-text-muted)]">
+                      <span className="pib-pill px-2 py-0.5 text-[10px]">
                         {action.eyebrow}
                       </span>
                     )}
@@ -846,7 +838,7 @@ export default function PortalCrmPage() {
               </Link>
             ))}
           </div>
-        </section>
+        </Surface>
       ))}
     </div>
   )

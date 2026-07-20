@@ -60,9 +60,9 @@ export function CrmHubCommandRail({
   ]
 
   return (
-    <section className="overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
-      <div className="flex h-9 items-center border-b border-[var(--color-card-border)] px-3">
-        <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">CRM operating rail</p>
+    <section className="pib-surface pib-surface-list overflow-hidden" data-module-accent="amber">
+      <div className="pib-surface-header">
+        <p className="pib-label mb-0">CRM operating rail</p>
       </div>
       <div className="grid divide-y divide-[var(--color-card-border)] lg:grid-cols-3 lg:divide-x lg:divide-y-0">
         {actions.map((action) => (
@@ -70,10 +70,10 @@ export function CrmHubCommandRail({
             key={action.title}
             href={buildHref(action.href)}
             aria-label={action.cta}
-            className="group flex gap-2.5 p-3 transition-colors hover:bg-white/[0.04]"
+            className="group flex gap-2.5 p-3 pib-enter transition-colors hover:bg-[var(--color-row-hover)]"
           >
-            <span aria-hidden="true" className="pib-icon-tint">
-              <span className="material-symbols-outlined text-[18px]">{action.icon}</span>
+            <span aria-hidden="true" className="pib-icon-tint shrink-0">
+              <span className="material-symbols-outlined text-[16px]">{action.icon}</span>
             </span>
             <span className="min-w-0">
               <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">{action.title}</h2>

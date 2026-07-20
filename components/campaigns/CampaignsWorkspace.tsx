@@ -2,6 +2,8 @@ import type { CSSProperties, ReactNode } from 'react'
 import Link from 'next/link'
 import { CampaignProgramCard } from '@/components/campaigns/CampaignProgramCard'
 import { EmailProgramsSection } from '@/components/campaigns/EmailProgramsSection'
+import { EmptyState as KitEmptyState, PageHeader } from '@/components/ui/AppFoundation'
+import { StatCard } from '@/components/ui/StatCard'
 
 export type CampaignWorkspaceRecord = {
   id: string
@@ -178,23 +180,27 @@ export function CampaignsWorkspace({
     visibleContentCampaigns.length + visibleEmailPrograms.length + visibleBroadcasts.length + visibleAdCampaigns.length
 
   return (
-    <div className="space-y-10" style={brandStyle}>
-      <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-5">
-        <div>
-          <p className="eyebrow">{orgName ?? eyebrow}</p>
-          <h1 className="font-headline text-3xl md:text-4xl font-semibold mt-2 tracking-tight">Campaigns</h1>
-          <p className="text-sm text-[var(--color-pib-text-muted)] mt-2 max-w-2xl">{description}</p>
-        </div>
-        {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
-      </header>
+    <div className="space-y-6" style={brandStyle} data-module-accent="rose">
+      <PageHeader
+        accent="rose"
+        eyebrow={orgName ?? eyebrow}
+        title="Campaigns"
+        description={description}
+        actions={actions ? <div className="flex flex-wrap gap-1.5 [&_.btn-pib-primary]:btn-pib-sm [&_.btn-pib-secondary]:btn-pib-sm [&_.btn-pib-accent]:btn-pib-sm">{actions}</div> : undefined}
+      />
 
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatTile label="Active programs" value={String(activeCount)} icon="bolt" />
-        <StatTile label="Needs review" value={String(reviewCount)} icon="rate_review" emphasis={reviewCount > 0} />
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard accent="rose" label="Active programs" value={String(activeCount)} icon="bolt" />
+        <StatCard
+          accent="rose"
+          label="Needs review"
+          value={<span className={reviewCount > 0 ? 'text-[var(--color-pib-accent)]' : undefined}>{String(reviewCount)}</span>}
+          icon="rate_review"
+        />
         {visible.has('requests') && (
-          <StatTile label="Client requests" value={String(requests.length)} icon="assignment_add" />
+          <StatCard accent="rose" label="Client requests" value={String(requests.length)} icon="assignment_add" />
         )}
-        <StatTile label="Total campaigns" value={String(totalCount)} icon="hub" />
+        <StatCard accent="rose" label="Total campaigns" value={String(totalCount)} icon="hub" />
       </section>
 
       {workflowPanel}
@@ -283,45 +289,14 @@ export function CampaignsWorkspace({
   )
 }
 
-function StatTile({
-  label,
-  value,
-  icon,
-  emphasis,
-}: {
-  label: string
-  value: string
-  icon: string
-  emphasis?: boolean
-}) {
-  return (
-    <div className="pib-stat-card">
-      <div className="flex items-start justify-between">
-        <p className="eyebrow !text-[10px]">{label}</p>
-        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-rose !h-7 !w-7">
-          <span className="material-symbols-outlined text-[16px]">{icon}</span>
-        </span>
-      </div>
-      <p
-        className={[
-          'mt-3 font-display tracking-tight leading-none text-3xl md:text-4xl',
-          emphasis ? 'text-[var(--color-pib-accent)]' : '',
-        ].join(' ')}
-      >
-        {value}
-      </p>
-    </div>
-  )
-}
-
 function CampaignSection({ title, subhead, children }: { title: string; subhead: string; children: ReactNode }) {
   return (
-    <section className="space-y-5">
-      <div className="flex items-end justify-between gap-4 flex-wrap border-b border-[var(--color-pib-line)] pb-4">
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[var(--color-pib-line)] pb-3">
         <div>
           <p className="eyebrow">Campaign workspace</p>
-          <h2 className="font-headline text-2xl md:text-3xl font-semibold tracking-tight mt-2">{title}</h2>
-          <p className="text-sm text-[var(--color-pib-text-muted)] mt-1.5 max-w-2xl">{subhead}</p>
+          <h2 className="mt-1 text-lg font-semibold tracking-tight md:text-xl">{title}</h2>
+          <p className="mt-1 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">{subhead}</p>
         </div>
       </div>
       {children}
@@ -330,24 +305,20 @@ function CampaignSection({ title, subhead, children }: { title: string; subhead:
 }
 
 function EmptyState({ icon, title, body }: { icon: string; title: string; body: string }) {
-  return (
-    <div className="pib-card p-8 text-center">
-      <span className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">{icon}</span>
-      <h3 className="font-headline text-lg font-semibold mt-3">{title}</h3>
-      <p className="text-sm text-[var(--color-pib-text-muted)] mt-1.5 max-w-md mx-auto">{body}</p>
-    </div>
-  )
+  return <KitEmptyState icon={icon} title={title} description={body} />
 }
 
 function CampaignRequests({ requests }: { requests: CampaignWorkspaceRecord[] }) {
   if (requests.length === 0) {
     return (
-      <section className="pib-card p-6 flex items-center justify-between gap-4 flex-wrap">
+      <section className="pib-card flex flex-wrap items-center justify-between gap-3 p-4">
         <div>
           <p className="eyebrow">Client requests</p>
-          <h2 className="font-headline text-xl font-semibold mt-2">No campaign requests waiting</h2>
+          <h2 className="mt-1 text-base font-semibold">No campaign requests waiting</h2>
         </div>
-        <span className="material-symbols-outlined text-[24px] text-[var(--color-pib-text-muted)]">task_alt</span>
+        <span className="pib-icon-tint pib-icon-tint-rose !h-8 !w-8" aria-hidden="true">
+          <span className="material-symbols-outlined text-[16px]">task_alt</span>
+        </span>
       </section>
     )
   }

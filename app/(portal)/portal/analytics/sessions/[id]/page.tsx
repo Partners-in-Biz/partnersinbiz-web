@@ -54,7 +54,7 @@ export default function SessionDetailPage() {
   const { session, events } = data
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="mx-auto max-w-4xl space-y-6 p-4 md:p-6" data-module-accent="violet">
       <header>
         <div className="flex items-center gap-3">
           <button onClick={() => router.push('/portal/analytics/sessions')} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] text-sm">

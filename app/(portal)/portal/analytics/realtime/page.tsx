@@ -57,7 +57,7 @@ export default function RealtimePage() {
   }, [])
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-8">
+    <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6" data-module-accent="violet">
       <AnalyticsNav active="realtime" propertyId={propertyId} />
       <header>
         <p className="eyebrow">Analytics · Realtime</p>

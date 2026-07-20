@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { BarChart, Donut } from '@/components/email-analytics/charts'
+import { PageHeader } from '@/components/ui/AppFoundation'
 import { scopedApiPath, scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 import type { SequenceDetailedStats } from '@/lib/email-analytics/aggregate'
 
@@ -85,8 +86,8 @@ export function SequenceAnalyticsWorkspace({
 
   const shellClass =
     surface === 'portal'
-      ? 'mx-auto max-w-5xl overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3'
-      : 'p-6 max-w-5xl mx-auto space-y-6'
+      ? 'mx-auto max-w-5xl space-y-4 overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-3'
+      : 'mx-auto max-w-5xl space-y-6 p-4 md:p-6'
 
   if (loading) {
     return (
@@ -113,20 +114,19 @@ export function SequenceAnalyticsWorkspace({
     .map(([label, value]) => ({ label, value }))
 
   return (
-    <div className={shellClass}>
+    <div className={shellClass} data-module-accent="blue">
       <BackLink href={backHref} surface={surface} />
-      <header>
-        {surface === 'portal' && <p className="eyebrow">Email nurture</p>}
-        <h1 className={surface === 'portal' ? 'mt-0.5 text-base font-semibold text-[var(--color-pib-text)]' : 'text-2xl font-semibold text-[var(--color-pib-text)]'}>
-          {sequenceName} performance
-        </h1>
-        <p className={surface === 'portal' ? 'mt-1 text-xs leading-4 text-[var(--color-pib-text-muted)]' : 'mt-2 text-sm text-[var(--color-pib-text-muted)]'}>
-          {sequenceDescription}
-        </p>
-        <p className={surface === 'portal' ? 'mt-2 text-xs text-[var(--color-pib-text-muted)]' : 'mt-2 text-xs text-[var(--color-pib-text-muted)]'}>
-          {formatStatus(sequence?.status)} · {formatSteps(sequence?.stepsCount ?? stepFunnel.length)}
-        </p>
-      </header>
+      <PageHeader
+        accent="blue"
+        eyebrow={surface === 'portal' ? 'Email nurture' : undefined}
+        title={`${sequenceName} performance`}
+        description={sequenceDescription}
+        meta={
+          <span>
+            {formatStatus(sequence?.status)} · {formatSteps(sequence?.stepsCount ?? stepFunnel.length)}
+          </span>
+        }
+      />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6">
         <Kpi surface={surface} label="Total enrolled" value={totalEnrollments} />

@@ -95,7 +95,7 @@ export default function FunnelsPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8">
+    <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-6" data-module-accent="violet">
       <AnalyticsNav active="funnels" propertyId={propertyId} />
       <header>
         <p className="eyebrow">Analytics · Funnels</p>

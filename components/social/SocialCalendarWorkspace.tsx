@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useMemo, useRef, useState } from 'react'
 import type { DragEvent } from 'react'
+import { PageHeader } from '@/components/ui/AppFoundation'
 
 export type SocialCalendarPostStatus =
   | 'draft'
@@ -401,7 +402,7 @@ function PostPanel({
                       type="button"
                       onClick={handleReschedule}
                       disabled={busyAction !== null || !rescheduleValue}
-                      className="btn-pib-secondary justify-center !py-2 !text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                      className="btn-pib-secondary btn-pib-sm justify-center disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <span className="material-symbols-outlined text-base">event_repeat</span>
                       {busyAction === 'reschedule' ? 'Rescheduling...' : 'Reschedule'}
@@ -412,14 +413,14 @@ function PostPanel({
                       type="button"
                       onClick={handlePublishNow}
                       disabled={busyAction !== null}
-                      className="btn-pib-accent justify-center !py-2 !text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                      className="btn-pib-accent btn-pib-sm justify-center disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <span className="material-symbols-outlined text-base">send</span>
                       {busyAction === 'publish' ? 'Posting...' : 'Post now'}
                     </button>
                   )}
                   {editUrl && (
-                    <Link href={editUrl} className="btn-pib-secondary justify-center !py-2 !text-xs">
+                    <Link href={editUrl} className="btn-pib-secondary btn-pib-sm justify-center">
                       <span className="material-symbols-outlined text-base">edit</span>
                       Edit
                     </Link>
@@ -647,7 +648,7 @@ export function SocialCalendarWorkspace({
       : days.reduce((sum, day) => sum + postsForDay(day).length, 0)
 
   return (
-    <div className={wrapperClassName}>
+    <div className={wrapperClassName} data-module-accent="rose">
       {selectedFreshPost && (
         <PostPanel
           key={selectedFreshPost.id}
@@ -664,32 +665,33 @@ export function SocialCalendarWorkspace({
         />
       )}
 
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-          <h1 className={eyebrow ? 'pib-page-title mt-2' : 'text-2xl font-semibold text-[var(--color-pib-text)]'}>{title}</h1>
-          <p className={eyebrow ? 'pib-page-sub max-w-2xl' : 'mt-1 text-sm text-[var(--color-pib-text-muted)]'}>{description}</p>
-        </div>
-        <Link href={composeHref} className="btn-pib-accent">
-          <span className="material-symbols-outlined text-base">edit</span>
-          {composeLabel}
-        </Link>
-      </header>
+      <PageHeader
+        accent="rose"
+        eyebrow={eyebrow}
+        title={title}
+        description={description}
+        actions={
+          <Link href={composeHref} className="btn-pib-accent btn-pib-sm">
+            <span className="material-symbols-outlined text-base">edit</span>
+            {composeLabel}
+          </Link>
+        }
+      />
 
-      <section className="bento-card !p-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <button type="button" onClick={goPrev} className="btn-pib-secondary !px-3 !py-1.5 !text-sm">
+      <section className="bento-card !p-3" data-module-accent="rose">
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" onClick={goPrev} className="btn-pib-secondary btn-pib-sm">
             <span className="material-symbols-outlined text-base">chevron_left</span>
             Prev
           </button>
           <h2 className="min-w-[170px] text-center text-sm font-semibold text-[var(--color-pib-text)]">
             {viewMode === 'month' ? `${MONTH_NAMES[month]} ${year}` : weekRangeLabel}
           </h2>
-          <button type="button" onClick={goNext} className="btn-pib-secondary !px-3 !py-1.5 !text-sm">
+          <button type="button" onClick={goNext} className="btn-pib-secondary btn-pib-sm">
             Next
             <span className="material-symbols-outlined text-base">chevron_right</span>
           </button>
-          <button type="button" onClick={goToday} className="btn-pib-secondary !px-3 !py-1.5 !text-xs">
+          <button type="button" onClick={goToday} className="btn-pib-secondary btn-pib-sm">
             Today
           </button>
 

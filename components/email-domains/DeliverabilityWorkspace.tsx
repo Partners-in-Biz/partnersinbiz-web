@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { PageHeader } from '@/components/ui/AppFoundation'
 import type {
   DeliverabilityReport,
   DomainAuthStatus,
@@ -180,20 +181,18 @@ export function DeliverabilityWorkspace({ orgId, orgName }: DeliverabilityWorksp
   }, [load])
 
   return (
-    <div className="space-y-10">
-      <header className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <p className="eyebrow">{orgName || 'Email health'}</p>
-          <h1 className="pib-page-title mt-2">Deliverability</h1>
-          <p className="pib-page-sub max-w-2xl">
-            Sender reputation, bounce and complaint rates, blacklist status, and per-domain
-            authentication over the last 30 days.
-          </p>
-        </div>
-        <button onClick={load} disabled={loading} className="btn-pib-secondary disabled:opacity-50" type="button">
-          {loading ? 'Refreshing…' : 'Refresh'}
-        </button>
-      </header>
+    <div className="space-y-6" data-module-accent="blue">
+      <PageHeader
+        accent="blue"
+        eyebrow={orgName || 'Email health'}
+        title="Deliverability"
+        description="Sender reputation, bounce and complaint rates, blacklist status, and per-domain authentication over the last 30 days."
+        actions={
+          <button onClick={load} disabled={loading} className="btn-pib-secondary btn-pib-sm disabled:opacity-50" type="button">
+            {loading ? 'Refreshing…' : 'Refresh'}
+          </button>
+        }
+      />
 
       {error && (
         <div className="rounded-lg border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-50">{error}</div>

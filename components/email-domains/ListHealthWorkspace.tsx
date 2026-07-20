@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { PageHeader } from '@/components/ui/AppFoundation'
 import type {
   ListHealthReport,
   ListHealthBreakdown,
@@ -182,20 +183,18 @@ export function ListHealthWorkspace({ orgId, orgName }: ListHealthWorkspaceProps
     report?.suggestedActions.find((a: SuggestedAction) => a.code === 'suppress-inactive')?.affected ?? 0
 
   return (
-    <div className="space-y-10">
-      <header className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <p className="eyebrow">{orgName || 'List hygiene'}</p>
-          <h1 className="pib-page-title mt-2">List Health</h1>
-          <p className="pib-page-sub max-w-2xl">
-            Score your contact list, see the active / inactive / never-opened / invalid breakdown, and
-            clean inactive contacts in one click.
-          </p>
-        </div>
-        <button onClick={load} disabled={loading} className="btn-pib-secondary disabled:opacity-50" type="button">
-          {loading ? 'Refreshing…' : 'Refresh'}
-        </button>
-      </header>
+    <div className="space-y-6" data-module-accent="blue">
+      <PageHeader
+        accent="blue"
+        eyebrow={orgName || 'List hygiene'}
+        title="List Health"
+        description="Score your contact list, see the active / inactive / never-opened / invalid breakdown, and clean inactive contacts in one click."
+        actions={
+          <button onClick={load} disabled={loading} className="btn-pib-secondary btn-pib-sm disabled:opacity-50" type="button">
+            {loading ? 'Refreshing…' : 'Refresh'}
+          </button>
+        }
+      />
 
       {error && (
         <div className="rounded-lg border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-50">{error}</div>

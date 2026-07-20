@@ -131,7 +131,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
 
   return (
     <div className="flex flex-col">
-      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 border-b border-[var(--color-pib-line)] px-3 py-3">
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 border-b border-[var(--color-pib-line)] px-3 py-2.5" data-module-accent="amber">
         <div className="flex min-w-0 flex-1 items-start gap-2.5">
           {/* Logo / initials */}
           {company.logoUrl ? (
@@ -229,7 +229,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`Open website for ${company.name}`}
-              className="btn-pib-ghost h-8 gap-1 px-2 text-xs"
+              className="btn-pib-ghost btn-pib-sm gap-1"
             >
               <span aria-hidden="true" className="material-symbols-outlined text-[16px]">open_in_new</span>
               Website
@@ -239,7 +239,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
             <a
               href={`mailto:${company.billingEmail || company.accountsContact?.email}`}
               aria-label={`Email billing contact for ${company.name}`}
-              className="btn-pib-ghost h-8 gap-1 px-2 text-xs"
+              className="btn-pib-ghost btn-pib-sm gap-1"
             >
               <span aria-hidden="true" className="material-symbols-outlined text-[16px]">mail</span>
               Billing
@@ -249,7 +249,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
             <a
               href={`tel:${company.phone}`}
               aria-label={`Call ${company.name}`}
-              className="btn-pib-ghost h-8 gap-1 px-2 text-xs"
+              className="btn-pib-ghost btn-pib-sm gap-1"
             >
               <span aria-hidden="true" className="material-symbols-outlined text-[16px]">call</span>
               Call
@@ -259,7 +259,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
             type="button"
             onClick={onEdit}
             aria-label={`Edit account profile for ${company.name}`}
-            className="btn-pib-primary h-8 shrink-0 gap-1 px-2.5 text-xs"
+            className="btn-pib-primary btn-pib-sm shrink-0 gap-1"
           >
             <span aria-hidden="true" className="material-symbols-outlined text-[16px]">edit</span>
             Edit
@@ -270,7 +270,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
               onClick={onDelete}
               disabled={deleting}
               aria-label={deleting ? `Archiving account ${company.name}` : `Archive account ${company.name}`}
-              className="btn-pib-danger h-8 shrink-0 px-2.5 text-xs"
+              className="btn-pib-danger btn-pib-sm shrink-0"
             >
               {deleting ? 'Archiving...' : 'Archive'}
             </button>
@@ -279,10 +279,10 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
       </div>
 
       {missingAccountManager && (
-        <div className="border-b border-[var(--color-pib-line)] px-3 py-3">
+        <div className="border-b border-[var(--color-pib-line)] px-3 py-2.5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <p className="pib-label text-[var(--color-pib-accent)]">Account owner missing</p>
+              <p className="pib-label mb-0 text-[var(--color-pib-accent)]">Account owner missing</p>
               <h2 className="mt-0.5 text-xs font-semibold text-[var(--color-pib-text)]">Assign account ownership</h2>
               <p className="mt-0.5 max-w-3xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
                 No team member owns this account yet. Assign a manager so renewals, escalations, and delivery handoffs stay visible to leadership.
@@ -292,7 +292,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
               type="button"
               onClick={onEdit}
               aria-label={`Assign account manager for ${company.name}`}
-              className="btn-pib-secondary h-8 shrink-0 gap-1.5 px-2.5 text-xs"
+              className="btn-pib-secondary btn-pib-sm shrink-0 gap-1.5"
             >
               <span aria-hidden="true" className="material-symbols-outlined text-[16px]">person_add</span>
               Assign manager

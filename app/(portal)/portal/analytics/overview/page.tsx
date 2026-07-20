@@ -8,6 +8,7 @@ import { AnalyticsPropertyPicker } from '@/components/admin/AnalyticsPropertyPic
 import { DateRangePicker, defaultRange, type DateRangeValue } from '@/components/analytics/DateRangePicker'
 import { LineSeries, DonutChart } from '@/components/analytics/Charts'
 import { KpiCard, SimpleTable } from '@/components/analytics/Primitives'
+import { PageHeader, Surface } from '@/components/ui/AppFoundation'
 
 interface OverviewData {
   kpis: {
@@ -48,20 +49,21 @@ export default function OverviewPage() {
   const k = data?.kpis
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-8">
+    <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6" data-module-accent="violet">
       <AnalyticsNav active="overview" propertyId={propertyId} />
-      <header>
-        <p className="eyebrow">Analytics · Overview</p>
-        <h1 className="pib-page-title mt-2">Overview</h1>
-      </header>
+      <PageHeader
+        accent="violet"
+        eyebrow="Analytics · Overview"
+        title="Overview"
+      />
 
-      <div className="pib-card space-y-4">
+      <Surface variant="glass" className="space-y-3 !p-3">
         <AnalyticsPropertyPicker value={propertyId} onChange={setPropertyId} />
         {propertyId && <DateRangePicker value={range} onChange={setRange} />}
-      </div>
+      </Surface>
 
       {!propertyId && (
-        <div className="pib-empty-state">
+        <div className="pib-empty-state !py-8">
           <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">monitoring</span>
           <p className="pib-empty-state-description">Select a client and property to see the overview.</p>
         </div>
@@ -71,7 +73,7 @@ export default function OverviewPage() {
 
       {propertyId && k && (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <KpiCard label="Sessions" value={k.sessions.toLocaleString()} accent />
             <KpiCard label="Unique Visitors" value={k.uniqueVisitors.toLocaleString()} />
             <KpiCard label="Pageviews" value={k.pageviews.toLocaleString()} />
@@ -81,21 +83,25 @@ export default function OverviewPage() {
             <KpiCard label="Pages / Session" value={k.pagesPerSession} />
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-4">
-            <div className="pib-card lg:col-span-2">
-              <div className="mb-3 flex items-center gap-3">
-                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">show_chart</span></span>
+          <div className="grid gap-3 lg:grid-cols-3">
+            <Surface className="!p-3 lg:col-span-2">
+              <div className="mb-3 flex items-center gap-2.5">
+                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet !h-7 !w-7">
+                  <span className="material-symbols-outlined text-[16px]">show_chart</span>
+                </span>
                 <h2 className="pib-label mb-0">Sessions over time</h2>
               </div>
               <LineSeries data={data!.sessionsSeries} xKey="date" yKey="sessions" />
-            </div>
-            <div className="pib-card">
-              <div className="mb-3 flex items-center gap-3">
-                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet"><span className="material-symbols-outlined text-[18px]">alt_route</span></span>
+            </Surface>
+            <Surface className="!p-3">
+              <div className="mb-3 flex items-center gap-2.5">
+                <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-violet !h-7 !w-7">
+                  <span className="material-symbols-outlined text-[16px]">alt_route</span>
+                </span>
                 <h2 className="pib-label mb-0">Traffic sources</h2>
               </div>
               <DonutChart data={data!.trafficSources} />
-            </div>
+            </Surface>
           </div>
 
           <div>
