@@ -274,18 +274,16 @@ export default function PipelinesPage() {
         eyebrow="CRM settings"
         title="Pipeline command center"
         description="Design the sales paths that drive deal stages, forecasts, win/loss analytics, and automation triggers."
-        actions={(
-          {isAdmin && (
-                    <button
-                      type="button"
-                      onClick={openCreate}
-                      className="btn-pib-primary btn-pib-sm shrink-0"
-                    >
-                      <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
-                      New pipeline
-                    </button>
-                  )}
-        )}
+        actions={isAdmin ? (
+          <button
+            type="button"
+            onClick={openCreate}
+            className="btn-pib-primary btn-pib-sm shrink-0"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+            New pipeline
+          </button>
+        ) : undefined}
       />
 
       {!fetchError && (

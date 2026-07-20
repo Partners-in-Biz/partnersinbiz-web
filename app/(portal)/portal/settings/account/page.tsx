@@ -4,12 +4,12 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useRef, useState } from 'react'
 import {
-import { PageHeader } from '@/components/ui/AppFoundation'
   sendPasswordResetEmail,
   reauthenticateWithCredential,
   updatePassword,
   EmailAuthProvider,
 } from 'firebase/auth'
+import { PageHeader } from '@/components/ui/AppFoundation'
 import { getClientAuth } from '@/lib/firebase/config'
 import { AccountDeletionFlow } from '@/components/settings/AccountDeletionFlow'
 
