@@ -114,6 +114,7 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
     return (
       <AppShell
         data-message-push-root
+        data-module-accent="cyan"
         header={(
           <>
             <WelcomeFlashHandler />
@@ -135,7 +136,7 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
   }
 
   return (
-    <div data-message-push-root className="flex h-screen overflow-hidden bg-[var(--color-pib-bg)] text-[var(--color-pib-text)]">
+    <div data-message-push-root data-module-accent="cyan" className="flex h-screen overflow-hidden bg-[var(--color-pib-bg)] text-[var(--color-pib-text)]">
       <WelcomeFlashHandler />
       <AdminSidebar open={open} onClose={() => setOpen(false)} collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
       <AppShell

@@ -37,18 +37,19 @@ function NavLink({ item, pathname, collapsed }: { item: NavItem; pathname: strin
     <Link
       href={item.href}
       title={collapsed ? item.label : undefined}
+      data-active={isActive ? 'true' : undefined}
       className={[
-        'flex items-center rounded-lg text-sm transition-all duration-150',
-        collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2',
+        'pib-nav-item',
+        collapsed ? 'justify-center !px-0' : '',
         isActive
-          ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent-hover)]'
-          : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.03]',
+          ? '!bg-[var(--color-pib-cyan-soft)] !text-[#5EEAD4]'
+          : '',
       ].join(' ')}
     >
       <span
         className={[
-          'material-symbols-outlined text-[20px] shrink-0',
-          isActive ? 'text-[var(--color-pib-accent)]' : 'opacity-70',
+          'material-symbols-outlined text-[18px] shrink-0',
+          isActive ? 'text-[var(--color-pib-cyan)]' : 'opacity-70',
         ].join(' ')}
       >
         {item.icon}
@@ -90,8 +91,8 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
         <NavLink key={item.href} item={item} pathname={pathname} collapsed={collapsed} />
       ))
     : groupedNav.map(({ group, items }) => (
-        <div key={group} className="space-y-1 pb-3 last:pb-0">
-          <p className="eyebrow !text-[10px] px-3 mb-2">{groupLabels[group]}</p>
+        <div key={group} className="space-y-0.5 pb-2 last:pb-0">
+          <p className="eyebrow !text-[10px] px-2.5 mb-1">{groupLabels[group]}</p>
           {items.map((item) => (
             <NavLink key={item.href} item={item} pathname={pathname} />
           ))}
@@ -125,23 +126,29 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
       />
 
       <aside
+        data-module-accent="cyan"
         className={[
-          'shrink-0 flex flex-col border-r border-[var(--color-pib-line)] bg-[var(--color-sidebar)] overflow-y-auto',
-          'md:h-screen md:sticky md:top-0 md:translate-x-0 md:z-auto',
+          'shrink-0 flex flex-col border-r border-[var(--pib-fx-line,var(--color-pib-line))] bg-[var(--color-sidebar)] overflow-y-auto',
+          'md:h-screen md:sticky md:top-0 md:z-auto',
           'fixed top-0 left-0 h-full z-50 transition-all duration-300 ease-in-out',
-          collapsed ? 'w-16' : 'w-64',
+          collapsed ? 'w-14' : 'w-56',
           open ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
         ].join(' ')}
       >
         {/* Brand */}
-        <div className={['h-16 flex items-center border-b border-[var(--color-pib-line)] shrink-0', collapsed ? 'justify-center px-0' : 'gap-2.5 px-5'].join(' ')}>
-          <Image src="/pib-logo-512.png" alt="Partners in Biz" width={28} height={28} className="rounded-md object-contain shrink-0" />
+        <div
+          className={[
+            'pib-glass-bar shrink-0 !min-h-0 border-b border-[var(--pib-fx-line,var(--color-pib-line))]',
+            collapsed ? 'h-11 justify-center !px-0' : 'h-11 gap-2 !px-3',
+          ].join(' ')}
+        >
+          <Image src="/pib-logo-512.png" alt="Partners in Biz" width={22} height={22} className="rounded-md object-contain shrink-0" />
           {!collapsed && (
             <>
               <div className="flex flex-col min-w-0">
-                <span className="font-display text-lg leading-none">Partners in Biz</span>
+                <span className="font-display text-sm leading-none">Partners in Biz</span>
                 {isWorkspaceMode && selectedOrg?.name && (
-                  <span className="text-[11px] text-[var(--color-pib-text-muted)] truncate leading-tight mt-1">
+                  <span className="text-[10px] text-[var(--color-pib-text-muted)] truncate leading-tight mt-0.5">
                     {selectedOrg.name}
                   </span>
                 )}
@@ -151,17 +158,17 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
         </div>
 
         {/* Collapse and mode switch controls */}
-        <div className="hidden md:flex items-center justify-between h-8 border-b border-[var(--color-pib-line)] shrink-0">
+        <div className="hidden md:flex items-center justify-between h-8 border-b border-[var(--pib-fx-line,var(--color-pib-line))] shrink-0">
           <button
             onClick={onToggleCollapsed}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             className={[
               'flex h-8 items-center justify-center text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors',
-              collapsed ? 'w-full' : 'w-8 border-r border-[var(--color-pib-line)]',
+              collapsed ? 'w-full' : 'w-8 border-r border-[var(--pib-fx-line,var(--color-pib-line))]',
             ].join(' ')}
           >
-            <span className="material-symbols-outlined text-[18px]">
+            <span className="material-symbols-outlined text-[16px]">
               {collapsed ? 'chevron_right' : 'chevron_left'}
             </span>
           </button>
@@ -171,7 +178,7 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
         </div>
 
         {!collapsed && isWorkspaceMode && selectedOrg?.id && (
-          <div className="md:hidden border-b border-[var(--color-pib-line)] shrink-0">
+          <div className="md:hidden border-b border-[var(--pib-fx-line,var(--color-pib-line))] shrink-0">
             <PortalViewSwitch orgId={selectedOrg.id} />
           </div>
         )}
@@ -190,19 +197,19 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
 
         {/* Org Switcher */}
         {!collapsed && (
-          <div className="border-t border-[var(--color-pib-line)] py-3">
-            <p className="eyebrow !text-[9px] px-5 mb-1.5">Context</p>
+          <div className="border-t border-[var(--pib-fx-line,var(--color-pib-line))] py-2">
+            <p className="eyebrow !text-[9px] px-3 mb-1">Context</p>
             <OrgSwitcher />
           </div>
         )}
 
         {/* Navigation */}
         {!collapsed && (
-          <div className="px-3 pt-3 pb-1">
-            <p className="eyebrow !text-[9px] px-2 mb-2">{isWorkspaceMode ? `${workspaceLabel} navigation` : 'Navigation'}</p>
+          <div className="px-2.5 pt-2 pb-0.5">
+            <p className="eyebrow !text-[9px] px-1.5 mb-1.5">{isWorkspaceMode ? `${workspaceLabel} navigation` : 'Navigation'}</p>
           </div>
         )}
-        <nav className={['flex-1 space-y-1', collapsed ? 'px-2 pt-3' : 'px-3'].join(' ')}>
+        <nav className={['flex-1 space-y-0.5', collapsed ? 'px-1.5 pt-2' : 'px-2'].join(' ')}>
           {navContent}
         </nav>
       </aside>
