@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import Link from 'next/link'
+import { PageHeader } from '@/components/ui/AppFoundation'
 import type { Property, PropertyStatus } from '@/lib/properties/types'
 
 type PropertiesSurface = 'admin' | 'portal'
@@ -134,11 +135,11 @@ function PropertyCard({
     <div className="pib-card-section">
       <div className="pib-card-section-header flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-lg bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line)] flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-accent)]">{icon}</span>
+          <div className="w-9 h-9 rounded-lg bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line)] flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-accent)]">{icon}</span>
           </div>
           <div>
-            <h3 className="font-display text-xl leading-tight">{property.name}</h3>
+            <h3 className="font-display text-base leading-tight">{property.name}</h3>
             <p className="eyebrow !text-[10px] mt-1">{property.type} - {property.domain}</p>
           </div>
         </div>
@@ -293,25 +294,24 @@ export function PropertiesWorkspace({ surface }: PropertiesWorkspaceProps) {
   }
 
   return (
-    <div className={isAdmin ? 'space-y-6 max-w-5xl mx-auto' : 'space-y-10'}>
-      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="eyebrow">{isAdmin ? 'Admin workspace' : 'Your stack'}</p>
-          <h1 className={isAdmin ? 'text-2xl font-headline font-bold text-[var(--color-pib-text)] mt-2' : 'pib-page-title mt-2'}>
-            Properties
-          </h1>
-          <p className={isAdmin ? 'text-sm text-[var(--color-pib-text-muted)] mt-0.5' : 'pib-page-sub max-w-2xl'}>
-            {isAdmin
-              ? 'Marketing sites and apps connected to PiB.'
-              : 'Each property - site, iOS app, Android app - and the data sources we have connected for you.'}
-          </p>
-        </div>
-        {isAdmin ? (
-          <Link href="/portal/properties/new" className="pib-btn-primary text-sm font-label self-start md:self-auto">
-            + New Property
-          </Link>
-        ) : null}
-      </header>
+    <div className={isAdmin ? 'space-y-4 max-w-5xl mx-auto' : 'space-y-4'} data-module-accent="cyan">
+      <PageHeader
+        accent="cyan"
+        eyebrow={isAdmin ? 'Admin workspace' : 'Your stack'}
+        title="Properties"
+        description={
+          isAdmin
+            ? 'Marketing sites and apps connected to PiB.'
+            : 'Each property - site, iOS app, Android app - and the data sources we have connected for you.'
+        }
+        actions={
+          isAdmin ? (
+            <Link href="/portal/properties/new" className="btn-pib-primary btn-pib-sm">
+              + New Property
+            </Link>
+          ) : undefined
+        }
+      />
 
       {isAdmin ? (
         <div className="pib-card p-4">
@@ -340,12 +340,12 @@ export function PropertiesWorkspace({ surface }: PropertiesWorkspaceProps) {
           ))}
         </div>
       ) : properties.length === 0 ? (
-        <div className="bento-card p-10 text-center">
-          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]">apartment</span>
-          <h2 className="font-display text-2xl mt-4">{isAdmin && orgFilter ? 'No properties yet.' : 'No properties yet'}</h2>
-          <p className="text-sm text-[var(--color-pib-text-muted)] max-w-md mx-auto mt-2">{emptyCopy}</p>
+        <div className="pib-card p-6 text-center">
+          <span className="material-symbols-outlined text-3xl text-[var(--color-pib-accent)]">apartment</span>
+          <h2 className="font-display text-lg mt-3">{isAdmin && orgFilter ? 'No properties yet.' : 'No properties yet'}</h2>
+          <p className="text-sm text-[var(--color-pib-text-muted)] max-w-md mx-auto mt-1.5">{emptyCopy}</p>
           {isAdmin && orgFilter ? (
-            <Link href="/portal/properties/new" className="btn-pib-secondary inline-flex mt-5">
+            <Link href="/portal/properties/new" className="btn-pib-secondary btn-pib-sm inline-flex mt-4">
               Create property
             </Link>
           ) : null}

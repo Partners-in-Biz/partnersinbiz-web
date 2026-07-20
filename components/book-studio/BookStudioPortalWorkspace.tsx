@@ -7,6 +7,8 @@ import { scopedApiPath } from '@/lib/portal/scoped-routing'
 import { getBookFormat } from '@/lib/book-studio/format-registry'
 import { NewBookDialog } from './NewBookDialog'
 import type { BookStudioCapabilities } from '@/lib/book-studio/capabilities'
+import { PageHeader, Surface } from '@/components/ui/AppFoundation'
+import { HudChip } from '@/components/ui/HudChip'
 
 type BookStudioPortalArtifact = {
   label?: string
@@ -104,46 +106,41 @@ export function BookStudioPortalWorkspace({ orgId }: BookStudioPortalWorkspacePr
   }, [load])
 
   return (
-    <main className="p-4 sm:p-6 lg:p-8">
-      <section className="rounded-3xl border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-5 shadow-sm sm:p-7">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="max-w-3xl space-y-3">
-            <p className="eyebrow">Book Studio</p>
-            <h1 className="text-2xl font-semibold text-[var(--color-pib-text)] sm:text-3xl">Book Studio</h1>
-            <p className="text-sm leading-6 text-[var(--color-pib-muted)]">
-              Review and continue writing books prepared for your organisation. Publishing and marketplace credentials remain operator-controlled.
-            </p>
-          </div>
-          {capabilities?.canCreate ? (
-            <button type="button" className="pib-btn-primary" onClick={() => setDialogOpen(true)}>
-              New book
-            </button>
-          ) : null}
-        </div>
-      </section>
+    <main className="space-y-4 p-4 sm:p-6 lg:p-8" data-module-accent="rose">
+      <PageHeader
+        accent="rose"
+        eyebrow="Book Studio"
+        title="Book Studio"
+        description="Review and continue writing books prepared for your organisation. Publishing and marketplace credentials remain operator-controlled."
+        actions={capabilities?.canCreate ? (
+          <button type="button" className="btn-pib-primary btn-pib-sm font-label" onClick={() => setDialogOpen(true)}>
+            New book
+          </button>
+        ) : undefined}
+      />
 
       {moduleDisabled ? (
-        <section className="mt-6 rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-6 text-sm text-[var(--color-pib-text)]">
-          <h2 className="text-lg font-semibold">Book Studio is not enabled for this portal.</h2>
-          <p className="mt-2 text-[var(--color-pib-muted)]">Your PiB team controls when a client-safe book review packet becomes available.</p>
-        </section>
+        <Surface className="p-4 text-sm text-[var(--color-pib-text)]">
+          <h2 className="text-sm font-semibold">Book Studio is not enabled for this portal.</h2>
+          <p className="mt-1 text-[var(--color-pib-text-muted)]">Your PiB team controls when a client-safe book review packet becomes available.</p>
+        </Surface>
       ) : (
         <>
-          <section className="mt-6 space-y-4">
-            {notice && <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-100">{notice}</div>}
+          <section className="space-y-3">
+            {notice ? <Surface className="border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-100">{notice}</Surface> : null}
             {loading ? (
-              <div className="rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-6 text-sm text-[var(--color-pib-muted)]">Loading Book Studio review material…</div>
+              <Surface className="p-4 text-sm text-[var(--color-pib-text-muted)]">Loading Book Studio review material…</Surface>
             ) : projects.length === 0 ? (
-              <div className="rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-6">
-                <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">No books yet</h2>
-                <p className="mt-2 text-sm text-[var(--color-pib-muted)]">
+              <Surface className="p-4">
+                <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">No books yet</h2>
+                <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
                   {capabilities?.canCreate
                     ? 'Create your first book to get started.'
                     : 'When the PiB team prepares a book project, it will appear here for review.'}
                 </p>
-              </div>
+              </Surface>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {projects.map((project) => {
                   const format = project.format ? getBookFormat(project.format) : null
                   const packets = Array.isArray(project.reviewPackets) ? project.reviewPackets : []
@@ -152,39 +149,38 @@ export function BookStudioPortalWorkspace({ orgId }: BookStudioPortalWorkspacePr
                     <Link
                       key={project.id}
                       href={`/portal/book-studio/${project.id}`}
-                      className="block rounded-3xl border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-5 transition hover:border-[var(--color-pib-accent,theme(colors.indigo.400))] sm:p-6"
+                      className="pib-card block p-4 transition-colors hover:border-rose-400/40"
                     >
                       {project.coverImageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={project.coverImageUrl} alt="" className="mb-3 h-32 w-full rounded-lg object-cover" />
+                        <img src={project.coverImageUrl} alt="" className="mb-2 h-28 w-full rounded-md object-cover" />
                       ) : null}
-                      <p className="eyebrow">{humanize(project.stage)}</p>
-                      <h2 className="text-xl font-semibold text-[var(--color-pib-text)]">{project.title ?? 'Untitled book project'}</h2>
-                      <p className="mt-1 text-xs text-[var(--color-pib-muted)]">
+                      <p className="eyebrow !text-[10px]">{humanize(project.stage)}</p>
+                      <h2 className="text-base font-semibold text-[var(--color-pib-text)]">{project.title ?? 'Untitled book project'}</h2>
+                      <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">
                         {format?.label ?? project.format ?? 'No format'}
                         {project.status ? ` · ${humanize(project.status)}` : ''}
                       </p>
                       {capabilities?.canEdit ? (
-                        <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-accent,theme(colors.indigo.400))]">Continue writing →</p>
+                        <p className="mt-2 text-[10px] font-label uppercase tracking-wide text-rose-300">Continue writing →</p>
                       ) : null}
 
                       {gates.length > 0 && (
-                        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                        <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
                           {gates.map((gate) => (
-                            <div key={gate.id ?? gate.label} className={`rounded-2xl border px-3 py-2 text-xs ${gateTone(gate.status)}`}>
-                              <p className="font-medium">{gate.label ?? 'Quality gate'}</p>
-                              <p className="mt-0.5 uppercase tracking-wide opacity-80">{humanize(gate.status)}</p>
-                            </div>
+                            <HudChip key={gate.id ?? gate.label} className={gateTone(gate.status)}>
+                              {gate.label ?? 'Quality gate'} · {humanize(gate.status)}
+                            </HudChip>
                           ))}
                         </div>
                       )}
 
                       {packets.length > 0 && (
-                        <div className="mt-4 space-y-2">
+                        <div className="mt-3 space-y-1.5">
                           {packets.map((packet) => (
-                            <div key={packet.id ?? packet.title} className="rounded-2xl border border-[var(--color-pib-line)] p-3 text-xs text-[var(--color-pib-muted)]">
+                            <div key={packet.id ?? packet.title} className="rounded-md border border-[var(--color-pib-line)] p-2 text-xs text-[var(--color-pib-text-muted)]">
                               <p className="font-semibold text-[var(--color-pib-text)]">{packet.title ?? 'Review packet'}</p>
-                              {packet.summary ? <p className="mt-1">{packet.summary}</p> : null}
+                              {packet.summary ? <p className="mt-0.5">{packet.summary}</p> : null}
                             </div>
                           ))}
                         </div>
@@ -196,9 +192,9 @@ export function BookStudioPortalWorkspace({ orgId }: BookStudioPortalWorkspacePr
             )}
           </section>
 
-          <section className="mt-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+          <Surface className="border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100">
             Manual release posture: PiB must complete rights, evidence, checksum and human release gates before anything leaves the workspace.
-          </section>
+          </Surface>
         </>
       )}
 

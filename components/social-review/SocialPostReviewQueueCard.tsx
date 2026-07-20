@@ -95,7 +95,7 @@ function MediaThumbs({ post }: { post: SocialPostReviewPost }) {
           return (
             <div
               key={index}
-              className="w-12 h-12 rounded border border-[var(--color-pib-line)]/40 bg-[var(--color-pib-surface-2)] flex items-center justify-center text-[10px] text-[var(--color-pib-text-muted)]"
+              className="w-10 h-10 rounded border border-[var(--color-pib-line)]/40 bg-[var(--color-pib-surface-2)] flex items-center justify-center text-[10px] text-[var(--color-pib-text-muted)]"
             >
               media
             </div>
@@ -108,12 +108,12 @@ function MediaThumbs({ post }: { post: SocialPostReviewPost }) {
             key={`${url}-${index}`}
             src={url}
             alt=""
-            className="w-12 h-12 rounded border border-[var(--color-pib-line)]/40 object-cover"
+            className="w-10 h-10 rounded border border-[var(--color-pib-line)]/40 object-cover"
           />
         )
       })}
       {media.length > visible.length ? (
-        <div className="w-12 h-12 rounded border border-[var(--color-pib-line)]/40 bg-[var(--color-pib-surface-2)] flex items-center justify-center text-[10px] text-[var(--color-pib-text-muted)]">
+        <div className="w-10 h-10 rounded border border-[var(--color-pib-line)]/40 bg-[var(--color-pib-surface-2)] flex items-center justify-center text-[10px] text-[var(--color-pib-text-muted)]">
           +{media.length - visible.length}
         </div>
       ) : null}

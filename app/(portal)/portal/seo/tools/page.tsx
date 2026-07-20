@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { PageHeader } from '@/components/ui/AppFoundation'
 
 const TOOLS = [
   { key: 'metadata-check', label: 'Metadata Check', input: 'url', desc: 'Audit page title, description, OG, Twitter cards', icon: 'description', tag: 'SERP' },
@@ -21,15 +22,14 @@ const TOOLS = [
 export default function ToolsPage() {
   const [openKey, setOpenKey] = useState<string | null>(null)
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col gap-2">
-        <p className="eyebrow !text-[10px]">Admin toolkit</p>
-        <h1 className="font-display text-3xl leading-tight">SEO Tools</h1>
-        <p className="max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
-          In-house SEO toolkit. Pip uses these via the skill, but you can run them ad-hoc here too.
-        </p>
-      </header>
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+    <div className="space-y-4" data-module-accent="green">
+      <PageHeader
+        accent="green"
+        eyebrow="Admin toolkit"
+        title="SEO Tools"
+        description="In-house SEO toolkit. Pip uses these via the skill, but you can run them ad-hoc here too."
+      />
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
         {TOOLS.map((t) => (
           <ToolCard key={t.key} tool={t} expanded={openKey === t.key} onToggle={() => setOpenKey(openKey === t.key ? null : t.key)} />
         ))}
@@ -70,7 +70,7 @@ function ToolCard({ tool, expanded, onToggle }: { tool: ToolDef; expanded: boole
   }
 
   return (
-    <div className="pib-card group p-5 space-y-4 transition-colors hover:border-[var(--color-pib-accent)] hover:bg-white/[0.03]">
+    <div className="pib-card group p-4 space-y-3 transition-colors hover:border-[var(--color-pib-accent)] hover:bg-white/[0.03]">
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 items-start gap-3">
           <span className="pib-icon-tint pib-icon-tint-green shrink-0">
@@ -111,7 +111,7 @@ function ToolCard({ tool, expanded, onToggle }: { tool: ToolDef; expanded: boole
             <button
               onClick={run}
               disabled={busy}
-              className="pib-btn-primary text-sm disabled:cursor-not-allowed disabled:opacity-50"
+              className="btn-pib-primary btn-pib-sm disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? (
                 <>

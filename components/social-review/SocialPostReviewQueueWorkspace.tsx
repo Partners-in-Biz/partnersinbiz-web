@@ -205,7 +205,7 @@ export function SocialPostReviewQueueWorkspace({ surface }: SocialPostReviewQueu
             </div>
           ) : null}
           {config.eyebrow ? <p className="eyebrow">{config.eyebrow}</p> : null}
-          <h1 className="font-headline text-2xl md:text-3xl font-semibold text-[var(--color-pib-text)] mt-1 tracking-tight">
+          <h1 className="font-headline text-xl md:text-2xl font-semibold text-[var(--color-pib-text)] mt-1 tracking-tight">
             {config.title}
           </h1>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-1 max-w-xl">{config.description}</p>
@@ -213,7 +213,7 @@ export function SocialPostReviewQueueWorkspace({ surface }: SocialPostReviewQueu
         <button
           onClick={() => load(true)}
           disabled={refreshing || Boolean(isLoading)}
-          className="pib-btn-secondary text-xs px-3 py-1.5 flex-shrink-0"
+          className="btn-pib-secondary btn-pib-sm flex-shrink-0"
           style={{
             opacity: refreshing || isLoading ? 0.6 : 1,
             cursor: refreshing || isLoading ? 'not-allowed' : 'pointer',
@@ -249,7 +249,7 @@ export function SocialPostReviewQueueWorkspace({ surface }: SocialPostReviewQueu
           ))}
         </div>
       ) : list.length === 0 ? (
-        <div className={surface === 'admin' ? 'pib-card text-center py-16 text-sm text-[var(--color-pib-text-muted)]' : 'pib-card p-8 text-center'}>
+        <div className={surface === 'admin' ? 'pib-card text-center py-10 text-sm text-[var(--color-pib-text-muted)]' : 'pib-card p-6 text-center'}>
           <p className="text-[var(--color-pib-text-muted)]">{config.emptyMessage}</p>
         </div>
       ) : (

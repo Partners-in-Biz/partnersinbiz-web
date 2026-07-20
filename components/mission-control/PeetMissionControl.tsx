@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { PageHeader, Surface } from '@/components/ui/AppFoundation'
+import { ModuleShell } from '@/components/ui/ModuleShell'
+import { HudChip, SignalMeter } from '@/components/ui/HudChip'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 
 type BriefingCard = {
@@ -484,18 +486,44 @@ export function PeetMissionControl() {
   const generatedStatus = useMemo(() => generatedAtStatus(data.generatedAt), [data.generatedAt])
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 pb-8">
+    <ModuleShell
+      tier={2}
+      accent="amber"
+      shellTestId="mission-control-shell"
+      fieldTestId="mission-control-neural-field"
+      className="relative overflow-hidden rounded-[22px] border border-[var(--color-card-border)] bg-[var(--color-card)]/55 shadow-[0_24px_80px_rgba(0,0,0,0.24)]"
+    >
+      <header className="flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[var(--color-card-border)] bg-black/[0.08] px-3 py-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span aria-hidden="true" className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+            <span className="material-symbols-outlined text-[15px]">dashboard</span>
+          </span>
+          <div className="min-w-0">
+            <div className="truncate pib-label">Admin / Mission Control</div>
+            <h1 className="truncate text-sm font-semibold leading-tight text-[var(--color-pib-text)]">Peet Mission Control</h1>
+          </div>
+          <div className="messages-info-constellation flex flex-wrap" aria-label="Mission Control live signals">
+            <HudChip live={loading}>{loading ? 'Syncing' : generatedStatus.stale ? 'Stale feed' : 'Live feed'}</HudChip>
+            <HudChip>Cards <strong>{data.items.length}</strong></HudChip>
+            <HudChip>Gates <strong>{approvals.length}</strong></HudChip>
+            <HudChip>Risks <strong>{risks.length}</strong></HudChip>
+            <HudChip>Follow-ups <strong>{followUps.length}</strong></HudChip>
+            <SignalMeter title="Mission Control signal" />
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="rounded-full border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-label uppercase tracking-wide text-amber-100">Internal development only</span>
+          <Link href="/admin/briefings" className="pib-btn-secondary !h-7 !px-2 !text-xs">Control Desk</Link>
+          <Link href="/admin/projects" className="pib-btn-primary !h-7 !px-2 !text-xs">Projects</Link>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-7xl space-y-6 p-4 pb-8 sm:p-6">
       <PageHeader
-        eyebrow="Admin / Mission Control"
-        title="Peet Mission Control"
-        description="A top-level internal operator command page for today’s decisions, approvals, revenue cards, scoped org risks, agent outputs, follow-ups, and KPI snapshot."
-        meta={<span className="rounded-full border border-amber-400/30 bg-amber-500/10 px-3 py-1 text-amber-100">Internal development only</span>}
-        actions={(
-          <>
-            <Link href="/admin/briefings" className="pib-btn-secondary">Open admin Control Desk</Link>
-            <Link href="/admin/projects" className="pib-btn-primary">Open admin Projects</Link>
-          </>
-        )}
+        eyebrow="Operator snapshot"
+        title="Today’s mission picture"
+        description="Decisions, approvals, revenue cards, scoped org risks, agent outputs, follow-ups, and KPI snapshot."
+        className="!pb-0"
       />
 
       {error ? <div className="rounded-lg border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">Some Mission Control feeds could not load: {error}.</div> : null}
@@ -730,6 +758,7 @@ export function PeetMissionControl() {
       </div>
 
       {loading ? <p className="sr-only" aria-live="polite">Mission Control data is loading</p> : null}
-    </div>
+      </div>
+    </ModuleShell>
   )
 }

@@ -38,10 +38,10 @@ export function BookStudioProjectsIndex({ orgId, orgSlug }: BookStudioProjectsIn
   }, [load])
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Book projects</h2>
-        <button type="button" className="pib-btn-primary" onClick={() => setDialogOpen(true)}>
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Book projects</h2>
+        <button type="button" className="btn-pib-primary btn-pib-sm font-label" onClick={() => setDialogOpen(true)}>
           New book
         </button>
       </div>
@@ -60,7 +60,7 @@ export function BookStudioProjectsIndex({ orgId, orgSlug }: BookStudioProjectsIn
           title="No books yet"
           description="Create your first book — pick a format, optionally start from a template, and begin writing."
           action={
-            <button type="button" className="pib-btn-primary" onClick={() => setDialogOpen(true)}>
+            <button type="button" className="btn-pib-primary btn-pib-sm font-label" onClick={() => setDialogOpen(true)}>
               New book
             </button>
           }
@@ -73,7 +73,7 @@ export function BookStudioProjectsIndex({ orgId, orgSlug }: BookStudioProjectsIn
               <Link
                 key={project.id}
                 href={`/admin/org/${orgSlug}/book-studio/${project.id}`}
-                className="rounded-2xl border border-[var(--color-pib-border)] bg-[var(--color-pib-surface)] p-4 hover:border-[var(--color-pib-accent)]"
+                className="pib-card block p-3 transition-colors hover:border-rose-400/40"
               >
                 {project.coverImageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element

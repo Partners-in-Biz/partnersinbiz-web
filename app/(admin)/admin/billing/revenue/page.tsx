@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
+import { PageHeader } from '@/components/ui/AppFoundation'
 import {
   ResponsiveContainer,
   AreaChart,
@@ -71,15 +72,15 @@ function MetricCard({
   accent?: boolean
 }) {
   return (
-    <div className="pib-card p-4">
+    <div className="pib-stat-card" data-module-accent="cyan">
       <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</p>
       <p
-        className="text-2xl font-headline font-bold mt-1"
+        className="text-xl font-semibold mt-1 tabular-nums"
         style={{ color: accent ? 'var(--color-pib-cyan)' : undefined }}
       >
         {value}
       </p>
-      {hint && <p className="text-[11px] text-[var(--color-pib-text-muted)]/70 mt-0.5">{hint}</p>}
+      {hint && <p className="text-xs text-[var(--color-pib-text-muted)]/70 mt-0.5">{hint}</p>}
     </div>
   )
 }
@@ -126,27 +127,22 @@ export default function RevenuePage() {
   )
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
-            Billing / Revenue
-          </p>
-          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Revenue & MRR</h1>
-          <p className="text-sm text-[var(--color-pib-text-muted)] mt-0.5">
-            Recurring revenue, churn, expansion, and collections across all client accounts. All figures ZAR.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2 self-start md:self-auto">
+    <div className="space-y-4 max-w-6xl mx-auto" data-module-accent="cyan">
+      <PageHeader
+        accent="cyan"
+        eyebrow="Billing / Revenue"
+        title="Revenue & MRR"
+        description="Recurring revenue, churn, expansion, and collections across all client accounts. All figures ZAR."
+        actions={
           <a
             href="/api/v1/admin/billing/revenue/export"
-            className="pib-btn-secondary text-sm font-label"
+            className="btn-pib-secondary btn-pib-sm"
             download
           >
             Export CSV
           </a>
-        </div>
-      </div>
+        }
+      />
 
       {error && (
         <div className="pib-card border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-400">

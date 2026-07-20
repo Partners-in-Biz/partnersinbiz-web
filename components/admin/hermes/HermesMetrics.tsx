@@ -1,6 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { PageHeader, Surface } from '@/components/ui/AppFoundation'
+import { StatCard } from '@/components/ui/StatCard'
 
 interface AgentMetrics {
   agentId: string
@@ -155,66 +157,63 @@ export function HermesMetrics() {
   const summary = payload?.summary
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <header className="pib-card p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="eyebrow">Hermes / Performance</p>
-            <h1 className="pib-page-title mt-2">Agent performance metrics</h1>
-            <p className="mt-3 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
-              Per-agent response time (avg + p95), success rate, run volume, token usage, and cost across the Hermes
-              run history. Export the full breakdown as CSV.
-            </p>
-          </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-3">
-            <div className="inline-flex overflow-hidden rounded-lg border border-[var(--color-pib-line)]">
+    <div className="mx-auto max-w-7xl space-y-4" data-module-accent="cyan">
+      <PageHeader
+        accent="cyan"
+        eyebrow="Hermes / Performance"
+        title="Agent performance metrics"
+        description="Per-agent response time (avg + p95), success rate, run volume, token usage, and cost across the Hermes run history. Export the full breakdown as CSV."
+        meta={payload?.generatedAt ? (
+          <span>
+            {fmtNum(summary?.runsConsidered ?? 0)} runs in the last {payload.window.days} days · generated {relative(payload.generatedAt)}.
+          </span>
+        ) : null}
+        actions={(
+          <>
+            <div className="inline-flex overflow-hidden rounded-md border border-[var(--color-pib-line)]">
               {DAY_OPTIONS.map((opt) => (
                 <button
                   key={opt}
                   type="button"
                   onClick={() => setDays(opt)}
-                  className={`px-3 py-1.5 text-sm ${days === opt ? 'bg-[var(--color-pib-accent)] text-black' : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'}`}
+                  className={`btn-pib-sm px-2.5 py-1 text-xs font-label ${days === opt ? 'bg-cyan-500/15 text-cyan-200' : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'}`}
                 >
                   {opt}d
                 </button>
               ))}
             </div>
-            <button type="button" onClick={() => void exportCsv()} disabled={exporting || loading} className="pib-btn-secondary disabled:opacity-60">
+            <button type="button" onClick={() => void exportCsv()} disabled={exporting || loading} className="btn-pib-secondary btn-pib-sm font-label disabled:opacity-60">
               {exporting ? 'Exporting…' : 'Export CSV'}
             </button>
-          </div>
-        </div>
-        {payload?.generatedAt ? (
-          <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">
-            {fmtNum(summary?.runsConsidered ?? 0)} runs in the last {payload.window.days} days · generated {relative(payload.generatedAt)}.
-          </p>
-        ) : null}
-      </header>
+          </>
+        )}
+      />
 
       {loading ? (
-        <div className="pib-card p-8 text-sm text-[var(--color-pib-text-muted)]">Loading Hermes metrics…</div>
+        <Surface className="p-4 text-sm text-[var(--color-pib-text-muted)]">Loading Hermes metrics…</Surface>
       ) : error ? (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 p-5 text-sm text-red-400">{error}</div>
+        <Surface className="border-red-500/30 bg-red-500/5 p-4 text-sm text-red-400">{error}</Surface>
       ) : payload && summary ? (
         <>
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <Metric label="Run volume" value={fmtNum(summary.runVolume)} helper={`${summary.activeAgents} active agents`} />
-            <Metric label="Success rate" value={fmtPct(summary.successRate)} helper={`${fmtNum(summary.completed)} ok · ${fmtNum(summary.failed)} failed`} tone={summary.successRate != null && summary.successRate < 0.9 ? 'warn' : 'default'} />
-            <Metric label="Total tokens" value={fmtNum(summary.totalTokens)} helper="Across runs reporting usage" />
-            <Metric
+          <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <StatCard accent="cyan" icon="monitoring" label="Run volume" value={fmtNum(summary.runVolume)} detail={`${summary.activeAgents} active agents`} />
+            <StatCard accent="cyan" icon="check_circle" label="Success rate" value={fmtPct(summary.successRate)} detail={`${fmtNum(summary.completed)} ok · ${fmtNum(summary.failed)} failed`} />
+            <StatCard accent="cyan" icon="token" label="Total tokens" value={fmtNum(summary.totalTokens)} detail="Across runs reporting usage" />
+            <StatCard
+              accent="cyan"
+              icon="payments"
               label="Total cost"
               value={fmtCost(summary.totalCostUsd)}
-              helper={summary.totalCostUsd == null
+              detail={summary.totalCostUsd == null
                 ? telemetryReason(summary.costUnavailableReason)
                 : `${summary.costSource === 'mixed' ? 'Partial' : 'Upstream'} Hermes cost · ${fmtNum(summary.runsWithCost ?? 0)} costed runs`}
-              tone={summary.totalCostUsd == null || summary.costSource === 'mixed' ? 'warn' : 'default'}
             />
           </section>
 
-          <section className="pib-card overflow-hidden">
-            <div className="border-b border-[var(--color-pib-line)] px-5 py-4">
-              <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">Per-agent breakdown</h2>
-              <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">Sorted by run volume. Response time covers finished runs with timestamps.</p>
+          <Surface className="overflow-hidden p-0">
+            <div className="border-b border-[var(--color-pib-line)] px-4 py-3">
+              <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Per-agent breakdown</h2>
+              <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">Sorted by run volume. Response time covers finished runs with timestamps.</p>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full">
@@ -256,19 +255,9 @@ export function HermesMetrics() {
                 </tbody>
               </table>
             </div>
-          </section>
+          </Surface>
         </>
       ) : null}
-    </div>
-  )
-}
-
-function Metric({ label, value, helper, tone = 'default' }: { label: string; value: string; helper?: string; tone?: 'default' | 'warn' }) {
-  return (
-    <div className={`pib-card p-5 ${tone === 'warn' ? 'border border-amber-400/30 bg-amber-400/5' : ''}`}>
-      <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</p>
-      <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">{value}</p>
-      {helper ? <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{helper}</p> : null}
     </div>
   )
 }

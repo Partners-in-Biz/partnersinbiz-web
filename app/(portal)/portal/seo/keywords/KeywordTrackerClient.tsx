@@ -205,7 +205,7 @@ export function KeywordTrackerClient({
   )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4" data-module-accent="green">
       <SeoToolHeader
         eyebrow="Keyword movement"
         title="Keyword Tracker"
@@ -313,7 +313,7 @@ export function KeywordTrackerClient({
           </div>
 
           {filteredKeywords.length === 0 ? (
-            <div className="p-8 text-center text-sm text-[var(--color-pib-text-muted)]">No keywords match the selected filter.</div>
+            <div className="p-5 text-center text-sm text-[var(--color-pib-text-muted)]">No keywords match the selected filter.</div>
           ) : (
             <div className="divide-y divide-[var(--color-pib-line)]">
               {filteredKeywords.map((kw) => {

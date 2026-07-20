@@ -31,7 +31,7 @@ export default async function TasksTab({ params }: { params: Promise<{ id: strin
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4" data-module-accent="green">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="pib-label mb-2">Sprint ledger</p>

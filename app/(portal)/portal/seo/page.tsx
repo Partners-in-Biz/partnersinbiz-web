@@ -52,7 +52,8 @@ export default async function PortalSeoIndex({
 
   return (
     <FeatureGate feature="seo">
-      <SeoSprintOverview
+      <div data-module-accent="green">
+        <SeoSprintOverview
         sprints={sprints}
         singleSprintStats={singleSprintStats}
         sprintBasePath="/portal/seo/sprints"
@@ -60,6 +61,7 @@ export default async function PortalSeoIndex({
         emptyTitle="SEO Sprint"
         emptyDescription="Your team is preparing your 90-day SEO sprint. Once it's set up you'll see your daily plan, keyword movements, content drafts, and progress here."
       />
+      </div>
     </FeatureGate>
   )
 }

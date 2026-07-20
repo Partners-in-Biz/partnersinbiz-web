@@ -315,7 +315,7 @@ export default function EmailTemplatesPage() {
         {/* Editor */}
         <div className="space-y-4">
           {!editing ? (
-            <div className="pib-card p-8 text-center">
+            <div className="pib-card p-6 text-center">
               <p className="text-sm text-[var(--color-pib-text-muted)]">Select a template or create a new one.</p>
             </div>
           ) : loadingDetail ? (

@@ -258,7 +258,7 @@ export function PixelConfigPanel({ orgId, orgSlug: _orgSlug, initialConfigs }: P
       )}
 
       {configs.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-white/10 p-8 text-center">
+        <div className="rounded-lg border border-dashed border-white/10 p-6 text-center">
           <p className="text-white/60">No pixel configs yet.</p>
         </div>
       ) : (

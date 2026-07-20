@@ -56,7 +56,7 @@ export default function LlmProvidersSettingsPage() {
   }, [orgScope])
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-6">
+    <div className="mx-auto max-w-3xl space-y-4 p-4" data-module-accent="cyan">
       <PageHeader
         eyebrow="Settings"
         title="LLM providers"

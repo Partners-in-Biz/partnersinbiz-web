@@ -194,7 +194,7 @@ export function ClientDocumentsWorkspace({ surface, orgSlug = '' }: ClientDocume
     : scopedPortalPath('/portal/documents', routeScope)
 
   const content = (
-    <div className={surface === 'admin' ? 'space-y-8' : 'space-y-10'}>
+    <div className="space-y-6">
       <PageHeader
         eyebrow={surface === 'admin' ? orgName || 'Selected organisation' : 'Client workspace / Documents'}
         title={surface === 'admin' ? 'Documents control desk' : 'Your documents'}
@@ -211,7 +211,7 @@ export function ClientDocumentsWorkspace({ surface, orgSlug = '' }: ClientDocume
             >
               Manage templates →
             </Link>
-            <Link href={orgDocumentPath(orgSlug, '/new')} className="btn-pib-accent">
+            <Link href={orgDocumentPath(orgSlug, '/new')} className="btn-pib-accent btn-pib-sm">
               <span className="material-symbols-outlined text-base">add</span>
               New Document
             </Link>

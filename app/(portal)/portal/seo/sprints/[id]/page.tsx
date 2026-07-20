@@ -24,7 +24,7 @@ export default async function PortalProgressTab({ params }: { params: Promise<{ 
   const pct = total > 0 ? Math.round((done / total) * 100) : 0
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4" data-module-accent="green">
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatTile label="Complete" value={`${done}/${total}`} icon="task_alt" />
         <StatTile label="Progress" value={`${pct}%`} icon="trending_up" />
@@ -63,7 +63,7 @@ function StatTile({ label, value, icon }: { label: string; value: string; icon: 
         <p className="eyebrow !text-[10px]">{label}</p>
         <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">{icon}</span></span>
       </div>
-      <p className="mt-3 font-display tracking-tight leading-none text-3xl md:text-4xl">{value}</p>
+      <p className="mt-3 text-xl font-semibold tabular-nums tracking-tight">{value}</p>
     </div>
   )
 }

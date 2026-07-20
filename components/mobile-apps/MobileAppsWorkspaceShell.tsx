@@ -2,6 +2,8 @@
 
 import type { ReactNode } from 'react'
 import type { MobileAppRecord } from '@/lib/mobile-apps/types'
+import { PageHeader, Surface } from '@/components/ui/AppFoundation'
+import { StatCard } from '@/components/ui/StatCard'
 
 type MobileAppsWorkspaceShellSurface = 'admin' | 'portal'
 
@@ -21,15 +23,6 @@ function visibleAppCount(apps: MobileAppRecord[]) {
   return apps.filter((app) => app.visibility?.showInClientPortal !== false).length
 }
 
-function StatCard({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="pib-card-section px-4 py-3 text-center">
-      <p className="text-xs text-[var(--color-pib-text-muted)]">{label}</p>
-      <p className="text-xl font-bold text-[var(--color-pib-text)]">{value}</p>
-    </div>
-  )
-}
-
 export function MobileAppsWorkspaceShell({
   apps,
   surface,
@@ -46,31 +39,30 @@ export function MobileAppsWorkspaceShell({
 
   if (loading) {
     return (
-      <main className={['max-w-6xl mx-auto space-y-6', className].filter(Boolean).join(' ')}>
+      <main className={['mx-auto max-w-6xl space-y-4', className].filter(Boolean).join(' ')}>
         <div className="pib-skeleton h-96" />
       </main>
     )
   }
 
   return (
-    <main className={['max-w-6xl mx-auto space-y-6', className].filter(Boolean).join(' ')}>
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="eyebrow">{eyebrow}</p>
-          <h1 className="text-3xl font-headline font-bold text-[var(--color-pib-text)]">{title}</h1>
-          <p className="mt-2 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">{description}</p>
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          <StatCard label="Apps" value={apps.length} />
-          <StatCard label="Live" value={liveApps} />
-          <StatCard label={visibleLabel} value={visibleAppCount(apps)} />
-        </div>
-      </div>
+    <main className={['mx-auto max-w-6xl space-y-4', className].filter(Boolean).join(' ')} data-module-accent="cyan">
+      <PageHeader
+        accent="cyan"
+        eyebrow={eyebrow}
+        title={title}
+        description={description}
+        meta={(
+          <div className="grid w-full max-w-md grid-cols-3 gap-2 sm:max-w-lg">
+            <StatCard accent="cyan" icon="smartphone" label="Apps" value={apps.length} />
+            <StatCard accent="cyan" icon="rocket_launch" label="Live" value={liveApps} />
+            <StatCard accent="cyan" icon="visibility" label={visibleLabel} value={visibleAppCount(apps)} />
+          </div>
+        )}
+      />
 
       {notice ? (
-        <div className="rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-4 text-sm text-[var(--color-pib-text)]">
-          {notice}
-        </div>
+        <Surface className="p-3 text-sm text-[var(--color-pib-text)]">{notice}</Surface>
       ) : null}
 
       {children}

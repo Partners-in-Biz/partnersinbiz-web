@@ -18,11 +18,11 @@ export default async function PortalBlogTab({ params }: { params: Promise<{ id: 
   const shared = live.filter((item) => item.liUrl || item.xUrl).length
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4" data-module-accent="green">
       <section className="flex items-end justify-between gap-4 flex-wrap border-b border-[var(--color-pib-line)] pb-4">
         <div>
           <p className="eyebrow">Published content</p>
-          <h2 className="font-headline text-2xl md:text-3xl font-semibold mt-2">Blog</h2>
+          <h2 className="text-lg font-semibold mt-1">Blog</h2>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-1.5">
             Live SEO posts and the early performance signals attached to each post.
           </p>
@@ -83,7 +83,7 @@ function StatTile({ label, value, icon }: { label: string; value: string; icon: 
         <p className="eyebrow !text-[10px]">{label}</p>
         <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">{icon}</span></span>
       </div>
-      <p className="mt-3 font-display tracking-tight leading-none text-3xl md:text-4xl">{value}</p>
+      <p className="mt-3 text-xl font-semibold tabular-nums tracking-tight">{value}</p>
     </div>
   )
 }
@@ -99,7 +99,7 @@ function MiniMetric({ label, value }: { label: string; value: string }) {
 
 function EmptyState({ icon, title, body }: { icon: string; title: string; body: string }) {
   return (
-    <div className="pib-card p-10 text-center">
+    <div className="pib-card p-6 text-center">
       <span className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">{icon}</span>
       <h3 className="font-headline text-lg font-semibold mt-3">{title}</h3>
       <p className="text-sm text-[var(--color-pib-text-muted)] mt-1.5 max-w-md mx-auto">{body}</p>

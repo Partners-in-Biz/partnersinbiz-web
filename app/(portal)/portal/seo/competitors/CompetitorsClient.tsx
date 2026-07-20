@@ -90,7 +90,7 @@ export function CompetitorsClient({
   const maxKeywords = Math.max(1, ...competitors.map((c) => c.metrics.estimatedKeywords))
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4" data-module-accent="green">
       <SeoToolHeader
         eyebrow="Competitive SEO"
         title="Competitor tracker"

@@ -127,7 +127,7 @@ export function OnPageCheckerClient({ sprints, activeSprintId, defaultUrl }: Pro
     : []
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4" data-module-accent="green">
       <SeoToolHeader
         eyebrow="On-page checker"
         title="On-Page Checker"
@@ -190,7 +190,7 @@ export function OnPageCheckerClient({ sprints, activeSprintId, defaultUrl }: Pro
 
       {result && (
         <>
-          <div className="pib-card p-8 flex flex-col items-center gap-4">
+          <div className="pib-card p-5 flex flex-col items-center gap-4">
             <ScoreRing score={result.score} />
             <p className="text-xs text-[var(--color-pib-text-muted)] text-center max-w-xs">
               Overall score based on {result.checklist.length} checks across {totalWeight} weighted

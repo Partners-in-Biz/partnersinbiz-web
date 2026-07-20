@@ -100,7 +100,7 @@ export function BacklinksClient({
   const t = profile?.totals
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4" data-module-accent="green">
       <SeoToolHeader
         eyebrow="Off-page SEO"
         title="Backlink checker"
@@ -147,7 +147,7 @@ export function BacklinksClient({
               </button>
             </div>
             {profile.referringDomains.length === 0 ? (
-              <div className="p-8 text-center text-sm text-[var(--color-pib-text-muted)]">No referring domains discovered yet.</div>
+              <div className="p-5 text-center text-sm text-[var(--color-pib-text-muted)]">No referring domains discovered yet.</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -226,7 +226,7 @@ export function BacklinksClient({
               </div>
             </div>
             {links.length === 0 ? (
-              <div className="p-8 text-center text-sm text-[var(--color-pib-text-muted)]">No backlinks match these filters.</div>
+              <div className="p-5 text-center text-sm text-[var(--color-pib-text-muted)]">No backlinks match these filters.</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -285,7 +285,7 @@ function StatCard({ label, value, icon, highlight }: { label: string; value: str
         <p className="eyebrow !text-[10px]">{label}</p>
         <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">{icon}</span></span>
       </div>
-      <p className={`mt-3 font-display text-2xl leading-none tracking-tight md:text-3xl ${highlight === 'good' ? 'text-emerald-300' : highlight === 'bad' ? 'text-red-300' : ''}`}>{value}</p>
+      <p className={`mt-3 text-xl font-semibold tabular-nums tracking-tight ${highlight === 'good' ? 'text-emerald-300' : highlight === 'bad' ? 'text-red-300' : ''}`}>{value}</p>
     </div>
   )
 }

@@ -153,17 +153,16 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh] bg-black/50"
+      className="fixed inset-0 z-50 flex items-start justify-center pt-[18vh] bg-black/45 backdrop-blur-[2px]"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-xl mx-4 rounded-2xl border border-[var(--color-pib-line)] shadow-2xl overflow-hidden"
-        style={{ background: 'var(--color-pib-surface)' }}
+        className="pib-glass-strong w-full max-w-xl mx-4 rounded-xl shadow-2xl overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         {/* Search input */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--color-pib-line)]">
-          <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-text-muted)] shrink-0">search</span>
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--color-pib-line)]">
+          <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)] shrink-0">search</span>
           <input
             ref={inputRef}
             type="text"
@@ -175,26 +174,26 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             spellCheck={false}
           />
           {loading && (
-            <span className="shrink-0 w-4 h-4 border-2 border-[var(--color-pib-accent)] border-t-transparent rounded-full animate-spin" />
+            <span className="shrink-0 w-3.5 h-3.5 border-2 border-[var(--color-pib-accent)] border-t-transparent rounded-full animate-spin" />
           )}
           {!loading && (
-            <kbd className="shrink-0 text-[10px] text-[var(--color-pib-text-muted)] bg-white/[0.06] border border-[var(--color-pib-line)] rounded px-1.5 py-0.5">Esc</kbd>
+            <kbd className="shrink-0 text-[10px] text-[var(--color-pib-text-muted)] bg-white/[0.06] border border-[var(--color-pib-line)] rounded px-1 py-0.5">Esc</kbd>
           )}
         </div>
 
         {/* Body */}
-        <div className="max-h-[60vh] overflow-y-auto">
+        <div className="max-h-[52vh] overflow-y-auto">
           {/* Results */}
           {query.trim() && !loading && results.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-10 gap-2 text-[var(--color-pib-text-muted)]">
-              <span className="material-symbols-outlined text-[32px] opacity-40">search_off</span>
-              <p className="text-sm">No results for &ldquo;{query}&rdquo;</p>
+            <div className="flex flex-col items-center justify-center py-8 gap-1.5 text-[var(--color-pib-text-muted)]">
+              <span className="material-symbols-outlined text-[28px] opacity-40">search_off</span>
+              <p className="text-xs">No results for &ldquo;{query}&rdquo;</p>
             </div>
           )}
 
           {results.length > 0 && (
-            <div className="py-2">
-              <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-pib-text-muted)]">
+            <div className="py-1">
+              <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-pib-text-muted)]">
                 Results
               </p>
               {results.map((item, idx) => (
@@ -203,7 +202,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                   type="button"
                   onClick={() => navigate(item.href)}
                   className={[
-                    'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors',
+                    'w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors',
                     idx === selectedIndex
                       ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent-hover)]'
                       : 'text-[var(--color-pib-text)] hover:bg-white/[0.04]',
@@ -211,16 +210,16 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                   onMouseEnter={() => setSelectedIndex(idx)}
                 >
                   <span className={[
-                    'material-symbols-outlined text-[18px] shrink-0',
+                    'material-symbols-outlined text-[16px] shrink-0',
                     idx === selectedIndex ? 'text-[var(--color-pib-accent)]' : 'text-[var(--color-pib-text-muted)]',
                   ].join(' ')}>
                     {item.icon}
                   </span>
                   <span className="flex-1 min-w-0">
-                    <span className="block text-sm font-medium truncate">{item.title}</span>
-                    <span className="block text-[11px] text-[var(--color-pib-text-muted)]">{item.subtitle}</span>
+                    <span className="block text-xs font-medium truncate">{item.title}</span>
+                    <span className="block text-[10px] text-[var(--color-pib-text-muted)]">{item.subtitle}</span>
                   </span>
-                  <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)] opacity-50">arrow_forward</span>
+                  <span className="material-symbols-outlined text-[14px] text-[var(--color-pib-text-muted)] opacity-50">arrow_forward</span>
                 </button>
               ))}
             </div>
@@ -228,17 +227,17 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
 
           {/* Shortcuts (shown when query is empty) */}
           {!query.trim() && (
-            <div className="py-2">
-              <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-pib-text-muted)]">
+            <div className="py-1">
+              <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-pib-text-muted)]">
                 Keyboard shortcuts
               </p>
               {SHORTCUTS.map((s) => (
                 <div
                   key={s.label}
-                  className="flex items-center gap-3 px-4 py-2.5"
+                  className="flex items-center gap-2 px-3 py-1.5"
                 >
-                  <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)] shrink-0">keyboard</span>
-                  <span className="flex-1 text-sm text-[var(--color-pib-text)]">
+                  <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)] shrink-0">keyboard</span>
+                  <span className="flex-1 text-xs text-[var(--color-pib-text)]">
                     {s.href ? (
                       <button
                         type="button"
@@ -251,11 +250,11 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                       s.label
                     )}
                   </span>
-                  <span className="flex items-center gap-1 shrink-0">
+                  <span className="flex items-center gap-0.5 shrink-0">
                     {s.keys.map((k, ki) => (
                       <kbd
                         key={ki}
-                        className="text-[10px] text-[var(--color-pib-text-muted)] bg-white/[0.06] border border-[var(--color-pib-line)] rounded px-1.5 py-0.5 font-mono"
+                        className="text-[10px] text-[var(--color-pib-text-muted)] bg-white/[0.06] border border-[var(--color-pib-line)] rounded px-1 py-0.5 font-mono"
                       >
                         {k}
                       </kbd>

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { TrendChart } from '@/components/seo/TrendChart'
 import { SeoToolHeader, type SprintOption } from '@/components/seo/SeoToolHeader'
+import { StatCard } from '@/components/ui/StatCard'
 import { fetchSeo } from '@/components/seo/seoToolClient'
 import type { SeoDashboard } from '@/lib/seo/dashboard'
 
@@ -58,7 +59,7 @@ export function SeoDashboardClient({
   const d = dashboard
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4" data-module-accent="green">
       <SeoToolHeader
         eyebrow="Search performance"
         title="SEO Dashboard"
@@ -66,8 +67,8 @@ export function SeoDashboardClient({
         sprints={sprints}
         activeSprintId={activeSprintId}
         action={
-          <button onClick={runAudit} disabled={running || !d.sprintId} className="pib-btn-primary text-sm disabled:opacity-50">
-            <span className={`material-symbols-outlined text-[18px] ${running ? 'animate-spin' : ''}`}>
+          <button onClick={runAudit} disabled={running || !d.sprintId} className="btn-pib-primary btn-pib-sm disabled:opacity-50">
+            <span className={`material-symbols-outlined text-[16px] ${running ? 'animate-spin' : ''}`}>
               {running ? 'autorenew' : 'radar'}
             </span>
             {running ? 'Running' : 'Run new audit'}
@@ -76,23 +77,23 @@ export function SeoDashboardClient({
       />
 
       {!d.sprintId && (
-        <div className="pib-card p-8 text-center text-sm text-[var(--color-pib-text-muted)]">
+        <div className="pib-card p-5 text-center text-sm text-[var(--color-pib-text-muted)]">
           No active SEO sprint yet. Once your sprint is set up, this dashboard will populate from Search Console.
         </div>
       )}
 
-      <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Card label="Impressions" value={d.totals.impressions.toLocaleString('en-ZA')} icon="visibility" delta={<DeltaPill value={d.deltas?.impressions} />} />
-        <Card label="Clicks" value={d.totals.clicks.toLocaleString('en-ZA')} icon="ads_click" delta={<DeltaPill value={d.deltas?.clicks} />} />
-        <Card label="Avg position" value={d.totals.avgPosition ? `#${d.totals.avgPosition}` : '-'} icon="format_list_numbered" delta={<DeltaPill value={d.deltas?.avgPosition} invert />} />
-        <Card label="CTR" value={pct(d.totals.ctr)} icon="percent" />
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard accent="green" label="Impressions" value={d.totals.impressions.toLocaleString('en-ZA')} icon="visibility" detail={<DeltaPill value={d.deltas?.impressions} />} />
+        <StatCard accent="green" label="Clicks" value={d.totals.clicks.toLocaleString('en-ZA')} icon="ads_click" detail={<DeltaPill value={d.deltas?.clicks} />} />
+        <StatCard accent="green" label="Avg position" value={d.totals.avgPosition ? `#${d.totals.avgPosition}` : '-'} icon="format_list_numbered" detail={<DeltaPill value={d.deltas?.avgPosition} invert />} />
+        <StatCard accent="green" label="CTR" value={pct(d.totals.ctr)} icon="percent" />
       </section>
 
-      <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Card label="Domain authority" value={d.domainAuthority !== null ? String(d.domainAuthority) : '—'} icon="shield" />
-        <Card label="Backlinks" value={d.backlinks.total.toLocaleString('en-ZA')} icon="link" sub={`${d.backlinks.referringDomains} referring domains`} />
-        <Card label="Keywords tracked" value={String(d.keywords.tracked)} icon="key" sub={`${d.keywords.top10} in top 10`} />
-        <Card label="Top 3 rankings" value={String(d.keywords.top3)} icon="emoji_events" />
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard accent="green" label="Domain authority" value={d.domainAuthority !== null ? String(d.domainAuthority) : '—'} icon="shield" />
+        <StatCard accent="green" label="Backlinks" value={d.backlinks.total.toLocaleString('en-ZA')} icon="link" detail={`${d.backlinks.referringDomains} referring domains`} />
+        <StatCard accent="green" label="Keywords tracked" value={String(d.keywords.tracked)} icon="key" detail={`${d.keywords.top10} in top 10`} />
+        <StatCard accent="green" label="Top 3 rankings" value={String(d.keywords.top3)} icon="emoji_events" />
       </section>
 
       <section className="pib-card-section">
@@ -121,7 +122,7 @@ export function SeoDashboardClient({
           <p className="text-xs text-[var(--color-pib-text-muted)]">Highest-traffic pages across tracked keywords.</p>
         </div>
         {d.topPages.length === 0 ? (
-          <div className="p-8 text-center text-sm text-[var(--color-pib-text-muted)]">No page-level data yet.</div>
+          <div className="p-5 text-center text-sm text-[var(--color-pib-text-muted)]">No page-level data yet.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -155,26 +156,10 @@ export function SeoDashboardClient({
       </section>
 
       {msg && (
-        <div className="fixed bottom-5 right-5 z-50 rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-4 py-3 text-sm shadow-2xl">
+        <div className="fixed bottom-5 right-5 z-50 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2 text-sm shadow-lg">
           {msg}
         </div>
       )}
-    </div>
-  )
-}
-
-function Card({ label, value, icon, sub, delta }: { label: string; value: string; icon: string; sub?: string; delta?: React.ReactNode }) {
-  return (
-    <div className="pib-stat-card">
-      <div className="flex items-start justify-between">
-        <p className="eyebrow !text-[10px]">{label}</p>
-        <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">{icon}</span></span>
-      </div>
-      <p className="mt-3 font-display text-3xl leading-none tracking-tight md:text-4xl">{value}</p>
-      <div className="mt-2 flex items-center gap-2">
-        {delta}
-        {sub && <p className="text-[11px] text-[var(--color-pib-text-muted)]">{sub}</p>}
-      </div>
     </div>
   )
 }

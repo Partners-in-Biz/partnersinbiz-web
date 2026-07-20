@@ -122,7 +122,7 @@ export function BriefsClient({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4" data-module-accent="green">
       <SeoToolHeader
         eyebrow="Content SEO"
         title="AI content-brief generator"

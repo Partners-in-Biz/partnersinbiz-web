@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import UnifiedChat from '@/components/chat/UnifiedChat'
+import { PageHeader, Surface } from '@/components/ui/AppFoundation'
+import { HudChip, SignalMeter } from '@/components/ui/HudChip'
 
 interface AgentRunSessionProps {
   agentId: string
@@ -174,57 +176,42 @@ export default function AgentRunSession({
   const outputText = output ? formatPayload(output) : ''
 
   return (
-    <div className="flex h-full flex-col gap-4 overflow-hidden -mx-4 -my-8 lg:mx-0 lg:my-0 h-[calc(100dvh-56px)] lg:h-[calc(100dvh-120px)]">
+    <div className="-mx-4 -my-8 flex h-[calc(100dvh-56px)] flex-col gap-3 overflow-hidden lg:mx-0 lg:my-0 lg:h-[calc(100dvh-120px)]" data-module-accent="cyan">
       <div className="hidden shrink-0 lg:block">
-        <p className="mb-1 text-[10px] pib-label">
-          Workspace / Agent Session
-        </p>
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">
-              {taskTitle || 'Agent session'}
-            </h1>
-            <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
-              The actual Hermes run attached to this ticket.
-            </p>
-          </div>
-          <Link
-            href={`/admin/org/${orgSlug}/messages`}
-            className="inline-flex items-center gap-1 rounded border border-[var(--color-pib-line)] px-3 py-2 text-[10px] pib-label transition-colors hover:text-[var(--color-pib-text)]"
-          >
-            <span className="material-symbols-outlined text-[14px]">forum</span>
-            Messages
-          </Link>
-        </div>
+        <PageHeader
+          accent="cyan"
+          eyebrow="Workspace / Agent Session"
+          title={taskTitle || 'Agent session'}
+          description="The actual Hermes run attached to this ticket."
+          actions={(
+            <Link
+              href={`/admin/org/${orgSlug}/messages`}
+              className="btn-pib-secondary btn-pib-sm inline-flex items-center gap-1 font-label"
+            >
+              <span className="material-symbols-outlined text-[14px]">forum</span>
+              Messages
+            </Link>
+          )}
+        />
       </div>
 
-      <section className="shrink-0 pib-card p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1 rounded bg-[var(--color-accent-v2)]/10 px-2 py-1 text-[10px] font-label uppercase tracking-wide text-[var(--color-accent-v2)]">
+      <Surface className="shrink-0 p-3">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <HudChip tone="live" className="text-cyan-300">
             <span className="material-symbols-outlined text-[13px]">smart_toy</span>
             {agentId}
-          </span>
-          <span className="rounded bg-white/5 px-2 py-1 font-mono text-[10px] text-[var(--color-pib-text-muted)]">
-            {runId}
-          </span>
-          <span className="rounded bg-sky-500/10 px-2 py-1 text-[10px] font-label uppercase tracking-wide text-sky-300">
+          </HudChip>
+          <HudChip className="font-mono">{runId}</HudChip>
+          <HudChip live={streamState === 'live'} tone={streamState === 'live' ? 'live' : 'default'}>
             {streamState}
-          </span>
-          <span className={[
-            'rounded px-2 py-1 text-[10px] font-label uppercase tracking-wide',
-            runLoadState === 'missing' || runLoadState === 'error'
-              ? 'bg-red-500/10 text-red-300'
-              : 'bg-emerald-500/10 text-emerald-300',
-          ].join(' ')}>
+          </HudChip>
+          <HudChip tone={runLoadState === 'missing' || runLoadState === 'error' ? 'accent' : 'live'}>
             {loading ? 'loading' : runLoadState === 'missing' ? 'run missing' : status}
-          </span>
-          {taskId && (
-            <span className="rounded bg-white/5 px-2 py-1 font-mono text-[10px] text-[var(--color-pib-text-muted)]">
-              task {taskId}
-            </span>
-          )}
+          </HudChip>
+          {taskId ? <HudChip className="font-mono">task {taskId}</HudChip> : null}
+          <SignalMeter className="ml-auto" title={`Stream ${streamState}`} />
         </div>
-      </section>
+      </Surface>
 
       {error && (
         <div className="shrink-0 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">

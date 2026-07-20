@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { PageHeader } from '@/components/ui/AppFoundation'
 
 interface ProfileData {
   firstName: string
@@ -112,21 +113,20 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <p className="eyebrow">Personal workspace</p>
-        <h1 className="pib-page-title mt-2">My profile</h1>
-        <p className="mt-2 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
-          Manage the identity your team sees, then jump straight into your own user-owned marketing workspace. Personal social accounts stay separate from company and organisation publishing.
-        </p>
-      </div>
+    <div className="space-y-4" data-module-accent="cyan">
+      <PageHeader
+        accent="cyan"
+        eyebrow="Personal workspace"
+        title="My profile"
+        description="Manage the identity your team sees, then jump straight into your own user-owned marketing workspace. Personal social accounts stay separate from company and organisation publishing."
+      />
 
-      <section role="region" aria-label="Profile command center" className="space-y-4">
-        <div className="pib-card space-y-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <section role="region" aria-label="Profile command center" className="space-y-3">
+        <div className="pib-card space-y-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="eyebrow !text-[10px]">Profile and attribution</p>
-              <h2 className="mt-2 font-display text-2xl text-[var(--color-pib-text)]">Profile command center</h2>
+              <h2 className="mt-1 text-lg font-semibold text-[var(--color-pib-text)]">Profile command center</h2>
               <p className="mt-2 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
                 This is your human identity across CRM handoffs, approvals, personal social drafts, and user-owned workspace activity.
               </p>

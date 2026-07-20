@@ -175,7 +175,7 @@ export default function RateLimitsClient() {
   }
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto">
+    <div className="space-y-6 max-w-6xl mx-auto" data-module-accent="cyan">
       <header className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="eyebrow">System · Ops</p>
@@ -185,7 +185,7 @@ export default function RateLimitsClient() {
             temporary per-org overrides.
           </p>
         </div>
-        <button onClick={load} className="btn-pib-ghost flex items-center gap-1.5">
+        <button onClick={load} className="btn-pib-ghost btn-pib-sm flex items-center gap-1.5">
           <span className="material-symbols-outlined text-[16px]">refresh</span>
           Refresh
         </button>
@@ -210,7 +210,7 @@ export default function RateLimitsClient() {
               <p className="text-[11px] text-[var(--color-pib-text-muted)] mt-0.5">Seeded from the live plans collection. -1 = unlimited. Editable by super-admins.</p>
             </div>
             {data.plans.length === 0 ? (
-              <div className="p-8 text-center text-sm text-[var(--color-pib-text-muted)]">No plans defined yet.</div>
+              <div className="p-6 text-center text-sm text-[var(--color-pib-text-muted)]">No plans defined yet.</div>
             ) : (
               <div className="divide-y divide-[var(--color-pib-line)]">
                 {data.plans.map((p) => {
@@ -223,7 +223,7 @@ export default function RateLimitsClient() {
                           <span className="ml-2 text-[10px] font-mono text-[var(--color-pib-text-muted)]">{p.planKey}</span>
                         </div>
                         {isSuperAdmin && (
-                          <button onClick={() => savePlan(p.planKey)} disabled={savingPlan === p.planKey} className="btn-pib-primary text-xs font-label disabled:opacity-50">
+                          <button onClick={() => savePlan(p.planKey)} disabled={savingPlan === p.planKey} className="btn-pib-primary btn-pib-sm font-label disabled:opacity-50">
                             {savingPlan === p.planKey ? 'Saving...' : 'Save'}
                           </button>
                         )}
@@ -287,7 +287,7 @@ export default function RateLimitsClient() {
               <span className="text-xs text-[var(--color-pib-text-muted)]">{data.usage.length} keys</span>
             </div>
             {data.usage.length === 0 ? (
-              <div className="p-8 text-center text-sm text-[var(--color-pib-text-muted)]">No active rate-limit counters.</div>
+              <div className="p-6 text-center text-sm text-[var(--color-pib-text-muted)]">No active rate-limit counters.</div>
             ) : (
               <div className="overflow-x-auto max-h-80">
                 <table className="w-full text-xs">
@@ -319,7 +319,7 @@ export default function RateLimitsClient() {
               <p className="text-[11px] text-[var(--color-pib-text-muted)] mt-0.5">{data.eventsNote}</p>
             </div>
             {data.events.length === 0 ? (
-              <div className="p-8 text-center text-sm text-[var(--color-pib-text-muted)]">No keys currently at their ceiling.</div>
+              <div className="p-6 text-center text-sm text-[var(--color-pib-text-muted)]">No keys currently at their ceiling.</div>
             ) : (
               <div className="divide-y divide-[var(--color-pib-line)]">
                 {data.events.map((ev) => (

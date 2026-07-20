@@ -157,41 +157,491 @@ export function LinkedComputersWorkspace() {
     setGrantAccessMode(existingMode === 'organization' || existingMode === 'owner' ? existingMode : existingMode === 'selected_users' ? null : 'owner')
   }
 
-  return <div className="mx-auto max-w-5xl p-4 sm:p-6">
-    <div className="flex flex-wrap items-start justify-between gap-4">
-      <div><p className="pib-eyebrow">Settings</p><h1 className="pib-page-title mt-2">Linked Computers &amp; VPSs</h1><p className="mt-2 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">Connect computers and VPSs, choose who owns them, and use their project folders from Messages.</p></div>
-      <button type="button" onClick={() => setPairing(true)} className="pib-btn-primary">Link a computer or VPS</button>
-    </div>
-    {error && <p role="alert" className="mt-5 rounded-lg border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-300">{error}</p>}
-    {executionLocations.length > 0 && <section aria-labelledby="project-execution-locations" className="mt-6">
-      <div><h2 id="project-execution-locations" className="text-sm font-semibold">Current project locations</h2><p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Existing VPS and computer connections available to project sessions.</p></div>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">{executionLocations.map(location => <article key={`${location.orgId ?? ''}:${location.locationId}`} aria-label={location.label} className="rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-card)] p-4">
-        <div className="flex items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold">{location.label}</h3><span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">{location.kind === 'vps' ? 'VPS' : 'Computer'}</span></div><p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{platformLabel(location.platform)} · {location.ownerType === 'organization' ? 'Organisation-owned' : 'User-owned'}</p></div><span className={`rounded-full px-2 py-0.5 text-xs ${location.selectable ? 'bg-emerald-400/10 text-emerald-300' : 'bg-white/5 text-[var(--color-pib-text-muted)]'}`}>{location.selectable ? 'Online' : 'Computer unavailable'}</span></div>
-        <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">{location.visibility === 'organization' ? 'Everyone in organisation' : 'Only me'}{location.orgName ? ` · ${location.orgName}` : ''}</p>{location.locationId.startsWith('linked-device:') ? <p className="mt-2 text-xs text-emerald-300">Authenticated runtime</p> : <p className="mt-2 text-xs text-amber-200">Legacy project location · Authenticated runtime pairing required</p>}
-      </article>)}</div>
-    </section>}
-    <div className="mt-6 grid gap-4">
-      {devices.map((device) => {
-        const lastSeen = seenMs(device.lastSeenAt)
-        const online = device.status === 'active' && device.health !== 'degraded' && lastSeen != null && now - lastSeen < 5 * 60_000
-        return <article key={device.deviceId} aria-label={device.label} className="rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-card)] p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div><div className="flex items-center gap-2"><h2 className="font-semibold">{device.label}</h2><span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">{device.deviceKind === 'vps' ? 'VPS' : 'Computer'}</span><span className={`rounded-full px-2 py-0.5 text-xs ${online ? 'bg-emerald-400/10 text-emerald-300' : 'bg-white/5 text-[var(--color-pib-text-muted)]'}`}>{online ? 'Online' : device.healthReason === 'hermes_unavailable' ? 'Hermes unavailable' : 'Computer unavailable'}</span></div><p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{platformLabel(device.platform)} · {device.ownerType === 'organization' ? 'Organisation-owned' : 'User-owned'} · {device.architecture} · Version {device.runtimeVersion}{device.hermesVersion ? ` · Hermes ${device.hermesVersion}` : ''}</p>{device.healthReason === 'hermes_unavailable' && <p className="mt-2 text-xs text-red-300">Start Hermes and at least one local agent profile on this machine.</p>}</div>
-            <div className="flex gap-2"><button type="button" aria-label={`Rename ${device.label}`} onClick={() => { setRenaming(device); setName(device.label) }} className="pib-btn-secondary text-xs">Rename</button><button type="button" aria-label={`Manage access for ${device.label}`} onClick={() => openAccessDialog(device)} className="pib-btn-secondary text-xs">Access</button><button type="button" aria-label={`More actions for ${device.label}`} aria-haspopup="menu" aria-expanded={actions?.deviceId === device.deviceId} aria-controls={actions?.deviceId === device.deviceId ? actionsMenuId : undefined} onClick={() => setActions(device)} className="pib-btn-secondary text-xs">More</button></div>
+  return (
+    <div className="mx-auto max-w-5xl space-y-5 p-3 sm:p-4" data-module-accent="cyan">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="pib-eyebrow">Settings</p>
+          <h1 className="pib-page-title mt-1">Linked Computers &amp; VPSs</h1>
+          <p className="mt-1.5 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
+            Connect computers and VPSs, choose who owns them, and use their project folders from Messages.
+          </p>
+        </div>
+        <button type="button" onClick={() => setPairing(true)} className="btn-pib-primary btn-pib-sm shrink-0">
+          Link a computer or VPS
+        </button>
+      </div>
+      {error && (
+        <p role="alert" className="rounded-lg border border-red-400/30 bg-red-400/10 p-2.5 text-sm text-red-300">
+          {error}
+        </p>
+      )}
+      {executionLocations.length > 0 && (
+        <section aria-labelledby="project-execution-locations">
+          <div>
+            <h2 id="project-execution-locations" className="text-sm font-semibold">Current project locations</h2>
+            <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">
+              Existing VPS and computer connections available to project sessions.
+            </p>
           </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div><p className="text-xs font-semibold">Local agents</p>{device.availableAgentIds?.length ? <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{device.availableAgentIds.join(', ')}</p> : <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">No healthy Hermes agents reported</p>}</div>
-            <div><p className="text-xs font-semibold">Organisation access</p>{device.grants?.length ? device.grants.map(g => <p key={g.orgId} className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{g.orgLabel ?? g.orgId} · {grantAccessLabel(g)} · {g.status}</p>) : <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">No organisation granted</p>}</div>
-            <div><p className="text-xs font-semibold">Workspace mappings</p>{device.mappings?.length ? device.mappings.map(m => <div key={m.mappingId} className="mt-1"><p className="text-sm text-[var(--color-pib-text-muted)]">{m.label} · {m.status === 'active' ? 'Mapped' : m.status === 'pending' ? 'Pending local setup' : m.status}</p>{m.status === 'pending' && <div className="mt-2 rounded-lg border border-amber-400/20 bg-amber-400/10 p-2"><p className="text-xs text-amber-200">Register the existing Workspace root on this machine. The folder path stays local.</p><code aria-label={`Map ${m.label}`} className="mt-1 block break-all text-xs">{pendingMappingCommand(m.mappingId)}</code><button type="button" className="pib-btn-secondary mt-2 text-xs" onClick={() => void navigator.clipboard.writeText(pendingMappingCommand(m.mappingId))}>Copy mapping command</button></div>}</div>) : <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">No Workspace mapped</p>}</div>
+          <div className="mt-2.5 grid gap-2.5 sm:grid-cols-2">
+            {executionLocations.map((location) => (
+              <article
+                key={`${location.orgId ?? ''}:${location.locationId}`}
+                aria-label={location.label}
+                className="pib-card rounded-xl border border-[var(--color-pib-line)] p-3.5"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-sm font-semibold">{location.label}</h3>
+                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] text-primary">
+                        {location.kind === 'vps' ? 'VPS' : 'Computer'}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+                      {platformLabel(location.platform)} ·{' '}
+                      {location.ownerType === 'organization' ? 'Organisation-owned' : 'User-owned'}
+                    </p>
+                  </div>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] ${
+                      location.selectable
+                        ? 'bg-emerald-400/10 text-emerald-300'
+                        : 'bg-white/5 text-[var(--color-pib-text-muted)]'
+                    }`}
+                  >
+                    {location.selectable ? 'Online' : 'Computer unavailable'}
+                  </span>
+                </div>
+                <p className="mt-2.5 text-sm text-[var(--color-pib-text-muted)]">
+                  {location.visibility === 'organization' ? 'Everyone in organisation' : 'Only me'}
+                  {location.orgName ? ` · ${location.orgName}` : ''}
+                </p>
+                {location.locationId.startsWith('linked-device:') ? (
+                  <p className="mt-1.5 text-xs text-emerald-300">Authenticated runtime</p>
+                ) : (
+                  <p className="mt-1.5 text-xs text-amber-200">
+                    Legacy project location · Authenticated runtime pairing required
+                  </p>
+                )}
+              </article>
+            ))}
           </div>
-        </article>
-      })}
-      {!error && devices.length === 0 && executionLocations.length === 0 && <p className="rounded-2xl border border-dashed border-[var(--color-pib-line)] p-8 text-center text-sm text-[var(--color-pib-text-muted)]">No computers or VPSs linked yet.</p>}
+        </section>
+      )}
+      <div className="grid gap-3">
+        {devices.map((device) => {
+          const lastSeen = seenMs(device.lastSeenAt)
+          const online =
+            device.status === 'active' &&
+            device.health !== 'degraded' &&
+            lastSeen != null &&
+            now - lastSeen < 5 * 60_000
+          return (
+            <article
+              key={device.deviceId}
+              aria-label={device.label}
+              className="pib-card rounded-xl border border-[var(--color-pib-line)] p-4"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-sm font-semibold">{device.label}</h2>
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] text-primary">
+                      {device.deviceKind === 'vps' ? 'VPS' : 'Computer'}
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] ${
+                        online
+                          ? 'bg-emerald-400/10 text-emerald-300'
+                          : 'bg-white/5 text-[var(--color-pib-text-muted)]'
+                      }`}
+                    >
+                      {online
+                        ? 'Online'
+                        : device.healthReason === 'hermes_unavailable'
+                          ? 'Hermes unavailable'
+                          : 'Computer unavailable'}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+                    {platformLabel(device.platform)} ·{' '}
+                    {device.ownerType === 'organization' ? 'Organisation-owned' : 'User-owned'} ·{' '}
+                    {device.architecture} · Version {device.runtimeVersion}
+                    {device.hermesVersion ? ` · Hermes ${device.hermesVersion}` : ''}
+                  </p>
+                  {device.healthReason === 'hermes_unavailable' && (
+                    <p className="mt-1.5 text-xs text-red-300">
+                      Start Hermes and at least one local agent profile on this machine.
+                    </p>
+                  )}
+                </div>
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    aria-label={`Rename ${device.label}`}
+                    onClick={() => {
+                      setRenaming(device)
+                      setName(device.label)
+                    }}
+                    className="btn-pib-secondary btn-pib-sm"
+                  >
+                    Rename
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Manage access for ${device.label}`}
+                    onClick={() => openAccessDialog(device)}
+                    className="btn-pib-secondary btn-pib-sm"
+                  >
+                    Access
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`More actions for ${device.label}`}
+                    aria-haspopup="menu"
+                    aria-expanded={actions?.deviceId === device.deviceId}
+                    aria-controls={actions?.deviceId === device.deviceId ? actionsMenuId : undefined}
+                    onClick={() => setActions(device)}
+                    className="btn-pib-secondary btn-pib-sm"
+                  >
+                    More
+                  </button>
+                </div>
+              </div>
+              <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs font-semibold">Local agents</p>
+                  {device.availableAgentIds?.length ? (
+                    <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+                      {device.availableAgentIds.join(', ')}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+                      No healthy Hermes agents reported
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs font-semibold">Organisation access</p>
+                  {device.grants?.length ? (
+                    device.grants.map((g) => (
+                      <p key={g.orgId} className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+                        {g.orgLabel ?? g.orgId} · {grantAccessLabel(g)} · {g.status}
+                      </p>
+                    ))
+                  ) : (
+                    <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">No organisation granted</p>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs font-semibold">Workspace mappings</p>
+                  {device.mappings?.length ? (
+                    device.mappings.map((m) => (
+                      <div key={m.mappingId} className="mt-1">
+                        <p className="text-sm text-[var(--color-pib-text-muted)]">
+                          {m.label} ·{' '}
+                          {m.status === 'active'
+                            ? 'Mapped'
+                            : m.status === 'pending'
+                              ? 'Pending local setup'
+                              : m.status}
+                        </p>
+                        {m.status === 'pending' && (
+                          <div className="mt-2 rounded-lg border border-amber-400/20 bg-amber-400/10 p-2">
+                            <p className="text-xs text-amber-200">
+                              Register the existing Workspace root on this machine. The folder path stays
+                              local.
+                            </p>
+                            <code
+                              aria-label={`Map ${m.label}`}
+                              className="mt-1 block break-all text-xs"
+                            >
+                              {pendingMappingCommand(m.mappingId)}
+                            </code>
+                            <button
+                              type="button"
+                              className="btn-pib-secondary btn-pib-sm mt-2"
+                              onClick={() =>
+                                void navigator.clipboard.writeText(pendingMappingCommand(m.mappingId))
+                              }
+                            >
+                              Copy mapping command
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">No Workspace mapped</p>
+                  )}
+                </div>
+              </div>
+            </article>
+          )
+        })}
+        {!error && devices.length === 0 && executionLocations.length === 0 && (
+          <p className="rounded-xl border border-dashed border-[var(--color-pib-line)] p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
+            No computers or VPSs linked yet.
+          </p>
+        )}
+      </div>
+      {pairing && (
+        <PairComputerDialog
+          executionLocations={executionLocations}
+          onClose={() => {
+            setPairing(false)
+            void Promise.all([load(), loadCatalogue()])
+          }}
+        />
+      )}
+      {renaming && (
+        <AccessibleDialog
+          label="Rename computer"
+          onClose={() => setRenaming(null)}
+          className="w-full max-w-sm rounded-xl bg-[var(--color-card)] p-4"
+        >
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault()
+              if (
+                await mutate(`/api/v1/linked-computers/${renaming.deviceId}`, {
+                  method: 'PATCH',
+                  body: JSON.stringify({ label: name }),
+                })
+              )
+                setRenaming(null)
+            }}
+          >
+            <label className="block text-sm">
+              Computer name
+              <input
+                autoFocus
+                aria-label="Computer name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="mt-2 w-full rounded-lg border bg-transparent p-2"
+              />
+            </label>
+            <button className="btn-pib-primary btn-pib-sm mt-3">Save name</button>
+            <button type="button" className="ml-3 text-sm" onClick={() => setRenaming(null)}>
+              Cancel
+            </button>
+          </form>
+        </AccessibleDialog>
+      )}
+      {access && (
+        <AccessibleDialog label="Manage computer access" onClose={() => setAccess(null)}>
+          <h2 className="text-sm font-semibold">Manage computer access</h2>
+          <label className="mt-3 block text-sm">
+            Organisation
+            <select
+              autoFocus
+              aria-label="Organisation"
+              value={orgId}
+              onChange={(e) => selectAccessOrganisation(e.target.value)}
+              className="mt-1 w-full rounded-lg border bg-transparent p-2"
+            >
+              <option value="">Select an organisation</option>
+              {Array.from(new Map(workspaceOptions.map((option) => [option.orgId, option])).values()).map(
+                (option) => (
+                  <option key={option.orgId} value={option.orgId}>
+                    {option.orgName}
+                  </option>
+                ),
+              )}
+            </select>
+          </label>
+          <fieldset className="mt-3 space-y-2" disabled={!orgId}>
+            <legend className="text-sm font-medium">Who can use this computer?</legend>
+            <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-[var(--color-pib-line)] p-2.5 text-sm">
+              <input
+                aria-label="Only me"
+                type="radio"
+                name="computer-access"
+                value="owner"
+                checked={grantAccessMode === 'owner'}
+                onChange={() => setGrantAccessMode('owner')}
+              />
+              <span>
+                <span className="block font-medium">Only me</span>
+                <span className="mt-0.5 block text-xs text-[var(--color-pib-text-muted)]">
+                  Only you can start chats on this computer from this organisation.
+                </span>
+              </span>
+            </label>
+            <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-[var(--color-pib-line)] p-2.5 text-sm">
+              <input
+                aria-label="Everyone in organisation"
+                type="radio"
+                name="computer-access"
+                value="organization"
+                checked={grantAccessMode === 'organization'}
+                onChange={() => setGrantAccessMode('organization')}
+              />
+              <span>
+                <span className="block font-medium">Everyone in organisation</span>
+                <span className="mt-0.5 block text-xs text-[var(--color-pib-text-muted)]">
+                  Every organisation member can start chats on this computer.
+                </span>
+              </span>
+            </label>
+          </fieldset>
+          {orgId && grantAccessMode === null && (
+            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">
+              This computer is currently shared with selected users. Choose a new access level to replace
+              it.
+            </p>
+          )}
+          <button
+            type="button"
+            disabled={!orgId || grantAccessMode === null}
+            className="btn-pib-secondary btn-pib-sm mt-3"
+            onClick={() =>
+              mutate(`/api/v1/linked-computers/${access.deviceId}/grants`, {
+                method: 'PUT',
+                body: JSON.stringify({ orgId, status: 'active', accessMode: grantAccessMode }),
+              })
+            }
+          >
+            Save organisation access
+          </button>
+          <label className="mt-3 block text-sm">
+            Workspace
+            <select
+              aria-label="Workspace"
+              value={workspaceId}
+              onChange={(e) => {
+                setWorkspaceId(e.target.value)
+                setWorkspaceLabel(
+                  workspaceOptions.find((option) => option.workspaceId === e.target.value)?.orgName ?? '',
+                )
+              }}
+              className="mt-1 w-full rounded-lg border bg-transparent p-2"
+            >
+              <option value="">Select a Workspace</option>
+              {workspaceOptions
+                .filter((option) => option.orgId === orgId)
+                .map((option) => (
+                  <option key={option.workspaceId} value={option.workspaceId}>
+                    {option.orgName}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            disabled={!workspaceId}
+            className="btn-pib-secondary btn-pib-sm mt-2"
+            onClick={() => void createMapping()}
+          >
+            Map Workspace
+          </button>
+          {mappingCommand && (
+            <div className="mt-3 rounded-lg border p-3">
+              <p className="text-sm font-medium">Pending local setup</p>
+              <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+                Run this on your {platformLabel(access.platform)} computer. The folder is entered locally
+                and never sent to PiB.
+              </p>
+              <code className="mt-2 block break-all text-xs">{mappingCommand}</code>
+              <button
+                type="button"
+                className="btn-pib-secondary btn-pib-sm mt-2"
+                onClick={() => void navigator.clipboard.writeText(mappingCommand)}
+              >
+                Copy command
+              </button>
+            </div>
+          )}
+          <button type="button" className="ml-2 mt-2 text-sm" onClick={() => setAccess(null)}>
+            Done
+          </button>
+        </AccessibleDialog>
+      )}
+      {actions && (
+        <AccessibleMenu
+          id={actionsMenuId}
+          label={`Actions for ${actions.label}`}
+          onClose={() => setActions(null)}
+        >
+          <button
+            role="menuitem"
+            type="button"
+            onClick={() => {
+              const selected = actions
+              setActions(null)
+              void mutate(`/api/v1/linked-computers/${selected.deviceId}/credentials/rotate`, {
+                method: 'POST',
+              })
+            }}
+          >
+            Rotate credential
+          </button>
+          <button
+            role="menuitem"
+            type="button"
+            onClick={() => {
+              const selected = actions
+              setActions(null)
+              void mutate(`/api/v1/linked-computers/${selected.deviceId}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ status: 'paused' }),
+              })
+            }}
+          >
+            Pause computer
+          </button>
+          <button
+            role="menuitem"
+            type="button"
+            onClick={() => {
+              const selected = actions
+              setActions(null)
+              void mutate(`/api/v1/linked-computers/${selected.deviceId}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ status: 'revoked' }),
+              })
+            }}
+          >
+            Revoke computer
+          </button>
+          <button
+            role="menuitem"
+            type="button"
+            onClick={() => {
+              setConfirmRemove(actions)
+              setActions(null)
+            }}
+          >
+            Remove computer
+          </button>
+        </AccessibleMenu>
+      )}
+      {confirmRemove && (
+        <AccessibleDialog label="Remove computer" onClose={() => setConfirmRemove(null)}>
+          <p>Remove {confirmRemove.label}?</p>
+          <button
+            autoFocus
+            type="button"
+            className="btn-pib-primary btn-pib-sm mt-3"
+            onClick={async () => {
+              if (
+                await mutate(`/api/v1/linked-computers/${confirmRemove.deviceId}`, { method: 'DELETE' })
+              ) {
+                setConfirmRemove(null)
+                setActions(null)
+              }
+            }}
+          >
+            Confirm remove
+          </button>
+          <button type="button" className="ml-3 text-sm" onClick={() => setConfirmRemove(null)}>
+            Cancel
+          </button>
+        </AccessibleDialog>
+      )}
     </div>
-    {pairing && <PairComputerDialog executionLocations={executionLocations} onClose={() => { setPairing(false); void Promise.all([load(), loadCatalogue()]) }} />}
-    {renaming && <AccessibleDialog label="Rename computer" onClose={() => setRenaming(null)} className="w-full max-w-sm rounded-xl bg-[var(--color-card)] p-5"><form onSubmit={async e => { e.preventDefault(); if (await mutate(`/api/v1/linked-computers/${renaming.deviceId}`, { method: 'PATCH', body: JSON.stringify({ label: name }) })) setRenaming(null) }}><label className="block text-sm">Computer name<input autoFocus aria-label="Computer name" value={name} onChange={e => setName(e.target.value)} className="mt-2 w-full rounded-lg border bg-transparent p-2" /></label><button className="pib-btn-primary mt-4">Save name</button><button type="button" className="ml-3 text-sm" onClick={() => setRenaming(null)}>Cancel</button></form></AccessibleDialog>}
-    {access && <AccessibleDialog label="Manage computer access" onClose={() => setAccess(null)}><h2 className="font-semibold">Manage computer access</h2><label className="mt-4 block text-sm">Organisation<select autoFocus aria-label="Organisation" value={orgId} onChange={e => selectAccessOrganisation(e.target.value)} className="mt-1 w-full rounded-lg border bg-transparent p-2"><option value="">Select an organisation</option>{Array.from(new Map(workspaceOptions.map(option => [option.orgId, option])).values()).map(option => <option key={option.orgId} value={option.orgId}>{option.orgName}</option>)}</select></label><fieldset className="mt-4 space-y-2" disabled={!orgId}><legend className="text-sm font-medium">Who can use this computer?</legend><label className="flex cursor-pointer items-start gap-2 rounded-lg border border-[var(--color-pib-line)] p-3 text-sm"><input aria-label="Only me" type="radio" name="computer-access" value="owner" checked={grantAccessMode === 'owner'} onChange={() => setGrantAccessMode('owner')} /><span><span className="block font-medium">Only me</span><span className="mt-0.5 block text-xs text-[var(--color-pib-text-muted)]">Only you can start chats on this computer from this organisation.</span></span></label><label className="flex cursor-pointer items-start gap-2 rounded-lg border border-[var(--color-pib-line)] p-3 text-sm"><input aria-label="Everyone in organisation" type="radio" name="computer-access" value="organization" checked={grantAccessMode === 'organization'} onChange={() => setGrantAccessMode('organization')} /><span><span className="block font-medium">Everyone in organisation</span><span className="mt-0.5 block text-xs text-[var(--color-pib-text-muted)]">Every organisation member can start chats on this computer.</span></span></label></fieldset>{orgId && grantAccessMode === null && <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">This computer is currently shared with selected users. Choose a new access level to replace it.</p>}<button type="button" disabled={!orgId || grantAccessMode === null} className="pib-btn-secondary mt-3" onClick={() => mutate(`/api/v1/linked-computers/${access.deviceId}/grants`, { method: 'PUT', body: JSON.stringify({ orgId, status: 'active', accessMode: grantAccessMode }) })}>Save organisation access</button><label className="mt-4 block text-sm">Workspace<select aria-label="Workspace" value={workspaceId} onChange={e => { setWorkspaceId(e.target.value); setWorkspaceLabel(workspaceOptions.find(option => option.workspaceId === e.target.value)?.orgName ?? '') }} className="mt-1 w-full rounded-lg border bg-transparent p-2"><option value="">Select a Workspace</option>{workspaceOptions.filter(option => option.orgId === orgId).map(option => <option key={option.workspaceId} value={option.workspaceId}>{option.orgName}</option>)}</select></label><button type="button" disabled={!workspaceId} className="pib-btn-secondary mt-2" onClick={()=>void createMapping()}>Map Workspace</button>{mappingCommand&&<div className="mt-3 rounded-lg border p-3"><p className="text-sm font-medium">Pending local setup</p><p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Run this on your {platformLabel(access.platform)} computer. The folder is entered locally and never sent to PiB.</p><code className="mt-2 block break-all text-xs">{mappingCommand}</code><button type="button" className="pib-btn-secondary mt-2 text-xs" onClick={()=>void navigator.clipboard.writeText(mappingCommand)}>Copy command</button></div>}<button type="button" className="ml-2 mt-2 text-sm" onClick={() => setAccess(null)}>Done</button></AccessibleDialog>}
-    {actions && <AccessibleMenu id={actionsMenuId} label={`Actions for ${actions.label}`} onClose={() => setActions(null)}><button role="menuitem" type="button" onClick={() => { const selected = actions; setActions(null); void mutate(`/api/v1/linked-computers/${selected.deviceId}/credentials/rotate`, { method: 'POST' }) }}>Rotate credential</button><button role="menuitem" type="button" onClick={() => { const selected = actions; setActions(null); void mutate(`/api/v1/linked-computers/${selected.deviceId}`, { method: 'PATCH', body: JSON.stringify({ status: 'paused' }) }) }}>Pause computer</button><button role="menuitem" type="button" onClick={() => { const selected = actions; setActions(null); void mutate(`/api/v1/linked-computers/${selected.deviceId}`, { method: 'PATCH', body: JSON.stringify({ status: 'revoked' }) }) }}>Revoke computer</button><button role="menuitem" type="button" onClick={() => { setConfirmRemove(actions); setActions(null) }}>Remove computer</button></AccessibleMenu>}
-    {confirmRemove && <AccessibleDialog label="Remove computer" onClose={() => setConfirmRemove(null)}><p>Remove {confirmRemove.label}?</p><button autoFocus type="button" className="pib-btn-primary mt-4" onClick={async () => { if (await mutate(`/api/v1/linked-computers/${confirmRemove.deviceId}`, { method: 'DELETE' })) { setConfirmRemove(null); setActions(null) } }}>Confirm remove</button><button type="button" className="ml-3 text-sm" onClick={() => setConfirmRemove(null)}>Cancel</button></AccessibleDialog>}
-  </div>
+  )
 }

@@ -50,7 +50,7 @@ function MetricCard({ label, value, icon, subtext, ok }: { label: string; value:
         <span className="pib-icon-tint pib-icon-tint-green" aria-hidden="true"><span className="material-symbols-outlined text-[18px]">{icon}</span></span>
       </div>
       <p
-        className="mt-3 font-display text-3xl leading-none tracking-tight md:text-4xl tabular-nums"
+        className="mt-3 text-xl font-semibold tabular-nums tracking-tight tabular-nums"
         style={{ color: ok !== undefined ? (ok ? '#34d399' : '#f87171') : undefined }}
       >
         {value}
@@ -109,7 +109,7 @@ export function SpeedAnalyzerClient({ sprints, activeSprintId, defaultUrl, histo
   const trendScores = trendRuns.map((r) => r.score)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4" data-module-accent="green">
       <SeoToolHeader
         eyebrow="Performance"
         title="Speed Analyzer"
@@ -305,7 +305,7 @@ export function SpeedAnalyzerClient({ sprints, activeSprintId, defaultUrl, histo
       )}
 
       {trendRuns.length === 0 && results.length === 0 && !loading && (
-        <div className="pib-card p-10 text-center">
+        <div className="pib-card p-6 text-center">
           <span className="material-symbols-outlined text-4xl text-[var(--color-pib-green)]">speed</span>
           <h3 className="font-headline text-lg font-semibold mt-3">No runs yet</h3>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-1.5 max-w-md mx-auto">

@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { AppShell, EmptyState, PageHeader, PageTabs, Surface } from '@/components/ui/AppFoundation'
+import { StatCard } from '@/components/ui/StatCard'
 
 type GateStatus = 'passed' | 'warning' | 'blocked' | 'missing_evidence' | 'not_applicable'
 type BookStage = 'intake' | 'research' | 'brief' | 'quality_gates' | 'publishing_packet' | 'manual_upload_review' | 'analytics_reconciliation'
@@ -99,7 +100,7 @@ function ProjectCard({ project }: { project: BookStudioProject }) {
         {project.gates.map((gate) => {
           const hasEvidence = (gate.evidence?.length ?? 0) > 0
           return (
-            <div key={gate.id} className="rounded-2xl border border-[var(--color-pib-border)] bg-[var(--color-pib-surface-muted)] p-4">
+            <div key={gate.id} className="rounded-md border border-[var(--color-pib-border)] bg-[var(--color-pib-surface-muted)] p-3">
               <div className="flex items-center justify-between gap-3">
                 <strong className="text-sm text-[var(--color-pib-text)]">{gate.label}</strong>
                 <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text-muted)]">{statusLabel(gate.status)}</span>
@@ -112,10 +113,10 @@ function ProjectCard({ project }: { project: BookStudioProject }) {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <button type="button" disabled={!canRequestApproval} className="btn-primary disabled:cursor-not-allowed disabled:opacity-50">
+        <button type="button" disabled={!canRequestApproval} className="btn-pib-primary btn-pib-sm font-label disabled:cursor-not-allowed disabled:opacity-50">
           Request approval for exact package version
         </button>
-        <button type="button" disabled className="btn-secondary disabled:cursor-not-allowed disabled:opacity-50">
+        <button type="button" disabled className="btn-pib-secondary btn-pib-sm font-label disabled:cursor-not-allowed disabled:opacity-50">
           External upload locked until release review passes
         </button>
       </div>
@@ -134,14 +135,15 @@ export function BookStudioAdminWorkspace({ orgId, orgName, orgSlug, projects = [
       contentClassName="bg-[var(--color-pib-bg)]"
       header={
         <PageHeader
+          accent="rose"
           eyebrow="Book Studio · Phase 1"
           title="Book Studio command center"
           description={`Plan books for ${orgName}, preserve approval gates, and keep manual publishing controls locked until evidence is complete.`}
           meta={<span>Org ID: {orgId}</span>}
           actions={
             <>
-              <Link href={`/admin/org/${slug}/projects`} className="btn-secondary">Open Projects/Kanban</Link>
-              <button type="button" disabled className="btn-primary disabled:cursor-not-allowed disabled:opacity-50">Create book project gated</button>
+              <Link href={`/admin/org/${slug}/projects`} className="btn-pib-secondary btn-pib-sm font-label">Open Projects/Kanban</Link>
+              <button type="button" disabled className="btn-pib-primary btn-pib-sm font-label disabled:cursor-not-allowed disabled:opacity-50">Create book project gated</button>
             </>
           }
           tabs={<PageTabs value="command-center" tabs={[{ label: 'Command center', value: 'command-center', icon: 'auto_stories' }, { label: 'Series', value: 'series', icon: 'view_list', disabled: true }, { label: 'Analytics', value: 'analytics', icon: 'query_stats', disabled: true }]} />}
@@ -158,11 +160,11 @@ export function BookStudioAdminWorkspace({ orgId, orgName, orgSlug, projects = [
         ) : null}
 
         <section role="region" aria-label="Book Studio admin command center" className="space-y-6">
-          <div className="grid gap-3 md:grid-cols-4">
-            <Surface><p className="text-sm text-[var(--color-pib-text-muted)]">Active projects</p><strong className="text-2xl">{projects.length}</strong></Surface>
-            <Surface><p className="text-sm text-[var(--color-pib-text-muted)]">Blocked gates</p><strong className="text-2xl">{blockedCount}</strong></Surface>
-            <Surface><p className="text-sm text-[var(--color-pib-text-muted)]">Missing evidence</p><strong className="text-2xl">{missingEvidenceCount}</strong></Surface>
-            <Surface><p className="text-sm text-[var(--color-pib-text-muted)]">Forbidden actions</p><strong className="text-2xl">Locked</strong></Surface>
+          <div className="grid gap-2 md:grid-cols-4">
+            <StatCard accent="rose" icon="auto_stories" label="Active projects" value={projects.length} />
+            <StatCard accent="rose" icon="block" label="Blocked gates" value={blockedCount} />
+            <StatCard accent="rose" icon="folder_off" label="Missing evidence" value={missingEvidenceCount} />
+            <StatCard accent="rose" icon="lock" label="Forbidden actions" value="Locked" />
           </div>
 
           <Surface header={<h2 className="text-lg font-semibold">Stage rail</h2>}>

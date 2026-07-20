@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { scopedApiPath } from '@/lib/portal/scoped-routing'
+import { GlassBar } from '@/components/ui/HudChip'
 import { mediaKeyForRef } from '@/lib/video-editor/media-previews'
 import type { StockResult } from '@/lib/video-editor/stock'
 import type { EditorClip, EditorMediaKind, MediaRef, VideoEditorMediaPreview } from '@/lib/video-editor/types'
@@ -421,11 +422,11 @@ export function MediaLibraryPanel({
   )
 
   return (
-    <section className="pib-card-section space-y-3 p-4">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="font-headline text-lg font-semibold text-[var(--color-pib-text)]">Media</h2>
-        <button type="button" className="pib-btn-ghost text-sm" onClick={onRefresh}>Refresh</button>
-      </div>
+    <section className="pib-card-section space-y-3 p-3" data-module-accent="cyan">
+      <GlassBar className="items-center justify-between gap-2 p-2">
+        <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Media</h2>
+        <button type="button" className="btn-pib-ghost btn-pib-sm font-label" onClick={onRefresh}>Refresh</button>
+      </GlassBar>
       <div role="tablist" aria-label="Media source tabs" className="flex flex-wrap gap-1 rounded-lg border border-[var(--color-pib-line)] p-1">
         {sourceTabLabels.map((tab) => (
           <button
@@ -486,7 +487,7 @@ export function MediaLibraryPanel({
                 <option value="video">Videos</option>
               </select>
             </label>
-            <button type="button" className="pib-btn-primary text-sm" disabled={stockBusy || !orgId} onClick={() => void searchStock()}>
+            <button type="button" className="btn-pib-primary btn-pib-sm font-label" disabled={stockBusy || !orgId} onClick={() => void searchStock()}>
               {stockBusy ? 'Searching...' : 'Search'}
             </button>
           </div>
@@ -548,7 +549,7 @@ export function MediaLibraryPanel({
               </select>
             </label>
           ) : null}
-          <button type="button" className="pib-btn-primary text-sm" disabled={generateBusy || !orgId} onClick={() => void generateMedia()}>
+          <button type="button" className="btn-pib-primary btn-pib-sm font-label" disabled={generateBusy || !orgId} onClick={() => void generateMedia()}>
             {generateBusy ? 'Generating...' : 'Generate'}
           </button>
           {!canvasId ? <p className="text-xs text-amber-200">This editor project is not linked to a Creative Canvas yet.</p> : null}

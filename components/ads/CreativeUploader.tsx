@@ -100,7 +100,7 @@ export function CreativeUploader({
   return (
     <div className="space-y-3">
       {state.kind === 'idle' && (
-        <div className="rounded-lg border-2 border-dashed border-white/10 p-8 text-center">
+        <div className="rounded-lg border-2 border-dashed border-white/10 p-6 text-center">
           <p className="text-sm text-white/60">Drop an image or video here, or</p>
           <button
             type="button"

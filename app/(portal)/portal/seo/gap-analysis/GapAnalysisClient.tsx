@@ -77,7 +77,7 @@ export function GapAnalysisClient({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4" data-module-accent="green">
       <SeoToolHeader
         eyebrow="Competitive SEO"
         title="Content gap analysis"
@@ -152,7 +152,7 @@ export function GapAnalysisClient({
               </button>
             </div>
             {result.gaps.length === 0 ? (
-              <div className="p-8 text-center text-sm text-[var(--color-pib-text-muted)]">No gaps found — you already cover this competitor&apos;s topics.</div>
+              <div className="p-5 text-center text-sm text-[var(--color-pib-text-muted)]">No gaps found — you already cover this competitor&apos;s topics.</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -211,7 +211,7 @@ function StatCard({ label, value, icon }: { label: string; value: string; icon: 
         <p className="eyebrow !text-[10px]">{label}</p>
         <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">{icon}</span></span>
       </div>
-      <p className="mt-3 font-display text-3xl leading-none tracking-tight md:text-4xl">{value}</p>
+      <p className="mt-3 text-xl font-semibold tabular-nums tracking-tight">{value}</p>
     </div>
   )
 }

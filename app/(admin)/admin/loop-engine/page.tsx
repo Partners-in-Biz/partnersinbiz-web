@@ -136,8 +136,8 @@ export default async function AdminLoopEnginePage() {
   const { runs: liveRuns, error: liveRunsError } = await loadLiveRuns()
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8">
-      <header className="pib-card border-[var(--color-pib-accent)]/35 bg-[var(--color-pib-accent-soft)] p-6 md:p-8">
+    <div className="mx-auto max-w-7xl space-y-6">
+      <header className="pib-card border-[var(--color-pib-accent)]/35 bg-[var(--color-pib-accent-soft)] p-4 md:p-5">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl">
             <p className="pib-label mb-3">Internal operating layer</p>
@@ -153,21 +153,21 @@ export default async function AdminLoopEnginePage() {
         </div>
       </header>
 
-      <section className="grid gap-4 md:grid-cols-3">
-        <div className="pib-card p-5">
+      <section className="grid gap-3 md:grid-cols-3">
+        <div className="pib-stat-card p-4">
           <p className="pib-label">Active loops</p>
-          <p className="mt-2 text-3xl font-semibold text-[var(--color-pib-text)]">{activeLoops.length}</p>
-          <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Already backed by current Projects/Kanban or briefing behavior.</p>
+          <p className="mt-1.5 text-2xl font-display tabular-nums text-[var(--color-pib-text)]">{activeLoops.length}</p>
+          <p className="mt-1.5 text-sm text-[var(--color-pib-text-muted)]">Already backed by current Projects/Kanban or briefing behavior.</p>
         </div>
-        <div className="pib-card p-5">
+        <div className="pib-stat-card p-4">
           <p className="pib-label">Guarded loops</p>
-          <p className="mt-2 text-3xl font-semibold text-[var(--color-pib-text)]">{guardedLoops.length}</p>
-          <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">Can prepare or release work only inside approval-safe boundaries.</p>
+          <p className="mt-1.5 text-2xl font-display tabular-nums text-[var(--color-pib-text)]">{guardedLoops.length}</p>
+          <p className="mt-1.5 text-sm text-[var(--color-pib-text-muted)]">Can prepare or release work only inside approval-safe boundaries.</p>
         </div>
-        <div className="pib-card p-5">
+        <div className="pib-stat-card p-4">
           <p className="pib-label">Planned commercial loops</p>
-          <p className="mt-2 text-3xl font-semibold text-[var(--color-pib-text)]">{plannedLoops.length}</p>
-          <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">SEO-to-CRM and lead-response loops queued after visibility/governance hardening.</p>
+          <p className="mt-1.5 text-2xl font-display tabular-nums text-[var(--color-pib-text)]">{plannedLoops.length}</p>
+          <p className="mt-1.5 text-sm text-[var(--color-pib-text-muted)]">SEO-to-CRM and lead-response loops queued after visibility/governance hardening.</p>
         </div>
       </section>
 

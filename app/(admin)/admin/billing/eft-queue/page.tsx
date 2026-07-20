@@ -130,7 +130,7 @@ export default function EftQueuePage() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-4 max-w-5xl mx-auto" data-module-accent="cyan">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
@@ -141,7 +141,7 @@ export default function EftQueuePage() {
             Review client EFT proof-of-payment uploads and confirm or reject each one.
           </p>
         </div>
-        <button onClick={load} disabled={loading} className="pib-btn-ghost text-sm font-label self-start md:self-auto">
+        <button onClick={load} disabled={loading} className="btn-pib-ghost btn-pib-sm self-start md:self-auto">
           Refresh
         </button>
       </div>

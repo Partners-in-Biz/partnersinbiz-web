@@ -124,7 +124,7 @@ export default function ChurnPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-4 max-w-6xl mx-auto" data-module-accent="cyan">
       <div>
         <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-1">
           Billing / Retention

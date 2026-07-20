@@ -3,6 +3,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
+import { PageHeader } from '@/components/ui/AppFoundation'
 import { formatZar, formatDate } from '@/lib/billing/format'
 
 interface Stage {
@@ -182,24 +183,22 @@ export default function DunningPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-on-surface">Dunning — EFT reminders</h1>
-          <p className="text-sm text-on-surface/60 mt-1 max-w-2xl">
-            These are EFT payment-reminder sequences. There are no card retries — when an invoice
-            is overdue we email the client on a schedule. The final stage can suspend the org&apos;s
-            subscription until they pay.
-          </p>
-        </div>
-        <button
-          className="pib-btn-primary whitespace-nowrap"
-          onClick={runNow}
-          disabled={running || loading}
-        >
-          {running ? 'Running…' : 'Run dunning now'}
-        </button>
-      </div>
+    <div className="max-w-5xl mx-auto space-y-4" data-module-accent="cyan">
+      <PageHeader
+        accent="cyan"
+        eyebrow="Billing / Dunning"
+        title="Dunning — EFT reminders"
+        description="These are EFT payment-reminder sequences. There are no card retries — when an invoice is overdue we email the client on a schedule. The final stage can suspend the org's subscription until they pay."
+        actions={
+          <button
+            className="btn-pib-primary btn-pib-sm whitespace-nowrap"
+            onClick={runNow}
+            disabled={running || loading}
+          >
+            {running ? 'Running…' : 'Run dunning now'}
+          </button>
+        }
+      />
 
       {topError && (
         <div className="pib-card border-red-500/40 bg-red-500/5 p-4 text-sm text-red-400">

@@ -578,7 +578,7 @@ export function MailboxWorkspace({ surface, showCloseAction = false, onClose }: 
               onEditDraft={() => editDraft(selected)}
             />
           ) : (
-            <div className="flex h-full items-center justify-center p-8 text-sm text-[var(--color-pib-text-muted)]">Select a message to read it.</div>
+            <div className="flex h-full items-center justify-center p-6 text-sm text-[var(--color-pib-text-muted)]">Select a message to read it.</div>
           )}
         </section>
       </div>
