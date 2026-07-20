@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import OrgsTable, { type AdminOrgRow } from '@/components/admin/orgs/OrgsTable'
+import { PageHeader, StatusPill } from '@/components/ui/AppFoundation'
 
 export default function OrganizationsPage() {
   const [orgs, setOrgs] = useState<AdminOrgRow[]>([])
@@ -37,25 +38,29 @@ export default function OrganizationsPage() {
   const totalMrr = orgs.reduce((sum, o) => sum + (o.mrr || 0), 0)
 
   return (
-    <div className="space-y-8 max-w-[1400px] mx-auto">
-      {/* Header */}
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <p className="eyebrow">Admin · Clients</p>
-          <h1 className="pib-page-title mt-2">Client Workspaces</h1>
-          <p className="pib-page-sub">
-            Platform-admin operations for client organisations — billing, contacts, email activity, and provisioning.
-          </p>
-          <p className="text-xs text-[var(--color-pib-text-faint)] mt-2">
-            {loading
-              ? '—'
-              : `${activeCount} active of ${orgs.length} client workspaces · R${Math.round(totalMrr).toLocaleString('en-ZA')} MRR`}
-          </p>
-        </div>
-        <Link href="/admin/organizations/new" className="btn-pib-primary shrink-0">
-          + Provision client workspace
-        </Link>
-      </header>
+    <div className="mx-auto max-w-[1400px] space-y-6" data-module-accent="cyan">
+      <PageHeader
+        accent="cyan"
+        eyebrow="Admin · Clients"
+        title="Client Workspaces"
+        description="Platform-admin operations for client organisations — billing, contacts, email activity, and provisioning."
+        meta={
+          loading ? (
+            <span>—</span>
+          ) : (
+            <>
+              <StatusPill tone="cyan" dot>{activeCount} active</StatusPill>
+              <span>{orgs.length} workspaces</span>
+              <span className="font-mono">R{Math.round(totalMrr).toLocaleString('en-ZA')} MRR</span>
+            </>
+          )
+        }
+        actions={(
+          <Link href="/admin/organizations/new" className="btn-pib-primary btn-pib-sm shrink-0">
+            + Provision client workspace
+          </Link>
+        )}
+      />
 
       {error ? (
         <div className="pib-card text-sm text-[var(--color-error)]">{error}</div>

@@ -146,27 +146,27 @@ export function OrgDetailOverviewPanel({ org, onChanged }: { org: OrgDetail; onC
       {/* Actions */}
       <Surface header={<span className="font-label">Actions</span>}>
         {error && <p className="mb-3 text-sm text-red-400">{error}</p>}
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className="pib-btn-secondary" disabled={busy || !org.owner} onClick={doImpersonate}>
-            <span className="material-symbols-outlined text-[18px]">login</span> Impersonate owner
+        <div className="flex flex-wrap gap-1.5">
+          <button type="button" className="pib-btn-secondary btn-pib-sm" disabled={busy || !org.owner} onClick={doImpersonate}>
+            <span className="material-symbols-outlined text-[16px]">login</span> Impersonate owner
           </button>
-          <button type="button" className="pib-btn-secondary" disabled={busy} onClick={() => setDialog('reset')}>
-            <span className="material-symbols-outlined text-[18px]">lock_reset</span> Reset owner password
+          <button type="button" className="pib-btn-secondary btn-pib-sm" disabled={busy} onClick={() => setDialog('reset')}>
+            <span className="material-symbols-outlined text-[16px]">lock_reset</span> Reset owner password
           </button>
-          <button type="button" className="pib-btn-secondary" disabled={busy} onClick={() => setDialog('message')}>
-            <span className="material-symbols-outlined text-[18px]">mail</span> Send message
+          <button type="button" className="pib-btn-secondary btn-pib-sm" disabled={busy} onClick={() => setDialog('message')}>
+            <span className="material-symbols-outlined text-[16px]">mail</span> Send message
           </button>
           {suspended ? (
-            <button type="button" className="pib-btn-secondary" disabled={busy} onClick={() => setDialog('unsuspend')}>
-              <span className="material-symbols-outlined text-[18px]">check_circle</span> Unsuspend
+            <button type="button" className="pib-btn-secondary btn-pib-sm" disabled={busy} onClick={() => setDialog('unsuspend')}>
+              <span className="material-symbols-outlined text-[16px]">check_circle</span> Unsuspend
             </button>
           ) : (
-            <button type="button" className="pib-btn-secondary" disabled={busy} onClick={() => setDialog('suspend')}>
-              <span className="material-symbols-outlined text-[18px]">block</span> Suspend
+            <button type="button" className="pib-btn-secondary btn-pib-sm" disabled={busy} onClick={() => setDialog('suspend')}>
+              <span className="material-symbols-outlined text-[16px]">block</span> Suspend
             </button>
           )}
-          <button type="button" className="pib-btn-ghost text-red-400" disabled={busy} onClick={() => setDialog('delete')}>
-            <span className="material-symbols-outlined text-[18px]">delete</span> Delete
+          <button type="button" className="pib-btn-ghost btn-pib-sm text-red-400" disabled={busy} onClick={() => setDialog('delete')}>
+            <span className="material-symbols-outlined text-[16px]">delete</span> Delete
           </button>
         </div>
       </Surface>

@@ -173,12 +173,13 @@ export default function DemoOrgsPage() {
   return (
     <div className="px-4 py-6 md:px-8">
       <PageHeader
+        accent="cyan"
         eyebrow="Sales tooling"
         title="Demo organisations"
         description="Tag client orgs as demos, seed realistic sample data, reset on a 24h cycle, and share no-login preview links."
         actions={
-          <button type="button" className="btn-pib-primary" onClick={openTagModal}>
-            <span className="material-symbols-outlined text-[18px]">add</span>
+          <button type="button" className="btn-pib-primary btn-pib-sm" onClick={openTagModal}>
+            <span className="material-symbols-outlined text-[16px]">add</span>
             Tag as demo
           </button>
         }

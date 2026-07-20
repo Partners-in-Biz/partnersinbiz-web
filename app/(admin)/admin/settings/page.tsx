@@ -7,6 +7,7 @@ import { useOrg } from '@/lib/contexts/OrgContext'
 import { copyToClipboard } from '@/lib/utils/clipboard'
 import { PushNotificationsToggle } from '@/components/pwa/PushNotificationsToggle'
 import { SettingsPlatformConfig } from '@/components/admin/governance/SettingsPlatformConfig'
+import { PageHeader } from '@/components/ui/AppFoundation'
 
 interface SessionInfo {
   email?: string | null
@@ -189,11 +190,13 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-8 max-w-3xl mx-auto">
-      <header>
-        <p className="eyebrow">Admin · Settings</p>
-        <h1 className="pib-page-title mt-2">Platform Settings</h1>
-      </header>
+    <div className="mx-auto max-w-3xl space-y-6" data-module-accent="cyan">
+      <PageHeader
+        accent="cyan"
+        eyebrow="Admin · Settings"
+        title="Platform Settings"
+        description="Platform configuration, organisation alerts, billing surfaces, and infrastructure links."
+      />
 
       {/* Platform configuration */}
       <SettingsPlatformConfig canEdit={isSuperAdmin} />

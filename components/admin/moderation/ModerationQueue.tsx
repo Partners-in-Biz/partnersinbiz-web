@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Surface, StatusPill, DialogDrawer, EmptyState } from '@/components/ui/AppFoundation'
+import { PageHeader, Surface, StatusPill, DialogDrawer, EmptyState } from '@/components/ui/AppFoundation'
 import { apiGet, apiSend, formatDateTime } from '@/components/admin/orgs/OrgDetailApi'
 
 type ContentType = 'social_post' | 'campaign'
@@ -139,8 +139,8 @@ export function ModerationQueue() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-7xl space-y-6">
-        <div className="pib-card p-8 text-sm text-[var(--color-pib-text-muted)]">Loading moderation queue…</div>
+      <div className="mx-auto max-w-7xl space-y-6" data-module-accent="cyan">
+        <div className="pib-card p-4 text-sm text-[var(--color-pib-text-muted)]">Loading moderation queue…</div>
       </div>
     )
   }
@@ -150,30 +150,33 @@ export function ModerationQueue() {
   const decisions = data?.decisions ?? []
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <header className="pib-card p-6">
-        <p className="eyebrow">Trust &amp; safety</p>
-        <h1 className="pib-page-title mt-2">Content moderation queue</h1>
-        <p className="mt-3 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
-          Review flagged social posts and campaigns, approve or remove content, and enforce the 3-strike org
-          suspension policy. Every decision is recorded to the immutable audit log.
-        </p>
-      </header>
+    <div className="mx-auto max-w-7xl space-y-6" data-module-accent="cyan">
+      <PageHeader
+        accent="cyan"
+        eyebrow="Trust & safety"
+        title="Content moderation queue"
+        description="Review flagged social posts and campaigns, approve or remove content, and enforce the 3-strike org suspension policy. Every decision is recorded to the immutable audit log."
+      />
 
       {error && (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 p-5 text-sm text-red-400">{error}</div>
+        <div className="pib-card border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-400">{error}</div>
       )}
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: 'Pending review', value: metrics.pending },
-          { label: 'Removed today', value: metrics.removedToday },
-          { label: 'Escalated', value: metrics.escalated },
-          { label: 'Suspended orgs', value: metrics.suspended },
+          { label: 'Pending review', value: metrics.pending, icon: 'rate_review' },
+          { label: 'Removed today', value: metrics.removedToday, icon: 'delete' },
+          { label: 'Escalated', value: metrics.escalated, icon: 'priority_high' },
+          { label: 'Suspended orgs', value: metrics.suspended, icon: 'block' },
         ].map((m) => (
-          <div key={m.label} className="pib-card p-5">
-            <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{m.label}</p>
-            <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">{m.value}</p>
+          <div key={m.label} className="pib-card p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{m.label}</p>
+              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan !h-6 !w-6 !rounded-md">
+                <span className="material-symbols-outlined text-[14px]">{m.icon}</span>
+              </span>
+            </div>
+            <p className="mt-2 text-xl font-semibold text-[var(--color-pib-text)]">{m.value}</p>
           </div>
         ))}
       </section>

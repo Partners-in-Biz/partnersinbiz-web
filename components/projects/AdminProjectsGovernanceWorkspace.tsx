@@ -95,31 +95,32 @@ export function AdminProjectsGovernanceWorkspace({ orgSlug }: AdminProjectsGover
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-module-accent="cyan">
       <PageHeader
+        accent="cyan"
         eyebrow="Workspace / Projects"
         title="Project governance"
         description="Configure how this organisation uses projects. Client portal users should see their work; admins control access, project types, and destructive settings here."
         actions={(
-          <Link href={adminSettingsHref} className="pib-btn-secondary">
-            <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
+          <Link href={adminSettingsHref} className="pib-btn-secondary btn-pib-sm">
+            <span className="material-symbols-outlined text-[16px]">admin_panel_settings</span>
             Org settings
           </Link>
         )}
       />
 
-      <div className="space-y-4">
-        <Surface className="p-5">
+      <div className="space-y-3">
+        <Surface className="p-4" accentEdge="cyan">
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="eyebrow !text-[10px]">Portal access</p>
-              <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Who can use projects in the client portal</h2>
+              <h2 className="mt-1.5 text-base font-semibold text-[var(--color-pib-text)]">Who can use projects in the client portal</h2>
               <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
                 These organisation-level rules decide whether the Projects tab is visible and whether people can create new project requests.
               </p>
             </div>
-            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan inline-flex size-9 shrink-0 items-center justify-center rounded-lg">
-              <span className="material-symbols-outlined text-[20px] leading-none">shield</span>
+            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan !h-7 !w-7 !rounded-md shrink-0">
+              <span className="material-symbols-outlined text-[16px] leading-none">shield</span>
             </span>
           </div>
 
@@ -139,29 +140,29 @@ export function AdminProjectsGovernanceWorkspace({ orgSlug }: AdminProjectsGover
           />
         </Surface>
 
-        <Surface className="p-5">
+        <Surface className="p-4">
           <p className="eyebrow !text-[10px]">Admin-only actions</p>
-          <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Project deletion stays here</h2>
-          <p className="mt-2 text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
+          <h2 className="mt-1.5 text-base font-semibold text-[var(--color-pib-text)]">Project deletion stays here</h2>
+          <p className="mt-1.5 text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
             Project deletion, archive recovery, and project-type changes belong in the admin console. Client-side project owners manage project-level access inside each project settings tab.
           </p>
-          <div className="mt-4 rounded-lg border border-red-500/20 bg-red-500/5 p-4">
+          <div className="mt-3 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-red-200">
-              <span className="material-symbols-outlined text-[18px]">delete</span>
+              <span className="material-symbols-outlined text-[16px]">delete</span>
               Delete project policy
             </div>
-            <p className="mt-2 text-sm text-red-100/75">
+            <p className="mt-1.5 text-sm text-red-100/75">
               Only organisation owners and platform admins should be able to permanently delete projects from this admin surface.
             </p>
           </div>
         </Surface>
       </div>
 
-      <Surface className="p-5">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+      <Surface className="p-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
             <p className="eyebrow !text-[10px]">Project types</p>
-            <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">Default types plus organisation custom types</h2>
+            <h2 className="mt-1.5 text-base font-semibold text-[var(--color-pib-text)]">Default types plus organisation custom types</h2>
             <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
               Discovery, Design, Development, Review, Live, and Maintenance are defaults. Add organisation-specific types here instead of hardcoding them into the portal browser.
             </p>
@@ -173,20 +174,20 @@ export function AdminProjectsGovernanceWorkspace({ orgSlug }: AdminProjectsGover
               placeholder="Custom type"
               className="pib-input min-w-0 flex-1"
             />
-            <button type="button" onClick={addProjectType} className="pib-btn-secondary shrink-0">
-              <span className="material-symbols-outlined text-[18px]">add</span>
+            <button type="button" onClick={addProjectType} className="pib-btn-secondary btn-pib-sm shrink-0">
+              <span className="material-symbols-outlined text-[16px]">add</span>
               Add
             </button>
           </div>
         </div>
 
-        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {projectTypes.map((type) => (
-            <div key={type.id} className="pib-card p-4">
+            <div key={type.id} className="pib-card p-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{type.label}</h3>
-                  <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{type.description}</p>
+                  <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{type.description}</p>
                 </div>
                 <span className="pib-pill pib-pill-cyan !text-[10px] normal-case">
                   {type.locked ? 'Default' : 'Custom'}
@@ -196,7 +197,7 @@ export function AdminProjectsGovernanceWorkspace({ orgSlug }: AdminProjectsGover
                 type="button"
                 disabled={type.locked}
                 onClick={() => removeProjectType(type.id)}
-                className="mt-4 inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-45"
+                className="mt-3 inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-45"
               >
                 <span className="material-symbols-outlined text-[15px]">delete</span>
                 {type.locked ? 'Default cannot be deleted yet' : 'Delete custom type'}
@@ -205,12 +206,12 @@ export function AdminProjectsGovernanceWorkspace({ orgSlug }: AdminProjectsGover
           ))}
         </div>
 
-        <p className="mt-4 text-xs text-[var(--color-pib-text-muted)]">{customTypeCount} custom project types configured for this organisation.</p>
+        <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">{customTypeCount} custom project types configured for this organisation.</p>
       </Surface>
 
-      <Surface className="p-5">
+      <Surface className="p-4">
         <p className="eyebrow !text-[10px]">Project-owner settings</p>
-        <h2 className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">What each project owner controls inside a project</h2>
+        <h2 className="mt-1.5 text-base font-semibold text-[var(--color-pib-text)]">What each project owner controls inside a project</h2>
         <p className="mt-1 max-w-3xl text-sm leading-relaxed text-[var(--color-pib-text-muted)]">
           These are project-level permissions that should live inside each project settings tab for the project owner, not on the portal project list.
         </p>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Surface, StatusPill, DialogDrawer, EmptyState } from '@/components/ui/AppFoundation'
+import { PageHeader, Surface, StatusPill, DialogDrawer, EmptyState } from '@/components/ui/AppFoundation'
 import { apiGet, apiSend, formatDateTime } from '@/components/admin/orgs/OrgDetailApi'
 
 type FlagType = 'boolean' | 'string' | 'number'
@@ -229,39 +229,47 @@ export function PropertiesControlPlane() {
   }, [data])
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <header className="pib-card p-6">
-        <p className="eyebrow">Platform config</p>
-        <h1 className="pib-page-title mt-2">Feature-flag control plane</h1>
-        <p className="mt-3 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
-          Define global feature flags, set per-org overrides, and audit every change. Flag definitions live in
-          <code className="mx-1">platform_feature_flags</code>; overrides live on each organisation record.
-        </p>
-        <div className="mt-5">
-          <button type="button" className="pib-btn-primary" onClick={openCreate}>
+    <div className="mx-auto max-w-7xl space-y-6" data-module-accent="cyan">
+      <PageHeader
+        accent="cyan"
+        eyebrow="Platform config"
+        title="Feature-flag control plane"
+        description={(
+          <>
+            Define global feature flags, set per-org overrides, and audit every change. Flag definitions live in
+            <code className="mx-1">platform_feature_flags</code>; overrides live on each organisation record.
+          </>
+        )}
+        actions={(
+          <button type="button" className="pib-btn-primary btn-pib-sm" onClick={openCreate}>
             Create flag
           </button>
-        </div>
-      </header>
+        )}
+      />
 
-      {error && <div className="pib-card border border-red-500/30 bg-red-500/5 p-5 text-sm text-red-400">{error}</div>}
+      {error && <div className="pib-card border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-400">{error}</div>}
 
       {loading ? (
-        <div className="pib-card p-8 text-sm text-[var(--color-pib-text-muted)]">Loading control plane…</div>
+        <div className="pib-card p-4 text-sm text-[var(--color-pib-text-muted)]">Loading control plane…</div>
       ) : data ? (
         <>
           {/* Metrics */}
-          <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-5">
+          <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-5">
             {[
-              { label: 'Total flags', value: metrics.total },
-              { label: 'Org overrides', value: metrics.overrides },
-              { label: 'Boolean', value: metrics.boolean },
-              { label: 'String', value: metrics.string },
-              { label: 'Number', value: metrics.number },
+              { label: 'Total flags', value: metrics.total, icon: 'flag' },
+              { label: 'Org overrides', value: metrics.overrides, icon: 'tune' },
+              { label: 'Boolean', value: metrics.boolean, icon: 'toggle_on' },
+              { label: 'String', value: metrics.string, icon: 'text_fields' },
+              { label: 'Number', value: metrics.number, icon: 'numbers' },
             ].map((m) => (
-              <div key={m.label} className="pib-card p-5">
-                <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{m.label}</p>
-                <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">{m.value}</p>
+              <div key={m.label} className="pib-card p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{m.label}</p>
+                  <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan !h-6 !w-6 !rounded-md">
+                    <span className="material-symbols-outlined text-[14px]">{m.icon}</span>
+                  </span>
+                </div>
+                <p className="mt-2 text-xl font-semibold text-[var(--color-pib-text)]">{m.value}</p>
               </div>
             ))}
           </section>

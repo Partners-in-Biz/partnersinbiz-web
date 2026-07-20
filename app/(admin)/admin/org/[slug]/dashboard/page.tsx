@@ -266,36 +266,37 @@ export default function OrgDashboard() {
   const hasLast30DaysData = last30DaysData.some((point) => point.value > 0)
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto">
+    <div className="mx-auto max-w-6xl space-y-6" data-module-accent="cyan">
       <PageHeader
+        accent="cyan"
         eyebrow="Admin org dashboard"
         title={`${getGreeting()} — ${displayOrgName}`}
         description={new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         actions={(
-          <Link href={`/admin/org/${slug}/projects`} className="btn-pib-primary text-sm font-label">
+          <Link href={`/admin/org/${slug}/projects`} className="btn-pib-primary btn-pib-sm font-label">
             + New operator project
           </Link>
         )}
         className="capitalize"
       />
 
-      <section className="space-y-4">
+      <section className="space-y-3">
         <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
           <div>
             <p className="pib-label">
               Admin control plane
             </p>
-            <h2 className="mt-1 text-xl font-headline font-bold text-[var(--color-pib-text)]">
+            <h2 className="mt-1 text-base font-headline font-semibold text-[var(--color-pib-text)]">
               Control what the selected organisation can access and when work ships.
             </h2>
           </div>
-          <Link href={`/admin/org/${slug}/settings`} className="btn-pib-secondary text-xs font-label">
+          <Link href={`/admin/org/${slug}/settings`} className="btn-pib-secondary btn-pib-sm font-label">
             Configure controls
           </Link>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-3">
-          <div className="pib-card-section p-5">
+        <div className="grid gap-3 lg:grid-cols-3">
+          <div className="pib-card-section p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="pib-label">Client portal exposure</p>
@@ -303,7 +304,9 @@ export default function OrgDashboard() {
                   {enabledPortalModules} of {PORTAL_MODULE_ROWS.length} client-facing modules enabled.
                 </p>
               </div>
-              <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-text-muted)]">visibility</span>
+              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan !h-7 !w-7 !rounded-md">
+                <span className="material-symbols-outlined text-[16px]">visibility</span>
+              </span>
             </div>
             <div className="mt-3 space-y-2">
               {portalModules.map((module) => (
@@ -323,7 +326,7 @@ export default function OrgDashboard() {
             </div>
           </div>
 
-          <div className="pib-card-section p-5">
+          <div className="pib-card-section p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="pib-label">Access and roles</p>
@@ -331,12 +334,14 @@ export default function OrgDashboard() {
                   {members.length} people can use or administer this organisation.
                 </p>
               </div>
-              <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-text-muted)]">groups</span>
+              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan !h-7 !w-7 !rounded-md">
+                <span className="material-symbols-outlined text-[16px]">groups</span>
+              </span>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2">
               {Object.entries(roleCounts).length > 0 ? Object.entries(roleCounts).map(([role, count]) => (
                 <div key={role} className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)] px-3 py-2">
-                  <p className="text-lg font-headline font-bold text-[var(--color-pib-text)]">{count}</p>
+                  <p className="text-base font-headline font-bold text-[var(--color-pib-text)]">{count}</p>
                   <p className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                     {roleLabel(role)}
                   </p>
@@ -352,7 +357,7 @@ export default function OrgDashboard() {
             )}
           </div>
 
-          <div className="pib-card-section p-5">
+          <div className="pib-card-section p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="pib-label">Operating rules</p>
@@ -360,7 +365,9 @@ export default function OrgDashboard() {
                   Approval gates and send windows that control client-side publishing.
                 </p>
               </div>
-              <span className="material-symbols-outlined text-[20px] text-[var(--color-pib-text-muted)]">rule_settings</span>
+              <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan !h-7 !w-7 !rounded-md">
+                <span className="material-symbols-outlined text-[16px]">rule_settings</span>
+              </span>
             </div>
             <dl className="mt-3 space-y-2 text-xs">
               <div className="flex items-center justify-between gap-3">
@@ -388,24 +395,24 @@ export default function OrgDashboard() {
         </div>
       </section>
 
-      <section className="space-y-4">
+      <section className="space-y-3">
         <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
           <div>
             <p className="pib-label">
               Live operator workload
             </p>
-            <h2 className="mt-1 text-lg font-headline font-bold text-[var(--color-pib-text)]">
+            <h2 className="mt-1 text-base font-headline font-semibold text-[var(--color-pib-text)]">
               Who is working on what right now
             </h2>
           </div>
-          <Link href={`/admin/org/${slug}/agent/board`} className="btn-pib-secondary text-xs font-label">
+          <Link href={`/admin/org/${slug}/agent/board`} className="btn-pib-secondary btn-pib-sm font-label">
             Open agent board
           </Link>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
-          <div className="pib-card-section p-5">
-            <p className="text-3xl font-headline font-bold text-[var(--color-pib-text)]">{activeTaskCards.length}</p>
+        <div className="grid gap-3 lg:grid-cols-[200px_1fr]">
+          <div className="pib-card-section p-4">
+            <p className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">{activeTaskCards.length}</p>
             <p className="text-xs text-[var(--color-pib-text-muted)]">active tasks across {activeAgents} assigned operators</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {statusEntries.length > 0 ? statusEntries.map(([status, count]) => (
@@ -450,9 +457,9 @@ export default function OrgDashboard() {
       </section>
 
       {/* ── Stat Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {loading ? (
-          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28" />)
+          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24" />)
         ) : (
           <>
             <StatCardWithChart
@@ -487,15 +494,14 @@ export default function OrgDashboard() {
       <ScheduledContentPreviewCards slug={slug} posts={scheduledPosts} loading={loading} />
 
       {/* ── Projects + Social Status ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
         {/* Projects List */}
-        <Surface className="lg:col-span-2 space-y-3">
+        <Surface className="space-y-3 lg:col-span-2" accentEdge="cyan">
           <div className="flex items-center justify-between">
             <p className="pib-label">Projects</p>
             <Link
               href={`/admin/org/${slug}/projects`}
-              className="text-[10px] font-label uppercase tracking-wide"
-              style={{ color: 'var(--color-accent-v2)' }}
+              className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-accent)]"
             >
               View all →
             </Link>
@@ -503,31 +509,30 @@ export default function OrgDashboard() {
 
           {loading ? (
             <div className="space-y-2">
-              {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14" />)}
+              {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12" />)}
             </div>
           ) : projects.length === 0 ? (
-            <div className="py-8 text-center">
-              <p className="text-[var(--color-pib-text-muted)] text-sm">No selected-org projects yet.</p>
+            <div className="py-6 text-center">
+              <p className="text-sm text-[var(--color-pib-text-muted)]">No selected-org projects yet.</p>
               <Link
                 href={`/admin/org/${slug}/projects`}
-                className="text-sm mt-2 inline-block"
-                style={{ color: 'var(--color-accent-v2)' }}
+                className="mt-2 inline-block text-sm text-[var(--color-pib-accent)]"
               >
                 Create the first operator project →
               </Link>
             </div>
           ) : (
-            <div className="space-y-1 -mx-6">
+            <div className="-mx-4 space-y-0.5 sm:-mx-5">
               {projects.slice(0, 6).map((project) => (
                 <Link
                   key={project.id}
                   href={`/admin/org/${slug}/projects/${project.id}`}
-                  className="flex items-center gap-4 px-6 py-3 hover:bg-[var(--color-row-hover)] transition-colors rounded-lg"
+                  className="flex items-center gap-3 rounded-md px-4 py-2.5 transition-colors hover:bg-[var(--color-row-hover)] sm:px-5"
                 >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-[var(--color-pib-text)] truncate">{project.name}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{project.name}</p>
                     {project.description && (
-                      <p className="text-xs text-[var(--color-pib-text-muted)] truncate mt-0.5">{project.description}</p>
+                      <p className="mt-0.5 truncate text-xs text-[var(--color-pib-text-muted)]">{project.description}</p>
                     )}
                   </div>
                   <StatusBadge status={project.status} />
@@ -543,7 +548,7 @@ export default function OrgDashboard() {
             Post Status
           </p>
           {loading ? (
-            <Skeleton className="h-[220px]" />
+            <Skeleton className="h-[200px]" />
           ) : statusDonut.length > 0 ? (
             <DonutChart
               data={statusDonut}
@@ -551,7 +556,7 @@ export default function OrgDashboard() {
               centerLabel="Total"
             />
           ) : (
-            <div className="py-8 text-center text-sm text-[var(--color-pib-text-muted)]">
+            <div className="py-6 text-center text-sm text-[var(--color-pib-text-muted)]">
               No social posts yet.
             </div>
           )}
@@ -560,7 +565,7 @@ export default function OrgDashboard() {
 
       {/* ── Social Analytics Row ── */}
       {!loading && socialStats && (
-        <div className={`grid grid-cols-1 gap-4 ${platformBarData.length > 0 ? 'lg:grid-cols-2' : ''}`}>
+        <div className={`grid grid-cols-1 gap-3 ${platformBarData.length > 0 ? 'lg:grid-cols-2' : ''}`}>
           {/* Platform Breakdown */}
           {platformBarData.length > 0 && (
             <Surface className="space-y-3">
@@ -570,8 +575,7 @@ export default function OrgDashboard() {
                 </p>
                 <Link
                   href={`/admin/org/${slug}/social`}
-                  className="text-[10px] font-label uppercase tracking-wide"
-                  style={{ color: 'var(--color-accent-v2)' }}
+                  className="text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-accent)]"
                 >
                   View Social →
                 </Link>
@@ -587,18 +591,18 @@ export default function OrgDashboard() {
                 <p className="pib-label">
                   Publishing Trend
                 </p>
-                <p className="text-lg font-headline font-bold text-[var(--color-pib-text)] mt-0.5">
+                <p className="mt-0.5 text-base font-headline font-semibold text-[var(--color-pib-text)]">
                   {socialStats.last30Days} posts
                 </p>
               </div>
-              <span className="text-[10px] text-[var(--color-pib-text-muted)] bg-[var(--color-pib-surface-2)] px-2 py-1 rounded">
+              <span className="rounded bg-[var(--color-pib-surface-2)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)]">
                 Last 30 days
               </span>
             </div>
             {hasLast30DaysData ? (
-              <TrendAreaChart data={last30DaysData} height={160} color="var(--color-pib-green)" />
+              <TrendAreaChart data={last30DaysData} height={140} color="var(--color-pib-green)" />
             ) : (
-              <div className="h-40 flex items-center justify-center text-sm text-[var(--color-pib-text-muted)]">
+              <div className="flex h-32 items-center justify-center text-sm text-[var(--color-pib-text-muted)]">
                 No posts in the last 30 days.
               </div>
             )}
@@ -609,7 +613,7 @@ export default function OrgDashboard() {
       {/* ── Quick Actions ── */}
       <Surface>
         <p className="pib-label mb-3">Quick Actions</p>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {[
             { label: 'Projects',     href: `/admin/org/${slug}/projects` },
             { label: 'Social Queue', href: `/admin/org/${slug}/social` },
@@ -618,7 +622,7 @@ export default function OrgDashboard() {
             { label: 'Billing',      href: `/admin/org/${slug}/billing` },
             { label: 'Analytics',    href: `/admin/org/${slug}/dashboard?panel=analytics` },
           ].map(a => (
-            <Link key={a.href} href={a.href} className="btn-pib-secondary text-xs font-label">{a.label}</Link>
+            <Link key={a.href} href={a.href} className="btn-pib-secondary btn-pib-sm font-label">{a.label}</Link>
           ))}
         </div>
       </Surface>

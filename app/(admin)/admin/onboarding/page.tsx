@@ -194,6 +194,7 @@ export default function OnboardingPage() {
   return (
     <div className="px-4 py-6 md:px-8">
       <PageHeader
+        accent="cyan"
         eyebrow="Client onboarding"
         title="Onboarding queue"
         description="Triage incoming onboarding submissions: track progress, assign an admin, leave internal notes, and email the contact."

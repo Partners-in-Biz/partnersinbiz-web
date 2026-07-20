@@ -652,17 +652,23 @@ function MetricCard({
   }[tone]
 
   return (
-    <Surface className="p-4">
-      <div className="flex items-start justify-between gap-4">
+    <Surface className="p-3" accentEdge={tone === 'accent' ? 'cyan' : false}>
+      <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</p>
-          <p className="mt-3 text-3xl font-headline font-bold leading-none text-[var(--color-pib-text)]">{value}</p>
+          <p className="mt-2 text-2xl font-headline font-bold leading-none text-[var(--color-pib-text)]">{value}</p>
         </div>
-        <span className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border ${toneClass}`}>
-          <span className="material-symbols-outlined text-[21px]">{icon}</span>
-        </span>
+        {tone === 'accent' ? (
+          <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan !h-8 !w-8 !rounded-md">
+            <span className="material-symbols-outlined text-[18px]">{icon}</span>
+          </span>
+        ) : (
+          <span className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border ${toneClass}`}>
+            <span className="material-symbols-outlined text-[18px]">{icon}</span>
+          </span>
+        )}
       </div>
-      <p className="mt-4 text-xs leading-5 text-[var(--color-pib-text-muted)]">{detail}</p>
+      <p className="mt-3 text-xs leading-5 text-[var(--color-pib-text-muted)]">{detail}</p>
     </Surface>
   )
 }
@@ -671,7 +677,7 @@ function DashboardQuickLink({ href, icon, label }: { href: string; icon: string;
   return (
     <Link
       href={href}
-      className="inline-flex items-center gap-2 rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] px-3 py-2 text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)] transition-colors hover:border-[var(--color-pib-accent)]/50 hover:text-[var(--color-pib-text)]"
+      className="btn-pib-secondary btn-pib-sm inline-flex items-center gap-1.5"
     >
       <span className="material-symbols-outlined text-[16px]">{icon}</span>
       {label}
@@ -962,8 +968,9 @@ export default function MissionControlDashboard() {
   if (!hydrated) return <DashboardLoadingShell />
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 pb-8">
+    <div className="mx-auto max-w-7xl space-y-6 pb-8" data-module-accent="cyan">
       <PageHeader
+        accent="cyan"
         eyebrow="Admin / Dashboard"
         title="Operating dashboard"
         description="PiB operator control plane — agent work, selected-organisation health, approvals, and platform movement."
@@ -987,7 +994,7 @@ export default function MissionControlDashboard() {
         )}
       />
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Clients" value={visibleOrgs.length} icon="groups" detail="Active selected-organisation command surfaces across the platform." />
         <MetricCard label="Active tasks" value={activeTasks.length} icon="task_alt" detail="Queued or moving agent and delivery tasks." />
         <MetricCard label="Approvals" value={data.approvals.length} icon="rate_review" tone={dashboardTone(data.approvals.length, true)} detail="Human review items waiting in the queue." />

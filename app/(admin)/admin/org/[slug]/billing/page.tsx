@@ -161,15 +161,16 @@ export default function BillingPage() {
     : `/admin/invoicing/new?orgId=${encodeURIComponent(orgId)}`
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto">
+    <div className="mx-auto max-w-5xl space-y-6" data-module-accent="cyan">
       <PageHeader
+        accent="cyan"
         eyebrow="Admin org / Billing"
         title="Billing"
         description="Invoice pipeline, outstanding balances, and paid revenue for this selected org."
         actions={(
           <Link
             href={newInvoiceHref}
-            className="btn-pib-primary text-sm font-label"
+            className="btn-pib-primary btn-pib-sm font-label"
           >
             + New Invoice
           </Link>
@@ -177,7 +178,7 @@ export default function BillingPage() {
       />
 
       {/* Stats Row */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-3">
         {loading ? (
           Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24" />)
         ) : (

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
+import { PageHeader } from '@/components/ui/AppFoundation'
 import { copyToClipboard } from '@/lib/utils/clipboard'
 import { LEGACY_GOOGLE_WORKSPACE_CONNECTION_KEY, UNIFIED_GOOGLE_WORKSPACE_CONNECTION_KEY, UNIFIED_GOOGLE_WORKSPACE_SCOPES, workspaceScopeRows } from '@/lib/mailbox/googleOAuth'
 import { X_MCP_CAPABILITY_SCOPES, X_MCP_CLIENT_CONFIG, X_MCP_CONNECTION_KEY, X_MCP_SCOPE_ROWS } from '@/lib/workspace-os/xMcp'
@@ -544,11 +545,13 @@ export default function OrgSettingsPage() {
   if (loading) return <div className="pib-skeleton h-96 max-w-3xl mx-auto" />
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8">
-      <header>
-        <p className="eyebrow">{orgName} · Settings</p>
-        <h1 className="pib-page-title mt-2">Organisation Settings</h1>
-      </header>
+    <div className="mx-auto max-w-3xl space-y-6" data-module-accent="cyan">
+      <PageHeader
+        accent="cyan"
+        eyebrow={`${orgName || slug} · Settings`}
+        title="Organisation Settings"
+        description="Workspace identity, portal modules, folder registry, and billing details for this organisation."
+      />
 
       {/* Org ID */}
       {orgId && (
@@ -597,13 +600,13 @@ export default function OrgSettingsPage() {
                   type="button"
                   onClick={prepareRequiredWorkspaceOauths}
                   disabled={preparingOauths || missingWorkspaceOauthCount === 0}
-                  className="btn-pib-primary text-xs"
+                  className="btn-pib-primary btn-pib-sm"
                 >
                   {preparingOauths ? 'Preparing…' : missingWorkspaceOauthCount > 0 ? `Prepare ${missingWorkspaceOauthCount} OAuth${missingWorkspaceOauthCount === 1 ? '' : 's'}` : 'OAuth records ready'}
                 </button>
                 <a
                   href={orgId ? `/api/v1/workspace-connections/google/authorize?orgId=${encodeURIComponent(orgId)}&connectionKey=${encodeURIComponent(googleWorkspaceAuthorizeKey)}&returnTo=${encodeURIComponent(`/admin/org/${slug}/settings`)}` : '/api/v1/workspace-connections/google/authorize'}
-                  className="btn-pib-secondary text-xs"
+                  className="btn-pib-secondary btn-pib-sm"
                 >
                   Authorize Google Workspace
                 </a>
@@ -648,11 +651,11 @@ export default function OrgSettingsPage() {
                 type="button"
                 onClick={prepareXMcpConnection}
                 disabled={preparingXMcp || Boolean(xMcpConnection)}
-                className="btn-pib-primary text-xs"
+                className="btn-pib-primary btn-pib-sm"
               >
                 {preparingXMcp ? 'Preparing…' : xMcpConnection ? 'X MCP record ready' : 'Prepare personal X MCP'}
               </button>
-              <a href="https://docs.x.com/tools/mcp" className="btn-pib-secondary text-xs" target="_blank" rel="noreferrer">
+              <a href="https://docs.x.com/tools/mcp" className="btn-pib-secondary btn-pib-sm" target="_blank" rel="noreferrer">
                 Open X MCP docs
               </a>
             </div>
@@ -700,7 +703,7 @@ export default function OrgSettingsPage() {
                 </select>
               </div>
               <div className="flex items-end">
-                <button type="submit" disabled={savingFolderMapping} className="btn-pib-primary text-xs">
+                <button type="submit" disabled={savingFolderMapping} className="btn-pib-primary btn-pib-sm">
                   {savingFolderMapping ? 'Saving…' : 'Add Drive folder mapping'}
                 </button>
               </div>
@@ -736,7 +739,7 @@ export default function OrgSettingsPage() {
                   type="button"
                   onClick={() => handleFolderResync(folder)}
                   disabled={resyncingFolderId === folder.id}
-                  className="btn-pib-secondary text-xs"
+                  className="btn-pib-secondary btn-pib-sm"
                   aria-label={`Resync ${folder.name}`}
                 >
                   {resyncingFolderId === folder.id ? 'Planning…' : 'Create sync plan'}
@@ -1151,7 +1154,7 @@ export default function OrgSettingsPage() {
         </div>
 
         <div className="flex gap-3 items-center">
-          <button type="submit" disabled={saving} className="btn-pib-primary font-label">
+          <button type="submit" disabled={saving} className="btn-pib-primary btn-pib-sm font-label">
             {saving ? 'Saving…' : 'Save Settings'}
           </button>
           {saved && <span className="text-sm text-[var(--color-pib-green)]">Saved successfully</span>}
