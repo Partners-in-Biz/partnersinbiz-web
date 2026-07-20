@@ -293,7 +293,8 @@ export default function AgentsBoardClient() {
 
           {/* Panel */}
           <div
-            className="fixed inset-y-0 right-0 z-50 w-full max-w-2xl bg-[var(--color-pib-bg)] border-l border-[var(--color-pib-line)] shadow-2xl flex flex-col"
+            className="fixed inset-y-0 right-0 z-50 flex w-full max-w-2xl flex-col border-l border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] shadow-2xl"
+            data-module-accent="cyan"
             style={{ animation: 'slideIn 0.2s ease-out' }}
           >
             <AgentDetailPanel

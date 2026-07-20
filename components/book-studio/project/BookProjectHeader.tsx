@@ -96,6 +96,7 @@ export function BookProjectHeader({
   return (
     <div className="flex flex-col gap-3">
       <PageHeader
+        accent="rose"
         eyebrow="Book Studio · Project workspace"
         title={project.title ?? 'Untitled book project'}
         meta={
@@ -130,15 +131,15 @@ export function BookProjectHeader({
           <div className="flex flex-wrap items-center gap-2">
             {showOperatorActions ? (
               <>
-                <button type="button" className="btn-secondary" disabled={openingCanvas} onClick={onOpenInCanvas}>
+                <button type="button" className="btn-pib-secondary btn-pib-sm font-label" disabled={openingCanvas} onClick={onOpenInCanvas}>
                   {openingCanvas ? 'Opening…' : 'Open in canvas'}
                 </button>
-                <button type="button" className="btn-primary" disabled={assembling} onClick={onAssemble}>
+                <button type="button" className="btn-pib-primary btn-pib-sm font-label" disabled={assembling} onClick={onAssemble}>
                   {assembling ? 'Assembling…' : 'Assemble book'}
                 </button>
               </>
             ) : onRequestDraft ? (
-              <button type="button" className="btn-primary" disabled={requestingDraft} onClick={onRequestDraft}>
+              <button type="button" className="btn-pib-primary btn-pib-sm font-label" disabled={requestingDraft} onClick={onRequestDraft}>
                 {requestingDraft ? 'Requesting…' : 'Request AI draft'}
               </button>
             ) : null}
@@ -146,7 +147,7 @@ export function BookProjectHeader({
               <button
                 key={toState}
                 type="button"
-                className="btn-secondary"
+                className="btn-pib-secondary btn-pib-sm font-label"
                 disabled={transitioningTo !== null}
                 onClick={() => handleTransition(toState)}
               >

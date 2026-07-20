@@ -2,6 +2,7 @@
 
 import type { YouTubeChannelWorkspace } from '@/lib/youtube-studio/types'
 import { channelNeedsReconnect, ConnectionChip } from '@/components/youtube-studio/YouTubeStudioCards'
+import { GlassBar } from '@/components/ui/HudChip'
 
 interface YouTubeStudioChannelHeaderProps {
   channels: YouTubeChannelWorkspace[]
@@ -23,15 +24,15 @@ export function YouTubeStudioChannelHeader({
 
   if (channels.length === 0) {
     return (
-      <section className="pib-card-section flex flex-wrap items-center justify-between gap-3 p-4">
+      <GlassBar className="flex-wrap items-center justify-between gap-2 p-3" data-module-accent="rose">
         <p className="text-sm text-[var(--color-pib-text-muted)]">No YouTube channel is connected yet. Linking a channel unlocks requests, edits, and publishing.</p>
-        <a href={oauthHref} className="pib-btn-primary text-sm">Link YouTube channel</a>
-      </section>
+        <a href={oauthHref} className="btn-pib-primary btn-pib-sm font-label">Link YouTube channel</a>
+      </GlassBar>
     )
   }
 
   return (
-    <section className="pib-card-section flex flex-wrap items-center gap-3 p-4">
+    <GlassBar className="flex-wrap items-center gap-2 p-3" data-module-accent="rose">
       <label className="flex min-w-0 items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
         <span className="pib-label">Channel</span>
         <select
@@ -55,7 +56,7 @@ export function YouTubeStudioChannelHeader({
             <span className="truncate text-xs text-[var(--color-pib-text-muted)]">{selected.youtubeHandle}</span>
           ) : null}
           {channelNeedsReconnect(selected) ? (
-            <a href={oauthHref} className="pib-btn-primary text-sm">Reconnect</a>
+            <a href={oauthHref} className="btn-pib-primary btn-pib-sm font-label">Reconnect</a>
           ) : null}
         </div>
       ) : (
@@ -68,7 +69,7 @@ export function YouTubeStudioChannelHeader({
           ))}
         </div>
       )}
-      <a href={linkAnotherChannelHref} className="pib-btn-ghost ml-auto text-sm">Link another channel</a>
-    </section>
+      <a href={linkAnotherChannelHref} className="btn-pib-ghost btn-pib-sm ml-auto font-label">Link another channel</a>
+    </GlassBar>
   )
 }

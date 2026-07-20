@@ -206,7 +206,7 @@ export function AuditRunnerClient({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4" data-module-accent="green">
       <SeoToolHeader
         eyebrow="Site audit"
         title="Audit Runner"
@@ -265,7 +265,7 @@ export function AuditRunnerClient({
       )}
 
       {!running && displayScore !== undefined && displayBreakdown && (
-        <div className="pib-card p-8 flex flex-col items-center gap-5">
+        <div className="pib-card p-5 flex flex-col items-center gap-5">
           <ScoreRing score={displayScore} />
           <BreakdownChips breakdown={displayBreakdown} />
           {result && (

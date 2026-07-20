@@ -69,7 +69,7 @@ function ReadinessMetric({
           {icon}
         </span>
       </div>
-      <p className="relative font-display text-3xl leading-none text-[var(--color-pib-text)]">
+      <p className="relative text-xl font-semibold tabular-nums leading-none text-[var(--color-pib-text)]">
         {value} {label}
       </p>
       <p className="relative text-xs leading-5 text-[var(--color-pib-text-muted)]">{detail}</p>

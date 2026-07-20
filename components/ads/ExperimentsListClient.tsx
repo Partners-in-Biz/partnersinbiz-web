@@ -228,7 +228,7 @@ export function ExperimentsListClient({ experiments, orgSlug }: Props) {
       )}
 
       {filtered.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-white/10 p-8 text-center">
+        <div className="rounded-lg border border-dashed border-white/10 p-6 text-center">
           <p className="text-white/60">No experiments found.</p>
           {activeTab === 'all' && (
             <Link

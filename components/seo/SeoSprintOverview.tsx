@@ -1,4 +1,6 @@
 import Link from 'next/link'
+import { PageHeader } from '@/components/ui/AppFoundation'
+import { StatCard } from '@/components/ui/StatCard'
 
 const PHASE_LABELS = ['Pre-launch', 'Foundation', 'Content', 'Authority', 'Compounding'] as const
 
@@ -115,16 +117,16 @@ export function SeoSprintOverview({
 
   if (sprints.length === 0) {
     return (
-      <div className="pib-card p-12 text-center max-w-xl mx-auto">
+      <div className="pib-card p-6 text-center max-w-xl mx-auto" data-module-accent="green">
         <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green mx-auto mb-3"><span className="material-symbols-outlined text-[22px]">
           trending_up
         </span></span>
-        <h1 className="text-2xl font-semibold mb-3">{emptyTitle}</h1>
+        <h1 className="pib-page-title mb-2">{emptyTitle}</h1>
         <p className="text-sm text-[var(--color-pib-text-muted)]">
           {emptyDescription}
         </p>
         {emptyAction && (
-          <Link href={emptyAction.href} className="pib-btn-primary mt-6 inline-flex text-sm">
+          <Link href={emptyAction.href} className="btn-pib-primary btn-pib-sm mt-4 inline-flex">
             {emptyAction.label}
           </Link>
         )}
@@ -134,15 +136,14 @@ export function SeoSprintOverview({
 
   if (sprints.length > 1) {
     return (
-      <div className="space-y-8">
-        <header>
-          <p className="eyebrow">SEO</p>
-          <h1 className="font-headline text-3xl md:text-4xl font-semibold mt-2">SEO Sprints</h1>
-          <p className="text-sm text-[var(--color-pib-text-muted)]">
-            Track progress, performance, and impact over each 90-day plan.
-          </p>
-        </header>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="space-y-4" data-module-accent="green">
+        <PageHeader
+          accent="green"
+          eyebrow="SEO"
+          title="SEO Sprints"
+          description="Track progress, performance, and impact over each 90-day plan."
+        />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {sprints.map((sprint) => {
             const day = sprint.currentDay ?? 0
             const phase = sprint.currentPhase ?? 0
@@ -177,15 +178,15 @@ export function SeoSprintOverview({
   const signals = sprint.health?.signals ?? []
 
   return (
-    <div className="space-y-8">
-      <section className="pib-card p-8 space-y-5 overflow-hidden relative">
-        <div className="absolute inset-x-0 top-0 h-1 bg-[var(--color-pib-accent)]" />
-        <div className="flex items-start justify-between flex-wrap gap-4">
+    <div className="space-y-4" data-module-accent="green">
+      <section className="pib-card p-5 space-y-4 overflow-hidden relative">
+        <div className="absolute inset-x-0 top-0 h-0.5 bg-[var(--color-pib-accent)]" />
+        <div className="flex items-start justify-between flex-wrap gap-3">
           <div className="space-y-1">
             <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">
               SEO Sprint - {sprint.siteName}
             </p>
-            <h1 className="text-3xl font-semibold">
+            <h1 className="pib-page-title">
               {phase === 4 ? `Phase 4 - Compounding - Day ${day}` : `Day ${day} of 90`}
             </h1>
             <p className="text-sm text-[var(--color-pib-text-muted)]">
@@ -193,7 +194,7 @@ export function SeoSprintOverview({
             </p>
           </div>
           <div className="text-right">
-            <div className="text-4xl font-semibold tabular-nums">{stats.pct}%</div>
+            <div className="text-2xl font-semibold tabular-nums">{stats.pct}%</div>
             <div className="text-xs text-[var(--color-pib-text-muted)]">tasks complete</div>
           </div>
         </div>
@@ -226,34 +227,38 @@ export function SeoSprintOverview({
         </section>
       )}
 
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard
+          accent="green"
           label="Won this week"
           value={String(stats.wonThisWeek)}
-          sub={`${stats.inFlightCount} in flight`}
+          detail={`${stats.inFlightCount} in flight`}
           icon="task_alt"
         />
         <StatCard
+          accent="green"
           label="Keywords ranking"
           value={`${stats.rankingKeywords}/${stats.totalKeywords}`}
-          sub={`${stats.topThree} in top 3`}
+          detail={`${stats.topThree} in top 3`}
           icon="emoji_events"
         />
         <StatCard
+          accent="green"
           label="Content live"
           value={`${stats.liveContent}/${stats.totalContent}`}
-          sub="Posts published"
+          detail="Posts published"
           icon="article"
         />
         <StatCard
+          accent="green"
           label="Latest audit"
           value={stats.latestAudit?.score != null ? `${stats.latestAudit.score}` : '-'}
-          sub={stats.latestAudit?.snapshotDay != null ? `Day ${stats.latestAudit.snapshotDay}` : 'Pending'}
+          detail={stats.latestAudit?.snapshotDay != null ? `Day ${stats.latestAudit.snapshotDay}` : 'Pending'}
           icon="health_and_safety"
         />
       </section>
 
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="pib-card p-5 space-y-3 lg:col-span-1">
           <h3 className="font-semibold text-sm flex items-center gap-2">
             <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green"><span className="material-symbols-outlined text-[15px]">today</span></span>
@@ -336,21 +341,6 @@ export function SeoSprintOverview({
         <DeepLink href={hrefForSprint(sprint, '/blog')} icon="rss_feed" label="Blog drafts" />
         <DeepLink href={hrefForSprint(sprint, '/performance')} icon="speed" label="Performance" />
       </section>
-    </div>
-  )
-}
-
-function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
-  return (
-    <div className="pib-stat-card space-y-1">
-      <div className="flex items-center justify-between">
-        <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)]">{label}</p>
-        <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)] opacity-70">
-          {icon}
-        </span>
-      </div>
-      <p className="text-2xl font-semibold tabular-nums">{value}</p>
-      <p className="text-[11px] text-[var(--color-pib-text-muted)]">{sub}</p>
     </div>
   )
 }

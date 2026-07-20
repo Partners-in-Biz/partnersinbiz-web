@@ -162,11 +162,11 @@ export function LifeOsPlanningWorkbench() {
   }
 
   return (
-    <section className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">Life OS</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-slate-950">Life OS planning engine</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-950">Life OS planning engine</h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
             Break long-term direction into quarterly outcomes, weekly commitments, daily actions, and reviewable evidence without turning missed days into shame.
           </p>

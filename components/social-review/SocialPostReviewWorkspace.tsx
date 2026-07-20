@@ -506,7 +506,7 @@ export function SocialPostReviewWorkspace({
         <Link href={backHref} className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">
           &larr; Back to {backLabel}
         </Link>
-        <div className="pib-card p-8 text-center">
+        <div className="pib-card p-6 text-center">
           <p className="text-[var(--color-pib-text-muted)]">{loadError || 'This post is no longer available.'}</p>
         </div>
       </div>
@@ -526,7 +526,7 @@ export function SocialPostReviewWorkspace({
             &larr; Back to {backLabel}
           </Link>
           <p className="eyebrow mt-2">{eyebrow}</p>
-          <h1 className="font-headline text-2xl md:text-3xl text-[var(--color-pib-text)] mt-1">{title}</h1>
+          <h1 className="font-headline text-xl md:text-2xl text-[var(--color-pib-text)] mt-1">{title}</h1>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <span className="pib-pill pib-pill-rose">

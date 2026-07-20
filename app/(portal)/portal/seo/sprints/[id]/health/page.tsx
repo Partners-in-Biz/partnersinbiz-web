@@ -25,7 +25,7 @@ export default async function HealthTab({ params }: { params: Promise<{ id: stri
   const signals = sprint?.health?.signals ?? []
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4" data-module-accent="green">
       <section className="pib-card-section">
         <div className="pib-card-section-header">
           <h3 className="font-semibold text-sm text-[var(--color-pib-text)]">Integrations</h3>

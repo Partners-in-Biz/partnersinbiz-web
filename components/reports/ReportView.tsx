@@ -35,11 +35,11 @@ interface KpiTileProps {
 
 function KpiTile({ label, value, delta, hint }: KpiTileProps) {
   return (
-    <div className="bento-tile rounded-2xl border border-white/10 bg-white/[0.02] p-6">
-      <div className="text-[10px] uppercase tracking-[0.25em] text-white/40 font-mono mb-2">
+    <div className="bento-tile rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+      <div className="text-[10px] uppercase tracking-[0.25em] text-white/40 font-mono mb-1.5">
         {label}
       </div>
-      <div className="text-3xl font-display tabular-nums">{value}</div>
+      <div className="text-2xl md:text-3xl font-display tabular-nums">{value}</div>
       {(delta !== undefined || hint) && (
         <div className="mt-2 text-xs">
           {delta !== undefined && (
@@ -152,19 +152,19 @@ export default function ReportView({ report }: { report: Report }) {
   const k = report.kpis
   const isCustom = Boolean(report.custom && report.custom.sections.length > 0)
   return (
-    <article className="report-view max-w-5xl mx-auto px-6 md:px-10 py-12 text-[var(--report-text)]" style={{
+    <article className="report-view max-w-5xl mx-auto px-6 md:px-8 py-8 text-[var(--report-text)]" style={{
       // Reports always use the dark+amber Partners-in-Biz brand,
       // overlaid with the client's accent.
       ['--report-bg' as never]: report.brand.bg,
       ['--report-text' as never]: report.brand.text,
       ['--report-accent' as never]: report.brand.accent,
     } as React.CSSProperties}>
-      <header className="flex flex-wrap items-end justify-between gap-6 pb-10 border-b border-white/10">
+      <header className="flex flex-wrap items-end justify-between gap-4 pb-8 border-b border-white/10">
         <div>
           <p className="text-[10px] uppercase tracking-[0.4em] text-white/40 font-mono">
             {report.type === 'monthly' ? 'Monthly performance report' : `${report.type} report`}
           </p>
-          <h1 className="mt-3 text-4xl md:text-5xl font-display leading-tight">
+          <h1 className="mt-2 text-3xl md:text-4xl font-display leading-tight">
             {report.brand.orgName}
           </h1>
           <p className="mt-2 text-sm text-white/60">
@@ -174,7 +174,7 @@ export default function ReportView({ report }: { report: Report }) {
         </div>
         <div className="text-right">
           {report.brand.orgLogoUrl ? (
-            <img src={report.brand.orgLogoUrl} alt="" className="h-12 inline-block opacity-90" />
+            <img src={report.brand.orgLogoUrl} alt="" className="h-10 inline-block opacity-90" />
           ) : null}
           <p className="mt-3 text-[10px] uppercase tracking-[0.3em] text-white/40 font-mono">
             Partners in Biz · Studio report

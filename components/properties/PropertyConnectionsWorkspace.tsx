@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { PageHeader } from '@/components/ui/AppFoundation'
 
 type Provider =
   | 'adsense'
@@ -181,18 +182,22 @@ export function PropertyConnectionsWorkspace({ backHref = '/portal/properties' }
   }
 
   return (
-    <div className="space-y-6">
-      <header className="flex items-end justify-between gap-6">
-        <div>
-          <Link href={`${backHref}/${propertyId}`} className="text-xs uppercase tracking-[0.3em] text-white/40 hover:text-white/70 transition-colors">
+    <div className="space-y-4" data-module-accent="cyan">
+      <PageHeader
+        accent="cyan"
+        eyebrow={
+          <Link href={`${backHref}/${propertyId}`} className="hover:text-[var(--color-pib-text)] transition-colors">
             ← Back to property
           </Link>
-          <h1 className="mt-2 text-3xl font-display">Connections</h1>
-          <p className="mt-1 text-sm text-white/60 max-w-xl">
-            Wire this property to ad networks, app stores, and analytics platforms. Daily pulls write into the unified <code className="font-mono text-xs px-1 py-0.5 rounded bg-white/5">metrics</code> fact table.
-          </p>
-        </div>
-      </header>
+        }
+        title="Connections"
+        description={
+          <>
+            Wire this property to ad networks, app stores, and analytics platforms. Daily pulls write into the unified{' '}
+            <code className="font-mono text-xs px-1 py-0.5 rounded bg-[var(--color-pib-surface-2)]">metrics</code> fact table.
+          </>
+        }
+      />
 
       {flash && (
         <div className={`rounded-xl border px-4 py-3 text-sm ${
@@ -218,15 +223,15 @@ export function PropertyConnectionsWorkspace({ backHref = '/portal/properties' }
             const status = conn?.status ?? 'not_connected'
             const isBusy = busy === info.provider
             return (
-              <div key={info.provider} className="rounded-xl border border-white/10 bg-white/[0.02] p-5">
+              <div key={info.provider} className="pib-card p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-1">
-                      <h3 className="text-base font-medium text-white">{info.name}</h3>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="text-sm font-semibold text-[var(--color-pib-text)]">{info.name}</h3>
                       <StatusPill status={status} />
-                      <span className="text-[10px] uppercase tracking-wider text-white/30 font-mono">{info.authKind}</span>
+                      <span className="text-[10px] uppercase tracking-wider text-[var(--color-pib-text-muted)] font-mono">{info.authKind}</span>
                     </div>
-                    <p className="text-sm text-white/60">{info.description}</p>
+                    <p className="text-xs text-[var(--color-pib-text-muted)]">{info.description}</p>
                     {conn && (
                       <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                         <Stat label="Last pulled" value={formatTs(conn.lastPulledAt)} />

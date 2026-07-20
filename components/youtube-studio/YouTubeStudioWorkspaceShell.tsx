@@ -2,6 +2,8 @@
 
 import type { ReactNode } from 'react'
 import type { YouTubeChannelWorkspace, YouTubeSeries, YouTubeVideoProject } from '@/lib/youtube-studio/types'
+import { PageHeader, Surface } from '@/components/ui/AppFoundation'
+import { StatCard } from '@/components/ui/StatCard'
 
 type YouTubeStudioWorkspaceShellSurface = 'admin' | 'portal'
 
@@ -17,15 +19,6 @@ interface YouTubeStudioWorkspaceShellProps {
   loading?: boolean
   className?: string
   children?: ReactNode
-}
-
-function StatCard({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="pib-card-section px-4 py-3 text-center">
-      <p className="text-xs text-[var(--color-pib-text-muted)]">{label}</p>
-      <p className="text-xl font-bold text-[var(--color-pib-text)]">{value}</p>
-    </div>
-  )
 }
 
 export function YouTubeStudioWorkspaceShell({
@@ -49,32 +42,31 @@ export function YouTubeStudioWorkspaceShell({
 
   if (loading) {
     return (
-      <main className={['mx-auto max-w-7xl space-y-6', className].filter(Boolean).join(' ')}>
+      <main className={['mx-auto max-w-7xl space-y-4', className].filter(Boolean).join(' ')}>
         <div className="pib-skeleton h-96" />
       </main>
     )
   }
 
   return (
-    <main className={['mx-auto max-w-7xl space-y-6', className].filter(Boolean).join(' ')}>
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="eyebrow">{eyebrow}</p>
-          <h1 className="text-3xl font-headline font-bold text-[var(--color-pib-text)]">{title}</h1>
-          <p className="mt-2 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">{description}</p>
-        </div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <StatCard label="Channels" value={channels.length} />
-          <StatCard label="Series" value={series.length} />
-          <StatCard label={surface === 'admin' ? 'Review' : 'To review'} value={reviewCount} />
-          <StatCard label={surface === 'admin' ? 'Publish' : 'Live'} value={surface === 'admin' ? publishReady : liveCount} />
-        </div>
-      </div>
+    <main className={['mx-auto max-w-7xl space-y-4', className].filter(Boolean).join(' ')} data-module-accent="rose">
+      <PageHeader
+        accent="rose"
+        eyebrow={eyebrow}
+        title={title}
+        description={description}
+        meta={(
+          <div className="grid w-full max-w-xl grid-cols-2 gap-2 sm:grid-cols-4">
+            <StatCard accent="rose" icon="subscriptions" label="Channels" value={channels.length} />
+            <StatCard accent="rose" icon="video_library" label="Series" value={series.length} />
+            <StatCard accent="rose" icon="rate_review" label={surface === 'admin' ? 'Review' : 'To review'} value={reviewCount} />
+            <StatCard accent="rose" icon="play_circle" label={surface === 'admin' ? 'Publish' : 'Live'} value={surface === 'admin' ? publishReady : liveCount} />
+          </div>
+        )}
+      />
 
       {notice ? (
-        <div className="rounded-2xl border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-4 text-sm text-[var(--color-pib-text)]">
-          {notice}
-        </div>
+        <Surface className="p-3 text-sm text-[var(--color-pib-text)]">{notice}</Surface>
       ) : null}
 
       {children}

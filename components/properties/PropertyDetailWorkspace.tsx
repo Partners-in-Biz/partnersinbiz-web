@@ -6,7 +6,7 @@ import Link from 'next/link'
 import type { Property } from '@/lib/properties/types'
 import type { PropertyStatus } from '@/lib/properties/types'
 import { copyToClipboard } from '@/lib/utils/clipboard'
-import { PageTabs } from '@/components/ui/AppFoundation'
+import { PageHeader, PageTabs } from '@/components/ui/AppFoundation'
 
 type Tab = 'overview' | 'config' | 'sequences' | 'creators' | 'analytics' | 'keys'
 type TimestampLike = string | number | Date | { _seconds?: number; seconds?: number } | null | undefined
@@ -516,7 +516,7 @@ function CreatorsTab({ property }: { property: Property }) {
         {loading ? (
           <div className="p-4"><Skeleton className="h-24 rounded-xl" /></div>
         ) : links.length === 0 ? (
-          <div className="p-8 text-center text-[var(--color-pib-text-muted)] text-sm">
+          <div className="p-5 text-center text-[var(--color-pib-text-muted)] text-sm">
             No creator links yet. Create one above to get started.
           </div>
         ) : (
@@ -1012,7 +1012,7 @@ function ConfigTab({ property, onSave }: { property: Property; onSave: (updated:
 
 function PlaceholderTab({ label }: { label: string }) {
   return (
-    <div className="pib-card p-8 text-center text-[var(--color-pib-text-muted)] text-sm">
+    <div className="pib-card p-5 text-center text-[var(--color-pib-text-muted)] text-sm">
       {label} — coming soon.
     </div>
   )
@@ -1039,29 +1039,32 @@ export function PropertyDetailWorkspace({ backHref = '/portal/properties' }: Pro
   }, [id, router, backHref])
 
   if (loading) return (
-    <div className="max-w-4xl mx-auto space-y-4">
-      <Skeleton className="h-10 w-48 rounded-xl" />
-      <Skeleton className="h-12 rounded-xl" />
-      <Skeleton className="h-40 rounded-xl" />
+    <div className="max-w-4xl mx-auto space-y-3" data-module-accent="cyan">
+      <Skeleton className="h-8 w-48 rounded-xl" />
+      <Skeleton className="h-9 rounded-xl" />
+      <Skeleton className="h-36 rounded-xl" />
     </div>
   )
 
   if (!property) return null
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => router.push(backHref)}
-          className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] text-sm"
-        >
-          ← Properties
-        </button>
-        <span className="text-[var(--color-pib-text-muted)]">/</span>
-        <h1 className="text-xl font-headline font-bold text-[var(--color-pib-text)]">{property.name}</h1>
-        <span className="text-xs text-[var(--color-pib-text-muted)] font-mono">{property.domain}</span>
-      </div>
+    <div className="max-w-4xl mx-auto space-y-4" data-module-accent="cyan">
+      <PageHeader
+        accent="cyan"
+        eyebrow={
+          <button
+            type="button"
+            onClick={() => router.push(backHref)}
+            className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1"
+          >
+            ← Properties
+          </button>
+        }
+        title={property.name}
+        description={property.domain}
+        meta={<span className="font-mono text-[10px] uppercase tracking-wider">{property.type}</span>}
+      />
 
       <PageTabs
         ariaLabel="Property detail tabs"

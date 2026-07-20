@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { PageTabs } from '@/components/ui/AppFoundation'
+import { PageHeader, PageTabs } from '@/components/ui/AppFoundation'
 import { ThemedSelect } from '@/components/ui/ThemedSelect'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
@@ -187,36 +187,35 @@ export default function PaymentsPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <header>
-        <p className="eyebrow">Finance operations</p>
-        <h1 className="pib-page-title mt-2">Finance command center</h1>
-        <p className="pib-page-sub max-w-3xl">
-          Track invoices, quote decisions, and payment pressure for the active company workspace.
-        </p>
-      </header>
+    <div className="space-y-4" data-module-accent="cyan">
+      <PageHeader
+        accent="cyan"
+        eyebrow="Finance operations"
+        title="Finance command center"
+        description="Track invoices, quote decisions, and payment pressure for the active company workspace."
+      />
 
       {!loading && (
-        <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div className="pib-stat-card">
+        <section className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="pib-stat-card" data-module-accent="cyan">
             <p className="eyebrow !text-[10px]">Workspace</p>
-            <p className="font-display text-xl mt-3 text-[var(--color-pib-text)]">{workspaceLabel}</p>
-            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)] font-mono">scoped finance view</p>
+            <p className="text-lg font-semibold mt-1 text-[var(--color-pib-text)]">{workspaceLabel}</p>
+            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)] font-mono">scoped finance view</p>
           </div>
-          <div className="pib-stat-card">
+          <div className="pib-stat-card" data-module-accent="cyan">
             <p className="eyebrow !text-[10px]">Revenue protected</p>
-            <p className="font-display text-3xl mt-3 text-[var(--color-pib-success)]">{formatCurrency(totals.totalPaid, currency)}</p>
-            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)] font-mono">{invoices.filter((invoice) => invoice.status === 'paid').length} invoices</p>
+            <p className="text-xl font-semibold mt-1 text-[var(--color-pib-success)]">{formatCurrency(totals.totalPaid, currency)}</p>
+            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)] font-mono">{invoices.filter((invoice) => invoice.status === 'paid').length} invoices</p>
           </div>
-          <div className="pib-stat-card">
+          <div className="pib-stat-card" data-module-accent="cyan">
             <p className="eyebrow !text-[10px]">Payment risk</p>
-            <p className="font-display text-3xl mt-3 text-[var(--color-pib-accent)]">{formatCurrency(totals.totalOutstanding, currency)}</p>
-            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)] font-mono">{totals.overdueInvoices} overdue invoices</p>
+            <p className="text-xl font-semibold mt-1 text-[var(--color-pib-accent)]">{formatCurrency(totals.totalOutstanding, currency)}</p>
+            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)] font-mono">{totals.overdueInvoices} overdue invoices</p>
           </div>
-          <div className="pib-stat-card">
+          <div className="pib-stat-card" data-module-accent="cyan">
             <p className="eyebrow !text-[10px]">Decision pipeline</p>
-            <p className="font-display text-3xl mt-3">{formatCurrency(totals.pendingQuotes, currency)}</p>
-            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)] font-mono">{totals.openQuotes} quotes awaiting response</p>
+            <p className="text-xl font-semibold mt-1">{formatCurrency(totals.pendingQuotes, currency)}</p>
+            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)] font-mono">{totals.openQuotes} quotes awaiting response</p>
           </div>
         </section>
       )}
@@ -236,9 +235,9 @@ export default function PaymentsPage() {
         <div className="pib-skeleton h-64" />
       ) : tab === 'invoices' ? (
         invoices.length === 0 ? (
-          <div className="bento-card p-10 text-center">
-            <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]">receipt_long</span>
-            <h2 className="font-display text-2xl mt-4">No invoices issued yet.</h2>
+          <div className="pib-card p-6 text-center">
+            <span className="material-symbols-outlined text-3xl text-[var(--color-pib-accent)]">receipt_long</span>
+            <h2 className="font-display text-lg mt-3">No invoices issued yet.</h2>
             <p className="text-sm text-[var(--color-pib-text-muted)] mt-2">Invoices will appear here once they are issued to this workspace.</p>
           </div>
         ) : (
@@ -330,9 +329,9 @@ export default function PaymentsPage() {
           </div>
         )
       ) : quotes.length === 0 ? (
-        <div className="bento-card p-10 text-center">
-          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]">request_quote</span>
-          <h2 className="font-display text-2xl mt-4">No quotes received yet.</h2>
+        <div className="pib-card p-6 text-center">
+          <span className="material-symbols-outlined text-3xl text-[var(--color-pib-accent)]">request_quote</span>
+          <h2 className="font-display text-lg mt-3">No quotes received yet.</h2>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-2">Quotes will appear here when Partners in Biz sends them to this workspace.</p>
         </div>
       ) : (

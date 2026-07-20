@@ -402,9 +402,9 @@ function PreviewSection({
   if (sec.type === 'metric') {
     const val = sec.dataSource?.kind === 'manual' ? sec.dataSource.value ?? 0 : metricVal(sec.dataSource?.metric)
     return (
-      <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-        <div className="text-[10px] uppercase tracking-[0.25em] text-[var(--color-pib-text-muted)] font-mono mb-2">{sec.title ?? sec.dataSource?.metric}</div>
-        <div className="text-3xl font-display tabular-nums">{fmtNum.format(val)}</div>
+      <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+        <div className="text-[10px] uppercase tracking-[0.25em] text-[var(--color-pib-text-muted)] font-mono mb-1.5">{sec.title ?? sec.dataSource?.metric}</div>
+        <div className="text-2xl md:text-3xl font-display tabular-nums">{fmtNum.format(val)}</div>
       </div>
     )
   }

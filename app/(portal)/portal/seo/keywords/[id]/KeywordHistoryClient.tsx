@@ -127,7 +127,7 @@ export function KeywordHistoryClient({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4" data-module-accent="green">
       {/* Header */}
       <header className="flex flex-col gap-4 border-b border-[var(--color-pib-line)] pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
@@ -136,7 +136,7 @@ export function KeywordHistoryClient({
             Back to keywords
           </a>
           <p className="eyebrow">Keyword history</p>
-          <h1 className="mt-2 font-headline text-2xl font-semibold md:text-3xl">{keyword.keyword}</h1>
+          <h1 className="mt-2 text-lg font-semibold">{keyword.keyword}</h1>
           {keyword.targetPageUrl && (
             <a
               href={keyword.targetPageUrl}
@@ -240,7 +240,7 @@ export function KeywordHistoryClient({
           <p className="text-xs text-[var(--color-pib-text-muted)]">All recorded position data points from Search Console pulls.</p>
         </div>
         {(keyword.positions ?? []).length === 0 ? (
-          <div className="p-8 text-center text-sm text-[var(--color-pib-text-muted)]">No positions recorded yet.</div>
+          <div className="p-5 text-center text-sm text-[var(--color-pib-text-muted)]">No positions recorded yet.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -302,7 +302,7 @@ function StatCard({
         <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">{icon}</span></span>
       </div>
       <p
-        className={`mt-3 font-display text-3xl leading-none tracking-tight md:text-4xl ${
+        className={`mt-3 text-xl font-semibold tabular-nums tracking-tight ${
           highlight === 'good' ? 'text-emerald-300' : highlight === 'bad' ? 'text-red-300' : ''
         }`}
       >

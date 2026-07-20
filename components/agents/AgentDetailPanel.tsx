@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useToast } from '@/components/ui/Toast'
 import { PageTabs } from '@/components/ui/AppFoundation'
+import { GlassBar, HudChip } from '@/components/ui/HudChip'
 import type { AgentTeamDoc } from './AgentCard'
 import type { HealthStatus } from './AgentCard'
 
@@ -747,24 +748,30 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Panel header */}
-      <div className="flex items-center gap-3 px-6 py-4 border-b border-white/10 shrink-0">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${iconClass}`}>
-          <span className="material-symbols-outlined text-[22px]">{agent.iconKey}</span>
+      <GlassBar className="shrink-0 gap-3 px-4 py-3" data-module-accent="cyan">
+        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${iconClass}`}>
+          <span className="material-symbols-outlined text-[18px]">{agent.iconKey}</span>
         </div>
-        <div className="flex-1 min-w-0">
-          <h2 className={`text-base font-semibold ${accentClass}`}>{agent.name}</h2>
-          <p className="text-xs text-[var(--color-pib-text-muted)] leading-snug">{agent.role}</p>
+        <div className="min-w-0 flex-1">
+          <h2 className={`text-sm font-semibold ${accentClass}`}>{agent.name}</h2>
+          <p className="text-xs leading-snug text-[var(--color-pib-text-muted)]">{agent.role}</p>
         </div>
+        {healthPill ? (
+          <HudChip live={healthResult?.status === 'ok'} className={healthPill.className}>
+            {healthPill.label}
+          </HudChip>
+        ) : null}
         <button
+          type="button"
           onClick={onClose}
-          className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/10 hover:text-[var(--color-pib-text)]"
           aria-label="Close panel"
         >
-          <span className="material-symbols-outlined text-[20px]">close</span>
+          <span className="material-symbols-outlined text-[18px]">close</span>
         </button>
-      </div>
+      </GlassBar>
 
-      <div className="border-b border-white/10 px-6 py-3 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+      <div className="shrink-0 border-b border-white/10 px-4 py-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">
         Only super admins can edit live agent configuration. Secrets remain redacted; config, env, file, cron, and runtime operations stay behind admin approval gates.
       </div>
 
@@ -777,7 +784,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
       />
 
       {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto px-6 py-5">
+      <div className="flex-1 overflow-y-auto px-4 py-4">
 
         {/* OVERVIEW TAB */}
         {activeTab === 'overview' && (
@@ -871,7 +878,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                     type="button"
                     onClick={applySkillPolicy}
                     disabled={skillPolicyApplying}
-                    className="pib-btn-primary text-xs font-label flex items-center gap-1.5 disabled:opacity-50"
+                    className="btn-pib-primary btn-pib-sm text-xs font-label flex items-center gap-1.5 disabled:opacity-50"
                   >
                     <span className="material-symbols-outlined text-[14px]">rule_settings</span>
                     {skillPolicyApplying ? 'Applying…' : 'Apply policy'}
@@ -1073,7 +1080,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                         type="button"
                         onClick={saveLiveConfig}
                         disabled={configSaving || !configText.trim()}
-                        className="pib-btn-primary text-xs font-label disabled:opacity-50"
+                        className="btn-pib-primary btn-pib-sm text-xs font-label disabled:opacity-50"
                       >
                         {configSaving ? 'Saving...' : 'Save config'}
                       </button>
@@ -1125,7 +1132,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                     type="button"
                     onClick={saveProfileFile}
                     disabled={fileSaving || filesLoading || !fileMeta?.editable}
-                    className="pib-btn-primary text-xs font-label disabled:opacity-50"
+                    className="btn-pib-primary btn-pib-sm text-xs font-label disabled:opacity-50"
                   >
                     {fileSaving ? 'Saving...' : 'Save Soul'}
                   </button>
@@ -1202,7 +1209,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                       type="button"
                       onClick={saveProfileFile}
                       disabled={fileSaving || !fileMeta?.editable}
-                      className="pib-btn-primary text-xs font-label disabled:opacity-50"
+                      className="btn-pib-primary btn-pib-sm text-xs font-label disabled:opacity-50"
                     >
                       {fileSaving ? 'Saving...' : 'Save'}
                     </button>
@@ -1407,7 +1414,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                 </div>
                 <div className="flex justify-end gap-2 pt-1">
                   <button type="button" onClick={() => setShowCronForm(false)} className="pib-btn-ghost text-xs font-label">Cancel</button>
-                  <button type="submit" disabled={cronCreating} className="pib-btn-primary text-xs font-label disabled:opacity-50">
+                  <button type="submit" disabled={cronCreating} className="btn-pib-primary btn-pib-sm text-xs font-label disabled:opacity-50">
                     {cronCreating ? 'Creating…' : 'Create Job'}
                   </button>
                 </div>
@@ -1575,7 +1582,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                       <button
                         type="submit"
                         disabled={envSaving}
-                        className="pib-btn-primary text-xs font-label disabled:opacity-50"
+                        className="btn-pib-primary btn-pib-sm text-xs font-label disabled:opacity-50"
                       >
                         {envSaving ? 'Saving...' : 'Save'}
                       </button>
@@ -1704,7 +1711,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
 
       {/* Sticky footer — only visible on Edit tab */}
       {activeTab === 'edit' && (
-        <div className="shrink-0 px-6 py-4 border-t border-white/10 flex justify-end gap-2">
+        <div className="shrink-0 flex justify-end gap-1.5 border-t border-white/10 px-4 py-3">
           <button
             type="button"
             onClick={onClose}
@@ -1716,7 +1723,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
           <button
             type="submit"
             form="agent-edit-form"
-            className="pib-btn-primary text-sm font-label"
+            className="btn-pib-primary btn-pib-sm text-sm font-label"
             disabled={saving}
           >
             {saving ? 'Saving…' : 'Save changes'}

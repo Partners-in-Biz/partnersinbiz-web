@@ -50,7 +50,7 @@ export default function PortalReports() {
   }, [orgId, scopedAdminApi, load])
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-6">
       <header>
         <p className="eyebrow">Performance reports</p>
         <h1 className="pib-page-title mt-2">Reports</h1>

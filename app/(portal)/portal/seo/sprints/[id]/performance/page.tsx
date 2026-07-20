@@ -27,11 +27,11 @@ export default async function PortalPerformanceTab({ params }: { params: Promise
   const homepage = healthSnap.docs[0]?.data() as any | undefined
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4" data-module-accent="green">
       <section className="flex items-end justify-between gap-4 flex-wrap border-b border-[var(--color-pib-line)] pb-4">
         <div>
           <p className="eyebrow">Performance signals</p>
-          <h2 className="font-headline text-2xl md:text-3xl font-semibold mt-2">Performance</h2>
+          <h2 className="text-lg font-semibold mt-1">Performance</h2>
           <p className="text-sm text-[var(--color-pib-text-muted)] mt-1.5">
             Audit trend, organic traffic signals, and page experience health.
           </p>
@@ -76,7 +76,7 @@ function Stat({ label, value, change, icon }: { label: string; value: number; ch
         <p className="eyebrow !text-[10px]">{label}</p>
         <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-green !h-7 !w-7"><span className="material-symbols-outlined text-[16px]">{icon}</span></span>
       </div>
-      <p className="mt-3 font-display tracking-tight leading-none text-3xl md:text-4xl tabular-nums">{Number(value).toLocaleString('en-ZA')}</p>
+      <p className="mt-3 text-xl font-semibold tabular-nums tracking-tight tabular-nums">{Number(value).toLocaleString('en-ZA')}</p>
       {change != null && (
         <p className={`text-xs mt-3 ${change >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
           {change >= 0 ? '+' : ''}
@@ -91,7 +91,7 @@ function CWV({ label, value, ok }: { label: string; value: string | number; ok: 
   return (
     <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-4">
       <p className="eyebrow !text-[10px]">{label}</p>
-      <p className={`font-display text-3xl tabular-nums mt-2 ${ok ? 'text-emerald-300' : 'text-amber-300'}`}>{value}</p>
+      <p className={`text-xl font-semibold tabular-nums mt-1 ${ok ? 'text-emerald-300' : 'text-amber-300'}`}>{value}</p>
       <p className="text-xs text-[var(--color-pib-text-muted)] mt-2">{ok ? 'Healthy' : 'Needs attention'}</p>
     </div>
   )
@@ -99,7 +99,7 @@ function CWV({ label, value, ok }: { label: string; value: string | number; ok: 
 
 function EmptyState({ icon, title, body }: { icon: string; title: string; body: string }) {
   return (
-    <div className="pib-card p-10 text-center">
+    <div className="pib-card p-6 text-center">
       <span className="material-symbols-outlined text-4xl text-[var(--color-pib-text-muted)]">{icon}</span>
       <h3 className="font-headline text-lg font-semibold mt-3">{title}</h3>
       <p className="text-sm text-[var(--color-pib-text-muted)] mt-1.5 max-w-md mx-auto">{body}</p>

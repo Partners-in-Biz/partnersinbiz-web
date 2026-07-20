@@ -22,6 +22,7 @@ import { TemplateBrowserPanel } from './TemplateBrowserPanel'
 import { TimelinePanel, type TimelineEditMode, type TimelineSelection } from './TimelinePanel'
 import { TtsPanel, type TtsGenerateRequest, type TtsVoiceOption } from './TtsPanel'
 import { useTimelineHistory } from './useTimelineHistory'
+import { GlassBar } from '@/components/ui/HudChip'
 
 type RightPanelTab = 'inspector' | 'captions' | 'voiceover'
 type BeatCacheEntry = { status: 'pending' | 'ready' | 'failed'; beats: number[]; checkedAt: number }
@@ -589,19 +590,19 @@ export function VideoEditorShell({ projectId, orgId }: { projectId: string; orgI
 
   const settings = project.settings ?? defaultVideoEditorSettings()
   return (
-    <main className="mx-auto max-w-[1600px] space-y-4 p-4 sm:p-6 lg:p-8">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="eyebrow">Video Editor</p>
-          <h1 className="font-headline text-3xl font-bold text-[var(--color-pib-text)]">{project.title}</h1>
-          <p className="mt-1 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">Assemble source media, trim clips, add text, render an MP4, and send the result back to YouTube Studio or Marketing Studio.</p>
+    <main className="mx-auto max-w-[1600px] space-y-3 p-4 sm:p-6 lg:p-8" data-module-accent="cyan">
+      <GlassBar className="flex-wrap items-end justify-between gap-2 p-3">
+        <div className="min-w-0">
+          <p className="eyebrow !text-[10px]">Video Editor</p>
+          <h1 className="pib-page-title !text-lg">{project.title}</h1>
+          <p className="mt-0.5 max-w-3xl text-xs text-[var(--color-pib-text-muted)]">Assemble source media, trim clips, add text, render an MP4, and send the result back to YouTube Studio or Marketing Studio.</p>
         </div>
-        <div className="flex gap-2">
-          <button type="button" className="pib-btn-ghost text-sm" disabled={!history.canUndo} onClick={() => setTimeline(history.undo())}>Undo</button>
-          <button type="button" className="pib-btn-ghost text-sm" disabled={!history.canRedo} onClick={() => setTimeline(history.redo())}>Redo</button>
-          <button type="button" className={snapBeats ? 'pib-btn-primary text-sm' : 'pib-btn-ghost text-sm'} onClick={() => setSnapBeats((value) => !value)}>Snap to beat</button>
+        <div className="flex gap-1.5">
+          <button type="button" className="btn-pib-ghost btn-pib-sm font-label" disabled={!history.canUndo} onClick={() => setTimeline(history.undo())}>Undo</button>
+          <button type="button" className="btn-pib-ghost btn-pib-sm font-label" disabled={!history.canRedo} onClick={() => setTimeline(history.redo())}>Redo</button>
+          <button type="button" className={snapBeats ? 'btn-pib-primary btn-pib-sm font-label' : 'btn-pib-ghost btn-pib-sm font-label'} onClick={() => setSnapBeats((value) => !value)}>Snap to beat</button>
         </div>
-      </div>
+      </GlassBar>
       {notice ? <div className="rounded-lg border border-[var(--color-pib-line)] p-3 text-sm text-[var(--color-pib-text-muted)]">{notice}</div> : null}
       <div className="grid gap-4 xl:grid-cols-[320px_1fr_320px]">
         <div className="space-y-4">

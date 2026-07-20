@@ -2,6 +2,8 @@
 
 import type { ReactNode } from 'react'
 import type { MobileAppRecord } from '@/lib/mobile-apps/types'
+import { EmptyState } from '@/components/ui/AppFoundation'
+import { HudChip } from '@/components/ui/HudChip'
 
 type MobileAppListMetricMode = 'portal' | 'admin'
 
@@ -55,9 +57,9 @@ function MobileAppMetric({
   value: string
 }) {
   return (
-    <div className="rounded-2xl border border-[var(--color-pib-line)] bg-white/[0.02] p-3">
-      <p className="text-[11px] text-[var(--color-pib-text-muted)]">{label}</p>
-      <p className={['mt-1 font-semibold', className ?? ''].join(' ')}>{value}</p>
+    <div className="rounded-md border border-[var(--color-pib-line)] bg-white/[0.02] p-2">
+      <p className="text-[10px] text-[var(--color-pib-text-muted)]">{label}</p>
+      <p className={['mt-0.5 text-sm font-semibold tabular-nums', className ?? ''].join(' ')}>{value}</p>
     </div>
   )
 }
@@ -75,38 +77,39 @@ export function MobileAppList({
 }: MobileAppListProps) {
   if (apps.length === 0) {
     return (
-      <div className="rounded-3xl border border-dashed border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-10 text-center">
-        <span className="material-symbols-outlined text-4xl text-[var(--color-pib-accent)]">smartphone</span>
-        <h2 className="mt-3 font-headline text-xl font-bold">{emptyTitle}</h2>
-        <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{emptyDescription}</p>
-        {renderEmptyAction ? <div className="mt-5">{renderEmptyAction()}</div> : null}
-      </div>
+      <EmptyState
+        icon="smartphone"
+        title={emptyTitle}
+        description={emptyDescription}
+        action={renderEmptyAction ? renderEmptyAction() : undefined}
+      />
     )
   }
 
   return (
-    <div className="grid gap-5 lg:grid-cols-2">
+    <div className="grid gap-3 lg:grid-cols-2">
       {apps.map((app) => {
         const metric = thirdMetric(app, metricMode)
         return (
           <article
             key={app.id ?? `${app.orgId}-${app.name}-${app.platform}`}
-            className="rounded-3xl border border-[var(--color-pib-line)] bg-[var(--color-pib-card)] p-5 space-y-5"
+            className="pib-card space-y-3 p-4"
+            data-module-accent="cyan"
           >
-            <div className="flex gap-4">
+            <div className="flex gap-3">
               {app.assets?.iconUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={app.assets.iconUrl} alt="" className="h-16 w-16 rounded-2xl object-cover" />
+                <img src={app.assets.iconUrl} alt="" className="h-12 w-12 rounded-md object-cover" />
               ) : (
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl pib-icon-tint-cyan">
-                  <span className="material-symbols-outlined">apps</span>
+                <div className="flex h-12 w-12 items-center justify-center rounded-md pib-icon-tint-cyan">
+                  <span className="material-symbols-outlined text-[20px]">apps</span>
                 </div>
               )}
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="font-headline text-xl font-bold">{app.name}</h2>
-                  <span className="pib-pill pib-pill-cyan uppercase">{app.platform}</span>
-                  <span className="pib-pill pib-pill-cyan capitalize">{app.status}</span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <h2 className="text-base font-semibold">{app.name}</h2>
+                  <HudChip tone="live" className="uppercase">{app.platform}</HudChip>
+                  <HudChip className="capitalize">{app.status}</HudChip>
                 </div>
                 <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
                   {app.listing?.subtitle || app.listing?.shortDescription || 'Listing details are being prepared.'}

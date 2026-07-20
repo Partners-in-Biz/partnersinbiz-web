@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { scopedPortalPath } from '@/lib/portal/scoped-routing'
+import { PageHeader } from '@/components/ui/AppFoundation'
 import { VideoEditorProjectList } from './VideoEditorProjectList'
 import { VideoEditorShell } from './VideoEditorShell'
 
@@ -24,16 +25,13 @@ export function VideoEditorPortalWorkspace({ orgId, projectId }: { orgId?: strin
   }
 
   return (
-    <main className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="eyebrow">Studio</p>
-          <h1 className="font-headline text-3xl font-bold text-[var(--color-pib-text)]">Video Editor</h1>
-          <p className="mt-2 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
-            Build the actual video cut here: import source media, arrange clips, add text, render an MP4, and register the output back into YouTube Studio and Marketing Studio.
-          </p>
-        </div>
-      </div>
+    <main className="mx-auto max-w-7xl space-y-4 p-4 sm:p-6 lg:p-8" data-module-accent="cyan">
+      <PageHeader
+        accent="cyan"
+        eyebrow="Studio"
+        title="Video Editor"
+        description="Build the actual video cut here: import source media, arrange clips, add text, render an MP4, and register the output back into YouTube Studio and Marketing Studio."
+      />
       <VideoEditorProjectList orgId={orgId} onOpen={setActiveProjectId} />
     </main>
   )

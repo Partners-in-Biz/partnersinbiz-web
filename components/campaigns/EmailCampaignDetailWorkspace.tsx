@@ -106,8 +106,8 @@ export function EmailCampaignDetailWorkspace({
   } as CSSProperties & Record<string, string>
 
   return (
-    <div className="space-y-10 pb-16" style={themeStyle}>
-      <header className="space-y-5">
+    <div className="space-y-6 pb-10" style={themeStyle}>
+      <header className="space-y-4">
         <Link
           href={backHref}
           className="inline-flex items-center gap-1 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
@@ -126,11 +126,11 @@ export function EmailCampaignDetailWorkspace({
               <span className="mx-2 opacity-40">-</span>
               <span style={{ color: tone.text }}>{STATUS_LABEL[status] ?? status}</span>
             </p>
-            <h1 className="font-headline text-3xl md:text-5xl tracking-tight leading-[1.05]">
+            <h1 className="font-headline text-2xl md:text-3xl tracking-tight leading-[1.05]">
               {campaign.name || 'Untitled campaign'}
             </h1>
             {campaign.description && (
-              <p className="text-base md:text-lg text-[var(--color-pib-text-muted)] max-w-2xl text-pretty">
+              <p className="text-sm md:text-base text-[var(--color-pib-text-muted)] max-w-2xl text-pretty">
                 {campaign.description}
               </p>
             )}
@@ -169,7 +169,7 @@ export function EmailCampaignDetailWorkspace({
 
           <div className="flex flex-col gap-3 min-w-[260px] max-w-sm">
             {editHref && (
-              <Link href={editHref} className="btn-pib-primary justify-center">
+              <Link href={editHref} className="btn-pib-primary btn-pib-sm justify-center">
                 <span className="material-symbols-outlined text-base">edit</span>
                 Edit content
               </Link>
@@ -511,7 +511,7 @@ function KpiTile({
     <div className="pib-stat-card">
       <p className="eyebrow !text-[10px]">{label}</p>
       <p
-        className="font-display text-3xl md:text-4xl tabular-nums mt-2 leading-none"
+        className="font-display text-2xl md:text-3xl tabular-nums mt-1.5 leading-none"
         style={accent ? { color: 'var(--org-accent, var(--color-pib-accent))' } : undefined}
       >
         {big}
@@ -747,9 +747,9 @@ function EmptyCard({
   hint?: string
 }) {
   return (
-    <div className="pib-card text-center py-10">
+    <div className="pib-card text-center py-8">
       <span
-        className="material-symbols-outlined text-3xl"
+        className="material-symbols-outlined text-2xl"
         style={{ color: 'var(--org-accent, var(--color-pib-accent))' }}
       >
         {icon}

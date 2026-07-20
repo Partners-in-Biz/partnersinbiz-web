@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { PageHeader } from '@/components/ui/AppFoundation'
 
 type SprintRow = {
   id: string
@@ -20,14 +21,13 @@ export function IntegrationsClient({
   justConnectedSprintId?: string
 }) {
   return (
-    <div className="space-y-6">
-      <header className="border-b border-[var(--color-pib-line)] pb-5">
-        <p className="eyebrow">SEO settings</p>
-        <h1 className="mt-2 font-headline text-2xl font-semibold md:text-3xl">Integrations</h1>
-        <p className="mt-1.5 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
-          Connect Google Search Console to pull real ranking, impression and click data into your SEO sprints.
-        </p>
-      </header>
+    <div className="space-y-4" data-module-accent="green">
+      <PageHeader
+        accent="green"
+        eyebrow="SEO settings"
+        title="Integrations"
+        description="Connect Google Search Console to pull real ranking, impression and click data into your SEO sprints."
+      />
 
       {justConnectedSprintId && (
         <div className="pib-card border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-200">
@@ -39,7 +39,7 @@ export function IntegrationsClient({
       )}
 
       {sprints.length === 0 ? (
-        <div className="pib-card p-10 text-center text-sm text-[var(--color-pib-text-muted)]">
+        <div className="pib-card p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
           No SEO sprints yet. Create a sprint first, then connect Search Console here.
         </div>
       ) : (

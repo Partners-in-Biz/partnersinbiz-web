@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import UnifiedChat from '@/components/chat/UnifiedChat'
+import { PageHeader, Surface } from '@/components/ui/AppFoundation'
 
 interface AgentTeamDoc {
   agentId: string
@@ -390,32 +391,31 @@ export default function SkillTastingLabClient() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <p className="mb-1 text-[10px] pib-label">Platform / Agents</p>
-          <h1 className="text-2xl font-headline font-bold text-[var(--color-pib-text)]">Skill Tasting Lab</h1>
-          <p className="mt-1 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
-            Select an agent, select one allowlisted skill, run a sandbox tasting conversation, then turn weak behaviour into a routed skill-improvement task. The lab does not edit skills directly; it captures evidence for Pip/the owning agent to review and patch safely. No live publishing, sends, spend, billing, destructive work, secrets, or production deploys from here.
-          </p>
-        </div>
-        <Link href="/admin/agents" className="pib-btn-secondary inline-flex items-center gap-1 text-sm">
-          <span className="material-symbols-outlined text-[16px]">group_work</span>
-          Agent team
-        </Link>
-      </div>
+    <div className="mx-auto max-w-7xl space-y-4" data-module-accent="cyan">
+      <PageHeader
+        accent="cyan"
+        eyebrow="Platform / Agents"
+        title="Skill Tasting Lab"
+        description="Select an agent, select one allowlisted skill, run a sandbox tasting conversation, then turn weak behaviour into a routed skill-improvement task. The lab does not edit skills directly; it captures evidence for Pip/the owning agent to review and patch safely. No live publishing, sends, spend, billing, destructive work, secrets, or production deploys from here."
+        actions={(
+          <Link href="/admin/agents" className="btn-pib-secondary btn-pib-sm inline-flex items-center gap-1 font-label">
+            <span className="material-symbols-outlined text-[16px]">group_work</span>
+            Agent team
+          </Link>
+        )}
+      />
 
       {(error || message) && (
-        <div className={[
-          'rounded-lg border p-3 text-sm',
+        <Surface className={[
+          'p-3 text-sm',
           error ? 'border-red-500/30 bg-red-500/10 text-red-200' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200',
         ].join(' ')}>
           {error || message}
-        </div>
+        </Surface>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[420px_minmax(0,1fr)]">
-        <form onSubmit={startRun} className="pib-card space-y-5 p-5">
+      <div className="grid gap-4 lg:grid-cols-[400px_minmax(0,1fr)]">
+        <form onSubmit={startRun} className="pib-card space-y-4 p-4">
           <div>
             <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Tasting setup</h2>
             <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">The generated prompt wraps your scenario in hard sandbox guardrails before it reaches the agent.</p>
@@ -463,7 +463,7 @@ export default function SkillTastingLabClient() {
             <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-[var(--color-pib-text-muted)]">{sandboxPrompt || 'Select a skill to preview the guarded prompt.'}</pre>
           </details>
 
-          <button type="submit" className="pib-btn-primary w-full justify-center text-sm" disabled={loading || starting || !selectedAgentId || !selectedSkill || !prompt.trim()}>
+          <button type="submit" className="btn-pib-primary btn-pib-sm w-full justify-center font-label" disabled={loading || starting || !selectedAgentId || !selectedSkill || !prompt.trim()}>
             {starting ? 'Starting sandbox…' : 'Start tasting run'}
           </button>
         </form>
@@ -539,7 +539,7 @@ export default function SkillTastingLabClient() {
             <span className="text-[10px] pib-label">Optional focus</span>
             <textarea className="pib-input min-h-20 w-full resize-y text-sm" value={learningFocus} onChange={(e) => setLearningFocus(e.target.value)} placeholder="Example: review repeated blockers from the last month, client voice lessons, or platform skill/runbook improvement opportunities." />
           </label>
-          <button type="button" className="pib-btn-primary whitespace-nowrap text-sm" onClick={createLearningReviewJob} disabled={learningCreating || (learningScope === 'client' && !learningOrgId)}>
+          <button type="button" className="btn-pib-primary btn-pib-sm whitespace-nowrap font-label" onClick={createLearningReviewJob} disabled={learningCreating || (learningScope === 'client' && !learningOrgId)}>
             {learningCreating ? 'Scheduling…' : 'Schedule learning review'}
           </button>
         </div>
@@ -565,7 +565,7 @@ export default function SkillTastingLabClient() {
             <span className="text-[10px] pib-label">Notes</span>
             <textarea className="pib-input min-h-20 w-full resize-y text-sm" value={reviewNotes} onChange={(e) => setReviewNotes(e.target.value)} placeholder="Paste the agent’s Skill improvement notes, plus what felt wrong, stale, unsafe, or off-brand." />
           </label>
-          <button type="button" className="pib-btn-secondary whitespace-nowrap text-sm" onClick={createImprovementTask} disabled={!labRun || taskCreating}>
+          <button type="button" className="btn-pib-secondary btn-pib-sm whitespace-nowrap font-label" onClick={createImprovementTask} disabled={!labRun || taskCreating}>
             {taskCreating ? 'Creating…' : 'Create improvement task'}
           </button>
         </div>

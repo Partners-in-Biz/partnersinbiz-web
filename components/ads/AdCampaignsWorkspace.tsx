@@ -145,7 +145,7 @@ export function AdCampaignsWorkspace({
       )}
 
       {campaigns.length === 0 ? (
-        <div className="pib-card p-8 text-center">
+        <div className="pib-card p-6 text-center">
           <p className="text-sm font-medium text-[var(--color-pib-text)]">{emptyTitle}</p>
           {emptyBody && (
             <p className="mx-auto mt-2 max-w-xl text-sm text-[var(--color-pib-text-muted)]">

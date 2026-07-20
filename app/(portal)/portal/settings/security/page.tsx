@@ -3,6 +3,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
+import { PageHeader } from '@/components/ui/AppFoundation'
 
 type Phase = 'loading' | 'disabled' | 'setup' | 'verify' | 'backup' | 'enabled' | 'disabling'
 
@@ -105,14 +106,13 @@ export default function SecuritySettingsPage() {
   }
 
   return (
-    <div className="max-w-3xl space-y-8">
-      <div>
-        <p className="eyebrow">Portal settings</p>
-        <h1 className="pib-page-title mt-2">Security</h1>
-        <p className="mt-2 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
-          Add an extra layer of protection to your login with two-factor authentication (TOTP).
-        </p>
-      </div>
+    <div className="max-w-3xl space-y-4" data-module-accent="cyan">
+      <PageHeader
+        accent="cyan"
+        eyebrow="Portal settings"
+        title="Security"
+        description="Add an extra layer of protection to your login with two-factor authentication (TOTP)."
+      />
 
       <section data-testid="twofa-panel" className="pib-card-section">
         <div className="pib-card-section-header flex items-center justify-between gap-3">

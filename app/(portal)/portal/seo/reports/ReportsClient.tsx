@@ -161,7 +161,7 @@ export function ReportsClient({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4" data-module-accent="green">
       <SeoToolHeader
         eyebrow="Reporting"
         title="Branded SEO reports"
@@ -261,7 +261,7 @@ export function ReportsClient({
           <p className="text-xs text-[var(--color-pib-text-muted)]">Saved reports. Toggle a public share link (expires in 30 days) or re-download.</p>
         </div>
         {rows.length === 0 ? (
-          <div className="p-8 text-center text-sm text-[var(--color-pib-text-muted)]">No saved reports yet.</div>
+          <div className="p-5 text-center text-sm text-[var(--color-pib-text-muted)]">No saved reports yet.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

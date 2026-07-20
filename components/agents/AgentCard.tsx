@@ -1,5 +1,7 @@
 'use client'
 
+import { HudChip } from '@/components/ui/HudChip'
+
 export interface AgentTeamDoc {
   agentId: string
   name: string
@@ -90,31 +92,31 @@ export function AgentCard({ agent, onClick, healthStatus = 'loading' }: AgentCar
 
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={`pib-card border-l-4 ${borderClass} p-5 text-left w-full cursor-pointer transition-all duration-150 hover:bg-white/5 hover:scale-[1.01] active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30`}
+      data-module-accent="cyan"
+      className={`pib-card w-full cursor-pointer border-l-2 ${borderClass} p-3 text-left transition-colors hover:bg-white/[0.04] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/30`}
     >
       {/* Header row */}
-      <div className="flex items-start gap-3">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${iconClass}`}>
-          <span className="material-symbols-outlined text-[22px]">{agent.iconKey}</span>
+      <div className="flex items-start gap-2.5">
+        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${iconClass}`}>
+          <span className="material-symbols-outlined text-[18px]">{agent.iconKey}</span>
         </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-semibold text-[var(--color-pib-text)] leading-tight">{agent.name}</span>
-            {/* Enabled / disabled dot */}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-sm font-semibold leading-tight text-[var(--color-pib-text)]">{agent.name}</span>
             <span
-              className={`w-1.5 h-1.5 rounded-full shrink-0 ${agent.enabled ? 'bg-emerald-400' : 'bg-white/20'}`}
+              className={`h-1.5 w-1.5 shrink-0 rounded-full ${agent.enabled ? 'bg-emerald-400' : 'bg-white/20'}`}
               title={agent.enabled ? 'Enabled' : 'Disabled'}
             />
           </div>
-          <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5 leading-snug">{agent.role}</p>
+          <p className="mt-0.5 text-xs leading-snug text-[var(--color-pib-text-muted)]">{agent.role}</p>
         </div>
 
-        {/* Health pill */}
-        <span className={`text-[10px] font-label uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0 ${pill.className}`}>
+        <HudChip live={healthStatus === 'ok'} tone={healthStatus === 'ok' ? 'live' : healthStatus === 'loading' ? 'default' : 'accent'} className={pill.className}>
           {pill.label}
-        </span>
+        </HudChip>
       </div>
 
       {/* Persona */}
@@ -140,13 +142,13 @@ export function AgentCard({ agent, onClick, healthStatus = 'loading' }: AgentCar
           </span>
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-label uppercase tracking-wide ${runtimeModel?.source === 'live_config' ? 'bg-sky-500/10 text-sky-300' : 'bg-white/10 text-[var(--color-pib-text-muted)]'}`}>
+          <HudChip tone={runtimeModel?.source === 'live_config' ? 'live' : 'default'} className={runtimeModel?.source === 'live_config' ? 'text-cyan-300' : undefined}>
             {modelSourceLabel}
-          </span>
+          </HudChip>
           {runtimeModel?.staleRegistry && (
-            <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-label uppercase tracking-wide text-amber-300" title={`Stored registry label: ${runtimeModel.registryDefaultModel ?? agent.defaultModel}`}>
+            <HudChip tone="accent" className="text-amber-300" title={`Stored registry label: ${runtimeModel.registryDefaultModel ?? agent.defaultModel}`}>
               Registry stale
-            </span>
+            </HudChip>
           )}
         </div>
       </div>
