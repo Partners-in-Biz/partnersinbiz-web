@@ -11,6 +11,7 @@ import { fmtTimestamp } from '@/lib/format/timestamp'
 import { ScheduledContentPreviewCards, type ScheduledContentPost } from '@/components/social/ScheduledContentPreviewCards'
 import { DonutChart, HorizontalBarChart, StatCardWithChart, TrendAreaChart } from '@/components/ui/Charts'
 import { EmptyState, PageHeader, Surface } from '@/components/ui/AppFoundation'
+import { StatCard } from '@/components/ui/StatCard'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 interface Kpis {
@@ -336,21 +337,25 @@ function Tile({
   emphasis?: boolean
 }) {
   return (
-    <div className="pib-stat-card">
-      <div className="flex items-start justify-between">
+    <div className="pib-stat-card pib-enter" data-module-accent="amber">
+      <div className="flex items-start justify-between gap-2">
         <p className="eyebrow !text-[10px]">{label}</p>
-        {icon && <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>}
+        {icon ? (
+          <span className="pib-icon-tint shrink-0" aria-hidden="true">
+            <span className="material-symbols-outlined text-[16px]">{icon}</span>
+          </span>
+        ) : null}
       </div>
       <p
         className={[
-          'mt-3 font-display tracking-tight leading-none',
-          emphasis ? 'text-4xl md:text-5xl text-[var(--color-pib-accent)]' : 'text-3xl md:text-4xl text-[var(--color-pib-text)]',
+          'mt-2 font-display tracking-tight leading-none text-xl md:text-2xl',
+          emphasis ? 'text-[var(--color-pib-accent)]' : 'text-[var(--color-pib-text)]',
         ].join(' ')}
       >
         {value}
       </p>
       {(delta !== undefined || hint) && (
-        <p className="mt-3 text-xs">
+        <p className="mt-1.5 text-xs">
           {delta !== undefined && (
             <span className={`font-mono ${deltaClass(delta ?? null)}`}>
               {fmtPct(delta ?? null)}
@@ -508,14 +513,19 @@ export default function PortalDashboard() {
   const hasLast30DaysData = last30DaysData.some(point => point.value > 0)
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8">
+    <div className="mx-auto max-w-6xl space-y-5" data-module-accent="amber">
       <ProfileCompleteBanner />
 
-      <div className="pib-card px-5 py-4">
-        <p className="eyebrow !text-[10px]">{getGreeting()}</p>
-        <p className="mt-1 font-display text-2xl tracking-tight text-[var(--color-pib-text)]">
-          {firstName ? `Welcome back, ${firstName}` : 'Welcome back'}
-        </p>
+      <div className="pib-card pib-surface-glass flex items-center gap-3 !px-4 !py-3">
+        <span className="pib-icon-tint shrink-0" aria-hidden="true">
+          <span className="material-symbols-outlined text-[16px]">waving_hand</span>
+        </span>
+        <div className="min-w-0">
+          <p className="eyebrow !text-[10px]">{getGreeting()}</p>
+          <p className="mt-0.5 font-display text-lg tracking-tight text-[var(--color-pib-text)] md:text-xl">
+            {firstName ? `Welcome back, ${firstName}` : 'Welcome back'}
+          </p>
+        </div>
       </div>
 
       <OnboardingChecklist
@@ -524,17 +534,18 @@ export default function PortalDashboard() {
         initialDone={data?.summary?.onboarding ?? undefined}
       />
 
-      <section className="space-y-6">
+      <section className="space-y-4">
         <PageHeader
+          accent="amber"
           eyebrow="Workspace"
           title={`${getGreeting()} — ${orgName}`}
           description={new Date().toLocaleDateString('en-ZA', { weekday: 'long', month: 'long', day: 'numeric' })}
           actions={(
             <>
-              <Link href={scopedHref('/portal/projects')} className="btn-pib-primary text-sm">
+              <Link href={scopedHref('/portal/projects')} className="btn-pib-primary btn-pib-sm">
                 Request project
               </Link>
-              <Link href={scopedHref('/portal/properties')} className="btn-pib-secondary text-sm">
+              <Link href={scopedHref('/portal/properties')} className="btn-pib-secondary btn-pib-sm">
                 Set properties
               </Link>
             </>
@@ -542,9 +553,9 @@ export default function PortalDashboard() {
           className="capitalize"
         />
 
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {workspaceLoading ? (
-            Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28" />)
+            Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24" />)
           ) : (
             <>
               <StatCardWithChart
@@ -589,10 +600,15 @@ export default function PortalDashboard() {
           )}
         />
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <Surface className="space-y-3 lg:col-span-2">
-            <div className="flex items-center justify-between">
-              <p className="pib-label mb-0">Projects</p>
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+          <Surface variant="glass" accentEdge="amber" className="space-y-2.5 lg:col-span-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="pib-icon-tint" aria-hidden="true">
+                  <span className="material-symbols-outlined text-[16px]">folder_managed</span>
+                </span>
+                <p className="pib-label mb-0">Projects</p>
+              </div>
               <Link href={scopedHref('/portal/projects')} className="pib-label mb-0 text-[var(--color-pib-accent-hover)]">
                 View all →
               </Link>
@@ -600,23 +616,26 @@ export default function PortalDashboard() {
 
             {projectsLoading ? (
               <div className="space-y-2">
-                {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14" />)}
+                {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-11" />)}
               </div>
             ) : projects.length === 0 ? (
               <EmptyState
                 icon="rocket_launch"
                 title="No projects yet."
                 description="Project updates will appear here once work has been opened for your workspace."
-                action={<Link href={scopedHref('/portal/projects')} className="btn-pib-secondary text-sm">Request project</Link>}
+                action={<Link href={scopedHref('/portal/projects')} className="btn-pib-secondary btn-pib-sm">Request project</Link>}
               />
             ) : (
-              <div className="-mx-6 space-y-1">
+              <div className="-mx-4 space-y-0.5">
                 {projects.slice(0, 6).map((project) => (
                   <Link
                     key={project.id}
                     href={scopedHref(`/portal/projects/${project.id}`)}
-                    className="flex items-center gap-4 rounded-lg px-6 py-3 transition-colors hover:bg-[var(--color-row-hover)]"
+                    className="flex items-center gap-3 rounded-lg px-4 py-2 transition-colors hover:bg-[var(--color-row-hover)]"
                   >
+                    <span className="pib-icon-tint-cyan shrink-0" aria-hidden="true">
+                      <span className="material-symbols-outlined text-[15px]">view_kanban</span>
+                    </span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{project.name}</p>
                       {project.description && (
@@ -630,10 +649,13 @@ export default function PortalDashboard() {
             )}
           </Surface>
 
-          <Surface className="space-y-2">
-            <p className="pib-label mb-0">
-              Post Status
-            </p>
+          <Surface variant="glass" className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="pib-icon-tint" aria-hidden="true">
+                <span className="material-symbols-outlined text-[16px]">donut_large</span>
+              </span>
+              <p className="pib-label mb-0">Post Status</p>
+            </div>
             {socialLoading ? (
               <Skeleton className="h-[220px]" />
             ) : statusDonut.length > 0 ? (
@@ -647,13 +669,16 @@ export default function PortalDashboard() {
         </div>
 
         {!socialLoading && socialStats && (
-          <div className={`grid grid-cols-1 gap-4 ${platformBarData.length > 0 ? 'lg:grid-cols-2' : ''}`}>
+          <div className={`grid grid-cols-1 gap-3 ${platformBarData.length > 0 ? 'lg:grid-cols-2' : ''}`}>
             {platformBarData.length > 0 && (
-              <Surface className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="pib-label mb-0">
-                    Platform Breakdown
-                  </p>
+              <Surface variant="glass" className="space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="pib-icon-tint" aria-hidden="true">
+                      <span className="material-symbols-outlined text-[16px]">bar_chart</span>
+                    </span>
+                    <p className="pib-label mb-0">Platform Breakdown</p>
+                  </div>
                   <Link href={scopedHref('/portal/social')} className="pib-label mb-0 text-[var(--color-pib-accent-hover)]">
                     View Social →
                   </Link>
@@ -662,24 +687,25 @@ export default function PortalDashboard() {
               </Surface>
             )}
 
-            <Surface className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="pib-label mb-0">
-                    Publishing Trend
-                  </p>
-                  <p className="mt-0.5 text-lg font-headline font-bold text-[var(--color-pib-text)]">
-                    {socialStats.last30Days} posts
-                  </p>
+            <Surface variant="glass" className="space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="pib-icon-tint-green" aria-hidden="true">
+                    <span className="material-symbols-outlined text-[16px]">show_chart</span>
+                  </span>
+                  <div>
+                    <p className="pib-label mb-0">Publishing Trend</p>
+                    <p className="mt-0.5 text-base font-headline font-bold text-[var(--color-pib-text)]">
+                      {socialStats.last30Days} posts
+                    </p>
+                  </div>
                 </div>
-                <span className="pib-pill">
-                  Last 30 days
-                </span>
+                <span className="pib-pill">Last 30 days</span>
               </div>
               {hasLast30DaysData ? (
-                <TrendAreaChart data={last30DaysData} height={160} color="#4ade80" />
+                <TrendAreaChart data={last30DaysData} height={140} color="#4ade80" />
               ) : (
-                <div className="flex h-40 items-center justify-center text-sm text-[var(--color-pib-text-muted)]">
+                <div className="flex h-32 items-center justify-center text-sm text-[var(--color-pib-text-muted)]">
                   No posts in the last 30 days.
                 </div>
               )}
@@ -687,9 +713,9 @@ export default function PortalDashboard() {
           </div>
         )}
 
-        <Surface>
-          <p className="pib-label">Quick Actions</p>
-          <div className="flex flex-wrap gap-2">
+        <Surface variant="quiet">
+          <p className="pib-label mb-2">Quick Actions</p>
+          <div className="flex flex-wrap gap-1.5">
             {[
               { label: 'Projects', href: scopedHref('/portal/projects') },
               { label: 'Messages', href: scopedHref('/portal/messages') },
@@ -698,7 +724,7 @@ export default function PortalDashboard() {
               { label: 'Marketing', href: scopedHref('/portal/marketing') },
               { label: 'Team', href: scopedHref('/portal/settings/team') },
             ].map(a => (
-              <Link key={a.href} href={a.href} className="btn-pib-secondary text-xs">{a.label}</Link>
+              <Link key={a.href} href={a.href} className="btn-pib-secondary btn-pib-sm">{a.label}</Link>
             ))}
           </div>
         </Surface>
@@ -706,48 +732,54 @@ export default function PortalDashboard() {
 
       {/* Campaigns section */}
       <section>
-        <div className="flex items-baseline justify-between mb-4">
+        <div className="mb-3 flex items-baseline justify-between">
           <h2 className="eyebrow">Campaigns</h2>
           <Link
             href={scopedHref('/portal/campaigns')}
-            className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors"
+            className="inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
           >
             All campaigns
             <span className="material-symbols-outlined text-sm">arrow_outward</span>
           </Link>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Link href={scopedHref('/portal/contacts')} className="pib-stat-card hover:border-[var(--color-pib-accent)] transition-colors group">
-            <div className="flex items-start justify-between">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <Link href={scopedHref('/portal/contacts')} className="pib-stat-card pib-enter group transition-colors hover:border-[var(--color-pib-accent)]">
+            <div className="flex items-start justify-between gap-2">
               <p className="eyebrow !text-[10px]">Contacts</p>
-              <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)] group-hover:text-[var(--color-pib-accent)] transition-colors">contacts</span>
+              <span className="pib-icon-tint shrink-0" aria-hidden="true">
+                <span className="material-symbols-outlined text-[16px]">contacts</span>
+              </span>
             </div>
-            <p className="mt-3 font-display tracking-tight leading-none text-3xl md:text-4xl text-[var(--color-pib-text)]">
+            <p className="mt-2 font-display text-xl tracking-tight leading-none text-[var(--color-pib-text)] md:text-2xl">
               {stats.contacts === null ? '—' : fmtNum.format(stats.contacts)}
             </p>
-            <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">total in your audience</p>
+            <p className="mt-1.5 text-xs text-[var(--color-pib-text-muted)]">total in your audience</p>
           </Link>
 
-          <Link href={scopedHref('/portal/campaigns')} className="pib-stat-card hover:border-[var(--color-pib-accent)] transition-colors group">
-            <div className="flex items-start justify-between">
+          <Link href={scopedHref('/portal/campaigns')} className="pib-stat-card pib-enter group transition-colors hover:border-[var(--color-pib-accent)]">
+            <div className="flex items-start justify-between gap-2">
               <p className="eyebrow !text-[10px]">Active campaigns</p>
-              <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)] group-hover:text-[var(--color-pib-accent)] transition-colors">campaign</span>
+              <span className="pib-icon-tint-rose shrink-0" aria-hidden="true">
+                <span className="material-symbols-outlined text-[16px]">campaign</span>
+              </span>
             </div>
-            <p className="mt-3 font-display tracking-tight leading-none text-3xl md:text-4xl text-[var(--color-pib-text)]">
+            <p className="mt-2 font-display text-xl tracking-tight leading-none text-[var(--color-pib-text)] md:text-2xl">
               {stats.activeCampaigns === null ? '—' : fmtNum.format(stats.activeCampaigns)}
             </p>
-            <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">running right now</p>
+            <p className="mt-1.5 text-xs text-[var(--color-pib-text-muted)]">running right now</p>
           </Link>
 
-          <Link href={scopedHref('/portal/capture-sources')} className="pib-stat-card hover:border-[var(--color-pib-accent)] transition-colors group">
-            <div className="flex items-start justify-between">
+          <Link href={scopedHref('/portal/capture-sources')} className="pib-stat-card pib-enter group transition-colors hover:border-[var(--color-pib-accent)]">
+            <div className="flex items-start justify-between gap-2">
               <p className="eyebrow !text-[10px]">Capture sources</p>
-              <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)] group-hover:text-[var(--color-pib-accent)] transition-colors">inventory_2</span>
+              <span className="pib-icon-tint-blue shrink-0" aria-hidden="true">
+                <span className="material-symbols-outlined text-[16px]">inventory_2</span>
+              </span>
             </div>
-            <p className="mt-3 font-display tracking-tight leading-none text-3xl md:text-4xl text-[var(--color-pib-text)]">
+            <p className="mt-2 font-display text-xl tracking-tight leading-none text-[var(--color-pib-text)] md:text-2xl">
               {stats.captureSources === null ? '—' : fmtNum.format(stats.captureSources)}
             </p>
-            <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">funneling leads in</p>
+            <p className="mt-1.5 text-xs text-[var(--color-pib-text-muted)]">funneling leads in</p>
           </Link>
         </div>
       </section>
@@ -758,44 +790,49 @@ export default function PortalDashboard() {
       {/* Pipeline / CRM section */}
       {!crmLoading && crmData && (
         <section>
-          <div className="flex items-baseline justify-between mb-4">
+          <div className="mb-3 flex items-baseline justify-between">
             <h2 className="eyebrow">Pipeline</h2>
             <Link
               href={scopedHref('/portal/deals')}
-              className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors"
+              className="inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
             >
               View deals
               <span className="material-symbols-outlined text-sm">arrow_outward</span>
             </Link>
           </div>
 
-          {/* 4 metric cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            <div className="pib-stat-card">
-              <p className="eyebrow !text-[10px] mb-1">Open Deals</p>
-              <p className="text-2xl font-bold">{crmData.openDealsCount}</p>
-              <p className="text-xs text-[var(--color-pib-text-muted)]">{formatCurrency(crmData.openDealsValue)}</p>
-            </div>
-            <div className="pib-stat-card">
-              <p className="eyebrow !text-[10px] mb-1">Weighted Pipeline</p>
-              <p className="text-2xl font-bold">{formatCurrency(crmData.weightedPipelineValue)}</p>
-            </div>
-            <div className="pib-stat-card">
-              <p className="eyebrow !text-[10px] mb-1">Won This Month</p>
-              <p className="text-2xl font-bold text-[var(--color-pib-success)]">{crmData.wonThisMonth.count}</p>
-              <p className="text-xs text-[var(--color-pib-text-muted)]">{formatCurrency(crmData.wonThisMonth.value)}</p>
-            </div>
-            <div className="pib-stat-card">
-              <p className="eyebrow !text-[10px] mb-1">Lost This Month</p>
-              <p className="text-2xl font-bold text-[var(--color-error)]">{crmData.lostThisMonth.count}</p>
-            </div>
+          <div className="mb-3 grid grid-cols-2 gap-2.5 md:grid-cols-4">
+            <StatCard
+              label="Open Deals"
+              value={crmData.openDealsCount}
+              detail={formatCurrency(crmData.openDealsValue)}
+              icon="handshake"
+              accent="amber"
+            />
+            <StatCard
+              label="Weighted Pipeline"
+              value={formatCurrency(crmData.weightedPipelineValue)}
+              icon="account_balance_wallet"
+              accent="amber"
+            />
+            <StatCard
+              label="Won This Month"
+              value={crmData.wonThisMonth.count}
+              detail={formatCurrency(crmData.wonThisMonth.value)}
+              icon="emoji_events"
+              accent="green"
+            />
+            <StatCard
+              label="Lost This Month"
+              value={crmData.lostThisMonth.count}
+              icon="trending_down"
+              accent="rose"
+            />
           </div>
 
-          {/* Activity feed + top deals row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Recent activity feed */}
-            <div className="pib-card">
-              <p className="eyebrow !text-[10px] mb-4">Recent Activity</p>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <Surface variant="glass">
+              <p className="eyebrow !text-[10px] mb-3">Recent Activity</p>
               {crmData.recentActivities.length === 0 ? (
                 <p className="text-sm text-[var(--color-pib-text-muted)]">No recent activity.</p>
               ) : (
@@ -803,11 +840,11 @@ export default function PortalDashboard() {
                   const href = crmActivityHref(a)
                   const content = (
                     <>
-                      <span className="material-symbols-outlined text-[14px] text-[var(--color-pib-text-muted)] mt-0.5">
-                        {activityIcon(a.type)}
+                      <span className="pib-icon-tint mt-0.5 shrink-0 !h-7 !w-7" aria-hidden="true">
+                        <span className="material-symbols-outlined text-[14px]">{activityIcon(a.type)}</span>
                       </span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm truncate">{a.summary ?? a.type}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm">{a.summary ?? a.type}</p>
                         <p className="text-xs text-[var(--color-pib-text-muted)]">
                           {a.createdByRef?.displayName ?? ''}
                           {a.createdByRef?.displayName && a.createdAt ? ' · ' : ''}
@@ -816,60 +853,59 @@ export default function PortalDashboard() {
                       </div>
                     </>
                   )
-                  const className = 'flex items-start gap-2 py-2 border-b border-[var(--color-pib-line)] last:border-0 transition-colors hover:text-[var(--color-pib-accent)]'
+                  const className = 'flex items-start gap-2 border-b border-[var(--color-pib-line)] py-1.5 last:border-0 transition-colors hover:text-[var(--color-pib-accent)]'
                   return href ? (
                     <Link key={a.id} href={scopedHref(href)} className={className}>
                       {content}
                     </Link>
                   ) : (
-                    <div key={a.id} className="flex items-start gap-2 py-2 border-b border-[var(--color-pib-line)] last:border-0">
+                    <div key={a.id} className="flex items-start gap-2 border-b border-[var(--color-pib-line)] py-1.5 last:border-0">
                       {content}
                     </div>
                   )
                 })
               )}
-            </div>
+            </Surface>
 
-            {/* Top open deals mini-table */}
-            <div className="pib-card">
-              <p className="eyebrow !text-[10px] mb-4">Top Open Deals</p>
+            <Surface variant="glass">
+              <p className="eyebrow !text-[10px] mb-3">Top Open Deals</p>
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-xs text-[var(--color-pib-text-muted)] border-b border-[var(--color-pib-line)]">
-                    <th className="text-left pb-2">Deal</th>
-                    <th className="text-right pb-2">Value</th>
-                    <th className="text-right pb-2">Prob</th>
+                  <tr className="border-b border-[var(--color-pib-line)] text-xs text-[var(--color-pib-text-muted)]">
+                    <th className="pb-1.5 text-left">Deal</th>
+                    <th className="pb-1.5 text-right">Value</th>
+                    <th className="pb-1.5 text-right">Prob</th>
                   </tr>
                 </thead>
                 <tbody>
                   {crmData.topOpenDeals.length === 0 ? (
                     <tr>
-                      <td colSpan={3} className="py-4 text-center text-[var(--color-pib-text-muted)]">No open deals</td>
+                      <td colSpan={3} className="py-3 text-center text-[var(--color-pib-text-muted)]">No open deals</td>
                     </tr>
                   ) : (
                     crmData.topOpenDeals.map(d => (
                       <tr key={d.id} className="border-b border-[var(--color-pib-line)] last:border-0">
-                        <td className="py-2">
+                        <td className="py-1.5">
                           <Link href={scopedHref(`/portal/deals/${encodeURIComponent(d.id)}`)} className="font-medium hover:text-[var(--color-pib-accent)]">
                             {d.title ?? '—'}
                           </Link>
                         </td>
-                        <td className="py-2 text-right">{formatCurrency(d.value ?? 0, d.currency)}</td>
-                        <td className="py-2 text-right text-[var(--color-pib-text-muted)]">{d.probability ?? '—'}%</td>
+                        <td className="py-1.5 text-right tabular-nums">{formatCurrency(d.value ?? 0, d.currency)}</td>
+                        <td className="py-1.5 text-right text-[var(--color-pib-text-muted)]">{d.probability ?? '—'}%</td>
                       </tr>
                     ))
                   )}
                 </tbody>
               </table>
-            </div>
+            </Surface>
           </div>
         </section>
       )}
 
       {loading && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="pib-skeleton h-32" />
+            <div key={i} className="pib-skeleton h-24" />
           ))}
         </div>
       )}
@@ -880,7 +916,7 @@ export default function PortalDashboard() {
           title="No data yet."
           description="Once your team connects integrations, KPIs will appear here within 24 hours."
           action={(
-            <Link href={scopedHref('/portal/properties')} className="btn-pib-secondary">
+            <Link href={scopedHref('/portal/properties')} className="btn-pib-secondary btn-pib-sm">
               Manage properties
               <span className="material-symbols-outlined text-base">arrow_forward</span>
             </Link>
@@ -890,13 +926,12 @@ export default function PortalDashboard() {
 
       {!loading && data && data.connections.length > 0 && (
         <>
-          {/* Headline KPIs */}
           <section>
-            <div className="flex items-baseline justify-between mb-4">
+            <div className="mb-3 flex items-baseline justify-between">
               <h2 className="eyebrow">Headline metrics</h2>
-              <span className="text-xs text-[var(--color-pib-text-muted)] font-mono">Month-to-date</span>
+              <span className="font-mono text-xs text-[var(--color-pib-text-muted)]">Month-to-date</span>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
               <Tile label="Total revenue" value={fmtZar.format(data.kpis.total_revenue)} delta={data.kpis.deltas.total_revenue} icon="payments" emphasis />
               <Tile label="MRR" value={fmtZar.format(data.kpis.mrr)} delta={data.kpis.deltas.mrr} icon="trending_up" />
               <Tile label="Active subs" value={fmtNum.format(data.kpis.active_subs)} delta={data.kpis.deltas.active_subs} icon="groups" />
@@ -908,27 +943,26 @@ export default function PortalDashboard() {
             </div>
           </section>
 
-          {/* Latest report */}
           {data.reports.length > 0 && (
             <section>
-              <div className="flex items-baseline justify-between mb-4">
+              <div className="mb-3 flex items-baseline justify-between">
                 <h2 className="eyebrow">Latest report</h2>
-                <Link href={scopedHref('/portal/reports')} className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors">
+                <Link href={scopedHref('/portal/reports')} className="inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]">
                   All reports
                   <span className="material-symbols-outlined text-sm">arrow_outward</span>
                 </Link>
               </div>
-              <div className="pib-card flex items-center justify-between gap-4 flex-wrap">
+              <div className="pib-card pib-surface-glass flex flex-wrap items-center justify-between gap-3">
                 <div className="space-y-1">
-                  <p className="font-display text-2xl">
+                  <p className="font-display text-lg md:text-xl">
                     {data.reports[0].period.start} → {data.reports[0].period.end}
                   </p>
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <span className="pib-pill">{data.reports[0].type}</span>
                     <span className={`pib-pill ${data.reports[0].status === 'sent' ? 'pib-pill-accent' : ''}`}>
                       {data.reports[0].status}
                     </span>
-                    <span className="text-xs text-[var(--color-pib-text-muted)] font-mono">
+                    <span className="font-mono text-xs text-[var(--color-pib-text-muted)]">
                       Total revenue {fmtZar.format(data.reports[0].kpis.total_revenue)} · MRR {fmtZar.format(data.reports[0].kpis.mrr)}
                     </span>
                   </div>
@@ -938,7 +972,7 @@ export default function PortalDashboard() {
                     <Link
                       href={`/reports/${data.reports[0].publicToken}`}
                       target="_blank"
-                      className="btn-pib-primary !text-sm"
+                      className="btn-pib-primary btn-pib-sm"
                     >
                       Open report
                       <span className="material-symbols-outlined text-base">arrow_outward</span>
@@ -949,26 +983,30 @@ export default function PortalDashboard() {
             </section>
           )}
 
-          {/* Properties summary */}
           {data.properties.length > 0 && (
             <section>
-              <div className="flex items-baseline justify-between mb-4">
+              <div className="mb-3 flex items-baseline justify-between">
                 <h2 className="eyebrow">Your properties</h2>
-                <Link href={scopedHref('/portal/properties')} className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors">
+                <Link href={scopedHref('/portal/properties')} className="inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]">
                   Manage
                   <span className="material-symbols-outlined text-sm">arrow_outward</span>
                 </Link>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-2.5 md:grid-cols-3">
                 {data.properties.slice(0, 3).map((p) => {
                   const conns = data.connections.filter((c) => c.propertyId === p.id)
                   return (
-                    <div key={p.id} className="pib-card">
-                      <p className="eyebrow !text-[10px]">{p.type}</p>
-                      <p className="font-display text-xl mt-2 leading-tight">{p.name}</p>
-                      <p className="text-xs text-[var(--color-pib-text-muted)] mt-3 font-mono">
-                        {conns.length} connection{conns.length === 1 ? '' : 's'}
-                      </p>
+                    <div key={p.id} className="pib-card pib-enter flex items-start gap-3">
+                      <span className="pib-icon-tint shrink-0" aria-hidden="true">
+                        <span className="material-symbols-outlined text-[16px]">language</span>
+                      </span>
+                      <div className="min-w-0">
+                        <p className="eyebrow !text-[10px]">{p.type}</p>
+                        <p className="mt-1 font-display text-base leading-tight md:text-lg">{p.name}</p>
+                        <p className="mt-1.5 font-mono text-xs text-[var(--color-pib-text-muted)]">
+                          {conns.length} connection{conns.length === 1 ? '' : 's'}
+                        </p>
+                      </div>
                     </div>
                   )
                 })}

@@ -5,6 +5,7 @@ import { scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-
 import type { SoftwareBuildEvidenceRow, AgentOutputReviewStatus, AgentOutputReviewArtifact, AgentOutputQualityCheck, AgentOutputApprovalGate, AgentOutputReviewCard, AgentLearningReviewLink, AgentLearningReviewCard, BriefingCard, Mode } from './cockpit/cockpitTypes'
 import { useBriefingFeed } from './cockpit/useBriefingFeed'
 import { CockpitShell } from './cockpit/CockpitShell'
+import { ModuleShell } from '@/components/ui/ModuleShell'
 import { sanitizeContextReferenceSeeds, type ContextReferenceSeed, type ContextReferenceType } from '@/lib/context-references/types'
 
 const ACTION_CONTROL_GRID_CLASS = 'mt-3 grid min-w-0 grid-cols-1 gap-2'
@@ -2391,7 +2392,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
   }
 
   const workFeedContent = (
-    <div className="h-full min-h-0 bg-page text-[var(--color-pib-text)]">
+    <ModuleShell tier={1} accent="cyan" className="h-full min-h-0 !rounded-none !border-0 !shadow-none bg-page text-[var(--color-pib-text)]">
       <div className="flex h-full min-h-0 w-full flex-col gap-2">
         <section className="hidden" aria-hidden="true">
           <span className="absolute inset-y-0 left-0 w-1.5 bg-[var(--color-accent-v2)]" aria-hidden="true" />
@@ -3680,7 +3681,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
           </aside>
         </section>
       </div>
-    </div>
+    </ModuleShell>
   )
 
   return (

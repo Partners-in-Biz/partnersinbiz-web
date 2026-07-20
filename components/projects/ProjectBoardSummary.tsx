@@ -114,64 +114,70 @@ export function ProjectBoardSummary({ tasks, columns }: { tasks: Task[]; columns
   return (
     <section
       aria-label="Project board summary"
-      className="pib-card mb-3 shrink-0 overflow-hidden !p-0 md:mb-4"
+      data-module-accent="cyan"
+      className="pib-card mb-2.5 shrink-0 overflow-hidden !p-0 md:mb-3"
     >
-      <div className="grid gap-0 md:grid-cols-[minmax(220px,0.85fr)_minmax(0,1.6fr)]">
-        <div className="border-b border-[var(--color-pib-line)] p-4 md:border-b-0 md:border-r md:p-5">
-          <div className="flex items-start justify-between gap-3">
+      <div className="grid gap-0 md:grid-cols-[minmax(200px,0.8fr)_minmax(0,1.65fr)]">
+        <div className="border-b border-[var(--color-pib-line)] p-3 md:border-b-0 md:border-r md:p-3.5">
+          <div className="flex items-start justify-between gap-2.5">
             <div>
               <p className="pib-label">Actually done</p>
-              <p aria-label="Done task progress" className="mt-2 text-3xl font-headline font-bold text-[var(--color-pib-text)] md:text-4xl">
+              <p aria-label="Done task progress" className="mt-1 text-2xl font-headline font-bold tabular-nums text-[var(--color-pib-text)] md:text-3xl">
                 {summary.done} / {summary.total}
               </p>
-              <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Done column, completed tasks, and agent-done work</p>
+              <p className="mt-0.5 text-[11px] text-[var(--color-pib-text-muted)]">Done column, completed tasks, and agent-done work</p>
             </div>
-            <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#4ade8040] bg-[#4ade8016] text-[#4ade80]">
-              <span aria-hidden="true" data-icon="fact_check" className="material-symbols-outlined text-[24px] before:content-[attr(data-icon)]" />
+            <span className="pib-icon-tint-green shrink-0" aria-hidden="true">
+              <span data-icon="fact_check" className="material-symbols-outlined text-[18px] before:content-[attr(data-icon)]" />
             </span>
           </div>
 
-          <div className="mt-5">
-            <div className="mb-2 flex items-center justify-between text-[11px] text-[var(--color-pib-text-muted)]">
+          <div className="mt-3">
+            <div className="mb-1.5 flex items-center justify-between text-[11px] text-[var(--color-pib-text-muted)]">
               <span>Completion</span>
               <span className="font-mono">{summary.progress}%</span>
             </div>
-            <div className="h-2 overflow-hidden rounded-full bg-black/20">
+            <div className="h-1.5 overflow-hidden rounded-full bg-black/20">
               <div className="h-full rounded-full bg-[#4ade80] transition-all" style={{ width: `${summary.progress}%` }} />
             </div>
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-[var(--color-pib-text-muted)]">
-            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-pib-line)] px-2 py-1">
-              <span aria-hidden="true" data-icon="event" className="material-symbols-outlined text-[14px] before:content-[attr(data-icon)]" />
+          <div className="mt-2.5 flex flex-wrap gap-1.5 text-[11px] text-[var(--color-pib-text-muted)]">
+            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-pib-line)] px-2 py-0.5">
+              <span aria-hidden="true" data-icon="event" className="material-symbols-outlined text-[13px] before:content-[attr(data-icon)]" />
               {summary.dueSoon} due this week
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-pib-line)] px-2 py-1">
-              <span aria-hidden="true" data-icon="pending_actions" className="material-symbols-outlined text-[14px] before:content-[attr(data-icon)]" />
+            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-pib-line)] px-2 py-0.5">
+              <span aria-hidden="true" data-icon="pending_actions" className="material-symbols-outlined text-[13px] before:content-[attr(data-icon)]" />
               {summary.open} still open
             </span>
           </div>
         </div>
 
-          <div className="p-3 md:p-4">
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="p-2.5 md:p-3">
+          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-5">
             {summary.stats.map(stat => (
               <div
                 key={stat.key}
-                className="pib-surface relative overflow-hidden p-3.5"
+                className="pib-surface relative overflow-hidden !p-2.5"
               >
                 <div className="absolute inset-x-0 top-0 h-0.5" style={{ background: stat.tone }} />
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center justify-between gap-1.5">
                   <span className="pib-label">{stat.label}</span>
-                  <span aria-hidden="true" data-icon={stat.icon} className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/[0.04] material-symbols-outlined text-[16px] before:content-[attr(data-icon)]" style={{ color: stat.tone }} />
+                  <span
+                    aria-hidden="true"
+                    data-icon={stat.icon}
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.04] material-symbols-outlined text-[14px] before:content-[attr(data-icon)]"
+                    style={{ color: stat.tone }}
+                  />
                 </div>
-                <p aria-label={stat.ariaLabel} className="mt-3 text-3xl font-headline font-bold leading-none text-[var(--color-pib-text)]">{stat.value}</p>
-                <p className="mt-2 min-h-[2.25rem] text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{stat.helper}</p>
+                <p aria-label={stat.ariaLabel} className="mt-1.5 text-xl font-headline font-bold leading-none tabular-nums text-[var(--color-pib-text)]">{stat.value}</p>
+                <p className="mt-1 min-h-[1.75rem] text-[10px] leading-3.5 text-[var(--color-pib-text-muted)]">{stat.helper}</p>
               </div>
             ))}
           </div>
 
-          <div className="mt-3 flex h-2 overflow-hidden rounded-full bg-black/20" aria-label="Board column distribution">
+          <div className="mt-2.5 flex h-1.5 overflow-hidden rounded-full bg-black/20" aria-label="Board column distribution">
             {activeColumns.length === 0 ? (
               <div className="h-full w-full bg-[var(--color-outline)]/30" />
             ) : activeColumns.map(column => {
@@ -187,11 +193,11 @@ export function ProjectBoardSummary({ tasks, columns }: { tasks: Task[]; columns
             })}
           </div>
 
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-2 flex flex-wrap gap-1.5">
             {summary.columns.map(column => {
               const count = summary.columnCounts.get(column.id) ?? 0
               return (
-                <span key={column.id} className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-pib-line)] px-2.5 py-1 text-[11px] text-[var(--color-pib-text-muted)]">
+                <span key={column.id} className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-pib-line)] px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">
                   <span className="h-1.5 w-1.5 rounded-full" style={{ background: column.color ?? 'var(--color-outline)' }} />
                   {column.name} {count}
                 </span>

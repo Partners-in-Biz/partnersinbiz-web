@@ -37,11 +37,11 @@ export function TopCompaniesByPipelineTile({ orgScope = {} }: TopCompaniesByPipe
 
   if (loading) {
     return (
-      <div className="pib-stat-card animate-pulse">
-        <div className="h-4 w-32 bg-[var(--color-pib-line-strong)] rounded mb-3" />
-        <div className="space-y-2">
+      <div className="pib-stat-card animate-pulse" data-module-accent="amber">
+        <div className="mb-2 h-3.5 w-28 rounded bg-[var(--color-pib-line-strong)]" />
+        <div className="space-y-1.5">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-8 bg-[var(--color-pib-line-strong)] rounded" />
+            <div key={i} className="h-7 rounded bg-[var(--color-pib-line-strong)]" />
           ))}
         </div>
       </div>
@@ -52,35 +52,40 @@ export function TopCompaniesByPipelineTile({ orgScope = {} }: TopCompaniesByPipe
   if (companies.length === 0) return null
 
   return (
-    <div className="pib-stat-card">
-      <div className="flex items-center justify-between mb-3">
-        <p className="eyebrow !text-[10px]">Recent companies</p>
+    <div className="pib-stat-card" data-module-accent="amber">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="pib-icon-tint" aria-hidden="true">
+            <span className="material-symbols-outlined text-[15px]">apartment</span>
+          </span>
+          <p className="eyebrow !text-[10px] mb-0">Recent companies</p>
+        </div>
         <Link
           href={companiesHref}
-          className="text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] inline-flex items-center gap-1 transition-colors"
+          className="inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
         >
           View all
           <span className="material-symbols-outlined text-sm">arrow_outward</span>
         </Link>
       </div>
-      <ul className="space-y-1">
+      <ul className="space-y-0.5">
         {companies.map((c) => (
           <li key={c.id}>
             <Link
               href={scopedPortalPath(`/portal/companies/${c.id}`, orgScope)}
-              className="flex items-center gap-2.5 text-sm hover:bg-white/[0.03] p-1.5 rounded-lg transition-colors group"
+              className="group flex items-center gap-2 rounded-lg p-1.5 text-sm transition-colors hover:bg-white/[0.03]"
             >
               {c.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={c.logoUrl} alt="" className="w-6 h-6 rounded object-contain shrink-0" />
+                <img src={c.logoUrl} alt="" className="h-6 w-6 shrink-0 rounded object-contain" />
               ) : (
-                <div className="w-6 h-6 rounded bg-[var(--color-pib-line-strong)] shrink-0 flex items-center justify-center">
-                  <span className="text-[10px] font-semibold text-[var(--color-pib-text-muted)] uppercase leading-none">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-[var(--color-pib-line-strong)]">
+                  <span className="text-[10px] font-semibold uppercase leading-none text-[var(--color-pib-text-muted)]">
                     {c.name[0] ?? '·'}
                   </span>
                 </div>
               )}
-              <span className="flex-1 truncate text-[var(--color-pib-text)] group-hover:text-[var(--color-pib-accent-hover)] transition-colors">
+              <span className="flex-1 truncate text-[var(--color-pib-text)] transition-colors group-hover:text-[var(--color-pib-accent-hover)]">
                 {c.name}
               </span>
             </Link>

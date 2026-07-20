@@ -180,22 +180,24 @@ export function OnboardingChecklist({ scopedHref, scopedApi, initialDone }: Onbo
 
   // Don't flash an empty card before the first data load resolves.
   if (!loaded) {
-    return <div className="pib-skeleton h-40 rounded-xl" aria-hidden />
+    return <div className="pib-skeleton h-28 rounded-xl" aria-hidden />
   }
 
   if (allDone && collapsed) {
     return (
-      <div className="flex items-center justify-between gap-4 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-5 py-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="material-symbols-outlined text-[20px] text-emerald-300 shrink-0">task_alt</span>
-          <p className="text-sm font-medium text-[var(--color-pib-text)] truncate">
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-2.5">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="pib-icon-tint-green shrink-0" aria-hidden="true">
+            <span className="material-symbols-outlined text-[16px]">task_alt</span>
+          </span>
+          <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">
             You&apos;re all set — workspace fully onboarded.
           </p>
         </div>
         <button
           type="button"
           onClick={handleToggleCollapse}
-          className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors shrink-0"
+          className="shrink-0 text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
         >
           Show steps
         </button>
@@ -204,20 +206,25 @@ export function OnboardingChecklist({ scopedHref, scopedApi, initialDone }: Onbo
   }
 
   return (
-    <div className="pib-card space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="eyebrow !text-[10px]">Getting started</p>
-          <h2 className="mt-1 font-display text-xl text-[var(--color-pib-text)]">
-            {allDone ? "You're all set" : 'Finish setting up your workspace'}
-          </h2>
-          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
-            {completedCount} of {steps.length} complete
-          </p>
+    <div className="pib-card space-y-3" data-module-accent="amber">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-2.5">
+          <span className="pib-icon-tint mt-0.5 shrink-0" aria-hidden="true">
+            <span className="material-symbols-outlined text-[16px]">rocket_launch</span>
+          </span>
+          <div className="min-w-0">
+            <p className="eyebrow !text-[10px]">Getting started</p>
+            <h2 className="mt-0.5 font-display text-lg text-[var(--color-pib-text)]">
+              {allDone ? "You're all set" : 'Finish setting up your workspace'}
+            </h2>
+            <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">
+              {completedCount} of {steps.length} complete
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex shrink-0 items-center gap-2">
           <div
-            className="grid h-12 w-12 place-items-center rounded-full border border-[var(--color-pib-line)] text-sm font-mono text-[var(--color-pib-accent)]"
+            className="grid h-9 w-9 place-items-center rounded-full border border-[var(--color-pib-line)] font-mono text-xs text-[var(--color-pib-accent)]"
             aria-label={`${completedCount} of ${steps.length} steps complete`}
           >
             {completedCount}/{steps.length}
@@ -226,7 +233,7 @@ export function OnboardingChecklist({ scopedHref, scopedApi, initialDone }: Onbo
             <button
               type="button"
               onClick={handleToggleCollapse}
-              className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
+              className="text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
             >
               Collapse
             </button>
@@ -234,21 +241,20 @@ export function OnboardingChecklist({ scopedHref, scopedApi, initialDone }: Onbo
         </div>
       </div>
 
-      {/* progress bar */}
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-pib-line)]">
+      <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--color-pib-line)]">
         <div
           className="h-full rounded-full bg-[var(--color-pib-accent)] transition-all"
           style={{ width: `${(completedCount / steps.length) * 100}%` }}
         />
       </div>
 
-      <ul className="space-y-1">
+      <ul className="space-y-0.5">
         {steps.map((step) => {
           const isDone = done[step.key]
           const content = (
             <>
               <span
-                className={`material-symbols-outlined text-[22px] shrink-0 ${
+                className={`shrink-0 material-symbols-outlined text-[18px] ${
                   isDone ? 'text-emerald-300' : 'text-[var(--color-pib-text-muted)]'
                 }`}
                 aria-hidden
@@ -268,7 +274,7 @@ export function OnboardingChecklist({ scopedHref, scopedApi, initialDone }: Onbo
                 <span className="block text-xs text-[var(--color-pib-text-muted)]">{step.description}</span>
               </span>
               {!isDone && (
-                <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)] shrink-0">
+                <span className="material-symbols-outlined shrink-0 text-[16px] text-[var(--color-pib-text-muted)]">
                   arrow_forward
                 </span>
               )}
@@ -277,11 +283,11 @@ export function OnboardingChecklist({ scopedHref, scopedApi, initialDone }: Onbo
           return (
             <li key={step.key}>
               {isDone ? (
-                <div className="flex items-center gap-3 rounded-lg px-2 py-2.5">{content}</div>
+                <div className="flex items-center gap-2.5 rounded-lg px-1.5 py-1.5">{content}</div>
               ) : (
                 <Link
                   href={step.href}
-                  className="flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-[var(--color-row-hover)]"
+                  className="flex items-center gap-2.5 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-[var(--color-row-hover)]"
                 >
                   {content}
                 </Link>

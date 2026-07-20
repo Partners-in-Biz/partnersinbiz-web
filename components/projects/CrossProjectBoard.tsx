@@ -161,15 +161,15 @@ export function CrossProjectBoard({ tasks: initialTasks, loading, onTaskUpdate, 
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: 400 }}>
+        <div className="flex gap-3 overflow-x-auto pb-3" style={{ minHeight: 360 }} data-module-accent="cyan">
           {BOARD_COLUMNS.map(column => (
             loading ? (
-              <div key={column.id} className="flex flex-col w-64 shrink-0">
-                <div className="flex items-center gap-2 mb-3 px-1">
-                  <div className="w-2 h-2 rounded-full" style={{ background: column.color }} />
+              <div key={column.id} className="flex w-60 shrink-0 flex-col">
+                <div className="mb-2 flex items-center gap-1.5 px-1">
+                  <div className="h-1.5 w-1.5 rounded-full" style={{ background: column.color }} />
                   <span className="pib-label">{column.name}</span>
                 </div>
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-1.5">
                   <Skeleton /><Skeleton /><Skeleton />
                 </div>
               </div>
@@ -199,8 +199,8 @@ export function CrossProjectBoard({ tasks: initialTasks, loading, onTaskUpdate, 
       </DndContext>
 
       {!loading && !hasAnyTasks && (
-        <div className="py-12 text-center">
-          <p className="text-[var(--color-pib-text-muted)] text-sm">No tasks yet. Open a project to add some.</p>
+        <div className="py-8 text-center">
+          <p className="text-sm text-[var(--color-pib-text-muted)]">No tasks yet. Open a project to add some.</p>
         </div>
       )}
 

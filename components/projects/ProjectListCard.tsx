@@ -139,51 +139,49 @@ export function ProjectListCard({ project, href }: { project: ProjectListCardPro
   return (
     <Link
       href={href}
-      className="pib-card group/card relative flex min-h-[178px] overflow-hidden !p-0 transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--color-pib-accent)]/60"
+      data-module-accent="cyan"
+      className="pib-card pib-enter group/card relative flex min-h-[148px] overflow-hidden !p-0 transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--color-pib-cyan)]/50"
     >
-      <span className="absolute inset-y-0 left-0 w-1.5" style={{ background: meta.color }} />
-      <div className="flex min-w-0 flex-1 flex-col p-5 pl-6">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex min-w-0 items-start gap-3">
-            <span
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md"
-              style={{ color: meta.color, background: `${meta.color}14`, border: `1px solid ${meta.color}24` }}
-            >
-              <span className="material-symbols-outlined block text-[20px] leading-none">{meta.icon}</span>
+      <span className="absolute inset-y-0 left-0 w-1" style={{ background: meta.color }} />
+      <div className="flex min-w-0 flex-1 flex-col p-3.5 pl-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-2.5">
+            <span className="pib-icon-tint-cyan shrink-0" aria-hidden="true">
+              <span className="material-symbols-outlined block text-[16px] leading-none">{meta.icon}</span>
             </span>
             <div className="min-w-0">
-              <h3 className="line-clamp-2 text-base font-headline font-semibold leading-snug text-[var(--color-pib-text)] group-hover/card:text-[var(--color-pib-accent-hover)]">
+              <h3 className="line-clamp-2 text-sm font-headline font-semibold leading-snug text-[var(--color-pib-text)] group-hover/card:text-[var(--color-pib-cyan)]">
                 {project.name}
               </h3>
-              <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{updated}</p>
+              <p className="mt-0.5 text-[11px] text-[var(--color-pib-text-muted)]">{updated}</p>
             </div>
           </div>
-          <div className="shrink-0 pr-8">
+          <div className="shrink-0 pr-7">
             <StatusBadge status={project.status} />
           </div>
         </div>
 
-        <p className="mt-4 line-clamp-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">{description}</p>
+        <p className="mt-2.5 line-clamp-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">{description}</p>
 
-        <div className="mt-auto pt-5">
-          <div className="mb-2 flex items-center justify-between gap-3">
+        <div className="mt-auto pt-3">
+          <div className="mb-1.5 flex items-center justify-between gap-2">
             <span className="pib-label">Delivery progress</span>
-            <span className="font-mono text-[11px] text-[var(--color-pib-text-muted)]">{meta.progress}%</span>
+            <span className="font-mono text-[10px] text-[var(--color-pib-text-muted)]">{meta.progress}%</span>
           </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+          <div className="h-1 overflow-hidden rounded-full bg-white/[0.06]">
             <div
               className="h-full rounded-full transition-all duration-300"
               style={{ width: `${meta.progress}%`, background: meta.color }}
             />
           </div>
-          <div className="mt-4 flex items-center justify-between text-xs">
-            <span className="inline-flex items-center gap-1.5 text-[var(--color-pib-text-muted)]">
-              <span className="material-symbols-outlined text-[15px]">view_kanban</span>
+          <div className="mt-2.5 flex items-center justify-between text-[11px]">
+            <span className="inline-flex items-center gap-1 text-[var(--color-pib-text-muted)]">
+              <span className="material-symbols-outlined text-[14px]">view_kanban</span>
               Board workspace
             </span>
-            <span className="inline-flex items-center gap-1 text-[var(--color-pib-accent-hover)] opacity-0 transition-opacity group-hover/card:opacity-100">
+            <span className="inline-flex items-center gap-0.5 text-[var(--color-pib-cyan)] opacity-0 transition-opacity group-hover/card:opacity-100">
               Open
-              <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
+              <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
             </span>
           </div>
         </div>

@@ -381,8 +381,9 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
       : 'Try a different status filter to see more projects.'
 
   return (
-    <div className={isAdmin ? 'space-y-6 max-w-5xl mx-auto' : 'space-y-6'}>
+    <div className={isAdmin ? 'mx-auto max-w-5xl space-y-4' : 'space-y-4'} data-module-accent="cyan">
       <PageHeader
+        accent="cyan"
         eyebrow={isAdmin ? 'Admin task bus / Projects' : 'Client workspace / Projects'}
         title="Projects"
         description={isAdmin ? 'Kanban-led delivery spaces for client and platform work. Switch between board and list views without leaving the workspace.' : 'Follow active work, timelines, and task progress without exposing internal admin controls.'}
@@ -397,8 +398,9 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
             {(isAdmin || canRequestProject) ? (
               <button
                 onClick={() => setShowForm(true)}
-                className="pib-btn-primary text-sm font-label"
+                className="pib-btn-primary btn-pib-sm font-label"
               >
+                <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add</span>
                 {isAdmin ? 'Create operator project' : 'Request project'}
               </button>
             ) : null}
@@ -407,15 +409,15 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
       />
 
       {showForm && (
-        <Surface className={isAdmin ? 'p-4' : undefined}>
-          <form onSubmit={handleCreateProject} className="flex gap-2 items-end flex-wrap">
-            <div className="flex-1 min-w-[150px]">
+        <Surface variant="glass" accentEdge="cyan" className={isAdmin ? '!p-3' : undefined}>
+          <form onSubmit={handleCreateProject} className="flex flex-wrap items-end gap-2">
+            <div className="min-w-[150px] flex-1">
               <input
                 type="text"
                 placeholder="Project name..."
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
-                className="pib-input w-full text-sm"
+                className="pib-input h-8 w-full text-sm"
                 disabled={formLoading}
                 autoFocus
               />
@@ -423,7 +425,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
             <select
               value={formStatus}
               onChange={(e) => setFormStatus(e.target.value)}
-              className="pib-select text-sm"
+              className="pib-select h-8 text-sm"
               disabled={formLoading}
             >
               {STATUS_OPTIONS.map(status => (
@@ -432,7 +434,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
             </select>
             <button
               type="submit"
-              className="pib-btn-primary text-sm font-label"
+              className="pib-btn-primary btn-pib-sm font-label"
               disabled={formLoading || !formName.trim()}
             >
               {formLoading ? 'Creating...' : 'Create'}
@@ -440,14 +442,14 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
             <button
               type="button"
               onClick={handleCancel}
-              className="pib-btn-secondary text-sm font-label"
+              className="pib-btn-secondary btn-pib-sm font-label"
               disabled={formLoading}
             >
               Cancel
             </button>
           </form>
           {formError && (
-            <p className="text-xs text-[#ef4444] mt-2">{formError}</p>
+            <p className="mt-2 text-xs text-[#ef4444]">{formError}</p>
           )}
         </Surface>
       )}
@@ -463,8 +465,8 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
 
       {activeSection === 'projects' ? (
         <>
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex min-w-0 flex-wrap items-center gap-2 overflow-x-auto">
+          <div className="flex flex-wrap items-center justify-between gap-2.5">
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5 overflow-x-auto">
               <PageTabs
                 ariaLabel="Project archive filters"
                 value={projectView}
@@ -479,22 +481,22 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
               />
             </div>
 
-            <div className="flex w-full flex-wrap items-center justify-between gap-3 sm:w-auto sm:justify-end">
-              <label className="min-w-[220px] flex-1 sm:flex-none">
+            <div className="flex w-full flex-wrap items-center justify-between gap-2 sm:w-auto sm:justify-end">
+              <label className="min-w-[200px] flex-1 sm:flex-none">
                 <span className="sr-only">Search projects</span>
                 <input
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
                   placeholder="Search projects..."
-                  className="pib-input h-9 text-sm"
+                  className="pib-input h-8 text-sm"
                 />
               </label>
-              <div className="flex rounded-[var(--radius-btn)] overflow-hidden border border-[var(--color-pib-line)]">
+              <div className="flex overflow-hidden rounded-[var(--radius-btn)] border border-[var(--color-pib-line)]">
                 {(['list', 'board'] as const).map(displayMode => (
                   <button
                     key={displayMode}
                     onClick={() => setViewMode(displayMode)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-label capitalize transition-colors"
+                    className="flex h-8 items-center gap-1.5 px-2.5 text-xs font-label capitalize transition-colors"
                     style={
                       viewMode === displayMode
                         ? { background: 'var(--color-accent-v2)', color: '#000' }
@@ -512,10 +514,10 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
                 <button
                   type="button"
                   onClick={() => setBoardSortMode(prev => prev === 'latest' ? 'manual' : 'latest')}
-                  className="inline-flex shrink-0 items-center gap-2 rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] px-3 py-1.5 text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
+                  className="btn-pib-sm inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] px-2.5 text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
                   aria-pressed={boardSortMode === 'manual'}
                 >
-                  <span className="material-symbols-outlined text-[16px]">sort</span>
+                  <span className="material-symbols-outlined text-[15px]">sort</span>
                   {boardSortMode === 'latest' ? 'Manual order' : 'Latest first'}
                 </button>
               )}
@@ -524,7 +526,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
 
           {viewMode === 'board' && failedProjectIds.length > 0 && (
             <div
-              className="flex items-center justify-between gap-3 rounded-[var(--radius-card)] px-4 py-2 text-sm"
+              className="flex items-center justify-between gap-3 rounded-[var(--radius-card)] px-3 py-1.5 text-sm"
               style={{ background: '#ef444420', color: '#f87171', border: '1px solid #ef444430' }}
             >
               <span>Could not load tasks for {failedProjectIds.length} project(s).</span>
@@ -533,7 +535,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
                   setViewMode('list')
                   setTimeout(() => setViewMode('board'), 0)
                 }}
-                className="underline text-xs shrink-0"
+                className="shrink-0 text-xs underline"
               >
                 Retry
               </button>
@@ -549,8 +551,8 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
               onTaskUpdate={handleBoardTaskUpdate}
             />
           ) : loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-32" />)}
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-28" />)}
             </div>
           ) : projectView === 'archive' ? (
             <>
@@ -562,7 +564,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
                   description="Completed and archived projects will appear here after sign-off."
                 />
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   {filtered.map(project => (
                     <ProjectListCard key={project.id} project={project} href={buildProjectHref(project.id)} />
                   ))}
@@ -576,13 +578,13 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
               description={emptyActiveDescription}
             />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {filtered.map(project => (
-                <div key={project.id} className="relative group">
+                <div key={project.id} className="group relative">
                   <ProjectListCard project={project} href={buildProjectHref(project.id)} />
 
                   {isAdmin && (confirmId === project.id ? (
-                    <div className="absolute top-2 right-2 flex items-center gap-1 bg-[var(--color-surface)] border border-[#ef4444] rounded-md px-2 py-1 shadow-sm z-10">
+                    <div className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-md border border-[#ef4444] bg-[var(--color-surface)] px-2 py-1 shadow-sm">
                       <span className="text-[11px] text-[#ef4444]">Archive?</span>
                       <button
                         onClick={() => handleDelete(project.id)}
@@ -605,7 +607,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
                         e.preventDefault()
                         setConfirmId(project.id)
                       }}
-                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-[#ef444420] text-[#ef4444]"
+                      className="absolute top-2 right-2 rounded p-1 text-[#ef4444] opacity-0 transition-opacity hover:bg-[#ef444420] group-hover:opacity-100"
                       title="Archive project"
                     >
                       <span className="material-symbols-outlined text-[16px]">delete</span>
