@@ -945,6 +945,17 @@ export default function UnifiedChat({
   const eventSourcesRef = useRef<Record<string, EventSource>>({})
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
   const composerRef = useRef<HTMLTextAreaElement | null>(null)
+  const COMPOSER_MAX_HEIGHT_PX = 160
+  const resizeComposer = useCallback(() => {
+    const el = composerRef.current
+    if (!el) return
+    el.style.height = '0px'
+    const next = Math.min(Math.max(el.scrollHeight, 40), COMPOSER_MAX_HEIGHT_PX)
+    el.style.height = `${next}px`
+  }, [])
+  useEffect(() => {
+    resizeComposer()
+  }, [input, resizeComposer])
   // User edit generation guards delayed context attachment cleanup. Comparing
   // text alone is insufficient because a user can edit and then restore the
   // exact same bytes while the PATCH is in flight.
@@ -2730,8 +2741,9 @@ export default function UnifiedChat({
     setInput(nextInput)
     updateMentionFromComposer(nextInput, nextInput.length)
     focusComposerToEnd(nextInput)
+    requestAnimationFrame(() => resizeComposer())
     return true
-  }, [activeId, composerHistory, contextMention, contextTypePrompt, focusComposerToEnd, historyCursor, input, orgId, slashPrompt, updateMentionFromComposer])
+  }, [activeId, composerHistory, contextMention, contextTypePrompt, focusComposerToEnd, historyCursor, input, orgId, resizeComposer, slashPrompt, updateMentionFromComposer])
 
   const patchContextRefs = useCallback(async (
     action: 'add' | 'remove' | 'clear',
@@ -4959,6 +4971,7 @@ export default function UnifiedChat({
                 setHistoryCursor(null)
                 historyDraftRef.current = ''
                 updateMentionFromComposer(e.target.value, e.target.selectionStart ?? e.target.value.length)
+                requestAnimationFrame(() => resizeComposer())
               }}
               onClick={(e) => updateMentionFromComposer(input, e.currentTarget.selectionStart ?? input.length)}
               onKeyUp={(e) => {
@@ -5008,8 +5021,8 @@ export default function UnifiedChat({
               disabled={!canUseComposer || sending}
               rows={1}
               className={[
-                'min-h-[40px] max-h-[160px] min-w-0 flex-1 resize-none bg-transparent px-1 py-2 text-[15px] placeholder:text-[var(--color-pib-text-muted)] disabled:opacity-60 focus:outline-none',
-                compact ? '' : hermesLayout ? 'lg:min-h-0 lg:px-2 lg:py-2 lg:text-sm' : 'lg:text-sm lg:rounded-lg lg:border lg:border-[var(--color-card-border)] lg:bg-[var(--color-card)] lg:px-3 lg:py-2 lg:min-h-0',
+                'min-h-[40px] max-h-[160px] min-w-0 flex-1 resize-none overflow-y-auto bg-transparent px-1 py-2 text-[15px] placeholder:text-[var(--color-pib-text-muted)] disabled:opacity-60 focus:outline-none',
+                compact ? '' : hermesLayout ? 'lg:min-h-[36px] lg:px-2 lg:py-1.5 lg:text-sm' : 'lg:text-sm lg:rounded-lg lg:border lg:border-[var(--color-card-border)] lg:bg-[var(--color-card)] lg:px-3 lg:py-2 lg:min-h-[36px]',
               ].join(' ')}
             />
             <button

@@ -265,9 +265,9 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
       shellTestId="hermes-messages-shell"
       fieldTestId="messages-neural-field"
       data-messages-experience="cinematic-2026"
-      className="relative flex h-[calc(100dvh-88px)] min-h-0 min-w-0 flex-col overflow-hidden rounded-[22px] border border-[var(--color-card-border)] bg-[var(--color-card)]/55 shadow-[0_24px_80px_rgba(0,0,0,0.24)] lg:min-h-[640px]"
+      className="relative flex h-[calc(100dvh-72px)] min-h-0 min-w-0 flex-col overflow-hidden rounded-[18px] border border-[var(--color-card-border)] bg-[var(--color-card)]/55 shadow-[0_24px_80px_rgba(0,0,0,0.24)] lg:min-h-[640px]"
     >
-      <header data-testid="hermes-messages-shell-topbar" className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black/[0.08] px-3">
+      <header data-testid="hermes-messages-shell-topbar" className="flex h-10 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black/[0.08] px-2.5">
         <div className="flex min-w-0 items-center gap-2">
           <span className="material-symbols-outlined relative grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-[15px] text-primary">
             forum
@@ -296,7 +296,7 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
         </div>
       </header>
       <div className="sr-only" data-testid="hermes-messages-shell-description">{copy.description}</div>
-      <section data-testid="hermes-messages-shell-body" className="min-h-0 min-w-0 flex-1 overflow-hidden p-2">
+      <section data-testid="hermes-messages-shell-body" className="min-h-0 min-w-0 flex-1 overflow-hidden p-1">
         <div className={`flex h-full min-h-0 min-w-0 ${direction === 'row' ? 'flex-row' : 'flex-col'}`}>
           {panes.map((pane, paneIndex) => {
             const activeTab = pane.tabs.find((tab) => tab.id === pane.activeTabId) ?? null
@@ -320,7 +320,7 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
                   {panes.length > 1 && <button type="button" aria-label={`Show ${alternatePaneId} pane`} onClick={() => setFocusedPaneId(alternatePaneId)} className="grid h-11 w-11 shrink-0 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] xl:hidden"><span aria-hidden="true" className="material-symbols-outlined text-[18px]">swap_horiz</span></button>}
                   {pane.id === 'secondary' && <button type="button" aria-label="Close split pane" onClick={() => { setPanes((current) => current.filter((item) => item.id !== 'secondary')); setFocusedPaneId('primary') }} className="grid h-11 w-11 shrink-0 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] xl:h-6 xl:w-6"><span className="material-symbols-outlined text-[14px]">close_fullscreen</span></button>}
                 </div>
-                <div className="min-h-0 min-w-0 flex-1 overflow-hidden p-1.5">
+                <div className="min-h-0 min-w-0 flex-1 overflow-hidden p-1">
                   {activeTab?.kind === 'panel' ? <GeneratedWorkspacePanel panel={activeTab.panel} /> : (
                     <UnifiedChat
                       {...chatProps}
