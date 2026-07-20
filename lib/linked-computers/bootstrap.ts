@@ -10,11 +10,14 @@ export const HERMES_PROFILE_PRESETS = [
 
 export const HERMES_MODEL_PROVIDERS = [
   { id: 'nous', label: 'Nous Portal', description: 'Sign in without pasting an API key' },
-  { id: 'openai', label: 'OpenAI', description: 'Use your own OpenAI API key' },
+  { id: 'openai-codex', label: 'OpenAI Codex', description: 'ChatGPT subscription via OAuth' },
+  { id: 'xai-oauth', label: 'xAI Grok OAuth', description: 'SuperGrok / Premium+ sign-in' },
+  { id: 'xai', label: 'xAI Grok', description: 'Use your own xAI API key' },
+  { id: 'openai', label: 'OpenAI API', description: 'Use your own OpenAI API key' },
   { id: 'anthropic', label: 'Anthropic', description: 'Use your own Anthropic API key' },
   { id: 'openrouter', label: 'OpenRouter', description: 'Use one key across many models' },
   { id: 'google', label: 'Google Gemini', description: 'Use your own Gemini API key' },
-  { id: 'xai', label: 'xAI', description: 'Use your own xAI API key' },
+  { id: 'copilot', label: 'GitHub Copilot', description: 'Copilot subscription token' },
 ] as const
 
 const PROFILE_ID = /^[a-z][a-z0-9-]{0,31}$/
@@ -44,7 +47,7 @@ export function sanitizeHermesProviders(values: unknown): string[] {
   const providers = Array.from(new Set(values
     .map((value) => typeof value === 'string' ? value.trim().toLowerCase() : '')
     .filter((value) => PROVIDER_IDS.has(value as typeof HERMES_MODEL_PROVIDERS[number]['id']))))
-    .slice(0, 6)
+    .slice(0, 8)
   return providers.length ? providers : ['nous']
 }
 
