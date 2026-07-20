@@ -449,9 +449,16 @@
   gap: 0.5rem;
   min-height: 2rem;
   padding: 0.35rem 0.55rem;
+  border: 0;
   border-radius: 0.5rem;
+  background: transparent;
+  font: inherit;
   font-size: 0.8125rem;
+  font-weight: 500;
   color: var(--color-pib-text-muted);
+  text-align: inherit;
+  cursor: pointer;
+  text-decoration: none;
   transition: background 150ms ease, color 150ms ease;
 }
 .pib-nav-item:hover {
@@ -465,6 +472,14 @@
 .pib-topbar-dense {
   height: 2.75rem !important;
   min-height: 2.75rem;
+  max-height: 2.75rem;
+  box-sizing: border-box;
+}
+.pib-chrome-sticky {
+  border-bottom: 1px solid var(--color-pib-line, var(--pib-fx-line));
+  background: var(--pib-fx-glass);
+  backdrop-filter: blur(var(--pib-fx-blur)) saturate(var(--pib-fx-sat));
+  -webkit-backdrop-filter: blur(var(--pib-fx-blur)) saturate(var(--pib-fx-sat));
 }
 
 /* Layout main density */
