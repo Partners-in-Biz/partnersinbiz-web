@@ -199,6 +199,45 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     expect(screen.queryByText('Old migrated session')).not.toBeInTheDocument()
   })
 
+  it('hydrates an authorised saved tab outside the rail catalogue so it retains context controls', async () => {
+    const savedProjectConversation = {
+      ...baseConversation,
+      id: 'conv-saved-project',
+      title: 'SkillOpt',
+      scope: 'project',
+      scopeRefId: 'hidden-project',
+      workspaceContext: { projectId: 'hidden-project', projectName: 'Hidden migrated project' },
+      contextRefs: [] as ContextReference[],
+    }
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/visible-agents') || url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: {
+        workspaces: [], runtimeTargetsByWorkspace: {}, projects: [],
+      } })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [] } })
+      if (url === '/api/v1/conversations/conv-saved-project') {
+        return jsonResponse({ data: { conversation: savedProjectConversation } })
+      }
+      if (url === '/api/v1/conversations/conv-saved-project/messages') return jsonResponse({ data: { messages: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        layoutVariant="hermes"
+        activeConversationId="conv-saved-project"
+      />,
+    )
+
+    expect(await screen.findByRole('button', { name: 'Add conversation context' })).toBeInTheDocument()
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/conversations/conv-saved-project')
+    expect(screen.queryByTestId('hermes-project-hidden-project')).not.toBeInTheDocument()
+  })
+
   it('removes only the current user sidebar link and refreshes the project list', async () => {
     let removed = false
     global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
