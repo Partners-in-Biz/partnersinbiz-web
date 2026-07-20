@@ -15,7 +15,7 @@ describe('portal billing permissions', () => {
       canEdit: true,
       canSend: true,
       canCancel: true,
-      canMarkPaid: false,
+      canMarkPaid: true,
     })
 
     expect(sanitizeInvoicePortalPatch(actor, invoice, {
@@ -45,7 +45,7 @@ describe('portal billing permissions', () => {
     expect(invoicePortalCapabilities(actor, invoice)).toMatchObject({
       canEdit: false,
       canSend: false,
-      canMarkPaid: false,
+      canMarkPaid: true,
     })
     expect(sanitizeInvoicePortalPatch(actor, invoice, { notes: 'late edit' })).toMatchObject({
       ok: false,

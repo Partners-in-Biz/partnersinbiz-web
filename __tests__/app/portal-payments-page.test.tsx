@@ -124,6 +124,9 @@ describe('PaymentsPage', () => {
       if (url === '/api/v1/invoices/draft-invoice?orgId=lumen-org' && init?.method === 'PATCH') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: { id: 'draft-invoice' } }) })
       }
+      if (url === '/api/v1/invoices/draft-invoice/mark-paid?orgId=lumen-org' && init?.method === 'PATCH') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: { id: 'draft-invoice', status: 'paid' } }) })
+      }
       return Promise.resolve({ ok: false, json: () => Promise.resolve({}) })
     })
 
@@ -140,6 +143,7 @@ describe('PaymentsPage', () => {
     fireEvent.click(draftStatus)
     const statusMenu = await screen.findByRole('listbox', { name: 'Change status for invoice COU-003' })
     expect(statusMenu).toHaveClass('bg-[var(--color-pib-surface)]', 'text-[var(--color-pib-text)]')
+    expect(screen.getByRole('option', { name: 'Paid' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('option', { name: 'Overdue' }))
 
@@ -153,6 +157,20 @@ describe('PaymentsPage', () => {
       )
     })
     await waitFor(() => expect(screen.getByTestId('invoice-status-pill-COU-003')).toHaveTextContent('Overdue'))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Change status for invoice COU-003' }))
+    fireEvent.click(await screen.findByRole('option', { name: 'Paid' }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/invoices/draft-invoice/mark-paid?orgId=lumen-org',
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({ paymentMethod: 'other' }),
+        }),
+      )
+    })
+    await waitFor(() => expect(screen.getByTestId('invoice-status-pill-COU-003')).toHaveTextContent('Paid'))
   })
 
   it('links draft invoice numbers to the invoice editing surface without linking non-draft invoices', async () => {

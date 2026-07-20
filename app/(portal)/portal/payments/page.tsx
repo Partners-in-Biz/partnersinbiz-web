@@ -50,6 +50,7 @@ const INVOICE_STATUS_OPTIONS: InvoiceStatus[] = [
   'viewed',
   'payment_pending_verification',
   'partially_paid',
+  'paid',
   'overdue',
   'cancelled',
 ]
@@ -170,16 +171,27 @@ export default function PaymentsPage() {
   }
 
   async function updateInvoiceStatus(invoiceId: string, status: InvoiceStatus) {
-    if (status === 'paid') return
     setUpdatingInvoiceId(invoiceId)
     try {
+      if (status === 'paid') {
+        const res = await fetch(scopedApiPath(`/api/v1/invoices/${invoiceId}/mark-paid`, orgScope), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paymentMethod: 'other' }),
+        })
+        if (res.ok) {
+          setInvoices((prev) => prev.map((invoice) => (invoice.id === invoiceId ? { ...invoice, status: 'paid' } : invoice)))
+        }
+        return
+      }
+
       const res = await fetch(scopedApiPath(`/api/v1/invoices/${invoiceId}`, orgScope), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       })
       if (res.ok) {
-        setInvoices(prev => prev.map(invoice => invoice.id === invoiceId ? { ...invoice, status } : invoice))
+        setInvoices((prev) => prev.map((invoice) => (invoice.id === invoiceId ? { ...invoice, status } : invoice)))
       }
     } finally {
       setUpdatingInvoiceId(null)
@@ -276,7 +288,10 @@ export default function PaymentsPage() {
                   </div>
                   <div className="col-span-2 md:col-span-2">
                     {invoice.status === 'paid' ? (
-                      <span className={INVOICE_STATUS_PILL[invoice.status] ?? 'pib-pill'}>
+                      <span
+                        data-testid={`invoice-status-pill-${invoice.invoiceNumber}`}
+                        className={INVOICE_STATUS_PILL[invoice.status] ?? 'pib-pill'}
+                      >
                         <span className="w-1.5 h-1.5 rounded-full bg-current" />
                         {label(invoice.status)}
                       </span>
