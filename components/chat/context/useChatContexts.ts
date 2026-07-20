@@ -2,22 +2,26 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { selectActiveContext } from '@/lib/chat-context/selection'
-import type { ChatContextReadModel, ChatContextReference } from '@/lib/chat-context/types'
+import { chatContextReferenceKey, type ChatContextReadModel, type ChatContextReference } from '@/lib/chat-context/types'
 import type { ChatContextOption } from './ContextSelector'
 import { contextReferenceTypeFrom } from '@/lib/context-references/types'
 
 const REFRESH_MS = 5_000
-interface Conversation { id: string; scope?: string; scopeRefId?: string; contextRefs?: Array<{ type?: string; kind?: string; id: string; label?: string; href?: string; summary?: string }> }
+interface Conversation { id: string; scope?: string; scopeRefId?: string; contextRefs?: Array<{ type?: string; kind?: string; id: string; label?: string; href?: string; summary?: string; metadata?: { projectId?: unknown } }> }
 const selectionKey = (orgId: string, conversationId: string) => `pib.messages.contextSelection.v1:${orgId}:${conversationId}`
-const seenKey = (orgId: string, conversationId: string, context: ChatContextReference) => `pib.messages.contextSeen.v1:${orgId}:${conversationId}:${context.kind}:${context.id}`
+const seenKey = (orgId: string, conversationId: string, context: ChatContextReference) => `pib.messages.contextSeen.v1:${orgId}:${conversationId}:${chatContextReferenceKey(context)}`
 
 function optionsFor(conversation: Conversation | null): ChatContextOption[] {
   if (!conversation) return []
   const result = new Map<string, ChatContextOption>()
-  if (conversation.scope === 'project' && conversation.scopeRefId) result.set(`project:${conversation.scopeRefId}`, { kind: 'project', id: conversation.scopeRefId, label: 'Project' })
+  if (conversation.scope === 'project' && conversation.scopeRefId) result.set(chatContextReferenceKey({ kind: 'project', id: conversation.scopeRefId }), { kind: 'project', id: conversation.scopeRefId, label: 'Project' })
   for (const ref of conversation.contextRefs ?? []) {
     const kind = contextReferenceTypeFrom(ref.kind ?? ref.type)
-    if (kind) result.set(`${kind}:${ref.id}`, { kind, id: ref.id, label: ref.label ?? 'Context', ...(ref.href ? { href: ref.href } : {}), ...(ref.summary ? { summary: ref.summary } : {}) })
+    const projectId = kind === 'task' && typeof ref.metadata?.projectId === 'string' ? ref.metadata.projectId.trim() : ''
+    if (kind) {
+      const option = { kind, id: ref.id, label: ref.label ?? 'Context', ...(projectId ? { projectId } : {}), ...(ref.href ? { href: ref.href } : {}), ...(ref.summary ? { summary: ref.summary } : {}) }
+      result.set(chatContextReferenceKey(option), option)
+    }
   }
   return [...result.values()]
 }
@@ -32,7 +36,7 @@ export function useChatContexts(orgId: string, conversation: Conversation | null
   const [routineUpdateCount, setRoutineUpdateCount] = useState(0)
   const modelsByContext = useRef(new Map<string, ChatContextReadModel>())
   const seenByContext = useRef(new Map<string, number>())
-  const contextKey = activeContext ? `${activeContext.kind}:${activeContext.id}` : ''
+  const contextKey = activeContext ? chatContextReferenceKey(activeContext) : ''
   const activeKeyRef = useRef(contextKey)
   const requestRef = useRef<{ generation: number; controller?: AbortController }>({ generation: 0 })
   activeKeyRef.current = contextKey
@@ -46,7 +50,7 @@ export function useChatContexts(orgId: string, conversation: Conversation | null
   }, [conversation?.id, orgId])
 
   const setActiveContext = useCallback((next: ChatContextReference) => {
-    const nextKey = `${next.kind}:${next.id}`
+    const nextKey = chatContextReferenceKey(next)
     setExplicit(next)
     setModel(modelsByContext.current.get(nextKey) ?? null)
     setError(null)
@@ -74,11 +78,13 @@ export function useChatContexts(orgId: string, conversation: Conversation | null
     const generation = ++requestRef.current.generation
     requestRef.current.controller = controller
     try {
-      const response = await fetch(`/api/v1/chat-context/${encodeURIComponent(activeContext.kind)}/${encodeURIComponent(activeContext.id)}`, { signal: controller.signal })
+      const taskProjectId = activeContext.kind === 'task' ? activeContext.projectId?.trim() : ''
+      const query = taskProjectId ? `?${new URLSearchParams({ projectId: taskProjectId }).toString()}` : ''
+      const response = await fetch(`/api/v1/chat-context/${encodeURIComponent(activeContext.kind)}/${encodeURIComponent(activeContext.id)}${query}`, { signal: controller.signal })
       if (!response.ok) throw new Error(`context refresh failed: ${response.status}`)
       const body = await response.json(); const next = body?.data as ChatContextReadModel | undefined
       if (!next?.context || !next.pulse) throw new Error('context response is invalid')
-      const requestedKey = `${activeContext.kind}:${activeContext.id}`
+      const requestedKey = chatContextReferenceKey(activeContext)
       modelsByContext.current.set(requestedKey, next)
       if (controller.signal.aborted || generation !== requestRef.current.generation || activeKeyRef.current !== requestedKey) return
       setModel(next); setError(null)
@@ -90,7 +96,7 @@ export function useChatContexts(orgId: string, conversation: Conversation | null
       if (controller.signal.aborted || generation !== requestRef.current.generation) return
       setError(cause instanceof Error ? cause : new Error('Context refresh failed'))
     }
-  }, [activeContext?.id, activeContext?.kind, conversation?.id, orgId])
+  }, [activeContext?.id, activeContext?.kind, activeContext?.projectId, conversation?.id, orgId])
 
   useEffect(() => {
     if (!autoPoll || !activeContext) return
@@ -99,7 +105,7 @@ export function useChatContexts(orgId: string, conversation: Conversation | null
     load(); const timer = window.setInterval(load, REFRESH_MS)
     const visibility = () => load(); document.addEventListener('visibilitychange', visibility)
     return () => { cancelled = true; window.clearInterval(timer); document.removeEventListener('visibilitychange', visibility) }
-  }, [activeContext?.id, activeContext?.kind, autoPoll, refresh])
+  }, [activeContext?.id, activeContext?.kind, activeContext?.projectId, autoPoll, refresh])
 
   const dismissRoutineUpdates = useCallback(() => {
     setRoutineUpdateCount(0)

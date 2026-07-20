@@ -5,6 +5,9 @@ import { CONTEXT_REFERENCE_TYPES } from '@/lib/context-references/types'
 export interface ChatContextResolveInput {
   kind: ChatContextKind
   id: string
+  // Only accepted for task contexts. It identifies the canonical project
+  // subcollection to inspect and is never trusted as an access grant.
+  projectId?: string
   artifactId?: string
   user: ApiUser
 }

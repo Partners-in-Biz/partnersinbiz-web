@@ -35,7 +35,13 @@ export const genericChatContextAdapter: ChatContextAdapter = {
   async resolve(input) {
     const orgId = input.user.activeOrgId ?? input.user.orgId
     const [ref] = await resolveContextReferences([
-      { type: input.kind, id: input.id, orgId, origin: 'manual' },
+      {
+        type: input.kind,
+        id: input.id,
+        orgId,
+        origin: 'manual',
+        ...(input.kind === 'task' && input.projectId ? { metadata: { projectId: input.projectId } } : {}),
+      },
     ], input.user, orgId)
     if (!ref) return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' }
 

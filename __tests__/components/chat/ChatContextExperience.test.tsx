@@ -50,6 +50,56 @@ describe('useChatContexts', () => {
     ]))
   })
 
+  it('keeps a pinned project task scoped to its canonical project when fetching the live canvas', async () => {
+    const taskConversation = {
+      id: 'conv-project-task',
+      contextRefs: [{
+        type: 'task', id: 'task-in-project', label: 'Approve launch', metadata: { projectId: 'project-1' },
+      }],
+    }
+    global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ data: {
+      context: { kind: 'task', id: 'task-in-project', orgId: 'org-1', label: 'Approve launch', icon: 'task_alt' },
+      pulse: { label: 'Task', metrics: [] }, groups: [], artifacts: [], attention: [], activity: [], capabilities: [], asOf: new Date().toISOString(),
+    } }) })) as jest.Mock
+
+    const { result } = renderHook(() => useChatContexts('org-1', taskConversation))
+    await waitFor(() => expect(result.current.model?.context.id).toBe('task-in-project'))
+
+    expect(result.current.contexts).toEqual([expect.objectContaining({ kind: 'task', id: 'task-in-project', projectId: 'project-1' })])
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/v1/chat-context/task/task-in-project?projectId=project-1',
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    )
+  })
+
+  it('does not dedupe same-id task contexts from different projects or reuse their cached canvas model', async () => {
+    const taskConversation = {
+      id: 'conv-colliding-project-tasks',
+      contextRefs: [
+        { type: 'task', id: 'shared-task', label: 'Project one task', metadata: { projectId: 'project-1' } },
+        { type: 'task', id: 'shared-task', label: 'Project two task', metadata: { projectId: 'project-2' } },
+      ],
+    }
+    global.fetch = jest.fn(async (input) => {
+      const projectId = new URL(String(input), 'http://localhost').searchParams.get('projectId')
+      return { ok: true, json: async () => ({ data: {
+        context: { kind: 'task', id: 'shared-task', orgId: 'org-1', label: `Task in ${projectId}`, icon: 'task_alt' },
+        pulse: { label: 'Task', metrics: [] }, groups: [], artifacts: [], attention: [], activity: [], capabilities: [], asOf: new Date().toISOString(),
+      } }) }
+    }) as jest.Mock
+
+    const { result } = renderHook(() => useChatContexts('org-1', taskConversation))
+    await waitFor(() => expect(result.current.model?.context.label).toBe('Task in project-2'))
+    expect(result.current.contexts).toHaveLength(2)
+
+    act(() => result.current.setActiveContext({ kind: 'task', id: 'shared-task', projectId: 'project-1' }))
+    await waitFor(() => expect(result.current.model?.context.label).toBe('Task in project-1'))
+    expect((global.fetch as jest.Mock).mock.calls.map(([input]) => String(input))).toEqual(expect.arrayContaining([
+      '/api/v1/chat-context/task/shared-task?projectId=project-1',
+      '/api/v1/chat-context/task/shared-task?projectId=project-2',
+    ]))
+  })
+
   it('aborts the previous conversation request before it can update state', async () => {
     global.fetch = jest.fn(() => new Promise(() => {})) as jest.Mock
     const { rerender } = renderHook(({ value }) => useChatContexts('org-1', value), { initialProps: { value: conversation } })

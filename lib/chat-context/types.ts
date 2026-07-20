@@ -20,6 +20,16 @@ export interface ConversationOrigin {
 export interface ChatContextReference {
   kind: ChatContextKind
   id: string
+  // Task records can live in a project's tasks subcollection. This remains
+  // presentation metadata only; the server still re-checks project access
+  // before resolving the task.
+  projectId?: string
+}
+
+export function chatContextReferenceKey(reference: ChatContextReference): string {
+  return reference.kind === 'task' && reference.projectId
+    ? `${reference.kind}:${encodeURIComponent(reference.projectId)}:${encodeURIComponent(reference.id)}`
+    : `${reference.kind}:${encodeURIComponent(reference.id)}`
 }
 
 export interface ChatContextPreview {

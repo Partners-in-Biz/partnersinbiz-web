@@ -52,6 +52,13 @@ async function get(kind: string, id: string) {
   })
 }
 
+async function getWithProject(kind: string, id: string, projectId: string) {
+  const { GET } = await import('@/app/api/v1/chat-context/[kind]/[id]/route')
+  return GET(new NextRequest(`http://localhost/api/v1/chat-context/${kind}/${id}?projectId=${encodeURIComponent(projectId)}`), {
+    params: Promise.resolve({ kind, id }),
+  })
+}
+
 describe('chat context read-model API', () => {
   it('returns a normalized project model with counts after access filtering', async () => {
     const res = await get('project', 'project-1')
@@ -101,6 +108,27 @@ describe('chat context read-model API', () => {
     expect(res.status).toBe(200)
     expect(body.data.preview).toEqual(expect.objectContaining({ kind: 'summary', status: 'active' }))
     expect(JSON.stringify(body)).not.toContain('providerCredential')
+  })
+
+  it('passes a pinned project task identity to the server resolver, which remains responsible for project ACL', async () => {
+    mockResolveContextReferences.mockResolvedValueOnce([{
+      type: 'task', id: 'task-in-project', orgId: 'client-org', label: 'Approve launch', origin: 'manual',
+    }])
+
+    const res = await getWithProject('task', 'task-in-project', 'project-1')
+
+    expect(res.status).toBe(200)
+    expect(mockResolveContextReferences).toHaveBeenCalledWith(
+      [expect.objectContaining({ type: 'task', id: 'task-in-project', metadata: { projectId: 'project-1' } })],
+      mockUser,
+      'client-org',
+    )
+  })
+
+  it('rejects a project identity on non-task context reads', async () => {
+    const res = await getWithProject('company', 'company-1', 'project-1')
+    expect(res.status).toBe(400)
+    expect(mockResolveContextReferences).not.toHaveBeenCalled()
   })
 
   it('does not disclose whether a forbidden or missing project exists', async () => {

@@ -14,11 +14,13 @@ export const GET = withAuth('client', async (req: NextRequest, user, ctx) => {
   const kind = raw.kind.trim()
   const id = raw.id.trim()
   const artifactId = req.nextUrl.searchParams.get('artifactId')?.trim()
+  const projectId = req.nextUrl.searchParams.get('projectId')?.trim()
   if (!isChatContextKind(kind)) return apiError('Unsupported context kind', 400)
   if (!isOpaqueContextId(id)) return apiError('Invalid context id', 400)
+  if (projectId && (kind !== 'task' || !isOpaqueContextId(projectId))) return apiError('Invalid project id', 400)
   if (artifactId && (!isOpaqueContextId(artifactId) || artifactId.split(':', 1)[0] !== id.split(':', 1)[0])) return apiError('Invalid artifact id', 400)
 
-  const result = await chatContextRegistry.resolve({ kind, id, artifactId, user })
+  const result = await chatContextRegistry.resolve({ kind, id, ...(projectId ? { projectId } : {}), artifactId, user })
   if (!result.ok) {
     if (result.reason === 'forbidden' || result.reason === 'not_found') {
       return apiError('Context unavailable', 404)

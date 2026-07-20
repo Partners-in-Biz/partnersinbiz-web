@@ -1,4 +1,4 @@
-import type { ChatContextReference } from './types'
+import { chatContextReferenceKey, type ChatContextReference } from './types'
 
 export interface ContextSelectionSources {
   explicit?: ChatContextReference
@@ -13,7 +13,7 @@ export function selectActiveContext(sources: ContextSelectionSources): ChatConte
   return candidates.find((candidate): candidate is ChatContextReference => Boolean(
     candidate && (
       !sources.available
-      || sources.available.some(item => item.kind === candidate.kind && item.id === candidate.id)
+      || sources.available.some(item => chatContextReferenceKey(item) === chatContextReferenceKey(candidate))
     ),
   ))
 }
