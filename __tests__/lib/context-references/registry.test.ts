@@ -3,13 +3,18 @@ export {}
 import { contextReferenceTypeFrom } from '@/lib/context-references/types'
 
 const mockCollection = jest.fn()
+const mockGetProjectForUser = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
 }))
 
 jest.mock('@/lib/projects/access', () => ({
-  getProjectForUser: jest.fn(async (projectId: string) => ({
+  getProjectForUser: (...args: unknown[]) => mockGetProjectForUser(...args),
+}))
+
+beforeEach(() => {
+  mockGetProjectForUser.mockImplementation(async (projectId: string) => ({
     ok: true,
     doc: {
       id: projectId,
@@ -21,8 +26,8 @@ jest.mock('@/lib/projects/access', () => ({
       }),
     },
     projectAccess: null,
-  })),
-}))
+  }))
+})
 
 function doc(id: string, data: Record<string, unknown>) {
   return { id, data: () => data, exists: true }
@@ -289,6 +294,11 @@ beforeEach(() => {
         })),
       }
     }
+    if (name === 'tasks') return queryFor([
+      doc('task-direct-internal', { orgId: 'org-1', projectId: 'project-1', title: 'Internal hand-off', internalOnly: true, deleted: false }),
+      doc('task-orphan-internal', { orgId: 'org-1', title: 'Internal orphan', visibility: 'internal', deleted: false }),
+      doc('task-deleted', { orgId: 'org-1', title: 'Deleted task', deleted: true }),
+    ])
     return queryFor([])
   })
 })
@@ -385,6 +395,26 @@ describe('context reference registry', () => {
         metadata: { projectId: 'project-1' },
       }),
     ])
+  })
+
+  it('does not expose deleted or internal tasks through a direct context reference', async () => {
+    const { resolveContextReferences } = await import('@/lib/context-references/registry')
+    const client = { uid: 'client-1', role: 'client' as const, orgId: 'org-1', orgIds: ['org-1'], authKind: 'session' as const }
+
+    await expect(resolveContextReferences([
+      { type: 'task', id: 'task-direct-internal', orgId: 'org-1' },
+      { type: 'task', id: 'task-orphan-internal', orgId: 'org-1' },
+      { type: 'task', id: 'task-deleted', orgId: 'org-1' },
+    ], client, 'org-1')).resolves.toEqual([])
+  })
+
+  it('requires project access for a direct task reference that names a project', async () => {
+    const { resolveContextReferences } = await import('@/lib/context-references/registry')
+    mockGetProjectForUser.mockResolvedValueOnce({ ok: false, error: 'Forbidden', status: 403 })
+
+    await expect(resolveContextReferences([
+      { type: 'task', id: 'task-direct-internal', orgId: 'org-1' },
+    ], { uid: 'client-1', role: 'client', orgId: 'org-1', orgIds: ['org-1'], authKind: 'session' }, 'org-1')).resolves.toEqual([])
   })
 
   it('resolves and searches CRM product references', async () => {

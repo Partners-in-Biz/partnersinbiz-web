@@ -24,6 +24,13 @@ function safeRelationship(value: unknown, relation: string): ChatContextRelation
   return { kind, id, label, relation, ...(href ? { href } : {}) }
 }
 
+function summaryStatus(summary: string | undefined): string | undefined {
+  if (!summary) return undefined
+  const match = summary.match(/(?:^|\|\s*)status:\s*([^|]+)/i)
+  const value = match?.[1]?.trim().slice(0, 80)
+  return value || undefined
+}
+
 export const genericChatContextAdapter: ChatContextAdapter = {
   async resolve(input) {
     const orgId = input.user.activeOrgId ?? input.user.orgId
@@ -56,6 +63,7 @@ export const genericChatContextAdapter: ChatContextAdapter = {
           .slice(0, 8)
       : projectedRelationships.filter((item): item is ChatContextRelationship => Boolean(item)).slice(0, 8)
     const summary = ref.summary?.trim()
+    const status = summaryStatus(summary)
 
     return {
       ok: true,
@@ -77,7 +85,11 @@ export const genericChatContextAdapter: ChatContextAdapter = {
         artifacts: [],
         attention: [],
         activity: [],
-        preview: { kind: ref.type === 'document' ? 'document' : 'summary', ...(summary ? { text: summary } : {}) },
+        preview: {
+          kind: ref.type === 'document' ? 'document' : 'summary',
+          ...(summary ? { text: summary } : {}),
+          ...(status ? { status } : {}),
+        },
         ...(relationships.length > 0 ? { relationships } : {}),
         capabilities: ref.href ? ['open'] : [],
         asOf: new Date().toISOString(),

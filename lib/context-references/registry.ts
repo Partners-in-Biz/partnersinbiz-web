@@ -14,6 +14,7 @@ import type { Company } from '@/lib/companies/types'
 import { convDoc } from '@/lib/conversations/conversations'
 import { adminDb } from '@/lib/firebase/admin'
 import { getProjectForUser } from '@/lib/projects/access'
+import { filterProjectItemsForAccess } from '@/lib/projects/collaboration'
 import { getResearchItem, RESEARCH_COLLECTION } from '@/lib/research/store'
 import { getSupportTicket, SUPPORT_TICKETS_COLLECTION } from '@/lib/support/store'
 import {
@@ -396,7 +397,7 @@ async function resolveProject(input: ResolverInput): Promise<ContextReference | 
 }
 
 async function resolveTask(input: ResolverInput): Promise<ContextReference | null> {
-  const projectId = clean(input.seed.metadata?.projectId)
+  let projectId = clean(input.seed.metadata?.projectId)
   let doc: FirestoreDoc | null = null
   if (projectId) {
     const projectAccess = await getProjectForUser(projectId, input.user)
@@ -407,8 +408,28 @@ async function resolveTask(input: ResolverInput): Promise<ContextReference | nul
   if (!doc) doc = await getDoc('tasks', input.seed.id)
   if (!doc) return null
   const data = doc.data() ?? {}
-  const orgId = docOrgId(data, input.seed.orgId ?? input.defaultOrgId)
-  if (!orgId || !sameOrg(data, expectedOrgId(input.seed, input.defaultOrgId)) || !canUseOrg(input.user, orgId)) return null
+  projectId = projectId || clean(data.projectId)
+
+  // A direct task lookup must apply the same project-item visibility policy as
+  // the Project canvas.  Organisation membership alone is not sufficient for
+  // internal, restricted, or private project tasks.
+  let projectOrgId = ''
+  if (projectId) {
+    const projectAccess = await getProjectForUser(projectId, input.user)
+    if (!projectAccess.ok) return null
+    const projectData = projectAccess.doc.data() ?? {}
+    projectOrgId = docOrgId(projectData)
+    if (filterProjectItemsForAccess([{ ...data, id: doc.id }], { projectAccess: projectAccess.projectAccess, user: input.user }).length === 0) return null
+  } else if (input.user.role === 'client' && (
+    data.internalOnly === true || ['internal', 'restricted', 'private'].includes(clean(data.visibility).toLowerCase())
+  )) {
+    return null
+  }
+
+  if (isDeleted(data)) return null
+  const orgId = docOrgId(data, projectOrgId || input.seed.orgId || input.defaultOrgId)
+  const expected = expectedOrgId(input.seed, input.defaultOrgId)
+  if (!orgId || (expected && orgId !== expected) || !canUseOrg(input.user, orgId)) return null
   return makeRef({
     type: 'task',
     id: doc.id,

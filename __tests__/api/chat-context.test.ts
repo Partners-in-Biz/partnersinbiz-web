@@ -89,6 +89,20 @@ describe('chat context read-model API', () => {
     expect(JSON.stringify(body)).not.toContain('providerCredential')
   })
 
+  it('projects a safe generic status from the server-resolved summary only', async () => {
+    mockResolveContextReferences.mockResolvedValueOnce([{
+      type: 'contact', id: 'contact-1', orgId: 'client-org', label: 'Jane Client',
+      origin: 'mention', href: '/admin/crm/contacts/contact-1', summary: 'jane@example.com | status: active | Internal token is not a projection',
+    }])
+
+    const res = await get('contact', 'contact-1')
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.preview).toEqual(expect.objectContaining({ kind: 'summary', status: 'active' }))
+    expect(JSON.stringify(body)).not.toContain('providerCredential')
+  })
+
   it('does not disclose whether a forbidden or missing project exists', async () => {
     mockGetProjectForUser.mockResolvedValueOnce({ ok: false, error: 'Forbidden', status: 403 })
     const forbidden = await get('project', 'private-project')
