@@ -5,6 +5,7 @@ import { AgentCard } from '@/components/agents/AgentCard'
 import { AgentDetailPanel } from '@/components/agents/AgentDetailPanel'
 import type { AgentTeamDoc } from '@/components/agents/AgentCard'
 import type { HealthStatus } from '@/components/agents/AgentCard'
+import { PageHeader } from '@/components/ui/AppFoundation'
 
 interface SessionInfo {
   isSuperAdmin?: boolean
@@ -156,39 +157,39 @@ export default function AgentsBoardClient() {
   }
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto">
-      {/* Page header */}
-      <header className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="eyebrow">Admin · Platform</p>
-          <h1 className="pib-page-title mt-2">Agent Team</h1>
-          <p className="pib-page-sub">
-            Administer the specialist agents, runtime profiles, skill policy, health, logs, and gated configuration used by PiB operators. Client organisations only appear as scoped records being administered.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {isSuperAdmin && (
+    <div className="mx-auto max-w-5xl space-y-6" data-module-accent="cyan">
+      <PageHeader
+        accent="cyan"
+        eyebrow="Admin · Platform"
+        title="Agent Team"
+        description="Administer the specialist agents, runtime profiles, skill policy, health, logs, and gated configuration used by PiB operators. Client organisations only appear as scoped records being administered."
+        actions={(
+          <>
+            {isSuperAdmin && (
+              <button
+                type="button"
+                onClick={() => setShowCreate((v) => !v)}
+                className="btn-pib-primary btn-pib-sm font-label inline-flex items-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-[16px]">add</span>
+                New Agent
+              </button>
+            )}
             <button
-              onClick={() => setShowCreate((v) => !v)}
-              className="btn-pib-primary text-sm font-label flex items-center gap-1.5"
+              type="button"
+              onClick={() => loadAgents()}
+              className="btn-pib-ghost btn-pib-sm font-label inline-flex items-center gap-1.5"
+              title="Refresh"
             >
-              <span className="material-symbols-outlined text-[16px]">add</span>
-              New Agent
+              <span className="material-symbols-outlined text-[16px]">refresh</span>
+              Refresh
             </button>
-          )}
-          <button
-            onClick={() => loadAgents()}
-            className="btn-pib-ghost text-sm font-label flex items-center gap-1.5"
-            title="Refresh"
-          >
-            <span className="material-symbols-outlined text-[16px]">refresh</span>
-            Refresh
-          </button>
-        </div>
-      </header>
+          </>
+        )}
+      />
 
       {isSuperAdmin && showCreate && (
-        <form onSubmit={createAgent} className="pib-card p-4 space-y-4">
+        <form onSubmit={createAgent} className="pib-card space-y-3 p-4">
           <div className="rounded-lg border border-[var(--color-pib-line)]/60 bg-[var(--color-pib-surface-2)] p-3 text-xs text-[var(--color-pib-text-muted)]">
             Creating an agent here asks Pip to provision the VPS profile, then registers the new profile with the platform dispatch config. You only need to ask Pip manually if this provisioning step fails or the agent needs a non-standard setup.
           </div>
@@ -213,14 +214,14 @@ export default function AgentsBoardClient() {
               </div>
             </label>
           </div>
-          <label className="space-y-1 block">
+          <label className="block space-y-1">
             <span className="pib-label">Persona / SOUL seed</span>
-            <textarea className="pib-input w-full min-h-24 resize-y text-sm" value={newPersona} onChange={(e) => setNewPersona(e.target.value)} placeholder="What this agent owns, how it behaves, and when Pip should use it." required />
+            <textarea className="pib-input min-h-20 w-full resize-y text-sm" value={newPersona} onChange={(e) => setNewPersona(e.target.value)} placeholder="What this agent owns, how it behaves, and when Pip should use it." required />
           </label>
           {createError && <div className="pib-card p-3 text-xs text-[var(--color-error)]">{createError}</div>}
-          <div className="flex justify-end gap-2">
-            <button type="button" onClick={() => setShowCreate(false)} className="btn-pib-ghost text-xs font-label">Cancel</button>
-            <button type="submit" disabled={creating} className="btn-pib-primary text-xs font-label disabled:opacity-50">
+          <div className="flex justify-end gap-1.5">
+            <button type="button" onClick={() => setShowCreate(false)} className="btn-pib-ghost btn-pib-sm font-label">Cancel</button>
+            <button type="submit" disabled={creating} className="btn-pib-primary btn-pib-sm font-label disabled:opacity-50">
               {creating ? 'Provisioning via Pip...' : 'Provision via Pip'}
             </button>
           </div>
@@ -250,7 +251,7 @@ export default function AgentsBoardClient() {
                   <span className="material-symbols-outlined text-[14px]">{item.icon}</span>
                 </span>
               </div>
-              <div className="mt-2 text-xl font-semibold text-[var(--color-pib-text)]">{item.value}</div>
+              <div className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">{item.value}</div>
             </div>
           ))}
         </section>
@@ -258,17 +259,17 @@ export default function AgentsBoardClient() {
 
       {/* Agent grid */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-44 rounded-xl" />
+            <Skeleton key={i} className="h-40 rounded-xl" />
           ))}
         </div>
       ) : agents.length === 0 ? (
-        <div className="pib-card p-10 text-center text-sm text-[var(--color-pib-text-muted)]">
+        <div className="pib-card p-6 text-center text-sm text-[var(--color-pib-text-muted)]">
           No agents found. The agent team API may be unavailable.
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {agents.map((agent) => (
             <AgentCard
               key={agent.agentId}

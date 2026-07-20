@@ -1,0 +1,392 @@
+'use client'
+
+import { useCallback, useEffect, useState } from 'react'
+import type { LlmProviderConnectionMasked, LlmOauthSessionPublic } from '@/lib/llm-providers/types'
+import type { LlmProviderDefinition } from '@/lib/llm-providers/providers'
+import {
+  listLlmProviderCatalog,
+  connectLlmApiKey,
+  startLlmOauth,
+  pollLlmOauth,
+  revokeLlmConnection,
+  resyncLlmConnection,
+  type LlmProviderCatalogResponse,
+} from '@/lib/llm-providers/client'
+
+function statusTone(status: string) {
+  if (status === 'connected') return 'bg-emerald-500/15 text-emerald-300'
+  if (status === 'invalid' || status === 'reauth_required') return 'bg-amber-500/15 text-amber-200'
+  return 'bg-white/[0.06] text-[var(--color-pib-text-muted)]'
+}
+
+export default function LlmProviderConnections({ orgId }: { orgId: string }) {
+  const [providers, setProviders] = useState<LlmProviderDefinition[]>([])
+  const [connections, setConnections] = useState<LlmProviderConnectionMasked[]>([])
+  const [syncTargets, setSyncTargets] = useState<LlmProviderCatalogResponse['syncTargets']>()
+  const [notes, setNotes] = useState<LlmProviderCatalogResponse['notes'] | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [openForm, setOpenForm] = useState<string | null>(null)
+  const [oauthSession, setOauthSession] = useState<LlmOauthSessionPublic | null>(null)
+
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await listLlmProviderCatalog(orgId)
+      setProviders(data.providers)
+      setConnections(data.connections)
+      setSyncTargets(data.syncTargets)
+      setNotes(data.notes)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load LLM providers')
+    } finally {
+      setLoading(false)
+    }
+  }, [orgId])
+
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
+
+  useEffect(() => {
+    if (!oauthSession || oauthSession.status !== 'pending') return
+    const intervalMs = Math.max(3000, (oauthSession.intervalSeconds || 5) * 1000)
+    const timer = window.setInterval(() => {
+      void (async () => {
+        try {
+          const result = await pollLlmOauth(orgId, oauthSession.id)
+          setOauthSession(result.session)
+          if (result.connection) {
+            setOauthSession(null)
+            setOpenForm(null)
+            await refresh()
+          }
+          if (result.session.status === 'failed' || result.session.status === 'expired') {
+            setError(result.session.error || 'OAuth failed')
+          }
+        } catch (e) {
+          setError(e instanceof Error ? e.message : 'OAuth poll failed')
+        }
+      })()
+    }, intervalMs)
+    return () => window.clearInterval(timer)
+  }, [oauthSession, orgId, refresh])
+
+  if (loading) {
+    return <p className="text-sm text-[var(--color-pib-text-muted)]">Loading LLM providers…</p>
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-[var(--color-pib-line)] bg-white/[0.03] px-4 py-3 text-sm text-[var(--color-pib-text-muted)] space-y-2">
+        <p>
+          <span className="font-medium text-[var(--color-pib-text)]">Organisation VPS</span>
+          {' — '}
+          {notes?.orgScope
+            || 'Shared credentials sync only to this organisation’s VPS and are used by everyone on that VPS.'}
+        </p>
+        <p>
+          <span className="font-medium text-[var(--color-pib-text)]">Linked computers</span>
+          {' — '}
+          {notes?.userScope
+            || 'Personal credentials stay on each user’s linked computer and are never pushed to the organisation VPS.'}
+        </p>
+        {syncTargets && syncTargets.targetCount === 0 && syncTargets.reasonIfEmpty ? (
+          <p className="text-amber-200/90">{syncTargets.reasonIfEmpty}</p>
+        ) : syncTargets && syncTargets.targetCount > 0 ? (
+          <p>
+            Organisation sync targets ready: {syncTargets.targetCount}
+            {syncTargets.orgVpsDeviceCount > 0 ? ` (${syncTargets.orgVpsDeviceCount} org VPS device${syncTargets.orgVpsDeviceCount === 1 ? '' : 's'})` : ''}
+          </p>
+        ) : null}
+        {notes?.cursor ? <p>{notes.cursor}</p> : null}
+      </div>
+      {error && (
+        <div role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          {error}
+        </div>
+      )}
+      {oauthSession?.status === 'pending' && (
+        <div className="rounded-xl border border-[var(--color-pib-accent)]/30 bg-[var(--color-pib-accent-soft)] px-4 py-3 text-sm">
+          <p className="font-medium text-[var(--color-pib-text)]">Complete sign-in</p>
+          <p className="mt-1 text-[var(--color-pib-text-muted)]">
+            Open{' '}
+            <a
+              className="text-[var(--color-pib-accent-hover)] underline"
+              href={oauthSession.verificationUriComplete || oauthSession.verificationUri}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {oauthSession.verificationUri}
+            </a>
+            {oauthSession.userCode ? (
+              <>
+                {' '}and enter code <span className="font-mono text-[var(--color-pib-text)]">{oauthSession.userCode}</span>
+              </>
+            ) : null}
+            . Waiting for approval…
+          </p>
+          <button
+            type="button"
+            className="mt-3 text-xs text-[var(--color-pib-text-muted)] underline"
+            onClick={() => setOauthSession(null)}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {providers.map((provider) => {
+          const matches = connections.filter((c) => c.provider === provider.key)
+          return (
+            <div
+              key={provider.key}
+              className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4 space-y-3"
+            >
+              {matches.length > 0 ? (
+                matches.map((conn) => (
+                  <ConnectedRow
+                    key={conn.id}
+                    connection={conn}
+                    onResync={async () => {
+                      await resyncLlmConnection(orgId, conn.id)
+                      await refresh()
+                    }}
+                    onDisconnect={async () => {
+                      await revokeLlmConnection(orgId, conn.id)
+                      await refresh()
+                    }}
+                  />
+                ))
+              ) : null}
+              {matches.length === 0 || openForm === provider.key ? (
+                openForm === provider.key ? (
+                  <ConnectForm
+                    provider={provider}
+                    onCancel={() => setOpenForm(null)}
+                    onApiKey={async (payload) => {
+                      await connectLlmApiKey({ orgId, provider: provider.key, ...payload })
+                      setOpenForm(null)
+                      await refresh()
+                    }}
+                    onOauth={async (payload) => {
+                      const { session } = await startLlmOauth({
+                        orgId,
+                        provider: provider.key,
+                        ...payload,
+                      })
+                      setOauthSession(session)
+                    }}
+                  />
+                ) : (
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-[var(--color-pib-text)]">{provider.label}</p>
+                      <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{provider.description}</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="pib-btn-primary shrink-0 text-xs"
+                      onClick={() => setOpenForm(provider.key)}
+                    >
+                      Connect
+                    </button>
+                  </div>
+                )
+              ) : (
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    className="btn-pib-secondary text-xs"
+                    onClick={() => setOpenForm(provider.key)}
+                  >
+                    Add another scope
+                  </button>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function ConnectedRow({
+  connection,
+  onResync,
+  onDisconnect,
+}: {
+  connection: LlmProviderConnectionMasked
+  onResync: () => Promise<void>
+  onDisconnect: () => Promise<void>
+}) {
+  const [busy, setBusy] = useState(false)
+  const [rowError, setRowError] = useState<string | null>(null)
+  const isPersonal = connection.scope === 'user'
+  const run = (fn: () => Promise<void>) => async () => {
+    setBusy(true)
+    setRowError(null)
+    try {
+      await fn()
+    } catch (e) {
+      setRowError(e instanceof Error ? e.message : 'Action failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="text-sm font-semibold text-[var(--color-pib-text)]">{connection.label}</span>
+          <span className="rounded-md bg-white/[0.06] px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">
+            {isPersonal ? 'Personal · linked computer' : 'Organisation · VPS'}
+          </span>
+          <span className={`rounded-md px-2 py-0.5 text-[10px] font-semibold ${statusTone(connection.status)}`}>
+            {connection.status}
+          </span>
+        </div>
+        <div className="flex gap-2">
+          {!isPersonal && (
+            <button type="button" className="btn-pib-secondary text-xs" disabled={busy} onClick={run(onResync)}>
+              Sync to organisation VPS
+            </button>
+          )}
+          <button
+            type="button"
+            className="btn-pib-secondary text-xs text-red-300"
+            disabled={busy}
+            onClick={run(onDisconnect)}
+          >
+            Disconnect
+          </button>
+        </div>
+      </div>
+      <p className="font-mono text-xs text-[var(--color-pib-text-muted)]">{connection.credentialHint}</p>
+      {isPersonal ? (
+        <p className="text-[11px] text-[var(--color-pib-text-muted)]">
+          Not synced to the organisation VPS. Configure the same provider on each linked computer during Hermes setup.
+        </p>
+      ) : connection.syncedAgentIds?.length > 0 ? (
+        <p className="text-[11px] text-[var(--color-pib-text-muted)]">
+          Synced to org VPS agents: {connection.syncedAgentIds.join(', ')}
+        </p>
+      ) : null}
+      {connection.lastError && <p className="text-xs text-amber-200">{connection.lastError}</p>}
+      {rowError && <p role="alert" className="text-xs text-red-200">{rowError}</p>}
+    </div>
+  )
+}
+
+function ConnectForm({
+  provider,
+  onCancel,
+  onApiKey,
+  onOauth,
+}: {
+  provider: LlmProviderDefinition
+  onCancel: () => void
+  onApiKey: (payload: { scope: 'org' | 'user'; label: string; credentials: Record<string, string> }) => Promise<void>
+  onOauth: (payload: { scope: 'org' | 'user'; label?: string }) => Promise<void>
+}) {
+  const [values, setValues] = useState<Record<string, string>>({})
+  const [nickname, setNickname] = useState('')
+  const [scope, setScope] = useState<'org' | 'user'>('org')
+  const [submitting, setSubmitting] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+  const wantsOauth = provider.oauthCapable && provider.credentialFields.length === 0
+  const canApiKey = provider.credentialFields.length > 0
+
+  const submit = async (mode: 'oauth' | 'api_key') => {
+    setSubmitting(true)
+    setFormError(null)
+    try {
+      if (mode === 'oauth') {
+        await onOauth({ scope, label: nickname.trim() || undefined })
+      } else {
+        await onApiKey({ scope, label: nickname.trim() || provider.label, credentials: values })
+      }
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : 'Failed to connect')
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-[var(--color-pib-text)]">Connect {provider.label}</p>
+        {provider.consoleUrl && (
+          <a href={provider.consoleUrl} target="_blank" rel="noreferrer" className="text-xs text-[var(--color-pib-accent-hover)]">
+            Open console →
+          </a>
+        )}
+      </div>
+      {canApiKey && provider.credentialFields.map((field) => (
+        <label key={field.key} className="block text-xs text-[var(--color-pib-text-muted)]">
+          {field.label}
+          <input
+            className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2 text-sm text-[var(--color-pib-text)]"
+            type={field.secret ? 'password' : 'text'}
+            placeholder={field.placeholder}
+            value={values[field.key] ?? ''}
+            onChange={(e) => setValues((v) => ({ ...v, [field.key]: e.target.value }))}
+          />
+        </label>
+      ))}
+      <label className="block text-xs text-[var(--color-pib-text-muted)]">
+        Nickname (optional)
+        <input
+          className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2 text-sm text-[var(--color-pib-text)]"
+          value={nickname}
+          onChange={(e) => setNickname(e.target.value)}
+        />
+      </label>
+      <div className="space-y-2 text-sm text-[var(--color-pib-text)]">
+        <label className="flex items-start gap-2">
+          <input type="radio" className="mt-1" checked={scope === 'org'} onChange={() => setScope('org')} />
+          <span>
+            <span className="font-medium">This organisation’s VPS</span>
+            <span className="block text-xs text-[var(--color-pib-text-muted)]">
+              Shared by everyone using the organisation VPS. Admins only. Synced to Hermes on that VPS.
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-2">
+          <input type="radio" className="mt-1" checked={scope === 'user'} onChange={() => setScope('user')} />
+          <span>
+            <span className="font-medium">Just me · linked computers</span>
+            <span className="block text-xs text-[var(--color-pib-text-muted)]">
+              Reminder in PiB only — set the real keys on each linked computer during Hermes setup. Never synced to the org VPS.
+            </span>
+          </span>
+        </label>
+      </div>
+      {formError && <p role="alert" className="text-xs text-red-200">{formError}</p>}
+      <div className="flex flex-wrap gap-2">
+        {wantsOauth && (
+          <button type="button" className="pib-btn-primary text-xs" disabled={submitting} onClick={() => void submit('oauth')}>
+            Sign in with OAuth
+          </button>
+        )}
+        {canApiKey && (
+          <button type="button" className="pib-btn-primary text-xs" disabled={submitting} onClick={() => void submit('api_key')}>
+            {scope === 'org' ? 'Save & sync to org VPS' : 'Save personal reminder'}
+          </button>
+        )}
+        {provider.oauthCapable && canApiKey && (
+          <button type="button" className="btn-pib-secondary text-xs" disabled={submitting} onClick={() => void submit('oauth')}>
+            Prefer OAuth instead
+          </button>
+        )}
+        <button type="button" className="btn-pib-secondary text-xs" disabled={submitting} onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}

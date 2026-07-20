@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { PageHeader } from '@/components/ui/AppFoundation'
 
 interface OrgItem {
   id: string
@@ -93,7 +94,7 @@ export default function WorkspacesPage() {
 
   if (loading) {
     return (
-      <div className="space-y-4" role="status" aria-label="Loading workspaces">
+      <div className="space-y-4" data-module-accent="cyan" role="status" aria-label="Loading workspaces">
         <p className="eyebrow">CRM settings</p>
         <div className="h-8 w-56 rounded bg-white/10" />
         <div className="grid gap-3 md:grid-cols-3">
@@ -108,13 +109,12 @@ export default function WorkspacesPage() {
   if (loadError) {
     return (
       <div className="space-y-6">
-        <header>
-          <p className="eyebrow">CRM settings</p>
-          <h1 className="pib-page-title mt-2">Workspace control</h1>
-          <p className="pib-page-sub mt-2 max-w-2xl">
-            See and switch the company context that drives CRM contacts, deals, reports, and employee access.
-          </p>
-        </header>
+        <PageHeader
+          accent="cyan"
+          eyebrow="CRM settings"
+          title="Workspace control"
+          description="See and switch the company context that drives CRM contacts, deals, reports, and employee access."
+        />
         <section className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-5" role="alert">
           <p className="eyebrow !text-[10px] text-amber-100">Workspace source</p>
           <h2 className="mt-2 font-display text-xl text-[var(--color-pib-text)]">Workspaces could not load</h2>
@@ -129,20 +129,19 @@ export default function WorkspacesPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <header className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
-        <div>
-          <p className="eyebrow">CRM settings</p>
-          <h1 className="pib-page-title mt-2">Workspace control</h1>
-          <p className="pib-page-sub mt-2 max-w-2xl">
-            Choose the company context that drives CRM contacts, deals, reports, and employee access.
-          </p>
-        </div>
-        <Link href="/portal/personal/marketing" className="btn-pib-secondary w-fit text-sm">
-          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person</span>
-          Personal marketing
-        </Link>
-      </header>
+    <div className="space-y-6">
+      <PageHeader
+        accent="cyan"
+        eyebrow="CRM settings"
+        title="Workspace control"
+        description="Choose the company context that drives CRM contacts, deals, reports, and employee access."
+        actions={(
+          <Link href="/portal/personal/marketing" className="btn-pib-secondary btn-pib-sm w-fit text-sm">
+                    <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person</span>
+                    Personal marketing
+                  </Link>
+        )}
+      />
 
       <section role="region" aria-label="Workspace command center" className="space-y-4">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">

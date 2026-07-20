@@ -20,23 +20,19 @@ export function BoardColumn({ column, tasks, buildProjectHref, onTaskClick }: Bo
   const { setNodeRef, isOver } = useDroppable({ id: column.id })
 
   return (
-    <div className="flex flex-col w-64 shrink-0">
-      {/* Column header */}
-      <div className="flex items-center gap-2 mb-3 px-1">
-        <div className="w-2 h-2 rounded-full shrink-0" style={{ background: column.color }} />
-        <span className="pib-label">
-          {column.name}
-        </span>
-        <span className="text-[9px] font-label px-1.5 py-0.5 rounded-full ml-auto pib-icon-tint-cyan">
+    <div className="flex w-60 shrink-0 flex-col" data-module-accent="cyan">
+      <div className="mb-2 flex items-center gap-1.5 px-1">
+        <div className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: column.color }} />
+        <span className="pib-label">{column.name}</span>
+        <span className="ml-auto rounded-full px-1.5 py-0.5 text-[9px] font-label tabular-nums pib-icon-tint-cyan">
           {tasks.length}
         </span>
       </div>
 
-      {/* Drop zone */}
       <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
         <div
           ref={setNodeRef}
-          className="flex flex-col gap-2 min-h-24 flex-1 rounded-lg transition-colors"
+          className="flex min-h-20 flex-1 flex-col gap-1.5 rounded-lg transition-colors"
           style={isOver ? { background: 'color-mix(in oklab, var(--color-accent-v2) 8%, transparent)' } : undefined}
         >
           {tasks.map(task => (
@@ -50,7 +46,7 @@ export function BoardColumn({ column, tasks, buildProjectHref, onTaskClick }: Bo
             />
           ))}
           {tasks.length === 0 && (
-            <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--color-pib-line)] flex items-center justify-center py-8">
+            <div className="flex items-center justify-center rounded-[var(--radius-card)] border border-dashed border-[var(--color-pib-line)] py-6">
               <p className="text-xs text-[var(--color-pib-text-muted)]">Drop here</p>
             </div>
           )}

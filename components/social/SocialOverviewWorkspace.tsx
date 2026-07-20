@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { PageTabs } from '@/components/ui/AppFoundation'
+import { PageHeader, PageTabs } from '@/components/ui/AppFoundation'
+import { StatCard as KitStatCard } from '@/components/ui/StatCard'
 import { appendQueryParams } from '@/lib/portal/scoped-routing'
 
 type Surface = 'admin' | 'portal'
@@ -197,7 +198,7 @@ function roleClass(role: string): string {
   return 'bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)]'
 }
 
-function StatCard({
+function OverviewStat({
   label,
   value,
   sub,
@@ -208,23 +209,24 @@ function StatCard({
   sub?: string
   tone?: 'accent' | 'info' | 'success' | 'danger'
 }) {
-  const toneClass =
+  const valueClass =
     tone === 'accent'
       ? 'text-[var(--color-pib-accent)]'
       : tone === 'info'
-      ? 'text-[#A4B8FF]'
+      ? 'text-[var(--color-pib-rose)]'
       : tone === 'success'
       ? 'text-[var(--color-pib-success)]'
       : tone === 'danger'
       ? 'text-[#FCA5A5]'
-      : ''
+      : undefined
 
   return (
-    <div className="pib-stat-card">
-      <p className="eyebrow !text-[10px]">{label}</p>
-      <p className={`font-display text-4xl mt-3 ${toneClass}`}>{value}</p>
-      {sub && <p className="mt-2 text-xs text-[var(--color-pib-text-muted)] font-mono">{sub}</p>}
-    </div>
+    <KitStatCard
+      accent="rose"
+      label={label}
+      value={<span className={valueClass}>{value}</span>}
+      detail={sub}
+    />
   )
 }
 
@@ -235,14 +237,14 @@ function ActionLink({
   action: SocialOverviewAction
   badge?: number | null
 }) {
-  const className = action.primary ? 'btn-pib-accent' : 'btn-pib-secondary !py-2 !px-4 !text-sm'
+  const className = action.primary ? 'btn-pib-accent btn-pib-sm' : 'btn-pib-secondary btn-pib-sm'
 
   return (
     <Link href={action.href} className={`relative ${className}`}>
       {action.icon && <span className="material-symbols-outlined text-base">{action.icon}</span>}
       {action.label}
       {typeof badge === 'number' && badge > 0 && (
-        <span className="absolute top-0 right-0 flex h-5 w-5 translate-x-1/4 -translate-y-1/4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+        <span className="absolute top-0 right-0 flex h-4 w-4 translate-x-1/4 -translate-y-1/4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
           {badge}
         </span>
       )}
@@ -273,7 +275,7 @@ function ConnectedAccounts({
       ) : activeAccounts.length === 0 ? (
         <div className="bento-card p-7 text-center">
           <p className="text-[var(--color-pib-text-muted)] mb-4 text-sm">No accounts connected yet.</p>
-          <Link href={accountsHref} className="btn-pib-accent !py-2 !px-4 !text-sm">
+          <Link href={accountsHref} className="btn-pib-accent btn-pib-sm">
             Connect an account
             <span className="material-symbols-outlined text-base">arrow_outward</span>
           </Link>
@@ -754,47 +756,46 @@ export default function SocialOverviewWorkspace({
   const accountsHref = appendResolvedOrg(hrefFor('/portal/social/accounts'), resolvedOrgId, resolvedOrgSlug)
 
   return (
-    <div className="space-y-10">
-      <header className="flex items-end justify-between gap-4 flex-wrap">
-        <div>
-          {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-          <h1 className="pib-page-title mt-2">{title}</h1>
-          {orgName && <p className="text-sm text-[var(--color-pib-text-muted)] mt-1.5 font-mono">{orgName}</p>}
-          <p className="pib-page-sub max-w-xl">{description}</p>
-        </div>
-        {primaryWithResolvedOrg && <ActionLink action={{ ...primaryWithResolvedOrg, primary: true }} />}
-      </header>
+    <div className="space-y-6" data-module-accent="rose">
+      <PageHeader
+        accent="rose"
+        eyebrow={eyebrow}
+        title={title}
+        description={description}
+        meta={orgName ? <span className="font-mono">{orgName}</span> : undefined}
+        actions={primaryWithResolvedOrg ? <ActionLink action={{ ...primaryWithResolvedOrg, primary: true }} /> : undefined}
+      />
 
       {loading ? (
-        <section className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <section className="grid grid-cols-2 gap-3 md:grid-cols-5">
           {[...Array(surface === 'admin' ? 5 : 3)].map((_, i) => (
-            <div key={i} className="pib-skeleton h-28" />
+            <div key={i} className="pib-skeleton h-20" />
           ))}
         </section>
       ) : surface === 'admin' ? (
-        <section className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <StatCard label="Scheduled" value={stats.scheduled} sub="upcoming posts" tone="info" />
-          <StatCard label="Published Today" value={stats.publishedToday} sub="posts live today" tone="success" />
-          <StatCard label="Failed" value={stats.failed} sub="need attention" tone="danger" />
-          <StatCard label="Drafts" value={stats.drafts} sub="in progress" />
-          <StatCard label="Accounts" value={accounts.length || '-'} sub="connected" />
+        <section className="grid grid-cols-2 gap-3 md:grid-cols-5">
+          <OverviewStat label="Scheduled" value={stats.scheduled} sub="upcoming posts" tone="info" />
+          <OverviewStat label="Published Today" value={stats.publishedToday} sub="posts live today" tone="success" />
+          <OverviewStat label="Failed" value={stats.failed} sub="need attention" tone="danger" />
+          <OverviewStat label="Drafts" value={stats.drafts} sub="in progress" />
+          <OverviewStat label="Accounts" value={accounts.length || '-'} sub="connected" />
         </section>
       ) : (
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <StatCard
+        <section className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <OverviewStat
             label="Pending approval"
             value={stats.pending}
             sub={stats.pending > 0 ? 'awaiting your nod' : 'all caught up'}
             tone={stats.pending > 0 ? 'accent' : undefined}
           />
-          <StatCard label="Scheduled" value={stats.scheduled} sub="queued for publish" tone="info" />
-          <StatCard label="Published" value={stats.published} sub={`last ${postsLimit} posts`} tone="success" />
+          <OverviewStat label="Scheduled" value={stats.scheduled} sub="queued for publish" tone="info" />
+          <OverviewStat label="Published" value={stats.published} sub={`last ${postsLimit} posts`} tone="success" />
         </section>
       )}
 
       <section>
-        <h2 className="eyebrow mb-4">Quick actions</h2>
-        <div className="flex gap-3 flex-wrap">
+        <h2 className="eyebrow mb-3">Quick actions</h2>
+        <div className="flex flex-wrap gap-2">
           {actions.map((action) => (
             <ActionLink
               key={`${action.href}:${action.label}`}

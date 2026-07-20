@@ -15,6 +15,8 @@ import {
   ContactDuplicateCommandCenter,
   type DuplicateGroup,
 } from '@/components/crm/ContactDuplicateCommandCenter'
+import { PageHeader, Surface } from '@/components/ui/AppFoundation'
+import { StatCard } from '@/components/ui/StatCard'
 import { useOrg } from '@/lib/contexts/OrgContext'
 import { useCrmLiveRefresh } from '@/lib/crm/use-crm-live-refresh'
 import { scopedApiPath, scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
@@ -746,58 +748,53 @@ export function ContactsWorkspace({
         : 'Add your first contact to start building your audience.'
 
   return (
-    <div className="flex min-h-0 flex-col gap-2">
+    <div className="flex min-h-0 flex-col space-y-4" data-module-accent="amber">
       {toastNode}
 
-      <header className="flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 px-3 py-1.5">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="pib-icon-tint shrink-0" aria-hidden="true">
-            <span className="material-symbols-outlined text-[15px]">contacts</span>
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">CRM</p>
-            <div className="flex min-w-0 items-center gap-2">
-              <h1 className="truncate text-sm font-semibold leading-tight text-[var(--color-pib-text)]">Contacts</h1>
-              <p className="hidden truncate text-xs text-[var(--color-pib-text-muted)] sm:inline">
-                {contactCountLabel}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={handleFindDuplicates}
-            disabled={duplicatesLoading || !canLoadContacts}
-            className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] disabled:opacity-50"
-          >
-            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">merge</span>
-            {duplicatesLoading ? 'Scanning…' : 'Find duplicates'}
-          </button>
-          <button
-            onClick={exportFiltered}
-            disabled={!canLoadContacts}
-            aria-label="Export contacts as CSV"
-            className="flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">file_download</span>
-            Export CSV
-          </button>
-          <button
-            onClick={() => canLoadContacts && setShowNew(true)}
-            disabled={!canLoadContacts}
-            aria-label="New contact"
-            className="flex h-8 items-center gap-1 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
-            New contact
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        accent="amber"
+        eyebrow="CRM · Contacts"
+        title="Contacts"
+        description={contactCountLabel}
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={handleFindDuplicates}
+              disabled={duplicatesLoading || !canLoadContacts}
+              className="btn-pib-secondary btn-pib-sm disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">merge</span>
+              {duplicatesLoading ? 'Scanning…' : 'Find duplicates'}
+            </button>
+            <button
+              type="button"
+              onClick={exportFiltered}
+              disabled={!canLoadContacts}
+              aria-label="Export contacts as CSV"
+              className="btn-pib-secondary btn-pib-sm disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">file_download</span>
+              Export CSV
+            </button>
+            <button
+              type="button"
+              onClick={() => canLoadContacts && setShowNew(true)}
+              disabled={!canLoadContacts}
+              aria-label="New contact"
+              className="btn-pib-primary btn-pib-sm disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+              New contact
+            </button>
+          </>
+        }
+      />
 
       {isAdmin && !selectedOrgId && (
-        <section className="shrink-0 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 px-2 py-1.5">
+        <Surface variant="glass" className="shrink-0 !px-2 !py-1.5">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <label htmlFor="contactOrgId" className="px-1 text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Client workspace</label>
+            <label htmlFor="contactOrgId" className="pib-label mb-0 px-1">Client workspace</label>
             <select
               id="contactOrgId"
               value={contactOrgId}
@@ -815,7 +812,7 @@ export function ContactsWorkspace({
               Contacts are always scoped to one client organisation so leads, automations, and handoffs do not bleed across workspaces.
             </p>
           </div>
-        </section>
+        </Surface>
       )}
 
       <section
@@ -823,9 +820,9 @@ export function ContactsWorkspace({
         aria-label="Today's contact cockpit"
         className="shrink-0 space-y-2"
       >
-        <div className="flex min-w-0 flex-wrap items-center gap-1.5 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 px-2 py-1.5">
+        <Surface variant="glass" className="flex min-w-0 flex-wrap items-center gap-1.5 !px-2 !py-1.5">
           <div className="min-w-0 px-1">
-            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]">Executive lens</p>
+            <p className="pib-label mb-0">Executive lens</p>
             <h2 className="truncate text-xs font-semibold text-[var(--color-pib-text)]">Today&apos;s contact cockpit</h2>
           </div>
           <p className="min-w-[16rem] flex-1 px-1 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
@@ -879,45 +876,33 @@ export function ContactsWorkspace({
               Full audience
             </button>
           </div>
-        </div>
+        </Surface>
 
         <div className="grid min-w-0 grid-cols-2 gap-2 lg:grid-cols-4">
-          <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
-            <div className="flex items-start justify-between gap-2">
-              <p className="text-lg font-semibold leading-6 text-[var(--color-pib-text)]">
-                {followUpDueContacts.length} {followUpDueContacts.length === 1 ? 'follow-up due' : 'follow-ups due'}
-              </p>
-              <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]" aria-hidden="true">edit_note</span>
-            </div>
-            <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Follow-up</p>
-          </div>
-          <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
-            <div className="flex items-start justify-between gap-2">
-              <p className="text-lg font-semibold leading-6 text-[var(--color-pib-text)]">
-                {unownedContacts.length} {unownedContacts.length === 1 ? 'owner gap' : 'owner gaps'}
-              </p>
-              <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]" aria-hidden="true">supervisor_account</span>
-            </div>
-            <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Owner gaps</p>
-          </div>
-          <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
-            <div className="flex items-start justify-between gap-2">
-              <p className="text-lg font-semibold leading-6 text-[var(--color-pib-text)]">
-                {clientContacts.length} {clientContacts.length === 1 ? 'client' : 'clients'}
-              </p>
-              <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]" aria-hidden="true">handshake</span>
-            </div>
-            <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Customers</p>
-          </div>
-          <div className="rounded-md border border-[var(--color-card-border)] bg-black/10 px-2 py-2">
-            <div className="flex items-start justify-between gap-2">
-              <p className="text-lg font-semibold leading-6 text-[var(--color-pib-text)]">
-                {displayedContacts.length} visible
-              </p>
-              <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]" aria-hidden="true">filter_alt</span>
-            </div>
-            <p className="text-[11px] leading-4 text-[var(--color-pib-text-muted)]">Visible</p>
-          </div>
+          <StatCard
+            accent="amber"
+            icon="edit_note"
+            label="Follow-up"
+            value={`${followUpDueContacts.length} ${followUpDueContacts.length === 1 ? 'follow-up due' : 'follow-ups due'}`}
+          />
+          <StatCard
+            accent="amber"
+            icon="supervisor_account"
+            label="Owner gaps"
+            value={`${unownedContacts.length} ${unownedContacts.length === 1 ? 'owner gap' : 'owner gaps'}`}
+          />
+          <StatCard
+            accent="amber"
+            icon="handshake"
+            label="Customers"
+            value={`${clientContacts.length} ${clientContacts.length === 1 ? 'client' : 'clients'}`}
+          />
+          <StatCard
+            accent="amber"
+            icon="filter_alt"
+            label="Visible"
+            value={`${displayedContacts.length} visible`}
+          />
         </div>
       </section>
 
@@ -1097,7 +1082,7 @@ export function ContactsWorkspace({
           }}
         />
       </section>
-      <section className="shrink-0 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/65 px-2 py-1.5">
+      <section className="pib-surface pib-surface-glass shrink-0 !px-2 !py-1.5">
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           <input
             placeholder="Search name, email, company…"
@@ -1298,37 +1283,41 @@ export function ContactsWorkspace({
           ))}
         </div>
       ) : displayedContacts.length === 0 ? (
-        <div className="rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45 p-4 text-center">
-          <span className="material-symbols-outlined text-[19px] text-[var(--color-pib-text-muted)]">contacts</span>
+        <div className="pib-surface pib-surface-list p-4 text-center">
+          <span className="pib-icon-tint mx-auto" aria-hidden="true">
+            <span className="material-symbols-outlined text-[18px]">contacts</span>
+          </span>
           <h2 className="mt-2 text-sm font-semibold text-[var(--color-pib-text)]">{emptyTitle}</h2>
           <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
             {emptyDescription}
           </p>
           {hasActiveFilters || ownerLens === 'unowned' ? (
             <button
+              type="button"
               onClick={() => { setSearch(''); setStageFilter(''); setTypeFilter(''); setStatusFilter(''); setTagsFilter(''); setSourceFilter(''); setHighScoreOnly(false); setOwnerLens('all'); setFollowUpLens('all') }}
-              className="mx-auto mt-3 flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-card-border)] px-2 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
+              className="btn-pib-secondary btn-pib-sm mx-auto mt-3"
               aria-label={ownerLens === 'unowned' || followUpLens === 'stale' ? 'Show all contacts' : 'Clear filters'}
             >
-              <span className="material-symbols-outlined text-[14px]">filter_alt_off</span>
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">filter_alt_off</span>
               {ownerLens === 'unowned' || followUpLens === 'stale' ? 'Show all contacts' : 'Clear filters'}
             </button>
           ) : (
             <button
+              type="button"
               onClick={() => canLoadContacts && setShowNew(true)}
               disabled={!canLoadContacts}
               aria-label="Add contact"
-              className="mx-auto mt-3 flex h-8 items-center gap-1 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition disabled:cursor-not-allowed disabled:opacity-50"
+              className="btn-pib-primary btn-pib-sm mx-auto mt-3 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <span className="material-symbols-outlined text-[14px]">add</span>
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add</span>
               Add contact
             </button>
           )}
         </div>
       ) : (
-        <div className="min-w-0 overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+        <div className="pib-surface pib-surface-table min-w-0 overflow-hidden" data-module-accent="amber">
           {/* Table header */}
-          <div className="hidden md:grid grid-cols-18 gap-4 px-3 py-2 border-b border-[var(--color-card-border)] bg-black/[0.08]">
+          <div className="hidden md:grid grid-cols-18 gap-3 border-b border-[var(--color-card-border)] bg-[var(--color-pib-surface-soft)] px-3 py-1.5">
             {/* Checkbox cell — 1 col */}
             <div className="col-span-1 flex items-center">
               <input
@@ -1361,7 +1350,7 @@ export function ContactsWorkspace({
                 <div
                   key={c.id}
                   data-contact-row
-                  className={`relative grid grid-cols-1 md:grid-cols-18 gap-3 md:gap-4 items-start md:items-center px-3 py-2 transition ${isSelected ? 'bg-primary/[0.08]' : 'hover:bg-white/[0.04]'}`}
+                  className={`relative grid grid-cols-1 md:grid-cols-18 gap-3 md:gap-4 items-start md:items-center px-3 py-1.5 pib-enter transition ${isSelected ? 'bg-[var(--color-pib-accent-soft)]' : 'hover:bg-[var(--color-row-hover)]'}`}
                 >
                   {/* Checkbox */}
                   <div
@@ -1397,7 +1386,7 @@ export function ContactsWorkspace({
                           aria-label={`Email ${c.email} from contacts list`}
                           className="inline-flex max-w-full items-center gap-1 truncate text-[var(--color-pib-text-muted)] transition hover:text-[var(--color-pib-text)]"
                         >
-                          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">alternate_email</span>
+                          <span className="pib-icon-tint !h-5 !w-5 !rounded-md" aria-hidden="true"><span className="material-symbols-outlined text-[12px]">alternate_email</span></span>
                           <span className="truncate">{c.email}</span>
                         </a>
                       ) : (
@@ -1409,7 +1398,7 @@ export function ContactsWorkspace({
                           aria-label={`Call ${c.phone.trim()} from contacts list`}
                           className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-[11px] text-[var(--color-pib-text-muted)] transition hover:text-[var(--color-pib-text)]"
                         >
-                          <span className="material-symbols-outlined text-[13px]" aria-hidden="true">call</span>
+                          <span className="pib-icon-tint !h-5 !w-5 !rounded-md" aria-hidden="true"><span className="material-symbols-outlined text-[12px]">call</span></span>
                           <span className="truncate">{c.phone.trim()}</span>
                         </a>
                       )}
@@ -1422,7 +1411,7 @@ export function ContactsWorkspace({
                           onClick={() => filterByCompany(c.company as string)}
                           className="inline-flex max-w-full items-center gap-1 truncate text-left text-[var(--color-pib-text-muted)] transition hover:text-[var(--color-pib-text)]"
                         >
-                          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">business</span>
+                          <span className="pib-icon-tint !h-5 !w-5 !rounded-md" aria-hidden="true"><span className="material-symbols-outlined text-[12px]">business</span></span>
                           <span className="truncate">{c.company}</span>
                         </button>
                       ) : (

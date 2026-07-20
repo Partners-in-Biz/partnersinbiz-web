@@ -28,16 +28,20 @@ export function AnalyticsNav({ active, propertyId: selectedPropertyId, basePath 
   const searchParams = useSearchParams()
   const propertyId = selectedPropertyId || searchParams?.get('propertyId')
   return (
-    <nav className="flex gap-1 border-b border-[var(--color-card-border)] pb-3 flex-wrap">
+    <nav
+      className="flex flex-wrap gap-1 border-b border-[var(--color-card-border)] pb-2"
+      data-module-accent="violet"
+      aria-label="Analytics sections"
+    >
       {TAB_KEYS.map(t => {
         const href = `${basePath}/${t.key}`
         return (
           <Link
             key={href}
             href={propertyId ? `${href}?propertyId=${encodeURIComponent(propertyId)}` : href}
-            className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
               active === t.key
-                ? 'bg-amber-400/20 text-amber-400'
+                ? 'bg-[var(--color-pib-violet-soft)] text-[var(--color-pib-violet)]'
                 : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
             }`}>
             {t.label}

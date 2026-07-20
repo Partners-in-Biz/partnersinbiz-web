@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useRef, useState } from 'react'
 import {
+import { PageHeader } from '@/components/ui/AppFoundation'
   sendPasswordResetEmail,
   reauthenticateWithCredential,
   updatePassword,
@@ -206,16 +207,13 @@ export default function AccountSettingsPage() {
   const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || email.charAt(0).toUpperCase()
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="eyebrow">Portal settings</p>
-          <h1 className="pib-page-title mt-2">Account settings</h1>
-          <p className="mt-2 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
-            Manage your profile, login identity, password, and security without changing workspace, CRM, or client data.
-          </p>
-        </div>
-      </div>
+    <div className="space-y-6" data-module-accent="cyan">
+      <PageHeader
+        accent="cyan"
+        eyebrow="Portal settings"
+        title="Account settings"
+        description="Manage your profile, login identity, password, and security without changing workspace, CRM, or client data."
+      />
 
       {/* ---- Profile ---- */}
       <section data-testid="account-profile-panel" className="pib-card-section">

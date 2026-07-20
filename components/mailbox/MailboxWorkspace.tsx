@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { PageHeader } from '@/components/ui/AppFoundation'
 import type { MailboxAccountSafe, MailboxFolder, MailboxMessageSafe } from '@/lib/mailbox/types'
 
 type MailboxSurface = 'admin' | 'portal'
@@ -387,40 +388,43 @@ export function MailboxWorkspace({ surface, showCloseAction = false, onClose }: 
   }
 
   return (
-    <div className="flex min-h-[calc(100dvh-5.5rem)] flex-col gap-4">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 items-start gap-3">
-          {showCloseAction && onClose ? (
-            <button
-              type="button"
-              onClick={onClose}
-              className="btn-pib-secondary !h-10 !w-10 !px-0 sm:hidden"
-              aria-label="Close email and return to workspace"
-              title="Close email"
-            >
-              <span className="material-symbols-outlined text-[18px]">close</span>
+    <div className="flex min-h-[calc(100dvh-5.5rem)] flex-col gap-4" data-module-accent="blue">
+      <PageHeader
+        accent="blue"
+        eyebrow={config.eyebrow}
+        title={
+          <span className="flex min-w-0 items-center gap-2">
+            {showCloseAction && onClose ? (
+              <button
+                type="button"
+                onClick={onClose}
+                className="btn-pib-secondary btn-pib-sm !h-8 !w-8 !px-0 sm:hidden"
+                aria-label="Close email and return to workspace"
+                title="Close email"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            ) : null}
+            <span className="truncate">{config.title}</span>
+          </span>
+        }
+        actions={
+          <>
+            <button type="button" className="btn-pib-secondary btn-pib-sm" onClick={() => loadMessages({ refresh: true }).catch((err) => { setError(err.message); setLoading(false) })}>
+              <span className="material-symbols-outlined text-[18px]">sync</span>
+              Refresh mail
             </button>
-          ) : null}
-          <div className="min-w-0">
-            <p className="eyebrow">{config.eyebrow}</p>
-            <h1 className="text-2xl font-semibold">{config.title}</h1>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className="btn-pib-secondary" onClick={() => loadMessages({ refresh: true }).catch((err) => { setError(err.message); setLoading(false) })}>
-            <span className="material-symbols-outlined text-[18px]">sync</span>
-            Refresh mail
-          </button>
-          <button type="button" className="btn-pib-secondary" onClick={() => setShowAccount((v) => !v)}>
-            <span className="material-symbols-outlined text-[18px]">add_link</span>
-            Link account
-          </button>
-          <button type="button" className="btn-pib-primary" onClick={() => startCompose()}>
-            <span className="material-symbols-outlined text-[18px]">edit_square</span>
-            New email
-          </button>
-        </div>
-      </header>
+            <button type="button" className="btn-pib-secondary btn-pib-sm" onClick={() => setShowAccount((v) => !v)}>
+              <span className="material-symbols-outlined text-[18px]">add_link</span>
+              Link account
+            </button>
+            <button type="button" className="btn-pib-primary btn-pib-sm" onClick={() => startCompose()}>
+              <span className="material-symbols-outlined text-[18px]">edit_square</span>
+              New email
+            </button>
+          </>
+        }
+      />
 
       {(notice || error) && (
         <div className={`rounded-lg border px-4 py-3 text-sm ${error ? 'border-red-400/40 text-red-200 bg-red-500/10' : 'border-emerald-400/30 text-emerald-100 bg-emerald-500/10'}`}>

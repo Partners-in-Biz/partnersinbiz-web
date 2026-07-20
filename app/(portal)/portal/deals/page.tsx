@@ -12,7 +12,8 @@ import { DealKanban } from '@/components/crm/DealKanban'
 import { PipelineSelector } from '@/components/crm/PipelineSelector'
 import { DealDrawer } from '@/components/crm/DealDrawer'
 import { DealDetailDrawer } from '@/components/crm/DealDetailDrawer'
-import { EmptyState, PageHeader, PageTabs } from '@/components/ui/AppFoundation'
+import { EmptyState, PageHeader, PageTabs, Surface } from '@/components/ui/AppFoundation'
+import { StatCard } from '@/components/ui/StatCard'
 import type { Contact, Deal, Currency } from '@/lib/crm/types'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import { extractPipelinesList } from '@/lib/pipelines/response'
@@ -87,24 +88,27 @@ function PipelineSummary({ deals, stages }: PipelineSummaryProps) {
           label: 'Pipeline value',
           value: valueStats.priced > 0 ? fmt(valueStats.total) : hasPipelineRecords ? 'No priced pipeline' : 'No open pipeline',
           sub: valueStats.unpriced > 0 ? unpricedCopy : 'excl. lost',
+          icon: 'payments',
         },
         {
           label: 'Weighted pipeline',
           value: valueStats.priced > 0 ? fmt(valueStats.weightedTotal) : hasPipelineRecords ? 'Forecast value needed' : 'No forecastable deals',
           sub: valueStats.unpriced > 0 ? unpricedCopy : 'prob-adjusted',
+          icon: 'trending_up',
         },
-        { label: 'Won',            value: fmt(valueStats.won),   sub: 'all time' },
-        { label: 'Open deals',     value: String(open), sub: 'active' },
-        { label: 'Total deals',    value: String(deals.length), sub: 'all stages' },
+        { label: 'Won',            value: fmt(valueStats.won),   sub: 'all time', icon: 'emoji_events' },
+        { label: 'Open deals',     value: String(open), sub: 'active', icon: 'view_kanban' },
+        { label: 'Total deals',    value: String(deals.length), sub: 'all stages', icon: 'handshake' },
       ].map(stat => (
-        <div
+        <StatCard
           key={stat.label}
-          className="pib-stat-card min-w-0 p-3"
-        >
-          <p className="pib-label mb-1">{stat.label}</p>
-          <p className="text-lg font-semibold text-[var(--color-pib-text)] leading-none">{stat.value}</p>
-          <p className="text-[10px] text-[var(--color-pib-text-muted)] mt-1">{stat.sub}</p>
-        </div>
+          accent="amber"
+          icon={stat.icon}
+          label={stat.label}
+          value={stat.value}
+          detail={stat.sub}
+          className="min-w-0"
+        />
       ))}
     </div>
   )
@@ -136,21 +140,21 @@ function PipelineLaunchCommandCenter({
   ]
 
   return (
-    <section className="pib-card">
-      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+    <Surface variant="card" accentEdge="amber">
+      <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
         <div>
-          <p className="eyebrow">Revenue workspace</p>
-          <h2 className="mt-2 text-base font-semibold text-[var(--color-pib-text)]">Launch this pipeline</h2>
-          <p className="mt-2 max-w-2xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
+          <p className="pib-label mb-0">Revenue workspace</p>
+          <h2 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">Launch this pipeline</h2>
+          <p className="mt-1.5 max-w-2xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
             {needsSetupReview
               ? 'This pipeline needs setup review before the team treats it as board-ready. Review the revenue path, then create the first deal with a buyer, owner, value, stage, and forecast date.'
               : 'This board is ready, but there are no opportunities in it yet. Create the first deal so the pipeline has a buyer, owner, value, stage, and forecast date from the start.'}
           </p>
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-3 flex flex-wrap gap-1.5">
             <button
               type="button"
               onClick={onCreateDeal}
-              className="btn-pib-primary"
+              className="btn-pib-primary btn-pib-sm"
               aria-label="Create first deal for this pipeline"
             >
               <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add</span>
@@ -159,7 +163,7 @@ function PipelineLaunchCommandCenter({
             <button
               type="button"
               onClick={onCreateDeal}
-              className="btn-pib-secondary"
+              className="btn-pib-secondary btn-pib-sm"
               aria-label="Open deal setup for forecast baseline"
             >
               <span className="material-symbols-outlined text-[15px]" aria-hidden="true">trending_up</span>
@@ -169,10 +173,10 @@ function PipelineLaunchCommandCenter({
         </div>
         <div className="grid gap-2">
           {launchSteps.map((step) => (
-            <div key={step.label} className="rounded-[12px] border border-[var(--color-pib-line)] p-3">
+            <div key={step.label} className="rounded-lg border border-[var(--color-pib-line)] p-2.5">
               <div className="flex gap-2.5">
-                <span className="pib-icon-tint material-symbols-outlined shrink-0" aria-hidden="true">
-                  {step.icon}
+                <span className="pib-icon-tint shrink-0" aria-hidden="true">
+                  <span className="material-symbols-outlined text-[16px]">{step.icon}</span>
                 </span>
                 <div>
                   <p className="text-xs font-semibold text-[var(--color-pib-text)]">{step.label}</p>
@@ -183,7 +187,7 @@ function PipelineLaunchCommandCenter({
           ))}
         </div>
       </div>
-    </section>
+    </Surface>
   )
 }
 
@@ -198,13 +202,15 @@ function PipelineSetupReviewCard({ pipeline, settingsHref }: { pipeline: Pipelin
     <section
       role="region"
       aria-label={`Pipeline setup review for ${pipeline.name}`}
-      className="rounded-xl border border-amber-500/25 bg-amber-500/[0.07] p-3"
+      className="rounded-xl border border-[var(--color-pib-accent)]/25 bg-[var(--color-pib-accent-soft)] p-3"
     >
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div className="flex gap-2.5">
-          <span className="material-symbols-outlined mt-0.5 text-[16px] text-amber-200" aria-hidden="true">rule_settings</span>
+          <span className="pib-icon-tint shrink-0" aria-hidden="true">
+            <span className="material-symbols-outlined text-[16px]">rule_settings</span>
+          </span>
           <div>
-            <p className="text-[10px] font-label uppercase tracking-[0.22em] text-amber-200">Pipeline hygiene</p>
+            <p className="pib-label mb-0 text-[var(--color-pib-accent)]">Pipeline hygiene</p>
             <h2 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">Pipeline setup needs review</h2>
             <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
               <span className="font-medium text-[var(--color-pib-text)]">{pipeline.name}</span> looks like smoke-test pipeline data.
@@ -214,7 +220,7 @@ function PipelineSetupReviewCard({ pipeline, settingsHref }: { pipeline: Pipelin
         </div>
         <Link
           href={settingsHref}
-          className="btn-pib-secondary shrink-0"
+          className="btn-pib-secondary btn-pib-sm shrink-0"
           aria-label={`Review pipeline settings for ${pipeline.name}`}
         >
           <span className="material-symbols-outlined text-[15px]" aria-hidden="true">settings</span>
@@ -712,51 +718,46 @@ export default function DealsPage() {
   const isReady = !pipelinesLoading && !loading && !contactsLoading
 
   return (
-    <div className="space-y-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="pib-icon-tint material-symbols-outlined" aria-hidden="true">
-            handshake
-          </span>
-          <div className="min-w-0">
-            <p className="eyebrow">Client workspace · Deals</p>
-            <h1 className="pib-page-title mt-1">Pipeline</h1>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          {pipelines.length > 0 && (
-            <PipelineSelector
-              pipelines={pipelines}
-              selectedId={selectedPipelineId}
-              onChange={handlePipelineChange}
-              className="w-44"
-            />
-          )}
-
-          <button
-            onClick={() => setShowCreateDrawer(true)}
-            className="btn-pib-primary"
-            aria-label="New deal"
-          >
-            <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add</span>
-            New deal
-          </button>
-        </div>
-      </header>
-      <p className="pib-page-sub">
-        Track shared opportunities and forecasts with the same workspace controls as admin, limited to client-safe CRM actions.
-      </p>
-
-      <PageTabs
-        tabs={[
-          { value: 'board', label: 'Board', icon: 'view_kanban' },
-          { value: 'list', label: 'List', icon: 'list' },
-          { value: 'forecast', label: 'Forecast', icon: 'trending_up' },
-        ]}
-        value={viewMode}
-        onValueChange={(id) => setViewMode(id as 'board' | 'list' | 'forecast')}
-        variant="segmented"
-        ariaLabel="Deal view mode"
+    <div className="space-y-4" data-module-accent="amber">
+      <PageHeader
+        accent="amber"
+        eyebrow="CRM · Deals"
+        title="Pipeline"
+        description="Track shared opportunities and forecasts with the same workspace controls as admin, limited to client-safe CRM actions."
+        actions={
+          <>
+            {pipelines.length > 0 && (
+              <PipelineSelector
+                pipelines={pipelines}
+                selectedId={selectedPipelineId}
+                onChange={handlePipelineChange}
+                className="w-44"
+              />
+            )}
+            <button
+              type="button"
+              onClick={() => setShowCreateDrawer(true)}
+              className="btn-pib-primary btn-pib-sm"
+              aria-label="New deal"
+            >
+              <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add</span>
+              New deal
+            </button>
+          </>
+        }
+        tabs={
+          <PageTabs
+            tabs={[
+              { value: 'board', label: 'Board', icon: 'view_kanban' },
+              { value: 'list', label: 'List', icon: 'list' },
+              { value: 'forecast', label: 'Forecast', icon: 'trending_up' },
+            ]}
+            value={viewMode}
+            onValueChange={(id) => setViewMode(id as 'board' | 'list' | 'forecast')}
+            variant="segmented"
+            ariaLabel="Deal view mode"
+          />
+        }
       />
 
       {/* Summary strip */}
@@ -768,19 +769,18 @@ export default function DealsPage() {
 
       {isReady && !error && (
         <section className="grid gap-2 md:grid-cols-[180px_1fr_1fr]">
-          <div className="pib-stat-card p-3">
-            <div className="flex items-center justify-between gap-2">
-              <p className="pib-label">Deal owner coverage</p>
-              <span className="material-symbols-outlined text-[15px] text-[var(--color-pib-text-muted)]">supervisor_account</span>
-            </div>
-            <p className="mt-1 text-lg font-semibold text-[var(--color-pib-text)] leading-none">{Math.round(ownerCoverage * 100)}%</p>
-            <p className="mt-1 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{unassignedDeals.length} unassigned</p>
-          </div>
+          <StatCard
+            accent="amber"
+            icon="supervisor_account"
+            label="Deal owner coverage"
+            value={`${Math.round(ownerCoverage * 100)}%`}
+            detail={`${unassignedDeals.length} unassigned`}
+          />
           <button
             type="button"
             onClick={() => setOwnerLens(ownerLens === 'all' ? 'unassigned' : 'all')}
             className={[
-              'rounded-[14px] border p-3 text-left transition-colors',
+              'rounded-lg border p-3 text-left transition-colors',
               ownerLens !== 'all'
                 ? 'border-[var(--color-pib-line-strong)] bg-[var(--color-pib-surface-soft)]'
                 : 'border-[var(--color-pib-line)] hover:bg-[var(--color-row-hover)]',
@@ -788,7 +788,9 @@ export default function DealsPage() {
             aria-label={ownerLens !== 'all' ? 'Show all deals' : 'Show unassigned deals needing an owner'}
           >
             <div className="flex items-start gap-2">
-              <span className="pib-icon-tint material-symbols-outlined shrink-0">manage_accounts</span>
+              <span className="pib-icon-tint shrink-0" aria-hidden="true">
+                <span className="material-symbols-outlined text-[16px]">manage_accounts</span>
+              </span>
               <span className="min-w-0">
                 <p className="text-xs font-semibold text-[var(--color-pib-text)]">
                   {ownerLens === 'unassigned' ? 'Showing unassigned deals' : ownerLens !== 'all' ? 'Showing selected owner deals' : 'Review unassigned deals'}
@@ -803,9 +805,11 @@ export default function DealsPage() {
               </span>
             </div>
           </button>
-          <div className="rounded-[14px] border border-[var(--color-pib-line)] p-3">
+          <Surface variant="quiet" className="!p-3">
             <div className="flex items-start gap-2">
-              <span className="pib-icon-tint material-symbols-outlined shrink-0">query_stats</span>
+              <span className="pib-icon-tint shrink-0" aria-hidden="true">
+                <span className="material-symbols-outlined text-[16px]">query_stats</span>
+              </span>
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-[var(--color-pib-text)]">Pipeline responsibility</p>
                 <p className="mt-0.5 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
@@ -817,7 +821,7 @@ export default function DealsPage() {
               type="button"
               onClick={selectUnassignedDealsForAssignment}
               disabled={unassignedDeals.length === 0}
-              className="btn-pib-secondary mt-2 w-full justify-center disabled:cursor-not-allowed disabled:opacity-50"
+              className="btn-pib-secondary btn-pib-sm mt-2 w-full justify-center disabled:cursor-not-allowed disabled:opacity-50"
               aria-label={
                 unassignedDeals.length === 0
                   ? 'No unassigned deals to select for owner assignment'
@@ -831,7 +835,7 @@ export default function DealsPage() {
                 ? `Select ${unassignedDeals.length} owner gap${unassignedDeals.length === 1 ? '' : 's'}`
                 : 'No owner gaps'}
             </button>
-          </div>
+          </Surface>
         </section>
       )}
 
@@ -868,7 +872,7 @@ export default function DealsPage() {
             type="button"
             onClick={assignSelectedDealOwner}
             disabled={!bulkOwnerUid.trim() || bulkOwnerPending}
-            className="btn-pib-primary disabled:cursor-not-allowed disabled:opacity-50"
+            className="btn-pib-primary btn-pib-sm disabled:cursor-not-allowed disabled:opacity-50"
             aria-label={`Assign owner to ${selectedDealIds.size} selected deal${selectedDealIds.size === 1 ? '' : 's'}`}
           >
             <span className="material-symbols-outlined text-[15px]">supervisor_account</span>
@@ -877,7 +881,7 @@ export default function DealsPage() {
           <button
             type="button"
             onClick={() => { setSelectedDealIds(new Set()); setBulkOwnerUid(''); setBulkOwnerError('') }}
-            className="btn-pib-ghost"
+            className="btn-pib-ghost btn-pib-sm"
           >
             Clear selection
           </button>
@@ -930,7 +934,7 @@ export default function DealsPage() {
               <button
                 type="button"
                 onClick={retryDealsLoad}
-                className="btn-pib-secondary shrink-0"
+                className="btn-pib-secondary btn-pib-sm shrink-0"
                 aria-label="Retry loading deals"
               >
                 <span className="material-symbols-outlined text-[15px]" aria-hidden="true">refresh</span>
@@ -1000,7 +1004,7 @@ export default function DealsPage() {
               <button
                 type="button"
                 onClick={() => setOwnerLens('all')}
-                className="btn-pib-secondary"
+                className="btn-pib-secondary btn-pib-sm"
                 aria-label="Show all deals"
               >
                 <span className="material-symbols-outlined text-[16px]" aria-hidden="true">filter_alt_off</span>
@@ -1010,7 +1014,7 @@ export default function DealsPage() {
               <button
                 type="button"
                 onClick={() => setStageFilter('all')}
-                className="btn-pib-secondary"
+                className="btn-pib-secondary btn-pib-sm"
                 aria-label="Show all stages"
               >
                 <span className="material-symbols-outlined text-[16px]" aria-hidden="true">filter_alt_off</span>
@@ -1220,7 +1224,7 @@ export default function DealsPage() {
                           <button
                             type="button"
                             onClick={() => setFocusMode('all')}
-                            className="btn-pib-secondary mt-3"
+                            className="btn-pib-secondary btn-pib-sm mt-3"
                             aria-label="Show full forecast"
                           >
                             <span className="material-symbols-outlined text-[14px]">filter_alt_off</span>
@@ -1230,7 +1234,7 @@ export default function DealsPage() {
                           <button
                             type="button"
                             onClick={() => setShowCreateDrawer(true)}
-                            className="btn-pib-primary mt-3"
+                            className="btn-pib-primary btn-pib-sm mt-3"
                           >
                             <span className="material-symbols-outlined text-[14px]">add</span>
                             Create forecastable deal

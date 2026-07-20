@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { PageTabs } from '@/components/ui/AppFoundation'
+import { PageHeader, PageTabs } from '@/components/ui/AppFoundation'
+import { StatCard } from '@/components/ui/StatCard'
 import { useOrg } from '@/lib/contexts/OrgContext'
 import { scopedPortalPath } from '@/lib/portal/scoped-routing'
 import type {
@@ -269,43 +270,29 @@ export function CommunicationsConsole({
   }
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="eyebrow">{mode === 'admin' ? 'Admin console' : 'Organisation console'}</p>
-          <h1 className="pib-page-title mt-2">Communications command center</h1>
-          <p className="pib-page-sub mt-2 max-w-3xl">
-            Manage customer conversations, templates, campaigns, opt-ins, routing, channel health, and performance across WhatsApp, SMS, email, in-app, Messenger, and Instagram.
-          </p>
-          {mode === 'admin' && (
-            <p className="text-xs text-[var(--color-pib-text-muted)] mt-2">
-              Active organisation: {activeOrgName || 'select an organisation from the admin switcher'}
-            </p>
-          )}
-        </div>
-        <Link href={marketingHref} className="btn-pib-secondary self-start lg:self-auto">
-          <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
-          Marketing
-        </Link>
-      </header>
+    <div className="space-y-6" data-module-accent="blue">
+      <PageHeader
+        accent="blue"
+        eyebrow={mode === 'admin' ? 'Admin console' : 'Organisation console'}
+        title="Communications command center"
+        description="Manage customer conversations, templates, campaigns, opt-ins, routing, channel health, and performance across WhatsApp, SMS, email, in-app, Messenger, and Instagram."
+        meta={
+          mode === 'admin' ? (
+            <span>Active organisation: {activeOrgName || 'select an organisation from the admin switcher'}</span>
+          ) : undefined
+        }
+        actions={
+          <Link href={marketingHref} className="btn-pib-secondary btn-pib-sm">
+            <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
+            Marketing
+          </Link>
+        }
+      />
 
       <section className="grid gap-3 md:grid-cols-3" aria-label="Communications command summary">
-        {[
-          ['Workspace', workspaceLabel, activeOrgId || 'Resolving organisation', 'business_center'],
-          ['Inbox control', `${FILTER_LABELS.length} queues`, 'Open, owned, pending, resolved, and snoozed work', 'inbox'],
-          ['Human handoff', 'Approval gated', 'Drafts, Hermes suggestions, and outbound replies stay accountable', 'approval'],
-        ].map(([label, value, sub, icon]) => (
-          <div key={label} className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-surface)] p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="pib-label">{label}</p>
-                <p className="mt-2 text-lg font-semibold text-[var(--color-pib-text)]">{value}</p>
-              </div>
-              <span className="material-symbols-outlined text-lg text-[var(--color-pib-accent)]" aria-hidden="true">{icon}</span>
-            </div>
-            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{sub}</p>
-          </div>
-        ))}
+        <StatCard accent="blue" label="Workspace" value={workspaceLabel} detail={activeOrgId || 'Resolving organisation'} icon="business_center" />
+        <StatCard accent="blue" label="Inbox control" value={`${FILTER_LABELS.length} queues`} detail="Open, owned, pending, resolved, and snoozed work" icon="inbox" />
+        <StatCard accent="blue" label="Human handoff" value="Approval gated" detail="Drafts, Hermes suggestions, and outbound replies stay accountable" icon="approval" />
       </section>
 
       {!canLoad && (

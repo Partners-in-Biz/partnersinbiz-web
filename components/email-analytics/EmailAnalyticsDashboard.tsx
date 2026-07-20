@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { LineChart, BarChart, Donut, heatmapShade, heatmapTextColor } from './charts'
-import { PageTabs } from '@/components/ui/AppFoundation'
+import { PageHeader, PageTabs } from '@/components/ui/AppFoundation'
 import { scopedApiPath, scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 import type {
   OrgEmailOverview,
@@ -99,38 +99,40 @@ export default function EmailAnalyticsDashboard({
   )
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-8">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <p className="eyebrow">Email · Analytics</p>
-          <h1 className="pib-page-title mt-2">Email Analytics</h1>
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <label className="pib-label">From</label>
-          <input
-            type="date"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            className="pib-input w-auto"
+    <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6" data-module-accent="blue">
+      <PageHeader
+        accent="blue"
+        eyebrow="Email · Analytics"
+        title="Email Analytics"
+        actions={
+          <div className="flex flex-wrap items-center gap-1.5 text-sm">
+            <label className="pib-label">From</label>
+            <input
+              type="date"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+              className="pib-input h-8 w-auto py-1 text-xs"
+            />
+            <label className="pib-label">To</label>
+            <input
+              type="date"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              className="pib-input h-8 w-auto py-1 text-xs"
+            />
+          </div>
+        }
+        tabs={
+          <PageTabs
+            ariaLabel="Email analytics sections"
+            value={tab}
+            onValueChange={(value) => setTab(value as TabKey)}
+            tabs={TABS.filter((item) => !item.adminOnly || isAdmin).map((item) => ({
+              label: item.label,
+              value: item.key,
+            }))}
           />
-          <label className="pib-label">To</label>
-          <input
-            type="date"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            className="pib-input w-auto"
-          />
-        </div>
-      </div>
-
-      <PageTabs
-        ariaLabel="Email analytics sections"
-        value={tab}
-        onValueChange={(value) => setTab(value as TabKey)}
-        tabs={TABS.filter((item) => !item.adminOnly || isAdmin).map((item) => ({
-          label: item.label,
-          value: item.key,
-        }))}
+        }
       />
 
       {tab === 'overview' && <OverviewTab orgId={orgId} from={from} to={to} />}
@@ -1191,12 +1193,12 @@ function Kpi({
   tone?: 'warn'
 }) {
   return (
-    <div className="pib-stat-card">
-      <div className="pib-label">{label}</div>
-      <div className={`mt-1 text-2xl font-semibold ${tone === 'warn' ? 'text-[var(--color-error)]' : 'text-[var(--color-pib-text)]'}`}>
+    <div className="pib-stat-card p-3" data-module-accent="blue">
+      <div className="pib-label text-[10px] tracking-[0.14em]">{label}</div>
+      <div className={`mt-1 text-xl font-semibold tabular-nums tracking-tight ${tone === 'warn' ? 'text-[var(--color-error)]' : 'text-[var(--color-pib-text)]'}`}>
         {typeof value === 'number' ? value.toLocaleString() : value}
       </div>
-      {sub && <div className="text-xs text-[var(--color-pib-text-muted)] mt-1">{sub}</div>}
+      {sub && <div className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">{sub}</div>}
     </div>
   )
 }

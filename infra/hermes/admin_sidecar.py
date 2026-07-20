@@ -544,6 +544,164 @@ async def update_env(profile: str, request: Request, x_api_key: Optional[str] = 
     return {"updated": True, "restarted": restarted, "env": read_env(profile, x_api_key, authorization)["env"]}
 
 
+_OAUTH_PROVIDER_RE = re.compile(r"^[a-z][a-z0-9._-]{0,63}$")
+
+
+def _auth_json_path(profile: str) -> Path:
+    return _profile_dir(profile) / "auth.json"
+
+
+def _atomic_write_json(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix=".auth_", suffix=".json", dir=str(path.parent))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2, sort_keys=False)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, path)
+    finally:
+        try:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
+        except OSError:
+            pass
+
+
+@app.get("/profiles/{profile}/admin/auth/providers")
+def list_auth_providers(profile: str, x_api_key: Optional[str] = Header(default=None), authorization: Optional[str] = Header(default=None)):
+    """List configured OAuth providers (masked) from the profile auth.json."""
+    _require_auth(profile, x_api_key, authorization)
+    path = _auth_json_path(profile)
+    if not path.exists():
+        return {"providers": {}, "path": str(path), "exists": False}
+    try:
+        store = json.loads(path.read_text(encoding="utf-8")) or {}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"invalid auth.json: {exc}")
+    providers = store.get("providers") if isinstance(store, dict) else {}
+    if not isinstance(providers, dict):
+        providers = {}
+    masked = {}
+    for name, state in providers.items():
+        if not isinstance(state, dict):
+            continue
+        access = str(state.get("access_token") or "")
+        refresh = str(state.get("refresh_token") or "")
+        masked[name] = {
+            "configured": bool(access or refresh),
+            "has_access_token": bool(access),
+            "has_refresh_token": bool(refresh),
+            "hint": (f"{access[:4]}…{access[-4:]}" if len(access) > 8 else ("…" if access else None)),
+            "updated_at": state.get("updated_at") or state.get("last_refresh"),
+        }
+    return {"providers": masked, "path": str(path), "exists": True}
+
+
+@app.put("/profiles/{profile}/admin/auth/providers/{provider}")
+async def upsert_auth_provider(
+    profile: str,
+    provider: str,
+    request: Request,
+    x_api_key: Optional[str] = Header(default=None),
+    authorization: Optional[str] = Header(default=None),
+):
+    """Merge OAuth tokens into profile auth.json for a Hermes provider id.
+
+    Body: {access_token, refresh_token, expires_in?, token_type?, id_token?, scope?}
+    Used by Partners in Biz after a successful device-code OAuth so the
+    gateway can use SuperGrok / Codex / etc. without a manual CLI login.
+    """
+    _require_auth(profile, x_api_key, authorization)
+    if not _OAUTH_PROVIDER_RE.match(provider or ""):
+        raise HTTPException(status_code=400, detail="invalid provider id")
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="body must be an object")
+    access_token = body.get("access_token")
+    refresh_token = body.get("refresh_token")
+    if not isinstance(access_token, str) or not access_token.strip():
+        raise HTTPException(status_code=400, detail="access_token is required")
+    if not isinstance(refresh_token, str) or not refresh_token.strip():
+        raise HTTPException(status_code=400, detail="refresh_token is required")
+    if len(access_token) > 16384 or len(refresh_token) > 16384:
+        raise HTTPException(status_code=400, detail="token too long")
+
+    path = _auth_json_path(profile)
+    store: dict = {}
+    if path.exists():
+        try:
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                store = loaded
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"invalid auth.json: {exc}")
+    providers = store.get("providers")
+    if not isinstance(providers, dict):
+        providers = {}
+        store["providers"] = providers
+    existing = providers.get(provider) if isinstance(providers.get(provider), dict) else {}
+    now = datetime.now(timezone.utc).isoformat()
+    expires_in = body.get("expires_in")
+    state = {
+        **existing,
+        "access_token": access_token.strip(),
+        "refresh_token": refresh_token.strip(),
+        "token_type": str(body.get("token_type") or existing.get("token_type") or "Bearer"),
+        "updated_at": now,
+        "source": "pib-oauth",
+    }
+    if isinstance(expires_in, (int, float)) and expires_in > 0:
+        state["expires_at"] = datetime.fromtimestamp(
+            datetime.now(timezone.utc).timestamp() + float(expires_in),
+            tz=timezone.utc,
+        ).isoformat()
+    if isinstance(body.get("id_token"), str) and body["id_token"].strip():
+        state["id_token"] = body["id_token"].strip()
+    if isinstance(body.get("scope"), str) and body["scope"].strip():
+        state["scope"] = body["scope"].strip()
+    providers[provider] = state
+    store["providers"] = providers
+    _atomic_write_json(path, store)
+    restarted = _restart_profile(profile)
+    return {
+        "updated": True,
+        "provider": provider,
+        "restarted": restarted,
+        "path": str(path),
+        "hint": f"{access_token[:4]}…{access_token[-4:]}" if len(access_token) > 8 else "…",
+    }
+
+
+@app.delete("/profiles/{profile}/admin/auth/providers/{provider}")
+def delete_auth_provider(
+    profile: str,
+    provider: str,
+    x_api_key: Optional[str] = Header(default=None),
+    authorization: Optional[str] = Header(default=None),
+):
+    _require_auth(profile, x_api_key, authorization)
+    if not _OAUTH_PROVIDER_RE.match(provider or ""):
+        raise HTTPException(status_code=400, detail="invalid provider id")
+    path = _auth_json_path(profile)
+    if not path.exists():
+        return {"deleted": False, "provider": provider, "reason": "auth.json missing"}
+    try:
+        store = json.loads(path.read_text(encoding="utf-8")) or {}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"invalid auth.json: {exc}")
+    providers = store.get("providers") if isinstance(store, dict) else {}
+    if not isinstance(providers, dict) or provider not in providers:
+        return {"deleted": False, "provider": provider, "reason": "provider not configured"}
+    providers.pop(provider, None)
+    store["providers"] = providers
+    _atomic_write_json(path, store)
+    restarted = _restart_profile(profile)
+    return {"deleted": True, "provider": provider, "restarted": restarted}
+
+
 @app.get("/profiles/{profile}/admin/config")
 def read_config(profile: str, x_api_key: Optional[str] = Header(default=None), authorization: Optional[str] = Header(default=None)):
     _require_auth(profile, x_api_key, authorization)

@@ -204,18 +204,19 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
   const previewUrl = buildPreviewUrl()
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 py-6 space-y-6">
+    <div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-4" data-module-accent="rose">
       <div>
-        <h1 className="font-headline text-2xl font-bold tracking-tighter text-[var(--color-pib-text)]">Link Shortener</h1>
-        <p className="text-sm text-[var(--color-pib-text-muted)] mt-1">
+        <p className="eyebrow">Social · Links</p>
+        <h1 className="pib-page-title mt-1.5">Link Shortener</h1>
+        <p className="pib-page-sub">
           Create and manage shortened links with UTM tracking.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <section className="pib-card p-6">
-            <h2 className="text-xl font-semibold mb-4">Create Shortened Link</h2>
+          <section className="pib-card p-4">
+            <h2 className="mb-3 text-sm font-semibold">Create Shortened Link</h2>
 
             {error && (
               <div className="mb-4 rounded border border-red-400/50 bg-red-900/30 p-3 text-sm text-red-200">
@@ -324,7 +325,7 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
               <button
                 type="submit"
                 disabled={creating || !originalUrl}
-                className="pib-btn-primary w-full disabled:cursor-not-allowed disabled:opacity-50"
+                className="btn-pib-primary btn-pib-sm w-full justify-center disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {creating ? 'Creating...' : 'Shorten Link'}
               </button>
@@ -333,9 +334,9 @@ export default function SocialLinksWorkspace({ buildApiPath }: SocialLinksWorksp
         </div>
 
         {selectedLink && (
-          <section className="pib-card p-6 h-fit">
-            <div className="mb-4 flex items-start justify-between">
-              <h2 className="text-lg font-semibold">Stats</h2>
+          <section className="pib-card h-fit p-4">
+            <div className="mb-3 flex items-start justify-between">
+              <h2 className="text-sm font-semibold">Stats</h2>
               <button
                 type="button"
                 onClick={() => setSelectedLink(null)}

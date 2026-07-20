@@ -13,7 +13,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 
 export function Button({
   variant = 'secondary',
-  size = 'md',
+  size = 'sm',
   loading,
   children,
   className,
@@ -21,7 +21,7 @@ export function Button({
   ...props
 }: ButtonProps) {
   const sizes: Record<Size, string> = {
-    sm: '!px-3 !py-1.5 !text-xs',
+    sm: 'btn-pib-sm !px-3 !text-xs',
     md: '!px-4 !py-2 !text-sm',
     lg: '!px-6 !py-2.5 !text-base',
   }

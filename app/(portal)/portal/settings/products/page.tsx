@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import { ProductModal } from '@/components/crm/ProductModal'
 import type { Product } from '@/lib/products/types'
 import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { PageHeader } from '@/components/ui/AppFoundation'
 
 function fmtMoney(value: number, currency = 'ZAR'): string {
   const safeCurrency = currency?.trim() || 'ZAR'
@@ -54,7 +55,7 @@ function productSearchText(product: Product): string {
 
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
   return (
-    <div className="pib-stat-card min-w-0">
+    <div className="pib-stat-card min-w-0" data-module-accent="cyan">
       <div className="flex items-start justify-between gap-3">
         <p className="pib-label">{label}</p>
         <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
@@ -230,24 +231,23 @@ export default function ProductsPage() {
   ]
 
   return (
-    <div className="space-y-8">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="eyebrow">CRM settings</p>
-          <h1 className="pib-page-title mt-2">Product catalog</h1>
-          <p className="pib-page-sub max-w-2xl">
-            Manage the services and products that power deal line items, quote pricing, and revenue forecasting.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={handleOpenCreate}
-          className="btn-pib-primary shrink-0"
-        >
-          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
-          New product
-        </button>
-      </header>
+    <div className="space-y-6">
+      <PageHeader
+        accent="cyan"
+        eyebrow="CRM settings"
+        title="Product catalog"
+        description="Manage the services and products that power deal line items, quote pricing, and revenue forecasting."
+        actions={(
+          <button
+                    type="button"
+                    onClick={handleOpenCreate}
+                    className="btn-pib-primary btn-pib-sm shrink-0"
+                  >
+                    <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+                    New product
+                  </button>
+        )}
+      />
 
       {!fetchError && (
         <>

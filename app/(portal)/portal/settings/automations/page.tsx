@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import type { ActionType, AutomationAction, AutomationRule, TriggerEvent } from '@/lib/automations/types'
+import { PageHeader } from '@/components/ui/AppFoundation'
 
 type ViewFilter = 'all' | 'active' | 'paused' | 'needs-work'
 
@@ -148,7 +149,7 @@ function ruleDisplayName(rule: AutomationRule): string {
 
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
   return (
-    <div className="pib-stat-card min-w-0">
+    <div className="pib-stat-card min-w-0" data-module-accent="cyan">
       <div className="flex items-start justify-between gap-3">
         <p className="pib-label">{label}</p>
         <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
@@ -307,42 +308,41 @@ export default function AutomationsPage() {
   }
 
   return (
-    <div className="max-w-6xl space-y-8">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <p className="eyebrow">CRM operations</p>
-          <h1 className="pib-page-title mt-2">Automation command center</h1>
-          <p className="pib-page-sub max-w-2xl">
-            Design, monitor, and tune the CRM rules that react to contact and deal movement without leaving gaps in follow-up.
-          </p>
-        </div>
-        <div className="flex w-fit shrink-0 flex-wrap items-center gap-2">
-          <Link
-            href={automationHref('/portal/settings/automations/sequences/new')}
-            className="btn-pib-secondary"
-            aria-label="New email sequence"
-          >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">send_time_extension</span>
-            Email sequence
-          </Link>
-          <Link
-            href={automationHref('/portal/settings/automations/rss')}
-            className="btn-pib-secondary"
-            aria-label="RSS digest automations"
-          >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">rss_feed</span>
-            RSS digest
-          </Link>
-          <Link
-            href={automationHref('/portal/settings/automations/new')}
-            className="btn-pib-primary"
-            aria-label="New automation"
-          >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
-            New automation
-          </Link>
-        </div>
-      </header>
+    <div className="max-w-6xl space-y-6">
+      <PageHeader
+        accent="cyan"
+        eyebrow="CRM operations"
+        title="Automation command center"
+        description="Design, monitor, and tune the CRM rules that react to contact and deal movement without leaving gaps in follow-up."
+        actions={(
+          <div className="flex w-fit shrink-0 flex-wrap items-center gap-2">
+                    <Link
+                      href={automationHref('/portal/settings/automations/sequences/new')}
+                      className="btn-pib-secondary btn-pib-sm"
+                      aria-label="New email sequence"
+                    >
+                      <span className="material-symbols-outlined text-[16px]" aria-hidden="true">send_time_extension</span>
+                      Email sequence
+                    </Link>
+                    <Link
+                      href={automationHref('/portal/settings/automations/rss')}
+                      className="btn-pib-secondary btn-pib-sm"
+                      aria-label="RSS digest automations"
+                    >
+                      <span className="material-symbols-outlined text-[16px]" aria-hidden="true">rss_feed</span>
+                      RSS digest
+                    </Link>
+                    <Link
+                      href={automationHref('/portal/settings/automations/new')}
+                      className="btn-pib-primary btn-pib-sm"
+                      aria-label="New automation"
+                    >
+                      <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+                      New automation
+                    </Link>
+                  </div>
+        )}
+      />
 
       {!fetchError && (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

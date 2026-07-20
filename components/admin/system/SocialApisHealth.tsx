@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { PageHeader } from '@/components/ui/AppFoundation'
 
 type ConnHealth = 'healthy' | 'degraded' | 'down' | 'no_accounts'
 
@@ -102,38 +103,32 @@ export function SocialApisHealth() {
   const summary = payload?.summary
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <header className="pib-card p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="eyebrow">System / Integrations</p>
-            <h1 className="pib-page-title mt-2">Social API health</h1>
-            <p className="mt-3 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
-              Per-platform connection status, token-expiry warnings, outage detection, rate-limit headroom, and
-              re-auth prompts across every connected social account on the platform.
-            </p>
-          </div>
+    <div className="mx-auto max-w-7xl space-y-6" data-module-accent="cyan">
+      <PageHeader
+        accent="cyan"
+        eyebrow="System / Integrations"
+        title="Social API health"
+        description="Per-platform connection status, token-expiry warnings, outage detection, rate-limit headroom, and re-auth prompts across every connected social account on the platform."
+        meta={payload?.generatedAt ? <span>Snapshot generated {relative(payload.generatedAt)}.</span> : null}
+        actions={(
           <button
             type="button"
             onClick={() => void load(true)}
             disabled={refreshing}
-            className="pib-btn-secondary shrink-0 disabled:opacity-60"
+            className="pib-btn-secondary btn-pib-sm shrink-0 disabled:opacity-60"
           >
             {refreshing ? 'Refreshing…' : 'Refresh'}
           </button>
-        </div>
-        {payload?.generatedAt ? (
-          <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">Snapshot generated {relative(payload.generatedAt)}.</p>
-        ) : null}
-      </header>
+        )}
+      />
 
       {loading ? (
-        <div className="pib-card p-8 text-sm text-[var(--color-pib-text-muted)]">Loading social API health…</div>
+        <div className="pib-card p-4 text-sm text-[var(--color-pib-text-muted)]">Loading social API health…</div>
       ) : error ? (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 p-5 text-sm text-red-400">{error}</div>
+        <div className="pib-card border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-400">{error}</div>
       ) : payload && summary ? (
         <>
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <Metric label="Platforms connected" value={String(summary.platformsConnected)} helper={`${summary.platformsHealthy} healthy · ${summary.platformsDegraded} degraded · ${summary.platformsDown} down`} />
             <Metric label="Connected accounts" value={String(summary.totalAccounts)} helper={`${summary.activeAccounts} active`} />
             <Metric label="Tokens expiring / expired" value={`${summary.tokensExpiringSoon} / ${summary.tokensExpired}`} helper="Within 7 days · already expired" tone={summary.tokensExpired > 0 ? 'warn' : 'default'} />

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { cn } from '@/lib/utils'
 
 export function KpiCard({
   label, value, sub, accent = false,
@@ -11,10 +12,10 @@ export function KpiCard({
   accent?: boolean
 }) {
   return (
-    <div className="pib-card p-4">
-      <p className="text-xs text-[var(--color-pib-text-muted)] font-label">{label}</p>
-      <p className={`text-2xl font-bold mt-1 ${accent ? 'text-amber-400' : 'text-[var(--color-pib-text)]'}`}>{value}</p>
-      {sub && <p className="text-xs text-[var(--color-pib-text-muted)] mt-0.5">{sub}</p>}
+    <div className="pib-stat-card p-3" data-module-accent="violet">
+      <p className="pib-label text-[10px] tracking-[0.14em] text-[var(--color-pib-text-muted)]">{label}</p>
+      <p className={cn('mt-1 text-xl font-semibold tabular-nums tracking-tight', accent ? 'text-[var(--color-pib-violet)]' : 'text-[var(--color-pib-text)]')}>{value}</p>
+      {sub && <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">{sub}</p>}
     </div>
   )
 }
@@ -37,7 +38,7 @@ export function CopyButton({
           setTimeout(() => setCopied(false), 1500)
         } catch { /* clipboard unavailable */ }
       }}
-      className={`pib-btn-secondary text-xs px-3 py-1.5 ${className}`}
+      className={cn('btn-pib-secondary btn-pib-sm text-xs', className)}
     >
       {copied ? 'Copied!' : label}
     </button>
@@ -52,15 +53,15 @@ export function SimpleTable({
   empty?: string
 }) {
   if (rows.length === 0) {
-    return <div className="pib-card p-6 text-center text-[var(--color-pib-text-muted)] text-sm">{empty}</div>
+    return <div className="pib-card p-4 text-center text-sm text-[var(--color-pib-text-muted)]">{empty}</div>
   }
   return (
-    <div className="pib-card overflow-x-auto">
+    <div className="pib-card overflow-x-auto" data-module-accent="violet">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-[var(--color-pib-line)]">
             {columns.map(c => (
-              <th key={c.key} className={`px-3 py-2 text-xs font-label text-[var(--color-pib-text-muted)] ${c.align === 'right' ? 'text-right' : 'text-left'}`}>
+              <th key={c.key} className={`px-3 py-1.5 text-left text-[10px] font-label tracking-[0.12em] uppercase text-[var(--color-pib-text-muted)] ${c.align === 'right' ? 'text-right' : 'text-left'}`}>
                 {c.label}
               </th>
             ))}
@@ -68,9 +69,9 @@ export function SimpleTable({
         </thead>
         <tbody>
           {rows.map((r, i) => (
-            <tr key={i} className="border-b border-[var(--color-pib-line)] last:border-0">
+            <tr key={i} className="border-b border-[var(--color-pib-line)] last:border-0 hover:bg-white/[0.02]">
               {columns.map(c => (
-                <td key={c.key} className={`px-3 py-2 text-[var(--color-pib-text)] ${c.align === 'right' ? 'text-right tabular-nums' : 'text-left'}`}>
+                <td key={c.key} className={`px-3 py-1.5 text-[var(--color-pib-text)] ${c.align === 'right' ? 'text-right tabular-nums' : 'text-left'}`}>
                   {String(r[c.key] ?? '—')}
                 </td>
               ))}

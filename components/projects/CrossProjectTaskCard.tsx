@@ -38,13 +38,13 @@ export function CrossProjectTaskCard({ task, projectId, projectName, projectHref
       {...listeners}
     >
       <div
-        className="pib-card cursor-pointer select-none transition-all duration-150 hover:border-[var(--color-accent-v2)]"
-        style={{ padding: '10px', borderLeft: `3px solid ${priorityColor}` }}
+        className="pib-card cursor-pointer select-none transition-all duration-150 hover:border-[var(--color-pib-cyan)]/50"
+        style={{ padding: '8px 9px', borderLeft: `2px solid ${priorityColor}` }}
         onClick={onClick}
       >
-        <p className="text-sm font-medium text-[var(--color-pib-text)] mb-2 leading-snug">{task.title}</p>
+        <p className="mb-1.5 text-[13px] font-medium leading-snug text-[var(--color-pib-text)]">{task.title}</p>
         {(startDateTimeLabel || endDateTimeLabel) && (
-          <div className="mb-2 grid gap-1 text-[10px] text-[var(--color-pib-text-muted)]">
+          <div className="mb-1.5 grid gap-0.5 text-[10px] text-[var(--color-pib-text-muted)]">
             {startDateTimeLabel && (
               <div className="flex items-center justify-between gap-2">
                 <span className="pib-label">Start</span>
@@ -63,13 +63,13 @@ export function CrossProjectTaskCard({ task, projectId, projectName, projectHref
           <Link
             href={projectHref ?? `/portal/projects/${projectId}`}
             onClick={e => e.stopPropagation()}
-            className="text-[10px] font-semibold px-2 py-0.5 rounded-full truncate max-w-[140px]"
+            className="max-w-[140px] truncate rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
             style={{ background: badgeBg, color: badgeText }}
           >
             {projectName}
           </Link>
           <span
-            className="shrink-0 w-2 h-2 rounded-full"
+            className="h-1.5 w-1.5 shrink-0 rounded-full"
             style={{ background: priorityColor }}
             title={task.priority ?? 'normal'}
           />

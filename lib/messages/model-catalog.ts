@@ -3,6 +3,8 @@ import { callAgentPath } from '@/lib/agents/team'
 import { isValidAgentId, type AgentId, type AgentTeamDoc } from '@/lib/agents/types'
 import type { ApiUser } from '@/lib/api/types'
 import type { Conversation } from '@/lib/conversations/types'
+import { listLlmProviderConnections } from '@/lib/llm-providers/store'
+import { getLlmProvider, listLlmProviders } from '@/lib/llm-providers/providers'
 
 const SAFE_MODEL_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:/@+~=-]{0,191}$/
 const SAFE_PROVIDER_ID_RE = /^[A-Za-z][A-Za-z0-9._:-]{0,63}$/
@@ -18,7 +20,10 @@ export interface PublicMessageModelOption {
   configured: boolean
   active: boolean
   available: boolean
-  source: 'hermes' | 'agent-default'
+  connected?: boolean
+  /** True when credentials are personal (linked computer), not on the org VPS. */
+  localOnly?: boolean
+  source: 'hermes' | 'agent-default' | 'connected'
   supportsThinking?: boolean
   supportsVision?: boolean
   supportsTools?: boolean
@@ -31,9 +36,12 @@ export interface PublicMessageModelCatalog {
   currentModel?: string
   currentProvider?: string
   models: PublicMessageModelOption[]
-  providers: Array<{ id: string; label: string; configured: boolean; active: boolean }>
+  providers: Array<{ id: string; label: string; configured: boolean; active: boolean; connected?: boolean }>
   source: 'hermes' | 'agent-default' | 'none'
   warning?: string
+  connectProvidersUrl?: string
+  /** Providers saved as personal (linked computer) — not available on the organisation VPS. */
+  localOnlyProviderLabels?: string[]
 }
 
 export interface ValidatedMessageModelSelection {
@@ -169,7 +177,10 @@ function dedupeModels(models: PublicMessageModelOption[]): PublicMessageModelOpt
   })
 }
 
-function providersForModels(models: PublicMessageModelOption[]): PublicMessageModelCatalog['providers'] {
+function providersForModels(
+  models: PublicMessageModelOption[],
+  connectedProviders: Set<string>,
+): PublicMessageModelCatalog['providers'] {
   const byProvider = new Map<string, PublicMessageModelCatalog['providers'][number]>()
   for (const model of models) {
     const existing = byProvider.get(model.provider)
@@ -178,12 +189,41 @@ function providersForModels(models: PublicMessageModelOption[]): PublicMessageMo
       label: model.providerLabel,
       configured: (existing?.configured ?? false) || model.configured,
       active: (existing?.active ?? false) || model.active,
+      connected: connectedProviders.has(model.provider) || model.connected || existing?.connected,
     })
   }
   return Array.from(byProvider.values()).sort((a, b) => {
+    if (a.connected !== b.connected) return a.connected ? -1 : 1
     if (a.active !== b.active) return a.active ? -1 : 1
     return a.label.localeCompare(b.label)
   })
+}
+
+function connectedModelOptions(
+  connectedHermesProviders: Set<string>,
+  currentModel: string,
+): PublicMessageModelOption[] {
+  const options: PublicMessageModelOption[] = []
+  for (const def of listLlmProviders()) {
+    if (!connectedHermesProviders.has(def.hermesProvider)) continue
+    for (const modelId of def.curatedModels) {
+      const id = cleanMessageModelId(modelId)
+      if (!id) continue
+      options.push({
+        id,
+        model: id,
+        displayName: displayNameFromModelId(id),
+        provider: def.hermesProvider,
+        providerLabel: def.label,
+        configured: true,
+        active: id === currentModel,
+        available: true,
+        connected: true,
+        source: 'connected',
+      })
+    }
+  }
+  return options
 }
 
 export function canSelectMessageModels(user: ApiUser): boolean {
@@ -245,10 +285,47 @@ export async function getMessageModelCatalog(input: {
     if (source === 'none') source = 'agent-default'
   }
 
+  const orgId = input.conversation.orgId || input.user.orgId || input.user.activeOrgId || ''
+  let connectedHermesProviders = new Set<string>()
+  const localOnlyProviderLabels: string[] = []
+  if (orgId) {
+    try {
+      const connections = await listLlmProviderConnections({ orgId, uid: input.user.uid })
+      // Only organisation-scoped credentials are synced to the org VPS runtime.
+      connectedHermesProviders = new Set(
+        connections
+          .filter((c) => c.scope === 'org' && c.status === 'connected' && c.hasCredentials)
+          .map((c) => c.hermesProvider || getLlmProvider(c.provider)?.hermesProvider || c.provider),
+      )
+      for (const c of connections) {
+        if (c.scope !== 'user' || c.status !== 'connected' || !c.hasCredentials) continue
+        const def = getLlmProvider(c.provider)
+        const label = def?.label || c.label || c.provider
+        if (!localOnlyProviderLabels.includes(label)) localOnlyProviderLabels.push(label)
+      }
+    } catch {
+      // Catalogue still works without connection enrichment.
+    }
+  }
+
+  const connectedExtras = connectedModelOptions(connectedHermesProviders, currentModel)
+  for (const extra of connectedExtras) {
+    if (!models.some((model) => model.id === extra.id && model.provider === extra.provider)) {
+      models.push(extra)
+    }
+  }
+
   models = dedupeModels(models).map((model) => ({
     ...model,
     active: currentModel ? model.id === currentModel : model.active,
+    connected: model.connected || connectedHermesProviders.has(model.provider),
+    configured: model.configured || connectedHermesProviders.has(model.provider),
   }))
+
+  if (localOnlyProviderLabels.length) {
+    const localNote = `Personal credentials (${localOnlyProviderLabels.join(', ')}) apply on linked computers only — not on the organisation VPS.`
+    warning = warning ? `${warning} ${localNote}` : localNote
+  }
 
   const activeModel = models.find((model) => model.active) ?? models[0]
   return {
@@ -257,8 +334,10 @@ export async function getMessageModelCatalog(input: {
     currentModel: activeModel?.id,
     currentProvider: activeModel?.provider,
     models,
-    providers: providersForModels(models),
+    providers: providersForModels(models, connectedHermesProviders),
     source,
+    connectProvidersUrl: '/portal/settings/llm-providers',
+    ...(localOnlyProviderLabels.length ? { localOnlyProviderLabels } : {}),
     ...(warning ? { warning } : {}),
   }
 }

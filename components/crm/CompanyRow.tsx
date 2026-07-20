@@ -185,7 +185,7 @@ export function CompanyRow({
             className="w-8 h-8 rounded-full object-cover"
           />
         ) : (
-          <div className="w-8 h-8 rounded-full bg-[var(--color-pib-surface)] flex items-center justify-center text-[10px] font-label text-[var(--color-pib-text-muted)]">
+          <div className="pib-icon-tint flex h-8 w-8 items-center justify-center rounded-full text-[10px] font-label">
             {initials(company.name)}
           </div>
         )}

@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { PageHeader } from '@/components/ui/AppFoundation'
 import type { Broadcast, BroadcastStatus } from '@/lib/broadcasts/types'
 
 const STATUS_COLORS: Record<BroadcastStatus, string> = {
@@ -44,29 +45,30 @@ export default function BroadcastsPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="eyebrow">Email · Broadcasts</p>
-          <h1 className="pib-page-title mt-2">Broadcasts</h1>
-          <p className="pib-page-sub">One-time email blasts to your audience.</p>
-        </div>
-        <button onClick={() => setCreating(true)} className="btn-pib-primary">
-          New Broadcast
-        </button>
-      </header>
+    <div className="space-y-6" data-module-accent="blue">
+      <PageHeader
+        accent="blue"
+        eyebrow="Email · Broadcasts"
+        title="Broadcasts"
+        description="One-time email blasts to your audience."
+        actions={
+          <button onClick={() => setCreating(true)} className="btn-pib-primary btn-pib-sm">
+            New Broadcast
+          </button>
+        }
+      />
 
       {creating && (
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="Broadcast name (e.g. 'October newsletter')"
-            className="pib-input flex-1"
+            className="pib-input h-8 flex-1 py-1 text-sm"
             onKeyDown={(e) => e.key === 'Enter' && createBroadcast()}
             autoFocus
           />
-          <button onClick={createBroadcast} className="btn-pib-primary">
+          <button onClick={createBroadcast} className="btn-pib-primary btn-pib-sm">
             Create
           </button>
           <button
@@ -74,7 +76,7 @@ export default function BroadcastsPage() {
               setCreating(false)
               setNewName('')
             }}
-            className="btn-pib-ghost"
+            className="btn-pib-ghost btn-pib-sm"
           >
             Cancel
           </button>

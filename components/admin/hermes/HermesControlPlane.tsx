@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Surface, StatusPill, DialogDrawer, EmptyState } from '@/components/ui/AppFoundation'
+import { PageHeader, Surface, StatusPill, DialogDrawer, EmptyState } from '@/components/ui/AppFoundation'
 import { apiGet, apiSend, formatDateTime } from '@/components/admin/orgs/OrgDetailApi'
 
 interface ProfileLink {
@@ -261,27 +261,28 @@ export function HermesControlPlane() {
   const links = useMemo(() => data?.links ?? [], [data])
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <header className="pib-card p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="eyebrow">Admin operations</p>
-            <h1 className="pib-page-title mt-2">Hermes control plane</h1>
-            <p className="mt-3 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
-              Manage the org→agent routing table, restart agents, view run logs, edit SOULs, and pause the whole
-              fleet. Per-agent performance lives in <a className="underline" href="/admin/hermes/metrics">Hermes metrics</a>.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" className="pib-btn-primary" onClick={openRouteCreate}>Add routing entry</button>
+    <div className="mx-auto max-w-7xl space-y-6" data-module-accent="cyan">
+      <PageHeader
+        accent="cyan"
+        eyebrow="Admin operations"
+        title="Hermes control plane"
+        description={(
+          <>
+            Manage the org→agent routing table, restart agents, view run logs, edit SOULs, and pause the whole
+            fleet. Per-agent performance lives in <a className="underline" href="/admin/hermes/metrics">Hermes metrics</a>.
+          </>
+        )}
+        actions={(
+          <>
+            <button type="button" className="pib-btn-primary btn-pib-sm" onClick={openRouteCreate}>Add routing entry</button>
             {summary?.pausedAll ? (
-              <button type="button" className="pib-btn-secondary" disabled={pauseBusy} onClick={() => pauseAll('resume')}>
+              <button type="button" className="pib-btn-secondary btn-pib-sm" disabled={pauseBusy} onClick={() => pauseAll('resume')}>
                 {pauseBusy ? 'Working…' : 'Resume all'}
               </button>
             ) : (
               <button
                 type="button"
-                className="pib-btn-secondary"
+                className="pib-btn-secondary btn-pib-sm"
                 style={{ color: '#f87171', borderColor: 'rgba(248,113,113,0.4)' }}
                 disabled={pauseBusy}
                 onClick={() => pauseAll('pause')}
@@ -289,9 +290,9 @@ export function HermesControlPlane() {
                 {pauseBusy ? 'Working…' : 'Pause all agents'}
               </button>
             )}
-          </div>
-        </div>
-      </header>
+          </>
+        )}
+      />
 
       {error && <div className="pib-card border border-red-500/30 bg-red-500/5 p-5 text-sm text-red-400">{error}</div>}
       {actionError && <div className="pib-card border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-amber-300">{actionError}</div>}

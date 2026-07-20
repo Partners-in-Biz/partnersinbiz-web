@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { PageHeader } from '@/components/ui/AppFoundation'
 
 type SurfaceMetric = {
   label: string
@@ -89,54 +90,61 @@ export function AdminBacklogSurface({
   }, [endpoint])
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <header className="pib-card p-6">
-        <p className="eyebrow">{eyebrow}</p>
-        <h1 className="pib-page-title mt-2">{title}</h1>
-        <p className="mt-3 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">{summary}</p>
-
-        {payload?.actions?.length ? (
-          <div className="mt-5 flex flex-wrap gap-3">
-            {payload.actions.map((action) => (
-              <Link key={`${action.href}-${action.label}`} href={action.href} className="pib-btn-primary">
-                {action.label}
-              </Link>
-            ))}
-          </div>
-        ) : null}
-      </header>
+    <div className="mx-auto max-w-7xl space-y-6" data-module-accent="cyan">
+      <PageHeader
+        accent="cyan"
+        eyebrow={eyebrow}
+        title={title}
+        description={summary}
+        actions={
+          payload?.actions?.length ? (
+            <>
+              {payload.actions.map((action) => (
+                <Link key={`${action.href}-${action.label}`} href={action.href} className="pib-btn-primary btn-pib-sm">
+                  {action.label}
+                </Link>
+              ))}
+            </>
+          ) : null
+        }
+      />
 
       {loading ? (
-        <div className="pib-card p-8 text-sm text-[var(--color-pib-text-muted)]">Loading operator data...</div>
+        <div className="pib-card p-4 text-sm text-[var(--color-pib-text-muted)]">Loading operator data...</div>
       ) : error ? (
-        <div className="pib-card border border-red-500/30 bg-red-500/5 p-5 text-sm text-red-400">{error}</div>
+        <div className="pib-card border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-400">{error}</div>
       ) : null}
 
       {!loading && !error && payload ? (
         <>
           {payload.metrics.length ? (
-            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {payload.metrics.map((metric) => (
-                <div key={metric.label} className="pib-card p-5">
-                  <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{metric.label}</p>
-                  <p className="mt-3 text-2xl font-semibold text-[var(--color-pib-text)]">{metric.value}</p>
-                  {metric.helper ? <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{metric.helper}</p> : null}
+                <div key={metric.label} className="pib-card p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{metric.label}</p>
+                    <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan !h-6 !w-6 !rounded-md">
+                      <span className="material-symbols-outlined text-[14px]">insights</span>
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xl font-semibold text-[var(--color-pib-text)]">{metric.value}</p>
+                  {metric.helper ? <p className="mt-1.5 text-xs text-[var(--color-pib-text-muted)]">{metric.helper}</p> : null}
                 </div>
               ))}
             </section>
           ) : null}
 
           {payload.callouts?.length ? (
-            <section className="grid gap-4 lg:grid-cols-2">
+            <section className="grid gap-3 lg:grid-cols-2">
               {payload.callouts.map((callout) => (
                 <div
                   key={`${callout.title}-${callout.body}`}
-                  className={`pib-card p-5 ${callout.tone === 'warn' ? 'border border-amber-400/30 bg-amber-400/10' : ''}`}
+                  className={`pib-card p-4 ${callout.tone === 'warn' ? 'border border-amber-400/30 bg-amber-400/10' : ''}`}
                 >
-                  <h2 className="text-lg font-semibold text-[var(--color-pib-text)]">{callout.title}</h2>
-                  <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{callout.body}</p>
+                  <h2 className="text-base font-semibold text-[var(--color-pib-text)]">{callout.title}</h2>
+                  <p className="mt-1.5 text-sm text-[var(--color-pib-text-muted)]">{callout.body}</p>
                   {callout.href && callout.hrefLabel ? (
-                    <Link href={callout.href} className="mt-4 inline-flex text-sm text-[var(--color-pib-accent)] hover:underline">
+                    <Link href={callout.href} className="mt-3 inline-flex text-sm text-[var(--color-pib-accent)] hover:underline">
                       {callout.hrefLabel}
                     </Link>
                   ) : null}

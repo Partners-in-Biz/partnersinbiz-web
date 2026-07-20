@@ -42,9 +42,9 @@ export function MarketingStudioDashboard({ scope }: MarketingStudioDashboardProp
   const workspaceLabel = scope.sourceCompanyName?.trim()
 
   return (
-    <main className="min-w-0 text-[var(--color-pib-text)]">
-      <div className="min-w-0 overflow-hidden rounded-[22px] border border-[var(--color-card-border)] bg-[var(--color-card)]/55 shadow-[0_24px_80px_rgba(0,0,0,0.2)]">
-        <header className="flex min-h-14 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black/[0.08] px-3 py-2 sm:px-4">
+    <main className="min-w-0 text-[var(--color-pib-text)]" data-module-accent="blue">
+      <div className="min-w-0 overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 shadow-[0_16px_48px_rgba(0,0,0,0.16)]">
+        <header className="flex min-h-12 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black/[0.08] px-3 py-2 sm:px-4">
           <div className="flex min-w-0 items-center gap-2.5">
             <span className="pib-icon-tint pib-icon-tint-blue shrink-0 text-[18px]" aria-hidden="true">
               stacked_email
@@ -61,7 +61,7 @@ export function MarketingStudioDashboard({ scope }: MarketingStudioDashboardProp
           </div>
           <Link
             href={scopedPortalPath('/portal/campaigns/email/new', scope)}
-            className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md bg-primary px-2.5 text-xs font-semibold text-on-primary transition hover:brightness-110"
+            className="btn-pib-primary btn-pib-sm inline-flex shrink-0 items-center gap-1.5"
           >
             <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add</span>
             <span className="hidden sm:inline">Create email campaign</span>
@@ -111,7 +111,9 @@ export function MarketingStudioDashboard({ scope }: MarketingStudioDashboardProp
                     href={scopedPortalPath(item.href, scope)}
                     className="group flex items-center gap-2 rounded-md px-2 py-2 hover:bg-white/[0.025]"
                   >
-                    <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)] group-hover:text-[var(--color-pib-blue)]" aria-hidden="true">{item.icon}</span>
+                    <span className="pib-icon-tint pib-icon-tint-blue !h-7 !w-7 shrink-0" aria-hidden="true">
+                      <span className="material-symbols-outlined text-[14px]">{item.icon}</span>
+                    </span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-xs font-medium text-[var(--color-pib-text)]">{item.label}</span>
                       <span className="block truncate text-[11px] text-[var(--color-pib-text-muted)]">{item.detail}</span>

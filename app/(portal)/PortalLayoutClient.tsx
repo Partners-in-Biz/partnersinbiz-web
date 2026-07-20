@@ -294,18 +294,16 @@ function NavLink({ item, pathname, collapsed }: { item: NavItem; pathname: strin
     <Link
       href={item.href}
       title={collapsed ? item.label : undefined}
+      data-active={on ? 'true' : undefined}
       className={[
-        'relative flex items-center rounded-lg text-sm transition-all duration-150',
-        collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2',
-        on
-          ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent-hover)]'
-          : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.03]',
-      ].join(' ')}
+        'pib-nav-item relative w-full',
+        collapsed ? 'justify-center px-0 min-h-9' : '',
+      ].filter(Boolean).join(' ')}
     >
-      <span className={['material-symbols-outlined text-[20px] shrink-0', on ? 'text-[var(--color-pib-accent)]' : 'opacity-70'].join(' ')}>
+      <span className={['material-symbols-outlined text-[18px] shrink-0', on ? 'text-[var(--color-pib-accent)]' : 'opacity-70'].join(' ')}>
         {item.icon}
       </span>
-      {!collapsed && <span className="font-medium flex-1">{item.label}</span>}
+      {!collapsed && <span className="font-medium flex-1 truncate">{item.label}</span>}
     </Link>
   )
 }
@@ -836,13 +834,13 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
         <link rel="stylesheet" href={PORTAL_MATERIAL_SYMBOLS} />
         <div data-message-push-root className="flex flex-col min-h-screen bg-[var(--color-pib-bg)] text-[var(--color-pib-text)]">
           {tracker}
-          <header className="h-14 sticky top-0 z-30 bg-[var(--color-pib-bg)]/95 backdrop-blur-md border-b border-[var(--color-pib-line)] shrink-0">
-          <div className="flex items-center h-full px-4 gap-2">
+          <header className="pib-chrome-sticky pib-topbar-dense sticky top-0 z-30 shrink-0">
+          <div className="flex items-center h-full px-3 gap-1.5 sm:px-4">
             {/* Brand */}
-            <Link href={scopedShellHref('/portal/dashboard')} className="flex items-center gap-2 shrink-0 mr-2">
-              <Image src="/pib-logo-512.png" alt="Partners in Biz" width={24} height={24} className="rounded-md object-contain" />
-              <span className="hidden sm:block font-display text-base leading-none">Partners in Biz</span>
-              <span className="pill !text-[10px] !py-0.5 !px-2">{portalWorkspaceLabel}</span>
+            <Link href={scopedShellHref('/portal/dashboard')} className="flex items-center gap-1.5 shrink-0 mr-1">
+              <Image src="/pib-logo-512.png" alt="Partners in Biz" width={22} height={22} className="rounded-md object-contain" />
+              <span className="hidden sm:block font-display text-sm leading-none">Partners in Biz</span>
+              <span className="pill !text-[10px] !py-0.5 !px-1.5">{portalWorkspaceLabel}</span>
             </Link>
 
             <button
@@ -855,7 +853,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
               <span className="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>
             </button>
 
-            <div className="w-px h-5 bg-[var(--color-pib-line)] shrink-0 hidden md:block" />
+            <div className="w-px h-4 bg-[var(--color-pib-line)] shrink-0 hidden md:block" />
 
             {/* Nav — scrollable */}
             <nav className="hidden md:flex items-center gap-0.5 overflow-x-auto scrollbar-none flex-1 min-w-0">
@@ -865,12 +863,8 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={[
-                      'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-all duration-150',
-                      on
-                        ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent-hover)]'
-                        : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.04]',
-                    ].join(' ')}
+                    data-active={on ? 'true' : undefined}
+                    className="pib-nav-item whitespace-nowrap shrink-0"
                   >
                     <span className={['material-symbols-outlined text-[18px] shrink-0', on ? 'text-[var(--color-pib-accent)]' : 'opacity-70'].join(' ')}>
                       {item.icon}
@@ -882,7 +876,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
             </nav>
 
             {/* Right side */}
-            <div className="flex items-center gap-2 ml-auto shrink-0">
+            <div className="flex items-center gap-1 ml-auto shrink-0">
               {canOpenAdminView && (
                 <Link
                   href={adminViewHref}
@@ -893,9 +887,9 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                   <span className="material-symbols-outlined text-[18px]" aria-hidden="true">person</span>
                 </Link>
               )}
-              <Link href={scopedShellHref("/portal/changelog")} title="What's new" aria-label="What's new" className="relative flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05]"><span className="material-symbols-outlined text-[20px]">campaign</span>{changelogUnread > 0 && (<span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[var(--color-pib-accent)] text-[10px] font-semibold text-white flex items-center justify-center">{changelogUnread > 9 ? "9+" : changelogUnread}</span>)}</Link>
+              <Link href={scopedShellHref("/portal/changelog")} title="What's new" aria-label="What's new" className="relative flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05]"><span className="material-symbols-outlined text-[18px]">campaign</span>{changelogUnread > 0 && (<span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[var(--color-pib-accent)] text-[10px] font-semibold text-white flex items-center justify-center">{changelogUnread > 9 ? "9+" : changelogUnread}</span>)}</Link>
               <button onClick={() => setCmdOpen(true)} title="Search (⌘K)" className="flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05]">
-                <span className="material-symbols-outlined text-[20px]">search</span>
+                <span className="material-symbols-outlined text-[18px]">search</span>
               </button>
               <ThemeToggle />
               <NotificationBell />
@@ -919,7 +913,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                 currentPageContext={currentPageContext}
                 triggerClassName="hidden sm:inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
               />
-              <div className="w-8 h-8 rounded-full bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line-strong)] flex items-center justify-center text-xs font-medium text-[var(--color-pib-accent-hover)]">
+              <div className="w-7 h-7 rounded-full bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line-strong)] flex items-center justify-center text-[11px] font-medium text-[var(--color-pib-accent-hover)]">
                 <Link href={scopedShellHref('/portal/settings/profile')} title="My profile" className="grid h-full w-full place-items-center rounded-full">
                   {initials || '·'}
                 </Link>
@@ -931,12 +925,12 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
               >
                 <span className="material-symbols-outlined text-[18px]">logout</span>
               </button>
-              {/* Mobile hamburger */}
+              {/* Mobile hamburger — keep touch target */}
               <button
                 type="button"
                 onClick={() => setDrawerOpen(v => !v)}
                 aria-label="Open menu"
-                className="md:hidden flex flex-col justify-center items-center w-9 h-9 gap-[4px] rounded-lg hover:bg-white/[0.06] transition-colors"
+                className="md:hidden flex flex-col justify-center items-center min-h-11 min-w-11 w-11 h-11 gap-[4px] rounded-lg hover:bg-white/[0.06] transition-colors"
               >
                 <span className="block w-4 h-[1.5px] bg-[var(--color-pib-text-muted)]" />
                 <span className="block w-4 h-[1.5px] bg-[var(--color-pib-text-muted)]" />
@@ -950,29 +944,25 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
         {drawerOpen && (
           <div className="md:hidden fixed inset-0 z-40 flex flex-col">
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setDrawerOpen(false)} />
-            <div className="relative z-10 mt-14 bg-[var(--color-pib-bg)] border-b border-[var(--color-pib-line)] p-4 flex flex-col gap-1 max-h-[80vh] overflow-y-auto">
+            <div className="pib-chrome-sticky relative z-10 mt-11 flex max-h-[80vh] flex-col gap-0.5 overflow-y-auto p-3">
               {navItems.map(item => {
                 const on = active(pathname, item)
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={[
-                      'flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors',
-                      on
-                        ? 'bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent-hover)]'
-                        : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.04]',
-                    ].join(' ')}
+                    data-active={on ? 'true' : undefined}
+                    className="pib-nav-item min-h-11 w-full"
                   >
-                    <span className="material-symbols-outlined text-[18px] opacity-70">{item.icon}</span>
-                    <span className="flex-1">{item.label}</span>
+                    <span className={['material-symbols-outlined text-[18px] shrink-0', on ? 'text-[var(--color-pib-accent)]' : 'opacity-70'].join(' ')}>{item.icon}</span>
+                    <span className="flex-1 font-medium">{item.label}</span>
                   </Link>
                 )
               })}
-              <div className="h-px bg-[var(--color-pib-line)] my-2" />
+              <div className="h-px bg-[var(--color-pib-line)] my-1.5" />
               <button
                 onClick={toggleLayout}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] rounded-lg hover:bg-white/[0.04]"
+                className="pib-nav-item min-h-11 w-full text-left"
               >
                 <span className="material-symbols-outlined text-[18px]">dock_to_right</span>
                 Switch to sidebar layout
@@ -980,7 +970,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
               {canOpenAdminView && (
                 <Link
                   href={adminViewHref}
-                  className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] rounded-lg hover:bg-white/[0.04]"
+                  className="pib-nav-item min-h-11 w-full"
                 >
                   <span className="material-symbols-outlined text-[18px] inline-flex items-center justify-center min-w-[18px] min-h-[18px] leading-none">person</span>
                   Switch to admin view
@@ -1036,39 +1026,39 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
           'shrink-0 flex flex-col border-r border-[var(--color-pib-line)] bg-[var(--color-pib-bg)]',
           'fixed top-0 left-0 h-screen z-50 transition-all duration-300 ease-in-out',
           'md:sticky md:top-0 md:translate-x-0',
-          collapsed ? 'w-16' : 'w-[260px]',
+          collapsed ? 'w-14' : 'w-[232px]',
           drawerOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
         ].join(' ')}
       >
         {/* Brand */}
         <Link
           href={scopedShellHref('/portal/dashboard')}
-          className={['flex items-center min-h-16 border-b border-[var(--color-pib-line)] shrink-0', collapsed ? 'justify-center px-0' : 'gap-2.5 px-5 py-3'].join(' ')}
+          className={['flex items-center min-h-11 border-b border-[var(--color-pib-line)] shrink-0', collapsed ? 'justify-center px-0' : 'gap-2 px-3 py-2'].join(' ')}
         >
-          <Image src="/pib-logo-512.png" alt="Partners in Biz" width={28} height={28} className="rounded-md object-contain shrink-0" />
+          <Image src="/pib-logo-512.png" alt="Partners in Biz" width={22} height={22} className="rounded-md object-contain shrink-0" />
           {!collapsed && (
             <>
               <div className="flex flex-col min-w-0">
-                <span className="font-display text-base leading-tight">Partners in Biz</span>
-                {orgName && <span className="text-[11px] text-[var(--color-pib-text-muted)] truncate leading-tight mt-0.5">{orgName}</span>}
+                <span className="font-display text-sm leading-tight">Partners in Biz</span>
+                {orgName && <span className="text-[10px] text-[var(--color-pib-text-muted)] truncate leading-tight mt-0.5">{orgName}</span>}
               </div>
-              <span className="ml-auto pill !text-[10px] !py-0.5 !px-2 shrink-0">{portalWorkspaceLabel}</span>
+              <span className="ml-auto pill !text-[10px] !py-0.5 !px-1.5 shrink-0">{portalWorkspaceLabel}</span>
             </>
           )}
         </Link>
 
         {/* Collapse and mode switch controls */}
-        <div className="hidden md:flex items-center justify-between h-8 border-b border-[var(--color-pib-line)] shrink-0">
+        <div className="hidden md:flex items-center justify-between h-7 border-b border-[var(--color-pib-line)] shrink-0">
           <button
             onClick={toggleCollapsed}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             className={[
-              'flex h-8 items-center justify-center text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors',
-              collapsed ? 'w-full' : 'w-8 border-r border-[var(--color-pib-line)]',
+              'flex h-7 items-center justify-center text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors',
+              collapsed ? 'w-full' : 'w-7 border-r border-[var(--color-pib-line)]',
             ].join(' ')}
           >
-            <span className="material-symbols-outlined text-[18px]">
+            <span className="material-symbols-outlined text-[16px]">
               {collapsed ? 'chevron_right' : 'chevron_left'}
             </span>
           </button>
@@ -1077,22 +1067,22 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
               href={adminViewHref}
               title="Switch to admin view"
               aria-label="Switch to admin view"
-              className="h-8 w-8 border-l border-[var(--color-pib-line)] flex items-center justify-center text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
+              className="h-7 w-7 border-l border-[var(--color-pib-line)] flex items-center justify-center text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
             >
-              <span className="material-symbols-outlined text-[18px]">person</span>
+              <span className="material-symbols-outlined text-[16px]">person</span>
             </Link>
           )}
         </div>
 
         {!collapsed && canOpenAdminView && (
-          <div className="md:hidden border-b border-[var(--color-pib-line)] shrink-0 px-3 py-3">
+          <div className="md:hidden border-b border-[var(--color-pib-line)] shrink-0 px-2 py-2">
             <Link
               href={adminViewHref}
               title="Switch to admin view"
               aria-label="Switch to admin view"
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.03] hover:text-[var(--color-pib-text)]"
+              className="pib-nav-item min-h-11 w-full"
             >
-              <span className="material-symbols-outlined text-[20px] shrink-0 opacity-70">person</span>
+              <span className="material-symbols-outlined text-[18px] shrink-0 opacity-70">person</span>
               <span className="font-medium">Admin view</span>
             </Link>
           </div>
@@ -1104,7 +1094,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
               href={adminViewHref}
               title="Switch to admin view"
               aria-label="Switch to admin view"
-              className="mx-auto my-2 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
+              className="mx-auto my-1.5 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
             >
               <span className="material-symbols-outlined text-[18px]">person</span>
             </Link>
@@ -1119,13 +1109,13 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                 type="button"
                 onClick={toggleCollapsed}
                 title={`Workspace: ${orgName || 'Current workspace'}`}
-                className="mx-auto my-2 w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold transition-colors bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent-hover)] ring-1 ring-[var(--color-pib-accent)]/30"
+                className="mx-auto my-1.5 w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold transition-colors bg-[var(--color-pib-accent-soft)] text-[var(--color-pib-accent-hover)] ring-1 ring-[var(--color-pib-accent)]/30"
               >
                 {(orgName || workspaceOptions.find(org => org.id === activeOrgId)?.name || 'W')[0]?.toUpperCase() ?? 'W'}
               </button>
             ) : (
-              <div className="px-3 py-3">
-                <label htmlFor="portal-workspace-switcher" className="eyebrow !text-[10px] px-1 mb-2 block">
+              <div className="px-2.5 py-2">
+                <label htmlFor="portal-workspace-switcher" className="eyebrow !text-[10px] px-1 mb-1 block">
                   Workspace
                 </label>
                 <ThemedSelect
@@ -1154,12 +1144,12 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
             collapsed={collapsed}
           />
         ) : (
-          <nav className={['flex-1 overflow-y-auto py-4', collapsed ? 'px-2 space-y-1' : 'px-3 space-y-5'].join(' ')}>
+          <nav className={['flex-1 overflow-y-auto py-2.5', collapsed ? 'px-1.5 space-y-0.5' : 'px-2 space-y-3'].join(' ')}>
             {collapsed
               ? navItems.map(item => <NavLink key={item.href} item={item} pathname={pathname} collapsed />)
               : grouped.map(({ group, items }) => (
-                  <div key={group} className="space-y-1">
-                    <p className="eyebrow !text-[10px] px-3 mb-2">{GROUP_LABELS[group]}</p>
+                  <div key={group} className="space-y-0.5">
+                    <p className="eyebrow !text-[10px] px-2 mb-1">{GROUP_LABELS[group]}</p>
                     {items.map(item => <NavLink key={item.href} item={item} pathname={pathname} />)}
                   </div>
                 ))
@@ -1168,13 +1158,13 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
         )}
 
         {/* User chip */}
-        <div className="border-t border-[var(--color-pib-line)] p-3 shrink-0">
+        <div className="border-t border-[var(--color-pib-line)] p-2 shrink-0">
           {collapsed ? (
-            <div className="flex flex-col items-center gap-2">
+            <div className="flex flex-col items-center gap-1.5">
               <Link
                 href={scopedShellHref('/portal/settings/profile')}
                 title="My profile"
-                className="w-8 h-8 rounded-full bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line-strong)] flex items-center justify-center text-xs font-medium text-[var(--color-pib-accent-hover)] hover:ring-2 hover:ring-[var(--color-pib-accent)]/40 transition-all"
+                className="w-7 h-7 rounded-full bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line-strong)] flex items-center justify-center text-[11px] font-medium text-[var(--color-pib-accent-hover)] hover:ring-2 hover:ring-[var(--color-pib-accent)]/40 transition-all"
               >
                 {initials || '·'}
               </Link>
@@ -1183,17 +1173,17 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-3 px-2 py-2 rounded-lg">
+            <div className="flex items-center gap-2 px-1.5 py-1 rounded-lg">
               <Link
                 href={scopedShellHref('/portal/settings/profile')}
                 title="My profile"
-                className="w-8 h-8 rounded-full bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line-strong)] flex items-center justify-center text-xs font-medium text-[var(--color-pib-accent-hover)] hover:ring-2 hover:ring-[var(--color-pib-accent)]/40 transition-all shrink-0"
+                className="w-7 h-7 rounded-full bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line-strong)] flex items-center justify-center text-[11px] font-medium text-[var(--color-pib-accent-hover)] hover:ring-2 hover:ring-[var(--color-pib-accent)]/40 transition-all shrink-0"
               >
                 {initials || '·'}
               </Link>
               <Link href={scopedShellHref('/portal/settings/profile')} className="flex-1 min-w-0 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)]/40">
                 <p className="text-xs font-medium truncate">{profileName || name || 'Client'}</p>
-                <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{email}</p>
+                <p className="text-[10px] text-[var(--color-pib-text-muted)] truncate">{email}</p>
               </Link>
               <button onClick={handleLogout} title="Sign out" className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors p-1" aria-label="Sign out">
                 <span className="material-symbols-outlined text-[18px]">logout</span>
@@ -1206,13 +1196,13 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
       {/* Main */}
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Topbar */}
-        <header className="h-14 sticky top-0 z-30 bg-[var(--color-pib-bg)]/80 backdrop-blur-md border-b border-[var(--color-pib-line)] flex items-center px-4 md:px-8 gap-3">
-          {/* Mobile hamburger */}
+        <header className="pib-chrome-sticky pib-topbar-dense sticky top-0 z-30 flex items-center gap-2 px-3 md:px-5">
+          {/* Mobile hamburger — keep touch target */}
           <button
             type="button"
             onClick={() => setDrawerOpen(true)}
             aria-label="Open menu"
-            className="md:hidden flex flex-col justify-center items-center w-9 h-9 gap-[4px] rounded-lg hover:bg-white/[0.06] transition-colors -ml-1.5"
+            className="md:hidden flex flex-col justify-center items-center min-h-11 min-w-11 w-11 h-11 gap-[4px] rounded-lg hover:bg-white/[0.06] transition-colors -ml-1.5"
           >
             <span className="block w-4 h-[1.5px] bg-[var(--color-pib-text-muted)]" />
             <span className="block w-4 h-[1.5px] bg-[var(--color-pib-text-muted)]" />
@@ -1232,19 +1222,19 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
           <span className="hidden sm:inline text-xs text-[var(--color-pib-text-muted)]">
             {visibleNavLinks.find(n => active(pathname, n))?.label ?? 'Overview'}
           </span>
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex items-center gap-1">
             {canOpenAdminView && (
               <Link
                 href={adminViewHref}
                 title="Switch to admin view"
-                className="hidden md:flex items-center gap-1.5 px-2.5 h-8 rounded-lg text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
+                className="hidden md:flex items-center justify-center w-8 h-8 rounded-lg text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
               >
                 <span className="material-symbols-outlined text-[18px]">person</span>
               </Link>
             )}
-            <Link href={scopedShellHref("/portal/changelog")} title="What's new" aria-label="What's new" className="relative flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05]"><span className="material-symbols-outlined text-[20px]">campaign</span>{changelogUnread > 0 && (<span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[var(--color-pib-accent)] text-[10px] font-semibold text-white flex items-center justify-center">{changelogUnread > 9 ? "9+" : changelogUnread}</span>)}</Link>
+            <Link href={scopedShellHref("/portal/changelog")} title="What's new" aria-label="What's new" className="relative flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05]"><span className="material-symbols-outlined text-[18px]">campaign</span>{changelogUnread > 0 && (<span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[var(--color-pib-accent)] text-[10px] font-semibold text-white flex items-center justify-center">{changelogUnread > 9 ? "9+" : changelogUnread}</span>)}</Link>
               <button onClick={() => setCmdOpen(true)} title="Search (⌘K)" className="flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05]">
-              <span className="material-symbols-outlined text-[20px]">search</span>
+              <span className="material-symbols-outlined text-[18px]">search</span>
             </button>
             <ThemeToggle />
             <NotificationBell />

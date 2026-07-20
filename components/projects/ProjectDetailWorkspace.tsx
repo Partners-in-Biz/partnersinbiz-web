@@ -529,25 +529,30 @@ export function ProjectDetailWorkspace({
   })
 
   return (
-    <div className="h-full flex flex-col min-w-0">
+    <div className="flex h-full min-w-0 flex-col" data-module-accent="cyan">
       {/* Header */}
-      <div className="flex shrink-0 items-start justify-between gap-3 mb-3 md:mb-6">
-        <div className="min-w-0">
-          <div className="mb-1 flex min-w-0 items-center gap-2 overflow-hidden text-[11px] text-[var(--color-pib-text-muted)] md:text-xs">
-            <Link href={backHref} className="hover:text-[var(--color-pib-text)] transition-colors">Projects</Link>
-            <span>/</span>
-            <span className="truncate text-[var(--color-pib-text)]">{project?.name ?? '...'}</span>
+      <div className="mb-2.5 flex shrink-0 items-start justify-between gap-3 md:mb-3">
+        <div className="flex min-w-0 items-start gap-2.5">
+          <span className="pib-icon-tint-cyan mt-0.5 shrink-0" aria-hidden="true">
+            <span className="material-symbols-outlined text-[16px]">folder_managed</span>
+          </span>
+          <div className="min-w-0">
+            <div className="mb-0.5 flex min-w-0 items-center gap-2 overflow-hidden text-[11px] text-[var(--color-pib-text-muted)]">
+              <Link href={backHref} className="transition-colors hover:text-[var(--color-pib-text)]">Projects</Link>
+              <span>/</span>
+              <span className="truncate text-[var(--color-pib-text)]">{project?.name ?? '...'}</span>
+            </div>
+            <h1 className="truncate text-lg font-headline font-bold text-[var(--color-pib-text)] md:text-xl">
+              {loading ? '...' : project?.name}
+            </h1>
           </div>
-          <h1 className="truncate text-xl font-headline font-bold text-[var(--color-pib-text)] md:text-2xl">
-            {loading ? '...' : project?.name}
-          </h1>
         </div>
         {activeTab === 'kanban' && (
           <button
             onClick={() => setShowNewTask('todo')}
-            className="pib-btn-primary shrink-0 px-3 py-2 text-xs font-label md:text-sm"
+            className="pib-btn-primary btn-pib-sm shrink-0 font-label"
           >
-            <span className="material-symbols-outlined text-[17px]">add_task</span>
+            <span className="material-symbols-outlined text-[15px]">add_task</span>
             <span className="hidden sm:inline">New Task</span>
             <span className="sm:hidden">New</span>
           </button>
@@ -555,7 +560,7 @@ export function ProjectDetailWorkspace({
       </div>
 
       <PageTabs
-        className="mb-3 shrink-0 md:mb-6"
+        className="mb-2.5 shrink-0 md:mb-3"
         ariaLabel="Project detail tabs"
         value={activeTab}
         onValueChange={(value) => setActiveTab(value as ProjectTab)}
@@ -567,20 +572,20 @@ export function ProjectDetailWorkspace({
         <>
           <ProjectBoardSummary tasks={tasks} columns={columns} />
 
-          <div className="mb-3 flex min-w-0 max-w-full shrink-0 items-center justify-between gap-3 overflow-x-auto md:mb-4">
-            <div className="inline-flex shrink-0 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] p-1">
+          <div className="mb-2.5 flex min-w-0 max-w-full shrink-0 items-center justify-between gap-2 overflow-x-auto md:mb-3">
+            <div className="inline-flex h-8 shrink-0 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] p-0.5">
               {(['board', 'list'] as const).map(mode => (
                 <button
                   key={mode}
                   type="button"
                   onClick={() => setViewMode(mode)}
-                  className={`inline-flex items-center gap-1 rounded px-3 py-1.5 text-xs font-label capitalize ${
+                  className={`inline-flex h-7 items-center gap-1 rounded px-2.5 text-xs font-label capitalize ${
                     viewMode === mode
                       ? 'bg-[var(--color-accent-v2)] text-black'
                       : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
                   }`}
                 >
-                  <span className="material-symbols-outlined text-[16px]">{mode === 'board' ? 'view_kanban' : 'view_list'}</span>
+                  <span className="material-symbols-outlined text-[15px]">{mode === 'board' ? 'view_kanban' : 'view_list'}</span>
                   {mode}
                 </button>
               ))}
@@ -589,14 +594,14 @@ export function ProjectDetailWorkspace({
               <button
                 type="button"
                 onClick={() => setBoardSortMode(prev => prev === 'latest' ? 'manual' : 'latest')}
-                className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[var(--color-pib-line)] px-3 py-1.5 text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
+                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-[var(--color-pib-line)] px-2.5 text-xs font-label uppercase tracking-wide text-[var(--color-pib-text-muted)] transition-colors hover:text-[var(--color-pib-text)]"
                 aria-pressed={boardSortMode === 'manual'}
               >
-                <span className="material-symbols-outlined text-[16px]">sort</span>
+                <span className="material-symbols-outlined text-[15px]">sort</span>
                 {boardSortMode === 'latest' ? 'Manual order' : 'Latest first'}
               </button>
             ) : (
-              <div className="inline-flex shrink-0 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] p-1">
+              <div className="inline-flex h-8 shrink-0 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-card)] p-0.5">
                 {([
                   { key: 'latest', label: 'Latest first', icon: 'new_releases' },
                   { key: 'due', label: 'Due date', icon: 'event' },
@@ -605,14 +610,14 @@ export function ProjectDetailWorkspace({
                     key={option.key}
                     type="button"
                     onClick={() => setTaskListSort(option.key)}
-                    className={`inline-flex items-center gap-1 rounded px-3 py-1.5 text-xs font-label ${
+                    className={`inline-flex h-7 items-center gap-1 rounded px-2.5 text-xs font-label ${
                       taskListSort === option.key
                         ? 'bg-[var(--color-accent-v2)] text-black'
                         : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
                     }`}
                     aria-pressed={taskListSort === option.key}
                   >
-                    <span className="material-symbols-outlined text-[16px]">{option.icon}</span>
+                    <span className="material-symbols-outlined text-[15px]">{option.icon}</span>
                     <span className="hidden sm:inline">{option.label}</span>
                     <span className="sm:hidden">{option.key === 'latest' ? 'Latest' : 'Due'}</span>
                   </button>

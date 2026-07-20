@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { IcpProfileEditor } from '@/components/crm/IcpProfileEditor'
 import { LeadWeightsEditor } from '@/components/crm/LeadWeightsEditor'
-import { PageTabs } from '@/components/ui/AppFoundation'
+import { PageTabs, PageHeader} from '@/components/ui/AppFoundation'
 import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import type { IcpProfile, LeadSignalsWeights } from '@/lib/scoring/types'
 
@@ -83,7 +83,7 @@ function formatDate(value: unknown): string {
 
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
   return (
-    <div className="pib-stat-card min-w-0">
+    <div className="pib-stat-card min-w-0" data-module-accent="cyan">
       <div className="flex items-start justify-between gap-3">
         <p className="pib-label">{label}</p>
         <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">{icon}</span>
@@ -263,36 +263,35 @@ export default function ScoringPage() {
   const hasSourceFailure = Boolean(fetchError)
 
   return (
-    <div className="space-y-8">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="eyebrow">CRM settings</p>
-          <h1 className="pib-page-title mt-2">Scoring command center</h1>
-          <p className="pib-page-sub max-w-2xl">
-            Tune the ICP and lead-signal model that ranks contacts, highlights sales focus, and powers recomputation across the CRM.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving || loading || hasSourceFailure}
-            className="btn-pib-primary"
-          >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">save</span>
-            {saving ? 'Saving...' : 'Save model'}
-          </button>
-          <button
-            type="button"
-            onClick={handleRecompute}
-            disabled={recomputing || loading || hasSourceFailure}
-            className="btn-pib-secondary"
-          >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
-            {recomputing ? 'Recomputing...' : 'Recompute all'}
-          </button>
-        </div>
-      </header>
+    <div className="space-y-6">
+      <PageHeader
+        accent="cyan"
+        eyebrow="CRM settings"
+        title="Scoring command center"
+        description="Tune the ICP and lead-signal model that ranks contacts, highlights sales focus, and powers recomputation across the CRM."
+        actions={(
+          <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleSave}
+                      disabled={saving || loading || hasSourceFailure}
+                      className="btn-pib-primary btn-pib-sm"
+                    >
+                      <span className="material-symbols-outlined text-[16px]" aria-hidden="true">save</span>
+                      {saving ? 'Saving...' : 'Save model'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRecompute}
+                      disabled={recomputing || loading || hasSourceFailure}
+                      className="btn-pib-secondary btn-pib-sm"
+                    >
+                      <span className="material-symbols-outlined text-[16px]" aria-hidden="true">refresh</span>
+                      {recomputing ? 'Recomputing...' : 'Recompute all'}
+                    </button>
+                  </div>
+        )}
+      />
 
       {!fetchError && (
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -334,7 +333,7 @@ export default function ScoringPage() {
           </div>
         </section>
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-6">
           {recomputeConfirmOpen && (
             <section
               role="alertdialog"

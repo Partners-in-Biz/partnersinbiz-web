@@ -83,7 +83,7 @@ export function CompaniesTable({
   }
 
   return (
-    <div className="w-full overflow-x-auto rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/45">
+    <div className="pib-surface pib-surface-table w-full overflow-x-auto" data-module-accent="amber">
       <table className="w-full border-collapse text-left">
         <thead>
           <tr className="border-b border-[var(--color-card-border)]">

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState, useCallback } from 'react'
+import { EmptyState, PageHeader, Surface } from '@/components/ui/AppFoundation'
 import type { EmailDomain, EmailDomainStatus, EmailDomainDnsRecord } from '@/lib/email/domains'
 
 type EmailDomainsSurface = 'admin' | 'portal'
@@ -360,23 +361,21 @@ export function EmailDomainsWorkspace({ surface = 'portal', orgId, orgSlug, orgN
   }
 
   return (
-    <div className="space-y-10">
-      <header>
-        <p className="eyebrow">{surface === 'admin' ? 'Admin org sender domains' : (orgName || 'Sender setup')}</p>
-        <h1 className="pib-page-title mt-2">Email Domains</h1>
-        <p className="pib-page-sub max-w-2xl">
-          Verify selected-org sending domains for PiB operator-managed campaigns. Until verified,
-          campaign sends stay on the shared partnersinbiz.online domain.
-        </p>
-      </header>
+    <div className="space-y-6" data-module-accent="blue">
+      <PageHeader
+        accent="blue"
+        eyebrow={surface === 'admin' ? 'Admin org sender domains' : (orgName || 'Sender setup')}
+        title="Email Domains"
+        description="Verify selected-org sending domains for PiB operator-managed campaigns. Until verified, campaign sends stay on the shared partnersinbiz.online domain."
+      />
 
-      <div className="bento-card !p-5">
-        <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-2">
+      <Surface variant="glass" className="!p-4">
+        <form onSubmit={handleAdd} className="flex flex-col gap-2 sm:flex-row">
           <input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="yourdomain.co.za"
-            className="flex-1 px-3 py-2 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text)] text-sm placeholder:text-[var(--color-pib-text-muted)] focus:outline-none focus:border-[var(--color-pib-accent)]"
+            className="flex-1 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] focus:border-[var(--color-pib-accent)] focus:outline-none"
             disabled={submitting}
             autoComplete="off"
             spellCheck={false}
@@ -384,13 +383,13 @@ export function EmailDomainsWorkspace({ surface = 'portal', orgId, orgSlug, orgN
           <button
             type="submit"
             disabled={submitting || !newName.trim()}
-            className="btn-pib-accent disabled:opacity-50"
+            className="btn-pib-accent btn-pib-sm disabled:opacity-50"
           >
             {submitting ? 'Adding…' : 'Add domain'}
           </button>
         </form>
         {formError && <p className="mt-2 text-sm text-[#FCA5A5]">{formError}</p>}
-      </div>
+      </Surface>
 
       {loading ? (
         <div className="space-y-3">
@@ -399,14 +398,11 @@ export function EmailDomainsWorkspace({ surface = 'portal', orgId, orgSlug, orgN
           ))}
         </div>
       ) : domains.length === 0 ? (
-        <div className="bento-card p-10 text-center">
-          <span className="material-symbols-outlined text-4xl text-[var(--color-pib-blue)]">dns</span>
-          <h2 className="font-display text-2xl mt-4">No domains yet.</h2>
-          <p className="text-sm text-[var(--color-pib-text-muted)] max-w-md mx-auto mt-2 text-pretty">
-            Add a domain you own above to start the verification process. Until then, campaigns
-            send from the shared partnersinbiz.online domain.
-          </p>
-        </div>
+        <EmptyState
+          icon="dns"
+          title="No domains yet."
+          description="Add a domain you own above to start the verification process. Until then, campaigns send from the shared partnersinbiz.online domain."
+        />
       ) : (
         <div className="space-y-3">
           {domains.map((domain) => (

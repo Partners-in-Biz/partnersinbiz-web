@@ -11,7 +11,8 @@ export interface MessageModelOption {
   configured: boolean
   active: boolean
   available: boolean
-  source: 'hermes' | 'agent-default'
+  connected?: boolean
+  source: 'hermes' | 'agent-default' | 'connected'
   supportsThinking?: boolean
   supportsVision?: boolean
   supportsTools?: boolean
@@ -24,9 +25,11 @@ export interface MessageModelCatalog {
   currentModel?: string
   currentProvider?: string
   models: MessageModelOption[]
-  providers: Array<{ id: string; label: string; configured: boolean; active: boolean }>
+  providers: Array<{ id: string; label: string; configured: boolean; active: boolean; connected?: boolean }>
   source: 'hermes' | 'agent-default' | 'none'
   warning?: string
+  connectProvidersUrl?: string
+  localOnlyProviderLabels?: string[]
 }
 
 export interface ModelRuntimeSelection {
@@ -273,6 +276,9 @@ export function ModelProviderPicker({
                         >
                           <div className="flex min-w-0 items-center gap-2">
                             <span className="truncate text-xs font-medium text-[var(--color-pib-text)]">{model.displayName}</span>
+                            {model.connected && (
+                              <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] text-emerald-200">Connected</span>
+                            )}
                             {!model.available && <span className="rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] text-red-200">Unavailable</span>}
                           </div>
                           <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[10px] text-[var(--color-pib-text-muted)]">
@@ -305,15 +311,13 @@ export function ModelProviderPicker({
               <span className="material-symbols-outlined text-[14px]">refresh</span>
               Refresh Models
             </button>
-            <button
-              type="button"
-              disabled
-              title="Model editing stays in the admin control plane"
-              className="inline-flex h-7 items-center gap-1.5 rounded-full px-2 text-[var(--color-pib-text-muted)] opacity-45"
+            <a
+              href={catalog?.connectProvidersUrl || '/portal/settings/llm-providers'}
+              className="inline-flex h-7 items-center gap-1.5 rounded-full px-2 font-medium text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
             >
               <span className="material-symbols-outlined text-[14px]">tune</span>
-              Edit Models…
-            </button>
+              Connect providers…
+            </a>
           </div>
         </div>
       )}

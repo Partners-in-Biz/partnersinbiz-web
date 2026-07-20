@@ -69,7 +69,7 @@ export default function SessionsPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
+    <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6" data-module-accent="violet">
       <AnalyticsNav active="sessions" propertyId={propertyId} />
       <header>
         <p className="eyebrow">Analytics · Sessions</p>

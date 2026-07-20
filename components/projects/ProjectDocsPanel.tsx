@@ -98,33 +98,38 @@ export function ProjectDocsPanel({
   }
 
   return (
-    <div className="flex-1 overflow-auto space-y-6 pb-6">
-      <div className="pib-card rounded-[var(--radius-card)] p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
+    <div className="flex-1 space-y-4 overflow-auto pb-4" data-module-accent="cyan">
+      <div className="pib-card rounded-[var(--radius-card)] p-3.5">
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 items-start gap-2.5">
+            <span className="pib-icon-tint-cyan mt-0.5 shrink-0" aria-hidden="true">
+              <span className="material-symbols-outlined text-[16px]">menu_book</span>
+            </span>
+            <div>
             <p className="pib-label">Project docs</p>
-            <h2 className="mt-1 text-2xl font-headline font-bold text-[var(--color-pib-text)]">Brief and knowledge base</h2>
-            <p className="mt-2 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">Keep project context close to the board. Open any document to preview it before editing.</p>
+            <h2 className="mt-0.5 text-lg font-headline font-bold text-[var(--color-pib-text)]">Brief and knowledge base</h2>
+            <p className="mt-1 max-w-2xl text-xs text-[var(--color-pib-text-muted)]">Keep project context close to the board. Open any document to preview it before editing.</p>
+            </div>
           </div>
           <button
             type="button"
             onClick={() => onEditDoc(blankDoc())}
-            className="pib-btn-primary text-sm font-label"
+            className="pib-btn-primary btn-pib-sm font-label"
           >
-            <span className="material-symbols-outlined text-[17px]">note_add</span>
+            <span className="material-symbols-outlined text-[15px]">note_add</span>
             New Document
           </button>
         </div>
       </div>
 
-      <div className="pib-card p-5">
-        <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="pib-card p-3.5">
+        <div className="mb-3 flex items-center justify-between gap-3">
           <div>
             <p className="pib-label">Source of truth</p>
-            <h2 className="mt-1 text-lg font-headline font-bold text-[var(--color-pib-text)]">Project Brief</h2>
+            <h2 className="mt-0.5 text-base font-headline font-bold text-[var(--color-pib-text)]">Project Brief</h2>
           </div>
           {!editingBrief && (
-            <button onClick={onEditBrief} className="pib-btn-secondary text-sm font-label">Edit brief</button>
+            <button onClick={onEditBrief} className="pib-btn-secondary btn-pib-sm font-label">Edit brief</button>
           )}
         </div>
         {editingBrief ? (
@@ -136,42 +141,42 @@ export function ProjectDocsPanel({
               className="pib-textarea w-full"
               rows={4}
             />
-            <div className="flex gap-2">
-              <button onClick={onSaveBrief} disabled={savingBrief} className="pib-btn-primary text-sm font-label">
+            <div className="flex gap-1.5">
+              <button onClick={onSaveBrief} disabled={savingBrief} className="pib-btn-primary btn-pib-sm font-label">
                 {savingBrief ? 'Saving...' : 'Save'}
               </button>
-              <button onClick={onCancelBrief} className="pib-btn-secondary text-sm font-label">Cancel</button>
+              <button onClick={onCancelBrief} className="pib-btn-secondary btn-pib-sm font-label">Cancel</button>
             </div>
           </div>
         ) : (
-          <p className={`min-h-[96px] whitespace-pre-wrap rounded-[var(--radius-card)] border border-[var(--color-pib-line)] px-4 py-3 text-sm leading-6 ${briefValue ? 'bg-[var(--color-background)] text-[var(--color-pib-text)]' : 'bg-[var(--color-background)] text-[var(--color-pib-text-muted)] italic'}`}>
+          <p className={`min-h-[72px] whitespace-pre-wrap rounded-[var(--radius-card)] border border-[var(--color-pib-line)] px-3 py-2.5 text-sm leading-5 ${briefValue ? 'bg-[var(--color-background)] text-[var(--color-pib-text)]' : 'bg-[var(--color-background)] text-[var(--color-pib-text-muted)] italic'}`}>
             {briefValue || 'No brief yet'}
           </p>
         )}
       </div>
 
-      <div className="pib-card p-5">
-        <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="pib-card p-3.5">
+        <div className="mb-3 flex items-center justify-between gap-3">
           <div>
             <p className="pib-label">Library</p>
-            <h2 className="mt-1 text-lg font-headline font-bold text-[var(--color-pib-text)]">Documents</h2>
+            <h2 className="mt-0.5 text-base font-headline font-bold text-[var(--color-pib-text)]">Documents</h2>
           </div>
           <span className="pib-pill pib-pill-cyan !text-xs normal-case">{docs.length} docs</span>
         </div>
 
         {editingDoc ? (
-          <div className="mb-4 pib-surface p-4 space-y-3">
+          <div className="mb-3 space-y-2.5 pib-surface p-3">
             <input
               type="text"
               placeholder="Document title..."
               value={editingDoc.title}
               onChange={e => onEditingDocChange({ ...editingDoc, title: e.target.value })}
-              className="pib-input w-full"
+              className="pib-input h-8 w-full"
             />
             <select
               value={editingDoc.type}
               onChange={e => onEditingDocChange({ ...editingDoc, type: e.target.value as ProjectDoc['type'] })}
-              className="pib-select w-full"
+              className="pib-select h-8 w-full"
             >
               <option value="brief">Brief</option>
               <option value="requirements">Requirements</option>
@@ -183,11 +188,11 @@ export function ProjectDocsPanel({
               value={projectDocContent(editingDoc.content)}
               onChange={e => onEditingDocChange({ ...editingDoc, content: e.target.value })}
               className="pib-textarea w-full"
-              rows={10}
+              rows={8}
             />
-            <div className="flex gap-2">
-              <button onClick={onSaveDoc} className="pib-btn-primary text-sm font-label">Save</button>
-              <button onClick={() => onEditDoc(null)} className="pib-btn-secondary text-sm font-label">Cancel</button>
+            <div className="flex gap-1.5">
+              <button onClick={onSaveDoc} className="pib-btn-primary btn-pib-sm font-label">Save</button>
+              <button onClick={() => onEditDoc(null)} className="pib-btn-secondary btn-pib-sm font-label">Cancel</button>
             </div>
           </div>
         ) : null}

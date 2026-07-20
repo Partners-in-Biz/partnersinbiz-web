@@ -46,8 +46,9 @@ export default function AdminOrgDetailPage({ params }: { params: Promise<{ slug:
   useEffect(() => { load() }, [load])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-module-accent="cyan">
       <PageHeader
+        accent="cyan"
         eyebrow={
           <Link href="/admin/organizations" className="inline-flex items-center gap-1 hover:text-[var(--color-pib-text)]">
             <span className="material-symbols-outlined text-[16px]">arrow_back</span> Organisations
@@ -67,8 +68,8 @@ export default function AdminOrgDetailPage({ params }: { params: Promise<{ slug:
         }
         actions={
           org ? (
-            <Link href={`/admin/org/${slug}/dashboard`} className="btn-pib-secondary">
-              <span className="material-symbols-outlined text-[18px]">open_in_new</span> Open workspace
+            <Link href={`/admin/org/${slug}/dashboard`} className="btn-pib-secondary btn-pib-sm">
+              <span className="material-symbols-outlined text-[16px]">open_in_new</span> Open workspace
             </Link>
           ) : null
         }

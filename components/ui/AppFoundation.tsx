@@ -42,6 +42,8 @@ export function AppShell({
   )
 }
 
+export type ModuleAccent = 'amber' | 'accent' | 'violet' | 'rose' | 'blue' | 'green' | 'cyan'
+
 type PageHeaderProps = {
   eyebrow?: ReactNode
   title: ReactNode
@@ -50,20 +52,26 @@ type PageHeaderProps = {
   actions?: ReactNode
   tabs?: ReactNode
   className?: string
+  /** Module spectral underline + data-module-accent */
+  accent?: ModuleAccent
 }
 
-export function PageHeader({ eyebrow, title, description, meta, actions, tabs, className }: PageHeaderProps) {
+export function PageHeader({ eyebrow, title, description, meta, actions, tabs, className, accent }: PageHeaderProps) {
   return (
-    <header className={cn('pib-page-header', className)}>
-      <div className="flex min-w-0 flex-1 flex-col gap-3">
+    <header
+      className={cn('pib-page-header', className)}
+      data-accent={accent || undefined}
+      data-module-accent={accent || undefined}
+    >
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
         {eyebrow ? <div className="eyebrow">{eyebrow}</div> : null}
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-col gap-2.5 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
             <h1 className="pib-page-title">{title}</h1>
             {description ? <p className="pib-page-sub">{description}</p> : null}
-            {meta ? <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[var(--color-pib-text-muted)]">{meta}</div> : null}
+            {meta ? <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-[var(--color-pib-text-muted)]">{meta}</div> : null}
           </div>
-          {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
+          {actions ? <div className="flex shrink-0 flex-wrap items-center gap-1.5 [&_.btn-pib-primary]:btn-pib-sm [&_.btn-pib-secondary]:btn-pib-sm [&_.btn-pib-ghost]:btn-pib-sm [&_.pib-btn-primary]:btn-pib-sm [&_.pib-btn-secondary]:btn-pib-sm">{actions}</div> : null}
         </div>
       </div>
       {tabs ? <div className="pib-page-header-tabs">{tabs}</div> : null}
@@ -172,12 +180,13 @@ export function ResponsiveHeaderTabs({ title, tabs, actions, className }: Respon
 
 type SurfaceOwnProps<T extends ElementType> = {
   as?: T
-  variant?: 'card' | 'list' | 'table'
+  variant?: 'card' | 'list' | 'table' | 'glass' | 'quiet'
   header?: ReactNode
   footer?: ReactNode
   children: ReactNode
   className?: string
   bodyClassName?: string
+  accentEdge?: boolean | ModuleAccent
 }
 
 type SurfaceProps<T extends ElementType> = SurfaceOwnProps<T> & Omit<ComponentPropsWithoutRef<T>, keyof SurfaceOwnProps<T>>
@@ -190,21 +199,41 @@ export function Surface<T extends ElementType = 'section'>({
   children,
   className,
   bodyClassName,
+  accentEdge,
   ...props
 }: SurfaceProps<T>) {
   const Component = as ?? 'section'
-  const isPlainCard = variant === 'card' && !header && !footer
+  const isPlainCard = (variant === 'card' || variant === 'glass' || variant === 'quiet') && !header && !footer
+  const accent = typeof accentEdge === 'string' ? accentEdge : undefined
+  const edgeClass = accentEdge ? 'pib-accent-edge' : undefined
+  const variantClass =
+    variant === 'glass' ? 'pib-card pib-surface-glass'
+      : variant === 'quiet' ? 'pib-card pib-surface-quiet'
+        : variant === 'card' ? 'pib-card'
+          : cn('pib-surface', `pib-surface-${variant}`)
 
   if (isPlainCard) {
     return (
-      <Component className={cn('pib-card', className)} {...props}>
+      <Component
+        className={cn(variantClass, edgeClass, className)}
+        data-module-accent={accent}
+        {...props}
+      >
         {children}
       </Component>
     )
   }
 
   return (
-    <Component className={cn('pib-surface', `pib-surface-${variant}`, className)} {...props}>
+    <Component
+      className={cn(
+        variant === 'glass' || variant === 'quiet' ? variantClass : cn('pib-surface', `pib-surface-${variant === 'list' || variant === 'table' ? variant : 'card'}`),
+        edgeClass,
+        className,
+      )}
+      data-module-accent={accent}
+      {...props}
+    >
       {header ? <div data-slot="surface-header" className="pib-surface-header">{header}</div> : null}
       <div className={cn('pib-surface-body', bodyClassName)}>{children}</div>
       {footer ? <div data-slot="surface-footer" className="pib-surface-footer">{footer}</div> : null}
@@ -218,15 +247,17 @@ type EmptyStateProps = {
   description?: ReactNode
   action?: ReactNode
   className?: string
+  /** Compact is default for Dense Cinematic */
+  dense?: boolean
 }
 
-export function EmptyState({ icon, title, description, action, className }: EmptyStateProps) {
+export function EmptyState({ icon, title, description, action, className, dense = true }: EmptyStateProps) {
   return (
-    <div className={cn('pib-empty-state', className)}>
+    <div className={cn('pib-empty-state', dense && '!py-8', className)}>
       {icon ? <span aria-hidden="true" className="material-symbols-outlined pib-empty-state-icon">{icon}</span> : null}
       <h2 className="pib-empty-state-title">{title}</h2>
       {description ? <p className="pib-empty-state-description">{description}</p> : null}
-      {action ? <div className="mt-5 flex justify-center">{action}</div> : null}
+      {action ? <div className={cn('flex justify-center', dense ? 'mt-3' : 'mt-5')}>{action}</div> : null}
     </div>
   )
 }

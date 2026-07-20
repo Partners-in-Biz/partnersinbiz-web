@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { BarChart, CountBar, LineChart } from '@/components/email-analytics/charts'
+import { PageHeader } from '@/components/ui/AppFoundation'
 import { scopedApiPath, scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 import type {
   BroadcastDetailedStats,
@@ -112,8 +113,8 @@ export function BroadcastAnalyticsWorkspace({
       : '/portal/email-analytics'
   const shellClass =
     surface === 'portal'
-      ? 'mx-auto max-w-5xl space-y-6'
-      : 'p-6 max-w-5xl mx-auto space-y-6'
+      ? 'mx-auto max-w-5xl space-y-6 p-4'
+      : 'mx-auto max-w-5xl space-y-6 p-4 md:p-6'
 
   if (loading) {
     return (
@@ -141,17 +142,14 @@ export function BroadcastAnalyticsWorkspace({
   const { stats, rates, timeline, topClicks, topDomains } = data
 
   return (
-    <div className={shellClass}>
+    <div className={shellClass} data-module-accent="blue">
       <BackLink href={backHref} surface={surface} />
-      <header>
-        {surface === 'portal' && <p className="eyebrow">Email broadcast</p>}
-        <h1 className={surface === 'portal' ? 'pib-page-title mt-2' : 'text-2xl font-semibold text-[var(--color-pib-text)]'}>
-          Broadcast detail
-        </h1>
-        <p className={surface === 'portal' ? 'mt-2 text-xs text-[var(--color-pib-text-muted)]' : 'mt-2 text-xs text-[var(--color-pib-text-muted)]'}>
-          ID: {id}
-        </p>
-      </header>
+      <PageHeader
+        accent="blue"
+        eyebrow={surface === 'portal' ? 'Email broadcast' : undefined}
+        title="Broadcast detail"
+        description={`ID: ${id}`}
+      />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi surface={surface} label="Audience" value={stats.audienceSize} />
@@ -178,7 +176,7 @@ export function BroadcastAnalyticsWorkspace({
         )}
       </Section>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2">
         <Section surface={surface} title="Top links clicked">
           {topClicks.length === 0 ? (
             <Empty surface={surface}>No tracked click data.</Empty>
@@ -281,26 +279,25 @@ function Kpi({
   surface: 'admin' | 'portal'
 }) {
   return (
-    <div className={surface === 'portal' ? 'rounded-xl border border-[var(--color-pib-line)] bg-white/[0.03] p-4' : 'rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4'}>
-      <div className={surface === 'portal' ? 'text-xs text-[var(--color-pib-text-muted)]' : 'text-xs text-[var(--color-pib-text-muted)]'}>
-        {label}
-      </div>
+    <div
+      data-module-accent="blue"
+      className={
+        surface === 'portal'
+          ? 'pib-stat-card rounded-xl border border-[var(--color-pib-line)] bg-white/[0.03] p-3'
+          : 'pib-stat-card rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3'
+      }
+    >
+      <div className="pib-label text-[10px] tracking-[0.14em] text-[var(--color-pib-text-muted)]">{label}</div>
       <div
         className={
           tone === 'warn'
-            ? 'text-2xl font-semibold text-red-400'
-            : surface === 'portal'
-              ? 'text-2xl font-semibold text-[var(--color-pib-text)]'
-              : 'text-2xl font-semibold text-[var(--color-pib-text)]'
+            ? 'mt-1 text-xl font-semibold tabular-nums tracking-tight text-red-400'
+            : 'mt-1 text-xl font-semibold tabular-nums tracking-tight text-[var(--color-pib-text)]'
         }
       >
         {value.toLocaleString()}
       </div>
-      {sub && (
-        <div className={surface === 'portal' ? 'mt-1 text-xs text-[var(--color-pib-text-muted)]' : 'mt-1 text-xs text-[var(--color-pib-text-muted)]'}>
-          {sub}
-        </div>
-      )}
+      {sub && <div className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">{sub}</div>}
     </div>
   )
 }

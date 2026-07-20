@@ -51,7 +51,7 @@ export default function UserTimelinePage() {
   )
 
   return (
-    <div className="p-6 space-y-8">
+    <div className="space-y-6 p-4 md:p-6" data-module-accent="violet">
       <Link href="/portal/analytics/users" className="btn-pib-secondary inline-block">← Users</Link>
       <header>
         <p className="eyebrow">Analytics · Users</p>

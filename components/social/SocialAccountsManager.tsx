@@ -780,7 +780,7 @@ export default function SocialAccountsManager({
       }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6" data-module-accent="rose">
       {pickerNonce && (
         <PickerModal
           nonce={pickerNonce}
@@ -791,30 +791,30 @@ export default function SocialAccountsManager({
         />
       )}
 
-      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-xs font-label uppercase tracking-widest text-[var(--color-pib-accent)]">{eyebrow}</p>
-          <h1 className="mt-1 font-headline text-3xl font-bold tracking-tight text-[var(--color-pib-text)]">{title}</h1>
-          <p className="mt-2 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
+          <p className="eyebrow">{eyebrow}</p>
+          <h1 className="pib-page-title mt-1.5">{title}</h1>
+          <p className="pib-page-sub max-w-2xl">
             {description}
           </p>
         </div>
-        <a href="#connect-new-account" className="btn-pib-accent self-start md:self-auto">
+        <a href="#connect-new-account" className="btn-pib-accent btn-pib-sm self-start md:self-auto">
           <span className="material-symbols-outlined text-base">add_link</span>
           {isPersonalScope ? 'Connect personal account' : 'Connect company account'}
         </a>
       </header>
 
-      <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]/35 p-4" aria-label={scopeCard.title}>
+      <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)]/35 p-3" aria-label={scopeCard.title}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
-            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-rose mt-0.5"><span className="material-symbols-outlined text-[18px]">{scopeCard.icon}</span></span>
+            <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-rose !h-7 !w-7 mt-0.5 shrink-0"><span className="material-symbols-outlined text-[16px]">{scopeCard.icon}</span></span>
             <div>
               <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">{scopeCard.title}</h2>
               <p className="mt-1 max-w-3xl text-xs leading-5 text-[var(--color-pib-text-muted)]">{scopeCard.body}</p>
             </div>
           </div>
-          <a href={scopeCard.href} className="btn-pib-secondary w-fit shrink-0 !px-3 !py-2 !text-xs">
+          <a href={scopeCard.href} className="btn-pib-secondary btn-pib-sm w-fit shrink-0">
             {scopeCard.hrefLabel}
           </a>
         </div>

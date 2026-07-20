@@ -9,6 +9,7 @@ import { TeamAccessGovernancePanel } from '@/components/settings/TeamAccessGover
 import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import type { OrgRole } from '@/lib/organizations/types'
 import {
+import { PageHeader } from '@/components/ui/AppFoundation'
   WORKSPACE_MODULE_KEYS,
   accessSummaryForPolicy,
   normalizeMemberAccessPolicy,
@@ -37,7 +38,7 @@ interface MyProfile {
 
 function InviteField({ id, label, children }: { id: string; label: string; children: ReactNode }) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-1.5" data-module-accent="cyan">
       <label htmlFor={id} className="pib-label !mb-0">
         {label}
       </label>
@@ -257,10 +258,11 @@ export default function TeamPage() {
   if (!canInvite) {
     return (
       <div className="max-w-3xl space-y-4">
-        <header>
-          <p className="eyebrow">Workspace settings</p>
-          <h1 className="pib-page-title mt-2">Team</h1>
-        </header>
+        <PageHeader
+          accent="cyan"
+          eyebrow="Workspace settings"
+          title="Team"
+        />
         <section className="pib-card space-y-2">
           <h2 className="text-lg font-semibold">Owner or admin access required</h2>
           <p className="text-sm text-[var(--color-pib-text-muted)]">
@@ -273,13 +275,12 @@ export default function TeamPage() {
 
   return (
     <div className="max-w-4xl space-y-6">
-      <header>
-        <p className="eyebrow">Workspace settings</p>
-        <h1 className="pib-page-title mt-2">Team</h1>
-        <p className="pib-page-sub max-w-2xl">
-          Manage who can access this workspace, what role they hold, and which area of the business they support.
-        </p>
-      </header>
+      <PageHeader
+        accent="cyan"
+        eyebrow="Workspace settings"
+        title="Team"
+        description="Manage who can access this workspace, what role they hold, and which area of the business they support."
+      />
 
       <TeamAccessGovernancePanel
         members={members}

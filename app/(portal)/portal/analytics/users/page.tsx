@@ -32,7 +32,7 @@ export default function AnalyticsUsersPage() {
   }
 
   return (
-    <div className="p-6 space-y-8">
+    <div className="space-y-6 p-4 md:p-6" data-module-accent="violet">
       <AnalyticsNav active="users" propertyId={propertyId} />
       <header>
         <p className="eyebrow">Analytics · Users</p>

@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { PageHeader } from '@/components/ui/AppFoundation'
 
 // ---- Role x feature matrix (US-198) ----
 
@@ -227,7 +228,7 @@ export default function PermissionsPage() {
 
   if (matrixLoading) {
     return (
-      <div className="space-y-4" role="status" aria-label="Loading role permissions">
+      <div className="space-y-4" data-module-accent="cyan" role="status" aria-label="Loading role permissions">
         <p className="eyebrow">Workspace settings</p>
         <div className="h-8 w-44 rounded bg-white/10" />
         <div className="h-48 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03]" />
@@ -238,11 +239,12 @@ export default function PermissionsPage() {
   if (matrixLoadError) {
     return (
       <div className="space-y-6">
-        <header>
-          <p className="eyebrow">Workspace settings</p>
-          <h1 className="pib-page-title mt-2">Permissions</h1>
-          <p className="pib-page-sub mt-2 max-w-2xl">Control which roles can access each feature.</p>
-        </header>
+        <PageHeader
+          accent="cyan"
+          eyebrow="Workspace settings"
+          title="Permissions"
+          description="Control which roles can access each feature."
+        />
         <section role="alert" className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-5">
           <p className="eyebrow !text-[10px] text-amber-100">Permission source</p>
           <h2 className="mt-2 font-display text-xl text-[var(--color-pib-text)]">Permissions could not load</h2>
@@ -257,15 +259,13 @@ export default function PermissionsPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <header>
-        <p className="eyebrow">Workspace settings</p>
-        <h1 className="pib-page-title mt-2">Permissions</h1>
-        <p className="mt-2 max-w-2xl text-sm text-[var(--color-pib-text-muted)]">
-          Decide which roles can access each part of the platform. Owners always have full access; the matrix below
-          governs Admins, Editors, and Viewers.
-        </p>
-      </header>
+    <div className="space-y-6">
+      <PageHeader
+        accent="cyan"
+        eyebrow="Workspace settings"
+        title="Permissions"
+        description="Decide which roles can access each part of the platform. Owners always have full access; the matrix below governs Admins, Editors, and Viewers."
+      />
 
       {/* Role x feature matrix */}
       <section role="region" aria-label="Role and feature permission matrix" className="space-y-4">
