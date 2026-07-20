@@ -220,6 +220,14 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
         return jsonResponse({ data: { conversation: savedProjectConversation } })
       }
       if (url === '/api/v1/conversations/conv-saved-project/messages') return jsonResponse({ data: { messages: [] } })
+      if (url === '/api/v1/chat-context/project/hidden-project') return jsonResponse({ data: {
+        context: {
+          kind: 'project', id: 'hidden-project', orgId: 'org-1', label: 'Hidden migrated project', icon: 'rocket_launch',
+        },
+        pulse: { label: 'Hidden migrated project', headline: 'Saved project live context', metrics: [] },
+        preview: { kind: 'summary', text: 'Saved project live context', status: 'Active' },
+        groups: [], artifacts: [], attention: [], activity: [], capabilities: [], asOf: '2026-07-20T10:00:00.000Z',
+      } })
       throw new Error(`Unhandled fetch: ${url}`)
     })
 
@@ -233,9 +241,17 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
       />,
     )
 
-    expect(await screen.findByRole('button', { name: 'Add conversation context' })).toBeInTheDocument()
+    const contextToolbar = await screen.findByRole('toolbar', { name: 'Pinned conversation context' })
+    expect(within(contextToolbar).getByRole('button', { name: 'Add conversation context' })).toBeInTheDocument()
     expect(global.fetch).toHaveBeenCalledWith('/api/v1/conversations/conv-saved-project')
+    expect(await screen.findByTestId('context-pulse')).toBeInTheDocument()
+    const openContextDock = within(contextToolbar).getByRole('button', { name: 'Open context dock' })
+    fireEvent.click(openContextDock)
+    const dock = await screen.findByRole('dialog', { name: 'Hidden migrated project context' })
+    expect(within(dock).getByRole('region', { name: 'Context overview' })).toHaveTextContent('Saved project live context')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/chat-context/project/hidden-project', expect.anything())
     expect(screen.queryByTestId('hermes-project-hidden-project')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Open SkillOpt' })).not.toBeInTheDocument()
   })
 
   it('removes only the current user sidebar link and refreshes the project list', async () => {
