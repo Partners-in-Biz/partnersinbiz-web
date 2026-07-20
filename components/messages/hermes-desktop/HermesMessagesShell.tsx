@@ -9,6 +9,7 @@ import {
   WORKSPACE_PANEL_EVENT,
   type WorkspacePanelSpec,
 } from '@/lib/hermes/workspace-panels'
+import { MessagesNeuralField } from '@/components/messages/atmosphere/MessagesNeuralField'
 import type { HermesMessagesShellProps, MessagesSurface } from './types'
 
 const SURFACE_META: Record<MessagesSurface, { eyebrow: string; title: string; description: string }> = {
@@ -249,12 +250,43 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
     layoutVariant: 'hermes' as const,
   }), [capabilities, currentUserDisplayName, currentUserUid, orgId, orgName, surface, userRole])
 
+  const openTabCount = useMemo(
+    () => panes.reduce((sum, pane) => sum + pane.tabs.length, 0),
+    [panes],
+  )
+  const focusedPane = panes.find((pane) => pane.id === focusedPaneId) ?? panes[0]
+  const focusedTabTitle = focusedPane?.tabs.find((tab) => tab.id === focusedPane.activeTabId)?.title ?? 'No session'
+
   return (
-    <div data-testid="hermes-messages-shell" className="flex h-[calc(100dvh-88px)] min-h-0 min-w-0 flex-col overflow-hidden rounded-[22px] border border-[var(--color-card-border)] bg-[var(--color-card)]/55 shadow-[0_24px_80px_rgba(0,0,0,0.24)] lg:min-h-[640px]">
+    <div
+      data-testid="hermes-messages-shell"
+      data-messages-experience="cinematic-2026"
+      className="relative flex h-[calc(100dvh-88px)] min-h-0 min-w-0 flex-col overflow-hidden rounded-[22px] border border-[var(--color-card-border)] bg-[var(--color-card)]/55 shadow-[0_24px_80px_rgba(0,0,0,0.24)] lg:min-h-[640px]"
+    >
+      <MessagesNeuralField />
+      <div className="messages-atmosphere-fallback" aria-hidden="true" />
+      <div className="messages-scanlines" aria-hidden="true" />
+      <div className="messages-experience-chrome">
       <header data-testid="hermes-messages-shell-topbar" className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black/[0.08] px-3">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="material-symbols-outlined grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-[15px] text-primary">forum</span>
-          <div className="min-w-0"><div className="truncate pib-label">{copy.eyebrow}</div><div className="flex min-w-0 items-center gap-2"><h1 className="truncate text-sm font-semibold leading-tight text-[var(--color-pib-text)]">{copy.title}</h1>{orgName && <span className="hidden truncate text-xs text-[var(--color-pib-text-muted)] sm:inline">· {orgName}</span>}</div></div>
+          <span className="material-symbols-outlined relative grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-[15px] text-primary">
+            forum
+            <span className="messages-hud-pulse absolute -right-0.5 -top-0.5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <div className="truncate pib-label">{copy.eyebrow}</div>
+            <div className="flex min-w-0 items-center gap-2">
+              <h1 className="truncate text-sm font-semibold leading-tight text-[var(--color-pib-text)]">{copy.title}</h1>
+              {orgName && <span className="hidden truncate text-xs text-[var(--color-pib-text-muted)] sm:inline">· {orgName}</span>}
+            </div>
+          </div>
+          <div className="messages-info-constellation" aria-hidden="true">
+            <span className="messages-info-chip"><span className="messages-hud-pulse" />Live</span>
+            <span className="messages-info-chip">Panes <strong>{panes.length}</strong></span>
+            <span className="messages-info-chip">Tabs <strong>{openTabCount}</strong></span>
+            <span className="messages-info-chip max-w-[10rem] truncate" title={focusedTabTitle}>Focus <strong className="truncate">{focusedTabTitle}</strong></span>
+            <span className="messages-hud-meter" title="Signal field"><i /></span>
+          </div>
         </div>
         <div className="flex min-w-0 items-center gap-1.5">
           <div className="hidden items-center gap-1.5 xl:flex"><StatusPill tone="accent"><span className="material-symbols-outlined text-[13px]">hub</span>{runtimeMode}</StatusPill><StatusPill><span className="material-symbols-outlined text-[13px]">shield_lock</span>Safe /v1 runs</StatusPill>{userRole && <StatusPill tone="muted">{userRole}</StatusPill>}</div>
@@ -309,6 +341,7 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
           {panes.length > 1 && <button type="button" aria-label="Resize workspace panes" style={{ order: 1 }} onPointerDown={startResize} onPointerMove={continueResize} onPointerUp={finishResize} onPointerCancel={finishResize} className={`z-10 hidden shrink-0 touch-none rounded-full bg-transparent hover:bg-primary/20 focus-visible:bg-primary/20 xl:block ${direction === 'row' ? '-mx-0.5 cursor-col-resize xl:w-2 xl:min-w-0' : '-my-0.5 cursor-row-resize xl:h-2 xl:min-h-0'}`} />}
         </div>
       </section>
+      </div>
     </div>
   )
 }

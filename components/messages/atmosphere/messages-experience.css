@@ -1,0 +1,640 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   Messages Experience — July 2026 cinematic layer
+   Scoped entirely under [data-messages-experience]. Safe for light + dark.
+   Uses: OKLCH accents, scroll-driven timelines, liquid glass, container queries,
+   view-timeline message entrance, GPU-composited glows. Reduced-motion safe.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+[data-messages-experience] {
+  --mx-glass: color-mix(in oklab, var(--color-pib-surface) 62%, transparent);
+  --mx-glass-strong: color-mix(in oklab, var(--color-pib-surface) 78%, transparent);
+  --mx-line: color-mix(in oklab, white 12%, transparent);
+  --mx-line-hot: color-mix(in oklab, var(--color-pib-accent) 55%, transparent);
+  --mx-glow-a: color-mix(in oklab, var(--color-pib-accent) 42%, transparent);
+  --mx-glow-v: color-mix(in oklab, var(--color-pib-violet) 38%, transparent);
+  --mx-glow-c: color-mix(in oklab, var(--color-pib-cyan) 32%, transparent);
+  --mx-radius-shell: 1.375rem;
+  --mx-radius-pane: 0.9rem;
+  --mx-blur: 22px;
+  --mx-sat: 1.35;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: var(--mx-radius-shell);
+  border: 1px solid color-mix(in oklab, var(--color-card-border) 80%, var(--color-pib-accent) 20%);
+  background:
+    linear-gradient(
+      165deg,
+      color-mix(in oklab, var(--color-pib-surface) 88%, transparent) 0%,
+      color-mix(in oklab, var(--color-pib-bg) 92%, transparent) 100%
+    );
+  box-shadow:
+    0 1px 0 color-mix(in oklab, white 8%, transparent) inset,
+    0 0 0 1px color-mix(in oklab, black 35%, transparent) inset,
+    0 28px 90px color-mix(in oklab, black 42%, transparent),
+    0 0 80px -24px var(--mx-glow-v);
+  container-type: inline-size;
+  container-name: messages-shell;
+}
+
+[data-theme='light'] [data-messages-experience] {
+  --mx-glass: color-mix(in oklab, white 72%, transparent);
+  --mx-glass-strong: color-mix(in oklab, white 86%, transparent);
+  --mx-line: color-mix(in oklab, black 10%, transparent);
+  box-shadow:
+    0 1px 0 color-mix(in oklab, white 70%, transparent) inset,
+    0 24px 70px color-mix(in oklab, black 12%, transparent),
+    0 0 60px -28px var(--mx-glow-a);
+}
+
+/* Neural field canvas sits behind chrome */
+.messages-neural-field {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0.9;
+  mix-blend-mode: screen;
+}
+
+[data-theme='light'] .messages-neural-field {
+  mix-blend-mode: multiply;
+  opacity: 0.55;
+}
+
+/* CSS aurora fallback — only when WebGL is unavailable or reduced-motion */
+.messages-atmosphere-fallback {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    radial-gradient(ellipse 80% 55% at 12% 18%, var(--mx-glow-a), transparent 58%),
+    radial-gradient(ellipse 70% 50% at 88% 8%, var(--mx-glow-v), transparent 55%),
+    radial-gradient(ellipse 60% 45% at 70% 92%, var(--mx-glow-c), transparent 50%),
+    radial-gradient(ellipse 50% 40% at 20% 85%, color-mix(in oklab, var(--color-pib-rose) 18%, transparent), transparent 55%);
+  transition: opacity 240ms ease;
+}
+
+.messages-neural-field[data-state='fallback'] ~ .messages-atmosphere-fallback,
+.messages-neural-field[data-state='reduced-motion'] ~ .messages-atmosphere-fallback,
+.messages-neural-field:not([data-state]) ~ .messages-atmosphere-fallback {
+  opacity: 0.75;
+  animation: mx-aurora-drift 28s ease-in-out infinite alternate;
+}
+
+.messages-neural-field[data-state='live'] ~ .messages-atmosphere-fallback {
+  opacity: 0;
+  animation: none;
+}
+
+@keyframes mx-aurora-drift {
+  from { filter: hue-rotate(0deg) saturate(1); transform: scale(1); }
+  to { filter: hue-rotate(18deg) saturate(1.15); transform: scale(1.04); }
+}
+
+/* Foreground stacking */
+[data-messages-experience] > .messages-experience-chrome {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+/* Specular rim light */
+[data-messages-experience]::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    linear-gradient(
+      125deg,
+      color-mix(in oklab, white 14%, transparent) 0%,
+      transparent 28%,
+      transparent 72%,
+      color-mix(in oklab, var(--color-pib-violet) 12%, transparent) 100%
+    );
+  opacity: 0.55;
+  mix-blend-mode: soft-light;
+}
+
+/* ── Top bar: liquid glass HUD ─────────────────────────────────────────── */
+
+[data-messages-experience] [data-testid='hermes-messages-shell-topbar'] {
+  position: relative;
+  z-index: 3;
+  height: 2.85rem;
+  border-bottom: 1px solid var(--mx-line);
+  background: var(--mx-glass);
+  backdrop-filter: blur(var(--mx-blur)) saturate(var(--mx-sat));
+  -webkit-backdrop-filter: blur(var(--mx-blur)) saturate(var(--mx-sat));
+  box-shadow: 0 1px 0 color-mix(in oklab, white 6%, transparent) inset;
+}
+
+[data-messages-experience] [data-testid='hermes-messages-shell-topbar']::after {
+  content: '';
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--mx-glow-a) 20%,
+    var(--mx-glow-v) 50%,
+    var(--mx-glow-c) 80%,
+    transparent
+  );
+  opacity: 0.85;
+}
+
+[data-messages-experience] .messages-hud-pulse {
+  position: relative;
+  display: inline-flex;
+  height: 0.4rem;
+  width: 0.4rem;
+  border-radius: 999px;
+  background: var(--color-pib-success);
+  box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-pib-success) 55%, transparent);
+  animation: mx-live-pulse 2.4s ease-out infinite;
+}
+
+@keyframes mx-live-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-pib-success) 55%, transparent); }
+  70% { box-shadow: 0 0 0 8px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+[data-messages-experience] .messages-hud-meter {
+  position: relative;
+  height: 0.28rem;
+  width: 4.5rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in oklab, white 8%, transparent);
+}
+
+[data-messages-experience] .messages-hud-meter > i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 42%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--color-pib-accent), var(--color-pib-violet), var(--color-pib-cyan));
+  background-size: 200% 100%;
+  animation: mx-meter-flow 3.6s linear infinite;
+}
+
+@keyframes mx-meter-flow {
+  from { background-position: 0% 50%; width: 28%; }
+  50% { width: 68%; }
+  to { background-position: 200% 50%; width: 36%; }
+}
+
+/* ── Body / panes ──────────────────────────────────────────────────────── */
+
+[data-messages-experience] [data-testid='hermes-messages-shell-body'] {
+  position: relative;
+  z-index: 1;
+}
+
+[data-messages-experience] [data-testid^='messages-workspace-pane-'] {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--mx-radius-pane) !important;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--color-pib-surface) 55%, transparent),
+      color-mix(in oklab, black 22%, transparent)
+    ) !important;
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  box-shadow:
+    0 1px 0 color-mix(in oklab, white 7%, transparent) inset,
+    0 12px 40px color-mix(in oklab, black 18%, transparent);
+  transition:
+    border-color 220ms ease,
+    box-shadow 280ms ease,
+    transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+[data-messages-experience] [data-testid^='messages-workspace-pane-'][class*='border-primary'] {
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--color-pib-accent) 35%, transparent),
+    0 0 40px -12px var(--mx-glow-a),
+    0 1px 0 color-mix(in oklab, white 8%, transparent) inset;
+}
+
+/* Tab strip glass */
+[data-messages-experience] [data-testid^='messages-workspace-pane-'] > div:first-child {
+  background: color-mix(in oklab, black 28%, transparent) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+[data-messages-experience] [role='tab'][aria-selected='true'] {
+  text-shadow: 0 0 18px color-mix(in oklab, var(--color-pib-accent) 40%, transparent);
+}
+
+/* ── Sessions rail (hermes layout) ─────────────────────────────────────── */
+
+[data-messages-experience] [data-testid='unified-chat-root'][data-layout-variant='hermes'] > aside {
+  position: relative;
+  border-color: var(--mx-line) !important;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, white 4.5%, transparent),
+      color-mix(in oklab, black 18%, transparent)
+    ) !important;
+  backdrop-filter: blur(16px) saturate(1.25);
+  -webkit-backdrop-filter: blur(16px) saturate(1.25);
+  box-shadow: 0 1px 0 color-mix(in oklab, white 6%, transparent) inset;
+}
+
+[data-messages-experience] [data-testid='unified-chat-root'][data-layout-variant='hermes'] > aside::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  border-radius: 999px;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    var(--color-pib-accent) 20%,
+    var(--color-pib-violet) 55%,
+    var(--color-pib-cyan) 80%,
+    transparent
+  );
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+/* Active session row glow */
+[data-messages-experience] [data-testid^='hermes-company-'],
+[data-messages-experience] [data-testid^='hermes-project-'],
+[data-messages-experience] [data-testid^='hermes-session-section-'] {
+  transition: border-color 180ms ease, background 180ms ease, box-shadow 220ms ease;
+}
+
+[data-messages-experience] [data-testid^='hermes-company-']:hover,
+[data-messages-experience] [data-testid^='hermes-project-']:hover {
+  border-color: color-mix(in oklab, var(--color-pib-accent) 28%, transparent) !important;
+  box-shadow: 0 0 24px -14px var(--mx-glow-a);
+}
+
+/* ── Thread + composer ─────────────────────────────────────────────────── */
+
+[data-messages-experience] [data-testid='chat-input-drop-zone'] {
+  position: relative;
+  border-radius: 1rem;
+  border: 1px solid var(--mx-line) !important;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, white 5%, transparent),
+      color-mix(in oklab, black 22%, transparent)
+    ) !important;
+  backdrop-filter: blur(18px) saturate(1.3);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  box-shadow:
+    0 1px 0 color-mix(in oklab, white 8%, transparent) inset,
+    0 -20px 50px -30px var(--mx-glow-v);
+  transition: border-color 200ms ease, box-shadow 240ms ease;
+}
+
+[data-messages-experience] [data-testid='chat-input-drop-zone']:focus-within {
+  border-color: color-mix(in oklab, var(--color-pib-accent) 45%, transparent) !important;
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--color-pib-accent) 30%, transparent),
+    0 0 48px -16px var(--mx-glow-a),
+    0 1px 0 color-mix(in oklab, white 10%, transparent) inset;
+}
+
+[data-messages-experience] [data-testid='chat-input-pill'] {
+  position: relative;
+  overflow: hidden;
+}
+
+[data-messages-experience] [data-testid='chat-input-pill']::before {
+  content: '';
+  position: absolute;
+  inset: -40% auto -40% -30%;
+  width: 40%;
+  background: linear-gradient(
+    100deg,
+    transparent,
+    color-mix(in oklab, white 12%, transparent),
+    transparent
+  );
+  transform: translateX(-120%) skewX(-18deg);
+  animation: mx-composer-sheen 7s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes mx-composer-sheen {
+  0%, 60% { transform: translateX(-140%) skewX(-18deg); opacity: 0; }
+  70% { opacity: 1; }
+  100% { transform: translateX(380%) skewX(-18deg); opacity: 0; }
+}
+
+[data-messages-experience] [data-testid='hermes-runtime-control-bar'] {
+  border-top: 1px solid var(--mx-line) !important;
+  background: color-mix(in oklab, black 22%, transparent) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* ── Message bubbles — scroll-driven entrance + liquid glass ───────────── */
+
+[data-messages-experience] .mx-message {
+  --mx-enter: 1;
+  view-timeline-name: --mx-msg;
+  view-timeline-axis: block;
+  animation: mx-message-enter both linear;
+  animation-timeline: view();
+  animation-range: entry 0% entry 40%;
+  transform-origin: center left;
+}
+
+[data-messages-experience] .mx-message[data-mine='true'] {
+  transform-origin: center right;
+}
+
+@keyframes mx-message-enter {
+  from {
+    opacity: 0.15;
+    filter: blur(4px);
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: none;
+  }
+}
+
+/* Fallback for browsers without scroll-driven animations */
+@supports not (animation-timeline: view()) {
+  [data-messages-experience] .mx-message {
+    animation: mx-message-enter-fallback 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@keyframes mx-message-enter-fallback {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+[data-messages-experience] .mx-bubble-mine {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid color-mix(in oklab, var(--color-pib-accent) 35%, transparent) !important;
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in oklab, var(--color-pib-accent) 88%, white 12%),
+      color-mix(in oklab, var(--color-pib-accent) 72%, var(--color-pib-violet) 28%)
+    ) !important;
+  color: #121214 !important;
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, white 18%, transparent) inset,
+    0 10px 28px -12px color-mix(in oklab, var(--color-pib-accent) 55%, transparent);
+}
+
+[data-messages-experience] .mx-bubble-mine::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    125deg,
+    color-mix(in oklab, white 28%, transparent),
+    transparent 42%
+  );
+  opacity: 0.55;
+  pointer-events: none;
+  mix-blend-mode: soft-light;
+}
+
+/* Agent bubbles: prose on small screens, liquid glass from lg up */
+@media (min-width: 1024px) {
+  [data-messages-experience] .mx-bubble-agent {
+    position: relative;
+    border: 1px solid var(--mx-line) !important;
+    background:
+      linear-gradient(
+        165deg,
+        color-mix(in oklab, white 7%, transparent),
+        color-mix(in oklab, black 18%, transparent)
+      ) !important;
+    backdrop-filter: blur(10px) saturate(1.2);
+    -webkit-backdrop-filter: blur(10px) saturate(1.2);
+    box-shadow:
+      0 1px 0 color-mix(in oklab, white 7%, transparent) inset,
+      0 8px 24px -16px color-mix(in oklab, black 40%, transparent);
+  }
+
+  [data-messages-experience] .mx-bubble-agent::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 2px;
+    border-radius: 999px;
+    background: linear-gradient(
+      180deg,
+      var(--color-pib-violet),
+      var(--color-pib-cyan)
+    );
+    opacity: 0.7;
+    pointer-events: none;
+  }
+}
+
+/* Streaming / pending shimmer */
+[data-messages-experience] .mx-activity-live {
+  position: relative;
+  overflow: hidden;
+  border-color: color-mix(in oklab, var(--color-pib-accent) 30%, transparent) !important;
+  background:
+    linear-gradient(
+      120deg,
+      color-mix(in oklab, var(--color-pib-accent) 8%, transparent),
+      color-mix(in oklab, var(--color-pib-violet) 10%, transparent),
+      color-mix(in oklab, var(--color-pib-cyan) 8%, transparent)
+    ) !important;
+  background-size: 200% 100%;
+  animation: mx-activity-shift 4s ease infinite;
+}
+
+@keyframes mx-activity-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+[data-messages-experience] .mx-activity-live::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    color-mix(in oklab, white 14%, transparent) 50%,
+    transparent 80%
+  );
+  transform: translateX(-100%);
+  animation: mx-shimmer 2.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes mx-shimmer {
+  100% { transform: translateX(100%); }
+}
+
+/* Agent avatar ring */
+[data-messages-experience] .mx-avatar-ring {
+  position: relative;
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, white 12%, transparent),
+    0 0 18px -4px var(--mx-glow-v);
+}
+
+[data-messages-experience] .mx-avatar-ring::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 999px;
+  background: conic-gradient(
+    from 0deg,
+    var(--color-pib-accent),
+    var(--color-pib-violet),
+    var(--color-pib-cyan),
+    var(--color-pib-accent)
+  );
+  opacity: 0.55;
+  z-index: -1;
+  animation: mx-spin 8s linear infinite;
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
+}
+
+@keyframes mx-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Informational density strip inside topbar */
+[data-messages-experience] .messages-info-constellation {
+  display: none;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+@container messages-shell (min-width: 920px) {
+  [data-messages-experience] .messages-info-constellation {
+    display: inline-flex;
+  }
+}
+
+[data-messages-experience] .messages-info-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 1.45rem;
+  padding: 0 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--mx-line);
+  background: color-mix(in oklab, white 4%, transparent);
+  color: var(--color-pib-text-muted);
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+[data-messages-experience] .messages-info-chip strong {
+  color: var(--color-pib-text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Scanline subtlety on body — very low opacity, premium CRT-glass feel */
+[data-messages-experience] .messages-scanlines {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: 0.035;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 2px,
+    color-mix(in oklab, white 40%, transparent) 3px
+  );
+  mix-blend-mode: soft-light;
+}
+
+/* Resize handle glow */
+[data-messages-experience] button[aria-label='Resize workspace panes']:hover,
+[data-messages-experience] button[aria-label='Resize workspace panes']:focus-visible {
+  background: color-mix(in oklab, var(--color-pib-accent) 35%, transparent) !important;
+  box-shadow: 0 0 20px var(--mx-glow-a);
+}
+
+/* Reduced motion: kill decorative motion, keep structure */
+@media (prefers-reduced-motion: reduce) {
+  [data-messages-experience] .messages-neural-field,
+  [data-messages-experience] .messages-atmosphere-fallback,
+  [data-messages-experience] .messages-hud-pulse,
+  [data-messages-experience] .messages-hud-meter > i,
+  [data-messages-experience] .mx-message,
+  [data-messages-experience] .mx-activity-live,
+  [data-messages-experience] .mx-activity-live::after,
+  [data-messages-experience] .mx-avatar-ring::after,
+  [data-messages-experience] [data-testid='chat-input-pill']::before {
+    animation: none !important;
+  }
+
+  [data-messages-experience] .mx-message {
+    opacity: 1;
+    filter: none;
+    transform: none;
+  }
+
+  [data-messages-experience] .messages-scanlines {
+    display: none;
+  }
+}
+
+/* Light theme readability overrides */
+[data-theme='light'] [data-messages-experience] .mx-bubble-mine {
+  color: #1a1208 !important;
+}
+
+[data-theme='light'] [data-messages-experience] [data-testid^='messages-workspace-pane-'] {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, white 88%, transparent),
+      color-mix(in oklab, var(--color-pib-cream) 70%, transparent)
+    ) !important;
+}

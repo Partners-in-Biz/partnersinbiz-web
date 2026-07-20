@@ -1566,7 +1566,7 @@ export default function MessageBubble({
   // Tool pill — no avatar, compact
   if (isTool) {
     return (
-      <div className="flex justify-center">
+      <div className="mx-message flex justify-center" data-author-kind="tool">
         <div className="max-w-[90%] flex items-center gap-2 rounded-full bg-white/5 border border-white/10 px-3 py-1 text-xs text-[var(--color-pib-text-muted)] font-mono">
           <span className="material-symbols-outlined text-[14px] text-primary">build</span>
           <span>{m.toolName ?? 'tool'}</span>
@@ -1667,13 +1667,13 @@ export default function MessageBubble({
   if (isMine) {
     return (
       <>
-        <div className="flex justify-end">
+        <div className="mx-message flex justify-end" data-mine="true" data-author-kind="user">
           <div className="group/message max-w-[85%] min-w-0 lg:max-w-[80%] text-right">
             <div ref={contentRef} className="relative inline-block max-w-full text-left">
               {selectionPopover}
               <div
                 onMouseUp={handleTextSelection}
-                className="max-w-full overflow-hidden rounded-2xl rounded-br-md px-4 py-2.5 text-[15px] lg:text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere] bg-[var(--color-card-active,rgba(255,255,255,0.08))] lg:bg-primary lg:text-on-primary text-[var(--color-pib-text)]"
+                className="mx-bubble-mine max-w-full overflow-hidden rounded-2xl rounded-br-md px-4 py-2.5 text-[15px] lg:text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere] bg-[var(--color-card-active,rgba(255,255,255,0.08))] lg:bg-primary lg:text-on-primary text-[var(--color-pib-text)]"
               >
               <ChatMessageContent content={renderedMessage.content} />
               <RichMessageParts parts={renderedMessage.richParts} onQuoteSelection={onQuoteSelection} />
@@ -1726,11 +1726,16 @@ export default function MessageBubble({
   ) : null
 
   return (
-    <div className="flex min-w-0 justify-start gap-2.5 w-full overflow-hidden lg:gap-2.5">
+    <div
+      className="mx-message flex min-w-0 justify-start gap-2.5 w-full overflow-hidden lg:gap-2.5"
+      data-mine="false"
+      data-author-kind={isAgent ? 'agent' : 'user'}
+      data-status={m.status || 'complete'}
+    >
       {/* Avatar — hidden on mobile for cleaner prose-style look */}
       <div className="shrink-0 mt-0.5 hidden lg:block">
         {isAgent ? (
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${color.bg}`}>
+          <div className={`mx-avatar-ring w-8 h-8 rounded-full flex items-center justify-center ${color.bg}`}>
             <span className={`material-symbols-outlined text-[16px] ${color.text}`}>
               {agentIconKey ?? 'smart_toy'}
             </span>
@@ -1752,7 +1757,7 @@ export default function MessageBubble({
         {/* Live events (while pending/streaming/waiting) */}
         {(isPending || isWaiting) && (
             <div className="mb-1 min-w-0 space-y-1">
-              <div className="min-w-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2">
+              <div className="mx-activity-live min-w-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
@@ -1884,7 +1889,7 @@ export default function MessageBubble({
                 ? 'max-w-full overflow-hidden rounded-2xl rounded-tl-md px-4 py-2.5 text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere] bg-red-500/15 text-red-200 border border-red-500/40'
                 : [
                     // Mobile: plain prose, no background, larger readable text
-                    'max-w-full overflow-hidden text-[15px] leading-relaxed text-[var(--color-pib-text)] whitespace-pre-wrap break-words [overflow-wrap:anywhere]',
+                    'mx-bubble-agent max-w-full overflow-hidden text-[15px] leading-relaxed text-[var(--color-pib-text)] whitespace-pre-wrap break-words [overflow-wrap:anywhere]',
                     // Desktop: keep the bubble look
                     'lg:rounded-2xl lg:rounded-tl-md lg:px-4 lg:py-2.5 lg:text-sm lg:bg-[var(--color-card-active,rgba(255,255,255,0.06))]',
                   ].join(' ')
