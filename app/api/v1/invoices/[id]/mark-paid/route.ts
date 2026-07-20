@@ -14,7 +14,7 @@
  *  - Writes an entry to `activities` collection
  *  - Notifies the invoice creator (unless they triggered the update themselves)
  *
- * Auth: admin (ai satisfies)
+ * Auth: client (org members with invoice access; ai/admin satisfy)
  */
 import { adminDb } from '@/lib/firebase/admin'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
@@ -33,7 +33,7 @@ type RouteContext = { params: Promise<{ id: string }> }
 const VALID_METHODS = ['eft', 'paypal', 'cash', 'card', 'other'] as const
 type PaymentMethod = (typeof VALID_METHODS)[number]
 
-export const PATCH = withAuth('admin', async (req, user, ctx) => {
+export const PATCH = withAuth('client', async (req, user, ctx) => {
   const { id } = await (ctx as RouteContext).params
   const body = await req.json().catch(() => ({}))
 

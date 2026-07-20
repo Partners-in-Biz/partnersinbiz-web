@@ -94,7 +94,7 @@ export function invoicePortalCapabilities(actor: PortalActor, invoice: InvoiceLi
     canEdit,
     canSend: canEdit && status === 'draft',
     canCancel: canEdit && status === 'draft',
-    canMarkPaid: false,
+    canMarkPaid: Boolean(actor) && status.length > 0 && status !== 'paid' && status !== 'cancelled',
   }
 }
 
