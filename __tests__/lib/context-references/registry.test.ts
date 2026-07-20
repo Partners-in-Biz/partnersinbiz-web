@@ -3,13 +3,18 @@ export {}
 import { contextReferenceTypeFrom } from '@/lib/context-references/types'
 
 const mockCollection = jest.fn()
+const mockGetProjectForUser = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
 }))
 
 jest.mock('@/lib/projects/access', () => ({
-  getProjectForUser: jest.fn(async (projectId: string) => ({
+  getProjectForUser: (...args: unknown[]) => mockGetProjectForUser(...args),
+}))
+
+beforeEach(() => {
+  mockGetProjectForUser.mockImplementation(async (projectId: string) => ({
     ok: true,
     doc: {
       id: projectId,
@@ -21,8 +26,8 @@ jest.mock('@/lib/projects/access', () => ({
       }),
     },
     projectAccess: null,
-  })),
-}))
+  }))
+})
 
 function doc(id: string, data: Record<string, unknown>) {
   return { id, data: () => data, exists: true }
@@ -68,6 +73,12 @@ beforeEach(() => {
           name: 'Jane Client',
           email: 'jane@example.com',
           company: 'Client Co',
+          companyId: 'company-1',
+          stage: 'contacted',
+          type: 'prospect',
+          leadScore: 72,
+          lastContactedAt: '2026-07-20T09:00:00.000Z',
+          updatedAt: '2026-07-20T10:00:00.000Z',
           notes: 'Interested in launch planning.',
           deleted: false,
         }),
@@ -100,6 +111,9 @@ beforeEach(() => {
           orgId: 'org-1',
           name: 'Elemental',
           lifecycleStage: 'customer',
+          industry: 'Technology',
+          healthScore: 88,
+          updatedAt: '2026-07-20T10:30:00.000Z',
           tags: [],
           notes: '',
           deleted: false,
@@ -281,7 +295,10 @@ beforeEach(() => {
                 projectId: id,
                 title: 'Confirm launch scope',
                 description: 'Review client requirements before handoff.',
+                status: 'in-progress',
                 priority: 'high',
+                agentStatus: 'in-progress',
+                updatedAt: '2026-07-20T11:00:00.000Z',
                 deleted: false,
               }),
             ])
@@ -289,6 +306,12 @@ beforeEach(() => {
         })),
       }
     }
+    if (name === 'tasks') return queryFor([
+      doc('task-collision-global', { orgId: 'org-1', title: 'Unrelated global task', deleted: false }),
+      doc('task-direct-internal', { orgId: 'org-1', projectId: 'project-1', title: 'Internal hand-off', internalOnly: true, status: 'in-progress', priority: 'high', agentStatus: 'in-progress', updatedAt: '2026-07-20T11:00:00.000Z', deleted: false }),
+      doc('task-orphan-internal', { orgId: 'org-1', title: 'Internal orphan', visibility: 'internal', deleted: false }),
+      doc('task-deleted', { orgId: 'org-1', title: 'Deleted task', deleted: true }),
+    ])
     return queryFor([])
   })
 })
@@ -313,6 +336,37 @@ describe('context reference registry', () => {
     expect(buildAttachedContextBlock(refs)).toContain('[Attached context]')
     expect(buildAttachedContextBlock(refs)).toContain('project: Launch Project')
     expect(buildAttachedContextBlock(refs)).toContain('id: project-1')
+  })
+
+  it('derives bounded CRM and task canvas presentation data from canonical records', async () => {
+    const { resolveContextReferences } = await import('@/lib/context-references/registry')
+    const refs = await resolveContextReferences([
+      { type: 'contact', id: 'contact-1', orgId: 'org-1' },
+      { type: 'company', id: 'company-1', orgId: 'org-1' },
+      { type: 'task', id: 'task-1', orgId: 'org-1', metadata: { projectId: 'project-1' } },
+    ], { uid: 'admin-1', role: 'admin', authKind: 'session' }, 'org-1')
+
+    const contact = refs.find((ref) => ref.type === 'contact')
+    const company = refs.find((ref) => ref.type === 'company')
+    const task = refs.find((ref) => ref.type === 'task')
+    expect(contact?.metadata).toEqual(expect.objectContaining({
+      relationshipSeeds: [expect.objectContaining({ type: 'company', id: 'company-1' })],
+      presentation: expect.objectContaining({
+        metrics: expect.arrayContaining([expect.objectContaining({ id: 'stage', value: 'contacted' }), expect.objectContaining({ id: 'lead-score', value: 72 })]),
+        activity: expect.arrayContaining([expect.objectContaining({ id: 'contact-contacted', occurredAt: '2026-07-20T09:00:00.000Z' })]),
+      }),
+    }))
+    expect(company?.metadata).toEqual(expect.objectContaining({
+      presentation: expect.objectContaining({ metrics: expect.arrayContaining([expect.objectContaining({ id: 'lifecycle', value: 'customer' }), expect.objectContaining({ id: 'health-score', value: 88 })]) }),
+    }))
+    expect(task?.metadata).toEqual(expect.objectContaining({
+      projectId: 'project-1',
+      presentation: expect.objectContaining({
+        metrics: expect.arrayContaining([expect.objectContaining({ id: 'priority', value: 'high' })]),
+        activity: expect.arrayContaining([expect.objectContaining({ id: 'task-updated', occurredAt: '2026-07-20T11:00:00.000Z' })]),
+      }),
+    }))
+    expect(JSON.stringify(refs)).not.toContain('providerCredential')
   })
 
   it('searches only references visible to the caller and hides internal research from clients', async () => {
@@ -385,6 +439,34 @@ describe('context reference registry', () => {
         metadata: { projectId: 'project-1' },
       }),
     ])
+  })
+
+  it('does not expose deleted or internal tasks through a direct context reference', async () => {
+    const { resolveContextReferences } = await import('@/lib/context-references/registry')
+    const client = { uid: 'client-1', role: 'client' as const, orgId: 'org-1', orgIds: ['org-1'], authKind: 'session' as const }
+
+    await expect(resolveContextReferences([
+      { type: 'task', id: 'task-direct-internal', orgId: 'org-1' },
+      { type: 'task', id: 'task-orphan-internal', orgId: 'org-1' },
+      { type: 'task', id: 'task-deleted', orgId: 'org-1' },
+    ], client, 'org-1')).resolves.toEqual([])
+  })
+
+  it('requires project access for a direct task reference that names a project', async () => {
+    const { resolveContextReferences } = await import('@/lib/context-references/registry')
+    mockGetProjectForUser.mockResolvedValueOnce({ ok: false, error: 'Forbidden', status: 403 })
+
+    await expect(resolveContextReferences([
+      { type: 'task', id: 'task-direct-internal', orgId: 'org-1' },
+    ], { uid: 'client-1', role: 'client', orgId: 'org-1', orgIds: ['org-1'], authKind: 'session' }, 'org-1')).resolves.toEqual([])
+  })
+
+  it('does not resolve a same-id global task when a pinned task names a different project scope', async () => {
+    const { resolveContextReferences } = await import('@/lib/context-references/registry')
+
+    await expect(resolveContextReferences([
+      { type: 'task', id: 'task-collision-global', orgId: 'org-1', metadata: { projectId: 'project-1' } },
+    ], { uid: 'admin-1', role: 'admin', orgId: 'org-1', orgIds: ['org-1'], authKind: 'session' }, 'org-1')).resolves.toEqual([])
   })
 
   it('resolves and searches CRM product references', async () => {

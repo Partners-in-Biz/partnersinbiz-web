@@ -980,12 +980,12 @@ export default function UnifiedChat({
   // ── Derived ───────────────────────────────────────────────────────────────
   const linkedProjectIds = useMemo(() => new Set(workspaceProjects.map((project) => project.id)), [workspaceProjects])
   const activeConversation = useMemo(
-    () => conversations.find((conversation) => {
-      if (conversation.id !== activeId) return false
-      const project = conversationProjectIdentity(conversation)
-      return layoutVariant !== 'hermes' || compact || !project || linkedProjectIds.has(project.id)
-    }) ?? null,
-    [conversations, activeId, compact, layoutVariant, linkedProjectIds],
+    // The session rail may deliberately hide an unlinked project, but an
+    // authorised saved tab still needs its complete conversation surface. The
+    // conversation endpoint and context APIs enforce access; rail visibility
+    // must not suppress the active context strip or its controls.
+    () => conversations.find((conversation) => conversation.id === activeId) ?? null,
+    [conversations, activeId],
   )
   useEffect(() => {
     if (!preferCurrentPageContext || !currentPageContext) return
@@ -1954,7 +1954,11 @@ export default function UnifiedChat({
       if (!activeId && nextList.length) {
         const preferred = initialConvId && nextList.find((c) => c.id === initialConvId)
         const relatedId = preferCurrentPageContext && currentPageContext ? findRelatedConversationId(nextList, currentPageContext) : null
-        setActiveId(preferred ? initialConvId! : relatedId ?? (preferCurrentPageContext ? null : nextList[0].id))
+        const firstRailConversation = nextList.find((conversation) => {
+          const project = conversationProjectIdentity(conversation)
+          return layoutVariant !== 'hermes' || compact || !project || linkedProjectIds.has(project.id)
+        })
+        setActiveId(preferred ? initialConvId! : relatedId ?? (preferCurrentPageContext ? null : firstRailConversation?.id ?? null))
       } else if (
         !activeId &&
         nextList.length === 0 &&
@@ -2006,6 +2010,9 @@ export default function UnifiedChat({
     currentPageContext,
     preferCurrentPageContext,
     coerceContextRef,
+    compact,
+    layoutVariant,
+    linkedProjectIds,
     setActiveId,
   ])
 
@@ -2043,6 +2050,31 @@ export default function UnifiedChat({
 
   // ── Effects ───────────────────────────────────────────────────────────────
   useEffect(() => { loadConversations() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Hermes can restore a saved tab whose conversation is intentionally absent
+  // from the current rail catalogue (for example an unlinked project). Hydrate
+  // it through the permission-checked conversation endpoint instead of using
+  // rail visibility as an access decision.
+  useEffect(() => {
+    if (!activeId || conversations.some((conversation) => conversation.id === activeId)) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const response = await fetch(`/api/v1/conversations/${encodeURIComponent(activeId)}`)
+        if (!response.ok || cancelled) return
+        const body = await response.json()
+        const conversation: Conversation | undefined = body.data?.conversation
+        if (!conversation || conversation.id !== activeId || cancelled) return
+        setConversations((current) => current.some((item) => item.id === conversation.id)
+          ? current
+          : [conversation, ...current])
+      } catch {
+        // A stale or no-longer-authorised saved tab remains unavailable without
+        // exposing a conversation that the server did not approve.
+      }
+    })()
+    return () => { cancelled = true }
+  }, [activeId, conversations])
 
   useEffect(() => {
     if (activeId) loadMessages(activeId)

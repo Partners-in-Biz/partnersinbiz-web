@@ -1,6 +1,6 @@
 'use client'
 
-import type { ChatContextReadModel, ChatContextReference } from '@/lib/chat-context/types'
+import { chatContextReferenceKey, type ChatContextReadModel, type ChatContextReference } from '@/lib/chat-context/types'
 import type { ChatContextOption } from './ContextSelector'
 
 const ICONS: Record<string, string> = {
@@ -66,14 +66,14 @@ export function ContextStrip({ options, value, onChange, onRemove, onOpen, onAdd
     <div data-testid={model ? 'context-pulse' : undefined} role="toolbar" aria-label="Pinned conversation context" className="flex min-h-11 shrink-0 items-center gap-1.5 overflow-x-auto whitespace-nowrap border-b border-[var(--color-card-border)] bg-black/[0.08] px-3 py-1.5 [scrollbar-width:thin]">
       <span className="sticky left-0 z-10 hidden h-7 shrink-0 items-center bg-[var(--color-card)]/95 pr-1 text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)] sm:inline-flex">Context</span>
       {options.map((option) => {
-        const active = option.kind === value.kind && option.id === value.id
+        const active = chatContextReferenceKey(option) === chatContextReferenceKey(value)
         return (
-          <span key={`${option.kind}:${option.id}`} className={`group/context inline-flex h-11 shrink-0 items-center overflow-hidden rounded-lg border transition-colors xl:h-9 ${active ? 'border-primary/45 bg-primary/12 text-[var(--color-pib-text)]' : 'border-[var(--color-card-border)] bg-white/[0.035] text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)]'}`}>
+          <span key={chatContextReferenceKey(option)} className={`group/context inline-flex h-11 shrink-0 items-center overflow-hidden rounded-lg border transition-colors xl:h-9 ${active ? 'border-primary/45 bg-primary/12 text-[var(--color-pib-text)]' : 'border-[var(--color-card-border)] bg-white/[0.035] text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)]'}`}>
             <button
               type="button"
               aria-label={`Open ${option.label} context`}
               aria-pressed={active}
-              onClick={() => { onChange({ kind: option.kind, id: option.id }); onOpen() }}
+              onClick={() => { onChange({ kind: option.kind, id: option.id, ...(option.projectId ? { projectId: option.projectId } : {}) }); onOpen() }}
               className="inline-flex h-11 min-w-0 items-center gap-1.5 px-2.5 text-[11px] font-medium xl:h-9"
             >
               <span aria-hidden="true" className={`material-symbols-outlined text-[15px] ${active ? 'text-primary' : ''}`}>{ICONS[option.kind] ?? 'category'}</span>

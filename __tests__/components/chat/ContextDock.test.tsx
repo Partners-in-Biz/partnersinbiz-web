@@ -50,6 +50,33 @@ it('routes attention actions through the shared action handler instead of naviga
   expect(screen.getByRole('button', { name: 'Retry' })).toHaveClass('min-h-11', 'xl:min-h-0')
 })
 
+it.each(['company', 'contact', 'task'] as const)('renders a safe rich %s canvas projection with relationships, activity, actions, and canonical workspace link', (kind) => {
+  const onAction = jest.fn()
+  const action = { id: `follow-up-${kind}`, label: 'Follow up', href: `/api/${kind}/follow-up`, method: 'POST' as const }
+  const richModel = {
+    ...model,
+    context: { kind, id: `${kind}-1`, orgId: 'o1', label: `${kind} record`, icon: 'category', href: `/admin/${kind}/${kind}-1` },
+    preview: { kind: 'summary' as const, text: 'status: active | Safe canonical summary', status: 'active' },
+    groups: [{ id: 'overview', label: 'Overview', items: [{ id: `${kind}-1`, label: `${kind} record`, state: 'ready' as const, detail: 'Safe canonical summary', updatedAt: '2026-07-20T08:00:00.000Z', actions: [action] }] }],
+    relationships: [{ kind: 'company' as const, id: 'company-related', label: 'Related company', relation: 'Company', href: '/admin/crm/companies/company-related' }],
+    activity: [{ id: 'activity-1', type: 'pickup' as const, label: 'Record opened', occurredAt: '2026-07-20T09:00:00.000Z' }],
+  }
+  render(<ContextDock model={richModel} open compact onClose={jest.fn()} onAction={onAction} />)
+
+  expect(screen.getByRole('region', { name: 'Context overview' })).toHaveTextContent('active')
+  expect(screen.getByRole('region', { name: 'Related context' })).toHaveTextContent('Related company')
+  expect(screen.getByRole('region', { name: 'Recent activity' })).toHaveTextContent('Record opened')
+  expect(screen.getByRole('link', { name: 'Open Related company' })).toHaveAttribute('href', '/admin/crm/companies/company-related')
+  expect(screen.getByRole('link', { name: /Open full workspace/i })).toHaveAttribute('href', `/admin/${kind}/${kind}-1`)
+  fireEvent.click(screen.getByRole('button', { name: 'Follow up' }))
+  expect(onAction).toHaveBeenCalledWith(action)
+})
+
+it('shows an explicit empty recent-activity state for rich generic records', () => {
+  render(<ContextDock model={{ ...model, context: { kind: 'contact', id: 'contact-1', orgId: 'o1', label: 'A contact', icon: 'person' } }} open compact onClose={jest.fn()} />)
+  expect(screen.getByRole('region', { name: 'Recent activity' })).toHaveTextContent('No recent activity is available for this record yet.')
+})
+
 it('keeps workspace links touch-sized until the xl desktop breakpoint', () => {
   render(<ContextDock model={{ ...model, context: { ...model.context, href: '/portal/studios/s1' } }} open compact onClose={jest.fn()} />)
   expect(screen.getByRole('link', { name: /Open full workspace/i })).toHaveClass('min-h-11', 'xl:min-h-9')

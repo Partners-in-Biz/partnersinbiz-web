@@ -199,6 +199,61 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     expect(screen.queryByText('Old migrated session')).not.toBeInTheDocument()
   })
 
+  it('hydrates an authorised saved tab outside the rail catalogue so it retains context controls', async () => {
+    const savedProjectConversation = {
+      ...baseConversation,
+      id: 'conv-saved-project',
+      title: 'SkillOpt',
+      scope: 'project',
+      scopeRefId: 'hidden-project',
+      workspaceContext: { projectId: 'hidden-project', projectName: 'Hidden migrated project' },
+      contextRefs: [] as ContextReference[],
+    }
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/visible-agents') || url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: {
+        workspaces: [], runtimeTargetsByWorkspace: {}, projects: [],
+      } })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [] } })
+      if (url === '/api/v1/conversations/conv-saved-project') {
+        return jsonResponse({ data: { conversation: savedProjectConversation } })
+      }
+      if (url === '/api/v1/conversations/conv-saved-project/messages') return jsonResponse({ data: { messages: [] } })
+      if (url === '/api/v1/chat-context/project/hidden-project') return jsonResponse({ data: {
+        context: {
+          kind: 'project', id: 'hidden-project', orgId: 'org-1', label: 'Hidden migrated project', icon: 'rocket_launch',
+        },
+        pulse: { label: 'Hidden migrated project', headline: 'Saved project live context', metrics: [] },
+        preview: { kind: 'summary', text: 'Saved project live context', status: 'Active' },
+        groups: [], artifacts: [], attention: [], activity: [], capabilities: [], asOf: '2026-07-20T10:00:00.000Z',
+      } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        layoutVariant="hermes"
+        activeConversationId="conv-saved-project"
+      />,
+    )
+
+    const contextToolbar = await screen.findByRole('toolbar', { name: 'Pinned conversation context' })
+    expect(within(contextToolbar).getByRole('button', { name: 'Add conversation context' })).toBeInTheDocument()
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/conversations/conv-saved-project')
+    expect(await screen.findByTestId('context-pulse')).toBeInTheDocument()
+    const openContextDock = within(contextToolbar).getByRole('button', { name: 'Open context dock' })
+    fireEvent.click(openContextDock)
+    const dock = await screen.findByRole('dialog', { name: 'Hidden migrated project context' })
+    expect(within(dock).getByRole('region', { name: 'Context overview' })).toHaveTextContent('Saved project live context')
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/chat-context/project/hidden-project', expect.anything())
+    expect(screen.queryByTestId('hermes-project-hidden-project')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Open SkillOpt' })).not.toBeInTheDocument()
+  })
+
   it('removes only the current user sidebar link and refreshes the project list', async () => {
     let removed = false
     global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {

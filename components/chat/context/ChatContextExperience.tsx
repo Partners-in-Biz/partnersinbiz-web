@@ -6,7 +6,7 @@ import { ContextDock } from './ContextDock'
 import { ContextStrip, EmptyContextStrip } from './ContextStrip'
 import type { ReturnTypeOfUseChatContexts } from './internalTypes'
 import type { RuntimeExecution } from '@/components/messages/hermes/RuntimeInspectorRail'
-import type { ChatContextReadModel, ChatContextReference } from '@/lib/chat-context/types'
+import { chatContextReferenceKey, type ChatContextReadModel, type ChatContextReference } from '@/lib/chat-context/types'
 import type { ChatContextOption } from './ContextSelector'
 
 const executionOnlyModel: ChatContextReadModel = {
@@ -29,13 +29,14 @@ export function ChatContextExperience({ context, compact = false, artifactReques
   const secondaryOptions = useMemo<ChatContextOption[]>(() => {
     const options = new Map<string, ChatContextOption>()
     for (const option of context.contexts) {
-      if (option.kind !== context.activeContext?.kind || option.id !== context.activeContext?.id) options.set(`${option.kind}:${option.id}`, option)
+      if (chatContextReferenceKey(option) !== (context.activeContext ? chatContextReferenceKey(context.activeContext) : '')) options.set(chatContextReferenceKey(option), option)
     }
     for (const relationship of context.model?.relationships ?? []) {
-      if (relationship.kind !== context.activeContext?.kind || relationship.id !== context.activeContext?.id) options.set(`${relationship.kind}:${relationship.id}`, { kind: relationship.kind, id: relationship.id, label: relationship.label, ...(relationship.href ? { href: relationship.href } : {}) })
+      const option = { kind: relationship.kind, id: relationship.id, label: relationship.label, ...(relationship.href ? { href: relationship.href } : {}) }
+      if (chatContextReferenceKey(option) !== (context.activeContext ? chatContextReferenceKey(context.activeContext) : '')) options.set(chatContextReferenceKey(option), option)
     }
     return [...options.values()]
-  }, [context.activeContext?.id, context.activeContext?.kind, context.contexts, context.model?.relationships])
+  }, [context.activeContext?.id, context.activeContext?.kind, context.activeContext?.projectId, context.contexts, context.model?.relationships])
   const secondaryOptionsRef = useRef(secondaryOptions)
   secondaryOptionsRef.current = secondaryOptions
   const secondaryHydrationRevision = useMemo(() => {
@@ -51,7 +52,7 @@ export function ChatContextExperience({ context, compact = false, artifactReques
   const secondaryHydrationRevisionRef = useRef(secondaryHydrationRevision)
   secondaryHydrationRevisionRef.current = secondaryHydrationRevision
   const canvasStorageKey = context.conversationId && context.orgId ? `pib.messages.contextCanvas.v1:${context.orgId}:${context.conversationId}` : ''
-  const actionOperationIdentity = `${canvasStorageKey}:${context.activeContext?.kind ?? ''}:${context.activeContext?.id ?? ''}:${secondaryContext?.kind ?? ''}:${secondaryContext?.id ?? ''}`
+  const actionOperationIdentity = `${canvasStorageKey}:${context.activeContext ? chatContextReferenceKey(context.activeContext) : ''}:${secondaryContext ? chatContextReferenceKey(secondaryContext) : ''}`
   const actionOperationIdentityRef = useRef(actionOperationIdentity)
   actionOperationIdentityRef.current = actionOperationIdentity
   useEffect(() => { onOpenChange?.(open) }, [onOpenChange, open])
@@ -73,7 +74,7 @@ export function ChatContextExperience({ context, compact = false, artifactReques
       setCanvasMode(stored?.mode === 'dual' ? 'dual' : 'single')
       const storedWidth = Number(stored?.width)
       setCanvasWidth(Number.isFinite(storedWidth) ? Math.min(640, Math.max(420, storedWidth)) : 520)
-      const candidate = stored?.secondary && secondaryOptionsRef.current.find((option) => option.kind === stored.secondary?.kind && option.id === stored.secondary.id)
+      const candidate = stored?.secondary && secondaryOptionsRef.current.find((option) => chatContextReferenceKey(option) === chatContextReferenceKey(stored.secondary!))
       if (stored?.secondary && !candidate) {
         setPendingStoredSecondary({ storageKey: canvasStorageKey, reference: stored.secondary, hydrationRevision: secondaryHydrationRevisionRef.current })
         setSecondaryContext(secondaryOptionsRef.current[0])
@@ -92,7 +93,7 @@ export function ChatContextExperience({ context, compact = false, artifactReques
   useEffect(() => {
     if (!canvasStorageKey || loadedCanvasStorageKey !== canvasStorageKey) return
     if (pendingStoredSecondary?.storageKey === canvasStorageKey) {
-      const restored = secondaryOptions.find((option) => option.kind === pendingStoredSecondary.reference.kind && option.id === pendingStoredSecondary.reference.id)
+      const restored = secondaryOptions.find((option) => chatContextReferenceKey(option) === chatContextReferenceKey(pendingStoredSecondary.reference))
       if (restored) {
         setPendingStoredSecondary(null)
         setSecondaryContext(restored)
@@ -101,14 +102,14 @@ export function ChatContextExperience({ context, compact = false, artifactReques
       if (pendingStoredSecondary.hydrationRevision === secondaryHydrationRevision) return
       setPendingStoredSecondary(null)
     }
-    if (secondaryContext && secondaryOptions.some((option) => option.kind === secondaryContext.kind && option.id === secondaryContext.id)) return
+    if (secondaryContext && secondaryOptions.some((option) => chatContextReferenceKey(option) === chatContextReferenceKey(secondaryContext))) return
     setSecondaryContext(secondaryOptions[0])
   }, [canvasStorageKey, loadedCanvasStorageKey, pendingStoredSecondary, secondaryContext, secondaryHydrationRevision, secondaryOptions])
   useEffect(() => {
     if (!canvasStorageKey || loadedCanvasStorageKey !== canvasStorageKey) return
     const storedSecondary = pendingStoredSecondary?.storageKey === canvasStorageKey
       ? pendingStoredSecondary.reference
-      : secondaryContext ? { kind: secondaryContext.kind, id: secondaryContext.id } : undefined
+      : secondaryContext ? { kind: secondaryContext.kind, id: secondaryContext.id, ...(secondaryContext.projectId ? { projectId: secondaryContext.projectId } : {}) } : undefined
     try { window.localStorage.setItem(canvasStorageKey, JSON.stringify({ open, mode: canvasMode, width: canvasWidth, secondary: storedSecondary })) } catch (storageError) { void storageError /* Storage policy must not break Messages. */ }
   }, [canvasMode, canvasStorageKey, canvasWidth, loadedCanvasStorageKey, open, pendingStoredSecondary, secondaryContext])
   useEffect(() => {
