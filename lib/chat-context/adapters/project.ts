@@ -124,7 +124,7 @@ export const projectChatContextAdapter: ChatContextAdapter = {
           id: projectId,
           orgId: cleanString(projectData.orgId) || cleanString(projectData.ownerOrgId) || '',
           label: progress.project.name,
-          icon: 'project',
+          icon: 'account_tree',
           href: `/portal/projects/${encodeURIComponent(projectId)}`,
         },
         pulse: {

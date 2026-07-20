@@ -106,7 +106,7 @@ describe('Portal messages page layout', () => {
     const workspace = chat.closest('[data-testid="hermes-messages-shell"]')
 
     expect(workspace).toHaveClass('overflow-hidden')
-    expect(workspace).toHaveClass('h-[calc(100dvh-88px)]')
+    expect(workspace).toHaveClass('h-[calc(100dvh-72px)]')
     expect(screen.queryByTestId('portal-messages-intro')).not.toBeInTheDocument()
   })
 

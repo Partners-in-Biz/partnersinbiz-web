@@ -134,7 +134,7 @@
 [data-messages-experience] [data-testid='hermes-messages-shell-topbar'] {
   position: relative;
   z-index: 3;
-  height: 2.85rem;
+  height: 2.5rem;
   border-bottom: 1px solid var(--mx-line);
   background: var(--mx-glass);
   backdrop-filter: blur(var(--mx-blur)) saturate(var(--mx-sat));
@@ -296,6 +296,31 @@
 }
 
 /* ── Thread + composer ─────────────────────────────────────────────────── */
+
+/* Context dock: keep kind eyebrow + title stacked; never watermark/overlap */
+[data-messages-experience] [data-testid='context-dock-header'] {
+  position: relative;
+  z-index: 2;
+  overflow: hidden;
+  isolation: isolate;
+}
+[data-messages-experience] [data-testid='context-dock-header'] .material-symbols-outlined {
+  overflow: hidden;
+  font-size: 18px !important;
+  line-height: 1 !important;
+}
+[data-messages-experience] [data-testid='context-dock-header'] p {
+  position: relative;
+  z-index: 1;
+  font-size: 0.5625rem !important;
+  line-height: 1.1 !important;
+}
+[data-messages-experience] [data-testid='context-dock-header'] h2 {
+  position: relative;
+  z-index: 1;
+  font-size: 0.875rem !important;
+  line-height: 1.25 !important;
+}
 
 [data-messages-experience] [data-testid='chat-input-drop-zone'] {
   position: relative;
