@@ -201,6 +201,31 @@ function compactSummary(parts: Array<unknown>, max = MAX_CONTEXT_SUMMARY_CHARS):
     .slice(0, max)
 }
 
+// Context references are persisted on conversations.  Keep the presentation
+// metadata deliberately small, serialisable, and derived from canonical fields
+// only; it is refreshed by every chat-context read and never includes a raw
+// domain record.
+function safeIso(value: unknown): string | undefined {
+  const date = value instanceof Date
+    ? value
+    : value && typeof value === 'object' && typeof (value as { toDate?: unknown }).toDate === 'function'
+      ? (value as { toDate: () => Date }).toDate()
+      : typeof value === 'string' || typeof value === 'number'
+        ? new Date(value)
+        : null
+  return date && Number.isFinite(date.getTime()) ? date.toISOString() : undefined
+}
+
+function presentationActivity(id: string, type: 'pickup' | 'running' | 'waiting' | 'dependency_released' | 'failure' | 'blocked' | 'approval_required' | 'input_required' | 'review_required' | 'verified_complete', label: string, occurredAt: unknown, detail?: string) {
+  const timestamp = safeIso(occurredAt)
+  return timestamp ? { id, type, label, occurredAt: timestamp, ...(detail ? { detail: clean(detail, 240) } : {}) } : null
+}
+
+function relationSeed(type: ContextReferenceType, id: unknown, relation: string) {
+  const safeId = clean(id, 200)
+  return safeId ? { type, id: safeId, relation: clean(relation, 80) || 'Related' } : null
+}
+
 function origin(seed: ContextReferenceSeed): ContextReferenceOrigin {
   return seed.origin ?? 'manual'
 }
@@ -404,6 +429,10 @@ async function resolveTask(input: ResolverInput): Promise<ContextReference | nul
     if (!projectAccess.ok) return null
     const snap = await adminDb.collection('projects').doc(projectId).collection('tasks').doc(input.seed.id).get()
     doc = snap.exists ? (snap as FirestoreDoc) : null
+    // A project-scoped reference is an identity, not a search hint. Falling
+    // back to the global task collection here could resolve an unrelated
+    // same-id task under this project's access policy.
+    if (!doc) return null
   }
   if (!doc) doc = await getDoc('tasks', input.seed.id)
   if (!doc) return null
@@ -443,7 +472,21 @@ async function resolveTask(input: ResolverInput): Promise<ContextReference | nul
       data.assigneeName ? `assignee: ${clean(data.assigneeName)}` : '',
       data.description,
     ]),
-    metadata: projectId ? { projectId } : undefined,
+    metadata: {
+      ...(projectId ? { projectId } : {}),
+      presentation: {
+        metrics: [
+          ...(clean(data.priority) ? [{ id: 'priority', label: 'Priority', value: clean(data.priority) }] : []),
+          ...(clean(data.agentStatus) ? [{ id: 'agent-status', label: 'Agent status', value: clean(data.agentStatus) }] : []),
+          ...(clean(data.reviewStatus) ? [{ id: 'review-status', label: 'Review', value: clean(data.reviewStatus) }] : []),
+        ],
+        activity: [
+          presentationActivity('task-completed', 'verified_complete', 'Task completed', data.agentOutput && typeof data.agentOutput === 'object' ? (data.agentOutput as RawDoc).completedAt : data.completedAt),
+          presentationActivity('task-updated', clean(data.agentStatus).toLowerCase() === 'blocked' ? 'blocked' : 'running', clean(data.agentStatus).toLowerCase() === 'blocked' ? 'Task blocked' : 'Task updated', data.updatedAt),
+          presentationActivity('task-created', 'pickup', 'Task created', data.createdAt),
+        ].filter(Boolean),
+      },
+    },
   })
 }
 
@@ -454,6 +497,23 @@ async function resolveCrm(type: 'contact' | 'company', input: ResolverInput): Pr
   const data = doc.data() ?? {}
   const orgId = docOrgId(data, input.seed.orgId ?? input.defaultOrgId)
   if (isDeleted(data) || !orgId || !sameOrg(data, expectedOrgId(input.seed, input.defaultOrgId)) || !canUseOrg(input.user, orgId)) return null
+  const relationshipSeeds = type === 'contact'
+    ? [
+        relationSeed('company', data.companyId, 'Company'),
+        ...(Array.isArray(data.companyLinks) ? data.companyLinks.map((link) => relationSeed('company', link && typeof link === 'object' ? (link as RawDoc).companyId : undefined, 'Company')) : []),
+      ].filter(Boolean)
+    : [relationSeed('company', data.parentCompanyId, 'Parent company')].filter(Boolean)
+  const activity = type === 'contact'
+    ? [
+        presentationActivity('contact-replied', 'verified_complete', 'Reply received', data.lastRepliedAt),
+        presentationActivity('contact-contacted', 'running', 'Contacted', data.lastContactedAt),
+        presentationActivity('contact-updated', 'running', 'Contact updated', data.updatedAt),
+        presentationActivity('contact-created', 'pickup', 'Contact added', data.createdAt),
+      ].filter(Boolean)
+    : [
+        presentationActivity('company-updated', 'running', 'Company updated', data.updatedAt),
+        presentationActivity('company-created', 'pickup', 'Company added', data.createdAt),
+      ].filter(Boolean)
   return makeRef({
     type,
     id: doc.id,
@@ -473,6 +533,23 @@ async function resolveCrm(type: 'contact' | 'company', input: ResolverInput): Pr
       data.status ? `status: ${clean(data.status)}` : '',
       data.notes,
     ]),
+    metadata: {
+      ...(relationshipSeeds.length > 0 ? { relationshipSeeds } : {}),
+      presentation: {
+        metrics: type === 'contact'
+          ? [
+              ...(clean(data.stage) ? [{ id: 'stage', label: 'Stage', value: clean(data.stage) }] : []),
+              ...(clean(data.type) ? [{ id: 'type', label: 'Type', value: clean(data.type) }] : []),
+              ...(typeof data.leadScore === 'number' && Number.isFinite(data.leadScore) ? [{ id: 'lead-score', label: 'Lead score', value: data.leadScore }] : []),
+            ]
+          : [
+              ...(clean(data.lifecycleStage) ? [{ id: 'lifecycle', label: 'Lifecycle', value: clean(data.lifecycleStage) }] : []),
+              ...(clean(data.industry) ? [{ id: 'industry', label: 'Industry', value: clean(data.industry) }] : []),
+              ...(typeof data.healthScore === 'number' && Number.isFinite(data.healthScore) ? [{ id: 'health-score', label: 'Health score', value: data.healthScore }] : []),
+            ],
+        activity,
+      },
+    },
   })
 }
 

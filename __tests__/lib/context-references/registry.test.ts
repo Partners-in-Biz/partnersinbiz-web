@@ -295,6 +295,7 @@ beforeEach(() => {
       }
     }
     if (name === 'tasks') return queryFor([
+      doc('task-collision-global', { orgId: 'org-1', title: 'Unrelated global task', deleted: false }),
       doc('task-direct-internal', { orgId: 'org-1', projectId: 'project-1', title: 'Internal hand-off', internalOnly: true, deleted: false }),
       doc('task-orphan-internal', { orgId: 'org-1', title: 'Internal orphan', visibility: 'internal', deleted: false }),
       doc('task-deleted', { orgId: 'org-1', title: 'Deleted task', deleted: true }),
@@ -415,6 +416,14 @@ describe('context reference registry', () => {
     await expect(resolveContextReferences([
       { type: 'task', id: 'task-direct-internal', orgId: 'org-1' },
     ], { uid: 'client-1', role: 'client', orgId: 'org-1', orgIds: ['org-1'], authKind: 'session' }, 'org-1')).resolves.toEqual([])
+  })
+
+  it('does not resolve a same-id global task when a pinned task names a different project scope', async () => {
+    const { resolveContextReferences } = await import('@/lib/context-references/registry')
+
+    await expect(resolveContextReferences([
+      { type: 'task', id: 'task-collision-global', orgId: 'org-1', metadata: { projectId: 'project-1' } },
+    ], { uid: 'admin-1', role: 'admin', orgId: 'org-1', orgIds: ['org-1'], authKind: 'session' }, 'org-1')).resolves.toEqual([])
   })
 
   it('resolves and searches CRM product references', async () => {
