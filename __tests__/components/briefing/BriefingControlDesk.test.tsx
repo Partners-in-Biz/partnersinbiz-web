@@ -1565,7 +1565,9 @@ describe('BriefingControlDesk', () => {
     expect(columns).toHaveClass('xl:grid-cols-[190px_350px_minmax(420px,1fr)]')
 
     const shell = screen.getByTestId('briefings-room-shell')
-    expect(shell).toHaveClass('h-[calc(100dvh-88px)]')
+    expect(shell).toHaveClass('h-full', 'rounded-none', 'border-0', 'shadow-none')
+    expect(shell).not.toHaveClass('h-[calc(100dvh-88px)]')
+    expect(screen.queryByText('Client portal / Briefings')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /open pip briefing assistant/i })).toBeInTheDocument()
     expect(screen.getByLabelText('Quick briefing actions')).toBeInTheDocument()
 

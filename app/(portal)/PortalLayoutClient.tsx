@@ -832,7 +832,10 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     return (
       <>
         <link rel="stylesheet" href={PORTAL_MATERIAL_SYMBOLS} />
-        <div data-message-push-root className="flex flex-col min-h-screen bg-[var(--color-pib-bg)] text-[var(--color-pib-text)]">
+        <div data-message-push-root className={[
+          'flex flex-col bg-[var(--color-pib-bg)] text-[var(--color-pib-text)]',
+          isCockpitRoute || isMessagesRoute ? 'h-dvh overflow-hidden' : 'min-h-screen',
+        ].join(' ')}>
           {tracker}
           <header className="pib-chrome-sticky pib-topbar-dense sticky top-0 z-30 shrink-0">
           <div className="flex items-center h-full px-3 gap-1.5 sm:px-4">
@@ -1011,7 +1014,10 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   return (
     <>
       <link rel="stylesheet" href={PORTAL_MATERIAL_SYMBOLS} />
-      <div data-message-push-root className="min-h-screen bg-[var(--color-pib-bg)] text-[var(--color-pib-text)] flex">
+      <div data-message-push-root className={[
+        'bg-[var(--color-pib-bg)] text-[var(--color-pib-text)] flex',
+        isCockpitRoute || isMessagesRoute ? 'h-dvh overflow-hidden' : 'min-h-screen',
+      ].join(' ')}>
         {tracker}
       {/* Mobile backdrop */}
       <div
