@@ -118,7 +118,7 @@ export interface ConversationMessage {
   error?: string
   events?: unknown[]
   /** Browser-safe thinking trail (no tool I/O). Prefer this over raw events. */
-  thinking?: import('./thinking-trace').MessageThinkingTrace
+  thinking?: MessageThinkingTrace
   richParts?: RichMessagePart[]
   rich_parts?: RichMessagePart[]
   toolName?: string
