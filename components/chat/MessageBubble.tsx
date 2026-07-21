@@ -17,6 +17,7 @@ import { copyToClipboard } from '@/lib/utils/clipboard'
 import { normalizeStudioArtifactPart } from '@/lib/chat-context/artifactPayload'
 import type { ChatArtifactSummary } from '@/lib/chat-context/types'
 import { ContextArtifactBundle } from './context/ContextArtifactBundle'
+import { buildThinkingTrace, type MessageThinkingTrace } from '@/lib/conversations/thinking-trace'
 
 // Matches Phase 1 ConversationMessage shape
 export interface ConversationMessage {
@@ -33,6 +34,7 @@ export interface ConversationMessage {
   status?: string
   error?: string
   events?: unknown[]
+  thinking?: MessageThinkingTrace
   richParts?: RichMessagePart[]
   uiActions?: ChatUiAction[]
   toolName?: string
@@ -260,6 +262,75 @@ function taskRows(events: ChatEvent[]): Array<{ key: string; title: string; stat
 function reasoningSummary(events: ChatEvent[]): string | null {
   const event = [...events].reverse().find((item) => item.event === 'reasoning.summary' && (item.text || item.preview))
   return event?.text ?? event?.preview ?? null
+}
+
+function formatThinkingDuration(durationMs?: number): string | null {
+  if (typeof durationMs !== 'number' || !Number.isFinite(durationMs) || durationMs < 500) return null
+  const seconds = Math.round(durationMs / 1000)
+  if (seconds < 60) return `${seconds}s`
+  const minutes = Math.floor(seconds / 60)
+  const rem = seconds % 60
+  return rem ? `${minutes}m ${rem}s` : `${minutes}m`
+}
+
+function ThinkingDisclosure({
+  thinking,
+  defaultOpen = false,
+}: {
+  thinking: MessageThinkingTrace
+  defaultOpen?: boolean
+}) {
+  const duration = formatThinkingDuration(thinking.durationMs)
+  const meta = [
+    duration ? `Thought for ${duration}` : null,
+    thinking.toolCount > 0 ? `${thinking.toolCount} tool${thinking.toolCount === 1 ? '' : 's'}` : null,
+    thinking.steps.length > 0 ? `${thinking.steps.length} step${thinking.steps.length === 1 ? '' : 's'}` : null,
+  ].filter(Boolean).join(' · ')
+
+  return (
+    <details
+      open={defaultOpen || undefined}
+      data-testid="message-thinking-disclosure"
+      className="group/thinking mb-2 overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] text-[var(--color-pib-text-muted)]"
+    >
+      <summary className="flex cursor-pointer list-none select-none items-center gap-2 px-3 py-2 text-[11px] font-label uppercase tracking-wide text-[var(--color-pib-text)] [&::-webkit-details-marker]:hidden">
+        <span className="material-symbols-outlined text-[15px] text-primary transition-transform group-open/thinking:rotate-90">psychology</span>
+        <span className="min-w-0 flex-1 truncate normal-case tracking-normal">
+          {thinking.summary ? 'Show thinking' : 'Show work'}
+          {meta ? <span className="ml-2 font-normal normal-case tracking-normal text-[var(--color-pib-text-muted)]">{meta}</span> : null}
+        </span>
+        <span className="material-symbols-outlined text-[14px] text-[var(--color-pib-text-muted)] transition-transform group-open/thinking:rotate-180">expand_more</span>
+      </summary>
+      <div className="space-y-2 border-t border-white/10 px-3 py-2.5">
+        {thinking.summary && (
+          <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-[var(--color-pib-text-muted)]">
+            {thinking.summary}
+          </p>
+        )}
+        {thinking.steps.length > 0 && (
+          <div className="space-y-1">
+            {thinking.steps.map((step, index) => (
+              <div
+                key={`${step.kind}-${step.label}-${index}`}
+                className="flex items-center gap-2 text-[11px] text-[var(--color-pib-text-muted)]"
+              >
+                <span className={[
+                  'material-symbols-outlined text-[13px]',
+                  step.status === 'failed' ? 'text-red-300' : step.status === 'completed' || step.status === 'done' ? 'text-emerald-300' : 'text-primary/80',
+                ].join(' ')}>
+                  {step.kind === 'tool' ? 'build' : step.kind === 'task' ? 'checklist' : step.kind === 'reasoning' ? 'psychology' : 'trip_origin'}
+                </span>
+                <span className="min-w-0 flex-1 truncate">{step.label}</span>
+                {step.status && (
+                  <span className="shrink-0 font-mono text-[10px] opacity-60">{step.status}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </details>
+  )
 }
 
 function isImageAttachment(attachment: ConversationAttachment): boolean {
@@ -1583,6 +1654,7 @@ export default function MessageBubble({
   const activity = currentActivity(displayEvents, elapsed)
   const tasks = taskRows(displayEvents)
   const safeReasoning = reasoningSummary(displayEvents)
+  const thinking = m.thinking ?? buildThinkingTrace(displayEvents)
   const attachments = m.attachments ?? []
   const attachmentList = attachments.length > 0 ? (
     <div className="mt-2 grid gap-2">
@@ -1849,6 +1921,11 @@ export default function MessageBubble({
               </button>
             )}
           </div>
+        )}
+
+        {/* Completed thinking — collapsed by default so the answer stays primary */}
+        {!isPending && !isWaiting && thinking && (
+          <ThinkingDisclosure thinking={thinking} />
         )}
 
         {/* Completed tool-call timeline (collapsible) */}

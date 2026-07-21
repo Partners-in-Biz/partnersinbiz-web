@@ -25,6 +25,7 @@ import {
   messagesCollection,
   touchConversation,
 } from './conversations'
+import { buildThinkingTrace, mergeChatEvents } from './thinking-trace'
 
 type JsonObject = Record<string, unknown>
 
@@ -366,7 +367,15 @@ export async function finalizeConversationRun(input: {
     }
   }
 
-  const events = Array.isArray(msgData.events) ? msgData.events as ChatEvent[] : []
+  const storedEvents = Array.isArray(msgData.events) ? msgData.events as ChatEvent[] : []
+  // Client SSE events are useful for a public thinking trail, but must not become
+  // authoritative run output / rich payload when Hermes itself returned nothing.
+  const clientEvents = Array.isArray(input.events) ? input.events : []
+  const eventsForThinking = mergeChatEvents(storedEvents, clientEvents)
+  const events = storedEvents
+  const thinking = buildThinkingTrace(eventsForThinking)
+  const thinkingPatch = thinking ? { thinking } : {}
+  const eventsPersistPatch = eventsForThinking.length > 0 ? { events: eventsForThinking } : {}
   const agentId = resolveAgentId(storedAgentId as AgentId, msgData)
   if (!agentId) throw new HermesConversationRunError('Agent not found for run', 404)
 
@@ -384,7 +393,8 @@ export async function finalizeConversationRun(input: {
         status: 'failed',
         error: CONVERSATION_RUN_LOST_ERROR,
         runId,
-        ...(events.length > 0 ? { events } : {}),
+        ...eventsPersistPatch,
+        ...thinkingPatch,
       })
       await updateRunDoc(msgData.runDocId, runId, {
         status: 'lost',
@@ -448,7 +458,8 @@ export async function finalizeConversationRun(input: {
       status: 'completed',
       runId,
       error: FieldValue.delete(),
-      ...(events.length > 0 ? { events } : {}),
+      ...eventsPersistPatch,
+      ...thinkingPatch,
       ...richPatch,
     })
     await updateRunDoc(msgData.runDocId, runId, {
@@ -484,7 +495,8 @@ export async function finalizeConversationRun(input: {
       status: 'failed',
       error,
       runId,
-      ...(events.length > 0 ? { events } : {}),
+      ...eventsPersistPatch,
+      ...thinkingPatch,
       ...richPatch,
     })
     await updateRunDoc(msgData.runDocId, runId, {
@@ -502,7 +514,8 @@ export async function finalizeConversationRun(input: {
     await msgRef.update({
       status: 'waiting_approval',
       runId,
-      ...(events.length > 0 ? { events } : {}),
+      ...eventsPersistPatch,
+      ...thinkingPatch,
       ...richPatch,
     })
     await updateRunDoc(msgData.runDocId, runId, {
@@ -519,7 +532,8 @@ export async function finalizeConversationRun(input: {
       status: 'failed',
       error: CONVERSATION_RUN_STALE_ERROR,
       runId,
-      ...(events.length > 0 ? { events } : {}),
+      ...eventsPersistPatch,
+      ...thinkingPatch,
     })
     await updateRunDoc(msgData.runDocId, runId, {
       status: 'timed_out',

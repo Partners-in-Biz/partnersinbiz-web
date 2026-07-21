@@ -143,6 +143,32 @@ describe('Workspace conversation access', () => {
     expect(publicMessage).not.toHaveProperty('toolName')
   })
 
+  it('exposes sanitized thinking traces without raw tool events', () => {
+    const publicMessage = publicConversationMessageView({
+      id: 'msg-2',
+      conversationId: 'conv-1',
+      role: 'assistant',
+      content: 'Done.',
+      authorKind: 'agent',
+      authorId: 'pip',
+      authorDisplayName: 'Pip',
+      events: [{ type: 'tool', output: '/var/lib/hermes/private' }],
+      thinking: {
+        summary: 'Checked project status via API.',
+        steps: [{ kind: 'tool', label: 'terminal', status: 'completed' }],
+        toolCount: 1,
+        durationMs: 4200,
+      },
+    })
+    expect(publicMessage.thinking).toEqual({
+      summary: 'Checked project status via API.',
+      steps: [{ kind: 'tool', label: 'terminal', status: 'completed' }],
+      toolCount: 1,
+      durationMs: 4200,
+    })
+    expect(publicMessage).not.toHaveProperty('events')
+  })
+
   it('limits access management to the canonical owner or a scoped administrator', () => {
     const scopedAdmin = { uid: 'admin-2', role: 'admin', allowedOrgIds: ['org-1'] } as ApiUser
     const restrictedAdmin = { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-2'] } as ApiUser

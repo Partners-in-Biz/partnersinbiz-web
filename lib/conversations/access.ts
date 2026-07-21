@@ -111,6 +111,7 @@ export function publicConversationMessageView(message: ConversationMessage): Con
     ...(message.runId ? { runId: message.runId } : {}),
     ...(message.status ? { status: message.status } : {}),
     ...(message.error ? { error: message.error } : {}),
+    ...(message.thinking ? { thinking: message.thinking } : {}),
     ...(message.richParts ? { richParts: message.richParts } : {}),
     ...(message.rich_parts ? { rich_parts: message.rich_parts } : {}),
     authorKind: message.authorKind,

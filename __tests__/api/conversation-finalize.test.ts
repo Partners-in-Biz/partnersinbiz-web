@@ -237,8 +237,11 @@ describe('POST /api/v1/conversations/[convId]/messages/[msgId]/finalize', () => 
       status: 'failed',
       error: 'gateway restarted while run was active',
       runId: 'run-1',
+      events,
+      thinking: expect.objectContaining({
+        steps: [expect.objectContaining({ kind: 'status', label: 'Run interrupted' })],
+      }),
     }))
-    expect(mockMessageUpdate.mock.calls[0]?.[0]).not.toHaveProperty('events')
     expect(mockTouchConversation).toHaveBeenCalledWith(
       'conv-1',
       '[run interrupted] gateway restarted while run was active',
@@ -264,8 +267,8 @@ describe('POST /api/v1/conversations/[convId]/messages/[msgId]/finalize', () => 
       status: 'failed',
       runId: 'run-missing',
       error: expect.stringContaining('agent gateway lost this run'),
+      events,
     }))
-    expect(mockMessageUpdate.mock.calls[0]?.[0]).not.toHaveProperty('events')
   })
 
   it('persists completed Hermes rich parts and UI actions alongside fallback text', async () => {

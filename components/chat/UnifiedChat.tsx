@@ -2,6 +2,7 @@
 
 import { DragEvent, FormEvent, KeyboardEvent, useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { ChatEvent, ChatUiAction, RichMessagePart } from '@/lib/hermes/types'
+import { buildThinkingTrace } from '@/lib/conversations/thinking-trace'
 import { AGENT_IDS, type AgentSkillPolicyState } from '@/lib/agents/types'
 import { AGENT_EFFORT_OPTIONS, type AgentEffort } from '@/lib/agents/runRouting'
 import {
@@ -2362,8 +2363,14 @@ export default function UnifiedChat({
           return
         }
 
-        // completed or failed — close stream and reload
+        // completed or failed — close stream, keep a local thinking trail, then reload
         closeEventStream(msgId)
+        const thinking = buildThinkingTrace(events)
+        if (thinking) {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === msgId ? { ...m, thinking, status: status === 'failed' ? 'failed' : 'completed' } : m)),
+          )
+        }
         await loadMessages(convId)
         await loadConversations()
       } catch {
