@@ -13,14 +13,12 @@ import { ModuleShell } from '@/components/ui/ModuleShell'
 import { HudChip, SignalMeter } from '@/components/ui/HudChip'
 import type { HermesMessagesShellProps, MessagesSurface } from './types'
 
-const SURFACE_META: Record<MessagesSurface, { eyebrow: string; title: string; description: string }> = {
+const SURFACE_META: Record<MessagesSurface, { title: string; description: string }> = {
   admin: {
-    eyebrow: 'Workspace / Messages',
     title: 'Messages',
     description: 'Hermes-backed conversations with agents, runtime controls and team context.',
   },
   portal: {
-    eyebrow: 'Client portal / Messages',
     title: 'Messages',
     description: 'Dense Hermes-style workspace for conversations with Pip and the Partners team.',
   },
@@ -265,7 +263,7 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
       shellTestId="hermes-messages-shell"
       fieldTestId="messages-neural-field"
       data-messages-experience="cinematic-2026"
-      className="relative flex h-[calc(100dvh-72px)] min-h-0 min-w-0 flex-col overflow-hidden rounded-[18px] border border-[var(--color-card-border)] bg-[var(--color-card)]/55 shadow-[0_24px_80px_rgba(0,0,0,0.24)] lg:min-h-[640px]"
+      className="relative flex h-[calc(100dvh-72px)] min-h-0 min-w-0 flex-col overflow-hidden rounded-none border-0 bg-[var(--color-card)]/55 shadow-none lg:min-h-[640px]"
     >
       <header data-testid="hermes-messages-shell-topbar" className="flex h-10 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black/[0.08] px-2.5">
         <div className="flex min-w-0 items-center gap-2">
@@ -273,12 +271,9 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
             forum
             <span className="messages-hud-pulse absolute -right-0.5 -top-0.5" aria-hidden="true" />
           </span>
-          <div className="min-w-0">
-            <div className="truncate pib-label">{copy.eyebrow}</div>
-            <div className="flex min-w-0 items-center gap-2">
-              <h1 className="truncate text-sm font-semibold leading-tight text-[var(--color-pib-text)]">{copy.title}</h1>
-              {orgName && <span className="hidden truncate text-xs text-[var(--color-pib-text-muted)] sm:inline">· {orgName}</span>}
-            </div>
+          <div className="flex min-w-0 items-center gap-2">
+            <h1 className="truncate text-sm font-semibold leading-tight text-[var(--color-pib-text)]">{copy.title}</h1>
+            {orgName && <span className="hidden truncate text-xs text-[var(--color-pib-text-muted)] sm:inline">· {orgName}</span>}
           </div>
           <div className="messages-info-constellation" aria-hidden="true">
             <HudChip live>Live</HudChip>
@@ -311,7 +306,7 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
             } as CSSProperties
             const alternatePaneId = pane.id === 'primary' ? 'secondary' : 'primary'
             return (
-              <div key={pane.id} data-testid={`messages-workspace-pane-${pane.id}`} style={style} onPointerDown={() => setFocusedPaneId(pane.id)} className={`flex min-h-0 min-w-0 flex-1 basis-full flex-col overflow-hidden rounded-xl border xl:flex-none xl:basis-[var(--workspace-pane-basis)] ${focusedPaneId === pane.id ? 'border-primary/35' : 'border-[var(--color-card-border)]'} bg-black/[0.035] ${panes.length > 1 && pane.id !== focusedPaneId ? 'max-xl:hidden' : ''}`}>
+              <div key={pane.id} data-testid={`messages-workspace-pane-${pane.id}`} style={style} onPointerDown={() => setFocusedPaneId(pane.id)} className={`flex min-h-0 min-w-0 flex-1 basis-full flex-col overflow-hidden rounded-none border xl:flex-none xl:basis-[var(--workspace-pane-basis)] ${focusedPaneId === pane.id ? 'border-primary/35' : 'border-[var(--color-card-border)]'} bg-black/[0.035] ${panes.length > 1 && pane.id !== focusedPaneId ? 'max-xl:hidden' : ''}`}>
                 <div className="flex min-h-11 min-w-0 shrink-0 items-center border-b border-[var(--color-card-border)] bg-black/[0.09] px-1 xl:h-8 xl:min-h-0">
                   <div role="tablist" aria-label={`${pane.id} pane tabs`} className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
                     {pane.tabs.map((tab) => <div key={tab.id} role="presentation" className={`group/tab flex min-h-11 min-w-[92px] max-w-[220px] items-center rounded-md border px-1.5 xl:h-6 xl:min-h-0 ${tab.id === pane.activeTabId ? 'border-white/[0.1] bg-white/[0.07]' : 'border-transparent text-[var(--color-pib-text-muted)] hover:bg-white/[0.04]'}`}><button type="button" role="tab" aria-selected={tab.id === pane.activeTabId} onClick={() => { setFocusedPaneId(pane.id); setPanes((current) => current.map((item) => item.id === pane.id ? { ...item, activeTabId: tab.id } : item)) }} className="min-h-11 min-w-0 flex-1 truncate text-left text-[11px] xl:min-h-0">{tab.title}</button><button type="button" aria-label={`Close ${tab.title}`} onClick={() => closeTab(pane.id, tab.id)} className="ml-1 grid h-11 w-11 shrink-0 place-items-center rounded hover:bg-white/10 xl:h-4 xl:w-4 xl:opacity-0 xl:group-hover/tab:opacity-100 xl:focus:opacity-100"><span className="material-symbols-outlined text-[12px]">close</span></button></div>)}

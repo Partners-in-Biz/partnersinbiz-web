@@ -4338,7 +4338,7 @@ export default function UnifiedChat({
       >
         {/* Header — mobile style (back / title+subtitle / ⋯) on small,
             keeps original sticky look on desktop */}
-        <div className="shrink-0 min-w-0 border-b border-[var(--color-card-border)] px-3 py-2.5 lg:px-4 lg:py-3">
+        <div className="shrink-0 min-w-0 border-b border-[var(--color-card-border)] px-3 py-2 lg:px-4 lg:py-2">
           <div className="flex items-center gap-2">
             {/* Back arrow — mobile only */}
             <button
@@ -4354,14 +4354,26 @@ export default function UnifiedChat({
               <span className="material-symbols-outlined text-[22px]">arrow_back_ios_new</span>
             </button>
 
-            {/* Title + subtitle */}
-            <div className="flex-1 min-w-0">
-              <div className="text-[var(--color-pib-text)] font-medium text-[15px] lg:text-sm truncate">
-                {activeConversation?.title || 'New conversation'}
+            {/* Title + participants on one row (desktop); subtitle stacks on mobile only */}
+            <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
+              <div className="min-w-0 shrink">
+                <div className="truncate text-[15px] font-medium text-[var(--color-pib-text)] lg:text-sm">
+                  {activeConversation?.title || 'New conversation'}
+                </div>
+                {subtitle && (
+                  <div className="mt-0.5 truncate text-[11px] text-[var(--color-pib-text-muted)] lg:hidden">
+                    {subtitle}
+                  </div>
+                )}
               </div>
-              {subtitle && (
-                <div className="lg:hidden text-[11px] text-[var(--color-pib-text-muted)] truncate mt-0.5">
-                  {subtitle}
+
+              {activeConversation?.participants && activeConversation.participants.length > 0 && !compact && (
+                <div className="hidden min-w-0 max-w-[65%] shrink lg:block">
+                  <ParticipantBar
+                    participants={activeConversation.participants}
+                    agentDetails={agentMap}
+                    className="justify-end"
+                  />
                 </div>
               )}
             </div>
@@ -4470,13 +4482,6 @@ export default function UnifiedChat({
               </div>
             )}
           </div>
-
-          {/* Participant bar — desktop only (kept) */}
-          {activeConversation?.participants && activeConversation.participants.length > 0 && !compact && (
-            <div className="hidden lg:block mt-1.5">
-              <ParticipantBar participants={activeConversation.participants} agentDetails={agentMap} />
-            </div>
-          )}
         </div>
 
         {activeConversation && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} execution={runtimeExecution} executionRequest={executionDockRequest} onActionResolved={handleContextActionResolved} onPresentationChange={handleContextCanvasPresentationChange} onAddContext={openContextPicker} contextPickerExpanded={Boolean(contextMention || contextTypePrompt)} contextPickerControls={contextPickerPanelId} onRemoveContext={(value) => {
