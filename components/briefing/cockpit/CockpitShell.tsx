@@ -47,19 +47,15 @@ export function CockpitShell({
       accent="cyan"
       shellTestId="briefings-room-shell"
       fieldTestId="briefings-neural-field"
-      className="relative flex h-[calc(100dvh-88px)] min-h-[640px] min-w-0 flex-col overflow-hidden rounded-[22px] border border-[var(--color-card-border)] bg-[var(--color-card)]/55 shadow-[0_24px_80px_rgba(0,0,0,0.24)]"
+      data-briefings-experience="room"
+      className="relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-none border-0 bg-[var(--color-card)]/55 shadow-none"
     >
       <header className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black/[0.08] px-3">
         <div className="flex min-w-0 items-center gap-2">
           <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan shrink-0"><span className="material-symbols-outlined text-[15px]">checklist</span></span>
-          <div className="min-w-0">
-            <div className="truncate pib-label">
-              {mode === 'admin' ? 'Workspace / Briefings' : 'Client portal / Briefings'}
-            </div>
-            <div className="flex min-w-0 items-center gap-2">
-              <h1 className="truncate text-sm font-semibold leading-tight text-[var(--color-pib-text)]">Briefings</h1>
-              {orgName && <span className="hidden truncate text-xs text-[var(--color-pib-text-muted)] sm:inline">· {orgName}</span>}
-            </div>
+          <div className="flex min-w-0 items-center gap-2">
+            <h1 className="truncate text-sm font-semibold leading-tight text-[var(--color-pib-text)]">Briefings</h1>
+            {orgName && <span className="hidden truncate text-xs text-[var(--color-pib-text-muted)] sm:inline">· {orgName}</span>}
           </div>
           <div className="messages-info-constellation hidden lg:flex" aria-label="Briefings live signals">
             <HudChip live={loading}>Queue</HudChip>

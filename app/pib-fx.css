@@ -160,6 +160,19 @@
     0 0 48px -28px var(--pib-module-glow, var(--pib-fx-glow-accent));
 }
 
+/* Immersive rooms sit flush with the page chrome */
+.pib-shell[data-briefings-experience],
+[data-pib-shell][data-briefings-experience] {
+  border-radius: 0;
+  border: 0;
+  box-shadow: none;
+}
+
+[data-theme='light'] .pib-shell[data-briefings-experience],
+[data-theme='light'] [data-pib-shell][data-briefings-experience] {
+  box-shadow: none;
+}
+
 .pib-shell-chrome {
   position: relative;
   z-index: 1;

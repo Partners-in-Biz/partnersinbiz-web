@@ -15,6 +15,7 @@ type ModuleShellProps = ComponentPropsWithoutRef<'div'> & {
   showScanlines?: boolean
   fieldTestId?: string
   'data-messages-experience'?: string
+  'data-briefings-experience'?: string
 }
 
 /**
