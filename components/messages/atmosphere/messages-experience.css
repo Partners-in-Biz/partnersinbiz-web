@@ -13,38 +13,41 @@
   --mx-glow-a: color-mix(in oklab, var(--color-pib-accent) 42%, transparent);
   --mx-glow-v: color-mix(in oklab, var(--color-pib-violet) 38%, transparent);
   --mx-glow-c: color-mix(in oklab, var(--color-pib-cyan) 32%, transparent);
-  --mx-radius-shell: 1.375rem;
-  --mx-radius-pane: 0.9rem;
+  --mx-radius-shell: 0;
+  --mx-radius-pane: 0;
   --mx-blur: 22px;
   --mx-sat: 1.35;
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  border-radius: var(--mx-radius-shell);
-  border: 1px solid color-mix(in oklab, var(--color-card-border) 80%, var(--color-pib-accent) 20%);
+  border-radius: 0;
+  border: 0;
   background:
     linear-gradient(
       165deg,
       color-mix(in oklab, var(--color-pib-surface) 88%, transparent) 0%,
       color-mix(in oklab, var(--color-pib-bg) 92%, transparent) 100%
     );
-  box-shadow:
-    0 1px 0 color-mix(in oklab, white 8%, transparent) inset,
-    0 0 0 1px color-mix(in oklab, black 35%, transparent) inset,
-    0 28px 90px color-mix(in oklab, black 42%, transparent),
-    0 0 80px -24px var(--mx-glow-v);
+  box-shadow: none;
   container-type: inline-size;
   container-name: messages-shell;
 }
 
-[data-theme='light'] [data-messages-experience] {
+/* Beat shared .pib-shell radius / accent rim / glow so Messages sits flush */
+.pib-shell[data-messages-experience],
+[data-pib-shell][data-messages-experience] {
+  border-radius: 0;
+  border: 0;
+  box-shadow: none;
+}
+
+[data-theme='light'] [data-messages-experience],
+[data-theme='light'] .pib-shell[data-messages-experience],
+[data-theme='light'] [data-pib-shell][data-messages-experience] {
   --mx-glass: color-mix(in oklab, white 72%, transparent);
   --mx-glass-strong: color-mix(in oklab, white 86%, transparent);
   --mx-line: color-mix(in oklab, black 10%, transparent);
-  box-shadow:
-    0 1px 0 color-mix(in oklab, white 70%, transparent) inset,
-    0 24px 70px color-mix(in oklab, black 12%, transparent),
-    0 0 60px -28px var(--mx-glow-a);
+  box-shadow: none;
 }
 
 /* Neural field canvas sits behind chrome */
@@ -109,24 +112,9 @@
   border-radius: inherit;
 }
 
-/* Specular rim light */
+/* Specular rim light — disabled so the shell reads flush with the page */
 [data-messages-experience]::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  border-radius: inherit;
-  background:
-    linear-gradient(
-      125deg,
-      color-mix(in oklab, white 14%, transparent) 0%,
-      transparent 28%,
-      transparent 72%,
-      color-mix(in oklab, var(--color-pib-violet) 12%, transparent) 100%
-    );
-  opacity: 0.55;
-  mix-blend-mode: soft-light;
+  content: none;
 }
 
 /* ── Top bar: liquid glass HUD ─────────────────────────────────────────── */
@@ -143,21 +131,7 @@
 }
 
 [data-messages-experience] [data-testid='hermes-messages-shell-topbar']::after {
-  content: '';
-  position: absolute;
-  left: 12%;
-  right: 12%;
-  bottom: -1px;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    var(--mx-glow-a) 20%,
-    var(--mx-glow-v) 50%,
-    var(--mx-glow-c) 80%,
-    transparent
-  );
-  opacity: 0.85;
+  content: none;
 }
 
 [data-messages-experience] .messages-hud-pulse {
@@ -212,7 +186,7 @@
 [data-messages-experience] [data-testid^='messages-workspace-pane-'] {
   position: relative;
   overflow: hidden;
-  border-radius: var(--mx-radius-pane) !important;
+  border-radius: 0 !important;
   background:
     linear-gradient(
       180deg,
@@ -221,9 +195,7 @@
     ) !important;
   backdrop-filter: blur(14px) saturate(1.2);
   -webkit-backdrop-filter: blur(14px) saturate(1.2);
-  box-shadow:
-    0 1px 0 color-mix(in oklab, white 7%, transparent) inset,
-    0 12px 40px color-mix(in oklab, black 18%, transparent);
+  box-shadow: none;
   transition:
     border-color 220ms ease,
     box-shadow 280ms ease,
@@ -231,10 +203,7 @@
 }
 
 [data-messages-experience] [data-testid^='messages-workspace-pane-'][class*='border-primary'] {
-  box-shadow:
-    0 0 0 1px color-mix(in oklab, var(--color-pib-accent) 35%, transparent),
-    0 0 40px -12px var(--mx-glow-a),
-    0 1px 0 color-mix(in oklab, white 8%, transparent) inset;
+  box-shadow: none;
 }
 
 /* Tab strip glass */

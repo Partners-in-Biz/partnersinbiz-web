@@ -22,6 +22,7 @@ import {
 import type { ApiUser } from '@/lib/api/types'
 import { authorizeConversationProject, canReplyConversation } from '@/lib/conversations/access'
 import type { AgentId } from '@/lib/agents/types'
+import type { ChatEvent } from '@/lib/hermes/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -59,6 +60,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
       msgId,
       runId,
       agentId: storedAgentId,
+      events: Array.isArray(body.events) ? body.events as ChatEvent[] : undefined,
     })
     return apiSuccess(result)
   } catch (err) {

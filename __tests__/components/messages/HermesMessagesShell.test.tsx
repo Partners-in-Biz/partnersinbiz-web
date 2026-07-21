@@ -55,9 +55,10 @@ describe('HermesMessagesShell', () => {
     )
 
     expect(screen.getByTestId('hermes-messages-shell')).toBeInTheDocument()
-    expect(screen.getByTestId('hermes-messages-shell')).toHaveClass('min-h-0', 'lg:min-h-[640px]')
+    expect(screen.getByTestId('hermes-messages-shell')).toHaveClass('min-h-0', 'lg:min-h-[640px]', 'rounded-none', 'border-0', 'shadow-none')
     expect(screen.getByTestId('hermes-messages-shell')).not.toHaveClass('min-h-[640px]')
-    expect(screen.getByTestId('hermes-messages-shell-topbar')).toHaveTextContent('Client portal / Messages')
+    expect(screen.getByTestId('hermes-messages-shell-topbar')).toHaveTextContent('Messages')
+    expect(screen.getByTestId('hermes-messages-shell-topbar')).not.toHaveTextContent('Client portal / Messages')
     expect(screen.getByTestId('hermes-messages-shell-topbar')).toHaveTextContent('Agents enabled')
     expect(screen.getByTestId('hermes-messages-shell-topbar')).toHaveTextContent('Safe /v1 runs')
     expect(screen.getByRole('button', { name: 'Collapse sessions' })).toHaveClass('hidden', 'h-7', 'w-7', 'xl:grid')

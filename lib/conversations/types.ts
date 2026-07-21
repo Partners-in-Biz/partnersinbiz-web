@@ -13,6 +13,7 @@ import type { SlashCommandPayload } from '@/lib/chat/slash-commands'
 import type { AgentEffort } from '@/lib/agents/runRouting'
 import type { RichMessagePart } from '@/lib/hermes/types'
 import type { ConversationWorkspaceContext } from '@/lib/client-provisioning/workspace-context'
+import type { MessageThinkingTrace } from './thinking-trace'
 export type { AgentId }
 
 export interface OrgChatConfig {
@@ -116,6 +117,8 @@ export interface ConversationMessage {
   status?: 'pending' | 'streaming' | 'completed' | 'failed' | 'waiting_approval'
   error?: string
   events?: unknown[]
+  /** Browser-safe thinking trail (no tool I/O). Prefer this over raw events. */
+  thinking?: MessageThinkingTrace
   richParts?: RichMessagePart[]
   rich_parts?: RichMessagePart[]
   toolName?: string

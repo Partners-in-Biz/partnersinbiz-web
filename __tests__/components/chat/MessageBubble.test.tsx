@@ -364,6 +364,39 @@ describe('MessageBubble', () => {
     expect(screen.getByText(/exit 0/)).toBeInTheDocument()
   })
 
+  it('keeps a collapsed Show thinking control on completed agent replies', () => {
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'msg-thinking',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: 'Project is back on track.',
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'completed',
+          thinking: {
+            summary: 'Checked the project API and summarised the open tasks.',
+            steps: [
+              { kind: 'tool', label: 'terminal', status: 'completed' },
+              { kind: 'tool', label: 'skill_view', status: 'completed' },
+            ],
+            toolCount: 2,
+            durationMs: 18_000,
+          },
+        }}
+      />,
+    )
+
+    const disclosure = screen.getByTestId('message-thinking-disclosure')
+    expect(disclosure).not.toHaveAttribute('open')
+    expect(screen.getByText(/Show thinking/i)).toBeInTheDocument()
+    expect(screen.getByText(/Thought for 18s/i)).toBeInTheDocument()
+    expect(screen.getByText('Checked the project API and summarised the open tasks.')).toBeInTheDocument()
+  })
+
   it('renders assistant markdown, mermaid-style diagrams, and inline SVG visually instead of as raw prose', () => {
     render(
       <MessageBubble
