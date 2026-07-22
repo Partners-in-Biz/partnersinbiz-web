@@ -8,6 +8,8 @@ const mockCreateAgent = jest.fn()
 const mockUpdateAgent = jest.fn()
 const mockCallAgentPath = jest.fn()
 const mockCallAgentStream = jest.fn()
+const mockGetLinkedRunJobSnapshot = jest.fn()
+const mockCreateLinkedComputerRunSseStream = jest.fn()
 
 let mockUser: MockUser = { uid: 'super-1', role: 'admin' }
 
@@ -22,6 +24,11 @@ jest.mock('@/lib/agents/team', () => ({
   updateAgent: (agentId: string, patch: unknown) => mockUpdateAgent(agentId, patch),
   callAgentPath: (agentId: string, path: string, init?: unknown) => mockCallAgentPath(agentId, path, init),
   callAgentStream: (agentId: string, path: string) => mockCallAgentStream(agentId, path),
+}))
+
+jest.mock('@/lib/linked-computers/run-events', () => ({
+  getLinkedRunJobSnapshot: (...args: unknown[]) => mockGetLinkedRunJobSnapshot(...args),
+  createLinkedComputerRunSseStream: (...args: unknown[]) => mockCreateLinkedComputerRunSseStream(...args),
 }))
 
 function routeCtx(agentId = 'pip') {
@@ -69,6 +76,8 @@ beforeEach(() => {
     data: { baseUrl: 'https://agent.test', apiKey: 'plain-key' },
   })
   mockCallAgentStream.mockResolvedValue({ ok: true, status: 200, body: new ReadableStream({ start(controller) { controller.close() } }) })
+  mockGetLinkedRunJobSnapshot.mockResolvedValue(null)
+  mockCreateLinkedComputerRunSseStream.mockImplementation(() => new ReadableStream({ start(controller) { controller.close() } }))
 })
 
 describe('admin agent permissions', () => {
@@ -230,6 +239,33 @@ describe('admin agent permissions', () => {
     expect(text).toContain('stream.unavailable')
     expect(text).toContain('final response polling will continue')
     expect(mockCallAgentStream).toHaveBeenCalledWith('pip', '/v1/runs/run-1/events')
+  })
+
+  it('streams linked-computer jobs from queue state instead of the VPS Hermes gateway', async () => {
+    mockGetLinkedRunJobSnapshot.mockResolvedValue({
+      exists: true,
+      status: 'running',
+      machineLabel: 'PEETS-MAC-MINI.LOCAL',
+      chatEvents: [],
+    })
+    mockCreateLinkedComputerRunSseStream.mockImplementation(() => new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('data: {"event":"heartbeat","activity":"Running on PEETS-MAC-MINI.LOCAL"}\n\n'))
+        controller.close()
+      },
+    }))
+
+    const { GET } = await import('@/app/api/v1/admin/agents/[agentId]/runs/[runId]/events/route')
+    const res = await GET(
+      new NextRequest('http://localhost/api/v1/admin/agents/pip/runs/linked-job-1/events'),
+      runRouteCtx('pip', 'linked-job-1'),
+    )
+    expect(res.status).toBe(200)
+    const text = await res.text()
+    expect(text).toContain('Running on PEETS-MAC-MINI.LOCAL')
+    expect(text).not.toContain('stream.unavailable')
+    expect(mockCallAgentStream).not.toHaveBeenCalled()
+    expect(mockCreateLinkedComputerRunSseStream).toHaveBeenCalledWith('linked-job-1')
   })
 
   it('rejects invalid agent approval choices before proxying', async () => {

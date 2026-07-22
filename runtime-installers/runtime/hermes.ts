@@ -174,6 +174,7 @@ export async function callLocalHermes(
   env: RuntimeEnv = process.env,
   fetcher: typeof fetch = fetch,
   wait: (ms: number) => Promise<void> = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  onEvents?: (events: unknown[]) => void | Promise<void>,
 ): Promise<unknown> {
   const cleanAgent = cleanAgentId(agentId)
   const route = localHermesRoutes(env).find((candidate) => candidate.agentId === cleanAgent)
@@ -201,21 +202,93 @@ export async function callLocalHermes(
   const rawTimeout = Number(env.PIB_LOCAL_HERMES_RUN_TIMEOUT_MS ?? 30 * 60_000)
   const timeoutMs = Number.isFinite(rawTimeout) ? Math.min(Math.max(rawTimeout, 30_000), 24 * 60 * 60_000) : 30 * 60_000
   const deadline = Date.now() + timeoutMs
-  while (Date.now() < deadline) {
-    const runResponse = await fetcher(`${route.baseUrl}/v1/runs/${encodeURIComponent(runId)}`, {
-      headers: authHeaders(route),
-      signal: AbortSignal.timeout(15_000),
-    })
-    if (!runResponse.ok) throw new Error('Local Hermes execution failed')
-    const run = await runResponse.json().catch(() => null) as Record<string, unknown> | null
-    if (run?.status === 'completed') {
-      if (typeof run.output === 'string') return run.output
-      const result = run.result && typeof run.result === 'object' ? run.result as Record<string, unknown> : null
-      if (typeof result?.output === 'string') return result.output
-      return run
+  const abort = new AbortController()
+  const eventsTask = onEvents
+    ? forwardLocalHermesEvents(route, runId, fetcher, abort.signal, onEvents)
+    : Promise.resolve()
+  try {
+    while (Date.now() < deadline) {
+      const runResponse = await fetcher(`${route.baseUrl}/v1/runs/${encodeURIComponent(runId)}`, {
+        headers: authHeaders(route),
+        signal: AbortSignal.timeout(15_000),
+      })
+      if (!runResponse.ok) throw new Error('Local Hermes execution failed')
+      const run = await runResponse.json().catch(() => null) as Record<string, unknown> | null
+      if (run?.status === 'completed') {
+        if (typeof run.output === 'string') return run.output
+        const result = run.result && typeof run.result === 'object' ? run.result as Record<string, unknown> : null
+        if (typeof result?.output === 'string') return result.output
+        return run
+      }
+      if (run?.status === 'failed' || run?.status === 'cancelled') throw new Error('Local Hermes execution failed')
+      await wait(1_000)
     }
-    if (run?.status === 'failed' || run?.status === 'cancelled') throw new Error('Local Hermes execution failed')
-    await wait(1_000)
+    throw new Error('Local Hermes execution timed out')
+  } finally {
+    abort.abort()
+    await eventsTask.catch(() => undefined)
   }
-  throw new Error('Local Hermes execution timed out')
+}
+
+async function forwardLocalHermesEvents(
+  route: LocalHermesRoute,
+  runId: string,
+  fetcher: typeof fetch,
+  signal: AbortSignal,
+  onEvents: (events: unknown[]) => void | Promise<void>,
+): Promise<void> {
+  try {
+    const response = await fetcher(`${route.baseUrl}/v1/runs/${encodeURIComponent(runId)}/events`, {
+      headers: { ...authHeaders(route), accept: 'text/event-stream' },
+      signal,
+    })
+    if (!response.ok || !response.body) return
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let batch: unknown[] = []
+    let flushTimer: ReturnType<typeof setTimeout> | null = null
+
+    const flush = async () => {
+      if (batch.length === 0) return
+      const events = batch
+      batch = []
+      await onEvents(events)
+    }
+
+    const scheduleFlush = () => {
+      if (flushTimer) return
+      flushTimer = setTimeout(() => {
+        flushTimer = null
+        void flush().catch(() => undefined)
+      }, 400)
+    }
+
+    while (!signal.aborted) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const blocks = buffer.split(/\r?\n\r?\n/)
+      buffer = blocks.pop() ?? ''
+      for (const block of blocks) {
+        const data = block
+          .split(/\r?\n/)
+          .filter((line) => line.startsWith('data:'))
+          .map((line) => line.slice(5).trimStart())
+          .join('\n')
+        if (!data || data === '[DONE]') continue
+        try {
+          batch.push(JSON.parse(data))
+          if (batch.length >= 8) await flush()
+          else scheduleFlush()
+        } catch {
+          // Ignore malformed SSE chunks from local Hermes.
+        }
+      }
+    }
+    if (flushTimer) clearTimeout(flushTimer)
+    await flush()
+  } catch {
+    // Event forwarding is best-effort; run completion still comes from status polling.
+  }
 }
