@@ -1,7 +1,7 @@
 import {
   normalizeRuntimeTargets,
   publicRuntimeTargetPresence,
-  runtimeTargetTransportIdentity,
+  runtimeTargetPhysicalTransportIdentity,
   type PublicRuntimeTargetPresence,
 } from '@/lib/agents/runtime-targets'
 import type { AgentId } from '@/lib/agents/types'
@@ -50,7 +50,7 @@ async function loadCompatibilityTargets(agentId: AgentId): Promise<Compatibility
   return publicRuntimeTargetPresence(rawTargets).map((target) => {
     const normalized = normalizedById.get(target.id)
     return normalized
-      ? { ...target, transportIdentity: runtimeTargetTransportIdentity(normalized) }
+      ? { ...target, transportIdentity: runtimeTargetPhysicalTransportIdentity(normalized) }
       : target
   })
 }

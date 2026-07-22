@@ -867,6 +867,7 @@ export default function UnifiedChat({
   const [workspaces, setWorkspaces] = useState<OrgWorkspaceSummary[]>([])
   const [workspaceProjects, setWorkspaceProjects] = useState<WorkspaceProjectSummary[]>([])
   const [workspaceRuntimeTargetsByWorkspace, setWorkspaceRuntimeTargetsByWorkspace] = useState<Record<string, WorkspaceRuntimePresence[]>>({})
+  const [workspaceRuntimeTargetsByAgent, setWorkspaceRuntimeTargetsByAgent] = useState<Partial<Record<AgentId, Record<string, WorkspaceRuntimePresence[]>>>>({})
   const [workspacesLoading, setWorkspacesLoading] = useState(false)
   const [workspaceCatalogueLoaded, setWorkspaceCatalogueLoaded] = useState(false)
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('')
@@ -1302,20 +1303,25 @@ export default function UnifiedChat({
       : activeWorkspaceContext?.runtimeTarget === 'vps'
         ? 'VPS'
         : activeWorkspaceContext?.runtimeTarget)
+  const activeRuntimeCatalogueAgentId = activeModelAgentId ?? 'pip'
+  const activeRuntimeCatalogue = workspaceRuntimeTargetsByAgent[activeRuntimeCatalogueAgentId]
+    ?? (workspaceCatalogueAgentId === activeRuntimeCatalogueAgentId ? workspaceRuntimeTargetsByWorkspace : {})
+  const activeRuntimeCatalogueLoaded = Boolean(workspaceRuntimeTargetsByAgent[activeRuntimeCatalogueAgentId])
+    || (workspaceCatalogueAgentId === activeRuntimeCatalogueAgentId && workspaceCatalogueLoaded)
   const activeRuntimePresence = activeWorkspaceContext
-    ? (workspaceRuntimeTargetsByWorkspace[activeWorkspaceContext.workspaceId] ?? []).find(
+    ? (activeRuntimeCatalogue[activeWorkspaceContext.workspaceId] ?? []).find(
         runtime => runtime.id === activeWorkspaceContext.runtimeTarget
           || runtime.legacyRuntimeTargetIds?.includes(activeWorkspaceContext.runtimeTarget),
       )
     : undefined
   const unavailableActiveRuntime = useMemo(
-    () => activeWorkspaceContext && workspaceCatalogueLoaded && (!activeRuntimePresence || !activeRuntimePresence.selectable)
+    () => activeWorkspaceContext && activeRuntimeCatalogueLoaded && (!activeRuntimePresence || !activeRuntimePresence.selectable)
       ? {
           label: activeRuntimePresence?.label || activeRuntimeLabel || 'This computer',
           offline: !activeRuntimePresence || !activeRuntimePresence.isFresh || !activeRuntimePresence.isHealthy,
         }
       : undefined,
-    [activeRuntimeLabel, activeRuntimePresence, activeWorkspaceContext, workspaceCatalogueLoaded],
+    [activeRuntimeCatalogueLoaded, activeRuntimeLabel, activeRuntimePresence, activeWorkspaceContext],
   )
   const canUseComposer = allowSendMessages && (Boolean(activeConversation) || allowStartConversations) && !unavailableActiveRuntime
   const visibleConversations = useMemo(
@@ -1456,6 +1462,10 @@ export default function UnifiedChat({
         setWorkspaces(next)
         setWorkspaceProjects(projects)
         setWorkspaceRuntimeTargetsByWorkspace(runtimeTargetsByWorkspace)
+        setWorkspaceRuntimeTargetsByAgent((current) => ({
+          ...current,
+          [workspaceCatalogueAgentId]: runtimeTargetsByWorkspace,
+        }))
         setWorkspaceCatalogueLoaded(true)
         const initialWorkspaceId = next[0]?.workspaceId || ''
         setSelectedWorkspaceId((current) => current || initialWorkspaceId)
@@ -1491,6 +1501,10 @@ export default function UnifiedChat({
       window.clearInterval(interval)
     }
   }, [orgId, projectId, workspaceCatalogueAgentId])
+
+  useEffect(() => {
+    setWorkspaceRuntimeTargetsByAgent({})
+  }, [orgId])
 
   useEffect(() => {
     if (!showProjectSetupWizard) return
@@ -3719,7 +3733,7 @@ export default function UnifiedChat({
                         <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
                       </button>
                     </div>
-                    {sessionsExpanded && <div id={sessionsRegionId} className="ml-2 flex min-w-0 flex-col gap-0.5 border-l border-white/[0.06] pl-1">
+                    {sessionsExpanded && <div id={sessionsRegionId} className="mt-0.5 flex min-w-0 flex-col gap-0.5">
                       {company.conversations.map((c) => (
                         <div key={c.id} className="relative group/conv">
                           {renamingId === c.id ? (
@@ -4046,7 +4060,7 @@ export default function UnifiedChat({
                     {sessionsExpanded && (project.conversations.length === 0 ? (
                       <div id={sessionsRegionId} className="px-6 py-1 text-xs text-[var(--color-pib-text-muted)]/70">No sessions yet</div>
                     ) : (
-                      <div id={sessionsRegionId} className="ml-2 flex min-w-0 flex-col gap-0.5 border-l border-white/[0.06] pl-1">
+                      <div id={sessionsRegionId} className="mt-0.5 flex min-w-0 flex-col gap-0.5">
                         {project.conversations.map((c) => (
                           <div key={c.id} className="relative group/conv">
                             {renamingId === c.id ? (
@@ -4366,9 +4380,46 @@ export default function UnifiedChat({
             {/* Title + participants on one row (desktop); subtitle stacks on mobile only */}
             <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
               <div className="min-w-0 shrink">
-                <div className="truncate text-[15px] font-medium text-[var(--color-pib-text)] lg:text-sm">
-                  {activeConversation?.title || 'New conversation'}
-                </div>
+                {activeConversation && renamingId === activeConversation.id ? (
+                  <input
+                    autoFocus
+                    data-testid="conversation-title-rename-input"
+                    aria-label="Rename conversation"
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        void renameConversation(activeConversation.id, renameValue)
+                      }
+                      if (e.key === 'Escape') {
+                        e.preventDefault()
+                        renameCancelledRef.current = true
+                        setRenamingId(null)
+                      }
+                    }}
+                    onBlur={() => {
+                      if (!renameCancelledRef.current) void renameConversation(activeConversation.id, renameValue)
+                      renameCancelledRef.current = false
+                    }}
+                    className="h-8 w-full min-w-0 max-w-md border-b border-primary bg-transparent text-[15px] font-medium text-[var(--color-pib-text)] outline-none lg:text-sm"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    data-testid="conversation-title"
+                    title={activeConversation ? 'Double-click to rename' : undefined}
+                    disabled={!activeConversation}
+                    onDoubleClick={() => {
+                      if (!activeConversation) return
+                      setRenamingId(activeConversation.id)
+                      setRenameValue(activeConversation.title || '')
+                    }}
+                    className="block max-w-full truncate text-left text-[15px] font-medium text-[var(--color-pib-text)] disabled:cursor-default lg:text-sm"
+                  >
+                    {activeConversation?.title || 'New conversation'}
+                  </button>
+                )}
                 {subtitle && (
                   <div className="mt-0.5 truncate text-[11px] text-[var(--color-pib-text-muted)] lg:hidden">
                     {subtitle}
