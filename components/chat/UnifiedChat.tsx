@@ -5402,7 +5402,7 @@ export default function UnifiedChat({
         <AccessibleDialog
           label="New conversation"
           onClose={closeNewConversation}
-          className="flex max-h-[100dvh] w-full max-w-md flex-col overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] shadow-2xl sm:max-h-[calc(100dvh-2rem)]"
+          className="flex max-h-[calc(100dvh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] shadow-2xl"
         >
             {/* Modal header */}
             <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-card-border)] px-4 py-3 sm:px-5 sm:py-4">
@@ -5466,7 +5466,7 @@ export default function UnifiedChat({
               </div>
 
               {(newScope === 'workspace' || newScope === 'company' || newScope === 'project') && (
-                <div className="grid gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3 sm:grid-cols-[minmax(0,1fr)_160px]">
+                <div className="flex flex-col gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
                   <div>
                     <label className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                       {newScope === 'project'
@@ -5613,7 +5613,7 @@ export default function UnifiedChat({
                     <section
                       role="region"
                       aria-label="New project"
-                      className="space-y-3 rounded-lg border border-primary/25 bg-[var(--color-card)] p-3 sm:col-span-2"
+                      className="space-y-3 rounded-lg border border-primary/25 bg-[var(--color-card)] p-3"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
