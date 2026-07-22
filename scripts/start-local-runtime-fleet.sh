@@ -93,6 +93,8 @@ trap cleanup INT TERM EXIT
 write_managed_profile_env() {
   local agent_name="$1" port_value="$2"
   local managed_dir="$MANAGED_ROOT/$agent_name"
+  local profile_env="$HERMES_ROOT/profiles/$agent_name/.env"
+  local profile_env_tmp="${profile_env}.pib-runtime.$$"
   mkdir -p "$managed_dir"
   chmod 700 "$managed_dir"
   umask 077
@@ -105,6 +107,22 @@ write_managed_profile_env() {
     printf 'WHATSAPP_ENABLED=false\n'
   } > "$managed_dir/.env"
   chmod 600 "$managed_dir/.env"
+
+  # Native linked-runtime discovery reads each named profile's normal .env,
+  # while the Hermes process itself uses the stronger managed scope above.
+  # Mirror only the loopback API fields so every healthy managed profile is
+  # advertised in heartbeats without replacing provider/profile settings.
+  [[ -f "$profile_env" ]] || : > "$profile_env"
+  awk '!/^API_SERVER_(ENABLED|HOST|PORT|MODEL_NAME|KEY)=/' "$profile_env" > "$profile_env_tmp"
+  {
+    printf 'API_SERVER_ENABLED=true\n'
+    printf 'API_SERVER_HOST=127.0.0.1\n'
+    printf 'API_SERVER_PORT=%s\n' "$port_value"
+    printf 'API_SERVER_MODEL_NAME=%s\n' "$agent_name"
+    printf 'API_SERVER_KEY=%s\n' "$API_SERVER_KEY_VALUE"
+  } >> "$profile_env_tmp"
+  chmod 600 "$profile_env_tmp"
+  mv "$profile_env_tmp" "$profile_env"
 }
 
 start_agent() {

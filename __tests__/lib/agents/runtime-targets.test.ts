@@ -1,7 +1,16 @@
-import { publicRuntimeTargetPresence, selectAgentRuntimeTarget } from '@/lib/agents/runtime-targets'
+import { publicRuntimeTargetPresence, runtimeTargetPhysicalTransportIdentity, selectAgentRuntimeTarget } from '@/lib/agents/runtime-targets'
 
 describe('agent runtime targets', () => {
   const now = Date.parse('2026-07-08T10:00:00Z')
+
+  it('binds agent profile URLs to one physical VPS or Mac transport family', () => {
+    expect(runtimeTargetPhysicalTransportIdentity({ baseUrl: 'https://hermes.example/profiles/pip' }))
+      .toBe(runtimeTargetPhysicalTransportIdentity({ baseUrl: 'https://hermes.example/profiles/theo/' }))
+    expect(runtimeTargetPhysicalTransportIdentity({ baseUrl: 'https://hermes.example/local-profiles/pip', hostId: 'peets-mac' }))
+      .toBe(runtimeTargetPhysicalTransportIdentity({ baseUrl: 'https://hermes.example/local-profiles/maya', hostId: 'peets-mac' }))
+    expect(runtimeTargetPhysicalTransportIdentity({ baseUrl: 'https://hermes.example/profiles/pip' }))
+      .not.toBe(runtimeTargetPhysicalTransportIdentity({ baseUrl: 'https://hermes.example/local-profiles/pip' }))
+  })
 
   it('falls back to the legacy single endpoint when no runtime target map exists', () => {
     expect(selectAgentRuntimeTarget({

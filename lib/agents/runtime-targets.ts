@@ -81,6 +81,14 @@ export function runtimeTargetTransportIdentity(target: { baseUrl: string; hostId
   return crypto.createHash('sha256').update(`${hostId}\n${baseUrl}`).digest('base64url')
 }
 
+/** Stable physical-host identity across agent-specific Hermes profile URLs. */
+export function runtimeTargetPhysicalTransportIdentity(target: { baseUrl: string; hostId?: string }): string {
+  const baseUrl = target.baseUrl.trim().replace(/\/+$/, '').toLowerCase()
+    .replace(/\/(local-profiles|profiles)\/[a-z][a-z0-9-]{0,63}$/i, '/$1/{agent}')
+  const hostId = target.hostId?.trim().toLowerCase() ?? ''
+  return crypto.createHash('sha256').update(`${hostId}\n${baseUrl}`).digest('base64url')
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null
 }

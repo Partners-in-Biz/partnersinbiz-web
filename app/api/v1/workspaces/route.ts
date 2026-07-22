@@ -10,7 +10,7 @@ import { ORG_WORKSPACES_COLLECTION, type OrgWorkspaceRecord } from '@/lib/client
 import {
   normalizeRuntimeTargets,
   publicRuntimeTargetPresence,
-  runtimeTargetTransportIdentity,
+  runtimeTargetPhysicalTransportIdentity,
 } from '@/lib/agents/runtime-targets'
 import { discoverAuthorizedRuntimeTargets, type PublicAuthorizedRuntimeTarget } from '@/lib/linked-computers/runtime-targets'
 import { discoverAuthorizedExecutionLocationTargets } from '@/lib/project-locations/discovery'
@@ -167,7 +167,7 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
   const compatibilityRuntimeTargets = publicRuntimeTargetPresence(rawCompatibilityRuntimeTargets).map((target) => {
     const normalized = normalizedCompatibilityTargets.get(target.id)
     return normalized
-      ? { ...target, transportIdentity: runtimeTargetTransportIdentity(normalized) }
+      ? { ...target, transportIdentity: runtimeTargetPhysicalTransportIdentity(normalized) }
       : target
   })
   type WorkspaceRuntimeTarget = PublicExecutionLocationPresence | PublicAuthorizedRuntimeTarget

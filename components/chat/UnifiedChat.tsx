@@ -867,6 +867,7 @@ export default function UnifiedChat({
   const [workspaces, setWorkspaces] = useState<OrgWorkspaceSummary[]>([])
   const [workspaceProjects, setWorkspaceProjects] = useState<WorkspaceProjectSummary[]>([])
   const [workspaceRuntimeTargetsByWorkspace, setWorkspaceRuntimeTargetsByWorkspace] = useState<Record<string, WorkspaceRuntimePresence[]>>({})
+  const [workspaceRuntimeTargetsByAgent, setWorkspaceRuntimeTargetsByAgent] = useState<Partial<Record<AgentId, Record<string, WorkspaceRuntimePresence[]>>>>({})
   const [workspacesLoading, setWorkspacesLoading] = useState(false)
   const [workspaceCatalogueLoaded, setWorkspaceCatalogueLoaded] = useState(false)
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('')
@@ -1302,20 +1303,25 @@ export default function UnifiedChat({
       : activeWorkspaceContext?.runtimeTarget === 'vps'
         ? 'VPS'
         : activeWorkspaceContext?.runtimeTarget)
+  const activeRuntimeCatalogueAgentId = activeModelAgentId ?? 'pip'
+  const activeRuntimeCatalogue = workspaceRuntimeTargetsByAgent[activeRuntimeCatalogueAgentId]
+    ?? (workspaceCatalogueAgentId === activeRuntimeCatalogueAgentId ? workspaceRuntimeTargetsByWorkspace : {})
+  const activeRuntimeCatalogueLoaded = Boolean(workspaceRuntimeTargetsByAgent[activeRuntimeCatalogueAgentId])
+    || (workspaceCatalogueAgentId === activeRuntimeCatalogueAgentId && workspaceCatalogueLoaded)
   const activeRuntimePresence = activeWorkspaceContext
-    ? (workspaceRuntimeTargetsByWorkspace[activeWorkspaceContext.workspaceId] ?? []).find(
+    ? (activeRuntimeCatalogue[activeWorkspaceContext.workspaceId] ?? []).find(
         runtime => runtime.id === activeWorkspaceContext.runtimeTarget
           || runtime.legacyRuntimeTargetIds?.includes(activeWorkspaceContext.runtimeTarget),
       )
     : undefined
   const unavailableActiveRuntime = useMemo(
-    () => activeWorkspaceContext && workspaceCatalogueLoaded && (!activeRuntimePresence || !activeRuntimePresence.selectable)
+    () => activeWorkspaceContext && activeRuntimeCatalogueLoaded && (!activeRuntimePresence || !activeRuntimePresence.selectable)
       ? {
           label: activeRuntimePresence?.label || activeRuntimeLabel || 'This computer',
           offline: !activeRuntimePresence || !activeRuntimePresence.isFresh || !activeRuntimePresence.isHealthy,
         }
       : undefined,
-    [activeRuntimeLabel, activeRuntimePresence, activeWorkspaceContext, workspaceCatalogueLoaded],
+    [activeRuntimeCatalogueLoaded, activeRuntimeLabel, activeRuntimePresence, activeWorkspaceContext],
   )
   const canUseComposer = allowSendMessages && (Boolean(activeConversation) || allowStartConversations) && !unavailableActiveRuntime
   const visibleConversations = useMemo(
@@ -1456,6 +1462,10 @@ export default function UnifiedChat({
         setWorkspaces(next)
         setWorkspaceProjects(projects)
         setWorkspaceRuntimeTargetsByWorkspace(runtimeTargetsByWorkspace)
+        setWorkspaceRuntimeTargetsByAgent((current) => ({
+          ...current,
+          [workspaceCatalogueAgentId]: runtimeTargetsByWorkspace,
+        }))
         setWorkspaceCatalogueLoaded(true)
         const initialWorkspaceId = next[0]?.workspaceId || ''
         setSelectedWorkspaceId((current) => current || initialWorkspaceId)
@@ -1491,6 +1501,10 @@ export default function UnifiedChat({
       window.clearInterval(interval)
     }
   }, [orgId, projectId, workspaceCatalogueAgentId])
+
+  useEffect(() => {
+    setWorkspaceRuntimeTargetsByAgent({})
+  }, [orgId])
 
   useEffect(() => {
     if (!showProjectSetupWizard) return

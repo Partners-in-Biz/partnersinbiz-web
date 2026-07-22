@@ -581,6 +581,51 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     await waitFor(() => expect(workspaceUrls.some((url) => url.includes('agentId=theo'))).toBe(true))
   })
 
+  it('keeps the active Pip session online while a new Theo session loads a different runtime catalogue', async () => {
+    const workspaceUrls: string[] = []
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents')) return jsonResponse({ data: [{
+        agentId: 'theo', name: 'Theo', role: 'Builder', persona: '', iconKey: 'code', colorKey: 'sky',
+        enabled: true, baseUrl: '', apiKey: '', defaultModel: 'auto',
+      }] })
+      if (url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) {
+        workspaceUrls.push(url)
+        const pipCatalogue = url.includes('agentId=pip')
+        return jsonResponse({ data: {
+          workspaces: [{
+            workspaceId: 'acme', orgId: 'org-1', orgSlug: 'acme', orgName: 'Acme', agentDomain: 'acme',
+            sourceOfTruth: 'vps', syncMode: 'hybrid', defaultRuntimeTarget: 'vps', folderVersion: 1,
+          }],
+          runtimeTargetsByWorkspace: { acme: pipCatalogue ? [{
+            id: 'linked-device:mac-a', label: 'Studio Mac', selectable: true, enabled: true,
+            isLocal: true, isFresh: true, isHealthy: true, lastSeenAt: null,
+          }] : [] },
+          projects: [],
+        } })
+      }
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [{
+        ...baseConversation,
+        workspaceContext: { workspaceId: 'acme', orgName: 'Acme', runtimeTarget: 'linked-device:mac-a', runtimeLabel: 'Studio Mac' },
+      }] } })
+      if (url === '/api/v1/conversations/conv-1/messages') return jsonResponse({ data: { messages: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" initialConvId="conv-1" />)
+
+    expect(await screen.findByPlaceholderText('Send a message')).toBeEnabled()
+    fireEvent.click(screen.getByRole('button', { name: 'New conversation' }))
+    const dialog = await screen.findByRole('dialog', { name: 'New conversation' })
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: /Theo Builder/ }))
+
+    await waitFor(() => expect(workspaceUrls.some((url) => url.includes('agentId=theo'))).toBe(true))
+    expect(screen.queryByText('Computer unavailable')).not.toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Send a message')).toBeEnabled()
+  })
+
   it('renders the accepted computer receipt instead of the requested target echo', async () => {
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {
       const url = String(input)

@@ -9,7 +9,7 @@ import {
   PROJECT_EXECUTION_LOCATIONS_COLLECTION,
   PROJECT_LOCATION_REPLICAS_COLLECTION,
 } from './store'
-import { normalizeRuntimeTargets, runtimeTargetTransportIdentity } from '@/lib/agents/runtime-targets'
+import { normalizeRuntimeTargets, runtimeTargetPhysicalTransportIdentity } from '@/lib/agents/runtime-targets'
 
 export const PROJECT_LOCATION_MIGRATION_RUNS_COLLECTION = 'project_location_migration_runs'
 
@@ -90,7 +90,7 @@ async function loadPreflight(
     }
     if (dispatchDoc.id === 'pip') {
       for (const target of normalizeRuntimeTargets(targets)) {
-        legacyRuntimeTargetIdentities[target.id] = runtimeTargetTransportIdentity(target)
+        legacyRuntimeTargetIdentities[target.id] = runtimeTargetPhysicalTransportIdentity(target)
       }
     }
   }
