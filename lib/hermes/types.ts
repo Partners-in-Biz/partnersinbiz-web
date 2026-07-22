@@ -53,6 +53,8 @@ export interface HermesRunRequest {
   provider?: string
   temperature?: number
   max_tokens?: number
+  /** Hermes YOLO / approvals.mode off for this run when supported. */
+  yolo?: boolean
   metadata?: Record<string, unknown>
   /** Server-resolved routing identity. This is never forwarded to Hermes. */
   dispatch?: { requestedRuntimeTargetId?: string }

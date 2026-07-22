@@ -6,6 +6,12 @@ import { buildThinkingTrace } from '@/lib/conversations/thinking-trace'
 import { AGENT_IDS, type AgentSkillPolicyState } from '@/lib/agents/types'
 import { AGENT_EFFORT_OPTIONS, type AgentEffort } from '@/lib/agents/runRouting'
 import {
+  APPROVAL_MODE_OPTIONS,
+  cleanApprovalMode,
+  shouldAutoApproveDangerousCommands,
+  type ApprovalMode,
+} from '@/lib/messages/approval-mode'
+import {
   extractCurrentPageContextCommand,
   filterContextReferenceMentionOptions,
   findActiveContextMention,
@@ -110,6 +116,9 @@ export interface UnifiedChatProps {
 
 const POLL_INTERVAL = 1500
 const MAX_RUN_POLL_ATTEMPTS = Math.ceil((90 * 60 * 1000) / POLL_INTERVAL)
+/** Every N finalize polls, reload messages so a completed run still surfaces if SSE died. */
+const FINALIZE_MESSAGE_RECOVERY_EVERY = 10
+const FINALIZE_LOAD_RETRIES = 3
 const HUMAN_CHAT_REFRESH_INTERVAL = 3000
 const WORKSPACE_CATALOGUE_REFRESH_INTERVAL = 30_000
 const PROJECT_SYNC_STATUS_REFRESH_INTERVAL = 5_000
@@ -120,6 +129,7 @@ const MAX_QUEUED_COMPOSER_DRAFTS = 8
 const COMPOSER_HISTORY_STORAGE_PREFIX = 'pib.messages.composerHistory.v1'
 const PINNED_CONVERSATIONS_STORAGE_PREFIX = 'pib.messages.pinnedConversations.v1'
 const EXPANDED_SESSION_GROUPS_STORAGE_PREFIX = 'pib.messages.expandedSessionGroups.v1'
+const APPROVAL_MODE_STORAGE_PREFIX = 'pib.messages.approvalMode.v1'
 const PROJECT_SETUP_IDEMPOTENCY_PREFIX = 'pib-project-setup'
 const ALLOWED_ATTACHMENT_MIME = new Set([
   'image/jpeg',
@@ -673,6 +683,29 @@ export function shouldStopFinalizePollingForStatus(status: number): boolean {
   return status === 400 || status === 401 || status === 403 || status === 404
 }
 
+/** True when the server message is already terminal — stop waiting on SSE/finalize UI. */
+export function shouldAdoptServerMessageDuringFinalizePoll(
+  serverMessage: { status?: string } | null | undefined,
+): boolean {
+  const status = serverMessage?.status
+  if (!status) return false
+  return status !== 'pending' && status !== 'streaming' && status !== 'waiting_approval'
+}
+
+export function formatLiveMessageRefreshError(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error || '')
+  const lower = raw.toLowerCase()
+  if (
+    lower.includes('failed to fetch') ||
+    lower.includes('load failed') ||
+    lower.includes('networkerror') ||
+    lower.includes('load messages')
+  ) {
+    return 'Live message refresh failed. The agent may still be working — this view will keep retrying.'
+  }
+  return raw || 'Failed to load messages'
+}
+
 async function readApiResponse(res: Response): Promise<Record<string, unknown>> {
   if (typeof res.text === 'function') {
     const text = await res.text().catch(() => '')
@@ -823,6 +856,24 @@ export default function UnifiedChat({
   const [contextSearchLoading, setContextSearchLoading] = useState(false)
   const [contextPickerActiveIndex, setContextPickerActiveIndex] = useState(0)
   const [agentEffort, setAgentEffort] = useState<AgentEffort | ''>('')
+  const [approvalMode, setApprovalMode] = useState<ApprovalMode>('ask')
+  const approvalModeRef = useRef<ApprovalMode>('ask')
+  useEffect(() => { approvalModeRef.current = approvalMode }, [approvalMode])
+  useEffect(() => {
+    try {
+      const stored = cleanApprovalMode(window.localStorage.getItem(`${APPROVAL_MODE_STORAGE_PREFIX}:${orgId}`))
+      if (stored) setApprovalMode(stored)
+    } catch {
+      // Ignore localStorage read failures.
+    }
+  }, [orgId])
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(`${APPROVAL_MODE_STORAGE_PREFIX}:${orgId}`, approvalMode)
+    } catch {
+      // Ignore localStorage write failures.
+    }
+  }, [approvalMode, orgId])
   const [modelCatalog, setModelCatalog] = useState<MessageModelCatalog | null>(null)
   const [modelCatalogLoading, setModelCatalogLoading] = useState(false)
   const [selectedRuntime, setSelectedRuntime] = useState<ModelRuntimeSelection | null>(null)
@@ -2061,7 +2112,10 @@ export default function UnifiedChat({
   ])
 
   // ── Load messages ─────────────────────────────────────────────────────────
-  const loadMessages = useCallback(async (convId: string, options?: { silent?: boolean }) => {
+  const loadMessages = useCallback(async (
+    convId: string,
+    options?: { silent?: boolean; softError?: boolean },
+  ): Promise<ConversationMessage[] | null> => {
     if (!options?.silent) setLoading(true)
     try {
       let res: Response
@@ -2084,9 +2138,15 @@ export default function UnifiedChat({
       }
       if (!res.ok) throw new Error(`load messages: ${res.status}`)
       const body = await res.json()
-      setMessages(body.data?.messages ?? [])
+      const nextMessages = (body.data?.messages ?? []) as ConversationMessage[]
+      setMessages(nextMessages)
+      if (options?.softError) setError(null)
+      return nextMessages
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load messages')
+      setError(options?.softError
+        ? formatLiveMessageRefreshError(e)
+        : (e instanceof Error ? e.message : 'Failed to load messages'))
+      return null
     } finally {
       if (!options?.silent) setLoading(false)
     }
@@ -2245,7 +2305,7 @@ export default function UnifiedChat({
 
   // ── SSE event stream ─────────────────────────────────────────────────────
   const startEventStream = useCallback(
-    (msgId: string, runId: string, agentId: AgentId) => {
+    (msgId: string, runId: string, agentId: AgentId, convId?: string) => {
       eventSourcesRef.current[msgId]?.close()
       const url = `/api/v1/admin/agents/${agentId}/runs/${encodeURIComponent(runId)}/events`
       const es = new EventSource(url)
@@ -2285,13 +2345,17 @@ export default function UnifiedChat({
         }
       }
       es.onerror = () => {
-        // SSE disconnects normally when run ends — just clean up
+        // SSE often ends when the run ends, but it can also die mid-run.
+        // Close the socket and let finalize polling + message recovery catch up.
         es.close()
         delete eventSourcesRef.current[msgId]
+        if (convId) {
+          void loadMessages(convId, { silent: true, softError: true })
+        }
       }
       eventSourcesRef.current[msgId] = es
     },
-    [],
+    [loadMessages],
   )
 
   const closeEventStream = useCallback((msgId: string) => {
@@ -2381,6 +2445,16 @@ export default function UnifiedChat({
 
         if (!status || status === 'running') {
           pollFailuresRef.current[msgId] = 0
+          // Safety net: if SSE died, the DB may already have the completed reply.
+          if (attempts > 0 && attempts % FINALIZE_MESSAGE_RECOVERY_EVERY === 0) {
+            const latest = await loadMessages(convId, { silent: true, softError: true })
+            const serverMessage = latest?.find((message) => message.id === msgId)
+            if (shouldAdoptServerMessageDuringFinalizePoll(serverMessage)) {
+              closeEventStream(msgId)
+              await loadConversations()
+              return
+            }
+          }
           scheduleFinalizePoll(convId, msgId, runId, agentId, attempts)
           return
         }
@@ -2394,18 +2468,64 @@ export default function UnifiedChat({
             ...prev,
             [msgId]: { runId, agentId, toolName: lastEvent?.tool },
           }))
+          if (shouldAutoApproveDangerousCommands(approvalModeRef.current)) {
+            void (async () => {
+              try {
+                const res = await fetch(
+                  `/api/v1/admin/agents/${agentId}/runs/${encodeURIComponent(runId)}/approval`,
+                  {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ choice: 'always' }),
+                  },
+                )
+                if (!res.ok) return
+                setApprovalPending((prev) => {
+                  const next = { ...prev }
+                  delete next[msgId]
+                  return next
+                })
+                setMessages((prev) =>
+                  prev.map((m) => (m.id === msgId ? { ...m, status: 'pending' } : m)),
+                )
+                startEventStream(msgId, runId, agentId, convId)
+                scheduleFinalizePoll(convId, msgId, runId, agentId, attempts)
+              } catch {
+                // Keep waiting_approval UI if auto-approve fails.
+              }
+            })()
+          }
           return
         }
 
-        // completed or failed — close stream, keep a local thinking trail, then reload
+        // completed or failed — flip local status even when SSE never delivered events,
+        // then reload with retries so a transient Failed to fetch cannot leave the bubble pending.
         closeEventStream(msgId)
         const thinking = buildThinkingTrace(events)
-        if (thinking) {
-          setMessages((prev) =>
-            prev.map((m) => (m.id === msgId ? { ...m, thinking, status: status === 'failed' ? 'failed' : 'completed' } : m)),
-          )
+        const terminalStatus = status === 'failed' ? 'failed' : 'completed'
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === msgId
+              ? {
+                  ...m,
+                  status: terminalStatus,
+                  ...(thinking ? { thinking } : {}),
+                  ...(terminalStatus === 'failed'
+                    ? { error: m.error || 'Agent run failed' }
+                    : { error: undefined }),
+                }
+              : m,
+          ),
+        )
+        let loaded: ConversationMessage[] | null = null
+        for (let retry = 0; retry < FINALIZE_LOAD_RETRIES; retry += 1) {
+          loaded = await loadMessages(convId, { silent: true, softError: true })
+          if (loaded) break
+          await new Promise((resolve) => setTimeout(resolve, 400 * (retry + 1)))
         }
-        await loadMessages(convId)
+        if (!loaded) {
+          setError('Agent finished, but the reply could not be refreshed. Reload the page to see it.')
+        }
         await loadConversations()
       } catch {
         const failures = (pollFailuresRef.current[msgId] ?? 0) + 1
@@ -2436,7 +2556,7 @@ export default function UnifiedChat({
         )
       }
     },
-    [loadMessages, loadConversations, closeEventStream, scheduleFinalizePoll],
+    [loadMessages, loadConversations, closeEventStream, scheduleFinalizePoll, startEventStream],
   )
 
   useEffect(() => {
@@ -2464,7 +2584,7 @@ export default function UnifiedChat({
         const agentId: AgentId = knownAgentIds.includes(dispatchedAgentId as AgentId)
           ? (dispatchedAgentId as AgentId)
           : 'pip'
-        startEventStream(m.id, m.runId, agentId)
+        startEventStream(m.id, m.runId, agentId, activeId)
         pollFinalize(activeId, m.id, m.runId, agentId)
       }
     }
@@ -2494,7 +2614,7 @@ export default function UnifiedChat({
           prev.map((m) => (m.id === msgId ? { ...m, status: 'pending' } : m)),
         )
         if (activeId) {
-          startEventStream(msgId, pending.runId, pending.agentId)
+          startEventStream(msgId, pending.runId, pending.agentId, activeId)
           pollFinalize(activeId, msgId, pending.runId, pending.agentId)
         }
       } catch (e) {
@@ -2543,7 +2663,7 @@ export default function UnifiedChat({
           prev.map((m) => (m.id === message.id ? { ...m, status: 'pending' } : m)),
         )
         if (activeId) {
-          startEventStream(message.id, runId, agentId)
+          startEventStream(message.id, runId, agentId, activeId)
           pollFinalize(activeId, message.id, runId, agentId)
         }
       } catch (err) {
@@ -3462,6 +3582,7 @@ export default function UnifiedChat({
             content,
             attachments: uploadedAttachments,
             contextRefs: refsForSend,
+            approvalMode,
             ...(slashPayload ? { slashCommand: slashPayload } : {}),
             ...(agentEffort ? { agentEffort } : {}),
             ...(runtimeForSend?.model ? { model: runtimeForSend.model } : {}),
@@ -3476,8 +3597,9 @@ export default function UnifiedChat({
         const runDocId: string | undefined = body.data?.runDocId
         const dispatchAgentId: AgentId | undefined = body.data?.dispatchAgentId
 
-        // Reload real messages (replaces optimistic)
-        await loadMessages(convId)
+        // Reload real messages (replaces optimistic). Soft-fail so a transient
+        // Failed to fetch cannot block live run tracking.
+        await loadMessages(convId, { softError: true })
 
         if (newAssistantId && runId) {
           const agentParticipant = conversations
@@ -3487,7 +3609,7 @@ export default function UnifiedChat({
             dispatchAgentId ?? (agentParticipant?.kind === 'agent' ? agentParticipant.agentId : 'pip')
           void runDocId
           // Open SSE stream to receive live tool-call events
-          startEventStream(newAssistantId, runId, agentId)
+          startEventStream(newAssistantId, runId, agentId, convId)
           pollFinalize(convId, newAssistantId, runId, agentId)
         }
       } catch (e) {
@@ -3501,6 +3623,7 @@ export default function UnifiedChat({
       input,
       attachments,
       agentEffort,
+      approvalMode,
       selectedRuntime,
       modelCatalog?.canSelect,
       sending,
@@ -5142,10 +5265,27 @@ export default function UnifiedChat({
                   <span className="material-symbols-outlined text-[13px]">playlist_add</span>
                   {activeQueuedDrafts.length} queued
                 </span>
-                <span className="hidden h-6 items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2 sm:inline-flex">
+                <label className="inline-flex h-6 items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-1.5 sm:px-2">
                   <span className="material-symbols-outlined text-[13px]">shield_lock</span>
-                  Ask approvals
-                </span>
+                  <span className="sr-only">Approval mode</span>
+                  <select
+                    value={approvalMode}
+                    onChange={(event) => {
+                      const next = cleanApprovalMode(event.target.value) ?? 'ask'
+                      setApprovalMode(next)
+                    }}
+                    disabled={!canUseComposer || sending}
+                    title={APPROVAL_MODE_OPTIONS.find((option) => option.value === approvalMode)?.description}
+                    aria-label="Approval mode"
+                    className="max-w-[9.5rem] bg-transparent text-[11px] font-medium text-[var(--color-pib-text-muted)] outline-none disabled:opacity-40"
+                  >
+                    {APPROVAL_MODE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value} title={option.description}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
 
               <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1.5">

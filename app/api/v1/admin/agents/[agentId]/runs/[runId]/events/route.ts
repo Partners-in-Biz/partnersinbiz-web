@@ -3,6 +3,9 @@
  *
  * Proxies the SSE event stream from the agent's own gateway to the browser.
  * Used by the chat UI to display live tool-call events while a run is in progress.
+ *
+ * Linked-computer (Mac) jobs use a queue job id that does not exist on the VPS
+ * Hermes gateway. Those runs stream from linked job state instead.
  */
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
@@ -10,6 +13,10 @@ import { apiError } from '@/lib/api/response'
 import { callAgentStream } from '@/lib/agents/team'
 import { isValidAgentId, type AgentId } from '@/lib/agents/types'
 import { createNormalizedHermesSseStream } from '@/lib/hermes/progress-events'
+import {
+  createLinkedComputerRunSseStream,
+  getLinkedRunJobSnapshot,
+} from '@/lib/linked-computers/run-events'
 
 const encoder = new TextEncoder()
 
@@ -42,6 +49,11 @@ export const GET = withAuth('admin', async (_req: NextRequest, _user, ctx) => {
   if (!isValidAgentId(agentId)) return apiError('Invalid agentId', 400)
 
   try {
+    const linked = await getLinkedRunJobSnapshot(runId)
+    if (linked?.exists) {
+      return sseResponse(createLinkedComputerRunSseStream(runId))
+    }
+
     const upstream = await callAgentStream(agentId as AgentId, `/v1/runs/${encodeURIComponent(runId)}/events`)
     if (!upstream.ok || !upstream.body) {
       return sseResponse(singleEventStream({

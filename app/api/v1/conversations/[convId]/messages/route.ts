@@ -30,6 +30,7 @@ import { requireProjectRuntimeReplica } from '@/lib/project-locations/runtime-bi
 import type { ProjectLocationReplica } from '@/lib/project-locations/model'
 import { safeRuntimeTargetId, type RuntimeTargetSelectionErrorCode } from '@/lib/agents/runtime-targets'
 import { cleanAgentEffort, VALID_AGENT_EFFORTS, type AgentEffort } from '@/lib/agents/runRouting'
+import { cleanApprovalMode, shouldAutoApproveDangerousCommands } from '@/lib/messages/approval-mode'
 import { buildAttachedContextBlock, resolveContextReferences } from '@/lib/context-references/registry'
 import {
   contextReferenceKey,
@@ -426,6 +427,12 @@ export const POST = withAuth(
       return apiError(`Invalid agentEffort; expected one of ${VALID_AGENT_EFFORTS.join(' | ')}`, 400)
     }
     const agentEffort = reasoningDirective.agentEffort ?? requestedEffort
+    const rawApprovalMode = (body as Record<string, unknown>).approvalMode
+    const approvalMode = cleanApprovalMode(rawApprovalMode) ?? 'ask'
+    if (rawApprovalMode !== undefined && rawApprovalMode !== null && rawApprovalMode !== '' && !cleanApprovalMode(rawApprovalMode)) {
+      return apiError('Invalid approvalMode; expected ask | smart | full', 400)
+    }
+    const yolo = shouldAutoApproveDangerousCommands(approvalMode)
     const requestedModel = (body as Record<string, unknown>).model
     const requestedProvider = (body as Record<string, unknown>).provider
     const hasModelSelection = requestedModel !== undefined || requestedProvider !== undefined
@@ -553,6 +560,7 @@ export const POST = withAuth(
         authorDisplayName: agentData.name,
         dispatchAgentId: agentId,
         ...(agentEffort ? { agentEffort } : {}),
+        approvalMode,
         ...(modelSelection?.model ? { model: modelSelection.model } : {}),
         ...(modelSelection?.provider ? { provider: modelSelection.provider } : {}),
         status: 'pending',
@@ -741,6 +749,7 @@ export const POST = withAuth(
             ...(images.length ? { images } : {}),
             ...(modelSelection?.model ? { model: modelSelection.model } : {}),
             ...(modelSelection?.provider ? { provider: modelSelection.provider } : {}),
+            ...(yolo ? { yolo: true } : {}),
           },
           conversationId: convId,
           assistantMessageId: assistantMessage.id,
@@ -822,6 +831,7 @@ export const POST = withAuth(
         ...(modelSelection?.model ? { model: modelSelection.model } : {}),
         ...(modelSelection?.provider ? { provider: modelSelection.provider } : {}),
         ...(agentEffort ? { reasoning_effort: agentEffort } : {}),
+        ...(yolo ? { yolo: true } : {}),
         dispatch: {
           requestedRuntimeTargetId: conversation.workspaceContext?.runtimeTarget ?? dispatchLink.runtimeTargetId,
         },
@@ -843,6 +853,7 @@ export const POST = withAuth(
           requestedAgentIds: conversation.orchestration?.requestedAgentIds ?? conversation.participantAgentIds,
           orchestrationMode: conversation.orchestration?.mode ?? (conversation.participantAgentIds.length > 1 ? 'pip-orchestrator' : 'direct'),
           source: 'pib-unified-chat',
+          approvalMode,
           ...(agentEffort ? { agentEffort } : {}),
           ...(resolvedContextRefs.length > 0 ? { contextRefs: resolvedContextRefs } : {}),
           ...(slashCommand ? { slashCommand } : {}),

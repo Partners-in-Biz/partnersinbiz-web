@@ -16,6 +16,7 @@ import {
 } from './run-queue'
 import { assertDeviceOrgAccess, isActiveOrgMembershipRow, linkedDeviceActorUserId, linkedDeviceOwnerType } from './policy'
 import type { ActiveOrgMembership, LinkedDevice, LinkedDeviceGrant } from './types'
+import { sanitizeLinkedRunChatEvents } from './run-events'
 
 export const LINKED_RUN_JOBS = 'linked_device_run_jobs'
 export const LINKED_RUN_QUEUES = 'linked_device_run_queues'
@@ -242,12 +243,16 @@ export async function claimOldestLinkedRun(input: { deviceId: string; ownerUserI
 export async function updateLinkedRunFromDevice(input: {
   deviceId: string; ownerUserId: string; credentialVersion: number; jobId: string; receipt: LinkedRunReceipt
   event: 'progress' | 'complete'; outcome?: 'completed' | 'failed' | 'cancelled'; output?: string; error?: string
+  events?: unknown
 }, options: { nowMs?: number } = {}) {
   const nowMs = options.nowMs ?? Date.now()
   const validReceiptEvent = input.event === 'progress'
     ? input.receipt.event === 'accepted' || input.receipt.event === 'progress'
     : input.receipt.event === input.outcome
   if (!validReceiptEvent) throw new Error('linked computers: run receipt event mismatch')
+  const incomingEvents = input.event === 'progress'
+    ? sanitizeLinkedRunChatEvents(input.events, input.jobId)
+    : []
   const result = await adminDb.runTransaction(async (tx) => {
     const jobRef = adminDb.collection(LINKED_RUN_JOBS).doc(input.jobId)
     const credentialRef = adminDb.collection('linked_device_credentials').doc(input.deviceId)
@@ -288,7 +293,21 @@ export async function updateLinkedRunFromDevice(input: {
       ? transitionLinkedRun(job, { type: 'progress', deviceId: input.deviceId, credentialVersion: input.credentialVersion, nowMs, attempt: input.receipt.attempt, leaseToken: input.receipt.leaseToken, leaseMs: DEFAULT_LEASE_MS })
       : transitionLinkedRun(job, { type: 'complete', deviceId: input.deviceId, credentialVersion: input.credentialVersion, nowMs, outcome: input.outcome ?? 'completed', attempt: input.receipt.attempt, leaseToken: input.receipt.leaseToken })
     const safeOutput = sanitizeLinkedResult(output); const safeError = sanitizeLinkedResult(error)
-    tx.update(jobRef, { ...toStored(next), ...(rotationContinuity ? { rotationContinuedFromCredentialVersion: storedJob.credentialVersion } : {}), ...(!job.acceptedRuntimeVersion && input.receipt.event === 'accepted' ? { acceptedRuntimeVersion, acceptedMachineLabel } : {}), ...(input.event === 'progress' ? { acceptanceReceipt: input.receipt } : { receipt: input.receipt, finalizationState: 'complete' }), output: safeOutput, error: safeError })
+    const existingEvents = Array.isArray((jobSnap.data() ?? {}).chatEvents)
+      ? (jobSnap.data() as { chatEvents: unknown[] }).chatEvents
+      : []
+    const chatEvents = incomingEvents.length > 0
+      ? [...existingEvents, ...incomingEvents].slice(-200)
+      : undefined
+    tx.update(jobRef, {
+      ...toStored(next),
+      ...(rotationContinuity ? { rotationContinuedFromCredentialVersion: storedJob.credentialVersion } : {}),
+      ...(!job.acceptedRuntimeVersion && input.receipt.event === 'accepted' ? { acceptedRuntimeVersion, acceptedMachineLabel } : {}),
+      ...(input.event === 'progress' ? { acceptanceReceipt: input.receipt } : { receipt: input.receipt, finalizationState: 'complete' }),
+      output: safeOutput,
+      error: safeError,
+      ...(chatEvents ? { chatEvents } : {}),
+    })
     if (input.event === 'complete') {
       const status = input.outcome === 'completed' ? 'completed' : 'failed'
       const content = status === 'completed' ? safeOutput : (safeError || `Linked computer run ${input.outcome ?? 'failed'}`)

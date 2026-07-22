@@ -1,6 +1,8 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import UnifiedChat, {
   formatConversationAttachmentUploadError,
+  formatLiveMessageRefreshError,
+  shouldAdoptServerMessageDuringFinalizePoll,
   shouldStopFinalizePollingForStatus,
   uploadConversationAttachment,
 } from '@/components/chat/UnifiedChat'
@@ -106,6 +108,21 @@ describe('UnifiedChat upload and finalize error handling', () => {
     expect(shouldStopFinalizePollingForStatus(404)).toBe(true)
     expect(shouldStopFinalizePollingForStatus(502)).toBe(false)
     expect(shouldStopFinalizePollingForStatus(503)).toBe(false)
+  })
+
+  it('adopts terminal server messages when live SSE/finalize UI would otherwise stay pending', () => {
+    expect(shouldAdoptServerMessageDuringFinalizePoll({ status: 'completed' })).toBe(true)
+    expect(shouldAdoptServerMessageDuringFinalizePoll({ status: 'failed' })).toBe(true)
+    expect(shouldAdoptServerMessageDuringFinalizePoll({ status: 'pending' })).toBe(false)
+    expect(shouldAdoptServerMessageDuringFinalizePoll({ status: 'streaming' })).toBe(false)
+    expect(shouldAdoptServerMessageDuringFinalizePoll({ status: 'waiting_approval' })).toBe(false)
+    expect(shouldAdoptServerMessageDuringFinalizePoll(undefined)).toBe(false)
+  })
+
+  it('softens network refresh failures during an active agent run', () => {
+    expect(formatLiveMessageRefreshError(new Error('Failed to fetch'))).toContain('keep retrying')
+    expect(formatLiveMessageRefreshError(new Error('load messages: 502'))).toContain('keep retrying')
+    expect(formatLiveMessageRefreshError(new Error('permission denied'))).toBe('permission denied')
   })
 })
 

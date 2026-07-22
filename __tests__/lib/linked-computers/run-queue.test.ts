@@ -67,6 +67,17 @@ describe('linked run queue security transitions', () => {
     expect(sanitizeLinkedResult(connections)).not.toMatch(/space secret|postgres|user:|p%40ss|mysql|root:pw|abc123|quoted escaped|value/)
   })
 
+  it('keeps scrubbed replies readable instead of wiping the whole message', () => {
+    expect(sanitizeLinkedResult('Mailbox created. Password: Abc123! Send this to the client.'))
+      .toBe('Mailbox created. Password: [redacted] Send this to the client.')
+    expect(sanitizeLinkedResult('Authorization: Bearer abc123 done with setup'))
+      .toBe('Authorization: [redacted] done with setup')
+    expect(sanitizeLinkedResult('token: leftover-secret still present'))
+      .toBe('token: [redacted] still present')
+    // Residual secret-shaped text that field redaction cannot scrub still triggers a full wipe.
+    expect(sanitizeLinkedResult('broken password: ,,,, keep quiet')).toBe('[redacted output]')
+  })
+
   it('denies cross-device, stale credential and out-of-order completion while making duplicate completion idempotent', () => {
     expect(() => transitionLinkedRun(queued(), { type: 'claim', deviceId: 'device-b', credentialVersion: 3, nowMs: now, leaseMs: 30_000 })).toThrow('device mismatch')
     expect(() => transitionLinkedRun(queued(), { type: 'claim', deviceId: 'device-a', credentialVersion: 2, nowMs: now, leaseMs: 30_000 })).toThrow('credential mismatch')
