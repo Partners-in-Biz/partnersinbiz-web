@@ -71,6 +71,9 @@ describe('project conversation workspace identity', () => {
         id: 'acme-company',
         data: () => ({
           workspaceId: 'acme-company', orgId: 'client-org', orgSlug: 'acme', orgName: 'Acme',
+          agentDomain: 'acme',
+          agentDomainPath: '/var/lib/hermes/Cowork/Cowork/agents/acme',
+          localAgentDomainPath: '/Users/peet/Cowork/Cowork/agents/acme',
           vpsPath: '/var/lib/hermes/Cowork/Acme', localPath: '/Users/peet/Cowork/Acme',
           status: 'active', companyId: 'company-1',
         }),
@@ -87,7 +90,11 @@ describe('project conversation workspace identity', () => {
       orgId: 'org-1', orgName: 'Partners in Biz',
       workspaceId: 'partners', companyWorkspaceId: 'acme-company',
       companyId: 'company-1', companyName: 'Acme', folderScope: 'company',
+      agentDomain: 'acme',
+      agentDomainPath: '/var/lib/hermes/Cowork/Cowork/agents/acme',
+      localAgentDomainPath: '/Users/peet/Cowork/Cowork/agents/acme',
       vpsWorkingPath: '/var/lib/hermes/Cowork/Acme',
+      localWorkingPath: '/Users/peet/Cowork/Acme',
     }))
   })
 

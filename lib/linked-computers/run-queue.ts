@@ -18,6 +18,8 @@ export interface LinkedRunJob {
   projectReplicaId?: string
   mappingId: string
   relativeFolder: string
+  /** Absolute or ~/ portable path for company Cowork folders outside the org mapping root. */
+  workingDirectory?: string
   credentialVersion: number
   status: LinkedRunStatus
   attempt: number
@@ -168,7 +170,9 @@ export function publicClaimedLinkedRun(job: LinkedRunJob, payload: LinkedRunPayl
   return {
     jobId: job.jobId, requestId: job.requestId, prompt: payload.prompt, workspaceId: job.workspaceId, agentId: job.agentId,
     ...(job.projectId ? { projectId: job.projectId } : {}), mappingId: job.mappingId,
-    relativeFolder: job.relativeFolder, attempt: job.attempt, leaseToken: job.leaseToken, ...(payload.model ? { model: payload.model } : {}),
+    relativeFolder: job.relativeFolder,
+    ...(job.workingDirectory ? { workingDirectory: job.workingDirectory } : {}),
+    attempt: job.attempt, leaseToken: job.leaseToken, ...(payload.model ? { model: payload.model } : {}),
     ...(payload.provider ? { provider: payload.provider } : {}),
   }
 }

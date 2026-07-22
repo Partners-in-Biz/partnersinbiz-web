@@ -41,6 +41,11 @@ import { CEO_APPROVAL_CARD_RULE_LINES, buildCeoDataDecisionOperatingRuleLines } 
 import { validateMessageModelSelection } from '@/lib/messages/model-catalog'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import { resolveAuthorizedWorkingDirectory } from '@/lib/client-provisioning/working-directory'
+import {
+  enrichCompanyCoworkWorkspaceContext,
+  linkedCoworkWorkingDirectory,
+  linkedRuntimeSupportsCoworkWorkingDirectory,
+} from '@/lib/client-provisioning/company-cowork-dispatch'
 import { classifyWorkspaceDispatchFailure } from '@/lib/workspaces/dispatch-errors'
 import type { ApiUser } from '@/lib/api/types'
 import {
@@ -176,8 +181,13 @@ function buildConversationContext(conversation: Conversation, callerDisplayName:
 function buildWorkspaceContext(conversation: Conversation): string {
   const workspace = conversation.workspaceContext
   if (!workspace) return ''
+  const companyCowork = workspace.folderScope === 'company'
+    || (workspace.folderScope === 'project' && Boolean(workspace.companyWorkspaceId || workspace.companyId))
+  const bindingLine = companyCowork
+    ? `[Workspace context — this chat is bound to the ${workspace.companyName || 'company'} Cowork folder]`
+    : '[Workspace context — this chat is bound to a Partners in Biz Workspace]'
   return [
-    '[Workspace context — this chat is bound to a Partners in Biz Workspace]',
+    bindingLine,
     `workspaceId: ${workspace.workspaceId}`,
     `workspaceName: ${workspace.orgName}`,
     workspace.companyWorkspaceId ? `companyWorkspaceId: ${workspace.companyWorkspaceId}` : '',
@@ -203,7 +213,9 @@ function buildWorkspaceContext(conversation: Conversation): string {
     `shareMode: ${workspace.shareMode}`,
     `ownerUserId: ${workspace.ownerUserId}`,
     'The active orgId is the security and operating perspective for this session. crmCompanyId identifies the CRM company folder; a linked organisation mentioned in AGENTS.md is metadata and a delivery relationship, not permission to browse or act inside that organisation.',
-    'Treat the runtime-matching working path above as this chat session’s working directory. Keep project artefacts inside it, and read the company root AGENTS.md/CLAUDE.md plus .pib-workspace.json before acting when file access is available.',
+    companyCowork
+      ? 'This is a company Cowork session. Treat the runtime-matching company working path above as the session working directory. Read that company root AGENTS.md/CLAUDE.md and the company agentDomain hot.md/index.md before answering about prior work. Do not use Partners in Biz platform history unless the user explicitly asks about Partners in Biz.'
+      : 'Treat the runtime-matching working path above as this chat session’s working directory. Keep project artefacts inside it, and read the company root AGENTS.md/CLAUDE.md plus .pib-workspace.json before acting when file access is available.',
     'Keep user chat threads separate unless the shareMode or user request says otherwise.',
     '---',
     '',
@@ -566,6 +578,9 @@ export const POST = withAuth(
       // Build context string (org + conversation participants)
       const orgContext = await buildOrgContext(conversation.orgId)
       const convContext = buildConversationContext(conversation, authorDisplayName)
+      if (conversation.workspaceContext) {
+        conversation.workspaceContext = await enrichCompanyCoworkWorkspaceContext(conversation.workspaceContext)
+      }
       const workspaceContext = buildWorkspaceContext(conversation)
       const orchestrationContext = buildOrchestrationContext(conversation, agentId)
       const projectChatOrchestrationContext = buildProjectChatOrchestrationContext({
@@ -590,6 +605,26 @@ export const POST = withAuth(
       const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + projectChatOrchestrationContext + studioArtifactOrchestrationContext + agentSkillsContext + decisionDataRuleContext + attachedContext + conversationHistory + commandContext + content + attachmentContext
       if (linkedComputerBinding) {
         const projectId = boundProjectId
+        const coworkWorkingDirectory = linkedCoworkWorkingDirectory(conversation.workspaceContext)
+        if (coworkWorkingDirectory
+          && !linkedRuntimeSupportsCoworkWorkingDirectory(linkedComputerBinding.runtimeVersion)) {
+          const error = 'This computer needs a Linked Runtime update (1.1.2+) before company Cowork folders can run on it.'
+          await messagesCollection(convId).doc(assistantMessage.id).update({
+            content: '',
+            status: 'failed',
+            error,
+            workspaceDispatchFailureCode: 'linked_device_update_required',
+          })
+          return apiSuccess({
+            message,
+            assistantMessage: {
+              ...assistantMessage,
+              status: 'failed',
+              error,
+              workspaceDispatchFailureCode: 'linked_device_update_required',
+            },
+          }, 201)
+        }
         const queued = await enqueueLinkedRun({
           requestId: assistantMessage.id,
           deviceId: linkedComputerBinding.deviceId,
@@ -600,6 +635,7 @@ export const POST = withAuth(
           ...(projectId && boundProjectReplica ? { projectId, projectReplicaId: boundProjectReplica.replicaId } : {}),
           mappingId: linkedComputerBinding.mappingId,
           relativeFolder: boundProjectReplica?.relativePath ?? (projectId ? `projects/${projectId}` : '.'),
+          ...(coworkWorkingDirectory ? { workingDirectory: coworkWorkingDirectory } : {}),
           credentialVersion: linkedComputerBinding.credentialVersion,
           payload: { prompt: hermesInput, ...(modelSelection?.model ? { model: modelSelection.model } : {}), ...(modelSelection?.provider ? { provider: modelSelection.provider } : {}) },
           conversationId: convId,

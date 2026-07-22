@@ -156,7 +156,7 @@ async function loadLinkedRunAuthorization(
 
 export async function enqueueLinkedRun(input: {
   requestId: string; deviceId: string; runtimeTargetId: string; orgId: string; actorUserId: string; workspaceId: string; projectId?: string; projectReplicaId?: string
-  mappingId: string; relativeFolder: string; credentialVersion: number; payload: LinkedRunPayload
+  mappingId: string; relativeFolder: string; workingDirectory?: string; credentialVersion: number; payload: LinkedRunPayload
   conversationId: string; assistantMessageId: string; agentId: string
 }, options: { nowMs?: number; ttlMs?: number } = {}): Promise<LinkedRunJob> {
   if (Boolean(input.projectId?.trim()) !== Boolean(input.projectReplicaId?.trim())) {
