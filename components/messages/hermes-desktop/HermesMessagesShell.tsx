@@ -390,7 +390,14 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
                             {tab.title}
                           </button>
                         )}
-                        <button type="button" aria-label={`Close ${tab.title}`} onClick={() => closeTab(pane.id, tab.id)} className="ml-1 grid h-11 w-11 shrink-0 place-items-center rounded hover:bg-white/10 xl:h-4 xl:w-4 xl:opacity-0 xl:group-hover/tab:opacity-100 xl:focus:opacity-100"><span className="material-symbols-outlined text-[12px]">close</span></button>
+                        <button
+                          type="button"
+                          aria-label={`Close ${tab.title}`}
+                          onClick={() => closeTab(pane.id, tab.id)}
+                          className="ml-0.5 inline-flex h-11 w-11 shrink-0 items-center justify-center self-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/10 hover:text-[var(--color-pib-text)] xl:h-3 xl:w-3 xl:opacity-0 xl:group-hover/tab:opacity-100 xl:focus:opacity-100"
+                        >
+                          <span aria-hidden="true" className="material-symbols-outlined block text-[10px] leading-none">close</span>
+                        </button>
                       </div>
                     ))}
                     {pane.tabs.length === 0 && <span className="px-2 text-[11px] text-[var(--color-pib-text-muted)]">Select a session</span>}

@@ -69,7 +69,7 @@ describe('HermesMessagesShell', () => {
     expect(screen.getByRole('button', { name: 'Stack panes vertically' })).toHaveClass('h-11', 'w-11', 'xl:h-7', 'xl:w-7')
     expect(screen.getByRole('button', { name: 'Open active session in split pane' })).toHaveClass('h-11', 'w-11', 'xl:h-7', 'xl:w-7')
     expect(screen.getByRole('tab', { name: 'Session' }).parentElement).toHaveClass('min-h-11', 'xl:h-6', 'xl:min-h-0')
-    expect(screen.getByRole('button', { name: 'Close Session' })).toHaveClass('h-11', 'w-11', 'xl:h-4', 'xl:w-4', 'xl:opacity-0')
+    expect(screen.getByRole('button', { name: 'Close Session' })).toHaveClass('h-11', 'w-11', 'xl:h-3', 'xl:w-3', 'xl:opacity-0')
     expect(screen.getByTestId('mock-unified-chat')).toHaveAttribute('data-org-id', 'org-1')
     expect(screen.getByTestId('mock-unified-chat')).toHaveAttribute('data-layout-variant', 'hermes')
     expect(mockUnifiedChat).toHaveBeenCalledWith(expect.objectContaining({
