@@ -588,9 +588,8 @@ export const POST = withAuth(
           }
         }
       } catch (err) {
-        const error = 'Agent dispatch is not configured for this Preview environment.'
         const runtimeFailure = err && typeof err === 'object'
-          ? err as { code?: unknown; requestedTargetId?: unknown }
+          ? err as { code?: unknown; requestedTargetId?: unknown; message?: unknown }
           : null
         const allowedFailureCodes: RuntimeTargetSelectionErrorCode[] = [
           'runtime_target_invalid_id', 'runtime_target_not_found', 'runtime_target_disabled',
@@ -604,6 +603,21 @@ export const POST = withAuth(
         const requestedRuntimeTargetId = safeRuntimeTargetId(runtimeFailure?.requestedTargetId)
           ?? safeRuntimeTargetId(conversation.workspaceContext?.runtimeTarget)
           ?? (runtimeDispatchFailureCode === 'runtime_target_invalid_id' ? 'invalid' : undefined)
+        const error = runtimeDispatchFailureCode === 'runtime_target_binding_mismatch'
+          ? 'The selected computer changed before the agent could start. Pick Partners VPS again and retry.'
+          : runtimeDispatchFailureCode === 'runtime_target_stale'
+            ? 'That computer went offline. Pick a healthy computer and retry.'
+            : runtimeDispatchFailureCode === 'runtime_target_unhealthy'
+              ? 'That computer is unhealthy right now. Pick another computer or retry shortly.'
+              : runtimeDispatchFailureCode === 'runtime_target_missing_api_key'
+                ? 'Agent dispatch credentials are missing for that computer.'
+                : runtimeDispatchFailureCode === 'runtime_target_disabled'
+                  || runtimeDispatchFailureCode === 'runtime_target_not_found'
+                  || runtimeDispatchFailureCode === 'runtime_target_invalid_id'
+                  ? 'That computer is not available for agent dispatch.'
+                  : process.env.VERCEL_ENV === 'preview'
+                    ? 'Agent dispatch is not configured for this Preview environment.'
+                    : 'Agent dispatch could not reach the selected computer. Retry or pick another runtime.'
         console.error('[conversation-agent-dispatch-failed]', {
           convId,
           agentId,
