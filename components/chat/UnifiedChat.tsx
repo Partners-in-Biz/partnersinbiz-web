@@ -47,6 +47,7 @@ import { ChatContextExperience } from '@/components/chat/context/ChatContextExpe
 import { ContextArtifactBundle } from '@/components/chat/context/ContextArtifactBundle'
 import type { ProjectChatTaskItem } from '@/lib/projects/chatProgress'
 import type { RuntimeExecution } from '@/components/messages/hermes/RuntimeInspectorRail'
+import { folderAccentStyle } from '@/lib/messages/folder-accent'
 import { ProjectPeopleAccessPanel } from '@/components/projects/ProjectPeopleAccessPanel'
 import { AccessibleDialog } from '@/components/linked-computers/AccessibleOverlay'
 import { CompanyPicker } from '@/components/crm/CompanyPicker'
@@ -3721,7 +3722,9 @@ export default function UnifiedChat({
                     <div
                       key={company.id}
                       data-testid={`hermes-company-${company.id}`}
-                      className="min-w-0 rounded-lg border border-white/[0.06] bg-white/[0.025] p-1"
+                      data-folder-accent={`company:${company.id}`}
+                      style={folderAccentStyle(`company:${company.id}`)}
+                      className="mx-folder-accent min-w-0 overflow-hidden rounded-lg border border-white/[0.06] bg-white/[0.025] p-1 pl-2"
                     >
                     <div className="flex min-w-0 items-center gap-1 px-1 py-1">
                       <button
@@ -3831,7 +3834,9 @@ export default function UnifiedChat({
                     <div
                       key={project.id}
                       data-testid={`hermes-project-${project.id}`}
-                      className="min-w-0 rounded-lg border border-white/[0.06] bg-white/[0.025] p-1"
+                      data-folder-accent={`project:${project.id}`}
+                      style={folderAccentStyle(`project:${project.id}`)}
+                      className="mx-folder-accent min-w-0 overflow-hidden rounded-lg border border-white/[0.06] bg-white/[0.025] p-1 pl-2"
                     >
                     <div className="flex min-w-0 items-center gap-1 px-1 py-1">
                       <button

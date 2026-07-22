@@ -268,6 +268,33 @@ describe('HermesMessagesShell', () => {
       syncedConversationTitles: expect.objectContaining({ 'conv-1': 'Security incident' }),
     }))
   })
+
+  it('matches workspace tab accents to Cowork folder seeds from the conversation catalogue', () => {
+    render(
+      <HermesMessagesShell
+        surface="portal"
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        initialConvId="conv-1"
+        capabilities={{ allowStartConversations: true, allowSendMessages: true, allowAgentParticipants: true, allowArchiveConversations: true }}
+      />,
+    )
+
+    const catalogue = mockUnifiedChat.mock.calls[0]?.[0]?.onConversationsChange as ((conversations: Conversation[]) => void) | undefined
+    act(() => {
+      catalogue?.([{
+        id: 'conv-1',
+        title: 'Dawid Account',
+        workspaceContext: { companyId: 'company-sa-gun', companyName: 'SA Gun Auctions' },
+      } as Conversation])
+    })
+
+    const tab = screen.getByTestId('workspace-tab-conv-1')
+    expect(tab).toHaveAttribute('data-folder-accent', 'company:company-sa-gun')
+    expect(tab).toHaveClass('mx-folder-accent')
+    expect(tab.style.getPropertyValue('--mx-folder-accent')).toMatch(/^#/)
+  })
 })
 
 describe('MessagesWorkspace', () => {
