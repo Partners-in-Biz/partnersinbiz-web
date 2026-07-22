@@ -1799,21 +1799,22 @@ export default function MessageBubble({
 
   return (
     <div
-      className="mx-message flex min-w-0 justify-start gap-2.5 w-full overflow-hidden lg:gap-2.5"
+      className="mx-message flex w-full min-w-0 justify-start gap-2.5 lg:gap-2.5"
       data-mine="false"
       data-author-kind={isAgent ? 'agent' : 'user'}
       data-status={m.status || 'complete'}
     >
-      {/* Avatar — hidden on mobile for cleaner prose-style look */}
-      <div className="shrink-0 mt-0.5 hidden lg:block">
+      {/* Avatar — hidden on mobile for cleaner prose-style look.
+          Pad for the cinematic ring (::after inset -3px) so left/top edges are not clipped. */}
+      <div className="mt-0.5 hidden shrink-0 overflow-visible p-[3px] lg:block">
         {isAgent ? (
-          <div className={`mx-avatar-ring w-8 h-8 rounded-full flex items-center justify-center ${color.bg}`}>
+          <div className={`mx-avatar-ring flex h-8 w-8 items-center justify-center rounded-full ${color.bg}`}>
             <span className={`material-symbols-outlined text-[16px] ${color.text}`}>
               {agentIconKey ?? 'smart_toy'}
             </span>
           </div>
         ) : (
-          <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white/10 text-xs font-bold text-[var(--color-pib-text)]">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-xs font-bold text-[var(--color-pib-text)]">
             {initials(m.authorDisplayName)}
           </div>
         )}
