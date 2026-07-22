@@ -97,6 +97,8 @@ export interface UnifiedChatProps {
   activeConversationId?: string | null
   onActiveConversationChange?: (conversationId: string | null) => void
   onConversationsChange?: (conversations: Conversation[]) => void
+  /** Title map from the Hermes tab strip so shell renames stay in sync with chat. */
+  syncedConversationTitles?: Record<string, string>
   /** A secondary pane reuses the chat surface without duplicating the session rail. */
   showConversationList?: boolean
   /** Backward-compatible presentation control for the Hermes session catalogue. */
@@ -781,6 +783,7 @@ export default function UnifiedChat({
   activeConversationId,
   onActiveConversationChange,
   onConversationsChange,
+  syncedConversationTitles,
   showConversationList = true,
   conversationRailMode = 'expanded',
   onConversationRailModeChange,
@@ -833,6 +836,20 @@ export default function UnifiedChat({
   useEffect(() => {
     onConversationsChange?.(conversations)
   }, [conversations, onConversationsChange])
+
+  useEffect(() => {
+    if (!syncedConversationTitles) return
+    setConversations((prev) => {
+      let changed = false
+      const next = prev.map((conversation) => {
+        const title = syncedConversationTitles[conversation.id]
+        if (!title || title === conversation.title) return conversation
+        changed = true
+        return { ...conversation, title }
+      })
+      return changed ? next : prev
+    })
+  }, [syncedConversationTitles])
 
   // Agent map for looking up colorKey / iconKey for bubbles
   const [agentMap, setAgentMap] = useState<Record<AgentId, AgentTeamDoc>>({} as Record<AgentId, AgentTeamDoc>)

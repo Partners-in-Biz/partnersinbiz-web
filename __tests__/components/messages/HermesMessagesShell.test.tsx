@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react'
 import HermesMessagesShell from '@/components/messages/hermes-desktop/HermesMessagesShell'
 import { MessagesWorkspace } from '@/components/messages/MessagesWorkspace'
 import { WORKSPACE_PANEL_EVENT } from '@/lib/hermes/workspace-panels'
+import type { Conversation } from '@/components/chat/ConversationListItem'
 
 const mockUnifiedChat = jest.fn((props: Record<string, unknown>) => (
   <div
@@ -230,6 +231,42 @@ describe('HermesMessagesShell', () => {
     expect(screen.getByTestId('messages-workspace-pane-secondary')).toBeInTheDocument()
     expect(screen.getByTestId('generated-workspace-panel-growth')).toHaveTextContent('Growth cockpit')
     expect(screen.getByTestId('generated-workspace-panel-growth')).toHaveTextContent('42')
+  })
+  it('renames a conversation tab on double-click and persists the title', async () => {
+    const fetchMock = jest.fn(async () => ({ ok: true })) as jest.Mock
+    global.fetch = fetchMock
+
+    render(
+      <HermesMessagesShell
+        surface="portal"
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        initialConvId="conv-1"
+        capabilities={{ allowStartConversations: true, allowSendMessages: true, allowAgentParticipants: true, allowArchiveConversations: true }}
+      />,
+    )
+
+    const catalogue = mockUnifiedChat.mock.calls[0]?.[0]?.onConversationsChange as ((conversations: Conversation[]) => void) | undefined
+    act(() => {
+      catalogue?.([{ id: 'conv-1', title: 'New conversation' } as Conversation])
+    })
+
+    const tab = await screen.findByRole('tab', { name: 'New conversation' })
+    fireEvent.doubleClick(tab)
+
+    const input = screen.getByTestId('workspace-tab-rename-conv-1')
+    fireEvent.change(input, { target: { value: 'Security incident' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(await screen.findByRole('tab', { name: 'Security incident' })).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/conversations/conv-1', expect.objectContaining({
+      method: 'PATCH',
+      body: JSON.stringify({ title: 'Security incident' }),
+    }))
+    expect(mockUnifiedChat).toHaveBeenCalledWith(expect.objectContaining({
+      syncedConversationTitles: expect.objectContaining({ 'conv-1': 'Security incident' }),
+    }))
   })
 })
 
