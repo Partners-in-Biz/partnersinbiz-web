@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react'
+
 /** Distinct left-rail accents for Cowork folders / projects and matching chat tabs. */
 const FOLDER_ACCENT_PALETTE = [
   '#f87171', // red
@@ -47,7 +49,7 @@ export function conversationFolderAccentSeed(conversation: AccentConversation): 
   return null
 }
 
-export function folderAccentStyle(seed: string | null | undefined): { ['--mx-folder-accent']?: string } {
+export function folderAccentStyle(seed: string | null | undefined): CSSProperties {
   if (!seed) return {}
-  return { '--mx-folder-accent': folderAccentColor(seed) }
+  return { ['--mx-folder-accent']: folderAccentColor(seed) } as CSSProperties
 }
