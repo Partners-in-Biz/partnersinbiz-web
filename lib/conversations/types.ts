@@ -13,6 +13,7 @@ import type { SlashCommandPayload } from '@/lib/chat/slash-commands'
 import type { AgentEffort } from '@/lib/agents/runRouting'
 import type { RichMessagePart } from '@/lib/hermes/types'
 import type { ConversationWorkspaceContext } from '@/lib/client-provisioning/workspace-context'
+import type { ApprovalMode } from '@/lib/messages/approval-mode'
 import type { MessageThinkingTrace } from './thinking-trace'
 export type { AgentId }
 
@@ -110,6 +111,8 @@ export interface ConversationMessage {
   contextRefs?: ContextReference[]
   slashCommand?: SlashCommandPayload
   agentEffort?: AgentEffort | null
+  /** Hermes-aligned dangerous-command approval mode for this turn. */
+  approvalMode?: ApprovalMode
   model?: string
   provider?: string
   runId?: string
