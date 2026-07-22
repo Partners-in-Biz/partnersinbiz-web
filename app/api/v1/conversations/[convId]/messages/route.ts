@@ -26,7 +26,10 @@ import { parseLinkedRuntimeVersion } from '@/lib/linked-computers/runtime-target
 import { cancelLinkedRun, enqueueLinkedRun, waitForLinkedRunClaim } from '@/lib/linked-computers/run-queue-store'
 import { getAgentDispatchHermesProfileLink } from '@/lib/agents/team'
 import { authorizeWorkspaceRuntime, type AuthorizedWorkspaceRuntime } from '@/lib/workspaces/runtime-authorization'
-import { requireProjectRuntimeReplica } from '@/lib/project-locations/runtime-binding'
+import {
+  projectRuntimeReplicaApiError,
+  requireProjectRuntimeReplica,
+} from '@/lib/project-locations/runtime-binding'
 import type { ProjectLocationReplica } from '@/lib/project-locations/model'
 import { safeRuntimeTargetId, type RuntimeTargetSelectionErrorCode } from '@/lib/agents/runtime-targets'
 import { cleanAgentEffort, VALID_AGENT_EFFORTS, type AgentEffort } from '@/lib/agents/runRouting'
@@ -511,8 +514,9 @@ export const POST = withAuth(
           actorUserId: user.uid,
           runtime: authorizedWorkspaceRuntime,
         })
-      } catch {
-        return apiError('Project is not linked to this computer', 409)
+      } catch (error) {
+        const mapped = projectRuntimeReplicaApiError(error)
+        return apiError(mapped.message, mapped.status)
       }
     }
 

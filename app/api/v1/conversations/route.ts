@@ -27,7 +27,10 @@ import {
   workspaceRuntimeSupportsOrganizationSharing,
 } from '@/lib/workspaces/runtime-authorization'
 import type { AuthorizedWorkspaceRuntime } from '@/lib/workspaces/runtime-authorization'
-import { requireProjectRuntimeReplica } from '@/lib/project-locations/runtime-binding'
+import {
+  projectRuntimeReplicaApiError,
+  requireProjectRuntimeReplica,
+} from '@/lib/project-locations/runtime-binding'
 import { getProjectForUser } from '@/lib/projects/access'
 import { projectLinkedToOrganization } from '@/lib/projects/organization-link'
 import { getConversationCompanyForUser } from '@/lib/companies/conversation-access'
@@ -318,8 +321,9 @@ export const POST = withAuth(
           runtime: authorizedWorkspaceRuntime,
         })
         projectFolderRelativePath = projectReplica.relativePath
-      } catch {
-        return apiError('Project is not linked to this computer', 409)
+      } catch (error) {
+        const mapped = projectRuntimeReplicaApiError(error)
+        return apiError(mapped.message, mapped.status)
       }
     }
     const workspaceContext = shouldBindWorkspace
