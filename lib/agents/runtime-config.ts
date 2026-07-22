@@ -65,23 +65,28 @@ function extractPrimary(config: Record<string, unknown>): { provider?: string; m
   }
 }
 
-function extractFallback(config: Record<string, unknown>): { provider?: string; model?: string } {
-  const rawFallbacks = Array.isArray(config.fallback_providers)
-    ? config.fallback_providers
-    : Array.isArray(config.fallbackProviders)
-      ? config.fallbackProviders
-      : []
-  const first = rawFallbacks[0]
-  const firstObj = asRecord(first)
-  if (firstObj) {
+function readFallbackEntries(config: Record<string, unknown>): unknown[] {
+  if (Array.isArray(config.fallback_providers)) return config.fallback_providers
+  if (Array.isArray(config.fallbackProviders)) return config.fallbackProviders
+  return []
+}
+
+function normalizeFallbackEntry(entry: unknown): { provider?: string; model?: string } {
+  const obj = asRecord(entry)
+  if (obj) {
     return {
-      provider: asString(firstObj.provider),
-      model: asString(firstObj.model) ?? asString(firstObj.default) ?? asString(firstObj.name),
+      provider: asString(obj.provider),
+      model: asString(obj.model) ?? asString(obj.default) ?? asString(obj.name),
     }
   }
+  const asText = asString(entry)
+  return asText ? splitProviderModel(asText) : {}
+}
 
-  const firstString = asString(first)
-  if (firstString) return splitProviderModel(firstString)
+function extractFallback(config: Record<string, unknown>): { provider?: string; model?: string } {
+  const rawFallbacks = readFallbackEntries(config)
+  const first = normalizeFallbackEntry(rawFallbacks[0])
+  if (first.provider || first.model) return first
 
   const fallbackModel = asString(config.fallback_model) ?? asString(config.fallbackModel)
   const fallbackProvider = asString(config.fallback_provider) ?? asString(config.fallbackProvider)
@@ -94,6 +99,30 @@ function extractFallback(config: Record<string, unknown>): { provider?: string; 
   }
 
   return {}
+}
+
+/** Primary + fallback providers/models declared on a live Hermes agent config. */
+export function extractConfiguredRuntimeProviders(liveConfig: unknown): Array<{ provider?: string; model?: string; role: 'primary' | 'fallback' }> {
+  const config = unwrapLiveConfig(liveConfig)
+  if (!config) return []
+
+  const entries: Array<{ provider?: string; model?: string; role: 'primary' | 'fallback' }> = []
+  const primary = extractPrimary(config)
+  if (primary.provider || primary.model) entries.push({ ...primary, role: 'primary' })
+
+  for (const entry of readFallbackEntries(config)) {
+    const normalized = normalizeFallbackEntry(entry)
+    if (normalized.provider || normalized.model) entries.push({ ...normalized, role: 'fallback' })
+  }
+
+  if (entries.every((entry) => entry.role !== 'fallback')) {
+    const legacy = extractFallback(config)
+    if ((legacy.provider || legacy.model) && !(legacy.provider === primary.provider && legacy.model === primary.model)) {
+      entries.push({ ...legacy, role: 'fallback' })
+    }
+  }
+
+  return entries
 }
 
 function isRegistryStale(registryDefault: string | undefined, primaryLabel: string | undefined, liveLabel: string): boolean {

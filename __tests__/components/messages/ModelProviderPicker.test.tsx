@@ -5,25 +5,41 @@ import type { PublicMessageModelCatalog } from '@/lib/messages/model-catalog'
 const catalog: PublicMessageModelCatalog = {
   agentId: 'pip',
   canSelect: true,
-  currentModel: 'anthropic/claude-sonnet-4.6',
-  currentProvider: 'anthropic',
+  currentModel: 'gpt-5.6-luna',
+  currentProvider: 'openai-codex',
+  autoModel: 'gpt-5.6-luna',
+  autoProvider: 'openai-codex',
+  autoLabel: 'openai-codex · gpt-5.6-luna',
+  runtimeSource: 'live_config',
   source: 'hermes',
+  selectableModelCount: 1,
   providers: [
-    { id: 'anthropic', label: 'Anthropic', configured: true, active: true },
-    { id: 'openai', label: 'Openai', configured: true, active: false },
+    { id: 'openai-codex', label: 'Openai Codex', configured: true, active: true },
+    { id: 'anthropic', label: 'Anthropic', configured: false, active: false },
   ],
   models: [
     {
-      id: 'anthropic/claude-sonnet-4.6',
-      model: 'anthropic/claude-sonnet-4.6',
-      displayName: 'Claude Sonnet 4.6',
-      provider: 'anthropic',
-      providerLabel: 'Anthropic',
+      id: 'gpt-5.6-luna',
+      model: 'gpt-5.6-luna',
+      displayName: 'GPT 5.6 Luna',
+      provider: 'openai-codex',
+      providerLabel: 'Openai Codex',
       configured: true,
       active: true,
       available: true,
       source: 'hermes',
-      supportsThinking: true,
+    },
+    {
+      id: 'claude-sonnet-4-6',
+      model: 'claude-sonnet-4-6',
+      displayName: 'Claude Sonnet 4.6',
+      provider: 'anthropic',
+      providerLabel: 'Anthropic',
+      configured: false,
+      active: false,
+      available: false,
+      source: 'hermes',
+      reasonUnavailable: 'No credentials configured for Anthropic on this agent runtime.',
     },
     {
       id: 'openai/gpt-5.5',
@@ -54,8 +70,10 @@ describe('ModelProviderPicker', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /Auto model/i }))
-    fireEvent.change(screen.getByPlaceholderText('Search models or providers'), { target: { value: 'gpt' } })
+    fireEvent.click(screen.getByRole('button', { name: /Select model and provider/i }))
+    expect(screen.getByText(/Uses live runtime openai-codex · gpt-5.6-luna/i)).toBeInTheDocument()
+    expect(screen.getByText(/Needs credentials/i)).toBeInTheDocument()
+    fireEvent.change(screen.getByPlaceholderText('Search models or providers'), { target: { value: 'gpt-5.5' } })
     fireEvent.click(screen.getByText('GPT-5.5').closest('button') as HTMLButtonElement)
 
     expect(onSelect).toHaveBeenCalledWith({ model: 'openai/gpt-5.5', provider: 'openai' })
@@ -70,7 +88,7 @@ describe('ModelProviderPicker', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /Auto model/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Select model and provider/i }))
     fireEvent.click(screen.getByRole('button', { name: /Pin GPT-5.5/i }))
 
     expect(window.localStorage.getItem('pib.messages.pinnedModels.v1')).toContain('openai:openai/gpt-5.5')
@@ -86,7 +104,7 @@ describe('ModelProviderPicker', () => {
       />,
     )
 
-    expect(screen.getByRole('button', { name: /Auto model/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Select model and provider/i })).toBeDisabled()
   })
 
   it('clears explicit model overrides when Auto model is selected', () => {
@@ -99,7 +117,7 @@ describe('ModelProviderPicker', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /GPT-5.5/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Select model and provider/i }))
     fireEvent.click(screen.getByText('Auto model').closest('button') as HTMLButtonElement)
 
     expect(onSelect).toHaveBeenCalledWith(null)
@@ -115,7 +133,7 @@ describe('ModelProviderPicker', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /Auto model/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Select model and provider/i }))
 
     expect(screen.getByRole('dialog', { name: 'Choose model and provider' })).toHaveClass('bottom-full')
     expect(screen.getByTestId('model-provider-options')).toHaveClass('min-h-0', 'flex-1', 'overflow-y-auto')

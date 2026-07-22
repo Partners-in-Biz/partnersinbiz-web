@@ -118,4 +118,40 @@ describe('RuntimeInspectorRail', () => {
     fireEvent.click(screen.getByRole('button', { name: /Expand runtime inspector/i }))
     expect(onCollapsedChange).toHaveBeenCalledWith(false)
   })
+
+  it('shows live Auto default when no per-run override is selected', () => {
+    render(
+      <RuntimeInspectorRail
+        activeMessage={{
+          id: 'msg-1',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: '',
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'pending',
+          runId: 'run-auto-1',
+        }}
+        events={[]}
+        selectedRuntime={null}
+        catalog={{
+          agentId: 'pip',
+          canSelect: true,
+          currentModel: 'gpt-5.6-luna',
+          currentProvider: 'openai-codex',
+          autoModel: 'gpt-5.6-luna',
+          autoProvider: 'openai-codex',
+          autoLabel: 'openai-codex · gpt-5.6-luna',
+          runtimeSource: 'live_config',
+          source: 'hermes',
+          models: [],
+          providers: [],
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Auto · openai-codex · gpt-5.6-luna')).toBeInTheDocument()
+    expect(screen.getByText('Auto · live Hermes primary')).toBeInTheDocument()
+  })
 })

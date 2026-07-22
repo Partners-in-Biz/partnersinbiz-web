@@ -24,12 +24,18 @@ export interface MessageModelCatalog {
   canSelect: boolean
   currentModel?: string
   currentProvider?: string
+  autoModel?: string
+  autoProvider?: string
+  autoLabel?: string
+  runtimeSource?: 'live_config' | 'registry'
   models: MessageModelOption[]
   providers: Array<{ id: string; label: string; configured: boolean; active: boolean; connected?: boolean }>
   source: 'hermes' | 'agent-default' | 'none'
   warning?: string
   connectProvidersUrl?: string
   localOnlyProviderLabels?: string[]
+  hermesConfiguredProviders?: string[]
+  selectableModelCount?: number
 }
 
 export interface ModelRuntimeSelection {
@@ -136,11 +142,21 @@ export function ModelProviderPicker({
   }, [filteredModels])
 
   const canSelect = Boolean(catalog?.canSelect) && !disabled
+  const autoSubtitle = catalog?.autoLabel
+    || (catalog?.autoProvider && catalog?.autoModel ? `${catalog.autoProvider} · ${catalog.autoModel}` : null)
+    || (catalog?.currentProvider && catalog?.currentModel ? `${catalog.currentProvider} · ${catalog.currentModel}` : null)
   const activeLabel = loading
     ? 'Loading models…'
     : activeModel
       ? `${activeModel.providerLabel} · ${activeModel.displayName}`
-      : labelForModel(resolvedSelectedModel, resolvedSelectedProvider)
+      : autoSubtitle
+        ? `Auto · ${(catalog?.autoModel || catalog?.currentModel || '').split('/').pop()}`
+        : labelForModel(resolvedSelectedModel, resolvedSelectedProvider)
+  const availableCount = catalog?.selectableModelCount
+    ?? models.filter((model) => model.available).length
+  const catalogCountLabel = catalog?.source === 'agent-default'
+    ? 'Using agent default fallback'
+    : `${availableCount} selectable · ${models.length} listed`
 
   function togglePin(model: MessageModelOption) {
     const key = modelKey(model)
@@ -184,7 +200,7 @@ export function ModelProviderPicker({
               <div>
                 <div className="text-xs font-semibold text-[var(--color-pib-text)]">Model & provider</div>
                 <div className="text-[11px] text-[var(--color-pib-text-muted)]">
-                  {catalog?.source === 'agent-default' ? 'Using agent default fallback' : `${models.length} models available`}
+                  {catalogCountLabel}
                 </div>
               </div>
               {onRefresh && (
@@ -233,7 +249,9 @@ export function ModelProviderPicker({
               <span className="min-w-0 flex-1">
                 <span className="block font-medium">Auto model</span>
                 <span className="block truncate text-[10px] text-[var(--color-pib-text-muted)]">
-                  Use the agent runtime default without a per-run override
+                  {autoSubtitle
+                    ? `Uses live runtime ${autoSubtitle}`
+                    : 'Use the agent runtime default without a per-run override'}
                 </span>
               </span>
               {!activeModel && (
@@ -276,10 +294,15 @@ export function ModelProviderPicker({
                         >
                           <div className="flex min-w-0 items-center gap-2">
                             <span className="truncate text-xs font-medium text-[var(--color-pib-text)]">{model.displayName}</span>
+                            {model.active && model.available && (
+                              <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">Auto default</span>
+                            )}
                             {model.connected && (
                               <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] text-emerald-200">Connected</span>
                             )}
-                            {!model.available && <span className="rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] text-red-200">Unavailable</span>}
+                            {!model.available && (
+                              <span className="rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] text-red-200">Needs credentials</span>
+                            )}
                           </div>
                           <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[10px] text-[var(--color-pib-text-muted)]">
                             <span className="truncate font-mono">{model.id}</span>
