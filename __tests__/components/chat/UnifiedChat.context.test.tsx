@@ -145,7 +145,7 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     fireEvent.click(trigger)
 
     const dialog = screen.getByRole('dialog', { name: 'New conversation' })
-    expect(screen.getByTestId('accessible-dialog-panel')).toHaveClass('max-h-[100dvh]', 'flex-col', 'overflow-hidden')
+    expect(screen.getByTestId('accessible-dialog-panel')).toHaveClass('max-h-[calc(100dvh-2rem)]', 'flex-col', 'overflow-hidden')
     expect(screen.getByTestId('new-conversation-scroll-body')).toHaveClass('min-h-0', 'flex-1', 'overflow-y-auto')
     expect(screen.getByRole('button', { name: 'Start conversation' }).parentElement).toHaveClass('shrink-0')
     expect(dialog).toContainElement(document.activeElement as HTMLElement)

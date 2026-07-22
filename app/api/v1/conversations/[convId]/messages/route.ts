@@ -573,7 +573,20 @@ export const POST = withAuth(
       let linkedComputerBinding: AuthorizedLinkedComputerDispatch | null =
         authorizedWorkspaceRuntime?.kind === 'linked-computer' ? authorizedWorkspaceRuntime : null
       try {
-        if (requestedRuntimeTarget && !authorizedWorkspaceRuntime) {
+        if (requestedRuntimeTarget && conversation.workspaceContext?.mappingId
+          && linkedComputerBinding?.mappingId !== conversation.workspaceContext.mappingId) {
+          // Mapping-specific sessions must not fall through to compatibility /
+          // execution-location auth that ignores the chosen Workspace folder.
+          const { authorizeLinkedComputerDispatch } = await import('@/lib/linked-computers/runtime-targets')
+          linkedComputerBinding = await authorizeLinkedComputerDispatch({
+            userId: user.uid,
+            orgId: conversation.orgId,
+            workspaceId: conversation.workspaceContext.workspaceId,
+            runtimeTargetId: requestedRuntimeTarget,
+            mappingId: conversation.workspaceContext.mappingId,
+            agentId,
+          })
+        } else if (requestedRuntimeTarget && !authorizedWorkspaceRuntime) {
           if (!conversation.workspaceContext) throw new Error('Computer dispatch requires a Workspace')
           const authorizedRuntime = await authorizeWorkspaceRuntime({
             userId: user.uid,
