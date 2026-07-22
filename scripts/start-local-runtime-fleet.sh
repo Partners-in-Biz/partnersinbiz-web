@@ -52,7 +52,30 @@ read_api_key() {
   printf '%s' "$value"
 }
 
+read_shared_env_value() {
+  local key="$1" env_file="$HERMES_ROOT/.env" line value
+  [[ -f "$env_file" ]] || return 1
+  line=$(grep -E "^${key}=" "$env_file" | head -1 || true)
+  [[ -n "$line" ]] || return 1
+  value="${line#*=}"
+  value="${value%$'\r'}"
+  value="${value%\"}"; value="${value#\"}"
+  value="${value%\'}"; value="${value#\'}"
+  [[ -n "$value" ]] || return 1
+  printf '%s' "$value"
+}
+
 API_SERVER_KEY_VALUE="$(read_api_key)"
+AI_API_KEY_VALUE="$(read_shared_env_value AI_API_KEY || true)"
+PIB_AGENT_API_KEY_VALUE="$(read_shared_env_value PIB_AGENT_API_KEY || true)"
+PIB_API_BASE_VALUE="$(read_shared_env_value PIB_API_BASE || true)"
+if [[ -z "$AI_API_KEY_VALUE" && -z "$PIB_AGENT_API_KEY_VALUE" ]]; then
+  echo "PiB platform API credential missing from $HERMES_ROOT/.env; linked chat could start but authenticated PiB actions would fail" >&2
+  exit 1
+fi
+export AI_API_KEY="$AI_API_KEY_VALUE"
+export PIB_AGENT_API_KEY="$PIB_AGENT_API_KEY_VALUE"
+export PIB_API_BASE="${PIB_API_BASE_VALUE:-https://partnersinbiz.online/api/v1}"
 export HERMES_HOME="$HERMES_ROOT"
 export HERMES_YOLO_MODE="${HERMES_YOLO_MODE:-1}"
 export PYTHONUNBUFFERED=1
