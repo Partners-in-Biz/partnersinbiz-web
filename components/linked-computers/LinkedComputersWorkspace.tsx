@@ -340,14 +340,38 @@ export function LinkedComputersWorkspace() {
                   {device.mappings?.length ? (
                     device.mappings.map((m) => (
                       <div key={m.mappingId} className="mt-1">
-                        <p className="text-sm text-[var(--color-pib-text-muted)]">
-                          {m.label} ·{' '}
-                          {m.status === 'active'
-                            ? 'Mapped'
-                            : m.status === 'pending'
-                              ? 'Pending local setup'
-                              : m.status}
-                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm text-[var(--color-pib-text-muted)]">
+                            {m.label} ·{' '}
+                            {m.status === 'active'
+                              ? 'Mapped'
+                              : m.status === 'pending'
+                                ? 'Pending local setup'
+                                : m.status}
+                          </p>
+                          {(m.status === 'active' || m.status === 'pending') && (
+                            <button
+                              type="button"
+                              className="btn-pib-secondary btn-pib-sm"
+                              onClick={() => {
+                                const next = window.prompt('Location name', m.label)?.trim()
+                                if (!next || next === m.label) return
+                                void mutate(`/api/v1/linked-computers/${device.deviceId}/mappings`, {
+                                  method: 'PUT',
+                                  body: JSON.stringify({
+                                    orgId: m.orgId,
+                                    workspaceId: m.workspaceId,
+                                    mappingId: m.mappingId,
+                                    label: next,
+                                    status: m.status === 'pending' ? 'pending' : 'active',
+                                  }),
+                                })
+                              }}
+                            >
+                              Rename
+                            </button>
+                          )}
+                        </div>
                         {m.status === 'pending' && (
                           <div className="mt-2 rounded-lg border border-amber-400/20 bg-amber-400/10 p-2">
                             <p className="text-xs text-amber-200">
@@ -530,9 +554,22 @@ export function LinkedComputersWorkspace() {
                 ))}
             </select>
           </label>
+          <label className="mt-3 block text-sm">
+            Location name
+            <input
+              aria-label="Location name"
+              value={workspaceLabel}
+              onChange={(e) => setWorkspaceLabel(e.target.value)}
+              placeholder="e.g. Partners in Biz or Client Growth"
+              className="mt-1 w-full rounded-lg border bg-transparent p-2"
+            />
+            <span className="mt-1 block text-xs text-[var(--color-pib-text-muted)]">
+              Shown in Messages when this computer has more than one mapped folder.
+            </span>
+          </label>
           <button
             type="button"
-            disabled={!workspaceId}
+            disabled={!workspaceId || !workspaceLabel.trim()}
             className="btn-pib-secondary btn-pib-sm mt-2"
             onClick={() => void createMapping()}
           >

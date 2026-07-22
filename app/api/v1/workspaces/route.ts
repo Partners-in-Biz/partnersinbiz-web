@@ -183,12 +183,16 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
     ])
     const deduped = new Map<string, WorkspaceRuntimeTarget>()
     for (const target of [...scopedCompatibility, ...linked]) {
-      const existing = deduped.get(target.id)
+      const dedupeKey = 'mappingId' in target && typeof target.mappingId === 'string' && target.mappingId
+        ? `${target.id}::${target.mappingId}`
+        : target.id
+      const existing = deduped.get(dedupeKey)
       // One physical machine may have both a first-class project location and
       // a native linked-runtime row. Merge the transport details into the
       // location row so the browser retains the server-authorized locationId.
+      // Multiple Workspace mappings on the same machine stay as separate rows.
       if (!existing) {
-        deduped.set(target.id, target)
+        deduped.set(dedupeKey, target)
         continue
       }
       const merged = { ...existing, ...target } as WorkspaceRuntimeTarget
@@ -196,14 +200,19 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
       // a migrated first-class location uses the same transport, retain the
       // canonical persisted location ID (for example partners-vps).
       if ('locationId' in existing) merged.locationId = existing.locationId
-      deduped.set(target.id, merged)
+      deduped.set(dedupeKey, merged)
     }
     return [workspace.workspaceId, Array.from(deduped.values())]
   })))
   // Compatibility field for older clients, now derived from the same scoped
   // per-Workspace authorization results instead of the global runtime config.
   const runtimeTargets = Array.from(new Map(
-    Object.values(runtimeTargetsByWorkspace).flat().map((target) => [target.id, target]),
+    Object.values(runtimeTargetsByWorkspace).flat().map((target) => [
+      'mappingId' in target && typeof target.mappingId === 'string' && target.mappingId
+        ? `${target.id}::${target.mappingId}`
+        : target.id,
+      target,
+    ]),
   ).values())
   const projectsById = new Map<string, PublicWorkspaceProjectSummary>()
   for (const projectSnap of [...projectSnapshots, { docs: accessProjectDocs }]) {
@@ -232,6 +241,7 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
     if (!project || replica.orgId !== orgScope.orgId || replica.active !== true) continue
     const runtime = (runtimeTargetsByWorkspace[replica.workspaceId] ?? []).find((target) => (
       'locationId' in target && target.locationId === replica.locationId
+      && (!('mappingId' in target) || !replica.mappingId || target.mappingId === replica.mappingId)
     ))
     const nativeLocation = replica.locationId.startsWith('linked-device:')
     // Native replica access is always reconciled against the current device

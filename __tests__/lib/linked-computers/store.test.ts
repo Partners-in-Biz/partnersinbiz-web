@@ -421,6 +421,10 @@ describe('linked computers tenant domain', () => {
       'linked_device_workspace_mappings/map-a': { mappingId: 'map-a', deviceId: 'device-a', orgId: 'org-a', workspaceId: 'ws-a', status: 'active', createdAt: 'created' },
     })
     const request = { mappingId: 'map-a', deviceId: 'device-a', orgId: 'org-a', workspaceId: 'ws-a', actorUserId: 'user-a', label: 'Workspace' }
+    await putWorkspaceMapping({ ...request, label: 'Client Growth', status: 'active' }, { db: db as never, now })
+    expect(rows.get('linked_device_workspace_mappings/map-a')).toEqual(expect.objectContaining({
+      label: 'Client Growth', status: 'active', createdAt: 'created',
+    }))
     await putWorkspaceMapping({ ...request, status: 'removed' }, { db: db as never, now })
     const removedAt = rows.get('linked_device_workspace_mappings/map-a')?.removedAt
     expect([...rows.values()]).toContainEqual(expect.objectContaining({ action: 'mapping.changed', fromStatus: 'active', toStatus: 'removed' }))

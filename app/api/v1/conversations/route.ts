@@ -229,6 +229,12 @@ export const POST = withAuth(
     const runtimeTarget = typeof body.runtimeTarget === 'string' && body.runtimeTarget.trim()
       ? body.runtimeTarget.trim()
       : undefined
+    const requestedMappingId = typeof body.mappingId === 'string' && body.mappingId.trim()
+      ? body.mappingId.trim()
+      : undefined
+    if (requestedMappingId && !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(requestedMappingId)) {
+      return apiError('mappingId is invalid', 400)
+    }
     const shareMode = body.shareMode === 'shared' || body.shareMode === 'org' || body.shareMode === 'private'
       ? body.shareMode
       : 'private'
@@ -278,6 +284,7 @@ export const POST = withAuth(
           orgId: scope.orgId,
           workspaceId: requestedWorkspaceId,
           runtimeTargetId: runtimeTarget,
+          ...(requestedMappingId ? { mappingId: requestedMappingId } : {}),
           ...(dispatchAgentId ? { agentId: dispatchAgentId } : {}),
         })
         runtimeLabel = authorizedWorkspaceRuntime.machineLabel
@@ -318,6 +325,12 @@ export const POST = withAuth(
           ownerUserId: user.uid,
           runtimeTarget,
           runtimeLabel,
+          mappingId: authorizedWorkspaceRuntime && 'mappingId' in authorizedWorkspaceRuntime
+            ? authorizedWorkspaceRuntime.mappingId
+            : requestedMappingId,
+          mappingLabel: authorizedWorkspaceRuntime && 'mappingLabel' in authorizedWorkspaceRuntime
+            ? authorizedWorkspaceRuntime.mappingLabel
+            : undefined,
           shareMode,
           projectId: convScope === 'project' ? scopeRefId : undefined,
           projectName,

@@ -399,6 +399,74 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     expect(screen.queryByText(/~\/Cowork/i)).not.toBeInTheDocument()
   })
 
+  it('lists each mapped folder on the same computer and sends mappingId when starting a Workspace chat', async () => {
+    const creates: Array<Record<string, unknown>> = []
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents')) return jsonResponse({ data: [{
+        agentId: 'theo', name: 'Theo', role: 'Builder', persona: '', iconKey: 'code', colorKey: 'sky',
+        enabled: true, baseUrl: '', apiKey: '', defaultModel: 'auto',
+      }] })
+      if (url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) {
+        return jsonResponse({
+          data: {
+            workspaces: [{
+              workspaceId: 'partners', orgId: 'org-1', orgSlug: 'partners', orgName: 'Partners in Biz',
+              agentDomain: 'partners', sourceOfTruth: 'vps', syncMode: 'hybrid', defaultRuntimeTarget: 'vps', folderVersion: 1,
+            }],
+            runtimeTargetsByWorkspace: {
+              partners: [{
+                id: 'device-mac', label: 'Peets-Mac-mini.local', mappingId: 'partners-mac-workspace',
+                mappingLabel: 'Partners in Biz', selectable: true, enabled: true, isLocal: true,
+                isFresh: true, isHealthy: true, lastSeenAt: null,
+              }, {
+                id: 'device-mac', label: 'Peets-Mac-mini.local', mappingId: 'client-growth-map',
+                mappingLabel: 'Client Growth', selectable: true, enabled: true, isLocal: true,
+                isFresh: true, isHealthy: true, lastSeenAt: null,
+              }],
+            },
+            projects: [],
+          },
+        })
+      }
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [baseConversation] } })
+      if (url === '/api/v1/conversations/conv-1/messages') return jsonResponse({ data: { messages: [] } })
+      if (url === '/api/v1/conversations' && init?.method === 'POST') {
+        creates.push(JSON.parse(String(init.body)) as Record<string, unknown>)
+        return jsonResponse({ data: { conversation: { ...baseConversation, id: 'conv-mapped' } } }, 201)
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        initialConvId="conv-1"
+      />,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: /new conversation/i }))
+    const dialog = await screen.findByRole('dialog', { name: 'New conversation' })
+    fireEvent.change(within(dialog).getByRole('option', { name: 'Organisation root folder' }).parentElement as HTMLSelectElement, {
+      target: { value: 'workspace' },
+    })
+    const runtime = await within(dialog).findByLabelText('Computer / mapped folder')
+    expect(within(dialog).getByRole('option', { name: /Peets-Mac-mini\.local · Partners in Biz/ })).toBeInTheDocument()
+    expect(within(dialog).getByRole('option', { name: /Peets-Mac-mini\.local · Client Growth/ })).toBeInTheDocument()
+    fireEvent.change(runtime, { target: { value: 'device-mac::client-growth-map' } })
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: /Theo Builder/ }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Start conversation' }))
+    await waitFor(() => expect(creates).toEqual([expect.objectContaining({
+      workspaceId: 'partners',
+      runtimeTarget: 'device-mac',
+      mappingId: 'client-growth-map',
+    })]))
+  })
+
   it('shows Computer unavailable and disables the bound session composer without changing runtime', async () => {
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {
       const url = String(input)

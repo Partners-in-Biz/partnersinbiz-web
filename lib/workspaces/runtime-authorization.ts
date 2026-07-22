@@ -19,6 +19,7 @@ export interface WorkspaceRuntimeAuthorizationInput {
   orgId: string
   workspaceId: string
   runtimeTargetId: string
+  mappingId?: string
   agentId?: AgentId
 }
 

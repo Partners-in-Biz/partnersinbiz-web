@@ -41,6 +41,8 @@ export interface PublicAuthorizedRuntimeTarget {
   runtimeVersion: string
   availableAgentIds: string[]
   mappingId: string
+  /** User-facing Workspace mapping label (folder location), never a filesystem path. */
+  mappingLabel: string
   workspaceId: string
   kind: 'linked-computer'
   deviceKind: LinkedDeviceKind
@@ -68,6 +70,7 @@ export interface AuthorizedProjectRuntimeTarget {
   platform: LinkedDevicePlatform
   deviceKind?: LinkedDeviceKind
   mappingId: string
+  mappingLabel: string
   workspaceId: string
   owner: AuthorizedProjectRuntimeOwner
   accessMode: DeviceGrantAccessMode
@@ -85,6 +88,7 @@ export interface AuthorizedLinkedComputerDispatch {
   runtimeTargetId: string
   machineLabel: string
   mappingId: string
+  mappingLabel: string
   workspaceId: string
   credentialVersion: number
   runtimeVersion: string
@@ -131,7 +135,17 @@ export class LinkedComputerDispatchError extends Error {
   }
 }
 
-interface ResolveInput { userId: string; orgId: string; workspaceId: string; runtimeTargetId?: string; agentId?: string }
+interface ResolveInput {
+  userId: string
+  orgId: string
+  workspaceId: string
+  runtimeTargetId?: string
+  /** When set, only this Workspace mapping may authorize or appear as the preferred bind. */
+  mappingId?: string
+  agentId?: string
+}
+
+const SAFE_MAPPING_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/
 interface ResolveOptions {
   db?: DbLike
   nowMs?: () => number
@@ -221,11 +235,14 @@ async function resolveCandidates(input: ResolveInput, options: ResolveOptions): 
   const credentialById = new Map(credentials.map((row) => [String(row.__id ?? row.deviceId ?? ''), row]))
   const now = options.nowMs?.() ?? Date.now()
   const candidates: ResolvedAuthorizedRuntimeTarget[] = []
+  const preferredMappingId = typeof input.mappingId === 'string' && SAFE_MAPPING_ID.test(input.mappingId.trim())
+    ? input.mappingId.trim()
+    : ''
   for (const device of devices) {
     const grant = grants.find((row) => row.deviceId === device.deviceId && row.orgId === input.orgId)
-    const mapping = mappings
+    const deviceMappings = mappings
       .filter((row) => row.deviceId === device.deviceId && row.orgId === input.orgId && row.workspaceId === input.workspaceId && row.status === 'active')
-      .sort((left, right) => left.mappingId.localeCompare(right.mappingId))[0]
+      .sort((left, right) => left.mappingId.localeCompare(right.mappingId))
     const credential = credentialById.get(device.deviceId)
     if (!grant || grant.status !== 'active' || !grant.capabilities.includes('workspace.execute')) continue
     if (device.status !== 'active' || !Array.isArray(device.capabilities) || !device.capabilities.includes('workspace.execute')) continue
@@ -236,7 +253,7 @@ async function resolveCandidates(input: ResolveInput, options: ResolveOptions): 
     }
     try { assertDeviceOrgAccess({ actorUserId: input.userId, orgId: input.orgId, device, grant, membership: actorMembership }) }
     catch { continue }
-    if (!mapping) continue
+    if (deviceMappings.length === 0) continue
     if (!credential || credential.revokedAt || Number(credential.credentialVersion) !== device.credentialVersion) continue
     const seen = timestampToMs(device.lastSeenAt)
     const updateRequired = linkedRuntimeUpdateRequired(device.runtimeVersion)
@@ -250,33 +267,41 @@ async function resolveCandidates(input: ResolveInput, options: ResolveOptions): 
         ? 'stale'
         : updateRequired ? 'update_required'
           : requestedAgentUnavailable ? 'agent_unavailable' : undefined
-    candidates.push({
-      kind: 'linked-computer', locationId: linkedDeviceProjectLocationId(device.deviceId),
-      deviceId: device.deviceId, runtimeTargetId: device.runtimeTargetId,
-      legacyRuntimeTargetIds: adoptedLegacyRuntimeTargetIds(device, executionLocations),
-      machineLabel: device.label, mappingId: mapping.mappingId, credentialVersion: device.credentialVersion,
-      runtimeVersion: device.runtimeVersion, platform: device.platform, lastSeenAt: seen == null ? null : new Date(seen).toISOString(),
-      availableAgentIds,
-      deviceKind: device.deviceKind === 'vps' ? 'vps' : 'computer',
-      workspaceId: mapping.workspaceId, publicKey: String((device as LinkedDevice & { publicKey?: string }).publicKey ?? ''),
-      owner: ownerType === 'user'
-        ? { type: 'user', userId: String(device.ownerUserId) }
-        : { type: 'organization', orgId: String(device.ownerOrgId) },
-      accessMode: effectiveGrantAccessMode(grant),
-      ...(updateRequired ? { updateRequired: true } : {}),
-      ...(unavailableReason ? { unavailableReason } : {}),
-    })
+    const legacyRuntimeTargetIds = adoptedLegacyRuntimeTargetIds(device, executionLocations)
+    for (const mapping of deviceMappings) {
+      if (preferredMappingId && mapping.mappingId !== preferredMappingId) continue
+      const mappingLabel = typeof mapping.label === 'string' && mapping.label.trim()
+        ? mapping.label.trim()
+        : mapping.mappingId
+      candidates.push({
+        kind: 'linked-computer', locationId: linkedDeviceProjectLocationId(device.deviceId),
+        deviceId: device.deviceId, runtimeTargetId: device.runtimeTargetId,
+        legacyRuntimeTargetIds,
+        machineLabel: device.label, mappingId: mapping.mappingId, mappingLabel, credentialVersion: device.credentialVersion,
+        runtimeVersion: device.runtimeVersion, platform: device.platform, lastSeenAt: seen == null ? null : new Date(seen).toISOString(),
+        availableAgentIds,
+        deviceKind: device.deviceKind === 'vps' ? 'vps' : 'computer',
+        workspaceId: mapping.workspaceId, publicKey: String((device as LinkedDevice & { publicKey?: string }).publicKey ?? ''),
+        owner: ownerType === 'user'
+          ? { type: 'user', userId: String(device.ownerUserId) }
+          : { type: 'organization', orgId: String(device.ownerOrgId) },
+        accessMode: effectiveGrantAccessMode(grant),
+        ...(updateRequired ? { updateRequired: true } : {}),
+        ...(unavailableReason ? { unavailableReason } : {}),
+      })
+    }
   }
   return candidates
 }
 
 export async function discoverAuthorizedRuntimeTargets(input: ResolveInput, options: ResolveOptions = {}): Promise<PublicAuthorizedRuntimeTarget[]> {
-  const candidates = await resolveCandidates(input, options)
+  const candidates = await resolveCandidates({ ...input, mappingId: undefined }, options)
   return candidates.map((target) => ({
     id: target.runtimeTargetId, locationId: target.locationId,
     ...(target.legacyRuntimeTargetIds.length > 0 ? { legacyRuntimeTargetIds: target.legacyRuntimeTargetIds } : {}),
     deviceId: target.deviceId, label: target.machineLabel,
     platform: target.platform, runtimeVersion: target.runtimeVersion, mappingId: target.mappingId,
+    mappingLabel: target.mappingLabel,
     availableAgentIds: target.availableAgentIds,
     workspaceId: target.workspaceId,
     kind: 'linked-computer',
@@ -294,7 +319,7 @@ export async function discoverAuthorizedProjectRuntimeTargets(
   input: ResolveInput,
   options: ResolveOptions = {},
 ): Promise<AuthorizedProjectRuntimeTarget[]> {
-  const candidates = await resolveCandidates(input, options)
+  const candidates = await resolveCandidates({ ...input, mappingId: undefined }, options)
   return candidates.map((target) => ({
     id: target.runtimeTargetId,
     locationId: target.locationId,
@@ -303,6 +328,7 @@ export async function discoverAuthorizedProjectRuntimeTargets(
     platform: target.platform,
     deviceKind: target.deviceKind,
     mappingId: target.mappingId,
+    mappingLabel: target.mappingLabel,
     workspaceId: target.workspaceId,
     owner: target.owner,
     accessMode: target.accessMode,
@@ -314,13 +340,17 @@ export async function discoverAuthorizedProjectRuntimeTargets(
 
 export async function authorizeLinkedComputerDispatch(input: ResolveInput & { runtimeTargetId: string }, options: ResolveOptions = {}): Promise<AuthorizedLinkedComputerDispatch> {
   const candidates = await resolveCandidates(input, options)
-  const selected = candidates.find((target) => target.runtimeTargetId === input.runtimeTargetId || target.deviceId === input.runtimeTargetId)
+  const matches = candidates.filter((target) => target.runtimeTargetId === input.runtimeTargetId || target.deviceId === input.runtimeTargetId)
+  const preferredMappingId = typeof input.mappingId === 'string' ? input.mappingId.trim() : ''
+  const selected = preferredMappingId
+    ? matches.find((target) => target.mappingId === preferredMappingId)
+    : matches[0]
   if (selected) {
     if (selected.unavailableReason) throw new LinkedComputerDispatchError(`linked_device_${selected.unavailableReason}`)
     return {
       kind: selected.kind, locationId: selected.locationId,
       deviceId: selected.deviceId, runtimeTargetId: selected.runtimeTargetId,
-      machineLabel: selected.machineLabel, mappingId: selected.mappingId, workspaceId: selected.workspaceId,
+      machineLabel: selected.machineLabel, mappingId: selected.mappingId, mappingLabel: selected.mappingLabel, workspaceId: selected.workspaceId,
       credentialVersion: selected.credentialVersion, runtimeVersion: selected.runtimeVersion, platform: selected.platform,
       availableAgentIds: selected.availableAgentIds,
       lastSeenAt: selected.lastSeenAt!, publicKey: selected.publicKey,
@@ -343,8 +373,9 @@ export async function authorizeLinkedComputerDispatch(input: ResolveInput & { ru
   try { assertDeviceOrgAccess({ actorUserId: input.userId, orgId: input.orgId, device, grant, membership: actorMembership }) }
   catch { throw new LinkedComputerDispatchError('linked_device_not_authorized') }
   const mappings = await allRows<LinkedDeviceWorkspaceMapping>(db, 'linked_device_workspace_mappings')
-  if (!mappings.some((row) => row.deviceId === device.deviceId && row.orgId === input.orgId && row.workspaceId === input.workspaceId && row.status === 'active')) {
-    throw new LinkedComputerDispatchError('linked_device_mapping_required')
+  if (!mappings.some((row) => row.deviceId === device.deviceId && row.orgId === input.orgId && row.workspaceId === input.workspaceId && row.status === 'active'
+    && (!preferredMappingId || row.mappingId === preferredMappingId))) {
+    throw new LinkedComputerDispatchError(preferredMappingId ? 'linked_device_mapping_not_authorized' : 'linked_device_mapping_required')
   }
   const seen = timestampToMs(device.lastSeenAt)
   if (device.health !== 'ok' || seen == null) throw new LinkedComputerDispatchError('linked_device_offline')
@@ -368,7 +399,11 @@ export async function authorizeAdoptedLinkedComputerDispatch(
   options: ResolveOptions = {},
 ): Promise<AuthorizedLinkedComputerDispatch> {
   const candidates = await resolveCandidates(input, options)
-  const selected = candidates.find((target) => target.legacyRuntimeTargetIds.includes(input.runtimeTargetId))
+  const matches = candidates.filter((target) => target.legacyRuntimeTargetIds.includes(input.runtimeTargetId))
+  const preferredMappingId = typeof input.mappingId === 'string' ? input.mappingId.trim() : ''
+  const selected = preferredMappingId
+    ? matches.find((target) => target.mappingId === preferredMappingId)
+    : matches[0]
   if (!selected) throw new LinkedComputerDispatchError('linked_device_not_authorized')
   if (selected.unavailableReason) throw new LinkedComputerDispatchError(`linked_device_${selected.unavailableReason}`)
   return {
@@ -378,6 +413,7 @@ export async function authorizeAdoptedLinkedComputerDispatch(
     runtimeTargetId: selected.runtimeTargetId,
     machineLabel: selected.machineLabel,
     mappingId: selected.mappingId,
+    mappingLabel: selected.mappingLabel,
     workspaceId: selected.workspaceId,
     credentialVersion: selected.credentialVersion,
     runtimeVersion: selected.runtimeVersion,

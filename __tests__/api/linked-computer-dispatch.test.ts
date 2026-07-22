@@ -38,9 +38,9 @@ const base = {
     'org-a_stale': { deviceId: 'stale', orgId: 'org-a', status: 'active', allowedUserIds: [], capabilities: ['workspace.execute'] },
   },
   linked_device_workspace_mappings: {
-    'map-owned': { mappingId: 'map-owned', deviceId: 'owned', orgId: 'org-a', workspaceId: 'workspace-a', status: 'active' },
-    'map-shared': { mappingId: 'map-shared', deviceId: 'shared', orgId: 'org-a', workspaceId: 'workspace-a', status: 'active' },
-    'map-stale': { mappingId: 'map-stale', deviceId: 'stale', orgId: 'org-a', workspaceId: 'workspace-a', status: 'active' },
+    'map-owned': { mappingId: 'map-owned', deviceId: 'owned', orgId: 'org-a', workspaceId: 'workspace-a', label: 'Office Mac folder', status: 'active' },
+    'map-shared': { mappingId: 'map-shared', deviceId: 'shared', orgId: 'org-a', workspaceId: 'workspace-a', label: 'Studio folder', status: 'active' },
+    'map-stale': { mappingId: 'map-stale', deviceId: 'stale', orgId: 'org-a', workspaceId: 'workspace-a', label: 'Old folder', status: 'active' },
   },
   linked_device_credentials: {
     owned: { credentialVersion: 3, revokedAt: null }, shared: { credentialVersion: 7, revokedAt: null }, stale: { credentialVersion: 1, revokedAt: null },
@@ -65,10 +65,36 @@ describe('linked computer runtime authorization', () => {
     expect(targets.map((target) => target.deviceId)).toEqual(['owned', 'shared', 'stale'])
     expect(targets[0]).toEqual(expect.objectContaining({
       id: 'target-owned', locationId: 'linked-device:owned', workspaceId: 'workspace-a',
-      mappingId: 'map-owned', selectable: true,
+      mappingId: 'map-owned', mappingLabel: 'Office Mac folder', selectable: true,
     }))
     expect(targets[2]).toEqual(expect.objectContaining({ id: 'target-stale', selectable: false, unavailableReason: 'stale' }))
     expect(JSON.stringify(targets)).not.toMatch(/credentialVersion|ownerUserId|baseUrl|apiKey|publicKey|path/i)
+  })
+
+  it('lists every active workspace mapping on the same computer and authorizes the chosen mapping', async () => {
+    const rows = structuredClone(base) as any
+    rows.linked_device_workspace_mappings['map-owned-growth'] = {
+      mappingId: 'map-owned-growth', deviceId: 'owned', orgId: 'org-a', workspaceId: 'workspace-a',
+      label: 'Client Growth', status: 'active',
+    }
+    const targets = await discoverAuthorizedRuntimeTargets(
+      { userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a' },
+      { db: fakeDb(rows), nowMs: () => now },
+    )
+    expect(targets.filter((target) => target.deviceId === 'owned')).toEqual([
+      expect.objectContaining({ mappingId: 'map-owned', mappingLabel: 'Office Mac folder' }),
+      expect.objectContaining({ mappingId: 'map-owned-growth', mappingLabel: 'Client Growth' }),
+    ])
+    await expect(authorizeLinkedComputerDispatch(
+      { userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a', runtimeTargetId: 'target-owned', mappingId: 'map-owned-growth' },
+      { db: fakeDb(rows), nowMs: () => now },
+    )).resolves.toEqual(expect.objectContaining({
+      deviceId: 'owned', mappingId: 'map-owned-growth', mappingLabel: 'Client Growth',
+    }))
+    await expect(authorizeLinkedComputerDispatch(
+      { userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a', runtimeTargetId: 'target-owned', mappingId: 'map-missing' },
+      { db: fakeDb(rows), nowMs: () => now },
+    )).rejects.toMatchObject({ code: 'linked_device_mapping_not_authorized' })
   })
 
   it('authorizes every current and future active organisation member without copying user ids into the grant', async () => {

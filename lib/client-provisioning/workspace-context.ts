@@ -77,6 +77,9 @@ export type ConversationWorkspaceContext = {
   sourceOfTruth: 'vps'
   runtimeTarget: WorkspaceRuntimeTarget
   runtimeLabel: string
+  /** Linked-computer Workspace mapping chosen for this session (folder location). */
+  mappingId?: string
+  mappingLabel?: string
   shareMode: 'private' | 'shared' | 'org'
   ownerUserId: string
   companyId: string | null
@@ -178,6 +181,8 @@ export async function resolveConversationWorkspaceContext(input: {
   ownerUserId: string
   runtimeTarget?: WorkspaceRuntimeTarget | null
   runtimeLabel?: string | null
+  mappingId?: string | null
+  mappingLabel?: string | null
   shareMode?: ConversationWorkspaceContext['shareMode'] | null
   projectId?: string | null
   projectName?: string | null
@@ -227,6 +232,8 @@ export async function resolveConversationWorkspaceContext(input: {
   // agent knowledge/domain must follow the company folder (e.g. hunt-and-gun), not
   // the Partners platform wiki.
   const agentDomainSource = companyWorkspace ?? workspace
+  const mappingId = cleanString(input.mappingId)
+  const mappingLabel = cleanString(input.mappingLabel)
   return {
     workspaceId: workspace.workspaceId,
     orgId: workspace.orgId,
@@ -241,6 +248,8 @@ export async function resolveConversationWorkspaceContext(input: {
     sourceOfTruth: 'vps',
     runtimeTarget,
     runtimeLabel: input.runtimeLabel?.trim() || workspaceRuntimeLabel(runtimeTarget),
+    ...(mappingId ? { mappingId } : {}),
+    ...(mappingLabel ? { mappingLabel } : {}),
     shareMode: input.shareMode || 'private',
     ownerUserId: input.ownerUserId,
     companyId: projectCompanyId || workspace.companyId || null,
