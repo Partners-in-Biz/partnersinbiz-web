@@ -100,6 +100,11 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
             {syncTargets.orgVpsDeviceCount > 0 ? ` (${syncTargets.orgVpsDeviceCount} org VPS device${syncTargets.orgVpsDeviceCount === 1 ? '' : 's'})` : ''}
           </p>
         ) : null}
+        {connections.length === 0 && notes?.hermesNative ? (
+          <p className="text-amber-100/90">{notes.hermesNative}</p>
+        ) : notes?.hermesNative ? (
+          <p>{notes.hermesNative}</p>
+        ) : null}
         {notes?.cursor ? <p>{notes.cursor}</p> : null}
       </div>
       {error && (

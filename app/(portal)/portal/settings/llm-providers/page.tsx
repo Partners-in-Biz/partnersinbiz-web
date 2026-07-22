@@ -60,7 +60,7 @@ export default function LlmProvidersSettingsPage() {
       <PageHeader
         eyebrow="Settings"
         title="LLM providers"
-        description="Organisation credentials sync to your shared VPS. Personal credentials stay on each user’s linked computer — never pushed to the org VPS. Connected org providers appear in the Messages model selector when running on that VPS."
+        description="Organisation credentials sync to your shared VPS. Personal credentials stay on each user’s linked computer — never pushed to the org VPS. Empty rows here do not mean Hermes has no keys: Auto in Messages still uses Hermes-native credentials on the target machine. Portal connections appear as Connected in the Messages model picker when running on that VPS."
         accent="cyan"
       />
       {resolving ? (

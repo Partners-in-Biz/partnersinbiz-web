@@ -20,6 +20,7 @@ export type LlmProviderCatalogResponse = {
     cursor: string
     orgScope?: string
     userScope?: string
+    hermesNative?: string
   }
 }
 

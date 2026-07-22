@@ -60,14 +60,33 @@ beforeEach(() => {
     }
     throw new Error(`Unexpected collection: ${name}`)
   })
-  mockCallAgentPath.mockResolvedValue({
-    response: { ok: true, status: 200 },
-    data: {
-      data: [
-        { id: 'anthropic/claude-sonnet-4.6', provider: 'anthropic', display_name: 'Claude Sonnet 4.6', supportsThinking: true },
-        { id: 'openai/gpt-5.5', provider: 'openai', display_name: 'GPT-5.5' },
-      ],
-    },
+  mockCallAgentPath.mockImplementation(async (_agentId: string, path: string) => {
+    if (path === '/admin/config') {
+      return {
+        response: { ok: true, status: 200 },
+        data: {
+          config: {
+            model: { provider: 'openai-codex', default: 'gpt-5.6-luna' },
+            fallback_providers: [
+              { provider: 'xai', model: 'grok-4.20-0309-reasoning' },
+              { provider: 'gemini', model: 'gemini-2.5-pro' },
+            ],
+          },
+        },
+      }
+    }
+    return {
+      response: { ok: true, status: 200 },
+      data: {
+        data: [
+          { id: 'claude-haiku-4-5', provider: 'anthropic', display_name: 'Claude Haiku 4.5' },
+          { id: 'claude-sonnet-4-6', provider: 'anthropic', display_name: 'Claude Sonnet 4.6', supportsThinking: true },
+          { id: 'gpt-5.6-luna', provider: 'openai-codex', display_name: 'GPT 5.6 Luna' },
+          { id: 'gemini-2.5-pro', provider: 'gemini', display_name: 'Gemini 2.5 Pro' },
+          { id: 'openai/gpt-5.5', provider: 'openai', display_name: 'GPT-5.5' },
+        ],
+      },
+    }
   })
 })
 
@@ -89,23 +108,42 @@ describe('conversation model catalogue API', () => {
     expect(body.data).toEqual(expect.objectContaining({
       agentId: 'pip',
       canSelect: true,
-      currentModel: 'anthropic/claude-sonnet-4.6',
-      currentProvider: 'anthropic',
+      currentModel: 'gpt-5.6-luna',
+      currentProvider: 'openai-codex',
+      autoModel: 'gpt-5.6-luna',
+      autoProvider: 'openai-codex',
+      runtimeSource: 'live_config',
       source: 'hermes',
     }))
     expect(body.data.models).toEqual(expect.arrayContaining([
       expect.objectContaining({
-        id: 'anthropic/claude-sonnet-4.6',
-        provider: 'anthropic',
+        id: 'gpt-5.6-luna',
+        provider: 'openai-codex',
         active: true,
-        supportsThinking: true,
+        available: true,
       }),
-      expect.objectContaining({ id: 'openai/gpt-5.5', provider: 'openai' }),
+      expect.objectContaining({
+        id: 'gemini-2.5-pro',
+        provider: 'gemini',
+        available: true,
+      }),
+      expect.objectContaining({
+        id: 'claude-sonnet-4-6',
+        provider: 'anthropic',
+        available: false,
+        reasonUnavailable: expect.stringMatching(/No credentials configured for Anthropic/i),
+      }),
+      expect.objectContaining({
+        id: 'openai/gpt-5.5',
+        provider: 'openai',
+        available: true,
+      }),
     ]))
     const raw = JSON.stringify(body)
     expect(raw).not.toContain('encrypted-secret')
     expect(raw).not.toContain('secret-runtime')
     expect(mockCallAgentPath).toHaveBeenCalledWith('pip', '/v1/models', { method: 'GET' })
+    expect(mockCallAgentPath).toHaveBeenCalledWith('pip', '/admin/config')
   })
 
   it('lets participants inspect safe model status without granting selection rights', async () => {
@@ -137,7 +175,19 @@ describe('conversation model catalogue API', () => {
   })
 
   it('falls back to the agent default model when Hermes catalogue is unavailable', async () => {
-    mockCallAgentPath.mockRejectedValue(new Error('gateway down'))
+    mockCallAgentPath.mockImplementation(async (_agentId: string, path: string) => {
+      if (path === '/admin/config') {
+        return {
+          response: { ok: true, status: 200 },
+          data: {
+            config: {
+              model: { provider: 'openai-codex', default: 'gpt-5.6-luna' },
+            },
+          },
+        }
+      }
+      throw new Error('gateway down')
+    })
     const { GET } = await import('@/app/api/v1/conversations/[convId]/models/route')
 
     const res = await GET(
@@ -147,10 +197,12 @@ describe('conversation model catalogue API', () => {
 
     expect(res.status).toBe(200)
     const body = await readJson(res)
-    expect(body.data.source).toBe('agent-default')
     expect(body.data.warning).toContain('unavailable')
-    expect(body.data.models).toEqual([
-      expect.objectContaining({ id: 'anthropic/claude-sonnet-4.6', source: 'agent-default' }),
-    ])
+    expect(body.data.autoModel).toBe('gpt-5.6-luna')
+    expect(body.data.autoProvider).toBe('openai-codex')
+    expect(body.data.models).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'gpt-5.6-luna', available: true, active: true }),
+      expect.objectContaining({ id: 'anthropic/claude-sonnet-4.6', source: 'agent-default', available: false }),
+    ]))
   })
 })

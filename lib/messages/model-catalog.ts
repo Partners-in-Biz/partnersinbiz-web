@@ -1,10 +1,19 @@
 import { adminDb } from '@/lib/firebase/admin'
 import { callAgentPath } from '@/lib/agents/team'
+import {
+  buildRuntimeModelSummary,
+  extractConfiguredRuntimeProviders,
+} from '@/lib/agents/runtime-config'
 import { isValidAgentId, type AgentId, type AgentTeamDoc } from '@/lib/agents/types'
 import type { ApiUser } from '@/lib/api/types'
 import type { Conversation } from '@/lib/conversations/types'
 import { listLlmProviderConnections } from '@/lib/llm-providers/store'
 import { getLlmProvider, listLlmProviders } from '@/lib/llm-providers/providers'
+import {
+  expandProviderAliases,
+  normalizeProviderId,
+  providersShareCredentialFamily,
+} from '@/lib/messages/model-provider-aliases'
 
 const SAFE_MODEL_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:/@+~=-]{0,191}$/
 const SAFE_PROVIDER_ID_RE = /^[A-Za-z][A-Za-z0-9._:-]{0,63}$/
@@ -33,8 +42,14 @@ export interface PublicMessageModelOption {
 export interface PublicMessageModelCatalog {
   agentId: AgentId | null
   canSelect: boolean
+  /** Live Hermes primary model used by Auto (or registry fallback). */
   currentModel?: string
   currentProvider?: string
+  /** Explicit Auto target — same as current* when live config is known. */
+  autoModel?: string
+  autoProvider?: string
+  autoLabel?: string
+  runtimeSource?: 'live_config' | 'registry'
   models: PublicMessageModelOption[]
   providers: Array<{ id: string; label: string; configured: boolean; active: boolean; connected?: boolean }>
   source: 'hermes' | 'agent-default' | 'none'
@@ -42,6 +57,10 @@ export interface PublicMessageModelCatalog {
   connectProvidersUrl?: string
   /** Providers saved as personal (linked computer) — not available on the organisation VPS. */
   localOnlyProviderLabels?: string[]
+  /** Providers Hermes is configured to use (primary + fallbacks), independent of PiB Settings. */
+  hermesConfiguredProviders?: string[]
+  /** Count of models that are actually selectable with credentials/config. */
+  selectableModelCount?: number
 }
 
 export interface ValidatedMessageModelSelection {
@@ -239,6 +258,23 @@ export function selectConversationModelAgentId(conversation: Conversation, reque
   return conversation.participantAgentIds[0] ?? null
 }
 
+function modelMatchesLivePrimary(
+  model: PublicMessageModelOption,
+  primaryModel?: string,
+  primaryProvider?: string,
+): boolean {
+  if (!primaryModel) return false
+  const leaf = model.id.split('/').pop() || model.id
+  const primaryLeaf = primaryModel.split('/').pop() || primaryModel
+  if (leaf !== primaryLeaf && model.id !== primaryModel && model.model !== primaryModel) return false
+  if (!primaryProvider) return true
+  return providersShareCredentialFamily(model.provider, primaryProvider)
+}
+
+function unavailableReasonForProvider(provider: string): string {
+  return `No credentials configured for ${provider} on this agent runtime. Connect the provider in Settings or configure Hermes auth on the target machine.`
+}
+
 export async function getMessageModelCatalog(input: {
   conversation: Conversation
   user: ApiUser
@@ -253,30 +289,53 @@ export async function getMessageModelCatalog(input: {
       providers: [],
       source: 'none',
       warning: 'This conversation has no agent participant.',
+      selectableModelCount: 0,
     }
   }
 
   const agentSnap = await adminDb.collection('agent_team').doc(agentId).get()
   const agentData = agentSnap.exists ? agentSnap.data() as Partial<AgentTeamDoc> : null
-  const currentModel = cleanMessageModelId(agentData?.defaultModel)
+  const registryDefaultModel = cleanMessageModelId(agentData?.defaultModel)
   const canSelect = canSelectMessageModels(input.user)
 
   let models: PublicMessageModelOption[] = []
   let source: PublicMessageModelCatalog['source'] = 'none'
   let warning: string | undefined
+  let liveConfig: unknown = null
 
-  try {
-    const upstream = await callAgentPath(agentId, '/v1/models', { method: 'GET' })
-    if (upstream.response.ok) {
-      models = readModelEntries(upstream.data)
-        .map((entry) => normalizeModelEntry(entry, currentModel))
-        .filter(Boolean) as PublicMessageModelOption[]
-      source = models.length > 0 ? 'hermes' : 'none'
-    } else {
-      warning = `Hermes model catalogue returned ${upstream.response.status}`
-    }
-  } catch {
-    warning = 'Hermes model catalogue is unavailable; using the agent default model.'
+  const [modelsResult, configResult] = await Promise.all([
+    callAgentPath(agentId, '/v1/models', { method: 'GET' })
+      .then((result) => ({ ok: true as const, result }))
+      .catch((error: unknown) => ({ ok: false as const, error })),
+    callAgentPath(agentId, '/admin/config')
+      .then((result) => ({ ok: true as const, result }))
+      .catch((error: unknown) => ({ ok: false as const, error })),
+  ])
+
+  if (configResult.ok && configResult.result.response.ok) {
+    liveConfig = configResult.result.data
+  }
+
+  const runtimeSummary = buildRuntimeModelSummary(
+    { agentId, defaultModel: agentData?.defaultModel },
+    liveConfig,
+  )
+  const configuredEntries = extractConfiguredRuntimeProviders(liveConfig)
+  const hermesConfiguredProviders = Array.from(new Set(
+    configuredEntries
+      .map((entry) => normalizeProviderId(entry.provider))
+      .filter(Boolean),
+  ))
+
+  if (modelsResult.ok && modelsResult.result.response.ok) {
+    models = readModelEntries(modelsResult.result.data)
+      .map((entry) => normalizeModelEntry(entry, ''))
+      .filter(Boolean) as PublicMessageModelOption[]
+    source = models.length > 0 ? 'hermes' : 'none'
+  } else {
+    warning = modelsResult.ok
+      ? `Hermes model catalogue returned ${modelsResult.result.response.status}`
+      : 'Hermes model catalogue is unavailable; using the agent runtime default.'
   }
 
   const fallback = fallbackModelOption(agentData)
@@ -295,7 +354,9 @@ export async function getMessageModelCatalog(input: {
       connectedHermesProviders = new Set(
         connections
           .filter((c) => c.scope === 'org' && c.status === 'connected' && c.hasCredentials)
-          .map((c) => c.hermesProvider || getLlmProvider(c.provider)?.hermesProvider || c.provider),
+          .map((c) => c.hermesProvider || getLlmProvider(c.provider)?.hermesProvider || c.provider)
+          .map((provider) => normalizeProviderId(provider))
+          .filter(Boolean),
       )
       for (const c of connections) {
         if (c.scope !== 'user' || c.status !== 'connected' || !c.hasCredentials) continue
@@ -308,35 +369,121 @@ export async function getMessageModelCatalog(input: {
     }
   }
 
-  const connectedExtras = connectedModelOptions(connectedHermesProviders, currentModel)
+  const usableProviders = expandProviderAliases([
+    ...hermesConfiguredProviders,
+    ...connectedHermesProviders,
+  ])
+
+  // Live Hermes primary is always usable even before /v1/models lists it.
+  if (runtimeSummary.primaryProvider) {
+    for (const alias of expandProviderAliases([runtimeSummary.primaryProvider])) {
+      usableProviders.add(alias)
+    }
+  }
+
+  const connectedExtras = connectedModelOptions(connectedHermesProviders, runtimeSummary.primaryModel || '')
   for (const extra of connectedExtras) {
     if (!models.some((model) => model.id === extra.id && model.provider === extra.provider)) {
       models.push(extra)
     }
   }
 
-  models = dedupeModels(models).map((model) => ({
-    ...model,
-    active: currentModel ? model.id === currentModel : model.active,
-    connected: model.connected || connectedHermesProviders.has(model.provider),
-    configured: model.configured || connectedHermesProviders.has(model.provider),
-  }))
+  const autoModel = cleanMessageModelId(runtimeSummary.primaryModel) || registryDefaultModel || undefined
+  const autoProvider = cleanMessageProviderId(runtimeSummary.primaryProvider)
+    || (autoModel ? providerFromModelId(autoModel) : undefined)
+    || undefined
+  const autoLabel = runtimeSummary.source === 'live_config'
+    ? (runtimeSummary.primaryProvider && runtimeSummary.primaryModel
+      ? `${runtimeSummary.primaryProvider} · ${runtimeSummary.primaryModel}`
+      : runtimeSummary.label)
+    : (autoModel ? `Registry · ${autoModel}` : undefined)
+
+  if (autoModel && !models.some((model) => modelMatchesLivePrimary(model, autoModel, autoProvider))) {
+    models.unshift({
+      id: autoModel,
+      model: autoModel,
+      displayName: displayNameFromModelId(autoModel),
+      provider: autoProvider || providerFromModelId(autoModel),
+      providerLabel: labelFromProvider(autoProvider || providerFromModelId(autoModel)),
+      configured: true,
+      active: true,
+      available: true,
+      source: runtimeSummary.source === 'live_config' ? 'hermes' : 'agent-default',
+    })
+    if (source === 'none') source = runtimeSummary.source === 'live_config' ? 'hermes' : 'agent-default'
+  }
+
+  const hasCredentialTruth = usableProviders.size > 0
+
+  models = dedupeModels(models).map((model) => {
+    const providerUsable = !hasCredentialTruth
+      ? true
+      : [...expandProviderAliases([model.provider])].some((alias) => usableProviders.has(alias))
+        || model.connected === true
+        || model.source === 'connected'
+    const hermesSaysUnavailable = model.available === false
+    const available = !hermesSaysUnavailable && providerUsable
+    const active = modelMatchesLivePrimary(model, autoModel, autoProvider)
+    return {
+      ...model,
+      active,
+      available,
+      configured: hasCredentialTruth ? (providerUsable || model.configured) : model.configured,
+      connected: model.connected || [...expandProviderAliases([model.provider])].some((alias) => connectedHermesProviders.has(alias)),
+      ...(available
+        ? { reasonUnavailable: undefined }
+        : {
+          reasonUnavailable: model.reasonUnavailable || unavailableReasonForProvider(model.providerLabel || model.provider),
+        }),
+    }
+  })
+
+  // Prefer usable models first, then active, then name.
+  models.sort((a, b) => {
+    if (a.available !== b.available) return a.available ? -1 : 1
+    if (a.active !== b.active) return a.active ? -1 : 1
+    return a.displayName.localeCompare(b.displayName)
+  })
 
   if (localOnlyProviderLabels.length) {
     const localNote = `Personal credentials (${localOnlyProviderLabels.join(', ')}) apply on linked computers only — not on the organisation VPS.`
     warning = warning ? `${warning} ${localNote}` : localNote
   }
 
-  const activeModel = models.find((model) => model.active) ?? models[0]
+  if (runtimeSummary.source === 'live_config' && runtimeSummary.staleRegistry) {
+    const staleNote = `Agent registry still lists ${runtimeSummary.registryDefaultModel}; live Hermes Auto uses ${autoLabel}.`
+    warning = warning ? `${warning} ${staleNote}` : staleNote
+  }
+
+  if (!hasCredentialTruth) {
+    const credNote = 'Live Hermes provider config was unavailable, so model credentials could not be verified. Prefer Auto, or connect providers in Settings.'
+    warning = warning ? `${warning} ${credNote}` : credNote
+  } else if (connectedHermesProviders.size === 0 && hermesConfiguredProviders.length > 0) {
+    const hermesNote = `PiB Settings has no portal connections; Auto still uses Hermes-native ${autoLabel || hermesConfiguredProviders.join(', ')} on this agent runtime.`
+    warning = warning ? `${warning} ${hermesNote}` : hermesNote
+  }
+
+  const selectableModelCount = models.filter((model) => model.available).length
+  const activeModel = models.find((model) => model.active && model.available)
+    ?? models.find((model) => model.active)
+    ?? models.find((model) => model.available)
+    ?? models[0]
+
   return {
     agentId,
     canSelect,
-    currentModel: activeModel?.id,
-    currentProvider: activeModel?.provider,
+    currentModel: autoModel || activeModel?.id,
+    currentProvider: autoProvider || activeModel?.provider,
+    ...(autoModel ? { autoModel } : {}),
+    ...(autoProvider ? { autoProvider } : {}),
+    ...(autoLabel ? { autoLabel } : {}),
+    runtimeSource: runtimeSummary.source,
     models,
     providers: providersForModels(models, connectedHermesProviders),
     source,
     connectProvidersUrl: '/portal/settings/llm-providers',
+    selectableModelCount,
+    ...(hermesConfiguredProviders.length ? { hermesConfiguredProviders } : {}),
     ...(localOnlyProviderLabels.length ? { localOnlyProviderLabels } : {}),
     ...(warning ? { warning } : {}),
   }

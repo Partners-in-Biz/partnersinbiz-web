@@ -38,6 +38,8 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
       cursor: UNSUPPORTED_CURSOR_NOTE,
       orgScope: 'Organisation credentials sync only to this organisation’s VPS Hermes profiles and are shared by everyone using that VPS.',
       userScope: 'Personal credentials stay on each user’s linked computer. They are never synced to the organisation VPS.',
+      hermesNative:
+        'Empty Connect buttons only mean nothing is saved in PiB Settings. Agents can still run on Hermes-native credentials already configured on the VPS or a linked computer (for example ChatGPT Codex via hermes auth). Connect here when you want portal-managed credentials that sync to the organisation VPS and show as Connected in Messages.',
     },
   })
 })

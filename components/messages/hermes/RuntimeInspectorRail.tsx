@@ -48,10 +48,27 @@ function shortRunId(runId?: string): string {
   return `${runId.slice(0, 8)}…${runId.slice(-6)}`
 }
 
-function modelLabel(model?: string, provider?: string): string {
-  if (!model) return 'Auto model'
+function modelLabel(model?: string, provider?: string, options?: { auto?: boolean }): string {
+  if (!model) return options?.auto ? 'Auto model' : 'Auto model'
   const leaf = model.split('/').pop() || model
-  return provider ? `${provider} · ${leaf}` : leaf
+  const base = provider ? `${provider} · ${leaf}` : leaf
+  return options?.auto ? `Auto · ${base}` : base
+}
+
+function resolveInspectorRuntime(
+  activeMessage: ConversationMessage | null,
+  selectedRuntime: ModelRuntimeSelection | null,
+  catalog: MessageModelCatalog | null,
+) {
+  const explicitModel = activeMessage?.model || selectedRuntime?.model
+  const explicitProvider = activeMessage?.provider || selectedRuntime?.provider
+  const isAuto = !explicitModel
+  const runtimeModel = explicitModel
+    || catalog?.autoModel
+    || catalog?.currentModel
+  const runtimeProvider = explicitProvider
+    || (isAuto ? catalog?.autoProvider || catalog?.currentProvider : undefined)
+  return { runtimeModel, runtimeProvider, isAuto }
 }
 
 export function RuntimeExecutionSection({
@@ -64,8 +81,7 @@ export function RuntimeExecutionSection({
   canRetry = false,
   onRetry,
 }: RuntimeExecution) {
-  const runtimeModel = activeMessage?.model ?? selectedRuntime?.model ?? catalog?.currentModel
-  const runtimeProvider = activeMessage?.provider ?? selectedRuntime?.provider ?? catalog?.currentProvider
+  const { runtimeModel, runtimeProvider, isAuto } = resolveInspectorRuntime(activeMessage, selectedRuntime, catalog)
   const status = activeMessage?.status ?? 'idle'
   const important = executionNeedsAttention(status)
   const [expanded, setExpanded] = useState(important)
@@ -91,7 +107,7 @@ export function RuntimeExecutionSection({
         <span className="flex items-center gap-1.5"><span className="rounded-full bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">{status}</span><span className="material-symbols-outlined text-[15px] text-[var(--color-pib-text-muted)]">{expanded ? 'expand_less' : 'expand_more'}</span></span>
       </button>
       {expanded && <div className="space-y-3 border-t border-[var(--color-card-border)] p-2.5 text-xs">
-        <div><div className="mb-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Selected runtime</div><div className="truncate font-medium text-[var(--color-pib-text)]">{modelLabel(runtimeModel, runtimeProvider)}</div>{runtimeModel && <div className="truncate font-mono text-[10px] text-[var(--color-pib-text-muted)]" title={runtimeModel}>{runtimeModel}</div>}</div>
+        <div><div className="mb-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Selected runtime</div><div className="truncate font-medium text-[var(--color-pib-text)]">{modelLabel(runtimeModel, runtimeProvider, { auto: isAuto })}</div>{runtimeModel && <div className="truncate font-mono text-[10px] text-[var(--color-pib-text-muted)]" title={runtimeModel}>{runtimeModel}</div>}{isAuto && catalog?.autoLabel && <div className="truncate text-[10px] text-[var(--color-pib-text-muted)]">Live Hermes Auto</div>}</div>
         <div><div className="mb-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Run</div><div className="flex items-center gap-2"><span className="min-w-0 flex-1 truncate font-mono text-[10px] text-[var(--color-pib-text-muted)]" title={activeMessage.runId}>{shortRunId(activeMessage.runId)}</span><button type="button" onClick={copyRunId} aria-label="Copy run ID" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-[var(--color-pib-text-muted)] xl:h-6 xl:w-6"><span className="material-symbols-outlined text-[13px]">{copiedRunId ? 'check' : 'content_copy'}</span></button></div>
           {(canStop && onStop) || (canRetry && onRetry) ? <div className="mt-2 flex flex-wrap gap-2">{canStop && onStop && <button type="button" onClick={onStop} className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-red-400/25 bg-red-500/10 px-2.5 text-[11px] font-medium text-red-200 xl:min-h-7"><span aria-hidden="true" className="material-symbols-outlined text-[14px]">stop_circle</span>Stop run</button>}{canRetry && onRetry && <button type="button" onClick={onRetry} className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-[var(--color-card-border)] px-2.5 text-[11px] font-medium text-[var(--color-pib-text)] xl:min-h-7"><span aria-hidden="true" className="material-symbols-outlined text-[14px]">refresh</span>Retry run</button>}</div> : null}
         </div>
@@ -112,8 +128,7 @@ export function RuntimeInspectorRail({
   onCollapsedChange,
   variant = 'classic',
 }: RuntimeInspectorRailProps) {
-  const runtimeModel = activeMessage?.model ?? selectedRuntime?.model ?? catalog?.currentModel
-  const runtimeProvider = activeMessage?.provider ?? selectedRuntime?.provider ?? catalog?.currentProvider
+  const { runtimeModel, runtimeProvider, isAuto } = resolveInspectorRuntime(activeMessage, selectedRuntime, catalog)
   const status = activeMessage?.status ?? 'idle'
   const [copiedRunId, setCopiedRunId] = useState(false)
 
@@ -197,12 +212,14 @@ export function RuntimeInspectorRail({
       <div className="space-y-3 overflow-y-auto p-3 text-xs">
         <section className="rounded-xl border border-[var(--color-card-border)] bg-black/10 p-2.5">
           <div className="mb-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">Selected runtime</div>
-          <div className="truncate font-medium text-[var(--color-pib-text)]">{modelLabel(runtimeModel, runtimeProvider)}</div>
+          <div className="truncate font-medium text-[var(--color-pib-text)]">{modelLabel(runtimeModel, runtimeProvider, { auto: isAuto })}</div>
           {runtimeModel && (
             <div className="truncate font-mono text-[10px] text-[var(--color-pib-text-muted)]" title={runtimeModel}>{runtimeModel}</div>
           )}
           <div className="truncate text-[11px] text-[var(--color-pib-text-muted)]">
-            {catalog?.source === 'agent-default' ? 'Agent default fallback' : catalog?.source === 'hermes' ? 'Hermes catalogue' : 'No catalogue loaded'}
+            {isAuto
+              ? (catalog?.runtimeSource === 'live_config' ? 'Auto · live Hermes primary' : catalog?.autoLabel ? 'Auto · agent default' : 'Auto model')
+              : catalog?.source === 'agent-default' ? 'Explicit override · agent default catalogue' : 'Explicit per-run override'}
           </div>
         </section>
 
