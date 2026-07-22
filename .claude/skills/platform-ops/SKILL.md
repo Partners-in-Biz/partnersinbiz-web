@@ -1625,3 +1625,38 @@ GET /fx/rates
 # 2. Multiply invoice.total by rates[invoice.currency]
 # e.g. USD 1000 * 18.45 = ZAR 18,450
 ```
+
+## Linked computers — adopt legacy project locations (system path)
+
+Use when Messages shows **Legacy · pairing required**, Sync now is disabled, or project chats have **No ready project computers**.
+
+Wiki: `agents/partners/wiki/system-legacy-location-adoption-2026-07-22.md`
+
+### Adopt onto an already-paired device
+
+```bash
+POST /linked-computers/:deviceId/adopt-location
+Authorization: Bearer $AI_API_KEY
+{
+  "adoptLocationId": "peets-mac-mini",   # or partners-vps
+  "actorUserId": "zcpAJ4NXWQfjXWPXkl6nYwt7Gmm1"
+}
+```
+
+Or from the repo with Firebase admin:
+
+```bash
+npx tsx scripts/list-linked-adoption-targets.ts
+npx tsx scripts/adopt-project-location-onto-device.ts --dry-run \
+  --device-id <id> --location-id peets-mac-mini
+npx tsx scripts/adopt-project-location-onto-device.ts --apply \
+  --device-id <id> --location-id partners-vps
+```
+
+### Fresh VPS/Mac with no linked device yet
+
+1. `POST /linked-computers/pairing` with `deviceKind`, `ownerType`, `adoptLocationId`
+2. On the machine: `pib-runtime pair --challenge <id> --platform linux|macos`
+3. Confirm workspace map if mapping status is pending
+
+Do **not** tell the user to wait on Sync now while any linked location is still legacy. Sync also needs `PROJECT_SYNC_STORAGE_LIFECYCLE_VERIFIED` after TTL/lifecycle readback — separate from project chat readiness.

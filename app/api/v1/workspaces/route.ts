@@ -253,7 +253,15 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
     const runtimeUnavailableReason = runtime?.selectable === true
       ? undefined
       : typeof runtime?.unavailableReason === 'string' ? runtime.unavailableReason : 'computer_offline'
-    const unavailableReason = runtimeUnavailableReason ?? replicaUnavailableReason
+    // Native linked-device replicas: live device heartbeat is authoritative for chat
+    // readiness. Stale replica.availability/syncStatus must not hide a healthy Mac/VPS.
+    // Legacy locations still use stored replica readiness (and require adoption).
+    const unavailableReason = nativeLocation
+      ? (runtime?.selectable === true ? undefined : (runtimeUnavailableReason ?? 'computer_offline'))
+      : (runtimeUnavailableReason ?? replicaUnavailableReason)
+    const availability = nativeLocation
+      ? (runtime?.selectable === true ? 'online' : 'offline')
+      : replica.availability
     const publicLocation: PublicWorkspaceProjectLocation = {
       replicaId: replica.replicaId,
       locationId: replica.locationId,
@@ -262,7 +270,7 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
       platform: replica.locationPlatform,
       workspaceId: replica.workspaceId,
       ...(runtime ? { runtimeTargetId: runtime.id } : {}),
-      availability: replica.availability,
+      availability,
       syncStatus: replica.syncStatus,
       canonical: replica.isCanonical === true,
       selectable: !unavailableReason,

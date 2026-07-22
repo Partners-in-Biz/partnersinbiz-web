@@ -536,7 +536,7 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     fireEvent.click(await screen.findByRole('button', { name: /new conversation/i }))
     fireEvent.change(screen.getByLabelText('Conversation context'), { target: { value: 'project' } })
 
-    const runtimeSelect = screen.getByRole('combobox', { name: 'Runtime' })
+    const runtimeSelect = screen.getByRole('combobox', { name: 'Computer' })
     expect(within(runtimeSelect).getByRole('option', { name: 'No linked computers available' })).toBeDisabled()
     expect(within(runtimeSelect).queryByRole('option', { name: 'VPS' })).not.toBeInTheDocument()
     expect(runtimeSelect).toHaveValue('')
@@ -580,7 +580,7 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
 
     const projectSelect = screen.getByRole('combobox', { name: 'Project folder' })
     fireEvent.change(projectSelect, { target: { value: 'project-mac' } })
-    const runtimeSelect = screen.getByRole('combobox', { name: 'Runtime' })
+    const runtimeSelect = screen.getByRole('combobox', { name: 'Computer' })
     await waitFor(() => expect(runtimeSelect).toHaveValue('runtime-mac'))
     expect(within(runtimeSelect).getByRole('option', { name: /Studio Mac/ })).toBeInTheDocument()
     expect(within(runtimeSelect).queryByRole('option', { name: /Client VPS/ })).not.toBeInTheDocument()
@@ -595,6 +595,92 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     expect(within(runtimeSelect).getByRole('option', { name: 'No linked computers available' })).toBeDisabled()
     expect(screen.getByText(/link a location to this project before starting a session/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Start conversation' })).toBeDisabled()
+  })
+
+  it('collapses mapped folders to one computer for company chats and keeps mappings for organisation root', async () => {
+    const creates: Array<Record<string, unknown>> = []
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents')) return jsonResponse({ data: [{
+        agentId: 'theo', name: 'Theo', role: 'Builder', persona: '', iconKey: 'code', colorKey: 'sky',
+        enabled: true, baseUrl: '', apiKey: '', defaultModel: 'auto',
+      }] })
+      if (url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/crm/companies?')) {
+        return jsonResponse({ data: { companies: [{ id: 'company-ahs', name: 'AHS Law' }] } })
+      }
+      if (url.startsWith('/api/v1/workspaces?')) {
+        return jsonResponse({
+          data: {
+            workspaces: [{
+              workspaceId: 'partners', orgId: 'org-1', orgSlug: 'partners', orgName: 'Partners in Biz',
+              agentDomain: 'partners', sourceOfTruth: 'vps', syncMode: 'hybrid', defaultRuntimeTarget: 'vps', folderVersion: 1,
+            }],
+            runtimeTargetsByWorkspace: {
+              partners: [{
+                id: 'partners-vps', label: 'Partners VPS', mappingId: 'partners-vps-workspace',
+                mappingLabel: 'Partners in Biz', selectable: true, enabled: true, isLocal: false,
+                isFresh: true, isHealthy: true, lastSeenAt: null,
+              }, {
+                id: 'device-mac', label: 'Peets-Mac-mini.local', mappingId: 'client-growth-map',
+                mappingLabel: 'Client Growth', selectable: true, enabled: true, isLocal: true,
+                isFresh: true, isHealthy: true, lastSeenAt: null,
+              }, {
+                id: 'device-mac', label: 'Peets-Mac-mini.local', mappingId: 'partners-mac-workspace',
+                mappingLabel: 'Partners in Biz', selectable: true, enabled: true, isLocal: true,
+                isFresh: true, isHealthy: true, lastSeenAt: null,
+              }],
+            },
+            projects: [],
+          },
+        })
+      }
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [baseConversation] } })
+      if (url === '/api/v1/conversations/conv-1/messages') return jsonResponse({ data: { messages: [] } })
+      if (url === '/api/v1/conversations' && init?.method === 'POST') {
+        creates.push(JSON.parse(String(init.body)) as Record<string, unknown>)
+        return jsonResponse({ data: { conversation: { ...baseConversation, id: 'conv-company' } } }, 201)
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        initialConvId="conv-1"
+      />,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: /new conversation/i }))
+    const dialog = await screen.findByRole('dialog', { name: 'New conversation' })
+    fireEvent.change(within(dialog).getByLabelText('Conversation context'), { target: { value: 'company' } })
+
+    const companySearch = within(dialog).getByLabelText('Search accessible companies')
+    fireEvent.change(companySearch, { target: { value: 'AHS' } })
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'AHS Law' }))
+
+    const computer = within(dialog).getByLabelText('Computer')
+    expect(computer).toBeInTheDocument()
+    expect(within(dialog).queryByLabelText('Computer / mapped folder')).not.toBeInTheDocument()
+    expect(within(dialog).getByRole('option', { name: /^Partners VPS/ })).toBeInTheDocument()
+    expect(within(dialog).getByRole('option', { name: /^Peets-Mac-mini\.local/ })).toBeInTheDocument()
+    expect(within(dialog).queryByRole('option', { name: /Client Growth/ })).not.toBeInTheDocument()
+    expect(within(dialog).queryByRole('option', { name: /Peets-Mac-mini\.local · Partners in Biz/ })).not.toBeInTheDocument()
+    expect(within(dialog).getByText(/Pick VPS or Mac/i)).toBeInTheDocument()
+
+    fireEvent.change(computer, { target: { value: 'device-mac::partners-mac-workspace' } })
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: /Theo Builder/ }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Start conversation' }))
+    await waitFor(() => expect(creates).toEqual([expect.objectContaining({
+      scope: 'company',
+      scopeRefId: 'company-ahs',
+      workspaceId: 'partners',
+      runtimeTarget: 'device-mac',
+      mappingId: 'partners-mac-workspace',
+    })]))
   })
 
   it('refreshes computer availability every 30 seconds and clears that poll on unmount', async () => {

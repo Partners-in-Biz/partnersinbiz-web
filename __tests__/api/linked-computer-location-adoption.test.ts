@@ -2,6 +2,7 @@ import { createHash, generateKeyPairSync, sign } from 'node:crypto'
 import {
   createPairing,
   exchangePairing,
+  adoptLegacyLocationOntoLinkedDevice,
   projectLocationAdoptionFitsTransaction,
   projectLocationAdoptionWriteCount,
   type LinkedComputerPairingDb,
@@ -427,5 +428,87 @@ describe('legacy execution-location adoption during authenticated pairing', () =
     expect(projectLocationAdoptionFitsTransaction({
       replicaCount: 190, mappingCount: 1, grantCount: 1, projectCount: 62,
     })).toBe(false)
+  })
+})
+
+describe('adopt legacy location onto an already-paired linked device', () => {
+  it('rebinds replicas onto the existing device without creating credentials', async () => {
+    const { db, rows } = fakeDb({
+      ...orgAdoptionSeed(),
+      'linked_devices/native-vps-a': {
+        deviceId: 'native-vps-a', deviceKind: 'vps', ownerType: 'organization', ownerOrgId: 'org-a',
+        createdByUserId: 'admin-a', runtimeTargetId: 'linked-device:native-vps-a',
+        label: 'Partners VPS', platform: 'linux', architecture: 'x64', runtimeVersion: '1.2.0',
+        status: 'active', credentialVersion: 1, lastSeenAt: 'SEEN',
+      },
+    })
+
+    const result = await adoptLegacyLocationOntoLinkedDevice({
+      actorUserId: 'admin-a',
+      deviceId: 'native-vps-a',
+      adoptLocationId: 'partners-vps',
+    }, { db, now, nowMs: () => nowMs })
+
+    const nativeLocationId = 'linked-device:native-vps-a'
+    const nativeReplicaId = scopedProjectReplicaId({
+      projectId: 'project-a', orgId: 'org-a', workspaceId: 'workspace-a',
+      locationId: nativeLocationId, mappingId: 'partners-vps-workspace',
+    })
+    expect(result).toMatchObject({
+      deviceId: 'native-vps-a',
+      nativeLocationId,
+      adoptedFromLocationId: 'partners-vps',
+      replicaCount: 1,
+    })
+    expect(rows.get('linked_devices/native-vps-a')).toMatchObject({
+      adoptedFromLocationId: 'partners-vps',
+    })
+    expect(rows.get(`project_execution_locations/${nativeLocationId}`)).toMatchObject({
+      nativeDeviceId: 'native-vps-a', adoptedFromLocationId: 'partners-vps', status: 'active',
+    })
+    expect(rows.get('project_execution_locations/partners-vps')).toMatchObject({
+      status: 'retired', replacedByLocationId: nativeLocationId, adoptedDeviceId: 'native-vps-a',
+    })
+    expect(rows.get('project_location_replicas/legacy-replica-a')).toMatchObject({
+      active: false, replacedByReplicaId: nativeReplicaId,
+    })
+    expect(rows.get(`project_location_replicas/${nativeReplicaId}`)).toMatchObject({
+      locationId: nativeLocationId, active: true, adoptedFromReplicaId: 'legacy-replica-a',
+    })
+    expect(rows.get('linked_device_grants/org-a_native-vps-a')).toMatchObject({
+      deviceId: 'native-vps-a', orgId: 'org-a', status: 'active',
+    })
+    expect(rows.get('linked_device_workspace_mappings/partners-vps-workspace')).toMatchObject({
+      deviceId: 'native-vps-a', status: 'pending',
+    })
+    expect([...rows.values()].some((row) => row.action === 'location.adopted')).toBe(true)
+  })
+
+  it('is idempotent when the native location already replaced the legacy row', async () => {
+    const nativeLocationId = 'linked-device:native-vps-a'
+    const { db } = fakeDb({
+      'orgMembers/org-a_admin-a': { orgId: 'org-a', uid: 'admin-a', role: 'admin', status: 'active' },
+      'linked_devices/native-vps-a': {
+        deviceId: 'native-vps-a', deviceKind: 'vps', ownerType: 'organization', ownerOrgId: 'org-a',
+        createdByUserId: 'admin-a', runtimeTargetId: nativeLocationId, platform: 'linux',
+        status: 'active', adoptedFromLocationId: 'partners-vps',
+      },
+      'project_execution_locations/partners-vps': {
+        locationId: 'partners-vps', status: 'retired', replacedByLocationId: nativeLocationId,
+      },
+      [`project_execution_locations/${nativeLocationId}`]: {
+        locationId: nativeLocationId, nativeDeviceId: 'native-vps-a', adoptedFromLocationId: 'partners-vps',
+        status: 'active',
+      },
+    })
+
+    await expect(adoptLegacyLocationOntoLinkedDevice({
+      actorUserId: 'admin-a',
+      deviceId: 'native-vps-a',
+      adoptLocationId: 'partners-vps',
+    }, { db, now, nowMs: () => nowMs })).resolves.toMatchObject({
+      alreadyAdopted: true,
+      nativeLocationId,
+    })
   })
 })

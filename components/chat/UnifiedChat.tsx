@@ -363,8 +363,53 @@ function parseWorkspaceRuntimeSelection(value: string): { runtimeTargetId: strin
   }
 }
 
-function workspaceRuntimeOptionLabel(runtime: WorkspaceRuntimePresence): string {
-  const mappingLabel = runtime.mappingLabel?.trim()
+/** Organisation root needs per-mapping choices; company/project only need the machine. */
+function workspaceRuntimeShowsMappedFolders(scope: ConversationScope): boolean {
+  return scope === 'workspace'
+}
+
+function preferWorkspaceRuntime(
+  a: WorkspaceRuntimePresence,
+  b: WorkspaceRuntimePresence,
+  preferredMappingLabel?: string,
+): number {
+  if (a.selectable !== b.selectable) return a.selectable ? -1 : 1
+  if (a.isHealthy !== b.isHealthy) return a.isHealthy ? -1 : 1
+  if (a.isFresh !== b.isFresh) return a.isFresh ? -1 : 1
+  const preferred = preferredMappingLabel?.trim()
+  if (preferred) {
+    const aMatch = a.mappingLabel?.trim() === preferred
+    const bMatch = b.mappingLabel?.trim() === preferred
+    if (aMatch !== bMatch) return aMatch ? -1 : 1
+  }
+  return (a.mappingId || '').localeCompare(b.mappingId || '')
+}
+
+/** One catalogue row per computer — keeps a preferred mapping for dispatch auth. */
+function collapseWorkspaceRuntimesByComputer(
+  runtimes: WorkspaceRuntimePresence[],
+  options?: { preferredMappingLabel?: string },
+): WorkspaceRuntimePresence[] {
+  const preferredMappingLabel = options?.preferredMappingLabel
+  const chosen = new Map<string, WorkspaceRuntimePresence>()
+  for (const runtime of [...runtimes].sort((a, b) => preferWorkspaceRuntime(a, b, preferredMappingLabel))) {
+    if (!chosen.has(runtime.id)) chosen.set(runtime.id, runtime)
+  }
+  const order: string[] = []
+  for (const runtime of runtimes) {
+    if (!order.includes(runtime.id)) order.push(runtime.id)
+  }
+  return order.flatMap((id) => {
+    const runtime = chosen.get(id)
+    return runtime ? [runtime] : []
+  })
+}
+
+function workspaceRuntimeOptionLabel(
+  runtime: WorkspaceRuntimePresence,
+  options?: { includeMapping?: boolean },
+): string {
+  const mappingLabel = options?.includeMapping === false ? '' : runtime.mappingLabel?.trim()
   if (mappingLabel) return `${runtime.label} · ${mappingLabel}`
   return runtime.label
 }
@@ -1195,23 +1240,33 @@ export default function UnifiedChat({
   const workspaceRuntimeTargets = useMemo(
     () => {
       const catalogue = workspaceRuntimeTargetsByWorkspace[selectedWorkspaceId] ?? []
-      if (newScope !== 'project') return catalogue
-      const linkedLocations = new Map((selectedWorkspaceProject?.locations ?? [])
-        .filter((location) => !location.workspaceId || location.workspaceId === selectedWorkspaceId)
-        .map((location) => [location.locationId, location]))
-      return catalogue.flatMap((runtime) => {
-        const location = linkedLocations.get(projectRuntimeLocationId(runtime))
-        if (!location || !location.authenticatedRuntime) return []
-        const selectable = runtime.selectable && location.availability === 'online'
-        return [{
-          ...runtime,
-          selectable,
-          ...(!selectable && !runtime.unavailableReason ? { unavailableReason: 'project_sync_pending' } : {}),
-        }]
+      const scoped = newScope !== 'project'
+        ? catalogue
+        : (() => {
+          const linkedLocations = new Map((selectedWorkspaceProject?.locations ?? [])
+            .filter((location) => !location.workspaceId || location.workspaceId === selectedWorkspaceId)
+            .map((location) => [location.locationId, location]))
+          return catalogue.flatMap((runtime) => {
+            const location = linkedLocations.get(projectRuntimeLocationId(runtime))
+            if (!location || !location.authenticatedRuntime) return []
+            const selectable = runtime.selectable && location.availability === 'online'
+            return [{
+              ...runtime,
+              selectable,
+              ...(!selectable && !runtime.unavailableReason ? { unavailableReason: 'project_sync_pending' } : {}),
+            }]
+          })
+        })()
+      // Company/project: company or project folder is already chosen — only pick the machine.
+      // Organisation root: keep one option per mapped folder on the same computer.
+      if (workspaceRuntimeShowsMappedFolders(newScope)) return scoped
+      return collapseWorkspaceRuntimesByComputer(scoped, {
+        preferredMappingLabel: selectedWorkspace?.orgName,
       })
     },
-    [newScope, selectedWorkspaceId, selectedWorkspaceProject, workspaceRuntimeTargetsByWorkspace],
+    [newScope, selectedWorkspace, selectedWorkspaceId, selectedWorkspaceProject, workspaceRuntimeTargetsByWorkspace],
   )
+  const showMappedFolderRuntimeChoices = workspaceRuntimeShowsMappedFolders(newScope)
   const selectedWorkspaceRuntimeIsValid = workspaceRuntimeTargets.some(runtime => (
     workspaceRuntimeSelectionKey(runtime) === selectedWorkspaceRuntime && runtime.selectable
   ))
@@ -5543,11 +5598,11 @@ export default function UnifiedChat({
                   </div>
                   <div>
                     <label htmlFor="workspace-runtime" className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
-                      Computer / mapped folder
+                      {showMappedFolderRuntimeChoices ? 'Computer / mapped folder' : 'Computer'}
                     </label>
                     <select
                       id="workspace-runtime"
-                      aria-label="Computer / mapped folder"
+                      aria-label={showMappedFolderRuntimeChoices ? 'Computer / mapped folder' : 'Computer'}
                       value={selectedWorkspaceRuntime}
                       onChange={(e) => { workspaceRuntimeExplicitRef.current = true; setSelectedWorkspaceRuntime(e.target.value) }}
                       className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-pib-text)] outline-none focus:border-primary/60"
@@ -5575,7 +5630,9 @@ export default function UnifiedChat({
                             : ''
                           return (
                             <option key={selectionKey} value={selectionKey} disabled={!runtime.selectable}>
-                              {workspaceRuntimeOptionLabel(runtime)}{status}
+                              {workspaceRuntimeOptionLabel(runtime, {
+                                includeMapping: showMappedFolderRuntimeChoices,
+                              })}{status}
                             </option>
                           )
                         })}
@@ -5588,7 +5645,11 @@ export default function UnifiedChat({
                       </p>
                     )}
                     <div className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">
-                      Only healthy computers authorised for the current organisation can run files here. When a computer has more than one mapped folder, each mapping appears as its own choice.
+                      {showMappedFolderRuntimeChoices
+                        ? 'Only healthy computers authorised for the current organisation can run files here. When a computer has more than one mapped folder, each mapping appears as its own choice.'
+                        : newScope === 'company'
+                          ? 'Pick VPS or Mac. The company Cowork folder is already chosen above.'
+                          : 'Pick a linked computer. The project folder is already chosen above.'}
                     </div>
                     {newScope === 'project' && selectedProjectId && workspaceRuntimeTargets.length === 0 && (
                       <p role="status" className="mt-2 text-xs text-amber-200">
