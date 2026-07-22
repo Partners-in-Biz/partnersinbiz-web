@@ -61,6 +61,13 @@ export async function authorizeWorkspaceRuntime(
   options: AuthorizationOptions = {},
 ): Promise<AuthorizedWorkspaceRuntime> {
   const agentId = input.agentId ?? 'pip'
+  const preferredMappingId = typeof input.mappingId === 'string' ? input.mappingId.trim() : ''
+  // A concrete Workspace mapping is linked-computer only. Compatibility /
+  // execution-location auth would drop mappingId and fall back to the org
+  // folder root (e.g. Partners in Biz instead of Client Growth).
+  if (preferredMappingId) {
+    return (options.authorizeLinked ?? authorizeLinkedComputerDispatch)(input)
+  }
   const compatibilityTargets = await (options.loadCompatibilityTargets ?? loadCompatibilityTargets)(agentId)
   const compatibilityTarget = compatibilityTargets.find((target) => target.id === input.runtimeTargetId)
   if (compatibilityTarget) {

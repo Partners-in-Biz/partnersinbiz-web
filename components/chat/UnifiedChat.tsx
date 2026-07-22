@@ -1397,12 +1397,17 @@ export default function UnifiedChat({
       : [projectSetupCanonicalVps.locationId, ...current])
   }, [projectSetupCanonicalVps, projectSetupMode, showProjectSetupWizard])
   const activeWorkspaceContext = activeConversation?.workspaceContext
-  const activeRuntimeLabel = activeWorkspaceContext?.runtimeLabel
-    ?? (activeWorkspaceContext?.runtimeTarget === 'local'
-      ? 'Local'
-      : activeWorkspaceContext?.runtimeTarget === 'vps'
-        ? 'VPS'
-        : activeWorkspaceContext?.runtimeTarget)
+  const activeRuntimeLabel = (() => {
+    const machine = activeWorkspaceContext?.runtimeLabel
+      ?? (activeWorkspaceContext?.runtimeTarget === 'local'
+        ? 'Local'
+        : activeWorkspaceContext?.runtimeTarget === 'vps'
+          ? 'VPS'
+          : activeWorkspaceContext?.runtimeTarget)
+    const mapping = activeWorkspaceContext?.mappingLabel?.trim()
+    if (machine && mapping) return `${machine} · ${mapping}`
+    return machine
+  })()
   const activeRuntimeCatalogueAgentId = activeModelAgentId ?? 'pip'
   const activeRuntimeCatalogue = workspaceRuntimeTargetsByAgent[activeRuntimeCatalogueAgentId]
     ?? (workspaceCatalogueAgentId === activeRuntimeCatalogueAgentId ? workspaceRuntimeTargetsByWorkspace : {})
@@ -1410,8 +1415,13 @@ export default function UnifiedChat({
     || (workspaceCatalogueAgentId === activeRuntimeCatalogueAgentId && workspaceCatalogueLoaded)
   const activeRuntimePresence = activeWorkspaceContext
     ? (activeRuntimeCatalogue[activeWorkspaceContext.workspaceId] ?? []).find(
-        runtime => runtime.id === activeWorkspaceContext.runtimeTarget
-          || runtime.legacyRuntimeTargetIds?.includes(activeWorkspaceContext.runtimeTarget),
+        runtime => (
+          (runtime.id === activeWorkspaceContext.runtimeTarget
+            || runtime.legacyRuntimeTargetIds?.includes(activeWorkspaceContext.runtimeTarget))
+          && (!activeWorkspaceContext.mappingId
+            || !runtime.mappingId
+            || runtime.mappingId === activeWorkspaceContext.mappingId)
+        ),
       )
     : undefined
   const unavailableActiveRuntime = useMemo(

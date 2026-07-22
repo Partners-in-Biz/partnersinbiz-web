@@ -65,6 +65,40 @@ describe('Workspace runtime authorization', () => {
     expect(authorizeExecution).not.toHaveBeenCalled()
   })
 
+  it('forces linked-computer authorization when a Workspace mappingId is selected', async () => {
+    const linked = {
+      kind: 'linked-computer' as const,
+      deviceId: 'device-mac',
+      runtimeTargetId: 'vps',
+      machineLabel: 'Peets-Mac-mini.local',
+      mappingId: 'client-growth-map',
+      mappingLabel: 'Client Growth',
+      accessMode: 'owner' as const,
+    }
+    const authorizeExecution = jest.fn()
+    const authorizeLinked = jest.fn(async () => linked)
+    const authorizeLinkedAlias = jest.fn()
+    await expect(authorizeWorkspaceRuntime({
+      ...input,
+      runtimeTargetId: 'vps',
+      mappingId: 'client-growth-map',
+    }, {
+      loadCompatibilityTargets: async () => [{
+        id: 'vps', label: 'VPS', enabled: true, isLocal: false, isFresh: true, isHealthy: true,
+        selectable: true, lastSeenAt: null, ageSeconds: null, lastHealthStatus: 'ok',
+      }],
+      authorizeExecution,
+      authorizeLinked,
+      authorizeLinkedAlias,
+    })).resolves.toBe(linked)
+    expect(authorizeLinked).toHaveBeenCalledWith(expect.objectContaining({
+      runtimeTargetId: 'vps',
+      mappingId: 'client-growth-map',
+    }))
+    expect(authorizeExecution).not.toHaveBeenCalled()
+    expect(authorizeLinkedAlias).not.toHaveBeenCalled()
+  })
+
   it('allows organisation sharing only for organisation-accessible runtimes', () => {
     expect(workspaceRuntimeSupportsOrganizationSharing({
       kind: 'linked-computer', accessMode: 'organization',

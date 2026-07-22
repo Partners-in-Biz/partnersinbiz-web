@@ -288,6 +288,10 @@ export const POST = withAuth(
           ...(dispatchAgentId ? { agentId: dispatchAgentId } : {}),
         })
         runtimeLabel = authorizedWorkspaceRuntime.machineLabel
+        if (requestedMappingId && authorizedWorkspaceRuntime.kind === 'linked-computer'
+          && authorizedWorkspaceRuntime.mappingId !== requestedMappingId) {
+          return apiError('Selected mapped folder is not authorized on this computer', 400)
+        }
       } catch (error) {
         if (error instanceof Error && error.message === 'Computer unavailable') {
           return apiError('Computer unavailable', 409)
