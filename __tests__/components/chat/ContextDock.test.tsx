@@ -149,17 +149,27 @@ it('switches between primary and secondary context as one tablet landscape surfa
   expect(primary).toHaveAttribute('aria-selected', 'true')
 })
 
-it('keeps keyboard canvas resizing within the 420 to 640 pixel desktop bounds', () => {
+it('keeps keyboard canvas resizing within the 420 to 960 pixel desktop bounds', () => {
   Object.defineProperty(window, 'matchMedia', { configurable: true, value: jest.fn((query: string) => ({ matches: query.includes('min-width: 1280px'), addEventListener: jest.fn(), removeEventListener: jest.fn() })) })
   const onCanvasWidthChange = jest.fn()
-  const { rerender } = render(<ContextDock model={model} open canvasWidth={640} onCanvasWidthChange={onCanvasWidthChange} onClose={jest.fn()} />)
+  const { rerender } = render(<ContextDock model={model} open canvasWidth={960} onCanvasWidthChange={onCanvasWidthChange} onClose={jest.fn()} />)
 
   fireEvent.keyDown(screen.getByRole('separator', { name: 'Resize context canvas' }), { key: 'ArrowLeft' })
-  expect(onCanvasWidthChange).toHaveBeenLastCalledWith(640)
+  expect(onCanvasWidthChange).toHaveBeenLastCalledWith(960)
 
   rerender(<ContextDock model={model} open canvasWidth={420} onCanvasWidthChange={onCanvasWidthChange} onClose={jest.fn()} />)
   fireEvent.keyDown(screen.getByRole('separator', { name: 'Resize context canvas' }), { key: 'ArrowRight' })
   expect(onCanvasWidthChange).toHaveBeenLastCalledWith(420)
+})
+
+it('sits flush to the top of the chat surface and centers the header icon', () => {
+  Object.defineProperty(window, 'matchMedia', { configurable: true, value: jest.fn((query: string) => ({ matches: query.includes('min-width: 1280px'), addEventListener: jest.fn(), removeEventListener: jest.fn() })) })
+  render(<ContextDock model={model} open onClose={jest.fn()} />)
+  const dialog = screen.getByRole('dialog', { name: 'Marketing Studio context' })
+  expect(dialog).toHaveClass('inset-y-0', 'right-0')
+  expect(dialog).not.toHaveClass('top-[72px]')
+  expect(screen.getByTestId('context-dock-icon')).toHaveClass('inline-flex', 'items-center', 'justify-center')
+  expect(screen.getByRole('separator', { name: 'Resize context canvas' })).toHaveAttribute('aria-valuemax', '960')
 })
 
 it('shows active execution inside the same context dock with events and stop permission', () => {

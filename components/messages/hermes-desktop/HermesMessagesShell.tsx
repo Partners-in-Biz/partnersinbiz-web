@@ -139,6 +139,9 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
   const [canvasForcesCollapsedRail, setCanvasForcesCollapsedRail] = useState(false)
   const [focusedPaneId, setFocusedPaneId] = useState('primary')
   const [conversationTitles, setConversationTitles] = useState<Record<string, string>>({})
+  const [renamingTabId, setRenamingTabId] = useState<string | null>(null)
+  const [renameTabValue, setRenameTabValue] = useState('')
+  const renameTabCancelledRef = useRef(false)
   const dragRef = useRef<{ origin: number; percent: number; size: number } | null>(null)
 
   useEffect(() => {
@@ -215,7 +218,33 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
       return next.length > 1 && next[1].tabs.length === 0 ? [next[0]] : next
     })
     if (paneId === 'secondary') setFocusedPaneId('primary')
+    if (renamingTabId === tabId) setRenamingTabId(null)
   }
+
+  const beginRenameTab = (tab: WorkspaceTab) => {
+    if (tab.kind !== 'conversation') return
+    renameTabCancelledRef.current = false
+    setRenamingTabId(tab.id)
+    setRenameTabValue(tab.title)
+  }
+
+  const commitRenameTab = useCallback(async (tab: ConversationTab, title: string) => {
+    const trimmed = title.trim().slice(0, 120)
+    setRenamingTabId(null)
+    if (!trimmed || trimmed === tab.title) return
+    setConversationTitles((current) => ({ ...current, [tab.conversationId]: trimmed }))
+    setPanes((current) => current.map((pane) => ({
+      ...pane,
+      tabs: pane.tabs.map((item) => item.kind === 'conversation' && item.conversationId === tab.conversationId
+        ? { ...item, title: trimmed }
+        : item),
+    })))
+    await fetch(`/api/v1/conversations/${tab.conversationId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: trimmed }),
+    }).catch(() => {})
+  }, [])
 
   const startResize = (event: React.PointerEvent<HTMLButtonElement>) => {
     const container = event.currentTarget.parentElement
@@ -308,7 +337,69 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
               <div key={pane.id} data-testid={`messages-workspace-pane-${pane.id}`} style={style} onPointerDown={() => setFocusedPaneId(pane.id)} className={`flex min-h-0 min-w-0 flex-1 basis-full flex-col overflow-hidden rounded-none border xl:flex-none xl:basis-[var(--workspace-pane-basis)] ${focusedPaneId === pane.id ? 'border-primary/35' : 'border-[var(--color-card-border)]'} bg-black/[0.035] ${panes.length > 1 && pane.id !== focusedPaneId ? 'max-xl:hidden' : ''}`}>
                 <div className="flex min-h-11 min-w-0 shrink-0 items-center border-b border-[var(--color-card-border)] bg-black/[0.09] px-1 xl:h-8 xl:min-h-0">
                   <div role="tablist" aria-label={`${pane.id} pane tabs`} className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
-                    {pane.tabs.map((tab) => <div key={tab.id} role="presentation" className={`group/tab flex min-h-11 min-w-[92px] max-w-[220px] items-center rounded-md border px-1.5 xl:h-6 xl:min-h-0 ${tab.id === pane.activeTabId ? 'border-white/[0.1] bg-white/[0.07]' : 'border-transparent text-[var(--color-pib-text-muted)] hover:bg-white/[0.04]'}`}><button type="button" role="tab" aria-selected={tab.id === pane.activeTabId} onClick={() => { setFocusedPaneId(pane.id); setPanes((current) => current.map((item) => item.id === pane.id ? { ...item, activeTabId: tab.id } : item)) }} className="min-h-11 min-w-0 flex-1 truncate text-left text-[11px] xl:min-h-0">{tab.title}</button><button type="button" aria-label={`Close ${tab.title}`} onClick={() => closeTab(pane.id, tab.id)} className="ml-1 grid h-11 w-11 shrink-0 place-items-center rounded hover:bg-white/10 xl:h-4 xl:w-4 xl:opacity-0 xl:group-hover/tab:opacity-100 xl:focus:opacity-100"><span className="material-symbols-outlined text-[12px]">close</span></button></div>)}
+                    {pane.tabs.map((tab) => (
+                      <div
+                        key={tab.id}
+                        role="presentation"
+                        className={`group/tab flex min-h-11 min-w-[92px] max-w-[220px] items-center rounded-md border px-1.5 xl:h-6 xl:min-h-0 ${tab.id === pane.activeTabId ? 'border-white/[0.1] bg-white/[0.07]' : 'border-transparent text-[var(--color-pib-text-muted)] hover:bg-white/[0.04]'}`}
+                      >
+                        {renamingTabId === tab.id && tab.kind === 'conversation' ? (
+                          <input
+                            autoFocus
+                            data-testid={`workspace-tab-rename-${tab.conversationId}`}
+                            aria-label="Rename conversation"
+                            value={renameTabValue}
+                            onChange={(event) => setRenameTabValue(event.target.value)}
+                            onClick={(event) => event.stopPropagation()}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter') {
+                                event.preventDefault()
+                                void commitRenameTab(tab, renameTabValue)
+                              }
+                              if (event.key === 'Escape') {
+                                event.preventDefault()
+                                renameTabCancelledRef.current = true
+                                setRenamingTabId(null)
+                              }
+                            }}
+                            onBlur={() => {
+                              if (!renameTabCancelledRef.current) void commitRenameTab(tab, renameTabValue)
+                              renameTabCancelledRef.current = false
+                            }}
+                            className="min-h-11 min-w-0 flex-1 border-b border-primary bg-transparent text-left text-[11px] text-[var(--color-pib-text)] outline-none xl:min-h-0"
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            role="tab"
+                            aria-selected={tab.id === pane.activeTabId}
+                            title={tab.kind === 'conversation' ? 'Double-click to rename' : tab.title}
+                            onClick={() => {
+                              setFocusedPaneId(pane.id)
+                              setPanes((current) => current.map((item) => item.id === pane.id ? { ...item, activeTabId: tab.id } : item))
+                            }}
+                            onDoubleClick={(event) => {
+                              if (tab.kind !== 'conversation') return
+                              event.preventDefault()
+                              setFocusedPaneId(pane.id)
+                              setPanes((current) => current.map((item) => item.id === pane.id ? { ...item, activeTabId: tab.id } : item))
+                              beginRenameTab(tab)
+                            }}
+                            className="min-h-11 min-w-0 flex-1 truncate text-left text-[11px] xl:min-h-0"
+                          >
+                            {tab.title}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          aria-label={`Close ${tab.title}`}
+                          onClick={() => closeTab(pane.id, tab.id)}
+                          className="ml-0.5 inline-flex h-11 w-11 shrink-0 items-center justify-center self-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/10 hover:text-[var(--color-pib-text)] xl:h-3 xl:w-3 xl:opacity-0 xl:group-hover/tab:opacity-100 xl:focus:opacity-100"
+                        >
+                          <span aria-hidden="true" className="material-symbols-outlined block text-[10px] leading-none">close</span>
+                        </button>
+                      </div>
+                    ))}
                     {pane.tabs.length === 0 && <span className="px-2 text-[11px] text-[var(--color-pib-text-muted)]">Select a session</span>}
                   </div>
                   {panes.length > 1 && <button type="button" aria-label={`Show ${alternatePaneId} pane`} onClick={() => setFocusedPaneId(alternatePaneId)} className="grid h-11 w-11 shrink-0 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] xl:hidden"><span aria-hidden="true" className="material-symbols-outlined text-[18px]">swap_horiz</span></button>}
@@ -322,6 +413,7 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
                       activeConversationId={activeTab?.kind === 'conversation' ? activeTab.conversationId : null}
                       onActiveConversationChange={(conversationId) => openConversation(pane.id, conversationId)}
                       onConversationsChange={paneIndex === 0 ? handleConversationCatalogue : undefined}
+                      syncedConversationTitles={conversationTitles}
                       showConversationList={paneIndex === 0}
                       conversationRailMode={canvasForcesCollapsedRail && paneIndex === 0 ? 'collapsed' : conversationRailMode}
                       onConversationRailModeChange={setConversationRailMode}
