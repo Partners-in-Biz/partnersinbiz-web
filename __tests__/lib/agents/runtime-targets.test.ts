@@ -23,8 +23,27 @@ describe('agent runtime targets', () => {
       source: 'legacy',
       runtimeKind: 'legacy',
       machineLabel: 'Legacy Hermes',
-      transportIdentity: 'V5mnM3yPfrHOY62GQCRQOSXKCNr5-k0BakcHxGd8Qv0',
+      transportIdentity: 'lSSJ8KbK9otHUHGEsuxwZ7AsaVF3hkPzDiwHsweoQDc',
     })
+  })
+
+  it('uses the same physical transport identity for agent-specific VPS profile URLs', () => {
+    const pip = selectAgentRuntimeTarget({
+      nowMs: now,
+      defaultTargetId: 'vps',
+      runtimeTargets: {
+        vps: { baseUrl: 'https://hermes-api.example/profiles/pip', apiKey: 'vps-key', enabled: true, priority: 10 },
+      },
+    })
+    const theo = selectAgentRuntimeTarget({
+      nowMs: now,
+      defaultTargetId: 'vps',
+      runtimeTargets: {
+        vps: { baseUrl: 'https://hermes-api.example/profiles/theo', apiKey: 'vps-key', enabled: true, priority: 10 },
+      },
+    })
+    expect(pip).toMatchObject({ targetId: 'vps', transportIdentity: expect.any(String) })
+    expect(theo).toMatchObject({ targetId: 'vps', transportIdentity: (pip as { transportIdentity: string }).transportIdentity })
   })
 
   it('selects the default VPS runtime from a multi-target map', () => {

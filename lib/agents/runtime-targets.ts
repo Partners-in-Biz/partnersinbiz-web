@@ -254,7 +254,7 @@ function toDispatchTarget(target: AgentRuntimeTarget): AgentDispatchTarget {
     apiKey: target.apiKey ?? '',
     source: 'runtimeTargets',
     runtimeKind,
-    transportIdentity: runtimeTargetTransportIdentity(target),
+    transportIdentity: runtimeTargetPhysicalTransportIdentity(target),
     machineLabel: target.hostId
       ? humanizeHostId(target.hostId)
       : target.label?.trim() || (runtimeKind === 'local' ? 'Local' : runtimeKind === 'vps' ? 'VPS' : target.id),
@@ -341,7 +341,7 @@ export function selectAgentRuntimeTarget(input: RuntimeTargetSelectionInput): Ru
       source: 'legacy',
       runtimeKind: 'legacy',
       machineLabel: 'Legacy Hermes',
-      transportIdentity: runtimeTargetTransportIdentity({ baseUrl: legacyBaseUrl }),
+      transportIdentity: runtimeTargetPhysicalTransportIdentity({ baseUrl: legacyBaseUrl }),
     }
   }
 

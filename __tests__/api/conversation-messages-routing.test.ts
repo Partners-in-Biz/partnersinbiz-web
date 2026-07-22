@@ -934,9 +934,59 @@ describe('unified conversation message routing', () => {
     expect(update).toHaveBeenCalledWith(expect.objectContaining({
       status: 'failed',
       runtimeDispatchFailureCode: 'runtime_target_binding_mismatch',
+      error: 'The selected computer changed before the agent could start. Pick Partners VPS again and retry.',
     }))
     expect(JSON.stringify(await readJson(response))).not.toContain('maya-host.example.com')
     errorSpy.mockRestore()
+  })
+
+  it('allows Theo VPS dispatch when authorization and agent link share one physical host identity', async () => {
+    const physicalIdentity = 'shared-partners-vps-identity'
+    mockAuthorizeWorkspaceRuntime.mockResolvedValue({
+      kind: 'execution-location',
+      locationId: 'partners-vps',
+      runtimeTargetId: 'vps',
+      machineLabel: 'Partners VPS',
+      locationKind: 'vps',
+      organizationAccessible: true,
+      transportIdentity: physicalIdentity,
+    })
+    mockGetAgentDispatchHermesProfileLink.mockResolvedValue({
+      orgId: 'pib-platform-owner',
+      profile: 'theo',
+      baseUrl: 'https://hermes.example/profiles/theo',
+      apiKey: 'secret',
+      enabled: true,
+      runtimeTargetId: 'vps',
+      transportIdentity: physicalIdentity,
+      capabilities: { runs: true, dashboard: false, cron: false, models: false, tools: true, files: false, terminal: false },
+      permissions: { superAdmin: false, restrictedAdmin: false, client: true, allowedUserIds: [] },
+    })
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'pib-platform-owner',
+      participantUids: ['client-1'],
+      participantAgentIds: ['theo'],
+      participants: [
+        { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
+        { kind: 'agent', agentId: 'theo', name: 'Theo' },
+      ],
+      workspaceContext: {
+        runtimeTarget: 'vps', runtimeLabel: 'Partners VPS', workspaceId: 'partners',
+        orgId: 'pib-platform-owner', orgSlug: 'partners', orgName: 'Partners in Biz', agentDomain: 'partners',
+        vpsPath: '/srv/partners', localPath: '/Users/partners', sourceOfTruth: 'vps',
+        shareMode: 'private', ownerUserId: 'client-1', companyId: null, contactIds: [],
+      },
+    })
+
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+    const response = await POST(req(), { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(response.status).toBe(201)
+    expect(mockCreateHermesRun).toHaveBeenCalled()
+    expect(mockGetAgentDispatchHermesProfileLink).toHaveBeenCalledWith('theo', 'pib-platform-owner', expect.objectContaining({
+      runtimeTarget: 'vps',
+    }))
   })
 
   it('does not reflect unsafe target or exception strings into logs or stored metadata', async () => {
@@ -1182,7 +1232,7 @@ describe('unified conversation message routing', () => {
     expect(mockCreateHermesRun).not.toHaveBeenCalled()
     expect(update).toHaveBeenCalledWith(expect.objectContaining({
       status: 'failed',
-      error: 'Agent dispatch is not configured for this Preview environment.',
+      error: 'Agent dispatch could not reach the selected computer. Retry or pick another runtime.',
     }))
     const body = await readJson(res)
     expect(body.data.assistantMessage.status).toBe('failed')
