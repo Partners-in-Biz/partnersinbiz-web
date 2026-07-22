@@ -110,6 +110,9 @@ export interface UnifiedChatProps {
 
 const POLL_INTERVAL = 1500
 const MAX_RUN_POLL_ATTEMPTS = Math.ceil((90 * 60 * 1000) / POLL_INTERVAL)
+/** Every N finalize polls, reload messages so a completed run still surfaces if SSE died. */
+const FINALIZE_MESSAGE_RECOVERY_EVERY = 10
+const FINALIZE_LOAD_RETRIES = 3
 const HUMAN_CHAT_REFRESH_INTERVAL = 3000
 const WORKSPACE_CATALOGUE_REFRESH_INTERVAL = 30_000
 const PROJECT_SYNC_STATUS_REFRESH_INTERVAL = 5_000
@@ -671,6 +674,29 @@ export function formatConversationAttachmentUploadError(error: unknown, fileName
 
 export function shouldStopFinalizePollingForStatus(status: number): boolean {
   return status === 400 || status === 401 || status === 403 || status === 404
+}
+
+/** True when the server message is already terminal — stop waiting on SSE/finalize UI. */
+export function shouldAdoptServerMessageDuringFinalizePoll(
+  serverMessage: { status?: string } | null | undefined,
+): boolean {
+  const status = serverMessage?.status
+  if (!status) return false
+  return status !== 'pending' && status !== 'streaming' && status !== 'waiting_approval'
+}
+
+export function formatLiveMessageRefreshError(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error || '')
+  const lower = raw.toLowerCase()
+  if (
+    lower.includes('failed to fetch') ||
+    lower.includes('load failed') ||
+    lower.includes('networkerror') ||
+    lower.includes('load messages')
+  ) {
+    return 'Live message refresh failed. The agent may still be working — this view will keep retrying.'
+  }
+  return raw || 'Failed to load messages'
 }
 
 async function readApiResponse(res: Response): Promise<Record<string, unknown>> {
@@ -2061,7 +2087,10 @@ export default function UnifiedChat({
   ])
 
   // ── Load messages ─────────────────────────────────────────────────────────
-  const loadMessages = useCallback(async (convId: string, options?: { silent?: boolean }) => {
+  const loadMessages = useCallback(async (
+    convId: string,
+    options?: { silent?: boolean; softError?: boolean },
+  ): Promise<ConversationMessage[] | null> => {
     if (!options?.silent) setLoading(true)
     try {
       let res: Response
@@ -2084,9 +2113,15 @@ export default function UnifiedChat({
       }
       if (!res.ok) throw new Error(`load messages: ${res.status}`)
       const body = await res.json()
-      setMessages(body.data?.messages ?? [])
+      const nextMessages = (body.data?.messages ?? []) as ConversationMessage[]
+      setMessages(nextMessages)
+      if (options?.softError) setError(null)
+      return nextMessages
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load messages')
+      setError(options?.softError
+        ? formatLiveMessageRefreshError(e)
+        : (e instanceof Error ? e.message : 'Failed to load messages'))
+      return null
     } finally {
       if (!options?.silent) setLoading(false)
     }
@@ -2245,7 +2280,7 @@ export default function UnifiedChat({
 
   // ── SSE event stream ─────────────────────────────────────────────────────
   const startEventStream = useCallback(
-    (msgId: string, runId: string, agentId: AgentId) => {
+    (msgId: string, runId: string, agentId: AgentId, convId?: string) => {
       eventSourcesRef.current[msgId]?.close()
       const url = `/api/v1/admin/agents/${agentId}/runs/${encodeURIComponent(runId)}/events`
       const es = new EventSource(url)
@@ -2285,13 +2320,17 @@ export default function UnifiedChat({
         }
       }
       es.onerror = () => {
-        // SSE disconnects normally when run ends — just clean up
+        // SSE often ends when the run ends, but it can also die mid-run.
+        // Close the socket and let finalize polling + message recovery catch up.
         es.close()
         delete eventSourcesRef.current[msgId]
+        if (convId) {
+          void loadMessages(convId, { silent: true, softError: true })
+        }
       }
       eventSourcesRef.current[msgId] = es
     },
-    [],
+    [loadMessages],
   )
 
   const closeEventStream = useCallback((msgId: string) => {
@@ -2381,6 +2420,16 @@ export default function UnifiedChat({
 
         if (!status || status === 'running') {
           pollFailuresRef.current[msgId] = 0
+          // Safety net: if SSE died, the DB may already have the completed reply.
+          if (attempts > 0 && attempts % FINALIZE_MESSAGE_RECOVERY_EVERY === 0) {
+            const latest = await loadMessages(convId, { silent: true, softError: true })
+            const serverMessage = latest?.find((message) => message.id === msgId)
+            if (shouldAdoptServerMessageDuringFinalizePoll(serverMessage)) {
+              closeEventStream(msgId)
+              await loadConversations()
+              return
+            }
+          }
           scheduleFinalizePoll(convId, msgId, runId, agentId, attempts)
           return
         }
@@ -2397,15 +2446,34 @@ export default function UnifiedChat({
           return
         }
 
-        // completed or failed — close stream, keep a local thinking trail, then reload
+        // completed or failed — flip local status even when SSE never delivered events,
+        // then reload with retries so a transient Failed to fetch cannot leave the bubble pending.
         closeEventStream(msgId)
         const thinking = buildThinkingTrace(events)
-        if (thinking) {
-          setMessages((prev) =>
-            prev.map((m) => (m.id === msgId ? { ...m, thinking, status: status === 'failed' ? 'failed' : 'completed' } : m)),
-          )
+        const terminalStatus = status === 'failed' ? 'failed' : 'completed'
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === msgId
+              ? {
+                  ...m,
+                  status: terminalStatus,
+                  ...(thinking ? { thinking } : {}),
+                  ...(terminalStatus === 'failed'
+                    ? { error: m.error || 'Agent run failed' }
+                    : { error: undefined }),
+                }
+              : m,
+          ),
+        )
+        let loaded: ConversationMessage[] | null = null
+        for (let retry = 0; retry < FINALIZE_LOAD_RETRIES; retry += 1) {
+          loaded = await loadMessages(convId, { silent: true, softError: true })
+          if (loaded) break
+          await new Promise((resolve) => setTimeout(resolve, 400 * (retry + 1)))
         }
-        await loadMessages(convId)
+        if (!loaded) {
+          setError('Agent finished, but the reply could not be refreshed. Reload the page to see it.')
+        }
         await loadConversations()
       } catch {
         const failures = (pollFailuresRef.current[msgId] ?? 0) + 1
@@ -2464,7 +2532,7 @@ export default function UnifiedChat({
         const agentId: AgentId = knownAgentIds.includes(dispatchedAgentId as AgentId)
           ? (dispatchedAgentId as AgentId)
           : 'pip'
-        startEventStream(m.id, m.runId, agentId)
+        startEventStream(m.id, m.runId, agentId, activeId)
         pollFinalize(activeId, m.id, m.runId, agentId)
       }
     }
@@ -2494,7 +2562,7 @@ export default function UnifiedChat({
           prev.map((m) => (m.id === msgId ? { ...m, status: 'pending' } : m)),
         )
         if (activeId) {
-          startEventStream(msgId, pending.runId, pending.agentId)
+          startEventStream(msgId, pending.runId, pending.agentId, activeId)
           pollFinalize(activeId, msgId, pending.runId, pending.agentId)
         }
       } catch (e) {
@@ -2543,7 +2611,7 @@ export default function UnifiedChat({
           prev.map((m) => (m.id === message.id ? { ...m, status: 'pending' } : m)),
         )
         if (activeId) {
-          startEventStream(message.id, runId, agentId)
+          startEventStream(message.id, runId, agentId, activeId)
           pollFinalize(activeId, message.id, runId, agentId)
         }
       } catch (err) {
@@ -3476,8 +3544,9 @@ export default function UnifiedChat({
         const runDocId: string | undefined = body.data?.runDocId
         const dispatchAgentId: AgentId | undefined = body.data?.dispatchAgentId
 
-        // Reload real messages (replaces optimistic)
-        await loadMessages(convId)
+        // Reload real messages (replaces optimistic). Soft-fail so a transient
+        // Failed to fetch cannot block live run tracking.
+        await loadMessages(convId, { softError: true })
 
         if (newAssistantId && runId) {
           const agentParticipant = conversations
@@ -3487,7 +3556,7 @@ export default function UnifiedChat({
             dispatchAgentId ?? (agentParticipant?.kind === 'agent' ? agentParticipant.agentId : 'pip')
           void runDocId
           // Open SSE stream to receive live tool-call events
-          startEventStream(newAssistantId, runId, agentId)
+          startEventStream(newAssistantId, runId, agentId, convId)
           pollFinalize(convId, newAssistantId, runId, agentId)
         }
       } catch (e) {
