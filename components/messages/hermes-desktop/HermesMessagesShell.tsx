@@ -267,9 +267,8 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
     >
       <header data-testid="hermes-messages-shell-topbar" className="flex h-10 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black/[0.08] px-2.5">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="material-symbols-outlined relative grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-[15px] text-primary">
+          <span className="material-symbols-outlined grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-[15px] text-primary" aria-hidden="true">
             forum
-            <span className="messages-hud-pulse absolute -right-0.5 -top-0.5" aria-hidden="true" />
           </span>
           <div className="flex min-w-0 items-center gap-2">
             <h1 className="truncate text-sm font-semibold leading-tight text-[var(--color-pib-text)]">{copy.title}</h1>

@@ -1,0 +1,47 @@
+import { render, screen } from '@testing-library/react'
+import ConversationListItem, { type Conversation } from '@/components/chat/ConversationListItem'
+
+function makeConversation(overrides: Partial<Conversation> = {}): Conversation {
+  return {
+    id: 'conv-1',
+    orgId: 'org-1',
+    participants: [{ kind: 'agent', agentId: 'pip', name: 'Pip' }],
+    participantUids: ['user-1'],
+    participantAgentIds: ['pip'],
+    startedBy: 'user-1',
+    title: 'Incident report follow-up',
+    lastMessagePreview: 'Done — the incident report is filed.',
+    messageCount: 4,
+    archived: false,
+    workspaceContext: {
+      workspaceId: 'ws-1',
+      orgName: 'Partners in Biz',
+      runtimeTarget: 'local',
+      runtimeLabel: 'PEETS-MAC-MINI-LOCAL',
+      shareMode: 'private',
+    },
+    lastMessageAt: { seconds: Math.floor(Date.now() / 1000) - 120 },
+    ...overrides,
+  }
+}
+
+describe('ConversationListItem', () => {
+  it('shows the chat title prominently in compact cards and keeps long runtime labels inside the card', () => {
+    const { container } = render(
+      <ConversationListItem
+        conversation={makeConversation()}
+        active={false}
+        onClick={() => {}}
+        currentUserUid="user-1"
+        density="compact"
+      />,
+    )
+
+    const row = screen.getByTestId('conversation-row-conv-1')
+    expect(row).toHaveClass('overflow-hidden')
+    expect(row).toHaveTextContent('Incident report follow-up')
+    expect(row).toHaveTextContent('PEETS-MAC-MINI-LOCAL')
+    expect(row.querySelector('.truncate')).not.toBeNull()
+    expect(container.querySelector('.overflow-hidden')).not.toBeNull()
+  })
+})
