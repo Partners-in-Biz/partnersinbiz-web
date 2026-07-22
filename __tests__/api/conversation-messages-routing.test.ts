@@ -82,6 +82,16 @@ jest.mock('@/lib/workspaces/runtime-authorization', () => ({
 }))
 jest.mock('@/lib/project-locations/runtime-binding', () => ({
   requireProjectRuntimeReplica: mockRequireProjectRuntimeReplica,
+  projectRuntimeReplicaApiError: (error: unknown) => {
+    if (error instanceof Error) {
+      if (error.message === 'Computer unavailable'
+        || error.message === 'Project files are not ready on this computer'
+        || error.message === 'Project is not linked to this computer') {
+        return { message: error.message, status: 409 as const }
+      }
+    }
+    return { message: 'Project is not linked to this computer', status: 409 as const }
+  },
 }))
 jest.mock('@/lib/projects/access', () => ({ getProjectForUser: mockGetProjectForUser }))
 jest.mock('@/lib/client-provisioning/company-cowork-dispatch', () => ({
