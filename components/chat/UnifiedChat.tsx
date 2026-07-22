@@ -6,6 +6,13 @@ import { buildThinkingTrace } from '@/lib/conversations/thinking-trace'
 import { AGENT_IDS, type AgentSkillPolicyState } from '@/lib/agents/types'
 import { AGENT_EFFORT_OPTIONS, type AgentEffort } from '@/lib/agents/runRouting'
 import {
+  APPROVAL_MODE_OPTIONS,
+  approvalModeLabel,
+  cleanApprovalMode,
+  shouldAutoApproveDangerousCommands,
+  type ApprovalMode,
+} from '@/lib/messages/approval-mode'
+import {
   extractCurrentPageContextCommand,
   filterContextReferenceMentionOptions,
   findActiveContextMention,
@@ -123,6 +130,7 @@ const MAX_QUEUED_COMPOSER_DRAFTS = 8
 const COMPOSER_HISTORY_STORAGE_PREFIX = 'pib.messages.composerHistory.v1'
 const PINNED_CONVERSATIONS_STORAGE_PREFIX = 'pib.messages.pinnedConversations.v1'
 const EXPANDED_SESSION_GROUPS_STORAGE_PREFIX = 'pib.messages.expandedSessionGroups.v1'
+const APPROVAL_MODE_STORAGE_PREFIX = 'pib.messages.approvalMode.v1'
 const PROJECT_SETUP_IDEMPOTENCY_PREFIX = 'pib-project-setup'
 const ALLOWED_ATTACHMENT_MIME = new Set([
   'image/jpeg',
@@ -849,6 +857,24 @@ export default function UnifiedChat({
   const [contextSearchLoading, setContextSearchLoading] = useState(false)
   const [contextPickerActiveIndex, setContextPickerActiveIndex] = useState(0)
   const [agentEffort, setAgentEffort] = useState<AgentEffort | ''>('')
+  const [approvalMode, setApprovalMode] = useState<ApprovalMode>('ask')
+  const approvalModeRef = useRef<ApprovalMode>('ask')
+  useEffect(() => { approvalModeRef.current = approvalMode }, [approvalMode])
+  useEffect(() => {
+    try {
+      const stored = cleanApprovalMode(window.localStorage.getItem(`${APPROVAL_MODE_STORAGE_PREFIX}:${orgId}`))
+      if (stored) setApprovalMode(stored)
+    } catch {
+      // Ignore localStorage read failures.
+    }
+  }, [orgId])
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(`${APPROVAL_MODE_STORAGE_PREFIX}:${orgId}`, approvalMode)
+    } catch {
+      // Ignore localStorage write failures.
+    }
+  }, [approvalMode, orgId])
   const [modelCatalog, setModelCatalog] = useState<MessageModelCatalog | null>(null)
   const [modelCatalogLoading, setModelCatalogLoading] = useState(false)
   const [selectedRuntime, setSelectedRuntime] = useState<ModelRuntimeSelection | null>(null)
@@ -2443,6 +2469,33 @@ export default function UnifiedChat({
             ...prev,
             [msgId]: { runId, agentId, toolName: lastEvent?.tool },
           }))
+          if (shouldAutoApproveDangerousCommands(approvalModeRef.current)) {
+            void (async () => {
+              try {
+                const res = await fetch(
+                  `/api/v1/admin/agents/${agentId}/runs/${encodeURIComponent(runId)}/approval`,
+                  {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ choice: 'always' }),
+                  },
+                )
+                if (!res.ok) return
+                setApprovalPending((prev) => {
+                  const next = { ...prev }
+                  delete next[msgId]
+                  return next
+                })
+                setMessages((prev) =>
+                  prev.map((m) => (m.id === msgId ? { ...m, status: 'pending' } : m)),
+                )
+                startEventStream(msgId, runId, agentId, convId)
+                scheduleFinalizePoll(convId, msgId, runId, agentId, attempts)
+              } catch {
+                // Keep waiting_approval UI if auto-approve fails.
+              }
+            })()
+          }
           return
         }
 
@@ -2504,7 +2557,7 @@ export default function UnifiedChat({
         )
       }
     },
-    [loadMessages, loadConversations, closeEventStream, scheduleFinalizePoll],
+    [loadMessages, loadConversations, closeEventStream, scheduleFinalizePoll, startEventStream],
   )
 
   useEffect(() => {
@@ -3530,6 +3583,7 @@ export default function UnifiedChat({
             content,
             attachments: uploadedAttachments,
             contextRefs: refsForSend,
+            approvalMode,
             ...(slashPayload ? { slashCommand: slashPayload } : {}),
             ...(agentEffort ? { agentEffort } : {}),
             ...(runtimeForSend?.model ? { model: runtimeForSend.model } : {}),
@@ -3570,6 +3624,7 @@ export default function UnifiedChat({
       input,
       attachments,
       agentEffort,
+      approvalMode,
       selectedRuntime,
       modelCatalog?.canSelect,
       sending,
@@ -5211,10 +5266,27 @@ export default function UnifiedChat({
                   <span className="material-symbols-outlined text-[13px]">playlist_add</span>
                   {activeQueuedDrafts.length} queued
                 </span>
-                <span className="hidden h-6 items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2 sm:inline-flex">
+                <label className="inline-flex h-6 items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-1.5 sm:px-2">
                   <span className="material-symbols-outlined text-[13px]">shield_lock</span>
-                  Ask approvals
-                </span>
+                  <span className="sr-only">Approval mode</span>
+                  <select
+                    value={approvalMode}
+                    onChange={(event) => {
+                      const next = cleanApprovalMode(event.target.value) ?? 'ask'
+                      setApprovalMode(next)
+                    }}
+                    disabled={!canUseComposer || sending}
+                    title={APPROVAL_MODE_OPTIONS.find((option) => option.value === approvalMode)?.description}
+                    aria-label="Approval mode"
+                    className="max-w-[9.5rem] bg-transparent text-[11px] font-medium text-[var(--color-pib-text-muted)] outline-none disabled:opacity-40"
+                  >
+                    {APPROVAL_MODE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value} title={option.description}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
 
               <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1.5">

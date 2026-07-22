@@ -6,7 +6,14 @@ const MAX_RECEIPT_SKEW_MS = 5 * 60 * 1000
 export type LinkedRunStatus = 'queued' | 'claimed' | 'running' | 'completed' | 'failed' | 'cancelled' | 'expired'
 export interface EncryptedLinkedRunPayload { ciphertext: string; iv: string; tag: string }
 export interface LinkedRunImage { url: string; contentType: string }
-export interface LinkedRunPayload { prompt: string; images?: LinkedRunImage[]; model?: string; provider?: string }
+export interface LinkedRunPayload {
+  prompt: string
+  images?: LinkedRunImage[]
+  model?: string
+  provider?: string
+  /** Skip dangerous-command prompts for this linked run (Hermes YOLO). */
+  yolo?: boolean
+}
 export interface LinkedRunJob {
   jobId: string
   requestId: string
@@ -181,5 +188,6 @@ export function publicClaimedLinkedRun(job: LinkedRunJob, payload: LinkedRunPayl
     attempt: job.attempt, leaseToken: job.leaseToken, ...(payload.model ? { model: payload.model } : {}),
     ...(payload.images?.length ? { images: payload.images } : {}),
     ...(payload.provider ? { provider: payload.provider } : {}),
+    ...(payload.yolo ? { yolo: true } : {}),
   }
 }
