@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChatArtifactSummary, ChatContextAction } from '@/lib/chat-context/types'
-import { ContextDock } from './ContextDock'
+import { ContextDock, CONTEXT_CANVAS_MAX_WIDTH, CONTEXT_CANVAS_MIN_WIDTH } from './ContextDock'
 import { ContextStrip, EmptyContextStrip } from './ContextStrip'
 import type { ReturnTypeOfUseChatContexts } from './internalTypes'
 import type { RuntimeExecution } from '@/components/messages/hermes/RuntimeInspectorRail'
@@ -73,7 +73,7 @@ export function ChatContextExperience({ context, compact = false, artifactReques
       setOpen(stored?.open === true)
       setCanvasMode(stored?.mode === 'dual' ? 'dual' : 'single')
       const storedWidth = Number(stored?.width)
-      setCanvasWidth(Number.isFinite(storedWidth) ? Math.min(640, Math.max(420, storedWidth)) : 520)
+      setCanvasWidth(Number.isFinite(storedWidth) ? Math.min(CONTEXT_CANVAS_MAX_WIDTH, Math.max(CONTEXT_CANVAS_MIN_WIDTH, storedWidth)) : 520)
       const candidate = stored?.secondary && secondaryOptionsRef.current.find((option) => chatContextReferenceKey(option) === chatContextReferenceKey(stored.secondary!))
       if (stored?.secondary && !candidate) {
         setPendingStoredSecondary({ storageKey: canvasStorageKey, reference: stored.secondary, hydrationRevision: secondaryHydrationRevisionRef.current })

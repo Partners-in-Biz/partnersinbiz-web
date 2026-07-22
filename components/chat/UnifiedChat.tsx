@@ -4556,7 +4556,7 @@ export default function UnifiedChat({
           aria-label="Conversation messages"
           aria-live="polite"
           style={contextCanvasReservedStyle}
-          className={`flex-1 min-h-0 min-w-0 space-y-3 overflow-y-auto overflow-x-hidden p-4 transition-[margin] duration-200 ${contextCanvasOpen ? 'lg:mr-[42%] xl:mr-[var(--context-canvas-width)]' : ''}`}
+          className={`flex-1 min-h-0 min-w-0 space-y-3 overflow-y-auto overflow-x-hidden p-4 transition-[margin] duration-200 ${contextCanvasOpen ? 'lg:mr-[var(--context-canvas-width)]' : ''}`}
         >
           {loading && <div className="text-xs text-[var(--color-pib-text-muted)]">Loading…</div>}
           {!loading && messages.length === 0 && (
@@ -4711,7 +4711,7 @@ export default function UnifiedChat({
               ? 'shrink-0 min-w-0 flex flex-col gap-1.5 border-t border-[var(--color-card-border)] p-2 transition-[background-color,margin] duration-200'
               : 'shrink-0 min-w-0 flex flex-col gap-2 border-t border-[var(--color-card-border)] p-3 transition-[background-color,margin] duration-200',
             draggingAttachments ? 'bg-primary/10 ring-1 ring-primary/35' : '',
-            contextCanvasOpen ? 'lg:mr-[42%] xl:mr-[var(--context-canvas-width)]' : '',
+            contextCanvasOpen ? 'lg:mr-[var(--context-canvas-width)]' : '',
           ].join(' ')}
         >
           {showComposerContextToolbar && (

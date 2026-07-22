@@ -273,10 +273,19 @@
   overflow: hidden;
   isolation: isolate;
 }
+[data-messages-experience] [data-testid='context-dock-header'] [data-testid='context-dock-icon'] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
 [data-messages-experience] [data-testid='context-dock-header'] .material-symbols-outlined {
-  overflow: hidden;
+  display: block;
+  overflow: visible;
   font-size: 18px !important;
   line-height: 1 !important;
+  width: 1em;
+  height: 1em;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
 }
 [data-messages-experience] [data-testid='context-dock-header'] p {
   position: relative;
