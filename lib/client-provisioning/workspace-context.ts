@@ -223,17 +223,21 @@ export async function resolveConversationWorkspaceContext(input: {
       return null
     }
   }
+  // Company Cowork sessions keep the active org as the security perspective, but
+  // agent knowledge/domain must follow the company folder (e.g. hunt-and-gun), not
+  // the Partners platform wiki.
+  const agentDomainSource = companyWorkspace ?? workspace
   return {
     workspaceId: workspace.workspaceId,
     orgId: workspace.orgId,
     orgSlug: workspace.orgSlug,
     orgName: workspace.orgName,
-    agentDomain: workspace.agentDomain,
+    agentDomain: agentDomainSource.agentDomain || workspace.agentDomain,
     ...(companyWorkspace ? { companyWorkspaceId: companyWorkspace.workspaceId } : {}),
     vpsPath: workspaceRoot.vpsPath,
     localPath: workspaceRoot.localPath,
-    agentDomainPath: workspace.agentDomainPath,
-    localAgentDomainPath: workspace.localAgentDomainPath,
+    agentDomainPath: agentDomainSource.agentDomainPath || workspace.agentDomainPath,
+    localAgentDomainPath: agentDomainSource.localAgentDomainPath || workspace.localAgentDomainPath,
     sourceOfTruth: 'vps',
     runtimeTarget,
     runtimeLabel: input.runtimeLabel?.trim() || workspaceRuntimeLabel(runtimeTarget),

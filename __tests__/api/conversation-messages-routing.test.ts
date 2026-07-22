@@ -84,6 +84,10 @@ jest.mock('@/lib/project-locations/runtime-binding', () => ({
   requireProjectRuntimeReplica: mockRequireProjectRuntimeReplica,
 }))
 jest.mock('@/lib/projects/access', () => ({ getProjectForUser: mockGetProjectForUser }))
+jest.mock('@/lib/client-provisioning/company-cowork-dispatch', () => ({
+  ...jest.requireActual('@/lib/client-provisioning/company-cowork-dispatch'),
+  enrichCompanyCoworkWorkspaceContext: async (workspace: Record<string, unknown>) => workspace,
+}))
 
 beforeEach(() => {
   jest.resetModules()
@@ -204,11 +208,13 @@ beforeEach(() => {
     id: input.role === 'assistant' ? 'assistant-1' : 'msg-1',
     ...input,
   }))
+  const mockMessageUpdate = jest.fn().mockResolvedValue(undefined)
   mockMessagesCollection.mockReturnValue({
     doc: () => ({
-      update: jest.fn().mockResolvedValue(undefined),
+      update: mockMessageUpdate,
     }),
   })
+  ;(globalThis as { __mockMessageUpdate?: jest.Mock }).__mockMessageUpdate = mockMessageUpdate
   mockTouchConversation.mockResolvedValue(undefined)
   mockListMessages.mockResolvedValue([])
   mockGetAgentDispatchHermesProfileLink.mockImplementation(async (
@@ -494,6 +500,139 @@ describe('unified conversation message routing', () => {
     expect(mockWaitForLinkedRunClaim).toHaveBeenCalledWith(expect.objectContaining({ jobId: 'job-linked-1' }))
     expect(mockGetAgentDispatchHermesProfileLink).not.toHaveBeenCalled()
     expect(mockCreateHermesRun).not.toHaveBeenCalled()
+  })
+
+  it('queues company Cowork linked runs with the company local workingDirectory', async () => {
+    const keys = generateKeyPairSync('ed25519')
+    mockIsConfiguredCompatibilityRuntimeTarget.mockResolvedValue(false)
+    const binding = {
+      kind: 'linked-computer',
+      deviceId: 'device-a',
+      locationId: 'linked-device:device-a',
+      runtimeTargetId: 'linked-device:device-a',
+      machineLabel: 'Office Mac',
+      mappingId: 'map-a',
+      workspaceId: 'partners',
+      credentialVersion: 2,
+      runtimeVersion: '1.1.2',
+      platform: 'macos',
+      lastSeenAt: new Date().toISOString(),
+      publicKey: keys.publicKey.export({ type: 'spki', format: 'pem' }).toString(),
+    }
+    mockAuthorizeWorkspaceRuntime.mockResolvedValue(binding)
+    mockWaitForLinkedRunClaim.mockResolvedValue({
+      status: 'running',
+      acceptanceReceipt: {
+        deviceId: 'device-a',
+        machineLabel: 'Verified Mac',
+        runtimeVersion: '1.1.2',
+        acceptedAt: '2026-07-13T09:00:00.000Z',
+      },
+    })
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'pib-platform-owner',
+      participantUids: ['client-1'],
+      participantAgentIds: ['pip'],
+      participants: [
+        { kind: 'user', uid: 'client-1', role: 'client' },
+        { kind: 'agent', agentId: 'pip', name: 'Pip' },
+      ],
+      scope: 'company',
+      scopeRefId: 'company-hunt',
+      workspaceContext: {
+        runtimeTarget: binding.runtimeTargetId,
+        runtimeLabel: 'Office Mac',
+        workspaceId: 'partners',
+        companyWorkspaceId: 'hunt-and-gun',
+        orgId: 'pib-platform-owner',
+        orgSlug: 'partners',
+        orgName: 'Partners in Biz',
+        agentDomain: 'hunt-and-gun',
+        agentDomainPath: '/var/lib/hermes/Cowork/Cowork/agents/hunt-and-gun',
+        localAgentDomainPath: '/Users/peetstander/Cowork/Cowork/agents/hunt-and-gun',
+        vpsPath: '/var/lib/hermes/Cowork/Hunt and Gun',
+        localPath: '/Users/peetstander/Cowork/Hunt and Gun',
+        vpsWorkingPath: '/var/lib/hermes/Cowork/Hunt and Gun',
+        localWorkingPath: '/Users/peetstander/Cowork/Hunt and Gun',
+        sourceOfTruth: 'vps',
+        shareMode: 'private',
+        ownerUserId: 'client-1',
+        folderScope: 'company',
+        companyId: 'company-hunt',
+        companyName: 'Hunt and Gun',
+        contactIds: [],
+      },
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+    const response = await POST(req(), { params: Promise.resolve({ convId: 'conv-1' }) })
+    expect(response.status).toBe(201)
+    expect(mockEnqueueLinkedRun).toHaveBeenCalledWith(expect.objectContaining({
+      deviceId: 'device-a',
+      mappingId: 'map-a',
+      relativeFolder: '.',
+      workingDirectory: '/Users/peetstander/Cowork/Hunt and Gun',
+    }))
+    const prompt = String(mockEnqueueLinkedRun.mock.calls[0][0].payload.prompt)
+    expect(prompt).toContain('bound to the Hunt and Gun Cowork folder')
+    expect(prompt).toContain('agentDomain: hunt-and-gun')
+    expect(prompt).toContain('Do not use Partners in Biz platform history')
+  })
+
+  it('fails closed when a company Cowork linked computer is below runtime 1.1.2', async () => {
+    mockIsConfiguredCompatibilityRuntimeTarget.mockResolvedValue(false)
+    const binding = {
+      kind: 'linked-computer',
+      deviceId: 'device-a',
+      locationId: 'linked-device:device-a',
+      runtimeTargetId: 'linked-device:device-a',
+      machineLabel: 'Office Mac',
+      mappingId: 'map-a',
+      workspaceId: 'partners',
+      credentialVersion: 2,
+      runtimeVersion: '1.1.1',
+      platform: 'macos',
+      lastSeenAt: new Date().toISOString(),
+      publicKey: 'pk',
+    }
+    mockAuthorizeWorkspaceRuntime.mockResolvedValue(binding)
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'pib-platform-owner',
+      participantUids: ['client-1'],
+      participantAgentIds: ['pip'],
+      participants: [
+        { kind: 'user', uid: 'client-1', role: 'client' },
+        { kind: 'agent', agentId: 'pip', name: 'Pip' },
+      ],
+      workspaceContext: {
+        runtimeTarget: binding.runtimeTargetId,
+        runtimeLabel: 'Office Mac',
+        workspaceId: 'partners',
+        companyWorkspaceId: 'hunt-and-gun',
+        orgId: 'pib-platform-owner',
+        orgSlug: 'partners',
+        orgName: 'Partners in Biz',
+        agentDomain: 'hunt-and-gun',
+        sourceOfTruth: 'vps',
+        shareMode: 'private',
+        ownerUserId: 'client-1',
+        folderScope: 'company',
+        companyId: 'company-hunt',
+        companyName: 'Hunt and Gun',
+        localWorkingPath: '/Users/peetstander/Cowork/Hunt and Gun',
+        contactIds: [],
+      },
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+    const response = await POST(req(), { params: Promise.resolve({ convId: 'conv-1' }) })
+    expect(response.status).toBe(201)
+    expect(mockEnqueueLinkedRun).not.toHaveBeenCalled()
+    const mockMessageUpdate = (globalThis as { __mockMessageUpdate?: jest.Mock }).__mockMessageUpdate
+    expect(mockMessageUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'failed',
+      workspaceDispatchFailureCode: 'linked_device_update_required',
+    }))
   })
 
   it('keeps an arbitrary configured operator target on the compatibility resolver', async () => {

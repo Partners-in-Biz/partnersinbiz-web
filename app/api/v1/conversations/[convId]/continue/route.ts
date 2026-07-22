@@ -118,6 +118,8 @@ export const POST = withAuth(
       projectId,
       projectName: source.workspaceContext.projectName,
       folderRelativePath: projectFolderRelativePath,
+      companyId: source.workspaceContext.companyId,
+      companyName: source.workspaceContext.companyName,
     })
     if (!workspaceContext) return apiError('Workspace not found for this organisation', 404)
 

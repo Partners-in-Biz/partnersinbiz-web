@@ -133,6 +133,7 @@ describe('POST conversation runtime continuation', () => {
     expect(mockResolveWorkspaceContext).toHaveBeenCalledWith(expect.objectContaining({
       orgId: 'org-1', workspaceId: 'workspace-1', projectId: 'project-1', runtimeTarget: 'linked-device:studio',
       ownerUserId: 'member-2', shareMode: 'org', folderRelativePath: 'clients/acme/studio-launch',
+      companyId: null,
     }))
     expect(mockRequireProjectRuntimeReplica).toHaveBeenCalledWith(expect.objectContaining({
       projectId: 'project-1', orgId: 'org-1', workspaceId: 'workspace-1', actorUserId: 'member-2',
@@ -142,6 +143,31 @@ describe('POST conversation runtime continuation', () => {
       orgId: 'org-1', startedBy: 'member-2', scope: 'project', scopeRefId: 'project-1',
       lineage: { kind: 'runtime_continuation', parentConversationId: 'conv-source', rootConversationId: 'conv-source' },
     }))
+  })
+
+  it('preserves company Cowork identity when continuing on another computer', async () => {
+    mockGetConversation.mockResolvedValueOnce({
+      ...source,
+      scope: 'company',
+      scopeRefId: 'company-hunt',
+      workspaceContext: {
+        ...source.workspaceContext,
+        projectId: undefined,
+        projectName: undefined,
+        folderScope: 'company',
+        companyId: 'company-hunt',
+        companyName: 'Hunt and Gun',
+        companyWorkspaceId: 'hunt-and-gun',
+      },
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/continue/route')
+    const response = await POST(request({ runtimeTarget: 'linked-device:studio' }), context)
+    expect(response.status).toBe(201)
+    expect(mockResolveWorkspaceContext).toHaveBeenCalledWith(expect.objectContaining({
+      companyId: 'company-hunt',
+      companyName: 'Hunt and Gun',
+    }))
+    expect(mockResolveWorkspaceContext.mock.calls[0][0].projectId).toBeUndefined()
   })
 
   it('preserves legacy project confinement when the old Workspace context lacks projectId', async () => {
