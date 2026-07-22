@@ -472,6 +472,21 @@
   }
 }
 
+/* Folder / project accent — same 2px left rail language as agent bubbles */
+[data-messages-experience] .mx-folder-accent {
+  position: relative;
+}
+[data-messages-experience] .mx-folder-accent::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  border-radius: 999px;
+  background: var(--mx-folder-accent, var(--color-pib-cyan));
+  opacity: 0.85;
+  pointer-events: none;
+}
+
 /* Streaming / pending shimmer */
 [data-messages-experience] .mx-activity-live {
   position: relative;

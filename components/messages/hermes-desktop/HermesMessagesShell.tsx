@@ -11,6 +11,7 @@ import {
 } from '@/lib/hermes/workspace-panels'
 import { ModuleShell } from '@/components/ui/ModuleShell'
 import { HudChip, SignalMeter } from '@/components/ui/HudChip'
+import { conversationFolderAccentSeed, folderAccentStyle } from '@/lib/messages/folder-accent'
 import type { HermesMessagesShellProps, MessagesSurface } from './types'
 
 const SURFACE_META: Record<MessagesSurface, { title: string; description: string }> = {
@@ -24,14 +25,14 @@ const SURFACE_META: Record<MessagesSurface, { title: string; description: string
   },
 }
 
-type ConversationTab = { id: string; kind: 'conversation'; conversationId: string; title: string }
+type ConversationTab = { id: string; kind: 'conversation'; conversationId: string; title: string; accentSeed?: string | null }
 type PanelTab = { id: string; kind: 'panel'; panel: WorkspacePanelSpec; title: string }
 type WorkspaceTab = ConversationTab | PanelTab
 type WorkspacePane = { id: string; tabs: WorkspaceTab[]; activeTabId: string | null }
 type WorkspaceDirection = 'row' | 'column'
 
-function conversationTab(conversationId: string, title = 'Session'): ConversationTab {
-  return { id: `conversation:${conversationId}`, kind: 'conversation', conversationId, title }
+function conversationTab(conversationId: string, title = 'Session', accentSeed: string | null = null): ConversationTab {
+  return { id: `conversation:${conversationId}`, kind: 'conversation', conversationId, title, accentSeed }
 }
 
 function initialPanes(initialConvId?: string): WorkspacePane[] {
@@ -139,6 +140,7 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
   const [canvasForcesCollapsedRail, setCanvasForcesCollapsedRail] = useState(false)
   const [focusedPaneId, setFocusedPaneId] = useState('primary')
   const [conversationTitles, setConversationTitles] = useState<Record<string, string>>({})
+  const [conversationAccentSeeds, setConversationAccentSeeds] = useState<Record<string, string>>({})
   const [renamingTabId, setRenamingTabId] = useState<string | null>(null)
   const [renameTabValue, setRenameTabValue] = useState('')
   const renameTabCancelledRef = useRef(false)
@@ -162,20 +164,41 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
     setFocusedPaneId(paneId)
     setPanes((current) => current.map((pane) => {
       if (pane.id !== paneId) return pane
-      const tab = conversationTab(conversationId, conversationTitles[conversationId] ?? 'Session')
-      const tabs = pane.tabs.some((item) => item.id === tab.id) ? pane.tabs : [...pane.tabs, tab].slice(-12)
+      const tab = conversationTab(
+        conversationId,
+        conversationTitles[conversationId] ?? 'Session',
+        conversationAccentSeeds[conversationId] ?? null,
+      )
+      const tabs = pane.tabs.some((item) => item.id === tab.id)
+        ? pane.tabs.map((item) => item.id === tab.id
+          ? { ...item, title: tab.title, ...(item.kind === 'conversation' ? { accentSeed: tab.accentSeed } : {}) }
+          : item)
+        : [...pane.tabs, tab].slice(-12)
       return { ...pane, tabs, activeTabId: tab.id }
     }))
-  }, [conversationTitles])
+  }, [conversationAccentSeeds, conversationTitles])
 
   const handleConversationCatalogue = useCallback((conversations: Conversation[]) => {
     const titles = Object.fromEntries(conversations.map((conversation) => [conversation.id, conversation.title || 'Untitled session']))
+    const accents = Object.fromEntries(conversations.flatMap((conversation) => {
+      const seed = conversationFolderAccentSeed(conversation)
+      return seed ? [[conversation.id, seed]] : []
+    }))
     setConversationTitles(titles)
+    setConversationAccentSeeds(accents)
     setPanes((current) => current.map((pane) => ({
       ...pane,
-      tabs: pane.tabs.map((tab) => tab.kind === 'conversation' && titles[tab.conversationId]
-        ? { ...tab, title: titles[tab.conversationId] }
-        : tab),
+      tabs: pane.tabs.map((tab) => {
+        if (tab.kind !== 'conversation') return tab
+        const title = titles[tab.conversationId]
+        const accentSeed = accents[tab.conversationId] ?? null
+        if (!title && accentSeed === (tab.accentSeed ?? null)) return tab
+        return {
+          ...tab,
+          ...(title ? { title } : {}),
+          accentSeed,
+        }
+      }),
     })))
   }, [])
 
@@ -337,11 +360,16 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
               <div key={pane.id} data-testid={`messages-workspace-pane-${pane.id}`} style={style} onPointerDown={() => setFocusedPaneId(pane.id)} className={`flex min-h-0 min-w-0 flex-1 basis-full flex-col overflow-hidden rounded-none border xl:flex-none xl:basis-[var(--workspace-pane-basis)] ${focusedPaneId === pane.id ? 'border-primary/35' : 'border-[var(--color-card-border)]'} bg-black/[0.035] ${panes.length > 1 && pane.id !== focusedPaneId ? 'max-xl:hidden' : ''}`}>
                 <div className="flex min-h-11 min-w-0 shrink-0 items-center border-b border-[var(--color-card-border)] bg-black/[0.09] px-1 xl:h-8 xl:min-h-0">
                   <div role="tablist" aria-label={`${pane.id} pane tabs`} className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
-                    {pane.tabs.map((tab) => (
+                    {pane.tabs.map((tab) => {
+                      const accentSeed = tab.kind === 'conversation' ? tab.accentSeed : null
+                      return (
                       <div
                         key={tab.id}
                         role="presentation"
-                        className={`group/tab flex min-h-11 min-w-[92px] max-w-[220px] items-center rounded-md border px-1.5 xl:h-6 xl:min-h-0 ${tab.id === pane.activeTabId ? 'border-white/[0.1] bg-white/[0.07]' : 'border-transparent text-[var(--color-pib-text-muted)] hover:bg-white/[0.04]'}`}
+                        data-testid={tab.kind === 'conversation' ? `workspace-tab-${tab.conversationId}` : `workspace-tab-panel-${tab.panel.id}`}
+                        data-folder-accent={accentSeed || undefined}
+                        style={folderAccentStyle(accentSeed)}
+                        className={`group/tab relative flex min-h-11 min-w-[92px] max-w-[220px] items-center overflow-hidden rounded-md border px-1.5 xl:h-6 xl:min-h-0 ${accentSeed ? 'mx-folder-accent pl-2' : ''} ${tab.id === pane.activeTabId ? 'border-white/[0.1] bg-white/[0.07]' : 'border-transparent text-[var(--color-pib-text-muted)] hover:bg-white/[0.04]'}`}
                       >
                         {renamingTabId === tab.id && tab.kind === 'conversation' ? (
                           <input
@@ -399,7 +427,8 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
                           <span aria-hidden="true" className="material-symbols-outlined block text-[10px] leading-none">close</span>
                         </button>
                       </div>
-                    ))}
+                      )
+                    })}
                     {pane.tabs.length === 0 && <span className="px-2 text-[11px] text-[var(--color-pib-text-muted)]">Select a session</span>}
                   </div>
                   {panes.length > 1 && <button type="button" aria-label={`Show ${alternatePaneId} pane`} onClick={() => setFocusedPaneId(alternatePaneId)} className="grid h-11 w-11 shrink-0 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] xl:hidden"><span aria-hidden="true" className="material-symbols-outlined text-[18px]">swap_horiz</span></button>}
