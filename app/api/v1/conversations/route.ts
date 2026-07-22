@@ -327,6 +327,14 @@ export const POST = withAuth(
         })
       : null
     if (shouldBindWorkspace && !workspaceContext) return apiError('Workspace not found for this organisation', 404)
+    let boundWorkspaceContext = workspaceContext
+    if (boundWorkspaceContext && (boundWorkspaceContext.folderScope === 'company'
+      || (boundWorkspaceContext.folderScope === 'project' && boundWorkspaceContext.companyId))) {
+      const { ensureCompanyCoworkFolderOnVps } = await import('@/lib/client-provisioning/ensure-company-cowork')
+      const ensured = await ensureCompanyCoworkFolderOnVps(boundWorkspaceContext)
+      if (!ensured.ok) return apiError(ensured.error, 409)
+      boundWorkspaceContext = ensured.workspace
+    }
     const contextRefs = await resolveContextReferences(
       sanitizeContextReferenceSeeds((body as Record<string, unknown>).contextRefs),
       user,
@@ -340,8 +348,8 @@ export const POST = withAuth(
       orchestration,
       title,
       scope: convScope,
-      scopeRefId: convScope === 'workspace' ? workspaceContext?.workspaceId ?? scopeRefId : scopeRefId,
-      ...(workspaceContext ? { workspaceContext } : {}),
+      scopeRefId: convScope === 'workspace' ? boundWorkspaceContext?.workspaceId ?? scopeRefId : scopeRefId,
+      ...(boundWorkspaceContext ? { workspaceContext: boundWorkspaceContext } : {}),
       contextRefs,
     })
 

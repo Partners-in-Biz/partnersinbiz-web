@@ -51,6 +51,13 @@ jest.mock('@/lib/project-locations/runtime-binding', () => ({
 jest.mock('@/lib/projects/access', () => ({
   getProjectForUser: mockGetProjectForUser,
 }))
+jest.mock('@/lib/client-provisioning/ensure-company-cowork', () => ({
+  ensureCompanyCoworkFolderOnVps: async (workspace: Record<string, unknown>) => ({
+    ok: true,
+    workspace,
+    createdOrVerified: true,
+  }),
+}))
 
 beforeEach(() => {
   jest.resetModules()

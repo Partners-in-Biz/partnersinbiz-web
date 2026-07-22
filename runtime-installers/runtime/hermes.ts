@@ -73,27 +73,31 @@ function localPort(value: unknown, fallback?: number): number | null {
 /** Discover named Hermes profiles without copying their keys into PiB state. */
 function discoveredHermesRoutes(env: RuntimeEnv): LocalHermesRoute[] {
   const home = hermesHome(env)
-  const routes: LocalHermesRoute[] = []
+  const routes = new Map<string, LocalHermesRoute>()
   const defaultAgentId = cleanAgentId(env.PIB_LOCAL_HERMES_AGENT_ID || 'pip')
   const defaultEnvFile = path.join(home, '.env')
   const defaultPort = localPort(envFileValue(defaultEnvFile, 'API_SERVER_PORT'), 8755)
   if (defaultPort) {
     const apiKey = env.PIB_LOCAL_HERMES_API_KEY || envFileValue(defaultEnvFile, 'API_SERVER_KEY')
-    routes.push({ agentId: defaultAgentId, baseUrl: `http://127.0.0.1:${defaultPort}`, ...(apiKey ? { apiKey } : {}) })
+    routes.set(defaultAgentId, { agentId: defaultAgentId, baseUrl: `http://127.0.0.1:${defaultPort}`, ...(apiKey ? { apiKey } : {}) })
   }
   try {
     for (const entry of fs.readdirSync(path.join(home, 'profiles'), { withFileTypes: true })) {
-      if (!entry.isDirectory() || !AGENT_ID.test(entry.name) || entry.name === defaultAgentId) continue
+      if (!entry.isDirectory() || !AGENT_ID.test(entry.name)) continue
       const profileEnv = path.join(home, 'profiles', entry.name, '.env')
       const port = localPort(envFileValue(profileEnv, 'API_SERVER_PORT'))
       if (!port) continue
       const apiKey = envFileValue(profileEnv, 'API_SERVER_KEY')
-      routes.push({ agentId: entry.name, baseUrl: `http://127.0.0.1:${port}`, ...(apiKey ? { apiKey } : {}) })
+      // A named profile is the explicit agent identity. Prefer it over a
+      // same-named default gateway so linked computers cannot silently route
+      // into a personal/global Hermes policy (for example manual approvals)
+      // when the PiB-managed profile has a different policy and port.
+      routes.set(entry.name, { agentId: entry.name, baseUrl: `http://127.0.0.1:${port}`, ...(apiKey ? { apiKey } : {}) })
     }
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
   }
-  return routes.sort((left, right) => left.agentId.localeCompare(right.agentId))
+  return Array.from(routes.values()).sort((left, right) => left.agentId.localeCompare(right.agentId))
 }
 
 export function localHermesRoutes(env: RuntimeEnv = process.env): LocalHermesRoute[] {
@@ -166,7 +170,7 @@ export async function probeLocalHermes(
 
 export async function callLocalHermes(
   agentId: string,
-  body: { prompt: string; model?: string; provider?: string; working_directory: string },
+  body: { prompt: string; images?: Array<{ url: string; contentType: string }>; model?: string; provider?: string; working_directory: string },
   env: RuntimeEnv = process.env,
   fetcher: typeof fetch = fetch,
   wait: (ms: number) => Promise<void> = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
@@ -178,7 +182,13 @@ export async function callLocalHermes(
     method: 'POST',
     headers: { 'content-type': 'application/json', ...authHeaders(route) },
     body: JSON.stringify({
-      input: body.prompt,
+      input: body.images?.length ? [{
+        role: 'user',
+        content: [
+          { type: 'text', text: body.prompt },
+          ...body.images.map((image) => ({ type: 'image_url', image_url: { url: image.url } })),
+        ],
+      }] : body.prompt,
       ...(body.model ? { model: body.model } : {}),
       ...(body.provider ? { provider: body.provider } : {}),
       working_directory: body.working_directory,

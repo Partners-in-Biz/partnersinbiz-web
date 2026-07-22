@@ -51,9 +51,9 @@ describe('company cowork dispatch helpers', () => {
     expect(linkedCoworkWorkingDirectory(context({ folderScope: 'organisation' }))).toBeUndefined()
   })
 
-  it('requires linked runtime 1.1.2+ for company workingDirectory', () => {
-    expect(linkedRuntimeSupportsCoworkWorkingDirectory('1.1.1')).toBe(false)
-    expect(linkedRuntimeSupportsCoworkWorkingDirectory('1.1.2')).toBe(true)
+  it('requires linked runtime 1.1.3+ for company workingDirectory', () => {
+    expect(linkedRuntimeSupportsCoworkWorkingDirectory('1.1.2')).toBe(false)
+    expect(linkedRuntimeSupportsCoworkWorkingDirectory('1.1.3')).toBe(true)
     expect(linkedRuntimeSupportsCoworkWorkingDirectory('1.2.0')).toBe(true)
   })
 })

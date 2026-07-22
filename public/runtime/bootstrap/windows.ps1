@@ -32,10 +32,11 @@ $RequestedProfiles = $Profiles.Split(',')
 $RequestedProviders = $Providers.Split(',')
 foreach ($Profile in $RequestedProfiles) {
   $ProfileHome = Join-Path $env:USERPROFILE ".hermes\profiles\$Profile"
-  if ($Profile -ne 'pip' -and -not (Test-Path $ProfileHome)) { & hermes profile create $Profile --description "Partners in Biz $Profile agent" }
+  if (-not (Test-Path $ProfileHome)) { & hermes profile create $Profile --description "Partners in Biz $Profile agent" }
   Write-Host "Configure the model for $Profile. Requested providers: $($RequestedProviders -join ', ')"
-  if ($Profile -eq 'pip' -and -not (Test-Path $ProfileHome)) { & hermes setup model; & hermes gateway install; & hermes gateway start }
-  else { & hermes -p $Profile setup model; & hermes -p $Profile gateway install; & hermes -p $Profile gateway start }
+  & hermes -p $Profile setup model
+  & hermes -p $Profile gateway install
+  & hermes -p $Profile gateway start
 }
 
 $Stage = Join-Path ([IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString('N'))

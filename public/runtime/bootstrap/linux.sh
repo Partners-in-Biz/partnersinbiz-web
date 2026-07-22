@@ -25,9 +25,11 @@ hermes_home="$HOME/.hermes"
 IFS=',' read -r -a requested_profiles <<< "$PROFILES"
 IFS=',' read -r -a requested_providers <<< "$PROVIDERS"
 for profile in "${requested_profiles[@]}"; do
-  if [[ ! -d "$HOME/.hermes/profiles/$profile" && "$profile" != pip ]]; then hermes profile create "$profile" --description "Partners in Biz $profile agent"; fi
+  if [[ ! -d "$HOME/.hermes/profiles/$profile" ]]; then hermes profile create "$profile" --description "Partners in Biz $profile agent"; fi
   echo "Configure the model for $profile. Requested providers: ${requested_providers[*]}"
-  if [[ "$profile" == pip && ! -d "$HOME/.hermes/profiles/pip" ]]; then hermes setup model; hermes gateway install || true; hermes gateway start; else hermes -p "$profile" setup model; hermes -p "$profile" gateway install || true; hermes -p "$profile" gateway start; fi
+  hermes -p "$profile" setup model
+  hermes -p "$profile" gateway install || true
+  hermes -p "$profile" gateway start
 done
 
 stage="$(mktemp -d)"; trap 'rm -rf "$stage"' EXIT

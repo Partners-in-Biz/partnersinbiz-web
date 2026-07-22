@@ -2248,7 +2248,9 @@ export default function UnifiedChat({
               ),
             )
           }
-        } catch { /* ignore parse errors */ }
+        } catch {
+          return
+        }
       }
       es.onerror = () => {
         // SSE disconnects normally when run ends — just clean up

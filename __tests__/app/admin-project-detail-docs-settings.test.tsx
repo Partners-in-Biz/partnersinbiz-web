@@ -540,7 +540,7 @@ describe('Admin project docs and settings tabs', () => {
     const listButton = screen.getByRole('button', { name: /view_list\s+list/i })
     const toolbar = boardButton.parentElement?.parentElement
     const manualSort = screen.getByRole('button', { name: /manual order/i })
-    expect(toolbar).toHaveClass('gap-3')
+    expect(toolbar).toHaveClass('gap-2')
     expect(toolbar).toHaveClass('overflow-x-auto')
     expect(toolbar).toHaveClass('justify-between')
     expect(toolbar).toContainElement(manualSort)

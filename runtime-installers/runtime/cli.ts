@@ -17,7 +17,7 @@ import {
 } from './workspace-sync'
 
 const api=process.env.PIB_API_BASE||'https://partnersinbiz.online'
-const runtimeVersion=process.env.PIB_RUNTIME_VERSION||'1.1.2'
+const runtimeVersion=process.env.PIB_RUNTIME_VERSION||'1.1.4'
 const stateRoot=process.env.PIB_RUNTIME_STATE_DIR||path.join(os.homedir(),'.partnersinbiz')
 const revocationMarker=path.join(stateRoot,'revocation-pending.json')
 const maps=new MappingRegistry(path.join(stateRoot,'mappings.json'))
@@ -60,7 +60,7 @@ export function linkedRuntimeSyncClaimBody(){return{runtimeVersion,syncProtocolV
 async function heartbeat(){let i=await identity();if(i.pendingRotationDeliveryId)i=await handleRotation(i,{rotation:null},persistIdentity,identity,acknowledgeRotation);const hermesProbe=await probeLocalHermes();const response=await new DeviceApiClient(api,i).post(`/api/v1/linked-computers/${i.deviceId}/heartbeat`,linkedRuntimeHeartbeatBody(process.platform,hermesProbe)),data=await jsonData(response);await handleRotation(i,data,persistIdentity,identity,acknowledgeRotation)}
 async function claim():Promise<Job|null>{const i=await identity();const response=await post(`/api/v1/linked-computers/${i.deviceId}/runs/claim`,{runtimeVersion});if(response.status===204)return null;return await jsonData(response) as Job}
 async function syncClaim():Promise<WorkspaceSyncRuntimeJob|null>{const i=await identity();const response=await post(`/api/v1/linked-computers/${i.deviceId}/sync/claim`,linkedRuntimeSyncClaimBody());if(response.status===204)return null;return await jsonData(response) as WorkspaceSyncRuntimeJob}
-async function localHermes(agentId:string,body:{prompt:string;model?:string;provider?:string;working_directory:string}):Promise<unknown>{return callLocalHermes(agentId,body)}
+async function localHermes(agentId:string,body:{prompt:string;images?:Array<{url:string;contentType:string}>;model?:string;provider?:string;working_directory:string}):Promise<unknown>{return callLocalHermes(agentId,body)}
 async function run(job:Job){const i=await identity();return executeJob(job,i,maps,(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body),(body)=>localHermes(job.agentId||'pip',body))}
 async function syncRun(job:WorkspaceSyncRuntimeJob){const i=await identity();return executeWorkspaceSyncJob(job,{registry:maps,stateRoot,spool:syncSpool,post:(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body)})}
 async function syncFlush(){const i=await identity();return syncSpool.flush((suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body))}

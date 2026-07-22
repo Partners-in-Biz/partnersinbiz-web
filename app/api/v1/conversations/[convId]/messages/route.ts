@@ -8,7 +8,8 @@
  * assistant message. Multi-agent conversations route through Pip as orchestrator.
  */
 import { NextRequest } from 'next/server'
-import { adminDb } from '@/lib/firebase/admin'
+import { getStorage } from 'firebase-admin/storage'
+import { adminDb, getAdminApp } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
@@ -21,6 +22,7 @@ import {
 } from '@/lib/conversations/conversations'
 import { createHermesRun } from '@/lib/hermes/server'
 import type { AuthorizedLinkedComputerDispatch } from '@/lib/linked-computers/runtime-targets'
+import { parseLinkedRuntimeVersion } from '@/lib/linked-computers/runtime-targets'
 import { cancelLinkedRun, enqueueLinkedRun, waitForLinkedRunClaim } from '@/lib/linked-computers/run-queue-store'
 import { getAgentDispatchHermesProfileLink } from '@/lib/agents/team'
 import { authorizeWorkspaceRuntime, type AuthorizedWorkspaceRuntime } from '@/lib/workspaces/runtime-authorization'
@@ -43,9 +45,11 @@ import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organization
 import { resolveAuthorizedWorkingDirectory } from '@/lib/client-provisioning/working-directory'
 import {
   enrichCompanyCoworkWorkspaceContext,
+  conversationUsesCompanyCoworkFolder,
   linkedCoworkWorkingDirectory,
   linkedRuntimeSupportsCoworkWorkingDirectory,
 } from '@/lib/client-provisioning/company-cowork-dispatch'
+import { ensureCompanyCoworkFolderOnVps } from '@/lib/client-provisioning/ensure-company-cowork'
 import { classifyWorkspaceDispatchFailure } from '@/lib/workspaces/dispatch-errors'
 import type { ApiUser } from '@/lib/api/types'
 import {
@@ -62,8 +66,34 @@ import { selectActiveProjectId } from '@/lib/projects/chatProgress'
 export const dynamic = 'force-dynamic'
 
 type Params = { params: Promise<{ convId: string }> }
+type ResolvedConversationAttachment = ConversationAttachment & { storagePath?: string }
+const LINKED_RUNTIME_IMAGE_INPUT_MIN_VERSION = [1, 1, 4] as const
 
-async function resolveAttachments(value: unknown, convId: string, orgId: string): Promise<ConversationAttachment[] | null> {
+function linkedRuntimeSupportsImageInput(version: string): boolean {
+  const current = parseLinkedRuntimeVersion(version)
+  if (!current) return false
+  for (let index = 0; index < LINKED_RUNTIME_IMAGE_INPUT_MIN_VERSION.length; index++) {
+    if (current[index] !== LINKED_RUNTIME_IMAGE_INPUT_MIN_VERSION[index]) {
+      return current[index] > LINKED_RUNTIME_IMAGE_INPUT_MIN_VERSION[index]
+    }
+  }
+  return true
+}
+
+async function linkedRunImages(attachments: ResolvedConversationAttachment[]): Promise<Array<{ url: string; contentType: string }>> {
+  return Promise.all(attachments.flatMap((attachment) => (
+    /^image\/(?:png|jpeg|gif|webp)$/i.test(attachment.contentType) && attachment.storagePath
+      ? [{ attachment }]
+      : []
+  )).map(async ({ attachment }) => ({
+    url: (await getStorage(getAdminApp()).bucket().file(attachment.storagePath!).getSignedUrl({
+      action: 'read', expires: Date.now() + 30 * 60_000,
+    }))[0],
+    contentType: attachment.contentType,
+  })))
+}
+
+async function resolveAttachments(value: unknown, convId: string, orgId: string): Promise<ResolvedConversationAttachment[] | null> {
   if (!Array.isArray(value)) return []
   if (value.length > 5) return null
   const resolved = await Promise.all(value.map(async (item) => {
@@ -78,6 +108,7 @@ async function resolveAttachments(value: unknown, convId: string, orgId: string)
     const name = typeof attachment.name === 'string' ? attachment.name : ''
     const contentType = typeof attachment.contentType === 'string' ? attachment.contentType : ''
     const sizeBytes = typeof attachment.sizeBytes === 'number' ? attachment.sizeBytes : -1
+    const storagePath = typeof attachment.storagePath === 'string' ? attachment.storagePath : ''
     if (!name || !contentType || sizeBytes < 0) return null
     return {
       id,
@@ -85,9 +116,10 @@ async function resolveAttachments(value: unknown, convId: string, orgId: string)
       url: `/api/v1/conversations/${convId}/attachments/${id}`,
       contentType,
       sizeBytes,
+      ...(storagePath ? { storagePath } : {}),
     }
   }))
-  return resolved.every((attachment): attachment is ConversationAttachment => attachment !== null)
+  return resolved.every((attachment): attachment is ResolvedConversationAttachment => attachment !== null)
     ? resolved
     : null
 }
@@ -124,8 +156,23 @@ function mergeContextReferenceSeeds(...groups: ContextReferenceSeed[][]): Contex
   return Array.from(byKey.values()).slice(0, MAX_CONTEXT_REFS)
 }
 
-async function buildOrgContext(orgId: string): Promise<string> {
+async function buildOrgContext(
+  orgId: string,
+  workspace?: Conversation['workspaceContext'] | null,
+): Promise<string> {
+  const companyCowork = conversationUsesCompanyCoworkFolder(workspace)
   if (orgId === PIB_PLATFORM_ORG_ID) {
+    if (companyCowork) {
+      const companyLabel = workspace?.companyName?.trim() || 'this company'
+      return [
+        `[Platform security context — active organisation is Partners in Biz, but this chat is bound to the ${companyLabel} Cowork folder]`,
+        `orgId: ${PIB_PLATFORM_ORG_ID}`,
+        'Partners in Biz is only the security and operating perspective for permissions and agent dispatch.',
+        `Do not treat this as a Partners in Biz platform session. Prior work, memory, wiki, and files must come from the ${companyLabel} Cowork folder and its agentDomain — not from Partners in Biz or other client folders.`,
+        '---',
+        '',
+      ].join('\n')
+    }
     return [
       '[Platform context - you are working in the top-level Partners in Biz workspace]',
       `orgId: ${PIB_PLATFORM_ORG_ID}`,
@@ -384,6 +431,7 @@ export const POST = withAuth(
     const hasModelSelection = requestedModel !== undefined || requestedProvider !== undefined
     const attachments = await resolveAttachments((body as Record<string, unknown>).attachments, convId, conversation.orgId)
     if (!attachments) return apiError('One or more attachments are invalid for this conversation', 400)
+    const publicAttachments: ConversationAttachment[] = attachments.map(({ storagePath: _storagePath, ...attachment }) => attachment)
     const slashCommand = sanitizeSlashCommand((body as Record<string, unknown>).slashCommand)
     if (!content && attachments.length === 0) return apiError('content or attachments are required', 400)
     const resolvedContextRefs = await resolveContextReferences(
@@ -463,7 +511,7 @@ export const POST = withAuth(
       conversationId: convId,
       role: 'user',
       content,
-      ...(attachments.length > 0 ? { attachments } : {}),
+      ...(publicAttachments.length > 0 ? { attachments: publicAttachments } : {}),
       ...(resolvedContextRefs.length > 0 ? { contextRefs: resolvedContextRefs } : {}),
       ...(slashCommand ? { slashCommand } : {}),
       ...(agentEffort ? { agentEffort } : {}),
@@ -476,7 +524,7 @@ export const POST = withAuth(
     })
 
     // Update the conversation's denorm fields
-    const preview = content || attachments.map((attachment) => attachment.name).join(', ')
+    const preview = content || publicAttachments.map((attachment) => attachment.name).join(', ')
     await touchConversation(convId, preview, 'user', message.id)
 
     const recentMessages = await listMessages(convId, 200).catch(() => [message])
@@ -576,11 +624,37 @@ export const POST = withAuth(
       }
 
       // Build context string (org + conversation participants)
-      const orgContext = await buildOrgContext(conversation.orgId)
-      const convContext = buildConversationContext(conversation, authorDisplayName)
       if (conversation.workspaceContext) {
         conversation.workspaceContext = await enrichCompanyCoworkWorkspaceContext(conversation.workspaceContext)
+        if (conversationUsesCompanyCoworkFolder(conversation.workspaceContext)) {
+          const ensured = await ensureCompanyCoworkFolderOnVps(conversation.workspaceContext)
+          if (!ensured.ok) {
+            const error = ensured.error
+            await messagesCollection(convId).doc(assistantMessage.id).update({
+              content: '',
+              status: 'failed',
+              error,
+              workspaceDispatchFailureCode: ensured.code === 'company_workspace_missing'
+                ? 'workspace_context_invalid'
+                : 'workspace_directory_missing',
+            })
+            return apiSuccess({
+              message,
+              assistantMessage: {
+                ...assistantMessage,
+                status: 'failed',
+                error,
+                workspaceDispatchFailureCode: ensured.code === 'company_workspace_missing'
+                  ? 'workspace_context_invalid'
+                  : 'workspace_directory_missing',
+              },
+            }, 201)
+          }
+          conversation.workspaceContext = ensured.workspace
+        }
       }
+      const orgContext = await buildOrgContext(conversation.orgId, conversation.workspaceContext)
+      const convContext = buildConversationContext(conversation, authorDisplayName)
       const workspaceContext = buildWorkspaceContext(conversation)
       const orchestrationContext = buildOrchestrationContext(conversation, agentId)
       const projectChatOrchestrationContext = buildProjectChatOrchestrationContext({
@@ -599,16 +673,27 @@ export const POST = withAuth(
       const decisionDataRuleContext = buildDecisionDataOperatingRuleContext()
       const attachedContext = buildAttachedContextBlock(resolvedContextRefs)
       const commandContext = slashCommand ? slashCommandInstruction(slashCommand) : ''
-      const attachmentContext = attachments.length > 0
-        ? `\n\n[Attachments]\n${attachments.map((attachment) => `- ${attachment.name}: ${attachment.url} (${attachment.contentType}, ${attachment.sizeBytes} bytes)`).join('\n')}`
+      const attachmentContext = publicAttachments.length > 0
+        ? `\n\n[Attachments]\n${publicAttachments.map((attachment) => `- ${attachment.name}: ${attachment.url} (${attachment.contentType}, ${attachment.sizeBytes} bytes)`).join('\n')}`
         : ''
       const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + projectChatOrchestrationContext + studioArtifactOrchestrationContext + agentSkillsContext + decisionDataRuleContext + attachedContext + conversationHistory + commandContext + content + attachmentContext
       if (linkedComputerBinding) {
+        const hasImageAttachments = attachments.some((attachment) => (
+          /^image\/(?:png|jpeg|gif|webp)$/i.test(attachment.contentType) && Boolean(attachment.storagePath)
+        ))
+        if (hasImageAttachments && !linkedRuntimeSupportsImageInput(linkedComputerBinding.runtimeVersion)) {
+          const error = 'This computer needs Linked Runtime 1.1.4+ before chat image attachments can be analysed.'
+          await messagesCollection(convId).doc(assistantMessage.id).update({
+            content: '', status: 'failed', error, workspaceDispatchFailureCode: 'linked_device_update_required',
+          })
+          return apiSuccess({ message, assistantMessage: { ...assistantMessage, status: 'failed', error, workspaceDispatchFailureCode: 'linked_device_update_required' } }, 201)
+        }
+        const images = await linkedRunImages(attachments)
         const projectId = boundProjectId
         const coworkWorkingDirectory = linkedCoworkWorkingDirectory(conversation.workspaceContext)
         if (coworkWorkingDirectory
           && !linkedRuntimeSupportsCoworkWorkingDirectory(linkedComputerBinding.runtimeVersion)) {
-          const error = 'This computer needs a Linked Runtime update (1.1.2+) before company Cowork folders can run on it.'
+          const error = 'This computer needs a Linked Runtime update (1.1.3+) before company Cowork folders can run on it.'
           await messagesCollection(convId).doc(assistantMessage.id).update({
             content: '',
             status: 'failed',
@@ -637,7 +722,12 @@ export const POST = withAuth(
           relativeFolder: boundProjectReplica?.relativePath ?? (projectId ? `projects/${projectId}` : '.'),
           ...(coworkWorkingDirectory ? { workingDirectory: coworkWorkingDirectory } : {}),
           credentialVersion: linkedComputerBinding.credentialVersion,
-          payload: { prompt: hermesInput, ...(modelSelection?.model ? { model: modelSelection.model } : {}), ...(modelSelection?.provider ? { provider: modelSelection.provider } : {}) },
+          payload: {
+            prompt: hermesInput,
+            ...(images.length ? { images } : {}),
+            ...(modelSelection?.model ? { model: modelSelection.model } : {}),
+            ...(modelSelection?.provider ? { provider: modelSelection.provider } : {}),
+          },
           conversationId: convId,
           assistantMessageId: assistantMessage.id,
           agentId,
