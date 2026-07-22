@@ -29,6 +29,9 @@ export interface Conversation {
     orgName: string
     runtimeTarget: string
     runtimeLabel: string
+    /** Linked-computer Workspace mapping chosen for this session. */
+    mappingId?: string
+    mappingLabel?: string
     companyId?: string | null
     companyName?: string
     folderScope?: 'organisation' | 'company' | 'project'
@@ -101,10 +104,15 @@ function primaryAgent(conversation: Conversation): Participant | null {
 function runtimeBadge(conversation: Conversation): string | null {
   const workspace = conversation.workspaceContext
   if (!workspace) return null
-  if (workspace.runtimeLabel?.trim()) return workspace.runtimeLabel.trim()
-  if (workspace.runtimeTarget === 'local') return 'Local'
-  if (workspace.runtimeTarget === 'vps') return 'VPS'
-  return workspace.runtimeTarget?.toUpperCase() ?? null
+  const machine = workspace.runtimeLabel?.trim()
+    || (workspace.runtimeTarget === 'local'
+      ? 'Local'
+      : workspace.runtimeTarget === 'vps'
+        ? 'VPS'
+        : workspace.runtimeTarget?.toUpperCase() || null)
+  if (!machine) return null
+  const mapping = workspace.mappingLabel?.trim()
+  return mapping ? `${machine} · ${mapping}` : machine
 }
 
 function visibilityBadge(conversation: Conversation): string | null {
