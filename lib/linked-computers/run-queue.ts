@@ -5,7 +5,8 @@ const MAX_RECEIPT_SKEW_MS = 5 * 60 * 1000
 
 export type LinkedRunStatus = 'queued' | 'claimed' | 'running' | 'completed' | 'failed' | 'cancelled' | 'expired'
 export interface EncryptedLinkedRunPayload { ciphertext: string; iv: string; tag: string }
-export interface LinkedRunPayload { prompt: string; model?: string; provider?: string }
+export interface LinkedRunImage { url: string; contentType: string }
+export interface LinkedRunPayload { prompt: string; images?: LinkedRunImage[]; model?: string; provider?: string }
 export interface LinkedRunJob {
   jobId: string
   requestId: string
@@ -75,6 +76,11 @@ function jobKey(deviceId: string, jobId: string): Buffer {
 
 export function encryptLinkedRunPayload(payload: LinkedRunPayload, deviceId: string, jobId: string): EncryptedLinkedRunPayload {
   if (!payload.prompt || payload.prompt.length > 1_000_000) throw new Error('linked computers: invalid run prompt')
+  if (payload.images && (payload.images.length > 5 || payload.images.some((image) => (
+    !/^image\/(?:png|jpeg|gif|webp)$/i.test(image.contentType)
+    || !/^https:\/\//i.test(image.url)
+    || image.url.length > 8_192
+  )))) throw new Error('linked computers: invalid run images')
   const iv = crypto.randomBytes(12)
   const cipher = crypto.createCipheriv('aes-256-gcm', jobKey(deviceId, jobId), iv)
   cipher.setAAD(Buffer.from(`${deviceId}\n${jobId}`))
@@ -173,6 +179,7 @@ export function publicClaimedLinkedRun(job: LinkedRunJob, payload: LinkedRunPayl
     relativeFolder: job.relativeFolder,
     ...(job.workingDirectory ? { workingDirectory: job.workingDirectory } : {}),
     attempt: job.attempt, leaseToken: job.leaseToken, ...(payload.model ? { model: payload.model } : {}),
+    ...(payload.images?.length ? { images: payload.images } : {}),
     ...(payload.provider ? { provider: payload.provider } : {}),
   }
 }
