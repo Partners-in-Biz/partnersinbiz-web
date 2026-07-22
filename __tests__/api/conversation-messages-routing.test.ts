@@ -88,6 +88,13 @@ jest.mock('@/lib/client-provisioning/company-cowork-dispatch', () => ({
   ...jest.requireActual('@/lib/client-provisioning/company-cowork-dispatch'),
   enrichCompanyCoworkWorkspaceContext: async (workspace: Record<string, unknown>) => workspace,
 }))
+jest.mock('@/lib/client-provisioning/ensure-company-cowork', () => ({
+  ensureCompanyCoworkFolderOnVps: async (workspace: Record<string, unknown>) => ({
+    ok: true,
+    workspace,
+    createdOrVerified: true,
+  }),
+}))
 
 beforeEach(() => {
   jest.resetModules()
@@ -514,7 +521,7 @@ describe('unified conversation message routing', () => {
       mappingId: 'map-a',
       workspaceId: 'partners',
       credentialVersion: 2,
-      runtimeVersion: '1.1.2',
+      runtimeVersion: '1.1.3',
       platform: 'macos',
       lastSeenAt: new Date().toISOString(),
       publicKey: keys.publicKey.export({ type: 'spki', format: 'pem' }).toString(),
@@ -525,7 +532,7 @@ describe('unified conversation message routing', () => {
       acceptanceReceipt: {
         deviceId: 'device-a',
         machineLabel: 'Verified Mac',
-        runtimeVersion: '1.1.2',
+        runtimeVersion: '1.1.3',
         acceptedAt: '2026-07-13T09:00:00.000Z',
       },
     })
@@ -576,10 +583,10 @@ describe('unified conversation message routing', () => {
     const prompt = String(mockEnqueueLinkedRun.mock.calls[0][0].payload.prompt)
     expect(prompt).toContain('bound to the Hunt and Gun Cowork folder')
     expect(prompt).toContain('agentDomain: hunt-and-gun')
-    expect(prompt).toContain('Do not use Partners in Biz platform history')
+    expect(prompt).toContain('Do not treat this as a Partners in Biz platform session')
   })
 
-  it('fails closed when a company Cowork linked computer is below runtime 1.1.2', async () => {
+  it('fails closed when a company Cowork linked computer is below runtime 1.1.3', async () => {
     mockIsConfiguredCompatibilityRuntimeTarget.mockResolvedValue(false)
     const binding = {
       kind: 'linked-computer',
@@ -590,7 +597,7 @@ describe('unified conversation message routing', () => {
       mappingId: 'map-a',
       workspaceId: 'partners',
       credentialVersion: 2,
-      runtimeVersion: '1.1.1',
+      runtimeVersion: '1.1.2',
       platform: 'macos',
       lastSeenAt: new Date().toISOString(),
       publicKey: 'pk',
@@ -633,6 +640,78 @@ describe('unified conversation message routing', () => {
       status: 'failed',
       workspaceDispatchFailureCode: 'linked_device_update_required',
     }))
+  })
+
+  it('dispatches VPS company Cowork chats with Hunt and Gun working_directory and company prompt framing', async () => {
+    mockResolveAuthorizedWorkingDirectory.mockResolvedValue({
+      ok: true,
+      directory: '/var/lib/hermes/Cowork/Hunt and Gun',
+      pathClass: 'company',
+    })
+    mockGetAgentDispatchHermesProfileLink.mockResolvedValue({
+      orgId: 'pib-platform-owner',
+      profile: 'pip',
+      baseUrl: 'https://hermes.example.com',
+      apiKey: 'secret',
+      enabled: true,
+      runtimeTargetId: 'vps',
+      runtimeKind: 'vps',
+      machineLabel: 'Partners VPS',
+      transportIdentity: 'test-transport:vps',
+      capabilities: { runs: true, dashboard: false, cron: false, models: false, tools: true, files: false, terminal: false },
+      permissions: { superAdmin: false, restrictedAdmin: false, client: true, allowedUserIds: [] },
+    })
+    mockCreateHermesRun.mockResolvedValue({ ok: true, status: 202, data: { runId: 'run-vps-1' }, runDocId: 'run-doc-vps' })
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'pib-platform-owner',
+      participantUids: ['client-1'],
+      participantAgentIds: ['pip'],
+      participants: [
+        { kind: 'user', uid: 'client-1', role: 'client' },
+        { kind: 'agent', agentId: 'pip', name: 'Pip' },
+      ],
+      scope: 'company',
+      scopeRefId: 'company-hunt',
+      workspaceContext: {
+        runtimeTarget: 'vps',
+        runtimeLabel: 'Partners VPS',
+        workspaceId: 'partners',
+        companyWorkspaceId: 'hunt-and-gun',
+        orgId: 'pib-platform-owner',
+        orgSlug: 'partners',
+        orgName: 'Partners in Biz',
+        agentDomain: 'hunt-and-gun',
+        agentDomainPath: '/var/lib/hermes/Cowork/Cowork/agents/hunt-and-gun',
+        localAgentDomainPath: '/Users/peetstander/Cowork/Cowork/agents/hunt-and-gun',
+        vpsPath: '/var/lib/hermes/Cowork/Hunt and Gun',
+        localPath: '/Users/peetstander/Cowork/Hunt and Gun',
+        vpsWorkingPath: '/var/lib/hermes/Cowork/Hunt and Gun',
+        localWorkingPath: '/Users/peetstander/Cowork/Hunt and Gun',
+        sourceOfTruth: 'vps',
+        shareMode: 'private',
+        ownerUserId: 'client-1',
+        folderScope: 'company',
+        companyId: 'company-hunt',
+        companyName: 'Hunt and Gun',
+        contactIds: [],
+      },
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+    const response = await POST(req(), { params: Promise.resolve({ convId: 'conv-1' }) })
+    expect(response.status).toBe(201)
+    expect(mockCreateHermesRun).toHaveBeenCalledWith(
+      expect.anything(),
+      'client-1',
+      expect.objectContaining({
+        working_directory: '/var/lib/hermes/Cowork/Hunt and Gun',
+        working_directory_root: '/var/lib/hermes/Cowork/Hunt and Gun',
+      }),
+    )
+    const prompt = String(mockCreateHermesRun.mock.calls[0][2].prompt)
+    expect(prompt).toContain('bound to the Hunt and Gun Cowork folder')
+    expect(prompt).toContain('Do not treat this as a Partners in Biz platform session')
+    expect(prompt).not.toContain('top-level Partners in Biz workspace')
   })
 
   it('keeps an arbitrary configured operator target on the compatibility resolver', async () => {

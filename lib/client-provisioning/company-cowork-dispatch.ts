@@ -6,7 +6,7 @@ import {
 import { parseLinkedRuntimeVersion } from '@/lib/linked-computers/runtime-targets'
 
 /** Runtime versions that honour optional linked-job workingDirectory (Cowork sibling folders). */
-export const LINKED_COWORK_WORKING_DIRECTORY_MIN_VERSION = '1.1.2'
+export const LINKED_COWORK_WORKING_DIRECTORY_MIN_VERSION = '1.1.3'
 
 export function conversationUsesCompanyCoworkFolder(
   workspace: ConversationWorkspaceContext | null | undefined,

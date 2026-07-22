@@ -9,11 +9,24 @@ function isContained(root:string,candidate:string){return candidate===root||cand
  */
 export function resolveMappedWorkingDirectory(mappingRoot:string,relative='',workingDirectory?:string){
   if(workingDirectory&&workingDirectory.trim()){
-    const candidate=fs.realpathSync(expandHome(workingDirectory.trim()))
+    const requested=path.resolve(expandHome(workingDirectory.trim()))
+    const mappingParent=fs.realpathSync(path.dirname(mappingRoot))
+    if(!fs.existsSync(requested)){
+      const requestedParent=path.dirname(requested)
+      const requestedParentReal=fs.existsSync(requestedParent)?fs.realpathSync(requestedParent):requestedParent
+      if(isContained(mappingParent,requestedParentReal)||isContained(mappingRoot,requestedParentReal)){
+        fs.mkdirSync(requested,{recursive:true,mode:0o755})
+        for(const sub of ['projects','docs','briefs','assets','marketing','research','operations','deliverables','inbox','archive']){
+          fs.mkdirSync(path.join(requested,sub),{recursive:true,mode:0o755})
+        }
+        const agents=path.join(requested,'AGENTS.md')
+        if(!fs.existsSync(agents))fs.writeFileSync(agents,`# ${path.basename(requested)}\n\nCompany Cowork folder created by Partners in Biz linked runtime.\n`,{mode:0o644})
+      }
+    }
+    const candidate=fs.realpathSync(requested)
     if(!fs.statSync(candidate).isDirectory())throw new Error('working directory must be a directory')
     if(isContained(mappingRoot,candidate))return candidate
-    const parent=path.dirname(mappingRoot)
-    if(isContained(parent,candidate))return candidate
+    if(isContained(mappingParent,candidate))return candidate
     throw new Error('mapping containment violation')
   }
   const candidate=fs.realpathSync(path.join(mappingRoot,relative))

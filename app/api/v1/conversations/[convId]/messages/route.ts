@@ -43,9 +43,11 @@ import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organization
 import { resolveAuthorizedWorkingDirectory } from '@/lib/client-provisioning/working-directory'
 import {
   enrichCompanyCoworkWorkspaceContext,
+  conversationUsesCompanyCoworkFolder,
   linkedCoworkWorkingDirectory,
   linkedRuntimeSupportsCoworkWorkingDirectory,
 } from '@/lib/client-provisioning/company-cowork-dispatch'
+import { ensureCompanyCoworkFolderOnVps } from '@/lib/client-provisioning/ensure-company-cowork'
 import { classifyWorkspaceDispatchFailure } from '@/lib/workspaces/dispatch-errors'
 import type { ApiUser } from '@/lib/api/types'
 import {
@@ -124,8 +126,23 @@ function mergeContextReferenceSeeds(...groups: ContextReferenceSeed[][]): Contex
   return Array.from(byKey.values()).slice(0, MAX_CONTEXT_REFS)
 }
 
-async function buildOrgContext(orgId: string): Promise<string> {
+async function buildOrgContext(
+  orgId: string,
+  workspace?: Conversation['workspaceContext'] | null,
+): Promise<string> {
+  const companyCowork = conversationUsesCompanyCoworkFolder(workspace)
   if (orgId === PIB_PLATFORM_ORG_ID) {
+    if (companyCowork) {
+      const companyLabel = workspace?.companyName?.trim() || 'this company'
+      return [
+        `[Platform security context — active organisation is Partners in Biz, but this chat is bound to the ${companyLabel} Cowork folder]`,
+        `orgId: ${PIB_PLATFORM_ORG_ID}`,
+        'Partners in Biz is only the security and operating perspective for permissions and agent dispatch.',
+        `Do not treat this as a Partners in Biz platform session. Prior work, memory, wiki, and files must come from the ${companyLabel} Cowork folder and its agentDomain — not from Partners in Biz or other client folders.`,
+        '---',
+        '',
+      ].join('\n')
+    }
     return [
       '[Platform context - you are working in the top-level Partners in Biz workspace]',
       `orgId: ${PIB_PLATFORM_ORG_ID}`,
@@ -576,11 +593,37 @@ export const POST = withAuth(
       }
 
       // Build context string (org + conversation participants)
-      const orgContext = await buildOrgContext(conversation.orgId)
-      const convContext = buildConversationContext(conversation, authorDisplayName)
       if (conversation.workspaceContext) {
         conversation.workspaceContext = await enrichCompanyCoworkWorkspaceContext(conversation.workspaceContext)
+        if (conversationUsesCompanyCoworkFolder(conversation.workspaceContext)) {
+          const ensured = await ensureCompanyCoworkFolderOnVps(conversation.workspaceContext)
+          if (!ensured.ok) {
+            const error = ensured.error
+            await messagesCollection(convId).doc(assistantMessage.id).update({
+              content: '',
+              status: 'failed',
+              error,
+              workspaceDispatchFailureCode: ensured.code === 'company_workspace_missing'
+                ? 'workspace_context_invalid'
+                : 'workspace_directory_missing',
+            })
+            return apiSuccess({
+              message,
+              assistantMessage: {
+                ...assistantMessage,
+                status: 'failed',
+                error,
+                workspaceDispatchFailureCode: ensured.code === 'company_workspace_missing'
+                  ? 'workspace_context_invalid'
+                  : 'workspace_directory_missing',
+              },
+            }, 201)
+          }
+          conversation.workspaceContext = ensured.workspace
+        }
       }
+      const orgContext = await buildOrgContext(conversation.orgId, conversation.workspaceContext)
+      const convContext = buildConversationContext(conversation, authorDisplayName)
       const workspaceContext = buildWorkspaceContext(conversation)
       const orchestrationContext = buildOrchestrationContext(conversation, agentId)
       const projectChatOrchestrationContext = buildProjectChatOrchestrationContext({
@@ -608,7 +651,7 @@ export const POST = withAuth(
         const coworkWorkingDirectory = linkedCoworkWorkingDirectory(conversation.workspaceContext)
         if (coworkWorkingDirectory
           && !linkedRuntimeSupportsCoworkWorkingDirectory(linkedComputerBinding.runtimeVersion)) {
-          const error = 'This computer needs a Linked Runtime update (1.1.2+) before company Cowork folders can run on it.'
+          const error = 'This computer needs a Linked Runtime update (1.1.3+) before company Cowork folders can run on it.'
           await messagesCollection(convId).doc(assistantMessage.id).update({
             content: '',
             status: 'failed',
