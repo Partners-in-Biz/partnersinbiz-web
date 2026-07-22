@@ -18,6 +18,7 @@ export type Job = {
   agentId?: string
   model?: string
   provider?: string
+  yolo?: boolean
   cancelled?: boolean
 }
 
@@ -28,6 +29,7 @@ type HermesInput = {
   model?: string
   provider?: string
   working_directory: string
+  yolo?: boolean
 }
 type HermesHelpers = { onEvents?: (events: unknown[]) => void | Promise<void> }
 type HermesRunner = (body: HermesInput, helpers?: HermesHelpers) => Promise<unknown>
@@ -119,6 +121,7 @@ export async function executeJob(
         model: job.model,
         provider: job.provider,
         working_directory,
+        ...(job.yolo ? { yolo: true } : {}),
       },
       {
         onEvents: (events) => {

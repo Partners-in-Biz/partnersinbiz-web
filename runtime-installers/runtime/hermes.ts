@@ -170,7 +170,7 @@ export async function probeLocalHermes(
 
 export async function callLocalHermes(
   agentId: string,
-  body: { prompt: string; images?: Array<{ url: string; contentType: string }>; model?: string; provider?: string; working_directory: string },
+  body: { prompt: string; images?: Array<{ url: string; contentType: string }>; model?: string; provider?: string; working_directory: string; yolo?: boolean },
   env: RuntimeEnv = process.env,
   fetcher: typeof fetch = fetch,
   wait: (ms: number) => Promise<void> = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
@@ -192,6 +192,7 @@ export async function callLocalHermes(
       }] : body.prompt,
       ...(body.model ? { model: body.model } : {}),
       ...(body.provider ? { provider: body.provider } : {}),
+      ...(body.yolo ? { yolo: true } : {}),
       working_directory: body.working_directory,
     }),
   })
@@ -203,8 +204,24 @@ export async function callLocalHermes(
   const timeoutMs = Number.isFinite(rawTimeout) ? Math.min(Math.max(rawTimeout, 30_000), 24 * 60 * 60_000) : 30 * 60_000
   const deadline = Date.now() + timeoutMs
   const abort = new AbortController()
-  const eventsTask = onEvents
-    ? forwardLocalHermesEvents(route, runId, fetcher, abort.signal, onEvents)
+  const autoApprove = Boolean(body.yolo)
+  const eventsTask = onEvents || autoApprove
+    ? forwardLocalHermesEvents(route, runId, fetcher, abort.signal, async (events) => {
+      if (autoApprove) {
+        for (const raw of events) {
+          const event = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
+          const type = typeof event.event === 'string' ? event.event : typeof event.type === 'string' ? event.type : ''
+          if (type === 'approval.required' || type === 'approval_required') {
+            await fetcher(`${route.baseUrl}/v1/runs/${encodeURIComponent(runId)}/approval`, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json', ...authHeaders(route) },
+              body: JSON.stringify({ choice: 'always' }),
+            }).catch(() => undefined)
+          }
+        }
+      }
+      if (onEvents) await onEvents(events)
+    })
     : Promise.resolve()
   try {
     while (Date.now() < deadline) {

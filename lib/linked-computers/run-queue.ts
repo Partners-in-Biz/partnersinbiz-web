@@ -146,7 +146,15 @@ export function sanitizeLinkedResult(value: string): string {
     .replace(/(?:https?:\/\/)[^\s)\]}]+/gi, '[redacted-url]')
     .replace(/\b[A-Za-z0-9_+\/.=-]{40,}\b/g, '[redacted-token]')
   const safe = redacted.slice(0, 1_000_000)
-  if (/PRIVATE KEY|Authorization\s*:|Bearer\s+[A-Za-z0-9]|(?:token|secret|password|api[_-]?key)\s*[:=]\s*(?!\[redacted\])/i.test(safe)) return '[redacted output]'
+  // Put optional whitespace inside the negative lookahead so JS backtracking cannot
+  // defeat `(?!\[redacted\])` on already-scrubbed `password: [redacted]` / `Authorization: [redacted]`.
+  // Without that, any agent reply mentioning a password wiped the entire message.
+  if (
+    /PRIVATE KEY/i.test(safe)
+    || /Authorization\s*:(?!\s*\[redacted\])/i.test(safe)
+    || /\bBearer\s+[A-Za-z0-9]/i.test(safe)
+    || /(?:token|secret|password|api[_-]?key)\s*[:=](?!\s*\[redacted\])/i.test(safe)
+  ) return '[redacted output]'
   return safe
 }
 

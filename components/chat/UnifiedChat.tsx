@@ -7,7 +7,6 @@ import { AGENT_IDS, type AgentSkillPolicyState } from '@/lib/agents/types'
 import { AGENT_EFFORT_OPTIONS, type AgentEffort } from '@/lib/agents/runRouting'
 import {
   APPROVAL_MODE_OPTIONS,
-  approvalModeLabel,
   cleanApprovalMode,
   shouldAutoApproveDangerousCommands,
   type ApprovalMode,

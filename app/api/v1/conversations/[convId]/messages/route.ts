@@ -560,6 +560,7 @@ export const POST = withAuth(
         authorDisplayName: agentData.name,
         dispatchAgentId: agentId,
         ...(agentEffort ? { agentEffort } : {}),
+        approvalMode,
         ...(modelSelection?.model ? { model: modelSelection.model } : {}),
         ...(modelSelection?.provider ? { provider: modelSelection.provider } : {}),
         status: 'pending',
